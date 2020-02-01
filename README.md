@@ -1,14 +1,7 @@
 # cellpose <img src="cellpose/logo/logo.png" width="250" title="cellpose" alt="cellpose" align="right" vspace = "50">
 
 Anatomical segmentation algorithm for cytoplasm and nuclei
-Copyright (C) 2019  Howard Hughes Medical Institute Janelia Research Campus  
-
-cellpose includes the following modules:
-
-* cell size estimation
-* anatomical segmentation
-* automated removal of bad masks
-* visualization GUI
+Copyright (C) 2020  Howard Hughes Medical Institute Janelia Research Campus  
 
 This code was written by Carsen Stringer and Marius Pachitariu.  
 For support, please open an [issue](https://github.com/MouseLand/cellpose/issues).
@@ -17,17 +10,16 @@ For support, please open an [issue](https://github.com/MouseLand/cellpose/issues
 
 Install an [Anaconda](https://www.anaconda.com/download/) distribution of Python -- Choose **Python 3.x** and your operating system. Note you might need to use an anaconda prompt if you did not add anaconda to the path. From your base environment (or you can make a new environment) in an anaconda prompt/command prompt, run
 ~~~~
-pip install cellpose
+pip install cellpose[gui]
 ~~~~
 
-Alternatively you can use the included environment file (if you'd like a cellpose-specific environment). This is also recommended if you're having issues with conflicts with the pip version:
+Alternatively you can use the included environment file (if you'd like a cellpose-specific environment). This is recommended if you're having issues with conflicts with the pip version or if you have Windows:
 
 1. Download the [`environment.yml`](https://github.com/MouseLand/cellpose/blob/master/environment.yml) file from the repository. You can do this by cloning the repository, or copy-pasting the text from the file into a text document on your local computer.
 2. Open an anaconda prompt / command prompt with `conda` for **python 3** in the path
 3. Change directories to where the `environment.yml` is and run `conda env create -f environment.yml`
 4. To activate this new environment, run `conda activate cellpose`
-5. Install cellpose with `pip install -e .` (in the repo folder)
-6. You should see `(cellpose)` on the left side of the terminal line. Now run `python -m cellpose` and you're all set.
+5. You should see `(cellpose)` on the left side of the terminal line. Now run `python -m cellpose` and you're all set.
 
 If you have an older `cellpose` environment you can remove it with `conda env remove -n cellpose` before creating a new one.
 
@@ -51,17 +43,19 @@ If when running `python -m cellpose`, you receive an error associated with **mat
 pip install matplotlib --upgrade
 ~~~~
 
-If you are on Yosemite Mac OS, PyQt doesn't work, and you won't be able to use the graphical interface for cellpose. More recent versions of Mac OS are fine.
+If you are on Yosemite Mac OS, PyQt doesn't work and you won't be able to use the graphical interface for cellpose. More recent versions of Mac OS are fine.
 
 The software has been heavily tested on Windows 10 and Ubuntu 18.04, and less well tested on Mac OS. Please post an issue if you have installation problems.
 
-## Installation of github version for developers and super-users :)
+## CUDA version
 
-Install an [Anaconda](https://www.anaconda.com/download/) distribution of Python -- Choose **Python 3.x** and your operating system.
+If you plan on running many images, you may want to install the GPU version of *mxnet*. It is fairly straight-forward if you already have CUDA installed for tensorflow or pytorch, *mxnet* supports many different CUDA versions. Follow the instructions [here](https://mxnet.apache.org/get_started?).
 
-1. Clone the repository and `cd cellpose` in an anaconda prompt / command prompt. Your `(base)` environment will have most of the dependencies.
-2. Now run `pip install -e .` to install the code in the github repository.
-3. Run `python -m cellpose` (<-- you can run this command from anywhere now. If you want to go back to the supported version of cellpose, then say `pip install cellpose` and that will grab the pip package of cellpose)
+## Installation of github version
+
+Follow steps from above. In the github repository, run `pip install -e .` and the github version will be installed.
+
+If you want to go back to the supported version of cellpose, then say `pip install cellpose` and that will grab the pip package of cellpose.
 
 ## Example data
 
@@ -175,4 +169,4 @@ cellpose relies on the following excellent packages (which are automatically ins
 - [scipy](https://www.scipy.org/)
 - [scikit-image](https://scikit-image.org/)
 - [natsort](https://natsort.readthedocs.io/en/master/)
-- [matplotlib](https://matplotlib.org/) (not for plotting (only using hsv_to_rgb and colormap function), should not conflict with PyQt5)
+- [matplotlib](https://matplotlib.org/)
