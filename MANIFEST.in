@@ -1,0 +1,4 @@
+include cellpose/logo/logo.png
+include cellpose/key/cellpose-data-writer.json
+include README.md
+include LICENSE

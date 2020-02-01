@@ -1,0 +1,13 @@
+{
+  "type": "service_account",
+  "project_id": "pachitariu-lab",
+  "private_key_id": "a112e329e705a5c51bfbba5277f52116e4bfc1af",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQCsmcCIGjXqyWsl\n++lxWxzSL5QWQTPkIyP+j99gFJQ1c/Z4PYC7YrtIdfu/PsLwqBAvOHJCsrq0m+y0\nB2vqUJJ2mcvKQaWygAWKwoikFUI1AtjkH9GnSHxXmTH9WqXBw2pQv1xBfOvoMptJ\n8ArXyAMyBzSYN0xyOqEQEsrSzqEUvZw467YZmyf24ZhjFXze0Rrn1znkQprMB8GK\nPz7Vr6iiRPd8mtjzjS2WC0Fat+RIhh0o5lb93woGoFbWAhvuK8xadGOYP80Mcr/b\nsgFM1D2k/HHdjJiHRe7jwRMIRhA5478QwoBNN00W/zEgDV+8SSl9rs3yUAUJG9mf\nEHkdlzexAgMBAAECggEAUFbMyE0y9ZNFfYuxUGMxmiAtVOKKrdExiuca+VT625qb\nicJO7mn5dLP+NzmWcYA48FHc1XDt+O1vEyk1MP7J/cx+kClYYCq46aq9AWsnwxcN\nL7oj0zKpNfkHzL7p0rQMA4PfBFiKUi1kHNlPorrlyd6Su5tZyP3DRIEKyW8GiWko\n19DEcBUhe2uEW+claFSiy6fYfXFXtzYln8mWKAWjOxw6LcQBc6KRMdYh79d09/bj\nthnnNeMLK6FSiKTXuT/a84qzxNkj549H0ILwolVKn1vPe35WV7ZJJpugYvnbek5s\nZjwN2fMUa/GD9agbfS4LXbnC4hYwUnLhAn2zSEjlBQKBgQDWxwNoo0CuEB8s+VCN\n9J80vqTQfXSnSqoAS0BaDaivGoNUHtRGjXs+Qqrzlikk9032s9eRtX+q7uhR7wIo\nIilO1GhVCr+OYPWTBoJ/ARgDrhqgXPjyQ97wSDz9PHloFnGHf+HFcqzhlhNGaoS9\nQaZO3nhx3Du7YV8kaefm0iODnwKBgQDNumbAi0L9jTDguOtD/3w32MuodQfL35Ok\nRvdkQphZL2jFqiztlwVU11SOibnVc7ZAjFt4tPSS0veFQmC8JfnpdYSDk1NodwMG\nhC3UTyjrvIltEmPzSQczRMK5PCRZnvP6SBKnUSEsAk+bZO1nyFNPNNmn5J/LQ+24\n2MGAgxcCrwKBgB0pFBtm3udDJRh0GS3M4rjEkZgFEIuOJZq4nNodNKPhk6ceMHAL\n0YnYf2FnJ9rvANTYAhK0c8r/eOd27fIJAVbEnA2/0dZA79awcZNQ0LPfNZpERUCP\nWnuBM1ammU06jtt4z2yBb1uJhsBuwer4ON5Ick3zOuDsDYDiKCw8p7m9AoGBAIpp\nuAohaA/pN5JqN7eHI877KIKNQpKTOOVU7cth1thiQk6DITk021xqh7Riy0nmUR96\nj2xV6xsBn5DjyOutbUf6Tg6sR3jIYZu3wJHQNIruTVO6BM9BOfvvbkdsRFSb0jB4\n3zv9JKFUaLT3IZcqu4pV137THgOHD2DHTOEm0Yt3AoGBALMOKoajLFTBT+9bEpXZ\nB6ES4W1KNPKw+1Y0n2gGJxL+zAXFm1MJozJbyZSwZHb8TyOMNqP59+tzh080oUoc\nlMWJzS4xxuGx+JAULtDT4ko3+3Q19H3dyJNAW9SoY1lX47JMrEB1qYLNx7o78nzB\niCWxdweJjlpKijcUP9keCmIW\n-----END PRIVATE KEY-----\n",
+  "client_email": "cellpose-data-writer@pachitariu-lab.iam.gserviceaccount.com",
+  "client_id": "105326682635824364397",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/cellpose-data-writer%40pachitariu-lab.iam.gserviceaccount.com"
+}
+
