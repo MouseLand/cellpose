@@ -7,10 +7,6 @@ sz  = [3, 3, 3, 3, 3]
 sz2 = [3, 3, 3, 3, 3]
 szf = [1]
 
-
-print(sz, nfeat)
-print(sz2, szf)
-
 def convbatchrelu(nconv, sz):
     conv = nn.HybridSequential()
     with conv.name_scope():

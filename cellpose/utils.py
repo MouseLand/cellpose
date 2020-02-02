@@ -16,58 +16,12 @@ def use_gpu(gpu_number=0):
     except mx.MXNetError:
         return False
 
-
-def get_cell_data(root_data, fname):
-    iscell = np.load(os.path.join(root_data, 'iscell.npy'))
-    ls = [1,2,3,4,5,0]
-
-    file_path = os.path.join(root_data, fname)
-    with open(file_path,"rb") as pickle_in:
-        V = pickle.load(pickle_in)
-
-    vf = []
-    print(ls)
-    for k in range(len(ls)):
-        irange = (iscell==ls[k]).nonzero()[0]
-        vf.extend([V[k] for k in irange])
-
-    np.random.seed(101)
-    r = np.random.rand(10000)
-
-    vft = [vf[k] for k in (r[:len(vf)]<.1).nonzero()[0]]
-    vf  = [vf[k] for k in (r[:len(vf)]>.1).nonzero()[0]]
-
-    return vf, vft
-
-def get_nuclei_data(root_data):
-    iscell = np.load(os.path.join(root_data, 'isnuc.npy'))
-    ls = [1,2,3,4]
-
-    file_path = os.path.join(root_data, 'vf_nuclei.pickle')
-    with open(file_path,"rb") as pickle_in:
-        V = pickle.load(pickle_in)
-
-    vf = []
-    print(ls)
-    for k in range(len(ls)):
-        irange = (iscell==ls[k]).nonzero()[0]
-        vf.extend([V[k] for k in irange])
-
-    np.random.seed(101)
-    r = np.random.rand(10000)
-
-    vft = [vf[k] for k in (r[:len(vf)]<.1).nonzero()[0]]
-    vf  = [vf[k] for k in (r[:len(vf)]>.1).nonzero()[0]]
-
-    return vf, vft
-
 def taper_mask(bsize=224, sig=7.5):
     xm = np.arange(bsize)
     xm = np.abs(xm - xm.mean())
     mask = 1/(1 + np.exp((xm - (bsize/2-20)) / sig))
     mask = mask * mask[:, np.newaxis]
     return mask
-
 
 def diameters(masks):
     unique, counts = np.unique(np.int32(masks), return_counts=True)

@@ -285,10 +285,8 @@ def get_masks(p, rpad=20, nmax=20, threshold=0.5, flows=None):
     #mlbl = np.random.permutation(M0.max()) + 1
     #mlbl = np.append(0, mlbl)
     #M0 = mlbl[M0]
-    M0 = np.reshape(M0, shape0)
+    M0 = np.reshape(M0, shape0).astype(np.int32)
     return M0
-
-
 
 def new_flow(Y, nuclei=None, device=mx.cpu()):
     w = nd.ones((1,1,3,3), ctx = device)

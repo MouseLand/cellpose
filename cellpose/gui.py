@@ -1,6 +1,9 @@
-import sys, os, warnings, datetime
+import sys, os, warnings, datetime, tempfile, shutil, glob
 from natsort import natsorted
-from glob import glob
+from tqdm import tqdm
+from urllib.request import urlopen
+from urllib.parse import urlparse
+import tempfile
 
 from PyQt5 import QtGui, QtCore, Qt, QtWidgets
 import pyqtgraph as pg
@@ -17,81 +20,65 @@ from skimage import transform, draw, measure, segmentation
 import mxnet as mx
 from mxnet import nd
 
-from .guiparts import ImageDraw, RangeSlider, ViewBoxNoRightDrag
 from . import utils, transforms, models, guiparts, plot
-import __main__
 
 try:
     from google.cloud import storage
-    os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = os.path.join(os.path.dirname(os.path.realpath(__main__.__file__)),
+    os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = os.path.join(os.path.dirname(os.path.realpath(__file__)),
                                                         'key/cellpose-data-writer.json')
     SERVER_UPLOAD = True
 except:
     SERVER_UPLOAD = False
 
-urls = ['cellpose.org/models/cyto_0',
-        'cellpose.org/models/cyto_1',
-        'cellpose.org/models/cyto_2',
-        'cellpose.org/models/cyto_3',
-        'cellpose.org/models/size_cyto_A.npy']
+urls = ['http://www.cellpose.org/models/cyto_0',
+        'http://www.cellpose.org/models/cyto_1',
+        'http://www.cellpose.org/models/cyto_2',
+        'http://www.cellpose.org/models/cyto_3',
+        'http://www.cellpose.org/models/size_cyto_0.npy',
+        'http://www.cellpose.org/models/nuclei_0',
+        'http://www.cellpose.org/models/nuclei_1',
+        'http://www.cellpose.org/models/nuclei_2',
+        'http://www.cellpose.org/models/nuclei_3',
+        'http://www.cellpose.org/models/size_nuclei_0.npy']
 
 
-# def download_url_to_file(url, dst, hash_prefix=None, progress=True):
-#     r"""Download object at the given URL to a local path.
-#     Args:
-#         url (string): URL of the object to download
-#         dst (string): Full path where object will be saved, e.g. `/tmp/temporary_file`
-#         hash_prefix (string, optional): If not None, the SHA256 downloaded file should start with `hash_prefix`.
-#             Default: None
-#         progress (bool, optional): whether or not to display a progress bar to stderr
-#             Default: True
-#     Example:
-#         >>> torch.hub.download_url_to_file('https://s3.amazonaws.com/pytorch/models/resnet18-5c106cde.pth', '/tmp/temporary_file')
-#     """
-#     file_size = None
-#     # We use a different API for python2 since urllib(2) doesn't recognize the CA
-#     # certificates in older Python
-#     u = urlopen(url)
-#     meta = u.info()
-#     if hasattr(meta, 'getheaders'):
-#         content_length = meta.getheaders("Content-Length")
-#     else:
-#         content_length = meta.get_all("Content-Length")
-#     if content_length is not None and len(content_length) > 0:
-#         file_size = int(content_length[0])
-
-#     # We deliberately save it in a temp file and move it after
-#     # download is complete. This prevents a local working checkpoint
-#     # being overridden by a broken download.
-#     dst = os.path.expanduser(dst)
-#     dst_dir = os.path.dirname(dst)
-#     f = tempfile.NamedTemporaryFile(delete=False, dir=dst_dir)
-
-#     try:
-#         if hash_prefix is not None:
-#             sha256 = hashlib.sha256()
-#         with tqdm(total=file_size, disable=not progress,
-#                   unit='B', unit_scale=True, unit_divisor=1024) as pbar:
-#             while True:
-#                 buffer = u.read(8192)
-#                 if len(buffer) == 0:
-#                     break
-#                 f.write(buffer)
-#                 if hash_prefix is not None:
-#                     sha256.update(buffer)
-#                 pbar.update(len(buffer))
-
-#         f.close()
-#         if hash_prefix is not None:
-#             digest = sha256.hexdigest()
-#             if digest[:len(hash_prefix)] != hash_prefix:
-#                 raise RuntimeError('invalid hash value (expected "{}", got "{}")'
-#                                    .format(hash_prefix, digest))
-#         shutil.move(f.name, dst)
-#     finally:
-#         f.close()
-#         if os.path.exists(f.name):
-#             os.remove(f.name)
+def download_url_to_file(url, dst, progress=True):
+    r"""Download object at the given URL to a local path.
+            THANKS TO TORCH, SLIGHTLY MODIFIED
+    Args:
+        url (string): URL of the object to download
+        dst (string): Full path where object will be saved, e.g. `/tmp/temporary_file`
+        progress (bool, optional): whether or not to display a progress bar to stderr
+            Default: True
+    """
+    file_size = None
+    u = urlopen(url)
+    meta = u.info()
+    if hasattr(meta, 'getheaders'):
+        content_length = meta.getheaders("Content-Length")
+    else:
+        content_length = meta.get_all("Content-Length")
+    if content_length is not None and len(content_length) > 0:
+        file_size = int(content_length[0])
+    # We deliberately save it in a temp file and move it after
+    dst = os.path.expanduser(dst)
+    dst_dir = os.path.dirname(dst)
+    f = tempfile.NamedTemporaryFile(delete=False, dir=dst_dir)
+    try:
+        with tqdm(total=file_size, disable=not progress,
+                  unit='B', unit_scale=True, unit_divisor=1024) as pbar:
+            while True:
+                buffer = u.read(8192)
+                if len(buffer) == 0:
+                    break
+                f.write(buffer)
+                pbar.update(len(buffer))
+        f.close()
+        shutil.move(f.name, dst)
+    finally:
+        f.close()
+        if os.path.exists(f.name):
+            os.remove(f.name)
 
 class QHLine(QtGui.QFrame):
     def __init__(self):
@@ -122,23 +109,29 @@ def run(zstack=None, images=None):
     warnings.filterwarnings("ignore")
     app = QtGui.QApplication(sys.argv)
     icon_path = os.path.join(
-        os.path.dirname(os.path.realpath(__file__)), "logo/logo.png"
+        os.path.dirname(os.path.realpath(__file__)), 'logo/logo.png'
     )
     app_icon = QtGui.QIcon()
     app_icon.addFile(icon_path, QtCore.QSize(16, 16))
     app_icon.addFile(icon_path, QtCore.QSize(24, 24))
     app_icon.addFile(icon_path, QtCore.QSize(32, 32))
+    app_icon.addFile(icon_path, QtCore.QSize(48, 48))
     app.setWindowIcon(app_icon)
     os.environ['MXNET_CUDNN_AUTOTUNE_DEFAULT'] = '0'
 
-    # for url in urls:
-    #     parts = urlparse(url)
-    #     filename = os.path.basename(parts.path)
-    #     cached_file = os.path.join(model_dir, filename)
-    #     if not os.path.exists(cached_file):
-    #         sys.stderr.write('Downloading: "{}" to {}\n'.format(url, cached_file))
-    #         hash_prefix = HASH_REGEX.search(filename).group(1) if check_hash else None
-    #         download_url_to_file(url, cached_file, hash_prefix, progress=progress)
+    model_dir = os.path.join(
+        os.path.dirname(os.path.realpath(__file__)), 'models/'
+    )
+    if not os.path.exists(model_dir):
+        os.mkdir(model_dir)
+        print('>>> Models not downloaded, please wait <<<')
+    for url in urls:
+        parts = urlparse(url)
+        filename = os.path.basename(parts.path)
+        cached_file = os.path.join(model_dir, filename)
+        if not os.path.exists(cached_file):
+            sys.stderr.write('Downloading: "{}" to {}\n'.format(url, cached_file))
+            download_url_to_file(url, cached_file, progress=True)
 
     MainW(zstack=zstack, images=images)
     ret = app.exec_()
@@ -158,11 +151,10 @@ class MainW(QtGui.QMainWindow):
         pg.setConfigOptions(imageAxisOrder="row-major")
         self.setGeometry(50, 50, 1200, 1000)
         self.setWindowTitle("cellpose")
-        self.cp_path = os.path.dirname(__main__.__file__)
-        print(self.cp_path)
+        self.cp_path = os.path.dirname(os.path.realpath(__file__))
         app_icon = QtGui.QIcon()
         icon_path = os.path.abspath(os.path.join(
-            self.cp_path, "cellpose/logo/logo.png")
+            self.cp_path, "logo/logo.png")
         )
         app_icon.addFile(icon_path, QtCore.QSize(16, 16))
         app_icon.addFile(icon_path, QtCore.QSize(24, 24))
@@ -245,9 +237,9 @@ class MainW(QtGui.QMainWindow):
                                 "border-color: white;"
                                "color:white;}")
         self.styleInactive = ("QPushButton {Text-align: left; "
-                              "background-color: rgb(50,50,50); "
+                              "background-color: rgb(30,30,30); "
                              "border-color: white;"
-                              "color:gray;}")
+                              "color:rgb(80,80,80);}")
         self.loaded = False
 
         # ---- MAIN WIDGET LAYOUT ---- #
@@ -301,6 +293,7 @@ class MainW(QtGui.QMainWindow):
                         "background-color: rgb(40,40,40);"
                         "selection-color: white;"
                         "selection-background-color: rgb(50,100,50);")
+        self.checkstyle = "color: rgb(190,190,190);"
 
         label = QtGui.QLabel('Views:')#[\u2191 \u2193]')
         label.setStyleSheet(self.headings)
@@ -362,14 +355,14 @@ class MainW(QtGui.QMainWindow):
         b+=1
         # turn on draw mode
         self.SCheckBox = QtGui.QCheckBox('single stroke')
-        self.SCheckBox.setStyleSheet('color: white;')
+        self.SCheckBox.setStyleSheet(self.checkstyle)
         self.SCheckBox.toggled.connect(self.autosave_on)
         self.l0.addWidget(self.SCheckBox, b,0,1,2)
 
         b+=1
         # turn on crosshairs
         self.CHCheckBox = QtGui.QCheckBox('cross-hairs')
-        self.CHCheckBox.setStyleSheet('color: white;')
+        self.CHCheckBox.setStyleSheet(self.checkstyle)
         self.CHCheckBox.toggled.connect(self.cross_hairs)
         self.l0.addWidget(self.CHCheckBox, b,0,1,1)
 
@@ -378,7 +371,7 @@ class MainW(QtGui.QMainWindow):
         self.layer_off = False
         self.masksOn = True
         self.MCheckBox = QtGui.QCheckBox('MASKS ON [X]')
-        self.MCheckBox.setStyleSheet('color: white;')
+        self.MCheckBox.setStyleSheet(self.checkstyle)
         self.MCheckBox.setChecked(True)
         self.MCheckBox.toggled.connect(self.toggle_masks)
         self.l0.addWidget(self.MCheckBox, b,0,1,2)
@@ -387,10 +380,19 @@ class MainW(QtGui.QMainWindow):
         # turn off outlines
         self.outlinesOn = True
         self.OCheckBox = QtGui.QCheckBox('outlines on [Z]')
-        self.OCheckBox.setStyleSheet('color: white;')
+        self.OCheckBox.setStyleSheet(self.checkstyle)
         self.OCheckBox.setChecked(True)
         self.OCheckBox.toggled.connect(self.toggle_masks)
         self.l0.addWidget(self.OCheckBox, b,0,1,2)
+
+        b+=1
+        # send to server
+        self.ServerButton = QtGui.QPushButton(' send manual seg. to server')
+        self.ServerButton.clicked.connect(self.save_server)
+        self.l0.addWidget(self.ServerButton, b,0,1,2)
+        self.ServerButton.setEnabled(False)
+        self.ServerButton.setStyleSheet(self.styleInactive)
+        self.ServerButton.setFont(self.boldfont)
 
         b+=1
         line = QHLine()
@@ -434,7 +436,7 @@ class MainW(QtGui.QMainWindow):
         # use GPU
         b+=1
         self.useGPU = QtGui.QCheckBox('use GPU')
-        self.useGPU.setStyleSheet('color: white;')
+        self.useGPU.setStyleSheet(self.checkstyle)
         self.useGPU.setChecked(False)
         self.l0.addWidget(self.useGPU, b,0,1,2)
 
@@ -445,9 +447,8 @@ class MainW(QtGui.QMainWindow):
         #models = glob(self.model_dir+'/*')
         #models = [os.path.split(m)[-1] for m in models]
         models = ['cyto', 'nuclei']
-        print(models)
         self.ModelChoose.addItems(models)
-        self.ModelChoose.setFixedWidth(60)
+        self.ModelChoose.setFixedWidth(70)
         self.ModelChoose.setStyleSheet(self.dropdowns)
         self.l0.addWidget(self.ModelChoose, b, 1,1,1)
         label = QtGui.QLabel('model: ')
@@ -461,7 +462,7 @@ class MainW(QtGui.QMainWindow):
         self.ChannelChoose[1].addItems(['none','red','green','blue'])
         cstr = ['chan to seg', 'chan2 (opt)']
         for i in range(2):
-            self.ChannelChoose[i].setFixedWidth(60)
+            self.ChannelChoose[i].setFixedWidth(70)
             self.ChannelChoose[i].setStyleSheet(self.dropdowns)
             label = QtGui.QLabel(cstr[i])
             label.setStyleSheet('color: white;')
@@ -482,14 +483,11 @@ class MainW(QtGui.QMainWindow):
         self.progress.setStyleSheet('color: gray;')
         self.l0.addWidget(self.progress, b,0,1,2)
 
-        self.autobtn = QtGui.QPushButton('auto-adjust')
-        self.autobtn.setFont(self.boldfont)
-        self.autobtn.setCheckable(True)
-        self.autobtn.clicked.connect(self.set_auto)
-        self.l0.addWidget(self.autobtn, b+2,0,1,1)
+        self.autobtn = QtGui.QCheckBox('auto-adjust')
+        self.autobtn.setStyleSheet(self.checkstyle)
         self.autobtn.setChecked(True)
-        self.autobtn.setStyleSheet(self.stylePressed)
-
+        self.l0.addWidget(self.autobtn, b+2,0,1,1)
+        
         b+=1
         label = QtGui.QLabel('saturation')
         label.setStyleSheet(self.headings)
@@ -497,7 +495,7 @@ class MainW(QtGui.QMainWindow):
         self.l0.addWidget(label, b,1,1,1)
 
         b+=1
-        self.slider = RangeSlider(self)
+        self.slider = guiparts.RangeSlider(self)
         self.slider.setMinimum(0)
         self.slider.setMaximum(255)
         self.slider.setLow(0)
@@ -514,21 +512,16 @@ class MainW(QtGui.QMainWindow):
         self.l0.addWidget(self.scroll, b,3,1,20)
         return b
 
-    def set_auto(self):
-        if self.autobtn.isChecked():
-            self.autobtn.setStyleSheet(self.stylePressed)
-        else:
-            self.autobtn.setStyleSheet(self.styleUnpressed)
-
+    
     def get_channels(self):
         channels = [self.ChannelChoose[0].currentIndex(), self.ChannelChoose[1].currentIndex()]
         if self.current_model=='nuclei':
-            channels = channels[:1]
+            channels[1] = 0
         return channels
 
     def calibrate_size(self):
         self.initialize_model()
-        diams = self.model.sz.eval([self.stack[self.currentZ].copy()],
+        diams, _ = self.model.sz.eval([self.stack[self.currentZ].copy()],
                                    channels=self.get_channels(), progress=self.progress)
         diams = np.maximum(5.0, diams)
         diams *= 2 / np.pi**0.5
@@ -588,9 +581,6 @@ class MainW(QtGui.QMainWindow):
                                 gci = min(count-1, gci+1)
                             self.BrushChoose.setCurrentIndex(gci)
                             self.brush_choose()
-                        elif event.key() == QtCore.Qt.Key_C:
-                            self.cell_type = (self.cell_type+1)%(len(self.TypeChoose.bstr))
-                            self.TypeChoose.button(self.cell_type).setChecked(True)
                         elif event.key() == QtCore.Qt.Key_PageDown:
                             self.view = (self.view+1)%(len(self.RGBChoose.bstr))
                             self.RGBChoose.button(self.view).setChecked(True)
@@ -612,15 +602,15 @@ class MainW(QtGui.QMainWindow):
                 if event.key() == QtCore.Qt.Key_0:
                     self.clear_all()
 
-    def enable_removals(self):
-        self.ClearButton.setEnabled(True)
-        self.remcell.setEnabled(True)
-        self.undo.setEnabled(True)
-
-    def disable_removals(self):
-        self.ClearButton.setEnabled(False)
-        self.remcell.setEnabled(False)
-        self.undo.setEnabled(False)
+    def toggle_removals(self):
+        if self.ncells>0:
+            self.ClearButton.setEnabled(True)
+            self.remcell.setEnabled(True)
+            self.undo.setEnabled(True)
+        else:
+            self.ClearButton.setEnabled(False)
+            self.remcell.setEnabled(False)
+            self.undo.setEnabled(False)
 
     def remove_action(self):
         if self.selected>-1:
@@ -637,11 +627,11 @@ class MainW(QtGui.QMainWindow):
 
     def get_files(self):
         images = []
-        images.extend(glob(os.path.dirname(self.filename) + '/*.png'))
-        images.extend(glob(os.path.dirname(self.filename) + '/*.jpg'))
-        images.extend(glob(os.path.dirname(self.filename) + '/*.jpeg'))
-        images.extend(glob(os.path.dirname(self.filename) + '/*.tif'))
-        images.extend(glob(os.path.dirname(self.filename) + '/*.tiff'))
+        images.extend(glob.glob(os.path.dirname(self.filename) + '/*.png'))
+        images.extend(glob.glob(os.path.dirname(self.filename) + '/*.jpg'))
+        images.extend(glob.glob(os.path.dirname(self.filename) + '/*.jpeg'))
+        images.extend(glob.glob(os.path.dirname(self.filename) + '/*.tif'))
+        images.extend(glob.glob(os.path.dirname(self.filename) + '/*.tiff'))
         images = natsorted(images)
 
         fnames = [os.path.split(images[k])[-1] for k in range(len(images))]
@@ -707,7 +697,7 @@ class MainW(QtGui.QMainWindow):
             self.update_plot()
 
     def make_viewbox(self):
-        self.p0 = ViewBoxNoRightDrag(
+        self.p0 = guiparts.ViewBoxNoRightDrag(
             lockAspect=True,
             name="plot1",
             border=[100, 100, 100],
@@ -719,7 +709,7 @@ class MainW(QtGui.QMainWindow):
         self.p0.setMouseEnabled(x=True, y=True)
         self.img = pg.ImageItem(viewbox=self.p0, parent=self)
         self.img.autoDownsample = False
-        self.layer = ImageDraw(viewbox=self.p0, parent=self)
+        self.layer = guiparts.ImageDraw(viewbox=self.p0, parent=self)
         self.layer.setLevels([0,255])
         self.scale = pg.ImageItem(viewbox=self.p0, parent=self)
         self.scale.setLevels([0,255])
@@ -802,7 +792,7 @@ class MainW(QtGui.QMainWindow):
         self.cellcolors = [np.array([255,255,255])]
         self.ncells = 0
         print('removed all cells')
-        self.disable_removals()
+        self.toggle_removals()
         self.update_plot()
 
     def select_cell(self, idx):
@@ -869,7 +859,10 @@ class MainW(QtGui.QMainWindow):
             if event.button()==QtCore.Qt.LeftButton:
                 if (event.modifiers() != QtCore.Qt.ShiftModifier and
                     event.modifiers() != QtCore.Qt.AltModifier):
-                    self.p0.setYRange(0,self.Ly)
+                    try:
+                        self.p0.setYRange(0,self.Ly+self.pr)
+                    except:
+                        self.p0.setYRange(0,self.Ly)
                     self.p0.setXRange(0,self.Lx)
 
     def mouse_moved(self, pos):
@@ -936,7 +929,7 @@ class MainW(QtGui.QMainWindow):
             color = self.colormap[col_rand,:3]
             median = self.add_mask(points=self.current_point_set, color=color)
             if median is not None:
-                self.enable_removals()
+                self.toggle_mask_ops()
                 self.cellcolors.append(color)
                 self.ncells+=1
                 if self.NZ==1:
@@ -1008,52 +1001,54 @@ class MainW(QtGui.QMainWindow):
                      'colors': self.cellcolors[1:],
                      'masks': self.cellpix,
                      'current_channel': (self.color-2)%5,
-                     'filename': self.filename,
-                     'cells': (self.cell_type+1)%len(self.cell_types),
-                     'cell_type': self.cell_types[self.cell_type]})
+                     'filename': self.filename})
         else:
             image = self.chanchoose(self.stack[self.currentZ].copy())
             if image.ndim < 4:
                 image = image[np.newaxis,...]
             np.save(base + '_manual.npy',
-                    {'outlines': self.outpix,
+                    {'outlines': self.outpix.squeeze(),
                      'colors': self.cellcolors[1:],
-                     'masks': self.cellpix,
+                     'masks': self.cellpix.squeeze(),
                      'chan_choose': [self.ChannelChoose[0].currentIndex(),
                                      self.ChannelChoose[1].currentIndex()],
-                     'img': image,
+                     'img': image.squeeze(),
                      'X2': self.X2,
                      'filename': self.filename,
-                     'flows': self.flows,
-                     'cells': (self.cell_type+1)%len(self.cell_types),
-                     'cell_type': self.cell_types[self.cell_type]})
+                     'flows': self.flows})
         #print(self.point_sets)
-        print('--- %d ROIs (%s) saved chan1 %s, chan2 %s'%(self.ncells,
-                                                             self.cell_types[self.cell_type],
-                                                             self.ChannelChoose[0].currentText(),
-                                                             self.ChannelChoose[1].currentText()))
+        print('--- %d ROIs saved chan1 %s, chan2 %s'%(self.ncells,
+                                                      self.ChannelChoose[0].currentText(),
+                                                      self.ChannelChoose[1].currentText()))
 
     def save_server(self):
         """Uploads a file to the bucket."""
-        bucket_name = 'cellpose_data'
-        base = os.path.splitext(self.filename)[0]
-        source_file_name = base + '_manual.npy'
-        print(source_file_name)
-        time = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S.%f")
-        filestring = time + '.npy'
-        print(filestring)
-        destination_blob_name = filestring
-        storage_client = storage.Client()
-        bucket = storage_client.bucket(bucket_name)
-        blob = bucket.blob(destination_blob_name)
+        q = QtGui.QMessageBox.question(
+                                        self, 
+                                        "Send to server", 
+                                        "Are you sure? Only send complete and fully manually segmented data.\n (do not send partially automated segmentations)", 
+                                        QtGui.QMessageBox.Yes | QtGui.QMessageBox.No
+                                      )
+        if q == QtGui.QMessageBox.Yes:
+            bucket_name = 'cellpose_data'
+            base = os.path.splitext(self.filename)[0]
+            source_file_name = base + '_manual.npy'
+            print(source_file_name)
+            time = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S.%f")
+            filestring = time + '.npy'
+            print(filestring)
+            destination_blob_name = filestring
+            storage_client = storage.Client()
+            bucket = storage_client.bucket(bucket_name)
+            blob = bucket.blob(destination_blob_name)
 
-        blob.upload_from_filename(source_file_name)
+            blob.upload_from_filename(source_file_name)
 
-        print(
-            "File {} uploaded to {}.".format(
-                source_file_name, destination_blob_name
+            print(
+                "File {} uploaded to {}.".format(
+                    source_file_name, destination_blob_name
+                )
             )
-        )
 
     def initialize_images(self, image, resize, X2):
         self.onechan=False
@@ -1083,8 +1078,7 @@ class MainW(QtGui.QMainWindow):
                 image = image[np.newaxis,...]
         else:
             image = image[np.newaxis,...]
-        print(image.shape)
-
+       
         self.stack = image
         self.NZ = len(self.stack)
         self.scroll.setMaximum(self.NZ-1)
@@ -1118,11 +1112,9 @@ class MainW(QtGui.QMainWindow):
         self.Ly, self.Lx = img.shape[0], img.shape[1]
         self.currentZ = int(np.floor(self.NZ/2))
         self.stack = np.array(self.stack)
-        print(self.stack.shape)
         self.layers = np.array(self.layers)
         self.cellpix = np.array(self.cellpix)
         self.outpix = np.array(self.outpix)
-        print(self.autobtn.isChecked())
         if self.autobtn.isChecked() or len(self.saturation)!=self.NZ:
             self.compute_saturation()
         self.compute_scale()
@@ -1130,12 +1122,15 @@ class MainW(QtGui.QMainWindow):
     def compute_scale(self):
         self.diameter = float(self.Diameter.text())
         pr = int(float(self.Diameter.text()))
-        radii = np.zeros((self.Ly+pr,self.Lx), np.uint8)
+        radii = np.zeros((self.Ly+self.pr,self.Lx), np.uint8)
         self.radii = np.zeros((self.Ly+pr,self.Lx,4), np.uint8)
         yy,xx = plot.disk([self.Ly+pr/2-1, pr/2+1], pr/2, self.Ly+pr, self.Lx)
         self.radii[yy,xx,0] = 255
         self.radii[yy,xx,-1] = 255#self.opacity * (radii>0)
+        self.pr = pr
         self.update_plot()
+        self.p0.setYRange(0,self.Ly+self.pr)
+        self.p0.setXRange(0,self.Lx)
 
     def redraw_masks(self, masks=True, outlines=True):
         if not outlines and masks:
@@ -1205,11 +1200,6 @@ class MainW(QtGui.QMainWindow):
             self.filename = image_file
         print(self.filename)
 
-        if 'cells' in dat:
-            self.cell_type = (dat['cells']-1)%len(self.cell_types)
-        else:
-            self.cell_type = 0
-        self.TypeChoose.button(self.cell_type).setChecked(True)
         if 'X2' in dat:
             self.X2 = dat['X2']
         else:
@@ -1239,6 +1229,9 @@ class MainW(QtGui.QMainWindow):
                         self.cellcolors.append(color)
                         self.ncells+=1
             else:
+                if dat['masks'].ndim==2:
+                    dat['masks'] = dat['masks'][np.newaxis,:,:]
+                    dat['outlines'] = dat['outlines'][np.newaxis,:,:]
                 self.cellpix = dat['masks']
                 self.outpix = dat['outlines']
                 self.cellcolors.extend(dat['colors'])
@@ -1322,7 +1315,7 @@ class MainW(QtGui.QMainWindow):
         self.cellcolors = list(np.concatenate((np.array([[255,255,255]]), colors), axis=0).astype(np.uint8))
         self.draw_masks()
         if self.ncells>0:
-            self.enable_removals()
+            self.toggle_mask_ops()
 
     def chanchoose(self, image):
         if image.ndim > 2:
@@ -1344,7 +1337,6 @@ class MainW(QtGui.QMainWindow):
         change=False
         if not hasattr(self, 'model') or self.ModelChoose.currentText() != self.current_model:
             self.current_model = self.ModelChoose.currentText()
-            print(self.current_model)
             change=True
         elif (self.model.device==mx.gpu() and not self.useGPU.isChecked() or
                 self.model.device==mx.cpu() and self.useGPU.isChecked()):
@@ -1354,17 +1346,12 @@ class MainW(QtGui.QMainWindow):
         if change:
             if self.current_model=='cyto':
                 szmean = 27.
-                self.model_list = ['cyto_0',
-                                   'cyto_1',
-                                   'cyto_2',
-                                   'cyto_3']
-
             else:
                 szmean = 15.
-                self.model_list = ['nuclei']
+            self.model_list = ['%s_%d'%(self.current_model, i) for i in range(4)]
             cpmodel_path = [os.path.abspath(os.path.join(self.cp_path, 'models/', self.model_list[i]))
                                 for i in range(len(self.model_list))]
-            szmodel_path = os.path.abspath(os.path.join(self.cp_path, 'models/', 'size_%s_A.npy'%self.current_model))
+            szmodel_path = os.path.abspath(os.path.join(self.cp_path, 'models/', 'size_%s_0.npy'%self.current_model))
             self.model = models.Cellpose(device=device,
                                         pretrained_model=cpmodel_path,
                                         pretrained_size=szmodel_path,
@@ -1390,12 +1377,11 @@ class MainW(QtGui.QMainWindow):
             self.diameter = float(self.Diameter.text())
             try:
                 rescale = np.array([27/(self.diameter*(np.pi**0.5/2))])
-                print(rescale, channels)
                 masks, flows, _, _ = self.model.eval([data], channels=channels,
                                                 rescale=rescale,
                                                 do_3D=do_3D, progress=self.progress)
             except Exception as e:
-                print('ERROR: %s'%e)
+                print('NET ERROR: %s'%e)
                 self.progress.setValue(0)
                 return
 
@@ -1417,6 +1403,7 @@ class MainW(QtGui.QMainWindow):
             self.masks_to_gui(masks[np.newaxis,:,:], outlines=None)
             self.progress.setValue(100)
 
+            self.toggle_server(off=True)
 
         except Exception as e:
             print('ERROR: %s'%e)
@@ -1466,14 +1453,26 @@ class MainW(QtGui.QMainWindow):
         self.SizeButton.setStyleSheet(self.styleUnpressed)
         self.loadMasks.setEnabled(True)
         self.saveSet.setEnabled(True)
-        if SERVER_UPLOAD:
-            self.saveServer.setEnabled(True)
-        if self.ncells > 0:
-            self.enable_removals()
-            self.ClearButton.setEnabled(True)
+        self.toggle_mask_ops()
+            
         self.update_plot()
         self.setWindowTitle(self.filename)
 
+    def toggle_server(self, off=False):
+        if SERVER_UPLOAD:
+            if self.ncells>0 and not off:
+                self.saveServer.setEnabled(True)
+                self.ServerButton.setEnabled(True)
+                self.ServerButton.setStyleSheet(self.styleUnpressed)
+            else:
+                self.saveServer.setEnabled(False)
+                self.ServerButton.setEnabled(False)
+                self.ServerButton.setStyleSheet(self.styleInactive)
+        
+    def toggle_mask_ops(self):
+        self.toggle_removals()
+        self.toggle_server()
+            
     def load_zstack(self, filename=None):
         QtWidgets.QApplication.setOverrideCursor(QtCore.Qt.WaitCursor)
         if filename is None:

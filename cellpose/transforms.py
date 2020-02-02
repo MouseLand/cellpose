@@ -26,7 +26,6 @@ def make_tiles(imgi, bsize=224, augment=True):
         imgi = np.concatenate((imgi, np.zeros((nchan,Ly0, bsize-Lx0))), axis=2)
     Ly, Lx = imgi.shape[-2:]
 
-
     # tile starts
     ystart = np.arange(0, Ly-bsize//2, bsize//2)
     xstart = np.arange(0, Lx-bsize//2, bsize//2)
