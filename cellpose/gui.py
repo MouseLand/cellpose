@@ -1258,7 +1258,6 @@ class MainW(QtGui.QMainWindow):
                                     np.percentile(self.stack[n].astype(np.float32),99)])
 
     def load_masks(self, filename=None):
-        QtWidgets.QApplication.setOverrideCursor(QtCore.Qt.WaitCursor)
         name = QtGui.QFileDialog.getOpenFileName(
             self, "Load masks (color channels = nucleus, cytoplasm, ...)"
             )
@@ -1286,7 +1285,6 @@ class MainW(QtGui.QMainWindow):
 
         self.masks_to_gui(masks, outlines)
 
-        QtWidgets.QApplication.restoreOverrideCursor()
         self.update_plot()
 
     def masks_to_gui(self, masks, outlines=None):
@@ -1411,7 +1409,7 @@ class MainW(QtGui.QMainWindow):
         #self.ModelButton.setStyleSheet(self.styleUnpressed)
 
     def load_images(self, filename=None):
-        QtWidgets.QApplication.setOverrideCursor(QtCore.Qt.WaitCursor)
+        #QtWidgets.QApplication.setOverrideCursor(QtCore.Qt.WaitCursor)
         if filename is None:
             name = QtGui.QFileDialog.getOpenFileName(
                 self, "Load image"
@@ -1445,7 +1443,7 @@ class MainW(QtGui.QMainWindow):
                 self.compute_model()
             self.loaded = True
             self.enable_buttons()
-        QtWidgets.QApplication.restoreOverrideCursor()
+        #QtWidgets.QApplication.restoreOverrideCursor()
 
 
     def enable_buttons(self):
@@ -1506,7 +1504,7 @@ class MainW(QtGui.QMainWindow):
             print(filename)
             self.basename, filename = os.path.split(self.filename)
             #self.resize = int(self.MaxSize.text())
-            self.initialize_images(stack, resize=self.resize, X2=0)
+            self.initialize_images(stack, -1, 0)
             #self.stack = np.transpose(self.stack[:,:,:,0,1], (2,0,1))
             if self.prediction:
                 self.compute_model()
