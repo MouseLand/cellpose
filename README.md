@@ -1,9 +1,10 @@
 # Cellpose <img src="cellpose/logo/logo.png" width="250" title="cellpose" alt="cellpose" align="right" vspace = "50">
 
-### A generalist algorithm for cell and nucleus segmentation.  ###
+A generalist algorithm for cell and nucleus segmentation. 
 
-This code was written by Carsen Stringer and Marius Pachitariu.  
-For support, please open an [issue](https://github.com/MouseLand/cellpose/issues).
+This code was written by Carsen Stringer and Marius Pachitariu. For support, please open an [issue](https://github.com/MouseLand/cellpose/issues).
+
+If you want to quickly try out Cellpose first, check out the [website](http://www.cellpose.org). 
 
 ## Installation
 
@@ -59,7 +60,7 @@ The quickest way to start is to open the GUI from a command line terminal. You m
 python -m cellpose
 ~~~~
 
-You can now **drag and drop** any images (*.tif, *.png, *.jpg, *.gif) into the GUI and manually segment them and/or process them in the GUI. When the GUI is processing, you will see the progress bar fill up and during this time you cannot click on anything in the GUI. For more information about what the GUI is doing you can look at the terminal/prompt you opened the GUI with. For example data, See [website](http://www.cellpose.org). 
+You can now **drag and drop** any images (*.tif, *.png, *.jpg, *.gif) into the GUI and run Cellpose, and/or manually segment them. When the GUI is processing, you will see the progress bar fill up and during this time you cannot click on anything in the GUI. For more information about what the GUI is doing you can look at the terminal/prompt you opened the GUI with. For example data, See [website](http://www.cellpose.org). 
 
 For multi-channel, multi-Z tiff's, the expected format is Z x channels x Ly x Lx.
 
