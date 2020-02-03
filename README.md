@@ -4,7 +4,7 @@ A generalist algorithm for cell and nucleus segmentation.
 
 This code was written by Carsen Stringer and Marius Pachitariu. For support, please open an [issue](https://github.com/MouseLand/cellpose/issues).
 
-If you want to quickly try out Cellpose first, check out the [website](http://www.cellpose.org). 
+You can quickly try out Cellpose on the [website](http://www.cellpose.org) first (some features disabled). If you want to improve Cellpose for yourself and for everyone else, please consider contributing manual segmentations for a few of your images via the built-in GUI interface. 
 
 ## Installation
 
@@ -13,7 +13,7 @@ I recommend installing an [Anaconda](https://www.anaconda.com/download/) distrib
 pip install cellpose
 ~~~~
 
-Alternatively you can use the included environment file (if you'd like a cellpose-specific environment). This is **recommended** - if you have problems with the pip please follow these instructions:
+Alternatively you can use the included environment file (if you'd like a cellpose-specific environment). This is **recommended** if you have problems with the pip. Please follow these instructions:
 
 1. Download the [`environment.yml`](https://github.com/MouseLand/cellpose/blob/master/environment.yml) file from the repository. You can do this by cloning the repository, or copy-pasting the text from the file into a text document on your local computer.
 2. Open an anaconda prompt / command prompt with `conda` for **python 3** in the path
@@ -60,7 +60,7 @@ The quickest way to start is to open the GUI from a command line terminal. You m
 python -m cellpose
 ~~~~
 
-You can now **drag and drop** any images (*.tif, *.png, *.jpg, *.gif) into the GUI and run Cellpose, and/or manually segment them. When the GUI is processing, you will see the progress bar fill up and during this time you cannot click on anything in the GUI. For more information about what the GUI is doing you can look at the terminal/prompt you opened the GUI with. For example data, See [website](http://www.cellpose.org). 
+You can now **drag and drop** any images (*.tif, *.png, *.jpg, *.gif) into the GUI and run Cellpose, and/or manually segment them. When the GUI is processing, you will see the progress bar fill up and during this time you cannot click on anything in the GUI. For more information about what the GUI is doing you can look at the terminal/prompt you opened the GUI with. For example data, See [website](http://www.cellpose.org). For best accuracy and runtime performance, resize images so cells are less than 100 pixels across. 
 
 For multi-channel, multi-Z tiff's, the expected format is Z x channels x Ly x Lx.
 
