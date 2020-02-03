@@ -59,7 +59,7 @@ If you want to go back to the supported version of cellpose, then say `pip insta
 
 ## Example data
 
-See [website](http://www.cellpose.appspot.com).
+See [website](http://www.cellpose.org).
 
 ## Running cellpose
 
