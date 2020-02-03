@@ -472,7 +472,7 @@ class MainW(QtGui.QMainWindow):
 
         b+=1
         # recompute model
-        self.ModelButton = QtGui.QPushButton('  compute masks')
+        self.ModelButton = QtGui.QPushButton('  run segmentation')
         self.ModelButton.clicked.connect(self.compute_model)
         self.l0.addWidget(self.ModelButton, b,0,1,2)
         self.ModelButton.setEnabled(False)
