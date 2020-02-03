@@ -1,7 +1,6 @@
-# cellpose <img src="cellpose/logo/logo.png" width="250" title="cellpose" alt="cellpose" align="right" vspace = "50">
+# Cellpose <img src="cellpose/logo/logo.png" width="250" title="cellpose" alt="cellpose" align="right" vspace = "50">
 
-Anatomical segmentation algorithm for cytoplasm and nuclei
-Copyright (C) 2020  Howard Hughes Medical Institute Janelia Research Campus  
+### A generalist algorithm for cell and nucleus segmentation.  ###
 
 This code was written by Carsen Stringer and Marius Pachitariu.  
 For support, please open an [issue](https://github.com/MouseLand/cellpose/issues).
@@ -23,7 +22,7 @@ Alternatively you can use the included environment file (if you'd like a cellpos
 
 If you have an older `cellpose` environment you can remove it with `conda env remove -n cellpose` before creating a new one.
 
-Note you will always have to run **conda activate cellpose** before you run cellpose. Conda ensures all the versions of code are playing nice together. If you want to run jupyter notebooks in this environment, then also `conda install jupyter`.
+Note you will always have to run **conda activate cellpose** before you run cellpose. If you want to run jupyter notebooks in this environment, then also `conda install jupyter`.
 
 To upgrade cellpose (package [here](https://pypi.org/project/cellpose/)), run the following in the environment:
 ~~~~
@@ -32,34 +31,26 @@ pip install cellpose --upgrade
 
 **Common issues**
 
-If when running `python -m cellpose`, you receive the error: `No module named PyQt5.sip`, then try uninstalling and reinstalling pyqt5
+If you receive the error: `No module named PyQt5.sip`, then try uninstalling and reinstalling pyqt5
 ~~~~
 pip uninstall pyqt5 pyqt5-tools
 pip install pyqt5 pyqt5-tools pyqt5.sip
 ~~~~
 
-If when running `python -m cellpose`, you receive an error associated with **matplotlib**, try upgrading it:
+If you receive an error associated with **matplotlib**, try upgrading it:
 ~~~~
 pip install matplotlib --upgrade
 ~~~~
 
-If you are on Yosemite Mac OS, PyQt doesn't work and you won't be able to use the graphical interface for cellpose. More recent versions of Mac OS are fine.
+If you are on Yosemite Mac OS, PyQt doesn't work and you won't be able to use the graphical interface for cellpose. More recent versions of Mac OS are fine. The software has been heavily tested on Windows 10 and Ubuntu 18.04, and less well tested on Mac OS. Please post an issue if you have installation problems.
 
-The software has been heavily tested on Windows 10 and Ubuntu 18.04, and less well tested on Mac OS. Please post an issue if you have installation problems.
+**CUDA version**
 
-## CUDA version
+If you plan on running many images, you may want to install a GPU version of *mxnet*. Follow the instructions [here](https://mxnet.apache.org/get_started?).
 
-If you plan on running many images, you may want to install the GPU version of *mxnet*. It is fairly straight-forward if you already have CUDA installed for tensorflow or pytorch, *mxnet* supports many different CUDA versions. Follow the instructions [here](https://mxnet.apache.org/get_started?).
+**Installation of github version**
 
-## Installation of github version
-
-Follow steps from above. In the github repository, run `pip install -e .` and the github version will be installed.
-
-If you want to go back to the supported version of cellpose, then say `pip install cellpose` and that will grab the pip package of cellpose.
-
-## Example data
-
-See [website](http://www.cellpose.org).
+Follow steps from above to install the dependencies. In the github repository, run `pip install -e .` and the github version will be installed. If you want to go back to the pip version of cellpose, then say `pip install cellpose`.
 
 ## Running cellpose
 
@@ -68,20 +59,20 @@ The quickest way to start is to open the GUI from a command line terminal. You m
 python -m cellpose
 ~~~~
 
-You can now **drag and drop** any images (*.tif, *.png, *.jpg, *.gif) into the GUI and manually segment them and/or process them in the GUI.
+You can now **drag and drop** any images (*.tif, *.png, *.jpg, *.gif) into the GUI and manually segment them and/or process them in the GUI. When the GUI is processing, you will see the progress bar fill up and during this time you cannot click on anything in the GUI. For more information about what the GUI is doing you can look at the terminal/prompt you opened the GUI with. For example data, See [website](http://www.cellpose.org). 
 
 For multi-channel, multi-Z tiff's, the expected format is Z x channels x Ly x Lx.
 
-When the GUI is processing, you will see the progress bar fill up and during this time you cannot click on anything in the GUI. For more information about what the GUI is doing you can look at the terminal/prompt you opened the GUI with.
+**Example data**
 
-### In the GUI
+See [website](http://www.cellpose.org).
+
+**In the GUI**
 
 The GUI serves two main functions:
 
 1. Running the segmentation algorithm.
 2. Manually labelling data.
-
-You can open the "Help" at any time with Ctrl+H for the following information inside the GUI.
 
 Main GUI mouse controls (works in all views):
 
@@ -93,12 +84,13 @@ Main GUI mouse controls (works in all views):
 - Start draw mask = right-click
 - End draw mask = right-click, or return to circle at beginning
 
-Overlaps in masks are NOT allowed. If you draw a mask on top of another mask, it is cropped so that it doesn't overlap with the old mask. Masks in 2D should be single strokes (single stroke is checked). If you want to draw masks in 3D (experimental), then you can turn this option off and draw a stroke on each plane with the cell and then press ENTER.
+Overlaps in masks are NOT allowed. If you draw a mask on top of another mask, it is cropped so that it doesn't overlap with the old mask. Masks in 2D should be single strokes (if single stroke is checked). 
 
 !NOTE!: The GUI automatically saves after you draw a mask but NOT after segmentation. Save in the file menu or with Ctrl+S. The output file is in the same folder as the loaded image with `_manual.npy` appended.
 
 | Keyboard shortcuts  | Description                                                                    |
 | ------------------- | ------------------------------------------------------------------------------ |
+| CTRL+H              | help                                                           |
 | CTRL+Z              | undo previously drawn mask/stroke                              |
 | CTRL+0              | clear all masks                                                |
 | CTRL+L              | load image (can alternatively drag and drop image)             |
@@ -116,9 +108,9 @@ Overlaps in masks are NOT allowed. If you draw a mask on top of another mask, it
 
 **Segmentation options**
 
-SIZE: you can manually enter the approximate diameter for your cells, or press "calibrate" to let the model estimate it. The size is represented by a disk at the bottom of the view window (can turn this disk of by unchecking "scale disk on").
+SIZE: you can manually enter the approximate diameter for your cells, or press "calibrate" to let the model estimate it. The size is represented by a disk at the bottom of the view window (can turn this disk off by unchecking "scale disk on").
 
-use GPU: if you have specially installed the cuda version of mxnet, then you can activate this, but it won't give huge speedups when running single images in the GUI.
+use GPU: if you have installed the cuda version of mxnet, then you can activate this, but it won't give huge speedups when running single images in the GUI.
 
 MODEL: there is a *cytoplasm* model and a *nuclei* model, choose what you want to segment
 
