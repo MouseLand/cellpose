@@ -10,7 +10,7 @@ If you want to quickly try out Cellpose first, check out the [website](http://ww
 
 Install an [Anaconda](https://www.anaconda.com/download/) distribution of Python -- Choose **Python 3.x** and your operating system. Note you might need to use an anaconda prompt if you did not add anaconda to the path. From your base environment (or you can make a new environment) in an anaconda prompt/command prompt, run
 ~~~~
-pip install cellpose[gui]
+pip install cellpose
 ~~~~
 
 Alternatively you can use the included environment file (if you'd like a cellpose-specific environment). This is recommended if you're having issues with conflicts with the pip version or if you have Windows:
@@ -91,8 +91,8 @@ Overlaps in masks are NOT allowed. If you draw a mask on top of another mask, it
 | CTRL+Z              | undo previously drawn mask/stroke                              |
 | CTRL+0              | clear all masks                                                |
 | CTRL+L              | load image (can alternatively drag and drop image)             |
-| CTRL+S              | SAVE MASKS IN IMAGE to `_manual.npy` file                      |
-| CTRL+P              | load `_manual.npy` file (note: it will load automatically with image if it exists) |
+| CTRL+S              | SAVE MASKS IN IMAGE to `_seg.npy` file                      |
+| CTRL+P              | load `_seg.npy` file (note: it will load automatically with image if it exists) |
 | CTRL+M              | load masks file (must be same size as image with 0 for NO mask, and 1,2,3... for masks)|
 | CTRL+N              | load numpy stack (NOT WORKING ATM)                             |
 | A/D or LEFT/RIGHT   | cycle through images in current directory                      |
@@ -101,7 +101,7 @@ Overlaps in masks are NOT allowed. If you draw a mask on top of another mask, it
 | , / .               | increase / decrease brush size for drawing masks               |
 | X                   | turn masks ON or OFF                                           |
 | Z                   | toggle outlines ON or OFF                                      |
-| C                   | cycle through labels for image type (saved to `_manual.npy`)   |
+| C                   | cycle through labels for image type (saved to `_seg.npy`)   |
 
 **Segmentation options**
 
@@ -122,7 +122,7 @@ TODO
 
 ## Outputs
 
-`*_manual.npy` files have the following fields:
+`*_seg.npy` files have the following fields:
 
 - *filename* : filename of image
 - *img* : image with chosen channels (Z x nchan x Ly x Lx)
@@ -137,7 +137,7 @@ TODO
 import numpy as np
 from cellpose import plot
 
-dat = np.load('_manual.npy', allow_pickle=True).item()
+dat = np.load('_seg.npy', allow_pickle=True).item()
 
 # plot image with masks overlaid
 RGB = plot.mask_overlay(dat['img'][0], dat['masks'][0]+1,
