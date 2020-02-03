@@ -60,11 +60,9 @@ The quickest way to start is to open the GUI from a command line terminal. You m
 python -m cellpose
 ~~~~
 
-You can now **drag and drop** any images (*.tif, *.png, *.jpg, *.gif) into the GUI and manually segment them and/or process them in the GUI.
+You can now **drag and drop** any images (*.tif, *.png, *.jpg, *.gif) into the GUI and manually segment them and/or process them in the GUI. When the GUI is processing, you will see the progress bar fill up and during this time you cannot click on anything in the GUI. For more information about what the GUI is doing you can look at the terminal/prompt you opened the GUI with. For example data, See [website](http://www.cellpose.org). 
 
 For multi-channel, multi-Z tiff's, the expected format is Z x channels x Ly x Lx.
-
-When the GUI is processing, you will see the progress bar fill up and during this time you cannot click on anything in the GUI. For more information about what the GUI is doing you can look at the terminal/prompt you opened the GUI with.
 
 **Example data**
 
@@ -77,8 +75,6 @@ The GUI serves two main functions:
 1. Running the segmentation algorithm.
 2. Manually labelling data.
 
-You can open the "Help" at any time with Ctrl+H for the following information inside the GUI.
-
 Main GUI mouse controls (works in all views):
 
 - Pan  = left-click  + drag  
@@ -89,12 +85,13 @@ Main GUI mouse controls (works in all views):
 - Start draw mask = right-click
 - End draw mask = right-click, or return to circle at beginning
 
-Overlaps in masks are NOT allowed. If you draw a mask on top of another mask, it is cropped so that it doesn't overlap with the old mask. Masks in 2D should be single strokes (single stroke is checked). If you want to draw masks in 3D (experimental), then you can turn this option off and draw a stroke on each plane with the cell and then press ENTER.
+Overlaps in masks are NOT allowed. If you draw a mask on top of another mask, it is cropped so that it doesn't overlap with the old mask. Masks in 2D should be single strokes (if single stroke is checked). 
 
 !NOTE!: The GUI automatically saves after you draw a mask but NOT after segmentation. Save in the file menu or with Ctrl+S. The output file is in the same folder as the loaded image with `_manual.npy` appended.
 
 | Keyboard shortcuts  | Description                                                                    |
 | ------------------- | ------------------------------------------------------------------------------ |
+| CTRL+H              | help                                                           |
 | CTRL+Z              | undo previously drawn mask/stroke                              |
 | CTRL+0              | clear all masks                                                |
 | CTRL+L              | load image (can alternatively drag and drop image)             |
@@ -112,9 +109,9 @@ Overlaps in masks are NOT allowed. If you draw a mask on top of another mask, it
 
 **Segmentation options**
 
-SIZE: you can manually enter the approximate diameter for your cells, or press "calibrate" to let the model estimate it. The size is represented by a disk at the bottom of the view window (can turn this disk of by unchecking "scale disk on").
+SIZE: you can manually enter the approximate diameter for your cells, or press "calibrate" to let the model estimate it. The size is represented by a disk at the bottom of the view window (can turn this disk off by unchecking "scale disk on").
 
-use GPU: if you have specially installed the cuda version of mxnet, then you can activate this, but it won't give huge speedups when running single images in the GUI.
+use GPU: if you have installed the cuda version of mxnet, then you can activate this, but it won't give huge speedups when running single images in the GUI.
 
 MODEL: there is a *cytoplasm* model and a *nuclei* model, choose what you want to segment
 
