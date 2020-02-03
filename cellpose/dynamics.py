@@ -206,8 +206,8 @@ def follow_flows(dP, niter=200, do_3D=False):
 
 def remove_bad_flow_masks(masks, flows, threshold=0.5):
     """ remove masks which have inconsistent flows """
-    merrors = metrics.flow_error(masks, flows)
-    badi = 1+(merrors>.5).nonzero()[0]
+    merrors, _ = metrics.flow_error(masks, flows)
+    badi = 1+(merrors>threshold).nonzero()[0]
     #nbad =len(badi)
     masks[np.isin(masks, badi)] = 0
     return masks

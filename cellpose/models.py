@@ -43,7 +43,7 @@ class Cellpose():
             self.diam_mean = self.sz.diam_mean
 
     def eval(self, x, channels=None, rescale=1.0, do_3D=False, 
-                net_avg=True, progress=None, tile=True):
+                net_avg=True, progress=None, tile=True, threshold=0.4):
         # make rescale into length of x
         if rescale is not None and (not isinstance(rescale, list) or len(rescale)==1):
             rescale = rescale * np.ones(len(x), np.float32)
@@ -57,7 +57,8 @@ class Cellpose():
                 rescale = np.ones(len(x), np.float32)
             diams = self.diam_mean / rescale.copy()
         masks, flows, styles = self.cp.eval(x, rescale=rescale, channels=channels, tile=tile,
-                                            do_3D=do_3D, net_avg=net_avg, progress=progress)
+                                            do_3D=do_3D, net_avg=net_avg, progress=progress,
+                                            threshold=0.4)
         return masks, flows, styles, diams
 
 class SizeModel():
@@ -153,7 +154,7 @@ class CellposeModel():
             self.pretrained_model = pretrained_model
 
     def eval(self, x, rescale=None, tile=True, net_avg=True, channels=None,
-                do_3D=False, progress=None):
+                do_3D=False, progress=None, threshold=0.4):
         """
             segment list of images x 
         """
@@ -198,7 +199,7 @@ class CellposeModel():
             p = dynamics.follow_flows(-1 * dP * (cellprob>0) / 5.)
             if progress is not None:
                 progress.setValue(65)
-            maski = dynamics.get_masks(p, flows=dP, threshold=0.4)
+            maski = dynamics.get_masks(p, flows=dP, threshold=threshold)
             if progress is not None:
                 progress.setValue(75)
             dZ = np.zeros((1,Ly,Lx), np.uint8)

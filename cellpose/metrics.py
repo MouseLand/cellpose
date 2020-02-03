@@ -12,21 +12,19 @@ def label_overlap(x, y):
         overlap[x[i],y[i]] += 1
     return overlap
 
-
 def flow_error(maski, flows):
     maski = np.reshape(np.unique(maski.astype(np.float32), return_inverse=True)[1],
                        (maski.shape[0], maski.shape[1]))
-    # flows
-    a,_ = dynamics.masks_to_flows(maski)
-    dY,dX = a
-    #dY,dX,_=dynamics.new_flow(maski)
+    # flows predicted from estimated masks
+    predicted_flow,_ = dynamics.masks_to_flows(maski)
+    dY,dX = predicted_flow
     iun = np.unique(maski)[1:]
     flow_error=np.zeros((len(iun),))
     for i,iu in enumerate(iun):
         ii = maski==iu
         flow_error[i] = ((dX[ii] - flows[1][ii]/5)**2 +
                          (dY[ii] - flows[0][ii]/5)**2).mean()
-    return flow_error
+    return flow_error, np.array(predicted_flow)
 
 def intersection_over_union(masks, labels):
     # IOU
