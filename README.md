@@ -1,4 +1,4 @@
-# cellpose <img src="cellpose/logo/logo.png" width="250" title="cellpose" alt="cellpose" align="right" vspace = "50">
+# Cellpose <img src="cellpose/logo/logo.png" width="250" title="cellpose" alt="cellpose" align="right" vspace = "50">
 
 Anatomical segmentation algorithm for cytoplasm and nuclei.   
 This code was written by Carsen Stringer and Marius Pachitariu.  
