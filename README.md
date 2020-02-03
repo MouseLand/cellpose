@@ -83,7 +83,7 @@ Main GUI mouse controls (works in all views):
 
 Overlaps in masks are NOT allowed. If you draw a mask on top of another mask, it is cropped so that it doesn't overlap with the old mask. Masks in 2D should be single strokes (if single stroke is checked). 
 
-!NOTE!: The GUI automatically saves after you draw a mask but NOT after segmentation. Save in the file menu or with Ctrl+S. The output file is in the same folder as the loaded image with `_manual.npy` appended.
+!NOTE!: The GUI automatically saves after you draw a mask but NOT after segmentation. Save in the file menu or with Ctrl+S. The output file is in the same folder as the loaded image with `_seg.npy` appended.
 
 | Keyboard shortcuts  | Description                                                                    |
 | ------------------- | ------------------------------------------------------------------------------ |
