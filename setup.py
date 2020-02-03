@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="cellpose",
-    version="0.0.1.10",
+    version="0.0.1.11",
     author="Marius Pachitariu and Carsen Stringer",
     author_email="stringerc@janelia.hhmi.org",
     description="anatomical segmentation algorithm",
@@ -16,7 +16,7 @@ setuptools.setup(
     install_requires = ['numpy', 'scipy', 'natsort', 
                         'tqdm', 'numba', 'scikit-image', 
                         'matplotlib', 'mxnet_mkl', 'opencv_python',
-                        "pyqtgraph", "PyQt5", "google-cloud-storage"]},
+                        "pyqtgraph", "PyQt5", "google-cloud-storage"],
     include_package_data=True,
     classifiers=(
         "Programming Language :: Python :: 3",

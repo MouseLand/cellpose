@@ -176,7 +176,7 @@ class MainW(QtGui.QMainWindow):
         file_menu.addAction(self.loadMasks)
         self.loadMasks.setEnabled(False)
 
-        loadManual = QtGui.QAction("Load &processed/labelled image (*_manual.npy)", self)
+        loadManual = QtGui.QAction("Load &processed/labelled image (*_seg.npy)", self)
         loadManual.setShortcut("Ctrl+P")
         loadManual.triggered.connect(lambda: self.load_manual(None))
         file_menu.addAction(loadManual)
@@ -996,7 +996,7 @@ class MainW(QtGui.QMainWindow):
         else:
             base = os.path.splitext(self.filename[self.currentZ])[0]
         if self.NZ > 1 and self.is_stack:
-            np.save(base + '_manual.npy',
+            np.save(base + '_seg.npy',
                     {'outlines': self.outpix,
                      'colors': self.cellcolors[1:],
                      'masks': self.cellpix,
@@ -1006,7 +1006,7 @@ class MainW(QtGui.QMainWindow):
             image = self.chanchoose(self.stack[self.currentZ].copy())
             if image.ndim < 4:
                 image = image[np.newaxis,...]
-            np.save(base + '_manual.npy',
+            np.save(base + '_seg.npy',
                     {'outlines': self.outpix.squeeze(),
                      'colors': self.cellcolors[1:],
                      'masks': self.cellpix.squeeze(),
@@ -1032,7 +1032,7 @@ class MainW(QtGui.QMainWindow):
         if q == QtGui.QMessageBox.Yes:
             bucket_name = 'cellpose_data'
             base = os.path.splitext(self.filename)[0]
-            source_file_name = base + '_manual.npy'
+            source_file_name = base + '_seg.npy'
             print(source_file_name)
             time = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S.%f")
             filestring = time + '.npy'
@@ -1121,13 +1121,13 @@ class MainW(QtGui.QMainWindow):
 
     def compute_scale(self):
         self.diameter = float(self.Diameter.text())
-        pr = int(float(self.Diameter.text()))
+        self.pr = int(float(self.Diameter.text()))
         radii = np.zeros((self.Ly+self.pr,self.Lx), np.uint8)
-        self.radii = np.zeros((self.Ly+pr,self.Lx,4), np.uint8)
-        yy,xx = plot.disk([self.Ly+pr/2-1, pr/2+1], pr/2, self.Ly+pr, self.Lx)
+        self.radii = np.zeros((self.Ly+self.pr,self.Lx,4), np.uint8)
+        yy,xx = plot.disk([self.Ly+self.pr/2-1, self.pr/2+1], 
+                            self.pr/2, self.Ly+self.pr, self.Lx)
         self.radii[yy,xx,0] = 255
         self.radii[yy,xx,-1] = 255#self.opacity * (radii>0)
-        self.pr = pr
         self.update_plot()
         self.p0.setYRange(0,self.Ly+self.pr)
         self.p0.setXRange(0,self.Lx)
@@ -1163,7 +1163,7 @@ class MainW(QtGui.QMainWindow):
     def load_manual(self, filename=None, image=None, image_file=None):
         if filename is None:
             name = QtGui.QFileDialog.getOpenFileName(
-                self, "Load manual labels", filter="*_manual.npy"
+                self, "Load manual labels", filter="*_seg.npy"
                 )
             filename = name[0]
         try:
@@ -1417,9 +1417,12 @@ class MainW(QtGui.QMainWindow):
                 self, "Load image"
                 )
             filename = name[0]
-        manual_file = os.path.splitext(filename)[0]+'_manual.npy'
+        manual_file = os.path.splitext(filename)[0]+'_seg.npy'
         if os.path.isfile(manual_file):
             print(manual_file)
+            self.load_manual(manual_file, image=io.imread(filename), image_file=filename)
+        elif os.path.isfile(os.path.splitext(filename)[0]+'_manual.npy'):
+            manual_file = os.path.splitext(filename)[0]+'_manual.npy'
             self.load_manual(manual_file, image=io.imread(filename), image_file=filename)
             return
         try:
@@ -1489,7 +1492,7 @@ class MainW(QtGui.QMainWindow):
             QtWidgets.QApplication.restoreOverrideCursor()
             return
 
-        manual_file = os.path.splitext(filename)[0]+'_manual.npy'
+        manual_file = os.path.splitext(filename)[0]+'_seg.npy'
         if os.path.isfile(manual_file):
             print(manual_file)
             self.load_manual(manual_file, image=stack, image_file=filename)
