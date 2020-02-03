@@ -13,7 +13,7 @@ setuptools.setup(
     long_description_content_type="text/markdown",
     url="https://github.com/MouseLand/cellpose",
     packages=setuptools.find_packages(),
-    install_requires = ['numpy', 'scipy', 'natsort', 
+    install_requires = ['numpy<1.17.0', 'scipy', 'natsort', 
                         'tqdm', 'numba', 'scikit-image', 
                         'matplotlib', 'mxnet_mkl', 'opencv_python',
                         "pyqtgraph", "PyQt5", "google-cloud-storage"],
