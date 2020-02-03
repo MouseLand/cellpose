@@ -64,10 +64,6 @@ You can now **drag and drop** any images (*.tif, *.png, *.jpg, *.gif) into the G
 
 For multi-channel, multi-Z tiff's, the expected format is Z x channels x Ly x Lx.
 
-**Example data**
-
-See [website](http://www.cellpose.org).
-
 **In the GUI**
 
 The GUI serves two main functions:
