@@ -32,6 +32,13 @@ pip install cellpose --upgrade
 
 **Common issues**
 
+If you receive the error: `Illegal instruction (core dumped)`, then likely mxnet does not recognize your MKL version. Please uninstall and reinstall mxnet without mkl:
+~~~~
+pip uninstall mxnet-mkl
+pip uninstall mxnet
+pip install mxnet==1.4.0
+~~~~
+
 If you receive the error: `No module named PyQt5.sip`, then try uninstalling and reinstalling pyqt5
 ~~~~
 pip uninstall pyqt5 pyqt5-tools
@@ -59,6 +66,8 @@ The quickest way to start is to open the GUI from a command line terminal. You m
 ~~~~
 python -m cellpose
 ~~~~
+
+The first time cellpose runs it downloads the latest available trained model weights from the website.
 
 You can now **drag and drop** any images (*.tif, *.png, *.jpg, *.gif) into the GUI and run Cellpose, and/or manually segment them. When the GUI is processing, you will see the progress bar fill up and during this time you cannot click on anything in the GUI. For more information about what the GUI is doing you can look at the terminal/prompt you opened the GUI with. For example data, See [website](http://www.cellpose.org). For best accuracy and runtime performance, resize images so cells are less than 100 pixels across. 
 
