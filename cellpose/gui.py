@@ -1421,6 +1421,7 @@ class MainW(QtGui.QMainWindow):
         if os.path.isfile(manual_file):
             print(manual_file)
             self.load_manual(manual_file, image=io.imread(filename), image_file=filename)
+            return
         elif os.path.isfile(os.path.splitext(filename)[0]+'_manual.npy'):
             manual_file = os.path.splitext(filename)[0]+'_manual.npy'
             self.load_manual(manual_file, image=io.imread(filename), image_file=filename)

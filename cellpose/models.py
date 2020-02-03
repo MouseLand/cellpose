@@ -111,9 +111,12 @@ class SizeModel():
             for i in range(len(feat)):
                 szest = self.net(feat[i])
                 diam_style[i] = np.exp(szest.asnumpy()[:,0] + np.log(self.diam_mean))
+        diam_style[diam_style==0] = self.diam_mean
+        diam_style[np.isnan(diam_style)] = self.diam_mean
         masks = self.cp.eval(x, rescale=self.diam_mean/diam_style, net_avg=False, tile=tile)[0]
         diam = np.array([utils.diameters(masks[i])[0] for i in range(nimg)])
         diam[diam==0] = self.diam_mean
+        diam[np.isnan(diam)] = self.diam_mean
         if progress is not None:
             progress.setValue(100)
         return diam, diam_style

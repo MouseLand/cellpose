@@ -166,8 +166,8 @@ def masks_to_outlines(masks):
     nmask = masks.max()
     outlines = np.zeros((Ly,Lx), np.bool)
     # pad T0 and mask by 2
-    T = np.zeros((Ly+2)*(Lx+2), np.int32)
-    Lx += 2
+    T = np.zeros((Ly+4)*(Lx+4), np.int32)
+    Lx += 4
     iun = np.unique(masks)[1:]
     for iu in iun:
         y,x = np.nonzero(masks==iu)

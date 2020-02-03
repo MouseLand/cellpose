@@ -66,22 +66,27 @@ def normalize99(img):
 def reshape(data, channels=[0,0]):
     data = data.astype(np.float32)
     # use grayscale image
-    if channels[0]==0:
-        data = data.mean(axis=-1)
-        data = np.expand_dims(data, axis=-1)
+    if data.shape[-1]==1:
         data = normalize99(data)
-    else:
-        chanid = [channels[0]-1]
-        if channels[1] > 0:
-            chanid.append(channels[1]-1)
-        data = data[:,:,chanid]
-        for i in range(data.shape[-1]):
-            data[...,i] = normalize99(data[...,i])
-    if len(channels)>1 and data.shape[-1]==1:
         data = np.concatenate((data, np.zeros_like(data)), axis=-1)
-    elif len(channels)==1 and data.shape[-1]>1:
-        data = data[...,:-1]
-        data = normalize99(data)
+    else:
+        if channels[0]==0:
+            data = data.mean(axis=-1)
+            data = np.expand_dims(data, axis=-1)
+            data = normalize99(data)
+        else:
+            chanid = [channels[0]-1]
+            if channels[1] > 0:
+                chanid.append(channels[1]-1)
+            data = data[:,:,chanid]
+            for i in range(data.shape[-1]):
+                if np.ptp(data[...,i]) > 0.0:
+                    data[...,i] = normalize99(data[...,i])
+                else:
+                    if i==0:
+                        print("WARNING: 'chan to seg' has value range of ZERO")
+                    else:
+                        print("WARNING: 'chan2 (opt)' has value range of ZERO, can choose 'None'")
     if data.ndim==4:
         data = np.transpose(data, (3,0,1,2))
     else:
