@@ -24,7 +24,7 @@ class HelpWindow(QtGui.QDialog):
             <li class="has-line-data" data-line-start="13" data-line-end="15">End draw mask = right-click, or return to circle at beginning</li>
             </ul>
             <p class="has-line-data" data-line-start="15" data-line-end="16">Overlaps in masks are NOT allowed. If you draw a mask on top of another mask, it is cropped so that it doesn’t overlap with the old mask. Masks in 2D should be single strokes (single stroke is checked). If you want to draw masks in 3D (experimental), then you can turn this option off and draw a stroke on each plane with the cell and then press ENTER.</p>
-            <p class="has-line-data" data-line-start="17" data-line-end="18">!NOTE!: The GUI automatically saves after you draw a mask but NOT after segmentation. Save in the file menu or with Ctrl+S. The output file is in the same folder as the loaded image with <code>_manual.npy</code> appended.</p>
+            <p class="has-line-data" data-line-start="17" data-line-end="18">!NOTE!: The GUI automatically saves after you draw a mask but NOT after segmentation. Save in the file menu or with Ctrl+S. The output file is in the same folder as the loaded image with <code>_seg.npy</code> appended.</p>
             <table class="table table-striped table-bordered">
             <br><br>
             <thead>
@@ -48,11 +48,11 @@ class HelpWindow(QtGui.QDialog):
             </tr>
             <tr>
             <td>CTRL+S</td>
-            <td>SAVE MASKS IN IMAGE to <code>_manual.npy</code> file</td>
+            <td>SAVE MASKS IN IMAGE to <code>_seg.npy</code> file</td>
             </tr>
             <tr>
             <td>CTRL+P</td>
-            <td>load <code>_manual.npy</code> file (note: it will load automatically with image if it exists)</td>
+            <td>load <code>_seg.npy</code> file (note: it will load automatically with image if it exists)</td>
             </tr>
             <tr>
             <td>CTRL+M</td>
@@ -88,7 +88,7 @@ class HelpWindow(QtGui.QDialog):
             </tr>
             <tr>
             <td>C</td>
-            <td>cycle through labels for image type (saved to <code>_manual.npy</code>)</td>
+            <td>cycle through labels for image type (saved to <code>_seg.npy</code>)</td>
             </tr>
             </tbody>
             </table>
