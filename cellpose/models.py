@@ -14,12 +14,17 @@ import __main__
 
 class Cellpose():
     """ main model which combines size and cellpose model """
-    def __init__(self, device=mx.cpu(), pretrained_model=None,
+    def __init__(self, device=mx.cpu(), model_type=None, pretrained_model=None,
                     pretrained_size=None, diam_mean=27., net_avg=True):
         super(Cellpose, self).__init__()
         self.batch_size=8
         self.diam_mean = diam_mean
-        if pretrained_model is None:
+        if model_type is not None and pretrained_model is None:
+            pretrained_model = [os.path.abspath(os.path.join(os.path.dirname(__file__),
+                                                'models/%s_%d'%(model_type,j))) for j in range(4)]
+            pretrained_size = os.path.abspath(os.path.join(os.path.dirname(__file__),
+                                                    'models/size_%s_0.npy'%model_type))
+        elif pretrained_model is None:
             if net_avg:
                 pretrained_model = [os.path.abspath(os.path.join(os.path.dirname(__file__),
                                                 'models/cyto_%d'%j)) for j in range(4)]
@@ -93,7 +98,8 @@ class SizeModel():
         nimg = len(x)
         if channels is not None:
             if len(channels)==2:
-                channels = [channels for i in range(nimg)]
+                if not isinstance(channels[0], list):
+                    channels = [channels for i in range(nimg)]
             x = [transforms.reshape(x[i], channels=channels[i]) for i in range(nimg)]
         diam_style = np.zeros(nimg, np.float32)
         if progress is not None:
@@ -164,7 +170,6 @@ class CellposeModel():
         nimg = len(x)
         if channels is not None:
             if len(channels)==2:
-                print(channels)
                 if not isinstance(channels[0], list):
                     channels = [channels for i in range(nimg)]
             x = [transforms.reshape(x[i], channels=channels[i]) for i in range(nimg)]
