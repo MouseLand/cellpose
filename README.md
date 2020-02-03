@@ -4,7 +4,7 @@ A generalist algorithm for cell and nucleus segmentation.
 
 This code was written by Carsen Stringer and Marius Pachitariu. For support, please open an [issue](https://github.com/MouseLand/cellpose/issues).
 
-You can quickly try out Cellpose on the [website](http://www.cellpose.org) first (some features disabled). If you want to improve Cellpose for yourself and for everyone else, please consider contributing manual segmentations of your images via the built-in GUI interface. 
+You can quickly try out Cellpose on the [website](http://www.cellpose.org) first (some features disabled). If you want to improve Cellpose for yourself and for everyone else, please consider contributing manual segmentations for a few of your images via the built-in GUI interface. 
 
 ## Installation
 
