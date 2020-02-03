@@ -1,6 +1,6 @@
 # Cellpose <img src="cellpose/logo/logo.png" width="250" title="cellpose" alt="cellpose" align="right" vspace = "50">
 
-A generalist algorithm for cell and nucleus segmentation.   
+### A generalist algorithm for cell and nucleus segmentation.  ###
 
 This code was written by Carsen Stringer and Marius Pachitariu.  
 For support, please open an [issue](https://github.com/MouseLand/cellpose/issues).
