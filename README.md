@@ -23,7 +23,7 @@ Alternatively you can use the included environment file (if you'd like a cellpos
 
 If you have an older `cellpose` environment you can remove it with `conda env remove -n cellpose` before creating a new one.
 
-Note you will always have to run **conda activate cellpose** before you run cellpose. Conda ensures all the versions of code are playing nice together. If you want to run jupyter notebooks in this environment, then also `conda install jupyter`.
+Note you will always have to run **conda activate cellpose** before you run cellpose. If you want to run jupyter notebooks in this environment, then also `conda install jupyter`.
 
 To upgrade cellpose (package [here](https://pypi.org/project/cellpose/)), run the following in the environment:
 ~~~~
@@ -32,34 +32,26 @@ pip install cellpose --upgrade
 
 **Common issues**
 
-If when running `python -m cellpose`, you receive the error: `No module named PyQt5.sip`, then try uninstalling and reinstalling pyqt5
+If you receive the error: `No module named PyQt5.sip`, then try uninstalling and reinstalling pyqt5
 ~~~~
 pip uninstall pyqt5 pyqt5-tools
 pip install pyqt5 pyqt5-tools pyqt5.sip
 ~~~~
 
-If when running `python -m cellpose`, you receive an error associated with **matplotlib**, try upgrading it:
+If you receive an error associated with **matplotlib**, try upgrading it:
 ~~~~
 pip install matplotlib --upgrade
 ~~~~
 
-If you are on Yosemite Mac OS, PyQt doesn't work and you won't be able to use the graphical interface for cellpose. More recent versions of Mac OS are fine.
+If you are on Yosemite Mac OS, PyQt doesn't work and you won't be able to use the graphical interface for cellpose. More recent versions of Mac OS are fine. The software has been heavily tested on Windows 10 and Ubuntu 18.04, and less well tested on Mac OS. Please post an issue if you have installation problems.
 
-The software has been heavily tested on Windows 10 and Ubuntu 18.04, and less well tested on Mac OS. Please post an issue if you have installation problems.
+**CUDA version**
 
-## CUDA version
+If you plan on running many images, you may want to install a GPU version of *mxnet*. Follow the instructions [here](https://mxnet.apache.org/get_started?).
 
-If you plan on running many images, you may want to install the GPU version of *mxnet*. It is fairly straight-forward if you already have CUDA installed for tensorflow or pytorch, *mxnet* supports many different CUDA versions. Follow the instructions [here](https://mxnet.apache.org/get_started?).
+**Installation of github version**
 
-## Installation of github version
-
-Follow steps from above. In the github repository, run `pip install -e .` and the github version will be installed.
-
-If you want to go back to the supported version of cellpose, then say `pip install cellpose` and that will grab the pip package of cellpose.
-
-## Example data
-
-See [website](http://www.cellpose.org).
+Follow steps from above to install the dependencies. In the github repository, run `pip install -e .` and the github version will be installed. If you want to go back to the pip version of cellpose, then say `pip install cellpose`.
 
 ## Running cellpose
 
@@ -74,7 +66,11 @@ For multi-channel, multi-Z tiff's, the expected format is Z x channels x Ly x Lx
 
 When the GUI is processing, you will see the progress bar fill up and during this time you cannot click on anything in the GUI. For more information about what the GUI is doing you can look at the terminal/prompt you opened the GUI with.
 
-### In the GUI
+**Example data**
+
+See [website](http://www.cellpose.org).
+
+**In the GUI**
 
 The GUI serves two main functions:
 
