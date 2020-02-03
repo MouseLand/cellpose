@@ -1476,7 +1476,7 @@ class MainW(QtGui.QMainWindow):
         self.toggle_server()
             
     def load_zstack(self, filename=None):
-        QtWidgets.QApplication.setOverrideCursor(QtCore.Qt.WaitCursor)
+        #QtWidgets.QApplication.setOverrideCursor(QtCore.Qt.WaitCursor)
         if filename is None:
             name = QtGui.QFileDialog.getOpenFileName(
                 self, "Load matrix of images", filter="*.npy"
@@ -1488,7 +1488,7 @@ class MainW(QtGui.QMainWindow):
             self.loaded = True
         except:
             print('not NPY')
-            QtWidgets.QApplication.restoreOverrideCursor()
+            #QtWidgets.QApplication.restoreOverrideCursor()
             return
 
         manual_file = os.path.splitext(filename)[0]+'_seg.npy'
@@ -1510,4 +1510,4 @@ class MainW(QtGui.QMainWindow):
                 self.compute_model()
             self.loaded = True
             self.enable_buttons()
-        QtWidgets.QApplication.restoreOverrideCursor()
+        #QtWidgets.QApplication.restoreOverrideCursor()
