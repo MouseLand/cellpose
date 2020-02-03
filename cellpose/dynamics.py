@@ -168,8 +168,12 @@ def steps2D(p, dP, inds, niter):
             y = inds[j,0]
             x = inds[j,1]
             p0, p1 = int(p[0,y,x]), int(p[1,y,x])
-            p[0,y,x] = min(shape[0]-1, max(0, p[0,y,x] - dP[0,p0,p1]))
-            p[1,y,x] = min(shape[1]-1, max(0, p[1,y,x] - dP[1,p0,p1]))
+            #if t > niter-50:
+            #    p[0,y,x] = min(shape[0]-1, max(0, p[0,y,x] - 0.1*dP[0,p0,p1]))
+            #    p[1,y,x] = min(shape[1]-1, max(0, p[1,y,x] - 0.1*dP[1,p0,p1]))
+            #else:
+            p[0,y,x] = min(shape[0]-1, max(0, p[0,y,x] - 0.5*dP[0,p0,p1]))
+            p[1,y,x] = min(shape[1]-1, max(0, p[1,y,x] - 0.5*dP[1,p0,p1]))
     return p
 
 @njit('(float32[:],float32[:],float32[:],float32[:],int32[:],int32[:],int32[:], int32)')

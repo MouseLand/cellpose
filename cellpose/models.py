@@ -14,7 +14,7 @@ import __main__
 
 class Cellpose():
     """ main model which combines size and cellpose model """
-    def __init__(self, device=mx.cpu(), pretrained_model=None, 
+    def __init__(self, device=mx.cpu(), pretrained_model=None,
                     pretrained_size=None, diam_mean=27., net_avg=True):
         super(Cellpose, self).__init__()
         self.batch_size=8
@@ -42,7 +42,7 @@ class Cellpose():
                                 cp_model=self.cp, diam_mean=diam_mean)
             self.diam_mean = self.sz.diam_mean
 
-    def eval(self, x, channels=None, rescale=1.0, do_3D=False, 
+    def eval(self, x, channels=None, rescale=1.0, do_3D=False,
                 net_avg=True, progress=None, tile=True, threshold=0.4):
         # make rescale into length of x
         if rescale is not None and (not isinstance(rescale, list) or len(rescale)==1):
@@ -81,7 +81,7 @@ class SizeModel():
             self.params = np.load(self.pretrained_size, allow_pickle=True).item()
             self.diam_mean = self.params['diam_mean']
 
-    def eval(self, x=None, feat=None, channels=None, 
+    def eval(self, x=None, feat=None, channels=None,
                 batch_size=8, progress=None, tile=True):
         if feat is None and x is None:
             print('Error: no image or features given')
@@ -128,7 +128,7 @@ class SizeModel():
         return szest
 
 class CellposeModel():
-    def __init__(self, device, pretrained_model=None, batch_size=8, 
+    def __init__(self, device, pretrained_model=None, batch_size=8,
                     diam_mean=27., net_avg=True):
         super(CellposeModel, self).__init__()
         if device==mx.gpu() and utils.use_gpu():
@@ -159,12 +159,14 @@ class CellposeModel():
     def eval(self, x, rescale=None, tile=True, net_avg=True, channels=None,
                 do_3D=False, progress=None, threshold=0.4):
         """
-            segment list of images x 
+            segment list of images x
         """
         nimg = len(x)
         if channels is not None:
             if len(channels)==2:
-                channels = [channels for i in range(nimg)]
+                print(channels)
+                if not isinstance(channels[0], list):
+                    channels = [channels for i in range(nimg)]
             x = [transforms.reshape(x[i], channels=channels[i]) for i in range(nimg)]
         styles = []
         flows = []
