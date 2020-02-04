@@ -74,6 +74,7 @@ def reshape(data, channels=[0,0]):
             data = data.mean(axis=-1)
             data = np.expand_dims(data, axis=-1)
             data = normalize99(data)
+            data = np.concatenate((data, np.zeros_like(data)), axis=-1)
         else:
             chanid = [channels[0]-1]
             if channels[1] > 0:

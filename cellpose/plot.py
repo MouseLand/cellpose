@@ -96,7 +96,7 @@ def mask_overlay(img, masks, colors=None):
     return RGB
 
 def rgb_image(img):
-    """ image is 2 x Ly x Lx - change to RGB Ly x Lx x 3 """
+    """ image is 2 x Ly x Lx or Ly x Lx x 2 - change to RGB Ly x Lx x 3 """
     if img.shape[-1]<3:
         img = np.transpose(img, (2,0,1))
     gray = False
