@@ -8,7 +8,7 @@ You can quickly try out Cellpose on the [website](http://www.cellpose.org) first
 
 ## Installation
 
-I recommend installing an [Anaconda](https://www.anaconda.com/download/) distribution of Python -- Choose **Python 3.7** and your operating system. Note you might need to use an anaconda prompt if you did not add anaconda to the path. From your base environment (or you can make a new environment) in an anaconda prompt/command prompt, run
+We recommend installing an [Anaconda](https://www.anaconda.com/download/) distribution of Python -- Choose **Python 3.7** and your operating system. Note you might need to use an anaconda prompt if you did not add anaconda to the path. From your base environment (or you can make a new environment) in an anaconda prompt/command prompt, run
 ~~~~
 pip install cellpose
 ~~~~
