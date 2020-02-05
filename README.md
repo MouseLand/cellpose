@@ -56,6 +56,12 @@ If you are on Yosemite Mac OS, PyQt doesn't work and you won't be able to use th
 
 If you plan on running many images, you may want to install a GPU version of *mxnet*. Follow the instructions [here](https://mxnet.apache.org/get_started?).
 
+Before installing the GPU version, remove the CPU version:
+~~~
+pip uninstall mxnet-mkl
+pip uninstall mxnet
+~~~
+
 **Installation of github version**
 
 Follow steps from above to install the dependencies. In the github repository, run `pip install -e .` and the github version will be installed. If you want to go back to the pip version of cellpose, then say `pip install cellpose`.
