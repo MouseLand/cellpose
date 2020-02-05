@@ -1,16 +1,83 @@
 import numpy as np
-import os
-from datetime import datetime
-import time
-from glob import glob
-from tqdm import trange
+import os, sys, time, shutil, tempfile
+from tqdm import trange, tqdm
+from urllib.request import urlopen
+from urllib.parse import urlparse
+import tempfile
+
 from scipy.ndimage import median_filter
 import cv2
+
 from mxnet import gluon, nd
 from mxnet.gluon import nn
 import mxnet as mx
+
 from . import transforms, dynamics, utils, resnet_style, plot
 import __main__
+
+urls = ['http://www.cellpose.org/models/cyto_0',
+        'http://www.cellpose.org/models/cyto_1',
+        'http://www.cellpose.org/models/cyto_2',
+        'http://www.cellpose.org/models/cyto_3',
+        'http://www.cellpose.org/models/size_cyto_0.npy',
+        'http://www.cellpose.org/models/nuclei_0',
+        'http://www.cellpose.org/models/nuclei_1',
+        'http://www.cellpose.org/models/nuclei_2',
+        'http://www.cellpose.org/models/nuclei_3',
+        'http://www.cellpose.org/models/size_nuclei_0.npy']
+
+def download_url_to_file(url, dst, progress=True):
+    r"""Download object at the given URL to a local path.
+            THANKS TO TORCH, SLIGHTLY MODIFIED
+    Args:
+        url (string): URL of the object to download
+        dst (string): Full path where object will be saved, e.g. `/tmp/temporary_file`
+        progress (bool, optional): whether or not to display a progress bar to stderr
+            Default: True
+    """
+    file_size = None
+    u = urlopen(url)
+    meta = u.info()
+    if hasattr(meta, 'getheaders'):
+        content_length = meta.getheaders("Content-Length")
+    else:
+        content_length = meta.get_all("Content-Length")
+    if content_length is not None and len(content_length) > 0:
+        file_size = int(content_length[0])
+    # We deliberately save it in a temp file and move it after
+    dst = os.path.expanduser(dst)
+    dst_dir = os.path.dirname(dst)
+    f = tempfile.NamedTemporaryFile(delete=False, dir=dst_dir)
+    try:
+        with tqdm(total=file_size, disable=not progress,
+                  unit='B', unit_scale=True, unit_divisor=1024) as pbar:
+            while True:
+                buffer = u.read(8192)
+                if len(buffer) == 0:
+                    break
+                f.write(buffer)
+                pbar.update(len(buffer))
+        f.close()
+        shutil.move(f.name, dst)
+    finally:
+        f.close()
+        if os.path.exists(f.name):
+            os.remove(f.name)
+
+def download_model_weights(urls=urls):
+    model_dir = os.path.join(
+        os.path.dirname(os.path.realpath(__file__)), 'models/'
+    )
+    if not os.path.exists(model_dir):
+        os.mkdir(model_dir)
+        print('>>> Models not downloaded, please wait <<<')
+    for url in urls:
+        parts = urlparse(url)
+        filename = os.path.basename(parts.path)
+        cached_file = os.path.join(model_dir, filename)
+        if not os.path.exists(cached_file):
+            sys.stderr.write('Downloading: "{}" to {}\n'.format(url, cached_file))
+            download_url_to_file(url, cached_file, progress=True)    
 
 class Cellpose():
     """ main model which combines size and cellpose model """
@@ -24,13 +91,19 @@ class Cellpose():
                                                 'models/%s_%d'%(model_type,j))) for j in range(4)]
             pretrained_size = os.path.abspath(os.path.join(os.path.dirname(__file__),
                                                     'models/size_%s_0.npy'%model_type))
+            if not os.path.isfile(pretrained_model[0]):
+                download_model_weights()
         elif pretrained_model is None:
             if net_avg:
                 pretrained_model = [os.path.abspath(os.path.join(os.path.dirname(__file__),
                                                 'models/cyto_%d'%j)) for j in range(4)]
+                if not os.path.isfile(pretrained_model[0]):
+                    download_model_weights()
             else:
                 pretrained_model = os.path.abspath(os.path.join(os.path.dirname(__file__),
                                                 'models/cyto_0'))
+                if not os.path.isfile(pretrained_model):
+                    download_model_weights()
             if pretrained_size is None:
                 pretrained_size = os.path.abspath(os.path.join(os.path.dirname(__file__),
                                                     'models/size_cyto_0.npy'))
@@ -155,9 +228,13 @@ class CellposeModel():
             if net_avg:
                 pretrained_model = [os.path.abspath(os.path.join(os.path.dirname(__file__),
                                                 'models/cyto_%d'%j)) for j in range(4)]
+                if not os.path.isfile(pretrained_model[0]):
+                    download_model_weights()
             else:
                 pretrained_model = os.path.abspath(os.path.join(os.path.dirname(__file__),
                                                 'models/cyto_0'))
+                if not os.path.isfile(pretrained_model):
+                    download_model_weights()
                 self.net.load_parameters(pretrained_model)
                 self.net.collect_params().grad_req = 'null'
             self.pretrained_model = pretrained_model
