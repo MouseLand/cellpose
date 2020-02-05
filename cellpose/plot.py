@@ -52,15 +52,16 @@ def show_segmentation(fig, img, maski, flowi, save_path=None):
 
 
 
-def outline_overlay(img, outlines, channels=[0,0], color=[255,0,0]):
+def outline_overlay(img0, outlines, channels=[0,0], color=[255,0,0]):
     """ outlines are red by default """
+    img = img0.copy()
     if not isinstance(outlines, list):
         outlines = [outlines]
         color = [color]
-    img = np.clip(img.copy(), 0, 1)
-    #for i in range(img.shape[-1]):
-    #    img[:,:,i] = ((img[:,:,i]-img[:,:,i].min()) / 
-    #                  (img[:,:,i].max()-img[:,:,i].min()))
+    for i in range(img.shape[-1]):
+        if np.ptp(img[:,:,i])>0:
+            img[:,:,i] = utils.normalize99(img[:,:,i])
+            img[:,:,i] = np.clip(img[:,:,i], 0, 1)
     img *= 255
     img = np.uint8(img)
     RGB = np.zeros((img.shape[0], img.shape[1], 3), np.uint8)
