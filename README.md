@@ -192,11 +192,11 @@ from cellpose import plot
 dat = np.load('_seg.npy', allow_pickle=True).item()
 
 # plot image with masks overlaid
-RGB = plot.mask_overlay(dat['img'][0], dat['masks'][0]+1,
+RGB = plot.mask_overlay(dat['img'], dat['masks']+1,
                         colors=np.array(dat['colors']))
 
 # plot image with outlines overlaid in red (can change color of outline)
-RGB = plot.outline_overlay(dat['img'][0], dat['outlines'][0]+1,
+RGB = plot.outline_overlay(dat['img'], dat['outlines']+1,
                            channels=dat['chan_choose'], color=[255,0,0])
 ~~~~~
 
