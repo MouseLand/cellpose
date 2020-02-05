@@ -2,13 +2,13 @@
 
 A generalist algorithm for cell and nucleus segmentation. 
 
-This code was written by Carsen Stringer and Marius Pachitariu. For support, please open an [issue](https://github.com/MouseLand/cellpose/issues).
+This code was written by Carsen Stringer and Marius Pachitariu. To learn about Cellpose, read the [paper](https://t.co/4HFsxDezAP?amp=1) or watch the [talk](https://t.co/JChCsTD0SK?amp=1). For support, please open an [issue](https://github.com/MouseLand/cellpose/issues). 
 
 You can quickly try out Cellpose on the [website](http://www.cellpose.org) first (some features disabled). If you want to improve Cellpose for yourself and for everyone else, please consider contributing manual segmentations for a few of your images via the built-in GUI interface. 
 
 ## Installation
 
-I recommend installing an [Anaconda](https://www.anaconda.com/download/) distribution of Python -- Choose **Python 3.7** and your operating system. Note you might need to use an anaconda prompt if you did not add anaconda to the path. From your base environment (or you can make a new environment) in an anaconda prompt/command prompt, run
+We recommend installing an [Anaconda](https://www.anaconda.com/download/) distribution of Python -- Choose **Python 3.7** and your operating system. Note you might need to use an anaconda prompt if you did not add anaconda to the path. From your base environment (or you can make a new environment) in an anaconda prompt/command prompt, run
 ~~~~
 pip install cellpose
 ~~~~
@@ -55,6 +55,12 @@ If you are on Yosemite Mac OS, PyQt doesn't work and you won't be able to use th
 **CUDA version**
 
 If you plan on running many images, you may want to install a GPU version of *mxnet*. Follow the instructions [here](https://mxnet.apache.org/get_started?).
+
+Before installing the GPU version, remove the CPU version:
+~~~
+pip uninstall mxnet-mkl
+pip uninstall mxnet
+~~~
 
 **Installation of github version**
 
