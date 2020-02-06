@@ -4,7 +4,7 @@ A generalist algorithm for cell and nucleus segmentation.
 
 This code was written by Carsen Stringer and Marius Pachitariu. To learn about Cellpose, read the [paper](https://t.co/4HFsxDezAP?amp=1) or watch the [talk](https://t.co/JChCsTD0SK?amp=1). For support, please open an [issue](https://github.com/MouseLand/cellpose/issues). 
 
-You can quickly try out Cellpose on the [website](http://www.cellpose.org) first (some features disabled). If you want to improve Cellpose for yourself and for everyone else, please consider contributing manual segmentations for a few of your images via the built-in GUI interface. 
+You can quickly try out Cellpose on the [website](http://www.cellpose.org) first (some features disabled). If you want to improve Cellpose for yourself and for everyone else, please consider contributing manual segmentations for a few of your images via the built-in GUI interface (see instructions below). 
 
 ## Installation
 
@@ -83,6 +83,19 @@ The first time cellpose runs it downloads the latest available trained model wei
 You can now **drag and drop** any images (*.tif, *.png, *.jpg, *.gif) into the GUI and run Cellpose, and/or manually segment them. When the GUI is processing, you will see the progress bar fill up and during this time you cannot click on anything in the GUI. For more information about what the GUI is doing you can look at the terminal/prompt you opened the GUI with. For example data, See [website](http://www.cellpose.org). For best accuracy and runtime performance, resize images so cells are less than 100 pixels across. 
 
 For multi-channel, multi-Z tiff's, the expected format is Z x channels x Ly x Lx.
+
+## Contributing training data
+
+We are very excited about receiving community contributions to the training data and re-training the cytoplasm model to make it better. Please follow these guidelines:
+
+1. Run cellpose on your data to see how well it does. Try varying the diameter, which can change results a little. 
+2. If there are relatively few mistakes, it won't help much to contribute labelled data. 
+3. If there are consistent mistakes, your data is likely very different from anything in the training set, and you should expect major improvements from contributing even just a few manually segmented images.
+4. For images that you contribute, the cells should be at least 10 pixels in diameter, and there should be at least several dozens of cells per image, ideally ~100. If your images are small, consider combining multiple images into a single big one and then manually segmenting that. 
+5. For the manual segmentation, please try to outline the boundaries of the cell, so that everything (membrane, cytoplasm, nucleus) is inside the boundaries. Do not just outline the cytoplasm and exclude the membrane, because that wouldn't be consistent with our own labelling and we wouldn't be able to use that. 
+
+If you are having problems with the nucleus model, please open an issue before contributing data. Nucleus images are generally much less diverse, and we think the current training dataset already covers a very large set of modalities. 
+
 
 **In the GUI**
 
