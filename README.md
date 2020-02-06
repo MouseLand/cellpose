@@ -54,7 +54,7 @@ If you are on Yosemite Mac OS, PyQt doesn't work and you won't be able to use th
 
 **CUDA version**
 
-If you plan on running many images, you may want to install a GPU version of *mxnet*. Follow the instructions [here](https://mxnet.apache.org/get_started?).
+If you plan on running many images, you may want to install a GPU version of *mxnet*. I recommend using CUDA 10.0 or greater. Follow the instructions [here](https://mxnet.apache.org/get_started?).
 
 Before installing the GPU version, remove the CPU version:
 ~~~
