@@ -112,7 +112,7 @@ class TypeRadioButtons(QtGui.QButtonGroup):
         self.bstr = self.parent.cell_types
         for b in range(len(self.bstr)):
             button = QtGui.QRadioButton(self.bstr[b])
-            button.setStyleSheet('color: white;')
+            button.setStyleSheet('color: rgb(190,190,190);')
             if b==0:
                 button.setChecked(True)
             self.addButton(button, b)

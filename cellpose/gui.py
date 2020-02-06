@@ -372,7 +372,7 @@ class MainW(QtGui.QMainWindow):
         b+=1
         self.useGPU = QtGui.QCheckBox('use GPU')
         self.useGPU.setStyleSheet(self.checkstyle)
-        self.useGPU.setChecked(False)
+        self.check_gpu()
         self.l0.addWidget(self.useGPU, b,0,1,2)
 
         b+=1
@@ -447,6 +447,14 @@ class MainW(QtGui.QMainWindow):
         self.l0.addWidget(self.scroll, b,3,1,20)
         return b
 
+    def check_gpu(self):
+        if utils.use_gpu():
+            self.useGPU.setEnabled(True)
+            self.useGPU.setChecked(True)
+        else:
+            self.useGPU.setChecked(False)
+            self.useGPU.setEnabled(False)
+            self.useGPU.setStyleSheet("color: rgb(80,80,80);")
     
     def get_channels(self):
         channels = [self.ChannelChoose[0].currentIndex(), self.ChannelChoose[1].currentIndex()]
@@ -1098,7 +1106,7 @@ class MainW(QtGui.QMainWindow):
     def load_manual(self, filename=None, image=None, image_file=None):
         if filename is None:
             name = QtGui.QFileDialog.getOpenFileName(
-                self, "Load manual labels", filter="*_seg.npy"
+                self, "Load labelled data", filter="*.npy"
                 )
             filename = name[0]
         try:
@@ -1112,25 +1120,33 @@ class MainW(QtGui.QMainWindow):
 
         self.reset()
         if image is None:
+            found_image = False
             if 'filename' in dat:
                 self.filename = dat['filename']
                 if image is None:
                     if os.path.isfile(self.filename):
                         self.filename = dat['filename']
+                        found_image = True
                     else:
                         imgname = os.path.split(self.filename)[1]
                         root = os.path.split(filename)[0]
                         self.filename = root+'/'+imgname
+                        if os.path.isfile(self.filename):
+                            found_image = True
+            if found_image:
                 try:
                     image = io.imread(self.filename)
                 except:
                     self.loaded = False
-                    print('ERROR: cannot find image')
-                    return
-            else:
+                    found_image = False
+                    print('ERROR: cannot find image file, loading from npy')
+            if not found_image:
                 self.filename = filename[:-11]
-                if image is None:
+                if 'img' in dat:
                     image = dat['img']
+                else:
+                    print('ERROR: no image file found and no image in npy')
+                    return
         else:
             self.filename = image_file
         print(self.filename)
@@ -1275,6 +1291,7 @@ class MainW(QtGui.QMainWindow):
                 self.model.device==mx.cpu() and self.useGPU.isChecked()):
             # if device has changed, reload model
             self.current_model = self.ModelChoose.currentText()
+            change=True
 
         if change:
             if self.current_model=='cyto':
