@@ -138,44 +138,7 @@ CHAN2 (OPT): if *cytoplasm* model is chosen, then choose the nuclear channel for
 
 ### In a notebook
 
-See also [run_cellpose.ipynb](notebooks/run_cellpose.ipynb).
-
-~~~
-import numpy as np
-import time, os, sys
-import mxnet as mx
-import matplotlib.pyplot as plt
-import glob
-import sys
-from cellpose import models, utils, plot
-
-# check if GPU working, and if so use it
-use_gpu = utils.use_gpu()
-if use_gpu:
-    device = mx.gpu()
-else:
-    device = mx.cpu()
-
-# model_type='cyto' or model_type='nuclei'
-model = models.Cellpose(device, model_type='nuclei')
-
-# list of files
-files = ['/github/cellpose_web/static/images/img00.png', 
-         '/github/cellpose_web/static/images/img01.png']
-
-imgs = [plt.imread(f) for f in files]
-nimg = len(imgs)
-
-# define CHANNELS to run segementation on
-# grayscale=0, R=1, G=2, B=3
-# channels = [cytoplasm, nucleus]
-# if NUCLEUS channel does not exist, set the second channel to 0
-channels = [[2,3], [0,0]]
-
-# if rescale is set to None, the size of the cells is estimated on a per image basis
-# if you want to set the size yourself, set it to 30. / average_cell_diameter
-masks, flows, styles, diams = model.eval(imgs, rescale=None, channels=channels)
-~~~
+See [run_cellpose.ipynb](notebooks/run_cellpose.ipynb).
 
 ## Outputs
 
