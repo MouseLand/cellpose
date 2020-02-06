@@ -16,4 +16,4 @@ dependencies:
     - natsort
     - google-cloud-storage
     - tqdm
-    - cellpose
+    - cellpose>=0.0.1.21
