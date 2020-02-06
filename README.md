@@ -21,14 +21,14 @@ Alternatively you can use the included environment file (if you'd like a cellpos
 4. To activate this new environment, run `conda activate cellpose`
 5. You should see `(cellpose)` on the left side of the terminal line. Now run `python -m cellpose` and you're all set.
 
-If you have an older `cellpose` environment you can remove it with `conda env remove -n cellpose` before creating a new one.
-
-Note you will always have to run **conda activate cellpose** before you run cellpose. If you want to run jupyter notebooks in this environment, then also `conda install jupyter`.
-
 To upgrade cellpose (package [here](https://pypi.org/project/cellpose/)), run the following in the environment:
 ~~~~
 pip install cellpose --upgrade
 ~~~~
+
+If you have an older `cellpose` environment you can remove it with `conda env remove -n cellpose` before creating a new one.
+
+Note you will always have to run **conda activate cellpose** before you run cellpose. If you want to run jupyter notebooks in this environment, then also `conda install jupyter`.
 
 **Common issues**
 
@@ -60,6 +60,11 @@ Before installing the GPU version, remove the CPU version:
 ~~~
 pip uninstall mxnet-mkl
 pip uninstall mxnet
+~~~
+
+When upgrading cellpose, you will want to ignore dependencies (so that mxnet-mkl does not install):
+~~~
+pip install --no-deps cellpose --upgrade
 ~~~
 
 **Installation of github version**
