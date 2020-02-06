@@ -97,7 +97,7 @@ We are very excited about receiving community contributions to the training data
 If you are having problems with the nucleus model, please open an issue before contributing data. Nucleus images are generally much less diverse, and we think the current training dataset already covers a very large set of modalities. 
 
 
-## Using the GUI##
+## Using the GUI
 
 The GUI serves two main functions:
 
