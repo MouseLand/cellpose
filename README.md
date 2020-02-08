@@ -163,8 +163,7 @@ See [run_cellpose.ipynb](notebooks/run_cellpose.ipynb).
 - *colors* : colors for masks
 - *outlines* : outlines of masks (-1 = NO outline, 0,1,2,... = outline labels)
 - *chan_choose* : channels that you chose in GUI (0=gray/none, 1=red, 2=green, 3=blue)
-- *cell_type* : string with cell_type that you chose
-- *cells* : int of cell_type that you chose
+- *ismanual* : element *k* = whether or not mask *k* was manually drawn or computed by the cellpose algorithm
 
 ~~~~
 import numpy as np
