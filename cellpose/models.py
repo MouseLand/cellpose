@@ -77,7 +77,7 @@ def download_model_weights(urls=urls):
         cached_file = os.path.join(model_dir, filename)
         if not os.path.exists(cached_file):
             sys.stderr.write('Downloading: "{}" to {}\n'.format(url, cached_file))
-            download_url_to_file(url, cached_file, progress=True)    
+            download_url_to_file(url, cached_file, progress=True)
 
 class Cellpose():
     """ main model which combines size and cellpose model """
@@ -114,7 +114,8 @@ class Cellpose():
         self.pretrained_model = pretrained_model
         self.pretrained_size = pretrained_size
         self.cp = CellposeModel(device=self.device,
-                                    pretrained_model=self.pretrained_model)
+                                pretrained_model=self.pretrained_model,
+                                diam_mean=self.diam_mean)
         if self.pretrained_size is not None:
             self.sz = SizeModel(device=self.device, pretrained_size=self.pretrained_size,
                                 cp_model=self.cp, diam_mean=diam_mean)
@@ -283,7 +284,8 @@ class CellposeModel():
             styles.append(style)
             cellprob = y[...,2]
             dP = np.stack((y[...,0], y[...,1]), axis=0)
-            p = dynamics.follow_flows(-1 * dP * (cellprob>0) / 5.)
+            niter = self.diam_mean / rescale[i] * 5
+            p = dynamics.follow_flows(-1 * dP * (cellprob>0) / 5., niter=niter)
             if progress is not None:
                 progress.setValue(65)
             maski = dynamics.get_masks(p, flows=dP, threshold=threshold)
