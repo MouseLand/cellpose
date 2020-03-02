@@ -6,6 +6,7 @@ with open("README.md", "r") as fh:
 setuptools.setup(
     name="cellpose",
     version="0.0.1.22",
+    license="BSD",
     author="Marius Pachitariu and Carsen Stringer",
     author_email="stringerc@janelia.hhmi.org",
     description="anatomical segmentation algorithm",
@@ -20,7 +21,7 @@ setuptools.setup(
     include_package_data=True,
     classifiers=(
         "Programming Language :: Python :: 3",
-        "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+        "License :: OSI Approved :: BSD License",
         "Operating System :: OS Independent",
     ),
 )
