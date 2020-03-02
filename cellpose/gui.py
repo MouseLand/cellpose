@@ -422,7 +422,7 @@ class MainW(QtGui.QMainWindow):
         self.autobtn.setStyleSheet(self.checkstyle)
         self.autobtn.setChecked(True)
         self.l0.addWidget(self.autobtn, b+2,0,1,1)
-        
+
         b+=1
         label = QtGui.QLabel('saturation')
         label.setStyleSheet(self.headings)
@@ -455,7 +455,7 @@ class MainW(QtGui.QMainWindow):
             self.useGPU.setChecked(False)
             self.useGPU.setEnabled(False)
             self.useGPU.setStyleSheet("color: rgb(80,80,80);")
-    
+
     def get_channels(self):
         channels = [self.ChannelChoose[0].currentIndex(), self.ChannelChoose[1].currentIndex()]
         if self.current_model=='nuclei':
@@ -675,8 +675,6 @@ class MainW(QtGui.QMainWindow):
         self.in_stroke = False
         self.strokes = []
         self.stroke_appended = True
-        self.cells = []
-        self.medians = []
         self.ncells = 0
         self.cellcolors = [np.array([255,255,255])]
         # -- set menus to default -- #
@@ -697,10 +695,13 @@ class MainW(QtGui.QMainWindow):
         self.currentZ = 0
         self.flows = [[],[],[],[]]
         self.stack = np.zeros((1,self.Ly,self.Lx,3))
+        # masks matrix
         self.layers = 0*np.ones((1,self.Ly,self.Lx,4), np.uint8)
+        # image matrix with a scale disk
         self.radii = 0*np.ones((self.Ly,self.Lx,4), np.uint8)
         self.cellpix = -1*np.ones((1,self.Ly,self.Lx), np.int32)
         self.outpix = -1*np.ones((1,self.Ly,self.Lx), np.int32)
+        self.ismanual = np.zeros(0, np.bool)
         self.update_plot()
         self.basename = []
         self.filename = []
@@ -761,6 +762,9 @@ class MainW(QtGui.QMainWindow):
         for z in range(self.NZ):
             cp = self.cellpix[z]==idx
             op = self.outpix[z]==idx
+            # remove from manual array
+            self.ismanual = np.delete(self.ismanual, idx)
+            # remove from mask layer
             self.layers[z, cp] = np.array([0,0,0,0])
             # remove from self.cellpix and self.outpix
             self.cellpix[z, cp] = -1
@@ -875,6 +879,7 @@ class MainW(QtGui.QMainWindow):
                 self.toggle_mask_ops()
                 self.cellcolors.append(color)
                 self.ncells+=1
+                self.ismanual = np.append(self.ismanual, True)
                 if self.NZ==1:
                     # only save after each cell if single image
                     self.save_sets()
@@ -956,6 +961,7 @@ class MainW(QtGui.QMainWindow):
                      'chan_choose': [self.ChannelChoose[0].currentIndex(),
                                      self.ChannelChoose[1].currentIndex()],
                      'img': image.squeeze(),
+                     'ismanual': self.ismanual,
                      'X2': self.X2,
                      'filename': self.filename,
                      'flows': self.flows})
@@ -967,9 +973,9 @@ class MainW(QtGui.QMainWindow):
     def save_server(self):
         """Uploads a file to the bucket."""
         q = QtGui.QMessageBox.question(
-                                        self, 
-                                        "Send to server", 
-                                        "Are you sure? Only send complete and fully manually segmented data.\n (do not send partially automated segmentations)", 
+                                        self,
+                                        "Send to server",
+                                        "Are you sure? Only send complete and fully manually segmented data.\n (do not send partially automated segmentations)",
                                         QtGui.QMessageBox.Yes | QtGui.QMessageBox.No
                                       )
         if q == QtGui.QMessageBox.Yes:
@@ -1021,7 +1027,7 @@ class MainW(QtGui.QMainWindow):
                 image = image[np.newaxis,...]
         else:
             image = image[np.newaxis,...]
-       
+
         self.stack = image
         self.NZ = len(self.stack)
         self.scroll.setMaximum(self.NZ-1)
@@ -1067,7 +1073,7 @@ class MainW(QtGui.QMainWindow):
         self.pr = int(float(self.Diameter.text()))
         radii = np.zeros((self.Ly+self.pr,self.Lx), np.uint8)
         self.radii = np.zeros((self.Ly+self.pr,self.Lx,4), np.uint8)
-        yy,xx = plot.disk([self.Ly+self.pr/2-1, self.pr/2+1], 
+        yy,xx = plot.disk([self.Ly+self.pr/2-1, self.pr/2+1],
                             self.pr/2, self.Ly+self.pr, self.Lx)
         self.radii[yy,xx,0] = 255
         self.radii[yy,xx,-1] = 255#self.opacity * (radii>0)
@@ -1195,10 +1201,14 @@ class MainW(QtGui.QMainWindow):
         else:
             self.clear_all()
 
+        self.ismanual = np.zeros(self.ncells, np.bool)
+        if 'ismanual' in dat:
+            if len(dat['ismanual']) == self.ncells:
+                self.ismanual = dat['ismanual']
+
         if 'current_channel' in dat:
             self.color = (dat['current_channel']+2)%5
             self.RGBDropDown.setCurrentIndex(self.color)
-
         self.enable_buttons()
 
     def compute_saturation(self):
@@ -1265,6 +1275,7 @@ class MainW(QtGui.QMainWindow):
         self.draw_masks()
         if self.ncells>0:
             self.toggle_mask_ops()
+        self.ismanual = np.zeros(self.ncells, np.bool)
 
     def chanchoose(self, image):
         if image.ndim > 2:
@@ -1408,7 +1419,7 @@ class MainW(QtGui.QMainWindow):
         self.loadMasks.setEnabled(True)
         self.saveSet.setEnabled(True)
         self.toggle_mask_ops()
-            
+
         self.update_plot()
         self.setWindowTitle(self.filename)
 
@@ -1422,11 +1433,11 @@ class MainW(QtGui.QMainWindow):
                 self.saveServer.setEnabled(False)
                 self.ServerButton.setEnabled(False)
                 self.ServerButton.setStyleSheet(self.styleInactive)
-        
+
     def toggle_mask_ops(self):
         self.toggle_removals()
         self.toggle_server()
-            
+
     def load_zstack(self, filename=None):
         #QtWidgets.QApplication.setOverrideCursor(QtCore.Qt.WaitCursor)
         if filename is None:

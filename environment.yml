@@ -10,7 +10,7 @@ dependencies:
   - scipy
   - matplotlib
   - pip:
-    - mxnet-mkl
+    - mxnet-mkl<=1.5.1
     - opencv_python
     - pyqtgraph
     - natsort

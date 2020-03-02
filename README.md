@@ -4,7 +4,7 @@ A generalist algorithm for cell and nucleus segmentation.
 
 This code was written by Carsen Stringer and Marius Pachitariu. To learn about Cellpose, read the [paper](https://t.co/4HFsxDezAP?amp=1) or watch the [talk](https://t.co/JChCsTD0SK?amp=1). For support, please open an [issue](https://github.com/MouseLand/cellpose/issues). 
 
-You can quickly try out Cellpose on the [website](http://www.cellpose.org) first (some features disabled). If you want to improve Cellpose for yourself and for everyone else, please consider contributing manual segmentations for a few of your images via the built-in GUI interface. 
+You can quickly try out Cellpose on the [website](http://www.cellpose.org) first (some features disabled). If you want to improve Cellpose for yourself and for everyone else, please consider contributing manual segmentations for a few of your images via the built-in GUI interface (see instructions below). 
 
 ## Installation
 
@@ -15,7 +15,7 @@ pip install cellpose
 
 Alternatively you can use the included environment file (if you'd like a cellpose-specific environment). This is **recommended** if you have problems with the pip. Please follow these instructions:
 
-1. Download the [`environment.yml`](https://github.com/MouseLand/cellpose/blob/master/environment.yml) file from the repository. You can do this by cloning the repository, or copy-pasting the text from the file into a text document on your local computer.
+1. Download the [`environment.yml`](https://github.com/MouseLand/cellpose/blob/master/environment.yml?raw=true) file from the repository. You can do this by cloning the repository, or copy-pasting the text from the file into a text document on your local computer.
 2. Open an anaconda prompt / command prompt with `conda` for **python 3** in the path
 3. Change directories to where the `environment.yml` is and run `conda env create -f environment.yml`
 4. To activate this new environment, run `conda activate cellpose`
@@ -84,7 +84,21 @@ You can now **drag and drop** any images (*.tif, *.png, *.jpg, *.gif) into the G
 
 For multi-channel, multi-Z tiff's, the expected format is Z x channels x Ly x Lx.
 
-**In the GUI**
+## Contributing training data
+
+We are very excited about receiving community contributions to the training data and re-training the cytoplasm model to make it better. Please follow these guidelines:
+
+1. Run cellpose on your data to see how well it does. Try varying the diameter, which can change results a little. 
+2. If there are relatively few mistakes, it won't help much to contribute labelled data. 
+3. If there are consistent mistakes, your data is likely very different from anything in the training set, and you should expect major improvements from contributing even just a few manually segmented images.
+4. For images that you contribute, the cells should be at least 10 pixels in diameter, and there should be **at least** several dozens of cells per image, ideally ~100. If your images are too small, consider combining multiple images into a single big one and then manually segmenting that. If they are too big, consider splitting them into smaller crops. 
+5. For the manual segmentation, please try to outline the boundaries of the cell, so that everything (membrane, cytoplasm, nucleus) is inside the boundaries. Do not just outline the cytoplasm and exclude the membrane, because that would be inconsistent with our own labelling and we wouldn't be able to use that. 
+6. Do not use the results of the algorithm in any way to do contributed manual segmentations. This can reinforce a vicious circle of mistakes, and compromise the dataset for further algorithm development. 
+
+If you are having problems with the nucleus model, please open an issue before contributing data. Nucleus images are generally much less diverse, and we think the current training dataset already covers a very large set of modalities. 
+
+
+## Using the GUI
 
 The GUI serves two main functions:
 
@@ -138,44 +152,7 @@ CHAN2 (OPT): if *cytoplasm* model is chosen, then choose the nuclear channel for
 
 ### In a notebook
 
-See also [run_cellpose.ipynb](notebooks/run_cellpose.ipynb).
-
-~~~
-import numpy as np
-import time, os, sys
-import mxnet as mx
-import matplotlib.pyplot as plt
-import glob
-import sys
-from cellpose import models, utils, plot
-
-# check if GPU working, and if so use it
-use_gpu = utils.use_gpu()
-if use_gpu:
-    device = mx.gpu()
-else:
-    device = mx.cpu()
-
-# model_type='cyto' or model_type='nuclei'
-model = models.Cellpose(device, model_type='nuclei')
-
-# list of files
-files = ['/github/cellpose_web/static/images/img00.png', 
-         '/github/cellpose_web/static/images/img01.png']
-
-imgs = [plt.imread(f) for f in files]
-nimg = len(imgs)
-
-# define CHANNELS to run segementation on
-# grayscale=0, R=1, G=2, B=3
-# channels = [cytoplasm, nucleus]
-# if NUCLEUS channel does not exist, set the second channel to 0
-channels = [[2,3], [0,0]]
-
-# if rescale is set to None, the size of the cells is estimated on a per image basis
-# if you want to set the size yourself, set it to 30. / average_cell_diameter
-masks, flows, styles, diams = model.eval(imgs, rescale=None, channels=channels)
-~~~
+See [run_cellpose.ipynb](notebooks/run_cellpose.ipynb).
 
 ## Outputs
 
@@ -187,8 +164,7 @@ masks, flows, styles, diams = model.eval(imgs, rescale=None, channels=channels)
 - *colors* : colors for masks
 - *outlines* : outlines of masks (-1 = NO outline, 0,1,2,... = outline labels)
 - *chan_choose* : channels that you chose in GUI (0=gray/none, 1=red, 2=green, 3=blue)
-- *cell_type* : string with cell_type that you chose
-- *cells* : int of cell_type that you chose
+- *ismanual* : element *k* = whether or not mask *k* was manually drawn or computed by the cellpose algorithm
 
 ~~~~
 import numpy as np
