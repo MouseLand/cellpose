@@ -23,8 +23,8 @@ class HelpWindow(QtGui.QDialog):
             <li class="has-line-data" data-line-start="12" data-line-end="13">Start draw mask = right-click</li>
             <li class="has-line-data" data-line-start="13" data-line-end="15">End draw mask = right-click, or return to circle at beginning</li>
             </ul>
-            <p class="has-line-data" data-line-start="15" data-line-end="16">Overlaps in masks are NOT allowed. If you draw a mask on top of another mask, it is cropped so that it doesn’t overlap with the old mask. Masks in 2D should be single strokes (single stroke is checked). If you want to draw masks in 3D (experimental), then you can turn this option off and draw a stroke on each plane with the cell and then press ENTER.</p>
-            <p class="has-line-data" data-line-start="17" data-line-end="18">!NOTE!: The GUI automatically saves after you draw a mask but NOT after segmentation. Save in the file menu or with Ctrl+S. The output file is in the same folder as the loaded image with <code>_seg.npy</code> appended.</p>
+            <p class="has-line-data" data-line-start="15" data-line-end="16">Overlaps in masks are NOT allowed. If you draw a mask on top of another mask, it is cropped so that it doesn’t overlap with the old mask. Masks in 2D should be single strokes (single stroke is checked). If you want to draw masks in 3D (experimental), then you can turn this option off and draw a stroke on each plane with the cell and then press ENTER. 3D labelling will fill in planes that you have not labelled so that you do not have to as densely label.</p>
+            <p class="has-line-data" data-line-start="17" data-line-end="18">!NOTE!: The GUI automatically saves after you draw a mask in 2D but NOT after 3D mask drawing and NOT after segmentation. Save in the file menu or with Ctrl+S. The output file is in the same folder as the loaded image with <code>_seg.npy</code> appended.</p>
             <table class="table table-striped table-bordered">
             <br><br>
             <thead>
@@ -92,7 +92,7 @@ class HelpWindow(QtGui.QDialog):
             </tr>
             </tbody>
             </table>
-            <p class="has-line-data" data-line-start="36" data-line-end="37"><strong>Segmentation options</strong></p>
+            <p class="has-line-data" data-line-start="36" data-line-end="37"><strong>Segmentation options (2D only) </strong></p>
             <p class="has-line-data" data-line-start="38" data-line-end="39">SIZE: you can manually enter the approximate diameter for your cells, or press “calibrate” to let the model estimate it. The size is represented by a disk at the bottom of the view window (can turn this disk of by unchecking “scale disk on”).</p>
             <p class="has-line-data" data-line-start="40" data-line-end="41">use GPU: if you have specially installed the cuda version of mxnet, then you can activate this, but it won’t give huge speedups when running single images in the GUI.</p>
             <p class="has-line-data" data-line-start="42" data-line-end="43">MODEL: there is a <em>cytoplasm</em> model and a <em>nuclei</em> model, choose what you want to segment</p>
@@ -100,6 +100,7 @@ class HelpWindow(QtGui.QDialog):
             <p class="has-line-data" data-line-start="46" data-line-end="47">CHAN2 (OPT): if <em>cytoplasm</em> model is chosen, then choose the nuclear channel for this option</p>
             ''')
         label = QtGui.QLabel(text)
+        label.setFont(QtGui.QFont("Arial", 8))
         label.setWordWrap(True)
         layout.addWidget(label, 0, 0, 1, 1)
         self.show()
@@ -248,12 +249,11 @@ class ImageDraw(pg.ImageItem):
                     if ev.button()==QtCore.Qt.LeftButton and ev.modifiers()==QtCore.Qt.ControlModifier:
                         # delete mask selected
                         idx = self.parent.cellpix[self.parent.currentZ][y,x]
-                        if idx > -1:
+                        if idx > 0:
                             self.parent.remove_cell(idx)
                     elif ev.button()==QtCore.Qt.LeftButton and self.parent.masksOn:
                         idx = self.parent.cellpix[self.parent.currentZ][int(ev.pos().y()), int(ev.pos().x())]
-                        
-                        if idx > -1:
+                        if idx > 0:
                             self.parent.unselect_cell()
                             self.parent.select_cell(idx)
                         else:

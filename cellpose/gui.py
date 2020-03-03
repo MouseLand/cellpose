@@ -1,4 +1,5 @@
 import sys, os, warnings, datetime, tempfile, glob
+import gc
 from natsort import natsorted
 from tqdm import tqdm
 
@@ -9,10 +10,9 @@ import matplotlib.pyplot as plt
 
 import numpy as np
 import cv2
-from scipy.ndimage import gaussian_filter1d
-from scipy.interpolate import interp1d
+from scipy.ndimage import gaussian_filter
 from skimage import io
-from skimage import transform, draw, measure, segmentation
+from skimage import draw
 
 import mxnet as mx
 from mxnet import nd
@@ -33,6 +33,52 @@ class QHLine(QtGui.QFrame):
         super(QHLine, self).__init__()
         self.setFrameShape(QtGui.QFrame.HLine)
         self.setFrameShadow(QtGui.QFrame.Sunken)
+
+def avg3d(C):
+    """ smooth value of c across nearby points 
+        (c is center of grid directly below point)
+        b -- a -- b
+        a -- c -- a
+        b -- a -- b
+    """
+    Ly, Lx = C.shape
+    # pad T by 2
+    T = np.zeros((Ly+2, Lx+2), np.float32)
+    M = np.zeros((Ly, Lx), np.float32)
+    T[1:-1, 1:-1] = C.copy()
+    y,x = np.meshgrid(np.arange(0,Ly,1,int), np.arange(0,Lx,1,int), indexing='ij')
+    y += 1
+    x += 1
+    a = 1./2 #/(z**2 + 1)**0.5
+    b = 1./(1+2**0.5) #(z**2 + 2)**0.5
+    c = 1.
+    M = (b*T[y-1, x-1] + a*T[y-1, x] + b*T[y-1, x+1] +
+         a*T[y, x-1]   + c*T[y, x]   + a*T[y, x+1] +
+         b*T[y+1, x-1] + a*T[y+1, x] + b*T[y+1, x+1])
+    M /= 4*a + 4*b + c
+    return M
+
+def interpZ(mask, zdraw):
+    """ find nearby planes and average their values using grid of points
+        zfill is in ascending order
+    """
+    ifill = np.ones(mask.shape[0], np.bool)
+    zall = np.arange(0, mask.shape[0], 1, int)
+    ifill[zdraw] = False
+    zfill = zall[ifill]
+    zlower = zdraw[np.searchsorted(zdraw, zfill, side='left')-1]
+    zupper = zdraw[np.searchsorted(zdraw, zfill, side='right')]
+    for k,z in enumerate(zfill):
+        Z = zupper[k] - zlower[k]
+        zl = (z-zlower[k])/Z
+        plower = avg3d(mask[zlower[k]]) * (1-zl)
+        pupper = avg3d(mask[zupper[k]]) * zl
+        mask[z] = (plower + pupper) > 0.33
+        #Ml, norml = avg3d(mask[zlower[k]], zl)
+        #Mu, normu = avg3d(mask[zupper[k]], 1-zl)
+        #mask[z] = (Ml + Mu) / (norml + normu)  > 0.5
+    return mask, zfill
+
 
 def make_bwr():
     # make a bwr colormap
@@ -440,6 +486,19 @@ class MainW(QtGui.QMainWindow):
         self.l0.setRowStretch(b, 1)
 
         b+=2
+        # add z position underneath
+        self.currentZ = 0
+        label = QtGui.QLabel('Z:')
+        label.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
+        label.setStyleSheet('color: white;')
+        self.l0.addWidget(label, b, 0,1,1)
+        self.zpos = QtGui.QLineEdit()
+        self.zpos.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
+        self.zpos.setText(str(self.currentZ))
+        self.zpos.returnPressed.connect(self.compute_scale)
+        self.zpos.setFixedWidth(60)
+        self.l0.addWidget(self.zpos, b, 1,1,1)
+
         # add scrollbar underneath
         self.scroll = QtGui.QScrollBar(QtCore.Qt.Horizontal)
         self.scroll.setMaximum(10)
@@ -493,37 +552,43 @@ class MainW(QtGui.QMainWindow):
                     if len(self.current_point_set) > 0:
                         if event.key() == QtCore.Qt.Key_Return:
                             self.add_set()
+                        if self.NZ>1:
+                            if event.key() == QtCore.Qt.Key_Left:
+                                self.currentZ = max(0,self.currentZ-1)
+                                self.zpos.setText(str(self.currentZ))
+                            elif event.key() == QtCore.Qt.Key_Right:
+                                self.currentZ = min(self.NZ-1, self.currentZ+1)
+                                self.zpos.setText(str(self.currentZ))
                     else:
                         if event.key() == QtCore.Qt.Key_X:
                             self.MCheckBox.toggle()
                         if event.key() == QtCore.Qt.Key_Z:
                             self.OCheckBox.toggle()
                         if event.key() == QtCore.Qt.Key_Left:
-                            self.currentZ = max(0,self.currentZ-1)
                             if self.NZ==1:
                                 self.get_prev_image()
-                        elif event.key() == QtCore.Qt.Key_Right:
-                            self.currentZ = min(self.NZ-1, self.currentZ+1)
-                            if self.NZ==1:
-                                self.get_next_image()
-                        elif event.key() == QtCore.Qt.Key_A:
-                            self.currentZ = max(0,self.currentZ-1)
-                            if self.NZ==1:
-                                self.get_prev_image()
-                        elif event.key() == QtCore.Qt.Key_D:
-                            self.currentZ = min(self.NZ-1, self.currentZ+1)
-                            if self.NZ==1:
-                                self.get_next_image()
-                        elif (event.key() == QtCore.Qt.Key_Comma or
-                            event.key() == QtCore.Qt.Key_Period):
-                            count = self.BrushChoose.count()
-                            gci = self.BrushChoose.currentIndex()
-                            if event.key() == QtCore.Qt.Key_Comma:
-                                gci = max(0, gci-1)
                             else:
-                                gci = min(count-1, gci+1)
-                            self.BrushChoose.setCurrentIndex(gci)
-                            self.brush_choose()
+                                self.currentZ = max(0,self.currentZ-1)
+                                self.zpos.setText(str(self.currentZ))
+                        elif event.key() == QtCore.Qt.Key_Right:
+                            if self.NZ==1:
+                                self.get_next_image()
+                            else:
+                                self.currentZ = min(self.NZ-1, self.currentZ+1)
+                                self.zpos.setText(str(self.currentZ))
+                        elif event.key() == QtCore.Qt.Key_A:
+                            if self.NZ==1:
+                                self.get_prev_image()
+                            else:
+                                self.currentZ = max(0,self.currentZ-1)
+                                self.zpos.setText(str(self.currentZ))
+                        elif event.key() == QtCore.Qt.Key_D:
+                            if self.NZ==1:
+                                self.get_next_image()
+                            else:
+                                self.currentZ = min(self.NZ-1, self.currentZ+1)
+                                self.zpos.setText(str(self.currentZ))
+                        
                         elif event.key() == QtCore.Qt.Key_PageDown:
                             self.view = (self.view+1)%(len(self.RGBChoose.bstr))
                             self.RGBChoose.button(self.view).setChecked(True)
@@ -531,13 +596,23 @@ class MainW(QtGui.QMainWindow):
                             self.view = (self.view-1)%(len(self.RGBChoose.bstr))
                             self.RGBChoose.button(self.view).setChecked(True)
 
-                    # can change background if stroke not finished
+                    # can change background or stroke size if cell not finished
                     if event.key() == QtCore.Qt.Key_Up or event.key() == QtCore.Qt.Key_W:
                         self.color = (self.color-1)%(5)
                         self.RGBDropDown.setCurrentIndex(self.color)
                     elif event.key() == QtCore.Qt.Key_Down or event.key() == QtCore.Qt.Key_S:
                         self.color = (self.color+1)%(5)
                         self.RGBDropDown.setCurrentIndex(self.color)
+                    elif (event.key() == QtCore.Qt.Key_Comma or
+                            event.key() == QtCore.Qt.Key_Period):
+                        count = self.BrushChoose.count()
+                        gci = self.BrushChoose.currentIndex()
+                        if event.key() == QtCore.Qt.Key_Comma:
+                            gci = max(0, gci-1)
+                        else:
+                            gci = min(count-1, gci+1)
+                        self.BrushChoose.setCurrentIndex(gci)
+                        self.brush_choose()
                 self.update_plot()
             elif event.modifiers() == QtCore.Qt.ControlModifier:
                 if event.key() == QtCore.Qt.Key_Z:
@@ -556,7 +631,7 @@ class MainW(QtGui.QMainWindow):
             self.undo.setEnabled(False)
 
     def remove_action(self):
-        if self.selected>-1:
+        if self.selected>0:
             self.remove_cell(self.selected)
 
     def undo_action(self):
@@ -608,13 +683,6 @@ class MainW(QtGui.QMainWindow):
         print(files)
         self.load_images(filename=files[0])
 
-    def is_cells(self):
-        if self.IsCells.isChecked():
-            self.iscells = True
-        else:
-            self.iscells = False
-        self.save_sets()
-
     def toggle_masks(self):
         if self.MCheckBox.isChecked():
             self.masksOn = True
@@ -637,6 +705,7 @@ class MainW(QtGui.QMainWindow):
     def move_in_Z(self):
         if self.loaded:
             self.currentZ = min(self.NZ, max(0, int(self.scroll.value())))
+            self.zpos.setText(str(self.currentZ))
             self.update_plot()
 
     def make_viewbox(self):
@@ -665,7 +734,7 @@ class MainW(QtGui.QMainWindow):
 
     def reset(self):
         # ---- start sets of points ---- #
-        self.selected = -1
+        self.selected = 0
         self.X2 = 0
         self.resize = -1
         self.onechan = False
@@ -676,6 +745,7 @@ class MainW(QtGui.QMainWindow):
         self.strokes = []
         self.stroke_appended = True
         self.ncells = 0
+        self.zdraw = []
         self.cellcolors = [np.array([255,255,255])]
         # -- set menus to default -- #
         self.color = 0
@@ -699,8 +769,8 @@ class MainW(QtGui.QMainWindow):
         self.layers = 0*np.ones((1,self.Ly,self.Lx,4), np.uint8)
         # image matrix with a scale disk
         self.radii = 0*np.ones((self.Ly,self.Lx,4), np.uint8)
-        self.cellpix = -1*np.ones((1,self.Ly,self.Lx), np.int32)
-        self.outpix = -1*np.ones((1,self.Ly,self.Lx), np.int32)
+        self.cellpix = np.zeros((1,self.Ly,self.Lx), np.uint16)
+        self.outpix = np.zeros((1,self.Ly,self.Lx), np.uint16)
         self.ismanual = np.zeros(0, np.bool)
         self.update_plot()
         self.basename = []
@@ -728,11 +798,11 @@ class MainW(QtGui.QMainWindow):
             self.p0.removeItem(self.hLine)
 
     def clear_all(self):
-        self.selected = -1
+        self.selected = 0
         #self.layers_undo, self.cellpix_undo, self.outpix_undo = [],[],[]
         self.layers = 0*np.ones((self.NZ,self.Ly,self.Lx,4), np.uint8)
-        self.cellpix = -1*np.ones((self.NZ,self.Ly,self.Lx), np.int32)
-        self.outpix = -1*np.ones((self.NZ,self.Ly,self.Lx), np.int32)
+        self.cellpix = np.zeros((self.NZ,self.Ly,self.Lx), np.uint16)
+        self.outpix = np.zeros((self.NZ,self.Ly,self.Lx), np.uint16)
         self.cellcolors = [np.array([255,255,255])]
         self.ncells = 0
         print('removed all cells')
@@ -741,57 +811,60 @@ class MainW(QtGui.QMainWindow):
 
     def select_cell(self, idx):
         self.selected = idx
-        if self.selected > -1:
+        if self.selected > 0:
             self.layers[self.cellpix==idx] = np.array([255,255,255,self.opacity])
             #if self.outlinesOn:
             #    self.layers[self.outpix==idx] = np.array(self.outcolor)
             self.update_plot()
 
     def unselect_cell(self):
-        if self.selected > -1:
+        if self.selected > 0:
             idx = self.selected
-            if idx < self.ncells:
-                self.layers[self.cellpix==idx] = np.append(self.cellcolors[idx+1], self.opacity)
+            if idx < self.ncells+1:
+                self.layers[self.cellpix==idx] = np.append(self.cellcolors[idx], self.opacity)
                 if self.outlinesOn:
-                    self.layers[self.outpix==idx] = np.array(self.outcolor)
+                    self.layers[self.outpix==idx] = np.array(self.outcolor).astype(np.uint8)
                     #[0,0,0,self.opacity])
                 self.update_plot()
-        self.selected = -1
+        self.selected = 0
 
     def remove_cell(self, idx):
+        # remove from manual array
+        self.selected = 0
+        self.ismanual = np.delete(self.ismanual, idx-1)
         for z in range(self.NZ):
             cp = self.cellpix[z]==idx
             op = self.outpix[z]==idx
-            # remove from manual array
-            self.ismanual = np.delete(self.ismanual, idx)
             # remove from mask layer
             self.layers[z, cp] = np.array([0,0,0,0])
             # remove from self.cellpix and self.outpix
-            self.cellpix[z, cp] = -1
-            self.outpix[z, op] = -1
+            self.cellpix[z, cp] = 0
+            self.outpix[z, op] = 0
             # reduce other pixels by -1
             self.cellpix[z, self.cellpix[z]>idx] -= 1
             self.outpix[z, self.outpix[z]>idx] -= 1
         self.update_plot()
-        del self.cellcolors[idx+1]
+        del self.cellcolors[idx]
+        del self.zdraw[idx-1]
         self.ncells -= 1
-        print('removed cell %d'%idx)
+        print('removed cell %d'%(idx-1))
         if self.ncells==0:
             self.ClearButton.setEnabled(False)
-        self.save_sets()
+        if self.NZ==1:
+            self.save_sets()
 
     def remove_stroke(self, delete_points=True):
         #self.current_stroke = get_unique_points(self.current_stroke)
         stroke = np.array(self.strokes[-1])
         cZ = stroke[0,0]
-        outpix = self.outpix[cZ][stroke[:,1],stroke[:,2]]>-1
+        outpix = self.outpix[cZ][stroke[:,1],stroke[:,2]]>0
         self.layers[cZ][stroke[~outpix,1],stroke[~outpix,2]] = np.array([0,0,0,0])
         if self.masksOn:
-            cellpix = (self.cellpix[cZ][stroke[:,1], stroke[:,2]]).astype(np.int32)
+            cellpix = self.cellpix[cZ][stroke[:,1], stroke[:,2]]
             ccol = np.array(self.cellcolors.copy())
-            if self.selected > -1:
-                ccol[self.selected+1] = np.array([255,255,255])
-            col2mask = ccol[cellpix+1]
+            if self.selected > 0:
+                ccol[self.selected] = np.array([255,255,255])
+            col2mask = ccol[cellpix]
             col2mask = np.concatenate((col2mask, self.opacity*(cellpix[:,np.newaxis]>0)), axis=-1)
             self.layers[cZ][stroke[:,1], stroke[:,2], :] = col2mask
         if self.outlinesOn:
@@ -832,7 +905,14 @@ class MainW(QtGui.QMainWindow):
         self.update_plot()
 
     def update_plot(self):
-        self.scroll.setValue(self.currentZ)
+        zpos = self.currentZ
+        try:
+            zpos = int(self.zpos.text())
+        except:
+            print('ERROR: zposition is in NUMBERS')
+        self.currentZ = max(0, min(self.NZ-1, zpos))
+        self.zpos.setText(str(self.currentZ))
+        #self.scroll.setValue(self.currentZ)
         self.Ly, self.Lx, _ = self.stack[self.currentZ].shape
         if self.view==0:
             image = self.stack[self.currentZ]
@@ -888,55 +968,78 @@ class MainW(QtGui.QMainWindow):
             self.current_point_set = []
             self.update_plot()
 
-    def add_mask(self, points=None, color=(100,200,50), mask=None):
+    def add_mask(self, points=None, color=(100,200,50)):
         # loop over z values
         median = []
         if points.shape[1] < 3:
             points = np.concatenate((np.zeros((points.shape[0],1), np.int32), points), axis=1)
-        for z in np.unique(points[:,0]):
+
+        zdraw = np.unique(points[:,0])
+        zrange = np.arange(zdraw.min(), zdraw.max()+1, 1, int)
+        zmin = zdraw.min()
+        pix = np.zeros((2,0), np.uint16)
+        mall = np.zeros((len(zrange), self.Ly, self.Lx), np.bool)
+        k=0
+        for z in zdraw:
             iz = points[:,0] == z
             vr = points[iz,1]
             vc = points[iz,2]
-            try:
-                vr, vc = draw.polygon_perimeter(vr, vc, self.layers[z].shape[:2])
-                if mask is None:
-                    ar, ac = draw.polygon(vr, vc, self.layers[z].shape[:2])
-                else:
-                    ar, ac = mask
-                med = np.array([np.median(ar), np.median(ac)])
-                # if these pixels are overlapping with another cell, reassign them
-                ioverlap = self.cellpix[z][ar, ac] > -1
-                if (~ioverlap).sum() < 5:
-                    print('cell too small without overlaps')
-                    return
-                elif ioverlap.sum() > 0:
-                    ar, ac = ar[~ioverlap], ac[~ioverlap]
-                    mask = np.zeros((self.Ly,self.Lx), np.int32)
-                    mask[ar,ac] = 1
-                    outlines = plot.masks_to_outlines(mask)
-                    pix = np.array(np.nonzero(outlines)).T
-                    if pix is not None:
-                        vr = pix[:,0].copy()
-                        vc = pix[:,1].copy()
-                        self.outpix[z][vr, vc] = int(self.ncells)
-                        if mask is None:
-                            self.cellpix[z][vr, vc] = int(self.ncells)
-                        self.cellpix[z][ar, ac] = int(self.ncells)
-                else:
-                    if mask is None:
-                        self.cellpix[z][vr, vc] = int(self.ncells)
-                    self.cellpix[z][ar, ac] = int(self.ncells)
-                    self.outpix[z][vr, vc] = int(self.ncells)
-                if self.masksOn:
-                    self.layers[z][ar, ac, :3] = color
-                    self.layers[z][ar, ac, -1] = self.opacity
-                if self.outlinesOn:
-                    self.layers[z][vr, vc] = np.array(self.outcolor)#np.array([0,0,0])
-                median.append(np.array([np.median(ar), np.median(ac)]))
-            except Exception as e:
-                print('ERROR: %s'%e)
+            
+            vr, vc = draw.polygon_perimeter(vr, vc, self.layers[z].shape[:2])
+            ar, ac = draw.polygon(vr, vc, self.layers[z].shape[:2])
+            ar, ac = np.hstack((np.vstack((vr, vc)), np.vstack((ar, ac))))
+            # if these pixels are overlapping with another cell, reassign them
+            ioverlap = self.cellpix[z][ar, ac] > 0
+            if (~ioverlap).sum() < 8:
+                print('ERROR: cell too small without overlaps, not drawn')
                 return None
+            elif ioverlap.sum() > 0:
+                ar, ac = ar[~ioverlap], ac[~ioverlap]
+                # compute outline of new mask
+                mask = np.zeros((np.ptp(ar)+1, np.ptp(ac)+1), np.bool)
+                mask[ar-ar.min(), ac-ac.min()] = True
+                outlines = plot.masks_to_outlines(mask)
+                vr, vc = np.nonzero(outlines)
+                vr, vc = vr + ar.min(), vc + ac.min()
+                
+            self.draw_mask(z, ar, ac, vr, vc, color)
+
+            median.append(np.array([np.median(ar), np.median(ac)]))
+            mall[z-zmin, ar, ac] = True
+            pix = np.append(pix, np.vstack((ar, ac)), axis=-1)
+        
+        mall = mall[:, pix[0].min():pix[0].max()+1, pix[1].min():pix[1].max()+1].astype(np.float32)
+        ymin, xmin = pix[0].min(), pix[1].min()
+        if len(zdraw) > 1:
+            mall, zfill = interpZ(mall, zdraw - zmin)
+            for z in zfill:
+                ar, ac = np.nonzero(mall[z])
+                ar, ac = ar+ymin, ac+xmin
+                ioverlap = self.cellpix[z][ar, ac] > 0
+                if (~ioverlap).sum() < 5:
+                    print('WARNING: stroke on plane %d not included due to overlaps'%z)
+                elif ioverlap.sum() > 0:
+                    mall[ar[ioverlap], ac[ioverlap]] = 0
+                    ar, ac = ar[~ioverlap], ac[~ioverlap]
+                # compute outline of mask
+                outlines = plot.masks_to_outlines(mall[z])
+                vr, vc = np.nonzero(outlines)
+                vr, vc = vr+ymin, vc+xmin
+                self.draw_mask(z+zmin, ar, ac, vr, vc, color)
+        self.zdraw.append(zdraw)
+
         return median
+
+    def draw_mask(self, z, ar, ac, vr, vc, color):
+        ''' draw single mask using outlines and area '''
+        self.cellpix[z][vr, vc] = self.ncells+1
+        self.cellpix[z][ar, ac] = self.ncells+1
+        self.outpix[z][vr, vc] = self.ncells+1                
+        if self.masksOn:
+            self.layers[z][ar, ac, :3] = color
+            self.layers[z][ar, ac, -1] = self.opacity
+        if self.outlinesOn:
+            self.layers[z][vr, vc] = np.array(self.outcolor)
 
     def save_sets(self):
         if self.is_stack:
@@ -949,7 +1052,8 @@ class MainW(QtGui.QMainWindow):
                      'colors': self.cellcolors[1:],
                      'masks': self.cellpix,
                      'current_channel': (self.color-2)%5,
-                     'filename': self.filename})
+                     'filename': self.filename,
+                     'zdraw': self.zdraw})
         else:
             image = self.chanchoose(self.stack[self.currentZ].copy())
             if image.ndim < 4:
@@ -999,6 +1103,44 @@ class MainW(QtGui.QMainWindow):
                 )
             )
 
+    def compute_scale(self):
+        self.diameter = float(self.Diameter.text())
+        self.pr = int(float(self.Diameter.text()))
+        radii = np.zeros((self.Ly+self.pr,self.Lx), np.uint8)
+        self.radii = np.zeros((self.Ly+self.pr,self.Lx,4), np.uint8)
+        yy,xx = plot.disk([self.Ly+self.pr/2-1, self.pr/2+1],
+                            self.pr/2, self.Ly+self.pr, self.Lx)
+        self.radii[yy,xx,0] = 255
+        self.radii[yy,xx,-1] = 255#self.opacity * (radii>0)
+        self.update_plot()
+        self.p0.setYRange(0,self.Ly+self.pr)
+        self.p0.setXRange(0,self.Lx)
+
+    def redraw_masks(self, masks=True, outlines=True):
+        if not outlines and masks:
+            self.draw_masks()
+            self.cellcolors = np.array(self.cellcolors)
+            self.layers[...,:3] = self.cellcolors[self.cellpix,:]
+            self.layers[...,3] = self.opacity * (self.cellpix>0).astype(np.uint8)
+            self.cellcolors = list(self.cellcolors)
+            if self.selected>0:
+                self.layers[self.cellpix==self.selected] = np.array([255,255,255,self.opacity])
+        else:
+            if masks:
+                self.layers[...,3] = self.opacity * (self.cellpix>0).astype(np.uint8)
+            else:
+                self.layers[...,3] = 0
+            self.layers[self.outpix>0] = np.array(self.outcolor).astype(np.uint8)
+            
+    def draw_masks(self):
+        self.cellcolors = np.array(self.cellcolors)
+        self.layers[...,:3] = self.cellcolors[self.cellpix,:]
+        self.layers[...,3] = self.opacity * (self.cellpix>0).astype(np.uint8)
+        self.cellcolors = list(self.cellcolors)
+        self.layers[self.outpix>0] = np.array(self.outcolor)
+        if self.selected>0:
+            self.layers[self.outpix==self.selected] = np.array([0,0,0,self.opacity])
+
     def initialize_images(self, image, resize, X2):
         self.onechan=False
         if image.ndim > 3:
@@ -1031,83 +1173,35 @@ class MainW(QtGui.QMainWindow):
         self.stack = image
         self.NZ = len(self.stack)
         self.scroll.setMaximum(self.NZ-1)
-        self.layers, self.outpix, self.cellpix = [],[],[]
         if self.stack.max()>255 or self.stack.min()<0.0 or self.stack.max()<=50.0:
             self.stack = self.stack.astype(np.float32)
             self.stack -= self.stack.min()
             self.stack /= self.stack.max()
             self.stack *= 255
         del image
+        gc.collect()
 
         self.stack = list(self.stack)
-        self.orig_stack = self.stack.copy()
         for k,img in enumerate(self.stack):
             # if grayscale make 3D
             if resize != -1:
                 img = utils.image_resizer(img, resize=resize, to_uint8=False)
-            self.orig_stack[k] = img.copy()
             if img.ndim==2:
                 img = np.tile(img[:,:,np.newaxis], (1,1,3))
                 self.onechan=True
             if X2!=0:
                 img = utils.X2zoom(img, X2=X2)
             self.stack[k] = img
-            self.layers.append(255*np.ones((img.shape[0], img.shape[1], 4), dtype=np.uint8))
-            self.layers[-1][:,:,-1] = 0 # set transparent
-            self.cellpix.append(-1*np.ones(img.shape[:2], np.int32))
-            self.outpix.append(-1*np.ones(img.shape[:2], np.int32))
+            
         self.imask=0
         print(self.NZ, self.stack[0].shape)
         self.Ly, self.Lx = img.shape[0], img.shape[1]
         self.currentZ = int(np.floor(self.NZ/2))
         self.stack = np.array(self.stack)
-        self.layers = np.array(self.layers)
-        self.cellpix = np.array(self.cellpix)
-        self.outpix = np.array(self.outpix)
+        self.layers = 0*np.ones((self.NZ,self.Ly,self.Lx,4), np.uint8)
         if self.autobtn.isChecked() or len(self.saturation)!=self.NZ:
             self.compute_saturation()
         self.compute_scale()
-
-    def compute_scale(self):
-        self.diameter = float(self.Diameter.text())
-        self.pr = int(float(self.Diameter.text()))
-        radii = np.zeros((self.Ly+self.pr,self.Lx), np.uint8)
-        self.radii = np.zeros((self.Ly+self.pr,self.Lx,4), np.uint8)
-        yy,xx = plot.disk([self.Ly+self.pr/2-1, self.pr/2+1],
-                            self.pr/2, self.Ly+self.pr, self.Lx)
-        self.radii[yy,xx,0] = 255
-        self.radii[yy,xx,-1] = 255#self.opacity * (radii>0)
-        self.update_plot()
-        self.p0.setYRange(0,self.Ly+self.pr)
-        self.p0.setXRange(0,self.Lx)
-
-    def redraw_masks(self, masks=True, outlines=True):
-        if not outlines and masks:
-            self.draw_masks()
-            self.cellcolors = np.array(self.cellcolors)
-            self.layers[...,:3] = self.cellcolors[self.cellpix+1,:]
-            self.layers[...,3] = self.opacity * (self.cellpix>-1).astype(np.uint8)
-            self.cellcolors = list(self.cellcolors)
-            if self.selected>-1:
-                self.layers[self.cellpix==self.selected] = np.array([255,255,255,self.opacity])
-        else:
-            if masks:
-                self.layers[...,3] = self.opacity * (self.cellpix>-1).astype(np.uint8)
-            else:
-                self.layers[...,3] = 0
-            self.layers[self.outpix>-1] = np.array(self.outcolor)
-            #if masks and self.selected>-1:
-            #    self.layers[self.outpix==self.selected] = np.array([0,0,0,self.opacity])
-
-    def draw_masks(self):
-        self.cellcolors = np.array(self.cellcolors)
-        self.layers[...,:3] = self.cellcolors[self.cellpix+1,:]
-        self.layers[...,3] = self.opacity * (self.cellpix>-1).astype(np.uint8)
-        self.cellcolors = list(self.cellcolors)
-        self.layers[self.outpix>-1] = np.array(self.outcolor)
-        if self.selected>-1:
-            self.layers[self.outpix==self.selected] = np.array([0,0,0,self.opacity])
-
 
     def load_manual(self, filename=None, image=None, image_file=None):
         if filename is None:
@@ -1189,13 +1283,21 @@ class MainW(QtGui.QMainWindow):
                 if dat['masks'].ndim==2:
                     dat['masks'] = dat['masks'][np.newaxis,:,:]
                     dat['outlines'] = dat['outlines'][np.newaxis,:,:]
+                if dat['masks'].min()==-1:
+                    dat['masks'] += 1
+                    dat['outlines'] += 1
+                
                 self.cellpix = dat['masks']
                 self.outpix = dat['outlines']
                 self.cellcolors.extend(dat['colors'])
-                self.ncells = self.cellpix.max()+1
+                self.ncells = np.uint16(self.cellpix.max())
                 self.draw_masks()
                 if self.masksOn or self.outlinesOn and not (self.masksOn and self.outlinesOn):
                     self.redraw_masks(masks=self.masksOn, outlines=self.outlinesOn)
+            if 'zdraw' in dat:
+                self.zdraw = dat['zdraw']
+            else:
+                self.zdraw = [None]*self.ncells
             self.loaded = True
             print('%d masks found'%(self.ncells))
         else:
@@ -1209,7 +1311,10 @@ class MainW(QtGui.QMainWindow):
         if 'current_channel' in dat:
             self.color = (dat['current_channel']+2)%5
             self.RGBDropDown.setCurrentIndex(self.color)
+
         self.enable_buttons()
+        del dat
+        gc.collect()
 
     def compute_saturation(self):
         # compute percentiles from stack
@@ -1253,13 +1358,13 @@ class MainW(QtGui.QMainWindow):
         shape = masks.shape
         _, masks = np.unique(masks, return_inverse=True)
         masks = np.reshape(masks, shape)
-        self.cellpix = masks-1
+        self.cellpix = masks
         # get outlines
         if outlines is None:
-            self.outpix = -1*np.ones(masks.shape, np.int32)
+            self.outpix = np.zeros(masks.shape, np.uint16)
             for z in range(self.NZ):
                 outlines = plot.masks_to_outlines(masks[z])
-                self.outpix[z] = ((outlines * masks[z]) - 1).astype(np.int32)
+                self.outpix[z] = ((outlines * masks[z])).astype(np.uint16)
                 if z%50==0:
                     print('plane %d outlines processed'%z)
         else:
@@ -1267,9 +1372,8 @@ class MainW(QtGui.QMainWindow):
             shape = self.outpix.shape
             _,self.outpix = np.unique(self.outpix, return_inverse=True)
             self.outpix = np.reshape(self.outpix, shape)
-            self.outpix -= 1
 
-        self.ncells = self.cellpix.max()+1
+        self.ncells = np.uint16(self.cellpix.max())
         colors = self.colormap[np.random.randint(0,1000,size=self.ncells), :3]
         self.cellcolors = list(np.concatenate((np.array([[255,255,255]]), colors), axis=0).astype(np.uint8))
         self.draw_masks()
@@ -1401,6 +1505,7 @@ class MainW(QtGui.QMainWindow):
             self.basename, filename = os.path.split(self.filename)
             #self.resize = int(self.MaxSize.text())
             self.initialize_images(image, resize=self.resize, X2=0)
+            self.clear_all()
             #self.stack = np.transpose(self.stack[:,:,:,0,1], (2,0,1))
             if self.prediction:
                 self.compute_model()
