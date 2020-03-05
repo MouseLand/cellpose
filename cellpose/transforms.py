@@ -57,23 +57,56 @@ def make_tiles(imgi, bsize=224, augment=True):
 
     return IMG, ysub, xsub, Ly, Lx
 
+def X2zoom(img, X2=1):
+    ny,nx = img.shape[:2]
+    img = cv2.resize(img, (int(nx * (2**X2)), int(ny * (2**X2))))
+    return img
+
+def image_resizer(img, resize=512, to_uint8=False):
+    ny,nx = img.shape[:2]
+    if to_uint8:
+        if img.max()<=255 and img.min()>=0 and img.max()>1:
+            img = img.astype(np.uint8)
+        else:
+            img = img.astype(np.float32)
+            img -= img.min()
+            img /= img.max()
+            img *= 255
+            img = img.astype(np.uint8)
+    if np.array(img.shape).max() > resize:
+        if ny>nx:
+            nx = int(nx/ny * resize)
+            ny = resize
+        else:
+            ny = int(ny/nx * resize)
+            nx = resize
+        shape = (nx,ny)
+        img = cv2.resize(img, shape)
+        img = img.astype(np.uint8)
+    return img
 
 def normalize99(img):
     X = img.copy()
     X = (X - np.percentile(X, 1)) / (np.percentile(X, 99) - np.percentile(X, 1))
     return X
 
-def reshape(data, channels=[0,0]):
+def reshape(data, channels=[0,0], invert=False):
     data = data.astype(np.float32)
+    if data.ndim < 3:
+        data = data[:,:,np.newaxis]
     # use grayscale image
     if data.shape[-1]==1:
         data = normalize99(data)
+        if invert:
+            data = -1*data + 1
         data = np.concatenate((data, np.zeros_like(data)), axis=-1)
     else:
         if channels[0]==0:
             data = data.mean(axis=-1)
             data = np.expand_dims(data, axis=-1)
             data = normalize99(data)
+            if invert:
+                data = -1*data + 1
             data = np.concatenate((data, np.zeros_like(data)), axis=-1)
         else:
             chanid = [channels[0]-1]
@@ -93,6 +126,58 @@ def reshape(data, channels=[0,0]):
     else:
         data = np.transpose(data, (2,0,1))
     return data
+
+def reshape_data(train_data, test_data=None, channels=None):
+    """ inputs from training, channels currently ignored """
+    # if training data is less than 2D
+    nimg = len(train_data)
+    if channels is not None:
+        train_data = [reshape(train_data[n], channels=channels) for n in range(nimg)]
+    if train_data[0].ndim < 3:
+        train_data = [train_data[n][np.newaxis,:,:] for n in range(nimg)]
+    elif train_data[0].shape[-1] < 8:
+        print('NOTE: assuming train_data provided as Ly x Lx x nchannels, transposing axes to put channels first')
+        train_data = [np.transpose(train_data[n], (2,1,0)) for n in range(nimg)]
+    nchan = [train_data[n].shape[0] for n in range(nimg)]
+    if nchan.count(nchan[0]) != len(nchan):
+        return None, None, None
+    nchan = nchan[0]
+
+    # check for valid test data
+    run_test = False
+    if test_data is not None:
+        nimg = len(test_data)
+        if channels is not None:
+            test_data = [reshape(test_data[n], channels=channels) for n in range(nimg)]
+        if test_data[0].ndim==2:
+            if nchan==1:
+                run_test = True
+                test_data = [test_data[n][np.newaxis,:,:] for n in range(nimg)]
+        elif test_data[0].ndim==3:
+            if test_data[0].shape[-1] < 8:
+                print('NOTE: assuming test_data provided as Ly x Lx x nchannels, transposing axes to put channels first')
+                test_data = [np.transpose(test_data[n], (2,1,0)) for n in range(nimg)]
+            nchan_test = [test_data[n].shape[0] for n in range(nimg)]
+            if nchan_test.count(nchan_test[0]) != len(nchan_test):
+                run_test = False
+            elif test_data[0].shape[0]==nchan:
+                run_test = True
+
+    #normalize_data
+    nimg = len(train_data)
+    for n in range(nimg):
+        for k in range(nchan):
+            if np.ptp(train_data[n][k]) > 0.0:
+                train_data[n][k] = normalize99(train_data[n][k])
+    if run_test:
+        nimg = len(test_data)
+        for n in range(nimg):
+            for k in range(nchan):
+                if np.ptp(test_data[n][k]) > 0.0:
+                    test_data[n][k] = normalize99(test_data[n][k])
+    
+    return train_data, test_data, run_test
+
 
 
 def pad_image_CS(img0, div=16, extra = 1):
@@ -158,34 +243,36 @@ def elastic_transform(data, alpha=2, ngrid=16):
     return Y
 
 def random_rotate_and_resize(X, Y=None, scale_range=1., xy = (224,224), rescale=None):
+    """ augmentation by random rotation and resizing
+        X and Y are lists or arrays of length nimg, with dims channels x Ly x Lx (channels optional)
+    """
     scale_range = max(0, min(2, float(scale_range)))
     nimg = len(X)
     if X[0].ndim>2:
-        nchan = X[0].shape[-1]
-        imgi  = np.zeros((nimg, xy[0], xy[1], nchan), np.float32)
+        nchan = X[0].shape[0]
     else:
         nchan = 1
-        imgi  = np.zeros((nimg, xy[0], xy[1], 1), np.float32)
+    imgi  = np.zeros((nimg, nchan, xy[0], xy[1]), np.float32)
+    
     lbl = []
     if Y is not None:
         if Y[0].ndim>2:
-            nt = Y[0].shape[-1]
-            lbl   = np.zeros((nimg, xy[0], xy[1], nt), np.int32)
+            nt = Y[0].shape[0]     
         else:
             nt = 1
-            lbl   = np.zeros((nimg, xy[0], xy[1], 1), np.int32)
+        lbl = np.zeros((nimg, nt, xy[0], xy[1]), np.int32)
 
     scale = np.zeros(nimg, np.float32)
-    for k in range(nimg):
-        Ly, Lx = X[k].shape[:2]
+    for n in range(nimg):
+        Ly, Lx = X[n].shape[-2:]
 
         # generate random augmentation parameters
         flip = np.random.rand()>.5
         theta = np.random.rand() * np.pi * 2
-        scale[k] = (1-scale_range/2) + scale_range * np.random.rand()
+        scale[n] = (1-scale_range/2) + scale_range * np.random.rand()
         if rescale is not None:
-            scale[k] *= 1. / rescale[k]
-        dxy = np.maximum(0, np.array([Lx*scale[k]-xy[1],Ly*scale[k]-xy[0]]))
+            scale[n] *= 1. / rescale[n]
+        dxy = np.maximum(0, np.array([Lx*scale[n]-xy[1],Ly*scale[n]-xy[0]]))
         dxy = (np.random.rand(2,) - .5) * dxy
 
         # create affine transform
@@ -193,34 +280,32 @@ def random_rotate_and_resize(X, Y=None, scale_range=1., xy = (224,224), rescale=
         cc1 = cc - np.array([Lx-xy[1], Ly-xy[0]])/2 + dxy
         pts1 = np.float32([cc,cc + np.array([1,0]), cc + np.array([0,1])])
         pts2 = np.float32([cc1,
-                cc1 + scale[k]*np.array([np.cos(theta), np.sin(theta)]),
-                cc1 + scale[k]*np.array([np.cos(np.pi/2+theta), np.sin(np.pi/2+theta)])])
+                cc1 + scale[n]*np.array([np.cos(theta), np.sin(theta)]),
+                cc1 + scale[n]*np.array([np.cos(np.pi/2+theta), np.sin(np.pi/2+theta)])])
         M = cv2.getAffineTransform(pts1,pts2)
 
-        img = X[k].copy()
-        if img.ndim<3:
-            img = img[:,:,np.newaxis]
+        img = X[n].copy()
         if Y is not None:
-            labels = Y[k].copy()
+            labels = Y[n].copy()
             if labels.ndim<3:
-                labels = labels[:,:,np.newaxis]
+                labels = labels[np.newaxis,:,:]
 
         if flip:
-            img = img[:, ::-1]
+            img = img[:, :, ::-1]
             if Y is not None:
-                labels = labels[:,::-1]
+                labels = labels[:, :, ::-1]
                 if nt > 1:
-                    labels[...,1] = -labels[...,1]
+                    labels[1] = -labels[1]
 
-        for n in range(nchan):
-            imgi[k,:,:,n] = cv2.warpAffine(img[:,:,n],M,(xy[0],xy[1]), flags=cv2.INTER_LINEAR)
+        for k in range(nchan):
+            imgi[n,k] = cv2.warpAffine(img[k], M, (xy[0],xy[1]), flags=cv2.INTER_LINEAR)
 
-        for n in range(nt):
-            if n==0:
-                lbl[k,:,:,n] = cv2.warpAffine(labels[:,:,n],M,(xy[0],xy[1]), flags=cv2.INTER_NEAREST)
+        for k in range(nt):
+            if k==0:
+                lbl[n,k] = cv2.warpAffine(labels[k], M, (xy[0],xy[1]), flags=cv2.INTER_NEAREST)
             else:
-                lbl[k,:,:,n] = cv2.warpAffine(labels[:,:,n],M,(xy[0],xy[1]), flags=cv2.INTER_LINEAR)
+                lbl[n,k] = cv2.warpAffine(labels[k], M, (xy[0],xy[1]), flags=cv2.INTER_LINEAR)
     if Y[0].ndim<3:
-        lbl = lbl[...,0]
+        lbl = lbl[0]
     #imgi = np.transpose(imgi, (0, 3, 1, 2))
     return imgi, lbl, scale

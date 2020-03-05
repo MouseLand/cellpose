@@ -451,6 +451,12 @@ class MainW(QtGui.QMainWindow):
             self.l0.addWidget(self.ChannelChoose[i], b, 1,1,1)
             b+=1
 
+        # use inverted image for running cellpose
+        b+=1
+        self.invert = QtGui.QCheckBox('invert grayscale')
+        self.invert.setStyleSheet(self.checkstyle)
+        self.l0.addWidget(self.invert, b,0,1,2)
+
         b+=1
         # recompute model
         self.ModelButton = QtGui.QPushButton('  run segmentation')
@@ -523,10 +529,9 @@ class MainW(QtGui.QMainWindow):
 
     def calibrate_size(self):
         self.initialize_model()
-        diams, _ = self.model.sz.eval([self.stack[self.currentZ].copy()],
+        diams, _ = self.model.sz.eval([self.stack[self.currentZ].copy()], invert=self.invert.isChecked(),
                                    channels=self.get_channels(), progress=self.progress)
         diams = np.maximum(5.0, diams)
-        diams *= 2 / np.pi**0.5
         print('estimated diameter of cells using %s model = %0.1f pixels'%
                 (self.current_model, diams))
         self.Diameter.setText('%0.1f'%diams[0])
@@ -681,7 +686,10 @@ class MainW(QtGui.QMainWindow):
     def dropEvent(self, event):
         files = [u.toLocalFile() for u in event.mimeData().urls()]
         print(files)
-        self.load_images(filename=files[0])
+        if os.path.splitext(files[0])[-1] == '.npy':
+            self.load_manual(filename=files[0])
+        else:
+            self.load_images(filename=files[0])
 
     def toggle_masks(self):
         if self.MCheckBox.isChecked():
@@ -1185,12 +1193,12 @@ class MainW(QtGui.QMainWindow):
         for k,img in enumerate(self.stack):
             # if grayscale make 3D
             if resize != -1:
-                img = utils.image_resizer(img, resize=resize, to_uint8=False)
+                img = transforms.image_resizer(img, resize=resize, to_uint8=False)
             if img.ndim==2:
                 img = np.tile(img[:,:,np.newaxis], (1,1,3))
                 self.onechan=True
             if X2!=0:
-                img = utils.X2zoom(img, X2=X2)
+                img = transforms.X2zoom(img, X2=X2)
             self.stack[k] = img
             
         self.imask=0
@@ -1223,16 +1231,15 @@ class MainW(QtGui.QMainWindow):
             found_image = False
             if 'filename' in dat:
                 self.filename = dat['filename']
-                if image is None:
+                if os.path.isfile(self.filename):
+                    self.filename = dat['filename']
+                    found_image = True
+                else:
+                    imgname = os.path.split(self.filename)[1]
+                    root = os.path.split(filename)[0]
+                    self.filename = root+'/'+imgname
                     if os.path.isfile(self.filename):
-                        self.filename = dat['filename']
                         found_image = True
-                    else:
-                        imgname = os.path.split(self.filename)[1]
-                        root = os.path.split(filename)[0]
-                        self.filename = root+'/'+imgname
-                        if os.path.isfile(self.filename):
-                            found_image = True
             if found_image:
                 try:
                     image = io.imread(self.filename)
@@ -1268,6 +1275,7 @@ class MainW(QtGui.QMainWindow):
             self.ChannelChoose[1].setCurrentIndex(dat['chan_choose'][1])
         if 'outlines' in dat:
             if isinstance(dat['outlines'], list):
+                # old way of saving files
                 dat['outlines'] = dat['outlines'][::-1]
                 for k, outline in enumerate(dat['outlines']):
                     if 'colors' in dat:
@@ -1286,18 +1294,27 @@ class MainW(QtGui.QMainWindow):
                 if dat['masks'].min()==-1:
                     dat['masks'] += 1
                     dat['outlines'] += 1
-                
+                if 'colors' in dat:
+                    colors = dat['colors']
+                else:
+                    col_rand = np.random.randint(0, 1000, (dat['masks'].max(),))
+                    colors = self.colormap[col_rand,:3]
                 self.cellpix = dat['masks']
                 self.outpix = dat['outlines']
-                self.cellcolors.extend(dat['colors'])
+                self.cellcolors.extend(colors)
                 self.ncells = np.uint16(self.cellpix.max())
                 self.draw_masks()
+                if 'est_diam' in dat:
+                    self.Diameter.setText('%0.1f'%dat['est_diam'])
+                    self.diameter = dat['est_diam']
+                    self.compute_scale()
+                    
                 if self.masksOn or self.outlinesOn and not (self.masksOn and self.outlinesOn):
                     self.redraw_masks(masks=self.masksOn, outlines=self.outlinesOn)
             if 'zdraw' in dat:
                 self.zdraw = dat['zdraw']
             else:
-                self.zdraw = [None]*self.ncells
+                self.zdraw = [None for n in range(self.ncells)]
             self.loaded = True
             print('%d masks found'%(self.ncells))
         else:
@@ -1441,9 +1458,9 @@ class MainW(QtGui.QMainWindow):
             channels = self.get_channels()
             self.diameter = float(self.Diameter.text())
             try:
-                rescale = np.array([27/(self.diameter*(np.pi**0.5/2))])
+                #rescale = np.array([27/(self.diameter*(np.pi**0.5/2))])
                 masks, flows, _, _ = self.model.eval([data], channels=channels,
-                                                rescale=rescale,
+                                                diameter=self.diameter, invert=self.invert.isChecked(),
                                                 do_3D=do_3D, progress=self.progress)
             except Exception as e:
                 print('NET ERROR: %s'%e)

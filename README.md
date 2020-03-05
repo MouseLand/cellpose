@@ -156,6 +156,54 @@ CHAN2 (OPT): if *cytoplasm* model is chosen, then choose the nuclear channel for
 
 See [run_cellpose.ipynb](notebooks/run_cellpose.ipynb).
 
+### From the command line
+
+Run `python -m cellpose` and specify parameters as below. For instance to run on a folder with images where cytoplasm is green and nucleus is blue and save the output as a png:
+~~~
+python -m cellpose --dir ~/images_cyto/test/ --pretrained_model cyto --chan 1 --chan2 2 --save_png
+~~~
+
+You can specify the diameter for all the images or set to 0 if you want the algorithm to estimate it on an image by image basis. Here is how to run on nuclear data (grayscale) where the diameter is automatically estimated:
+~~~
+python -m cellpose --dir ~/images_nuclei/test/ --pretrained_model nuclei --diameter 0. --save_png
+~~~
+
+Parameters:
+~~~
+usage: __main__.py [-h] [--train] [--dir DIR] [--img_filter IMG_FILTER]
+                   [--use_gpu] [--pretrained_model PRETRAINED_MODEL]
+                   [--chan CHAN] [--chan2 CHAN2] [--all_channels]
+                   [--diameter DIAMETER] [--save_png]
+                   [--mask_filter MASK_FILTER] [--test_dir TEST_DIR]
+                   [--n_epochs N_EPOCHS] [--batch_size BATCH_SIZE]
+
+cellpose parameters
+
+optional arguments:
+  -h, --help            show this help message and exit
+  --train               train network using images in dir
+  --dir DIR             folder containing data to run or train on
+  --img_filter IMG_FILTER
+                        end string for images to run on
+  --use_gpu             use gpu if mxnet with cuda installed
+  --pretrained_model PRETRAINED_MODEL
+                        model to use
+  --chan CHAN           channel to segment; 0: GRAY, 1: RED, 2: GREEN, 3: BLUE
+  --chan2 CHAN2         nuclear channel (if cyto, optional); 0: NONE, 1: RED,
+                        2: GREEN, 3: BLUE
+  --all_channels        use all channels in image if using own model and
+                        images with special channels
+  --diameter DIAMETER   cell diameter, if 0 cellpose will estimate for each
+                        image
+  --save_png            save masks as png
+  --mask_filter MASK_FILTER
+                        end string for masks to run on
+  --test_dir TEST_DIR   folder containing test data (optional)
+  --n_epochs N_EPOCHS   number of epochs
+  --batch_size BATCH_SIZE
+                        batch size
+~~~
+
 ## Outputs
 
 `*_seg.npy` files have the following fields:
@@ -167,6 +215,8 @@ See [run_cellpose.ipynb](notebooks/run_cellpose.ipynb).
 - *outlines* : outlines of masks (-1 = NO outline, 0,1,2,... = outline labels)
 - *chan_choose* : channels that you chose in GUI (0=gray/none, 1=red, 2=green, 3=blue)
 - *ismanual* : element *k* = whether or not mask *k* was manually drawn or computed by the cellpose algorithm
+- *flows* : flows[0] is XY flow in RGB, flows[1] is Z flow (if it exists), flows[2] is the cell probability in range 0-255 instead of 0.0 to 1.0
+- *est_diam* : estimated diameter (if run on command line)
 
 ~~~~
 import numpy as np
@@ -175,11 +225,11 @@ from cellpose import plot
 dat = np.load('_seg.npy', allow_pickle=True).item()
 
 # plot image with masks overlaid
-RGB = plot.mask_overlay(dat['img'], dat['masks']+1,
+RGB = plot.mask_overlay(dat['img'], dat['masks'],
                         colors=np.array(dat['colors']))
 
 # plot image with outlines overlaid in red (can change color of outline)
-RGB = plot.outline_overlay(dat['img'], dat['outlines']+1,
+RGB = plot.outline_overlay(dat['img'], dat['outlines'],
                            channels=dat['chan_choose'], color=[255,0,0])
 ~~~~~
 

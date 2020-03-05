@@ -1,5 +1,5 @@
 import numpy as np
-import os, sys, time, shutil, tempfile
+import os, sys, time, shutil, tempfile, datetime
 from tqdm import trange, tqdm
 from urllib.request import urlopen
 from urllib.parse import urlparse
@@ -91,6 +91,10 @@ class Cellpose():
                                                 'models/%s_%d'%(model_type,j))) for j in range(4)]
             pretrained_size = os.path.abspath(os.path.join(os.path.dirname(__file__),
                                                     'models/size_%s_0.npy'%model_type))
+            if model_type=='cyto':
+                self.diam_mean = 27.
+            else:
+                self.diam_mean = 15.
             if not os.path.isfile(pretrained_model[0]):
                 download_model_weights()
         elif pretrained_model is None:
@@ -121,21 +125,30 @@ class Cellpose():
                                 cp_model=self.cp, diam_mean=diam_mean)
             self.diam_mean = self.sz.diam_mean
 
-    def eval(self, x, channels=None, rescale=1.0, do_3D=False,
+    def eval(self, x, channels=None, diameter=30., rescale=None, invert=False, do_3D=False,
                 net_avg=True, progress=None, tile=True, threshold=0.4):
-        # make rescale into length of x
-        if rescale is not None and (not isinstance(rescale, list) or len(rescale)==1):
-            rescale = rescale * np.ones(len(x), np.float32)
 
-        if self.pretrained_size is not None and rescale is None and not do_3D:
-            diams, diams_style = self.sz.eval(x, channels=channels, batch_size=self.batch_size, tile=tile)
-            rescale = self.diam_mean / diams.copy()
-            print('estimated cell diameters for all images')
+        # make rescale into length of x
+        if diameter is not None:
+            if not isinstance(diameter, list) or len(diameter)==1 or len(diameter)<len(x):
+                diams = diameter * np.ones(len(x), np.float32)
+            else:
+                diams = diameter
+            rescale = self.diam_mean / (diams.copy() * (np.pi**0.5/2))
         else:
-            if rescale is None:
-                rescale = np.ones(len(x), np.float32)
-            diams = self.diam_mean / rescale.copy()
-        masks, flows, styles = self.cp.eval(x, rescale=rescale, channels=channels, tile=tile,
+            if rescale is not None and (not isinstance(rescale, list) or len(rescale)==1):
+                rescale = rescale * np.ones(len(x), np.float32)
+            if self.pretrained_size is not None and rescale is None and not do_3D:
+                diams, diams_style = self.sz.eval(x, channels=channels, invert=invert, batch_size=self.batch_size, tile=tile)
+                rescale = self.diam_mean / diams.copy()
+                diams /= (np.pi**0.5/2) # convert to circular
+                print('estimated cell diameters for all images')
+            else:
+                if rescale is None:
+                    rescale = np.ones(len(x), np.float32)
+                diams = self.diam_mean / rescale.copy() / (np.pi**0.5/2)
+            
+        masks, flows, styles = self.cp.eval(x, invert=invert, rescale=rescale, channels=channels, tile=tile,
                                             do_3D=do_3D, net_avg=net_avg, progress=progress,
                                             threshold=0.4)
         return masks, flows, styles, diams
@@ -160,7 +173,7 @@ class SizeModel():
             self.params = np.load(self.pretrained_size, allow_pickle=True).item()
             self.diam_mean = self.params['diam_mean']
 
-    def eval(self, x=None, feat=None, channels=None,
+    def eval(self, x=None, feat=None, channels=None, invert=False,
                 batch_size=8, progress=None, tile=True):
         if feat is None and x is None:
             print('Error: no image or features given')
@@ -174,14 +187,14 @@ class SizeModel():
             if len(channels)==2:
                 if not isinstance(channels[0], list):
                     channels = [channels for i in range(nimg)]
-            x = [transforms.reshape(x[i], channels=channels[i]) for i in range(nimg)]
+            x = [transforms.reshape(x[i], channels=channels[i], invert=invert) for i in range(nimg)]
         diam_style = np.zeros(nimg, np.float32)
         if progress is not None:
             progress.setValue(10)
         if feat is None:
             for i in trange(nimg):
                 img = x[i]
-                feat = self.cp.eval([img], net_avg=False, tile=tile)[-1]
+                feat = self.cp.eval([img], net_avg=False, tile=tile, compute_masks=False)[-1]
                 if progress is not None:
                     progress.setValue(30)
                 diam_style[i] = self.size_estimation(feat)
@@ -224,7 +237,6 @@ class CellposeModel():
         self.net.initialize(ctx = self.device)#, grad_req='null')
         if pretrained_model is not None and isinstance(pretrained_model, str):
             self.net.load_parameters(pretrained_model)
-            self.net.collect_params().setattr('grad_req', 'null')
         elif pretrained_model is None:
             if net_avg:
                 pretrained_model = [os.path.abspath(os.path.join(os.path.dirname(__file__),
@@ -237,10 +249,9 @@ class CellposeModel():
                 if not os.path.isfile(pretrained_model):
                     download_model_weights()
                 self.net.load_parameters(pretrained_model)
-                self.net.collect_params().grad_req = 'null'
             self.pretrained_model = pretrained_model
 
-    def eval(self, x, rescale=None, tile=True, net_avg=True, channels=None,
+    def eval(self, x, invert=False, rescale=None, tile=True, net_avg=True, compute_masks=True, channels=None,
                 do_3D=False, progress=None, threshold=0.4):
         """
             segment list of images x
@@ -250,7 +261,7 @@ class CellposeModel():
             if len(channels)==2:
                 if not isinstance(channels[0], list):
                     channels = [channels for i in range(nimg)]
-            x = [transforms.reshape(x[i], channels=channels[i]) for i in range(nimg)]
+            x = [transforms.reshape(x[i], channels=channels[i], invert=invert) for i in range(nimg)]
         styles = []
         flows = []
         masks = []
@@ -282,20 +293,24 @@ class CellposeModel():
             if progress is not None:
                 progress.setValue(55)
             styles.append(style)
-            cellprob = y[...,2]
-            dP = np.stack((y[...,0], y[...,1]), axis=0)
-            niter = self.diam_mean / rescale[i] * 5
-            p = dynamics.follow_flows(-1 * dP * (cellprob>0) / 5., niter=niter)
-            if progress is not None:
-                progress.setValue(65)
-            maski = dynamics.get_masks(p, flows=dP, threshold=threshold)
-            if progress is not None:
-                progress.setValue(75)
-            dZ = np.zeros((1,Ly,Lx), np.uint8)
-            dP = np.concatenate((dP, dZ), axis=0)
-            flow = plot.dx_to_circ(dP)
-            flows.append([flow, dP, cellprob])
-            masks.append(maski)
+            if compute_masks:
+                cellprob = y[...,2]
+                dP = np.stack((y[...,0], y[...,1]), axis=0)
+                niter = self.diam_mean / rescale[i] * 5
+                p = dynamics.follow_flows(-1 * dP * (cellprob>0) / 5., niter=niter)
+                if progress is not None:
+                    progress.setValue(65)
+                maski = dynamics.get_masks(p, flows=dP, threshold=threshold)
+                if progress is not None:
+                    progress.setValue(75)
+                dZ = np.zeros((1,Ly,Lx), np.uint8)
+                dP = np.concatenate((dP, dZ), axis=0)
+                flow = plot.dx_to_circ(dP)
+                flows.append([flow, dP, cellprob])
+                masks.append(maski)
+            else:
+                flows.append([None]*3)
+                masks.append([])
 
         return masks, flows, styles
 
@@ -341,7 +356,8 @@ class CellposeModel():
 
     def run_net(self, img, rsz=1.0, tile=True, bsize=224):
         shape = img.shape
-        if rsz==1.0:
+        if abs(rsz - 1.0) < 0.03:
+            rsz = 1.0
             Ly,Lx = img.shape[:2]
         else:
             Ly = int(img.shape[0] * rsz)
@@ -353,7 +369,7 @@ class CellposeModel():
             img = np.expand_dims(img, axis=-1)
         img = np.transpose(img, (2,0,1))
         # pad for net so divisible by 4
-        img, ysub, xsub = utils.pad_image(img)
+        img, ysub, xsub = transforms.pad_image(img)
 
         if tile:
             y,style = self.run_tiled(img, bsize)
@@ -374,3 +390,144 @@ class CellposeModel():
         if rsz!=1.0:
             y = cv2.resize(y, (shape[1], shape[0]))
         return y, style
+
+    def train(self, train_data, train_labels, test_data=None, test_labels=None, channels=None,
+              pretrained_model=None, save_path=None, save_every=100, 
+              learning_rate=0.2, n_epochs=500, weight_decay=0.00001, batch_size=8, rescale=True):
+
+        d = datetime.datetime.now()
+        self.learning_rate = learning_rate
+        self.n_epochs = n_epochs
+        self.batch_size = batch_size
+        self.learning_rate = learning_rate
+        self.weight_decay = weight_decay
+        self.momentum = 0.9
+
+        nimg = len(train_data)
+        
+        # check that arrays are correct size
+        if nimg != len(train_labels):
+            raise ValueError('train data and labels not same length')
+            return
+        if train_labels[0].ndim < 2 or train_data[0].ndim < 2:
+            raise ValueError('training data or labels are not at least two-dimensional')
+            return
+
+        # check if test_data correct length
+        if not (test_data is not None and test_labels is not None and 
+                len(test_data) > 0 and len(test_data)==len(test_labels)):
+            test_data = None
+        
+        # make data correct shape and normalize it so that 0 and 1 are 1st and 99th percentile of data
+        train_data, test_data, run_test = transforms.reshape_data(train_data, test_data=test_data, channels=channels)
+        if train_data is None:
+            raise ValueError('training data do not all have the same number of channels')
+            return
+        nchan = train_data[0].shape[0]
+        
+        if not run_test:
+            print('NOTE: test data not provided OR labels incorrect OR not same number of channels as train data')        
+
+        # check if train_labels have flows
+        train_flows = dynamics.labels_to_flows(train_labels)
+        if run_test:
+            test_flows = dynamics.labels_to_flows(test_labels)
+            
+        # compute average cell diameter
+        diam_train = np.array([utils.diameters(train_labels[k])[0] for k in range(len(train_labels))])
+        diam_train[diam_train<5] = 5.
+        if run_test:
+            diam_test = np.array([utils.diameters(test_labels[k])[0] for k in range(len(test_labels))])
+            diam_test[diam_test<5] = 5.
+
+        print('>>>> training network with %d channel input <<<<'%nchan)
+        print('>>>> saving every %d epochs'%save_every)
+        print('>>>> median diameter = %d'%self.diam_mean)
+        print('>>>> LR: %0.5f, batch_size: %d, weight_decay: %0.5f'%(self.learning_rate, self.batch_size, self.weight_decay))
+        print('>>>> ntrain = %d'%nimg)
+        if run_test:
+            print('>>>> ntest = %d'%len(test_data))
+        print(train_data[0].shape)
+
+        criterion  = gluon.loss.L2Loss()
+        criterion2 = gluon.loss.SigmoidBinaryCrossEntropyLoss()
+        trainer = gluon.Trainer(self.net.collect_params(), 'sgd',{'learning_rate': self.learning_rate,
+                                'momentum': self.momentum, 'wd': self.weight_decay})
+
+        eta = np.linspace(0, self.learning_rate, 10)
+        tic = time.time()
+
+        lavg, nsum = 0, 0
+
+        _, file_label = os.path.split(save_path)
+        file_path = os.path.join(save_path, 'models/')
+        ksave = 0
+        if not os.path.exists(file_path):
+            os.makedirs(file_path)
+        rsc = 1.0
+        for iepoch in range(self.n_epochs):
+            np.random.seed(iepoch)
+            rperm = np.random.permutation(nimg).astype('int32')
+            if iepoch<len(eta):
+                LR = eta[iepoch]
+                trainer.set_learning_rate(LR)
+            for ibatch in range(0,nimg,batch_size):
+                if rescale:
+                    rsc = diam_train[rperm[ibatch:ibatch+batch_size]] / self.diam_mean
+                
+                imgi, lbl, _ = transforms.random_rotate_and_resize(
+                                        [train_data[i] for i in rperm[ibatch:ibatch+batch_size]],
+                                        Y=[train_flows[i] for i in rperm[ibatch:ibatch+batch_size]],
+                                        rescale=rsc)
+                X    = nd.array(imgi, ctx=self.device)
+                veci = 5. * nd.array(lbl[:,-2:], ctx=self.device)
+                lbl  = nd.array(lbl[:,0]>.5, ctx=self.device)
+                with mx.autograd.record():
+                    y, style = self.net(X)
+                    loss = criterion(y[:,:-1] , veci) + criterion2(y[:,-1] , lbl)
+                loss.backward()
+                train_loss = nd.sum(loss).asscalar()
+                lavg += train_loss
+                nsum+=len(loss)
+                if iepoch>0:
+                    trainer.step(batch_size)
+            if iepoch>self.n_epochs-100 and iepoch%10==1:
+                LR = LR/2
+                trainer.set_learning_rate(LR)
+
+            if iepoch%10==0 or iepoch<10:
+                lavg = lavg / nsum
+                if run_test:
+                    lavgt = 0
+                    nsum = 0
+                    np.random.seed(42)
+                    rperm = np.arange(0, len(test_data), 1, int)
+                    for ibatch in range(0,len(test_data),batch_size):
+                        if rescale:
+                            rsc = diam_test[rperm[ibatch:ibatch+batch_size]] / self.diam_mean
+                        imgi, lbl, _ = transforms.random_rotate_and_resize(
+                                            [test_data[i] for i in rperm[ibatch:ibatch+batch_size]],
+                                            Y=[test_flows[i] for i in rperm[ibatch:ibatch+batch_size]],
+                                            rescale=rsc)
+                        X    = nd.array(imgi, ctx=self.device)
+                        veci = nd.array(lbl[:,-2:], ctx=self.device)
+                        lbl  = nd.array(lbl[:,0]>.5, ctx=self.device)
+                        y, style = self.net(X)
+                        loss = criterion(y[:,:-1] , veci) + criterion2(y[:,-1] , lbl)
+                        lavgt += nd.sum(loss).asscalar()
+                        nsum+=len(loss)
+                    print('Epoch %d, Time %4.1fs, Loss %2.4f, Loss Test %2.4f, LR %2.4f'%
+                            (iepoch, time.time()-tic, lavg, lavgt/nsum, LR))
+                else:
+                    print('Epoch %d, Time %4.1fs, Loss %2.4f, LR %2.4f'%
+                            (iepoch, time.time()-tic, lavg, LR))
+                lavg, nsum = 0, 0
+            
+
+            if save_path is not None:
+                if iepoch==self.n_epochs-1 or iepoch%save_every==1:
+                    # save model at the end
+                    file = 'cellpose_{}_{}{}_{}'.format(file_label, d.month, d.day, ksave)
+                    ksave += 1
+                    print('saving network parameters')
+                    self.net.save_parameters(os.path.join(file_path, file))
