@@ -10,10 +10,9 @@ dependencies:
   - scipy
   - matplotlib
   - pip:
-    - mxnet-mkl=1.6.0
+    - mxnet-mkl
     - opencv_python
     - pyqtgraph
     - natsort
     - google-cloud-storage
     - tqdm
-    - cellpose>=0.0.1.21
