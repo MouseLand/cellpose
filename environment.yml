@@ -1,9 +1,9 @@
 name: cellpose
 dependencies:
-  - python=3.6
+  - python<=3.7
   - pip
   - mkl=2019.3
-  - numpy=1.16
+  - numpy
   - scikit-image
   - numba>=0.43.1
   - pyqt

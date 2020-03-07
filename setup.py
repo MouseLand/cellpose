@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="cellpose",
-    version="0.0.1.22",
+    version="0.0.1.23",
     license="BSD",
     author="Marius Pachitariu and Carsen Stringer",
     author_email="stringerc@janelia.hhmi.org",
@@ -14,8 +14,8 @@ setuptools.setup(
     long_description_content_type="text/markdown",
     url="https://github.com/MouseLand/cellpose",
     packages=setuptools.find_packages(),
-    install_requires = ['numpy<1.17.0', 'scipy', 'natsort', 
-                        'tqdm', 'numba', 'scikit-image', 
+    install_requires = ['numpy<1.17.0', 'scipy', 'natsort',
+                        'tqdm', 'numba', 'scikit-image',
                         'matplotlib', 'mxnet_mkl', 'opencv_python',
                         "pyqtgraph", "PyQt5", "google-cloud-storage"],
     include_package_data=True,
