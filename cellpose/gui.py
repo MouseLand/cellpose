@@ -1021,18 +1021,19 @@ class MainW(QtGui.QMainWindow):
         if len(zdraw) > 1:
             mall, zfill = interpZ(mall, zdraw - zmin)
             for z in zfill:
-                ar, ac = np.nonzero(mall[z])
-                ar, ac = ar+ymin, ac+xmin
-                ioverlap = self.cellpix[z][ar, ac] > 0
+                mask = mall[z].copy()
+                ar, ac = np.nonzero(mask)
+                ioverlap = self.cellpix[z+zmin][ar+ymin, ac+xmin] > 0
                 if (~ioverlap).sum() < 5:
                     print('WARNING: stroke on plane %d not included due to overlaps'%z)
                 elif ioverlap.sum() > 0:
-                    mall[ar[ioverlap], ac[ioverlap]] = 0
+                    mask[ar[ioverlap], ac[ioverlap]] = 0
                     ar, ac = ar[~ioverlap], ac[~ioverlap]
                 # compute outline of mask
-                outlines = plot.masks_to_outlines(mall[z])
+                outlines = plot.masks_to_outlines(mask)
                 vr, vc = np.nonzero(outlines)
                 vr, vc = vr+ymin, vc+xmin
+                ar, ac = ar+ymin, ac+xmin
                 self.draw_mask(z+zmin, ar, ac, vr, vc, color)
         self.zdraw.append(zdraw)
 
