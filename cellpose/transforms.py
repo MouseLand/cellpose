@@ -3,6 +3,19 @@ import numpy as np
 import cv2
 
 def unaugment_tiles(y):
+    """ reverse test-time augmentations for averaging
+
+    Parameters
+    ----------
+    y : float32
+        array that's ntiles x chan x Ly x Lx where chan = (dY, dX, cell prob)
+    
+    Returns
+    -------
+    y : float32
+
+    """
+
     for k in range(y.shape[0]):
         if k%4==1:
             y[k, :,:, :] = y[k, :,::-1, :]
@@ -17,6 +30,29 @@ def unaugment_tiles(y):
     return y
 
 def make_tiles(imgi, bsize=224, augment=True):
+    """ make tiles of image to run at test-time
+
+    Parameters
+    ----------
+    imgi : float32
+        array that's nchan x Ly x Lx
+    
+    Returns
+    -------
+    IMG : float32
+        array that's ntiles x nchan x bsize x bsize
+    ysub : list
+        list of arrays with start and end of tiles in Y of length ntiles 
+    xsub : list
+        list of arrays with start and end of tiles in X of length ntiles 
+    Ly : int
+        size of tiles in Y
+    Lx : int
+        size of tiles in X
+
+    """
+
+    bsize = np.int32(bsize)
     nchan, Ly0, Lx0 = imgi.shape[-3:]
     # pad if image smaller than bsize
     if Ly0<bsize:
@@ -58,11 +94,39 @@ def make_tiles(imgi, bsize=224, augment=True):
     return IMG, ysub, xsub, Ly, Lx
 
 def X2zoom(img, X2=1):
+    """ zoom in image
+
+    Parameters
+    ----------
+    img : numpy array that's Ly x Lx 
+    
+    Returns
+    -------
+    img : numpy array that's Ly x Lx 
+
+    """
     ny,nx = img.shape[:2]
     img = cv2.resize(img, (int(nx * (2**X2)), int(ny * (2**X2))))
     return img
 
 def image_resizer(img, resize=512, to_uint8=False):
+    """ resize image
+
+    Parameters
+    ----------
+    img : numpy array that's Ly x Lx 
+    
+    resize : int
+        max size of image returned 
+
+    to_uint8 : bool
+        convert image to uint8
+
+    Returns
+    -------
+    img : numpy array that's Ly x Lx, Ly,Lx<resize
+
+    """
     ny,nx = img.shape[:2]
     if to_uint8:
         if img.max()<=255 and img.min()>=0 and img.max()>1:
@@ -86,14 +150,36 @@ def image_resizer(img, resize=512, to_uint8=False):
     return img
 
 def normalize99(img):
+    """ normalize image so 0.0 is 1st percentile and 1.0 is 99th percentile """
     X = img.copy()
     X = (X - np.percentile(X, 1)) / (np.percentile(X, 99) - np.percentile(X, 1))
     return X
 
 def reshape(data, channels=[0,0], invert=False):
+    """ reshape data using channels and normalize intensities (w/ optional inversion)
+
+    Parameters
+    ----------
+    data : numpy array that's (Z x ) Ly x Lx x nchan
+    
+    channels : int
+        list [chan to seg, chan2 (opt)]
+        (0=gray/none, 1=red, 2=green, 3=blue)
+
+    invert : bool
+        invert intensities
+
+    Returns
+    -------
+    data : numpy array that's nchan x (Z x ) Ly x Lx
+
+    """
     data = data.astype(np.float32)
     if data.ndim < 3:
         data = data[:,:,np.newaxis]
+    elif data.shape[0]<8 and data.ndim==3:
+        data = np.transpose(data, (1,2,0))
+
     # use grayscale image
     if data.shape[-1]==1:
         data = normalize99(data)
@@ -120,7 +206,7 @@ def reshape(data, channels=[0,0], invert=False):
                     if i==0:
                         print("WARNING: 'chan to seg' has value range of ZERO")
                     else:
-                        print("WARNING: 'chan2 (opt)' has value range of ZERO, can choose 'None'")
+                        print("WARNING: 'chan2 (opt)' has value range of ZERO, can instead set chan2 to 0")
     if data.ndim==4:
         data = np.transpose(data, (3,0,1,2))
     else:
@@ -128,7 +214,8 @@ def reshape(data, channels=[0,0], invert=False):
     return data
 
 def reshape_data(train_data, test_data=None, channels=None):
-    """ inputs from training, channels currently ignored """
+    """ inputs converted to correct shapes for training """
+
     # if training data is less than 2D
     nimg = len(train_data)
     if channels is not None:
@@ -137,7 +224,7 @@ def reshape_data(train_data, test_data=None, channels=None):
         train_data = [train_data[n][np.newaxis,:,:] for n in range(nimg)]
     elif train_data[0].shape[-1] < 8:
         print('NOTE: assuming train_data provided as Ly x Lx x nchannels, transposing axes to put channels first')
-        train_data = [np.transpose(train_data[n], (2,1,0)) for n in range(nimg)]
+        train_data = [np.transpose(train_data[n], (2,0,1)) for n in range(nimg)]
     nchan = [train_data[n].shape[0] for n in range(nimg)]
     if nchan.count(nchan[0]) != len(nchan):
         return None, None, None
@@ -156,7 +243,7 @@ def reshape_data(train_data, test_data=None, channels=None):
         elif test_data[0].ndim==3:
             if test_data[0].shape[-1] < 8:
                 print('NOTE: assuming test_data provided as Ly x Lx x nchannels, transposing axes to put channels first')
-                test_data = [np.transpose(test_data[n], (2,1,0)) for n in range(nimg)]
+                test_data = [np.transpose(test_data[n], (2,0,1)) for n in range(nimg)]
             nchan_test = [test_data[n].shape[0] for n in range(nimg)]
             if nchan_test.count(nchan_test[0]) != len(nchan_test):
                 run_test = False
@@ -166,12 +253,14 @@ def reshape_data(train_data, test_data=None, channels=None):
     #normalize_data
     nimg = len(train_data)
     for n in range(nimg):
+        train_data[n] = train_data[n].astype(np.float32)
         for k in range(nchan):
             if np.ptp(train_data[n][k]) > 0.0:
                 train_data[n][k] = normalize99(train_data[n][k])
     if run_test:
         nimg = len(test_data)
         for n in range(nimg):
+            test_data[n] = test_data[n].astype(np.float32)
             for k in range(nchan):
                 if np.ptp(test_data[n][k]) > 0.0:
                     test_data[n][k] = normalize99(test_data[n][k])
@@ -180,7 +269,8 @@ def reshape_data(train_data, test_data=None, channels=None):
 
 
 
-def pad_image_CS(img0, div=16, extra = 1):
+def pad_image_ND(img0, div=16, extra = 1):
+    """ pad image for test-time (2 and 3D) """
     Lpad = int(div * np.ceil(img0.shape[-2]/div) - img0.shape[-2])
     xpad1 = extra*div//2 + Lpad//2
     xpad2 = extra*div//2 + Lpad - Lpad//2
@@ -194,9 +284,11 @@ def pad_image_CS(img0, div=16, extra = 1):
         pads = np.array([[0,0], [xpad1,xpad2], [ypad1, ypad2]])
 
     I = np.pad(img0,pads, mode='constant')
-    return I,pads
+
+    return I, pads
 
 def pad_image(img0, div=16, extra = 1):
+    """ pad image for test time (if tiling off) """
     nc, Ly, Lx = img0.shape
     Lpad = int(div * np.ceil(Ly/div) - Ly)
 
@@ -213,38 +305,27 @@ def pad_image(img0, div=16, extra = 1):
     I = np.pad(img0,pads, mode='constant')
     return I, ysub, xsub
 
-def elastic_transform(data, alpha=2, ngrid=16):
-    nimg,nmaps,Ly,Lx = data.shape
-    iy = np.arange(0,Ly,1,np.float32)
-    ix = np.arange(0,Lx,1,np.float32)
-    yb = np.linspace(0,Ly,ngrid+2)[1:-1]
-    xb = np.linspace(0,Lx,ngrid+2)[1:-1]
-    iy = np.interp(iy, yb, np.arange(0,yb.size,1,int)).astype(np.float32)
-    ix = np.interp(ix, xb, np.arange(0,xb.size,1,int)).astype(np.float32)
-    mshx,mshy = np.meshgrid(ix, iy)
-
-    mshxA,mshyA = np.meshgrid(np.arange(0,Lx,1,np.float32), np.arange(0,Ly,1,np.float32))
-
-    yshift = np.random.randn(nimg, ngrid, ngrid).astype(np.float32) * alpha
-    xshift = np.random.randn(nimg, ngrid, ngrid).astype(np.float32) * alpha
-
-    xshift = cv2.GaussianBlur(xshift,(3,3),cv2.BORDER_REFLECT)
-    yshift = cv2.GaussianBlur(yshift,(3,3),cv2.BORDER_REFLECT)
-
-    # interpolate from block centers to all points Ly x Lx
-    yup = np.zeros((nimg,Ly,Lx), np.float32)
-    xup = np.zeros((nimg,Ly,Lx), np.float32)
-    nonrigid.block_interp(yshift, xshift, mshy, mshx, yup, xup)
-    Y = np.zeros(data.shape, np.float32)
-    #for i in range(nmaps):
-        # use shifts and do bilinear interpolation
-    #    nonrigid.shift_coordinates(data[:,i,:,:], yup, xup, mshyA, mshxA, Y[:,i,:,:])
-
-    return Y
-
-def random_rotate_and_resize(X, Y=None, scale_range=1., xy = (224,224), rescale=None):
+def random_rotate_and_resize(X, Y=None, scale_range=1., xy = (224,224), do_flip=True, rescale=None):
     """ augmentation by random rotation and resizing
+
+        Parameters
+        ----------
+        data : numpy array that's (Z x ) Ly x Lx x nchan
+        
+        channels : int
+            list [chan to seg, chan2 (opt)]
+            (0=gray/none, 1=red, 2=green, 3=blue)
+
+        invert : bool
+            invert intensities
+
+        Returns
+        -------
+        data : numpy array that's nchan x (Z x ) Ly x Lx
+
         X and Y are lists or arrays of length nimg, with dims channels x Ly x Lx (channels optional)
+
+        if Y is 3 chan, it is [cell probability, Y flow, X flow]
     """
     scale_range = max(0, min(2, float(scale_range)))
     nimg = len(X)
@@ -260,7 +341,7 @@ def random_rotate_and_resize(X, Y=None, scale_range=1., xy = (224,224), rescale=
             nt = Y[0].shape[0]     
         else:
             nt = 1
-        lbl = np.zeros((nimg, nt, xy[0], xy[1]), np.int32)
+        lbl = np.zeros((nimg, nt, xy[0], xy[1]), np.float32)
 
     scale = np.zeros(nimg, np.float32)
     for n in range(nimg):
@@ -290,12 +371,12 @@ def random_rotate_and_resize(X, Y=None, scale_range=1., xy = (224,224), rescale=
             if labels.ndim<3:
                 labels = labels[np.newaxis,:,:]
 
-        if flip:
+        if flip and do_flip:
             img = img[:, :, ::-1]
             if Y is not None:
                 labels = labels[:, :, ::-1]
                 if nt > 1:
-                    labels[1] = -labels[1]
+                    labels[2] = -labels[2]
 
         for k in range(nchan):
             imgi[n,k] = cv2.warpAffine(img[k], M, (xy[0],xy[1]), flags=cv2.INTER_LINEAR)
@@ -305,6 +386,13 @@ def random_rotate_and_resize(X, Y=None, scale_range=1., xy = (224,224), rescale=
                 lbl[n,k] = cv2.warpAffine(labels[k], M, (xy[0],xy[1]), flags=cv2.INTER_NEAREST)
             else:
                 lbl[n,k] = cv2.warpAffine(labels[k], M, (xy[0],xy[1]), flags=cv2.INTER_LINEAR)
+        
+        if nt>1:
+            v1 = lbl[n,2].copy()
+            v2 = lbl[n,1].copy()
+            lbl[n,1] = (-v1 * np.sin(-theta) + v2*np.cos(-theta))
+            lbl[n,2] = (v1 * np.cos(-theta) + v2*np.sin(-theta))
+
     if Y[0].ndim<3:
         lbl = lbl[0]
     #imgi = np.transpose(imgi, (0, 3, 1, 2))

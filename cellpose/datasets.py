@@ -56,6 +56,7 @@ def load_pickle(filename, filecell, cyto=True, specialist=False):
 
     train_data = []
     train_labels = []
+    train_flows = []
     nimg = len(vf)
     tcell = []
     for n in range(nimg):
@@ -72,10 +73,12 @@ def load_pickle(filename, filecell, cyto=True, specialist=False):
                 train_labels.append(vf[n][2][np.newaxis,...]+1)
             else:
                 train_labels.append(vf[n][2][np.newaxis,...])
+            train_flows.append(vf[n][0][[3,1,2]])
             tcell.append(train_cell[n])
     train_cell = np.array(tcell)
     test_data = []
     test_labels = []
+    test_flows = []
     for n in range(len(vft)):
         img = vft[n][0][:1]
         if cyto:
@@ -85,7 +88,9 @@ def load_pickle(filename, filecell, cyto=True, specialist=False):
                 img = np.concatenate((img, np.zeros_like(img)), axis=0)
         test_data.append(img)
         test_labels.append(vft[n][2][np.newaxis,...])
+        test_flows.append(vf[n][0][[3,1,2]])
+
     
     print(r[0], len(train_data), len(vft))
 
-    return train_data, train_labels, train_cell, test_data, test_labels, test_cell
+    return train_data, train_labels, train_flows, train_cell, test_data, test_labels, test_flows, test_cell

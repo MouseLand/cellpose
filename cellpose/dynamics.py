@@ -106,7 +106,7 @@ def labels_to_flows(labels):
         # compute flows        
         veci = [masks_to_flows(labels[n][0])[0] for n in trange(nimg)]
         # concatenate flows with cell probability
-        flows = [np.concatenate((labels[n][[0]]>0, veci[n]), axis=0).astype(np.float32)
+        flows = [np.concatenate((labels[n][[0]]>0.5, veci[n]), axis=0).astype(np.float32)
                     for n in range(nimg)]
     else:
         print('flows precomputed')

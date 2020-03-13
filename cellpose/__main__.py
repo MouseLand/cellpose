@@ -17,6 +17,7 @@ def get_image_files(folder):
     return image_names
         
 def get_label_files(image_names, imf, mask_filter):
+    nimg = len(image_names)
     label_names = [os.path.splitext(image_names[n])[0] for n in range(nimg)]
     if len(imf) > 0:
         label_names = [label_names[n][:-len(imf)] for n in range(nimg)]
@@ -152,6 +153,7 @@ if __name__ == '__main__':
                     
         else:
             label_names = get_label_files(image_names, imf, args.mask_filter)
+            nimg = len(image_names)
             labels = [skimage.io.imread(label_names[n]) for n in range(nimg)]
             if not os.path.exists(cpmodel_path):
                 cpmodel_path = None
@@ -163,23 +165,10 @@ if __name__ == '__main__':
             if len(args.test_dir) > 0:
                 image_names_test = get_image_files(args.test_dir)
                 label_names_test = get_label_files(image_names_test, imf, args.mask_filter)
+                nimg = len(image_names_test)
                 test_images = [skimage.io.imread(image_names_test[n]) for n in range(nimg)]
                 test_labels = [skimage.io.imread(label_names_test[n]) for n in range(nimg)]
                 
             model = models.CellposeModel(device=device, pretrained_model=cpmodel_path)
             model.train(images, labels, test_images, test_labels, 
                         channels=channels, save_path=os.path.realpath(args.dir))
-
-            
-
-    
-
-#Or to train on cytoplasmic images starting with a pretrained model from cellpose (cyto or nuclei):
-#~~~
-#python -m cellpose --train --dir ~/images_cyto/train/ --pretrained_cyto cyto
-#~~~
-
-#You can specify the full path to a pretrained model to use:
-#~~~
-#python -m cellpose --dir ~/images_cyto/test/ --pretrained_model ~/images_cyto/test/model/cellpose_35_0 --save_png
-#~~~

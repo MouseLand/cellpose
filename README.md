@@ -160,13 +160,31 @@ See [run_cellpose.ipynb](notebooks/run_cellpose.ipynb).
 
 Run `python -m cellpose` and specify parameters as below. For instance to run on a folder with images where cytoplasm is green and nucleus is blue and save the output as a png:
 ~~~
-python -m cellpose --dir ~/images_cyto/test/ --pretrained_model cyto --chan 1 --chan2 2 --save_png
+python -m cellpose --dir ~/images_cyto/test/ --pretrained_model cyto --chan 2 --chan2 3 --save_png
 ~~~
 
 You can specify the diameter for all the images or set to 0 if you want the algorithm to estimate it on an image by image basis. Here is how to run on nuclear data (grayscale) where the diameter is automatically estimated:
 ~~~
 python -m cellpose --dir ~/images_nuclei/test/ --pretrained_model nuclei --diameter 0. --save_png
 ~~~
+
+**Training**
+
+The same channel settings apply for training models. To train on cytoplasmic images (green cyto and red nuclei) starting with a pretrained model from cellpose (cyto or nuclei):
+~~~
+python -m cellpose --train --dir ~/images_cyto/train/ --test_dir ~/images_cyto/test/ --pretrained_model cyto --chan 2 --chan2 1
+~~~
+
+You can train from scratch as well:
+~~~
+python -m cellpose --train --dir ~/images_nuclei/train/ --pretrained_model None
+~~~
+
+You can specify the full path to a pretrained model to use:
+~~~
+python -m cellpose --dir ~/images_cyto/test/ --pretrained_model ~/images_cyto/test/model/cellpose_35_0 --save_png
+~~~
+
 
 Parameters:
 ~~~

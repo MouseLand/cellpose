@@ -565,6 +565,7 @@ class MainW(QtGui.QMainWindow):
                                 self.currentZ = min(self.NZ-1, self.currentZ+1)
                                 self.zpos.setText(str(self.currentZ))
                     else:
+                        updated = False
                         if event.key() == QtCore.Qt.Key_X:
                             self.MCheckBox.toggle()
                         if event.key() == QtCore.Qt.Key_Z:
@@ -574,25 +575,29 @@ class MainW(QtGui.QMainWindow):
                                 self.get_prev_image()
                             else:
                                 self.currentZ = max(0,self.currentZ-1)
-                                self.zpos.setText(str(self.currentZ))
+                                self.scroll.setValue(self.currentZ)
+                                updated = True
                         elif event.key() == QtCore.Qt.Key_Right:
                             if self.NZ==1:
                                 self.get_next_image()
                             else:
                                 self.currentZ = min(self.NZ-1, self.currentZ+1)
-                                self.zpos.setText(str(self.currentZ))
+                                self.scroll.setValue(self.currentZ)
+                                updated = True
                         elif event.key() == QtCore.Qt.Key_A:
                             if self.NZ==1:
                                 self.get_prev_image()
                             else:
                                 self.currentZ = max(0,self.currentZ-1)
-                                self.zpos.setText(str(self.currentZ))
+                                self.scroll.setValue(self.currentZ)
+                                updated = True
                         elif event.key() == QtCore.Qt.Key_D:
                             if self.NZ==1:
                                 self.get_next_image()
                             else:
                                 self.currentZ = min(self.NZ-1, self.currentZ+1)
-                                self.zpos.setText(str(self.currentZ))
+                                self.scroll.setValue(self.currentZ)
+                                updated = True
                         
                         elif event.key() == QtCore.Qt.Key_PageDown:
                             self.view = (self.view+1)%(len(self.RGBChoose.bstr))
@@ -618,6 +623,7 @@ class MainW(QtGui.QMainWindow):
                             gci = min(count-1, gci+1)
                         self.BrushChoose.setCurrentIndex(gci)
                         self.brush_choose()
+            if not updated:
                 self.update_plot()
             elif event.modifiers() == QtCore.Qt.ControlModifier:
                 if event.key() == QtCore.Qt.Key_Z:
@@ -912,14 +918,18 @@ class MainW(QtGui.QMainWindow):
         self.RGBChoose.button(self.view).setChecked(True)
         self.update_plot()
 
-    def update_plot(self):
+    def update_ztext(self):
         zpos = self.currentZ
         try:
             zpos = int(self.zpos.text())
         except:
-            print('ERROR: zposition is in NUMBERS')
+            print('ERROR: zposition is not a number')
         self.currentZ = max(0, min(self.NZ-1, zpos))
         self.zpos.setText(str(self.currentZ))
+        self.scroll.setValue(self.currentZ)
+
+    def update_plot(self):
+        
         #self.scroll.setValue(self.currentZ)
         self.Ly, self.Lx, _ = self.stack[self.currentZ].shape
         if self.view==0:
@@ -1205,12 +1215,16 @@ class MainW(QtGui.QMainWindow):
         self.imask=0
         print(self.NZ, self.stack[0].shape)
         self.Ly, self.Lx = img.shape[0], img.shape[1]
-        self.currentZ = int(np.floor(self.NZ/2))
         self.stack = np.array(self.stack)
         self.layers = 0*np.ones((self.NZ,self.Ly,self.Lx,4), np.uint8)
         if self.autobtn.isChecked() or len(self.saturation)!=self.NZ:
             self.compute_saturation()
         self.compute_scale()
+        self.currentZ = int(np.floor(self.NZ/2))
+        self.scroll.setValue(self.currentZ)
+        self.zpos.setText(str(self.currentZ))
+
+        
 
     def load_manual(self, filename=None, image=None, image_file=None):
         if filename is None:

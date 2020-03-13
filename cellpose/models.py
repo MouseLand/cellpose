@@ -368,25 +368,22 @@ class CellposeModel():
         if img.ndim<3:
             img = np.expand_dims(img, axis=-1)
         img = np.transpose(img, (2,0,1))
-        # pad for net so divisible by 4
-        img, ysub, xsub = transforms.pad_image(img)
-
+        
         if tile:
             y,style = self.run_tiled(img, bsize)
             y = np.transpose(y[:3], (1,2,0))
         else:
+            # pad for net so divisible by 4
+            img, ysub, xsub = transforms.pad_image(img)
             img = nd.array(np.expand_dims(img, axis=0), ctx=self.device)
             y,style = self.net(img)
             img = img.asnumpy()
-            #y = nd.array((img.shape[1], img.shape[2],3), ctx=self.device, dtype='float')
-            #y = np.zeros((img.shape[1], img.shape[2],3), np.float32)
             y = np.transpose(y[0].asnumpy(), (1,2,0))
+            y = y[np.ix_(ysub, xsub, np.arange(3))]
             style = style.asnumpy()[0]
             style = np.ones(10)
-        style /= (style**2).sum()**0.5
-
-        y = y[np.ix_(ysub, xsub, np.arange(3))]
-
+            
+        style /= (style**2).sum()**0.5     
         if rsz!=1.0:
             y = cv2.resize(y, (shape[1], shape[0]))
         return y, style
@@ -467,7 +464,7 @@ class CellposeModel():
         rsc = 1.0
         for iepoch in range(self.n_epochs):
             np.random.seed(iepoch)
-            rperm = np.random.permutation(nimg).astype('int32')
+            rperm = np.random.permutation(nimg)
             if iepoch<len(eta):
                 LR = eta[iepoch]
                 trainer.set_learning_rate(LR)
@@ -480,7 +477,7 @@ class CellposeModel():
                                         Y=[train_flows[i] for i in rperm[ibatch:ibatch+batch_size]],
                                         rescale=rsc)
                 X    = nd.array(imgi, ctx=self.device)
-                veci = 5. * nd.array(lbl[:,-2:], ctx=self.device)
+                veci = 5. * nd.array(lbl[:,1:], ctx=self.device)
                 lbl  = nd.array(lbl[:,0]>.5, ctx=self.device)
                 with mx.autograd.record():
                     y, style = self.net(X)
@@ -510,7 +507,7 @@ class CellposeModel():
                                             Y=[test_flows[i] for i in rperm[ibatch:ibatch+batch_size]],
                                             rescale=rsc)
                         X    = nd.array(imgi, ctx=self.device)
-                        veci = nd.array(lbl[:,-2:], ctx=self.device)
+                        veci = nd.array(lbl[:,1:], ctx=self.device)
                         lbl  = nd.array(lbl[:,0]>.5, ctx=self.device)
                         y, style = self.net(X)
                         loss = criterion(y[:,:-1] , veci) + criterion2(y[:,-1] , lbl)
