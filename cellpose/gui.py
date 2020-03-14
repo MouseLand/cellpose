@@ -17,7 +17,7 @@ from skimage import draw
 import mxnet as mx
 from mxnet import nd
 
-from . import utils, transforms, models, guiparts, plot
+from . import utils, transforms, models, guiparts, plot, menus, io
 
 try:
     from google.cloud import storage
@@ -27,7 +27,6 @@ try:
 except:
     SERVER_UPLOAD = False
 
-
 class QHLine(QtGui.QFrame):
     def __init__(self):
         super(QHLine, self).__init__()
@@ -35,7 +34,7 @@ class QHLine(QtGui.QFrame):
         self.setFrameShadow(QtGui.QFrame.Sunken)
 
 def avg3d(C):
-    """ smooth value of c across nearby points 
+    """ smooth value of c across nearby points
         (c is center of grid directly below point)
         b -- a -- b
         a -- c -- a
@@ -98,7 +97,7 @@ def make_cmap(cm=0):
     cmap = pg.ColorMap(pos=np.linspace(0.0,255,256), color=color)
     return cmap
 
-def run(zstack=None, images=None):
+def run(image=None):
     # Always start by initializing Qt (only once per application)
     warnings.filterwarnings("ignore")
     app = QtGui.QApplication(sys.argv)
@@ -114,7 +113,7 @@ def run(zstack=None, images=None):
     os.environ['MXNET_CUDNN_AUTOTUNE_DEFAULT'] = '0'
 
     models.download_model_weights()
-    MainW(zstack=zstack, images=images)
+    MainW(image=image)
     ret = app.exec_()
     sys.exit(ret)
 
@@ -126,7 +125,7 @@ def get_unique_points(set):
     return set
 
 class MainW(QtGui.QMainWindow):
-    def __init__(self, zstack=None, images=None):
+    def __init__(self, image=None):
         super(MainW, self).__init__()
 
         pg.setConfigOptions(imageAxisOrder="row-major")
@@ -143,70 +142,9 @@ class MainW(QtGui.QMainWindow):
         app_icon.addFile(icon_path, QtCore.QSize(48, 48))
         self.setWindowIcon(app_icon)
 
-        main_menu = self.menuBar()
-        file_menu = main_menu.addMenu("&File")
-        # load processed data
-        loadImg = QtGui.QAction("&Load image (*.tif, *.png, *.jpg)", self)
-        loadImg.setShortcut("Ctrl+L")
-        loadImg.triggered.connect(lambda: self.load_images(images))
-        file_menu.addAction(loadImg)
-
-        self.loadMasks = QtGui.QAction("Load &masks (*.tif, *.png, *.jpg)", self)
-        self.loadMasks.setShortcut("Ctrl+M")
-        self.loadMasks.triggered.connect(lambda: self.load_masks(None))
-        file_menu.addAction(self.loadMasks)
-        self.loadMasks.setEnabled(False)
-
-        loadManual = QtGui.QAction("Load &processed/labelled image (*_seg.npy)", self)
-        loadManual.setShortcut("Ctrl+P")
-        loadManual.triggered.connect(lambda: self.load_manual(None))
-        file_menu.addAction(loadManual)
-
-        loadStack = QtGui.QAction("Load &numpy z-stack (*.npy nimgs x nchan x pixels x pixels)", self)
-        loadStack.setShortcut("Ctrl+N")
-        loadStack.triggered.connect(lambda: self.load_zstack(None))
-        file_menu.addAction(loadStack)
-
-        self.saveSet = QtGui.QAction("&Save masks and images (as *.npy)", self)
-        self.saveSet.setShortcut("Ctrl+S")
-        self.saveSet.triggered.connect(self.save_sets)
-        file_menu.addAction(self.saveSet)
-        self.saveSet.setEnabled(False)
-
-        self.saveServer = QtGui.QAction("Send manually labelled data to server", self)
-        self.saveServer.triggered.connect(self.save_server)
-        file_menu.addAction(self.saveServer)
-        self.saveServer.setEnabled(False)
-
-        edit_menu = main_menu.addMenu("&Edit")
-        self.undo = QtGui.QAction('Undo previous mask/trace', self)
-        self.undo.setShortcut("Ctrl+Z")
-        self.undo.triggered.connect(self.undo_action)
-        self.undo.setEnabled(False)
-        edit_menu.addAction(self.undo)
-
-        self.ClearButton = QtGui.QAction('Clear all masks', self)
-        self.ClearButton.setShortcut("Ctrl+0")
-        self.ClearButton.triggered.connect(self.clear_all)
-        self.ClearButton.setEnabled(False)
-        edit_menu.addAction(self.ClearButton)
-
-        self.remcell = QtGui.QAction('Remove selected cell (Ctrl+CLICK)', self)
-        self.remcell.setShortcut("Ctrl+Click")
-        self.remcell.triggered.connect(self.remove_action)
-        self.remcell.setEnabled(False)
-        edit_menu.addAction(self.remcell)
-
-        help_menu = main_menu.addMenu("&Help")
-        openHelp = QtGui.QAction("&Help window", self)
-        openHelp.setShortcut("Ctrl+H")
-        openHelp.triggered.connect(self.help_window)
-        help_menu.addAction(openHelp)
-
-        guiparts.HelpWindow()
-
-        self.cell_types = ["cytoplasm", "membrane", "plantsy", "nucleus only",
-                            "bio (other)", "miscellaneous"]
+        menus.mainmenu(self)
+        menus.editmenu(self)
+        menus.helpmenu(self)
 
         self.setStyleSheet("QMainWindow {background: 'black';}")
         self.stylePressed = ("QPushButton {Text-align: left; "
@@ -250,13 +188,10 @@ class MainW(QtGui.QMainWindow):
         self.reset()
 
         self.is_stack = True # always loading images of same FOV
-        # if called with zstack / images, load them
-        if zstack is not None:
-            self.filename = zstack
-            self.load_zstack(self.filename)
-        elif images is not None:
-            self.filename = images
-            self.load_images(self.filename)
+        # if called with image, load it
+        if image is not None:
+            self.filename = image
+            io.load_image(self, self.filename)
 
         self.setAcceptDrops(True)
         self.win.show()
@@ -369,7 +304,7 @@ class MainW(QtGui.QMainWindow):
         b+=1
         # send to server
         self.ServerButton = QtGui.QPushButton(' send manual seg. to server')
-        self.ServerButton.clicked.connect(self.save_server)
+        self.ServerButton.clicked.connect(lambda: io.save_server(self))
         self.l0.addWidget(self.ServerButton, b,0,1,2)
         self.ServerButton.setEnabled(False)
         self.ServerButton.setStyleSheet(self.styleInactive)
@@ -512,6 +447,89 @@ class MainW(QtGui.QMainWindow):
         self.l0.addWidget(self.scroll, b,3,1,20)
         return b
 
+    def keyPressEvent(self, event):
+        if self.loaded:
+            #self.p0.setMouseEnabled(x=True, y=True)
+            if (event.modifiers() != QtCore.Qt.ControlModifier and
+                event.modifiers() != QtCore.Qt.ShiftModifier and
+                event.modifiers() != QtCore.Qt.AltModifier) and not self.in_stroke:
+                updated = False
+                if len(self.current_point_set) > 0:
+                    if event.key() == QtCore.Qt.Key_Return:
+                        self.add_set()
+                    if self.NZ>1:
+                        if event.key() == QtCore.Qt.Key_Left:
+                            self.currentZ = max(0,self.currentZ-1)
+                            self.zpos.setText(str(self.currentZ))
+                        elif event.key() == QtCore.Qt.Key_Right:
+                            self.currentZ = min(self.NZ-1, self.currentZ+1)
+                            self.zpos.setText(str(self.currentZ))
+                else:
+                    if event.key() == QtCore.Qt.Key_X:
+                        self.MCheckBox.toggle()
+                    if event.key() == QtCore.Qt.Key_Z:
+                        self.OCheckBox.toggle()
+                    if event.key() == QtCore.Qt.Key_Left:
+                        if self.NZ==1:
+                            self.get_prev_image()
+                        else:
+                            self.currentZ = max(0,self.currentZ-1)
+                            self.scroll.setValue(self.currentZ)
+                            updated = True
+                    elif event.key() == QtCore.Qt.Key_Right:
+                        if self.NZ==1:
+                            self.get_next_image()
+                        else:
+                            self.currentZ = min(self.NZ-1, self.currentZ+1)
+                            self.scroll.setValue(self.currentZ)
+                            updated = True
+                    elif event.key() == QtCore.Qt.Key_A:
+                        if self.NZ==1:
+                            self.get_prev_image()
+                        else:
+                            self.currentZ = max(0,self.currentZ-1)
+                            self.scroll.setValue(self.currentZ)
+                            updated = True
+                    elif event.key() == QtCore.Qt.Key_D:
+                        if self.NZ==1:
+                            self.get_next_image()
+                        else:
+                            self.currentZ = min(self.NZ-1, self.currentZ+1)
+                            self.scroll.setValue(self.currentZ)
+                            updated = True
+
+                    elif event.key() == QtCore.Qt.Key_PageDown:
+                        self.view = (self.view+1)%(len(self.RGBChoose.bstr))
+                        self.RGBChoose.button(self.view).setChecked(True)
+                    elif event.key() == QtCore.Qt.Key_PageUp:
+                        self.view = (self.view-1)%(len(self.RGBChoose.bstr))
+                        self.RGBChoose.button(self.view).setChecked(True)
+
+                # can change background or stroke size if cell not finished
+                if event.key() == QtCore.Qt.Key_Up or event.key() == QtCore.Qt.Key_W:
+                    self.color = (self.color-1)%(5)
+                    self.RGBDropDown.setCurrentIndex(self.color)
+                elif event.key() == QtCore.Qt.Key_Down or event.key() == QtCore.Qt.Key_S:
+                    self.color = (self.color+1)%(5)
+                    self.RGBDropDown.setCurrentIndex(self.color)
+                elif (event.key() == QtCore.Qt.Key_Comma or
+                        event.key() == QtCore.Qt.Key_Period):
+                    count = self.BrushChoose.count()
+                    gci = self.BrushChoose.currentIndex()
+                    if event.key() == QtCore.Qt.Key_Comma:
+                        gci = max(0, gci-1)
+                    else:
+                        gci = min(count-1, gci+1)
+                    self.BrushChoose.setCurrentIndex(gci)
+                    self.brush_choose()
+            if not updated:
+                self.update_plot()
+            elif event.modifiers() == QtCore.Qt.ControlModifier:
+                if event.key() == QtCore.Qt.Key_Z:
+                    self.undo_action()
+                if event.key() == QtCore.Qt.Key_0:
+                    self.clear_all()
+
     def check_gpu(self):
         if utils.use_gpu():
             self.useGPU.setEnabled(True)
@@ -547,90 +565,6 @@ class MainW(QtGui.QMainWindow):
             self.p0.addItem(self.scale)
             self.scale_on = True
 
-    def keyPressEvent(self, event):
-        if self.loaded:
-            #self.p0.setMouseEnabled(x=True, y=True)
-            if (event.modifiers() != QtCore.Qt.ControlModifier and
-                event.modifiers() != QtCore.Qt.ShiftModifier and
-                event.modifiers() != QtCore.Qt.AltModifier):
-                if not self.in_stroke:
-                    if len(self.current_point_set) > 0:
-                        if event.key() == QtCore.Qt.Key_Return:
-                            self.add_set()
-                        if self.NZ>1:
-                            if event.key() == QtCore.Qt.Key_Left:
-                                self.currentZ = max(0,self.currentZ-1)
-                                self.zpos.setText(str(self.currentZ))
-                            elif event.key() == QtCore.Qt.Key_Right:
-                                self.currentZ = min(self.NZ-1, self.currentZ+1)
-                                self.zpos.setText(str(self.currentZ))
-                    else:
-                        updated = False
-                        if event.key() == QtCore.Qt.Key_X:
-                            self.MCheckBox.toggle()
-                        if event.key() == QtCore.Qt.Key_Z:
-                            self.OCheckBox.toggle()
-                        if event.key() == QtCore.Qt.Key_Left:
-                            if self.NZ==1:
-                                self.get_prev_image()
-                            else:
-                                self.currentZ = max(0,self.currentZ-1)
-                                self.scroll.setValue(self.currentZ)
-                                updated = True
-                        elif event.key() == QtCore.Qt.Key_Right:
-                            if self.NZ==1:
-                                self.get_next_image()
-                            else:
-                                self.currentZ = min(self.NZ-1, self.currentZ+1)
-                                self.scroll.setValue(self.currentZ)
-                                updated = True
-                        elif event.key() == QtCore.Qt.Key_A:
-                            if self.NZ==1:
-                                self.get_prev_image()
-                            else:
-                                self.currentZ = max(0,self.currentZ-1)
-                                self.scroll.setValue(self.currentZ)
-                                updated = True
-                        elif event.key() == QtCore.Qt.Key_D:
-                            if self.NZ==1:
-                                self.get_next_image()
-                            else:
-                                self.currentZ = min(self.NZ-1, self.currentZ+1)
-                                self.scroll.setValue(self.currentZ)
-                                updated = True
-                        
-                        elif event.key() == QtCore.Qt.Key_PageDown:
-                            self.view = (self.view+1)%(len(self.RGBChoose.bstr))
-                            self.RGBChoose.button(self.view).setChecked(True)
-                        elif event.key() == QtCore.Qt.Key_PageUp:
-                            self.view = (self.view-1)%(len(self.RGBChoose.bstr))
-                            self.RGBChoose.button(self.view).setChecked(True)
-
-                    # can change background or stroke size if cell not finished
-                    if event.key() == QtCore.Qt.Key_Up or event.key() == QtCore.Qt.Key_W:
-                        self.color = (self.color-1)%(5)
-                        self.RGBDropDown.setCurrentIndex(self.color)
-                    elif event.key() == QtCore.Qt.Key_Down or event.key() == QtCore.Qt.Key_S:
-                        self.color = (self.color+1)%(5)
-                        self.RGBDropDown.setCurrentIndex(self.color)
-                    elif (event.key() == QtCore.Qt.Key_Comma or
-                            event.key() == QtCore.Qt.Key_Period):
-                        count = self.BrushChoose.count()
-                        gci = self.BrushChoose.currentIndex()
-                        if event.key() == QtCore.Qt.Key_Comma:
-                            gci = max(0, gci-1)
-                        else:
-                            gci = min(count-1, gci+1)
-                        self.BrushChoose.setCurrentIndex(gci)
-                        self.brush_choose()
-            if not updated:
-                self.update_plot()
-            elif event.modifiers() == QtCore.Qt.ControlModifier:
-                if event.key() == QtCore.Qt.Key_Z:
-                    self.undo_action()
-                if event.key() == QtCore.Qt.Key_0:
-                    self.clear_all()
-
     def toggle_removals(self):
         if self.ncells>0:
             self.ClearButton.setEnabled(True)
@@ -662,26 +596,20 @@ class MainW(QtGui.QMainWindow):
         images.extend(glob.glob(os.path.dirname(self.filename) + '/*.tif'))
         images.extend(glob.glob(os.path.dirname(self.filename) + '/*.tiff'))
         images = natsorted(images)
-
         fnames = [os.path.split(images[k])[-1] for k in range(len(images))]
         f0 = os.path.split(self.filename)[-1]
-
         idx = np.nonzero(np.array(fnames)==f0)[0][0]
-
-        #idx = np.nonzero(np.array(images)==self.filename[0])[0][0]
         return images, idx
 
     def get_prev_image(self):
         images, idx = self.get_files()
         idx = (idx-1)%len(images)
-        #print(images[idx-1])
-        self.load_images(filename=images[idx])
+        io.load_image(self, filename=images[idx])
 
     def get_next_image(self):
         images, idx = self.get_files()
         idx = (idx+1)%len(images)
-        #print(images[idx+1])
-        self.load_images(filename=images[idx])
+        io.load_image(self, filename=images[idx])
 
     def dragEnterEvent(self, event):
         if event.mimeData().hasUrls():
@@ -691,11 +619,10 @@ class MainW(QtGui.QMainWindow):
 
     def dropEvent(self, event):
         files = [u.toLocalFile() for u in event.mimeData().urls()]
-        print(files)
         if os.path.splitext(files[0])[-1] == '.npy':
-            self.load_manual(filename=files[0])
+            io.load_seg(self, filename=files[0])
         else:
-            self.load_images(filename=files[0])
+            io.load_image(self, filename=files[0])
 
     def toggle_masks(self):
         if self.MCheckBox.isChecked():
@@ -787,7 +714,6 @@ class MainW(QtGui.QMainWindow):
         self.outpix = np.zeros((1,self.Ly,self.Lx), np.uint16)
         self.ismanual = np.zeros(0, np.bool)
         self.update_plot()
-        self.basename = []
         self.filename = []
         self.loaded = False
 
@@ -865,7 +791,7 @@ class MainW(QtGui.QMainWindow):
         if self.ncells==0:
             self.ClearButton.setEnabled(False)
         if self.NZ==1:
-            self.save_sets()
+            io.save_sets(self)
 
     def remove_stroke(self, delete_points=True):
         #self.current_stroke = get_unique_points(self.current_stroke)
@@ -929,8 +855,6 @@ class MainW(QtGui.QMainWindow):
         self.scroll.setValue(self.currentZ)
 
     def update_plot(self):
-        
-        #self.scroll.setValue(self.currentZ)
         self.Ly, self.Lx, _ = self.stack[self.currentZ].shape
         if self.view==0:
             image = self.stack[self.currentZ]
@@ -980,7 +904,7 @@ class MainW(QtGui.QMainWindow):
                 self.ismanual = np.append(self.ismanual, True)
                 if self.NZ==1:
                     # only save after each cell if single image
-                    self.save_sets()
+                    io.save_sets(self)
             self.current_stroke = []
             self.strokes = []
             self.current_point_set = []
@@ -1002,7 +926,7 @@ class MainW(QtGui.QMainWindow):
             iz = points[:,0] == z
             vr = points[iz,1]
             vc = points[iz,2]
-            
+
             vr, vc = draw.polygon_perimeter(vr, vc, self.layers[z].shape[:2])
             ar, ac = draw.polygon(vr, vc, self.layers[z].shape[:2])
             ar, ac = np.hstack((np.vstack((vr, vc)), np.vstack((ar, ac))))
@@ -1019,13 +943,13 @@ class MainW(QtGui.QMainWindow):
                 outlines = plot.masks_to_outlines(mask)
                 vr, vc = np.nonzero(outlines)
                 vr, vc = vr + ar.min(), vc + ac.min()
-                
+
             self.draw_mask(z, ar, ac, vr, vc, color)
 
             median.append(np.array([np.median(ar), np.median(ac)]))
             mall[z-zmin, ar, ac] = True
             pix = np.append(pix, np.vstack((ar, ac)), axis=-1)
-        
+
         mall = mall[:, pix[0].min():pix[0].max()+1, pix[1].min():pix[1].max()+1].astype(np.float32)
         ymin, xmin = pix[0].min(), pix[1].min()
         if len(zdraw) > 1:
@@ -1053,74 +977,13 @@ class MainW(QtGui.QMainWindow):
         ''' draw single mask using outlines and area '''
         self.cellpix[z][vr, vc] = self.ncells+1
         self.cellpix[z][ar, ac] = self.ncells+1
-        self.outpix[z][vr, vc] = self.ncells+1                
+        self.outpix[z][vr, vc] = self.ncells+1
         if self.masksOn:
             self.layers[z][ar, ac, :3] = color
             self.layers[z][ar, ac, -1] = self.opacity
         if self.outlinesOn:
             self.layers[z][vr, vc] = np.array(self.outcolor)
 
-    def save_sets(self):
-        if self.is_stack:
-            base = os.path.splitext(self.filename)[0]
-        else:
-            base = os.path.splitext(self.filename[self.currentZ])[0]
-        if self.NZ > 1 and self.is_stack:
-            np.save(base + '_seg.npy',
-                    {'outlines': self.outpix,
-                     'colors': self.cellcolors[1:],
-                     'masks': self.cellpix,
-                     'current_channel': (self.color-2)%5,
-                     'filename': self.filename,
-                     'zdraw': self.zdraw})
-        else:
-            image = self.chanchoose(self.stack[self.currentZ].copy())
-            if image.ndim < 4:
-                image = image[np.newaxis,...]
-            np.save(base + '_seg.npy',
-                    {'outlines': self.outpix.squeeze(),
-                     'colors': self.cellcolors[1:],
-                     'masks': self.cellpix.squeeze(),
-                     'chan_choose': [self.ChannelChoose[0].currentIndex(),
-                                     self.ChannelChoose[1].currentIndex()],
-                     'img': image.squeeze(),
-                     'ismanual': self.ismanual,
-                     'X2': self.X2,
-                     'filename': self.filename,
-                     'flows': self.flows})
-        #print(self.point_sets)
-        print('--- %d ROIs saved chan1 %s, chan2 %s'%(self.ncells,
-                                                      self.ChannelChoose[0].currentText(),
-                                                      self.ChannelChoose[1].currentText()))
-
-    def save_server(self):
-        """Uploads a file to the bucket."""
-        q = QtGui.QMessageBox.question(
-                                        self,
-                                        "Send to server",
-                                        "Are you sure? Only send complete and fully manually segmented data.\n (do not send partially automated segmentations)",
-                                        QtGui.QMessageBox.Yes | QtGui.QMessageBox.No
-                                      )
-        if q == QtGui.QMessageBox.Yes:
-            bucket_name = 'cellpose_data'
-            base = os.path.splitext(self.filename)[0]
-            source_file_name = base + '_seg.npy'
-            print(source_file_name)
-            time = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S.%f")
-            filestring = time + '.npy'
-            print(filestring)
-            destination_blob_name = filestring
-            storage_client = storage.Client()
-            bucket = storage_client.bucket(bucket_name)
-            blob = bucket.blob(destination_blob_name)
-
-            blob.upload_from_filename(source_file_name)
-
-            print(
-                "File {} uploaded to {}.".format(
-                    source_file_name, destination_blob_name
-                )
-            )
 
     def compute_scale(self):
         self.diameter = float(self.Diameter.text())
@@ -1150,7 +1013,7 @@ class MainW(QtGui.QMainWindow):
             else:
                 self.layers[...,3] = 0
             self.layers[self.outpix>0] = np.array(self.outcolor).astype(np.uint8)
-            
+
     def draw_masks(self):
         self.cellcolors = np.array(self.cellcolors)
         self.layers[...,:3] = self.cellcolors[self.cellpix,:]
@@ -1160,258 +1023,12 @@ class MainW(QtGui.QMainWindow):
         if self.selected>0:
             self.layers[self.outpix==self.selected] = np.array([0,0,0,self.opacity])
 
-    def initialize_images(self, image, resize, X2):
-        self.onechan=False
-        if image.ndim > 3:
-            # tiff is Z x channels x W x H
-            if image.shape[1] < 3:
-                shape = image.shape
-                image = np.concatenate((image,
-                                np.zeros((shape[0], 3-shape[1], shape[2], shape[3]), dtype=np.uint8)), axis=1)
-                if 3-shape[1]>1:
-                    self.onechan=True
-            image = np.transpose(image, (0,2,3,1))
-        elif image.ndim==3:
-            if image.shape[0] < 5:
-                image = np.transpose(image, (1,2,0))
-
-            if image.shape[-1] < 3:
-                shape = image.shape
-                image = np.concatenate((image,
-                                           np.zeros((shape[0], shape[1], 3-shape[2]),
-                                            dtype=type(image[0,0,0]))), axis=-1)
-                if 3-shape[2]>1:
-                    self.onechan=True
-                image = image[np.newaxis,...]
-            elif image.shape[-1]<5 and image.shape[-1]>2:
-                image = image[:,:,:3]
-                image = image[np.newaxis,...]
-        else:
-            image = image[np.newaxis,...]
-
-        self.stack = image
-        self.NZ = len(self.stack)
-        self.scroll.setMaximum(self.NZ-1)
-        if self.stack.max()>255 or self.stack.min()<0.0 or self.stack.max()<=50.0:
-            self.stack = self.stack.astype(np.float32)
-            self.stack -= self.stack.min()
-            self.stack /= self.stack.max()
-            self.stack *= 255
-        del image
-        gc.collect()
-
-        self.stack = list(self.stack)
-        for k,img in enumerate(self.stack):
-            # if grayscale make 3D
-            if resize != -1:
-                img = transforms.image_resizer(img, resize=resize, to_uint8=False)
-            if img.ndim==2:
-                img = np.tile(img[:,:,np.newaxis], (1,1,3))
-                self.onechan=True
-            if X2!=0:
-                img = transforms.X2zoom(img, X2=X2)
-            self.stack[k] = img
-            
-        self.imask=0
-        print(self.NZ, self.stack[0].shape)
-        self.Ly, self.Lx = img.shape[0], img.shape[1]
-        self.stack = np.array(self.stack)
-        self.layers = 0*np.ones((self.NZ,self.Ly,self.Lx,4), np.uint8)
-        if self.autobtn.isChecked() or len(self.saturation)!=self.NZ:
-            self.compute_saturation()
-        self.compute_scale()
-        self.currentZ = int(np.floor(self.NZ/2))
-        self.scroll.setValue(self.currentZ)
-        self.zpos.setText(str(self.currentZ))
-
-        
-
-    def load_manual(self, filename=None, image=None, image_file=None):
-        if filename is None:
-            name = QtGui.QFileDialog.getOpenFileName(
-                self, "Load labelled data", filter="*.npy"
-                )
-            filename = name[0]
-        try:
-            dat = np.load(filename, allow_pickle=True).item()
-            dat['outlines']
-            self.loaded = True
-        except:
-            self.loaded = False
-            print('not NPY')
-            return
-
-        self.reset()
-        if image is None:
-            found_image = False
-            if 'filename' in dat:
-                self.filename = dat['filename']
-                if os.path.isfile(self.filename):
-                    self.filename = dat['filename']
-                    found_image = True
-                else:
-                    imgname = os.path.split(self.filename)[1]
-                    root = os.path.split(filename)[0]
-                    self.filename = root+'/'+imgname
-                    if os.path.isfile(self.filename):
-                        found_image = True
-            if found_image:
-                try:
-                    image = io.imread(self.filename)
-                except:
-                    self.loaded = False
-                    found_image = False
-                    print('ERROR: cannot find image file, loading from npy')
-            if not found_image:
-                self.filename = filename[:-11]
-                if 'img' in dat:
-                    image = dat['img']
-                else:
-                    print('ERROR: no image file found and no image in npy')
-                    return
-        else:
-            self.filename = image_file
-        print(self.filename)
-
-        if 'X2' in dat:
-            self.X2 = dat['X2']
-        else:
-            self.X2 = 0
-        if 'resize' in dat:
-            self.resize = dat['resize']
-        elif 'img' in dat:
-            if max(image.shape) > max(dat['img'].shape):
-                self.resize = max(dat['img'].shape)
-        else:
-            self.resize = -1
-        self.initialize_images(image, resize=self.resize, X2=self.X2)
-        if 'chan_choose' in dat:
-            self.ChannelChoose[0].setCurrentIndex(dat['chan_choose'][0])
-            self.ChannelChoose[1].setCurrentIndex(dat['chan_choose'][1])
-        if 'outlines' in dat:
-            if isinstance(dat['outlines'], list):
-                # old way of saving files
-                dat['outlines'] = dat['outlines'][::-1]
-                for k, outline in enumerate(dat['outlines']):
-                    if 'colors' in dat:
-                        color = dat['colors'][k]
-                    else:
-                        col_rand = np.random.randint(1000)
-                        color = self.colormap[col_rand,:3]
-                    median = self.add_mask(points=outline, color=color)
-                    if median is not None:
-                        self.cellcolors.append(color)
-                        self.ncells+=1
-            else:
-                if dat['masks'].ndim==2:
-                    dat['masks'] = dat['masks'][np.newaxis,:,:]
-                    dat['outlines'] = dat['outlines'][np.newaxis,:,:]
-                if dat['masks'].min()==-1:
-                    dat['masks'] += 1
-                    dat['outlines'] += 1
-                if 'colors' in dat:
-                    colors = dat['colors']
-                else:
-                    col_rand = np.random.randint(0, 1000, (dat['masks'].max(),))
-                    colors = self.colormap[col_rand,:3]
-                self.cellpix = dat['masks']
-                self.outpix = dat['outlines']
-                self.cellcolors.extend(colors)
-                self.ncells = np.uint16(self.cellpix.max())
-                self.draw_masks()
-                if 'est_diam' in dat:
-                    self.Diameter.setText('%0.1f'%dat['est_diam'])
-                    self.diameter = dat['est_diam']
-                    self.compute_scale()
-                    
-                if self.masksOn or self.outlinesOn and not (self.masksOn and self.outlinesOn):
-                    self.redraw_masks(masks=self.masksOn, outlines=self.outlinesOn)
-            if 'zdraw' in dat:
-                self.zdraw = dat['zdraw']
-            else:
-                self.zdraw = [None for n in range(self.ncells)]
-            self.loaded = True
-            print('%d masks found'%(self.ncells))
-        else:
-            self.clear_all()
-
-        self.ismanual = np.zeros(self.ncells, np.bool)
-        if 'ismanual' in dat:
-            if len(dat['ismanual']) == self.ncells:
-                self.ismanual = dat['ismanual']
-
-        if 'current_channel' in dat:
-            self.color = (dat['current_channel']+2)%5
-            self.RGBDropDown.setCurrentIndex(self.color)
-
-        self.enable_buttons()
-        del dat
-        gc.collect()
-
     def compute_saturation(self):
         # compute percentiles from stack
         self.saturation = []
         for n in range(len(self.stack)):
             self.saturation.append([np.percentile(self.stack[n].astype(np.float32),1),
                                     np.percentile(self.stack[n].astype(np.float32),99)])
-
-    def load_masks(self, filename=None):
-        name = QtGui.QFileDialog.getOpenFileName(
-            self, "Load masks (color channels = nucleus, cytoplasm, ...)"
-            )
-        masks = io.imread(name[0])
-        outlines = None
-        if masks.ndim>3:
-            # Z x nchannels x Ly x Lx
-            if masks.shape[-1]>5:
-                self.flows = list(np.transpose(masks[:,:,:,2:], (3,0,1,2)))
-                outlines = masks[...,1]
-                masks = masks[...,0]
-            else:
-                self.flows = list(np.transpose(masks[:,:,:,1:], (3,0,1,2)))
-                masks = masks[...,0]
-        elif masks.ndim==3:
-            if masks.shape[-1]<5:
-                masks = masks[np.newaxis,:,:,0]
-        elif masks.ndim<3:
-            masks = masks[np.newaxis,:,:]
-        # masks should be Z x Ly x Lx
-        if masks.shape[0]!=self.NZ:
-            print('ERROR: masks are not same depth (number of planes) as image stack')
-            return
-        print('%d masks found'%(len(np.unique(masks))-1))
-
-        self.masks_to_gui(masks, outlines)
-
-        self.update_plot()
-
-    def masks_to_gui(self, masks, outlines=None):
-        # get unique values
-        shape = masks.shape
-        _, masks = np.unique(masks, return_inverse=True)
-        masks = np.reshape(masks, shape)
-        self.cellpix = masks
-        # get outlines
-        if outlines is None:
-            self.outpix = np.zeros(masks.shape, np.uint16)
-            for z in range(self.NZ):
-                outlines = plot.masks_to_outlines(masks[z])
-                self.outpix[z] = ((outlines * masks[z])).astype(np.uint16)
-                if z%50==0:
-                    print('plane %d outlines processed'%z)
-        else:
-            self.outpix = outlines
-            shape = self.outpix.shape
-            _,self.outpix = np.unique(self.outpix, return_inverse=True)
-            self.outpix = np.reshape(self.outpix, shape)
-
-        self.ncells = np.uint16(self.cellpix.max())
-        colors = self.colormap[np.random.randint(0,1000,size=self.ncells), :3]
-        self.cellcolors = list(np.concatenate((np.array([[255,255,255]]), colors), axis=0).astype(np.uint8))
-        self.draw_masks()
-        if self.ncells>0:
-            self.toggle_mask_ops()
-        self.ismanual = np.zeros(self.ncells, np.bool)
 
     def chanchoose(self, image):
         if image.ndim > 2:
@@ -1497,53 +1114,12 @@ class MainW(QtGui.QMainWindow):
             self.MCheckBox.setChecked(True)
             self.OCheckBox.setChecked(True)
 
-            self.masks_to_gui(masks[np.newaxis,:,:], outlines=None)
+            io.masks_to_gui(self, masks[np.newaxis,:,:], outlines=None)
             self.progress.setValue(100)
 
             self.toggle_server(off=True)
-
         except Exception as e:
             print('ERROR: %s'%e)
-
-        #self.ModelButton.setStyleSheet(self.styleUnpressed)
-
-    def load_images(self, filename=None):
-        #QtWidgets.QApplication.setOverrideCursor(QtCore.Qt.WaitCursor)
-        if filename is None:
-            name = QtGui.QFileDialog.getOpenFileName(
-                self, "Load image"
-                )
-            filename = name[0]
-        manual_file = os.path.splitext(filename)[0]+'_seg.npy'
-        if os.path.isfile(manual_file):
-            print(manual_file)
-            self.load_manual(manual_file, image=io.imread(filename), image_file=filename)
-            return
-        elif os.path.isfile(os.path.splitext(filename)[0]+'_manual.npy'):
-            manual_file = os.path.splitext(filename)[0]+'_manual.npy'
-            self.load_manual(manual_file, image=io.imread(filename), image_file=filename)
-            return
-        try:
-            image = io.imread(filename)
-            self.loaded = True
-        except:
-            print('images not compatible')
-
-        self.prediction = False
-        if self.loaded:
-            self.reset()
-            self.filename = filename
-            print(filename)
-            self.basename, filename = os.path.split(self.filename)
-            #self.resize = int(self.MaxSize.text())
-            self.initialize_images(image, resize=self.resize, X2=0)
-            self.clear_all()
-            #self.stack = np.transpose(self.stack[:,:,:,0,1], (2,0,1))
-            if self.prediction:
-                self.compute_model()
-            self.loaded = True
-            self.enable_buttons()
-        #QtWidgets.QApplication.restoreOverrideCursor()
 
 
     def enable_buttons(self):
@@ -1555,6 +1131,7 @@ class MainW(QtGui.QMainWindow):
         self.SizeButton.setStyleSheet(self.styleUnpressed)
         self.loadMasks.setEnabled(True)
         self.saveSet.setEnabled(True)
+        self.savePNG.setEnabled(True)
         self.toggle_mask_ops()
 
         self.update_plot()
@@ -1574,40 +1151,3 @@ class MainW(QtGui.QMainWindow):
     def toggle_mask_ops(self):
         self.toggle_removals()
         self.toggle_server()
-
-    def load_zstack(self, filename=None):
-        #QtWidgets.QApplication.setOverrideCursor(QtCore.Qt.WaitCursor)
-        if filename is None:
-            name = QtGui.QFileDialog.getOpenFileName(
-                self, "Load matrix of images", filter="*.npy"
-                )
-            filename = name[0]
-
-        try:
-            stack = np.load(filename)
-            self.loaded = True
-        except:
-            print('not NPY')
-            #QtWidgets.QApplication.restoreOverrideCursor()
-            return
-
-        manual_file = os.path.splitext(filename)[0]+'_seg.npy'
-        if os.path.isfile(manual_file):
-            print(manual_file)
-            self.load_manual(manual_file, image=stack, image_file=filename)
-            return
-
-        self.prediction = False
-        if self.loaded:
-            self.reset()
-            self.filename = filename
-            print(filename)
-            self.basename, filename = os.path.split(self.filename)
-            #self.resize = int(self.MaxSize.text())
-            self.initialize_images(stack, -1, 0)
-            #self.stack = np.transpose(self.stack[:,:,:,0,1], (2,0,1))
-            if self.prediction:
-                self.compute_model()
-            self.loaded = True
-            self.enable_buttons()
-        #QtWidgets.QApplication.restoreOverrideCursor()

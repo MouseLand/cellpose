@@ -34,6 +34,7 @@ def masks_flows_to_seg(images, masks, flows, diams, channels, file_names):
                      'est_diam': diams[n]})
 
 def save_to_png(images, masks, flows, file_names):
+    """ save nicely plotted segmentation image to png """
     nimg = len(images)
     for n in range(nimg):
         img = images[n].copy()
@@ -53,8 +54,8 @@ def save_to_png(images, masks, flows, file_names):
         fig.savefig(base+'_cp.png', dpi=300)
         plt.close(fig)
 
-
 def use_gpu(gpu_number=0):
+    """ check if mxnet gpu works """
     try:
         _ = mx.nd.array([1, 2, 3], ctx=mx.gpu(gpu_number))
         return True
@@ -69,6 +70,7 @@ def taper_mask(bsize=224, sig=7.5):
     return mask
 
 def diameters(masks):
+    """ get median 'diameter' of masks """
     unique, counts = np.unique(np.int32(masks), return_counts=True)
     counts = counts[1:]
     md = np.median(counts**0.5)
@@ -92,24 +94,6 @@ def normalize99(img):
     X = img.copy()
     X = (X - np.percentile(X, 1)) / (np.percentile(X, 99) - np.percentile(X, 1))
     return X
-
-def gabors(npix):
-    ''' npix - size of gabor patch (should be ODD)'''
-    y,x=np.meshgrid(np.arange(npix),np.arange(npix))
-    sigma = 1
-    f = 0.1
-    theta = np.linspace(0, 2*np.pi, 33)[:-1]
-    theta = theta[:,np.newaxis,np.newaxis]
-    ycent,xcent = y.mean(), x.mean()
-    yc = y - ycent
-    xc = x - xcent
-    ph = np.pi/2
-
-    xc = xc[np.newaxis,:,:]
-    yc = yc[np.newaxis,:,:]
-    G = np.exp(-(xc**2 + yc**2) / (2*sigma**2)) * np.cos(ph + f * (yc*np.cos(theta) + xc*np.sin(theta)))
-
-    return G
 
 def process_cells(M0, npix=20):
     unq, ic = np.unique(M0, return_counts=True)

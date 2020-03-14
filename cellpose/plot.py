@@ -8,7 +8,7 @@ import skimage
 from skimage import draw
 
 def show_segmentation(fig, img, maski, flowi, save_path=None):
-    #outpix = plot_outlines(maski)
+    """ plot segmentation like on website """
     outlines = masks_to_outlines(maski)
     overlay = mask_overlay(img, maski)
 
