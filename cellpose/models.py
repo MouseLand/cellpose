@@ -1,5 +1,5 @@
 import numpy as np
-import os, sys, time, shutil, tempfile, datetime
+import os, sys, time, shutil, tempfile, datetime, pathlib
 from tqdm import trange, tqdm
 from urllib.request import urlopen
 from urllib.parse import urlparse
@@ -65,12 +65,12 @@ def download_url_to_file(url, dst, progress=True):
             os.remove(f.name)
 
 def download_model_weights(urls=urls):
-    model_dir = os.path.join(
-        os.path.dirname(os.path.realpath(__file__)), 'models/'
-    )
-    if not os.path.exists(model_dir):
-        os.mkdir(model_dir)
-        print('>>> Models not downloaded, please wait <<<')
+    # cellpose directory
+    cp_dir = pathlib.Path.home().joinpath('.cellpose')
+    cp_dir.mkdir(exist_ok=True)
+    model_dir = cp_dir.joinpath('models')
+    model_dir.mkdir(exist_ok=True)
+
     for url in urls:
         parts = urlparse(url)
         filename = os.path.basename(parts.path)
@@ -86,11 +86,10 @@ class Cellpose():
         super(Cellpose, self).__init__()
         self.batch_size=8
         self.diam_mean = diam_mean
+        model_dir = pathlib.Path.home().joinpath('.cellpose', 'models')
         if model_type is not None and pretrained_model is None:
-            pretrained_model = [os.path.abspath(os.path.join(os.path.dirname(__file__),
-                                                'models/%s_%d'%(model_type,j))) for j in range(4)]
-            pretrained_size = os.path.abspath(os.path.join(os.path.dirname(__file__),
-                                                    'models/size_%s_0.npy'%model_type))
+            pretrained_model = [model_dir.joinpath('%s_%d'%(model_type,j)) for j in range(4)]
+            pretrained_size = model_dir.joinpath('size_%s_0'%(model_type))
             if model_type=='cyto':
                 self.diam_mean = 27.
             else:
@@ -99,18 +98,15 @@ class Cellpose():
                 download_model_weights()
         elif pretrained_model is None:
             if net_avg:
-                pretrained_model = [os.path.abspath(os.path.join(os.path.dirname(__file__),
-                                                'models/cyto_%d'%j)) for j in range(4)]
+                pretrained_model = [model_dir.joinpath('cyto_%d'%j) for j in range(4)]
                 if not os.path.isfile(pretrained_model[0]):
                     download_model_weights()
             else:
-                pretrained_model = os.path.abspath(os.path.join(os.path.dirname(__file__),
-                                                'models/cyto_0'))
+                pretrained_model = model_dir.joinpath('cyto_0')
                 if not os.path.isfile(pretrained_model):
                     download_model_weights()
             if pretrained_size is None:
-                pretrained_size = os.path.abspath(os.path.join(os.path.dirname(__file__),
-                                                    'models/size_cyto_0.npy'))
+                pretrained_size = model_dir.joinpath('size_cyto_0.npy')
         if device==mx.gpu() and utils.use_gpu():
             self.device = mx.gpu()
         else:
@@ -235,17 +231,16 @@ class CellposeModel():
         self.net = resnet_style.CPnet(nbase, nout=3)
         self.net.hybridize(static_alloc=True, static_shape=True)
         self.net.initialize(ctx = self.device)#, grad_req='null')
+        model_dir = pathlib.Path.home().joinpath('.cellpose', 'models')
         if pretrained_model is not None and isinstance(pretrained_model, str):
             self.net.load_parameters(pretrained_model)
         elif pretrained_model is None:
             if net_avg:
-                pretrained_model = [os.path.abspath(os.path.join(os.path.dirname(__file__),
-                                                'models/cyto_%d'%j)) for j in range(4)]
+                pretrained_model = [model_dir.joinpath('cyto_%d'%j) for j in range(4)]
                 if not os.path.isfile(pretrained_model[0]):
                     download_model_weights()
             else:
-                pretrained_model = os.path.abspath(os.path.join(os.path.dirname(__file__),
-                                                'models/cyto_0'))
+                pretrained_model = model_dir.joinpath('cyto_0')
                 if not os.path.isfile(pretrained_model):
                     download_model_weights()
                 self.net.load_parameters(pretrained_model)
@@ -382,7 +377,7 @@ class CellposeModel():
             y = y[np.ix_(ysub, xsub, np.arange(3))]
             style = style.asnumpy()[0]
             style = np.ones(10)
-            
+
         style /= (style**2).sum()**0.5     
         if rsz!=1.0:
             y = cv2.resize(y, (shape[1], shape[0]))
