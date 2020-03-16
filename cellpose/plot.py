@@ -6,6 +6,7 @@ from scipy.ndimage import gaussian_filter
 import scipy
 import skimage
 from skimage import draw
+from skimage.segmentation import find_boundaries
 
 def show_segmentation(fig, img, maski, flowi, save_path=None):
     """ plot segmentation like on website """
@@ -163,22 +164,24 @@ def dx_to_circ(dP):
     return flow
 
 def masks_to_outlines(masks):
-    Ly, Lx = masks.shape
-    nmask = masks.max()
-    outlines = np.zeros((Ly,Lx), np.bool)
-    # pad T0 and mask by 2
-    T = np.zeros((Ly+4)*(Lx+4), np.int32)
-    Lx += 4
-    iun = np.unique(masks)[1:]
-    for iu in iun:
-        y,x = np.nonzero(masks==iu)
-        y+=1
-        x+=1
-        T[y*Lx + x] = 1
-        T[y*Lx + x] =  (T[(y-1)*Lx + x]   + T[(y+1)*Lx + x] +
-                        T[y*Lx + x-1]     + T[y*Lx + x+1] )
-        outlines[y-1,x-1] = np.logical_and(T[y*Lx+x]>0 , T[y*Lx+x]<4)
-        T[y*Lx + x] = 0
+    outlines = np.zeros(masks.shape, np.bool)
+    outlines[find_boundaries(masks, mode='inner')] = 1
+    #Ly, Lx = masks.shape
+    #nmask = masks.max()
+    #outlines = np.zeros((Ly,Lx), np.bool)
+    ## pad T0 and mask by 2
+    #T = np.zeros((Ly+4)*(Lx+4), np.int32)
+    #Lx += 4
+    #iun = np.unique(masks)[1:]
+    #for iu in iun:
+    #    y,x = np.nonzero(masks==iu)
+    #    y+=1
+    #    x+=1
+    #    T[y*Lx + x] = 1
+    #    T[y*Lx + x] =  (T[(y-1)*Lx + x]   + T[(y+1)*Lx + x] +
+    #                    T[y*Lx + x-1]     + T[y*Lx + x+1] )
+    #    outlines[y-1,x-1] = np.logical_and(T[y*Lx+x]>0 , T[y*Lx+x]<4)
+    #    T[y*Lx + x] = 0
     #outlines *= masks
     return outlines
 
