@@ -245,7 +245,7 @@ def load_masks(parent, filename=None):
             parent, "Load masks (PNG or TIFF)"
             )
         filename = name[0]
-    masks = io.imread(filename)
+    masks = skimage.io.imread(filename)
     outlines = None
     if masks.ndim>3:
         # Z x nchannels x Ly x Lx
