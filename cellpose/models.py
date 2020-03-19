@@ -88,8 +88,8 @@ class Cellpose():
         self.diam_mean = diam_mean
         model_dir = pathlib.Path.home().joinpath('.cellpose', 'models')
         if model_type is not None and pretrained_model is None:
-            pretrained_model = [model_dir.joinpath('%s_%d'%(model_type,j)) for j in range(4)]
-            pretrained_size = model_dir.joinpath('size_%s_0'%(model_type))
+            pretrained_model = [os.fspath(model_dir.joinpath('%s_%d'%(model_type,j))) for j in range(4)]
+            pretrained_size = os.fspath(model_dir.joinpath('size_%s_0.npy'%(model_type)))
             if model_type=='cyto':
                 self.diam_mean = 27.
             else:
@@ -98,15 +98,15 @@ class Cellpose():
                 download_model_weights()
         elif pretrained_model is None:
             if net_avg:
-                pretrained_model = [model_dir.joinpath('cyto_%d'%j) for j in range(4)]
+                pretrained_model = [os.fspath(model_dir.joinpath('cyto_%d'%j)) for j in range(4)]
                 if not os.path.isfile(pretrained_model[0]):
                     download_model_weights()
             else:
-                pretrained_model = model_dir.joinpath('cyto_0')
+                pretrained_model = os.fspath(model_dir.joinpath('cyto_0'))
                 if not os.path.isfile(pretrained_model):
                     download_model_weights()
             if pretrained_size is None:
-                pretrained_size = model_dir.joinpath('size_cyto_0.npy')
+                pretrained_size = os.fspath(model_dir.joinpath('size_cyto_0.npy'))
         if device==mx.gpu() and utils.use_gpu():
             self.device = mx.gpu()
         else:
@@ -236,11 +236,11 @@ class CellposeModel():
             self.net.load_parameters(pretrained_model)
         elif pretrained_model is None:
             if net_avg:
-                pretrained_model = [model_dir.joinpath('cyto_%d'%j) for j in range(4)]
+                pretrained_model = [os.fspath(model_dir.joinpath('cyto_%d'%j)) for j in range(4)]
                 if not os.path.isfile(pretrained_model[0]):
                     download_model_weights()
             else:
-                pretrained_model = model_dir.joinpath('cyto_0')
+                pretrained_model = os.fspath(model_dir.joinpath('cyto_0'))
                 if not os.path.isfile(pretrained_model):
                     download_model_weights()
                 self.net.load_parameters(pretrained_model)
@@ -269,7 +269,7 @@ class CellposeModel():
         else:
             iterator = range(nimg)
 
-        if isinstance(self.pretrained_model, list) and not net_avg:
+        if isinstance(self.pretrained_model, list) and not net_avg:    
             self.net.load_parameters(self.pretrained_model[0])
             self.net.collect_params().grad_req = 'null'
 

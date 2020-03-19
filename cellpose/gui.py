@@ -1,4 +1,4 @@
-import sys, os, warnings, datetime, tempfile, glob
+import sys, os, pathlib, warnings, datetime, tempfile, glob
 import gc
 from natsort import natsorted
 from tqdm import tqdm
@@ -359,9 +359,7 @@ class MainW(QtGui.QMainWindow):
         b+=1
         # choose models
         self.ModelChoose = QtGui.QComboBox()
-        self.model_dir = os.path.abspath(os.path.join(self.cp_path, 'models/'))
-        #models = glob(self.model_dir+'/*')
-        #models = [os.path.split(m)[-1] for m in models]
+        self.model_dir = pathlib.Path.home().joinpath('.cellpose', 'models')
         models = ['cyto', 'nuclei']
         self.ModelChoose.addItems(models)
         self.ModelChoose.setFixedWidth(70)
@@ -1058,23 +1056,12 @@ class MainW(QtGui.QMainWindow):
             change=True
 
         if change:
-            if self.current_model=='cyto':
-                szmean = 27.
-            else:
-                szmean = 15.
-            self.model_list = ['%s_%d'%(self.current_model, i) for i in range(4)]
-            cpmodel_path = [os.path.abspath(os.path.join(self.cp_path, 'models/', self.model_list[i]))
-                                for i in range(len(self.model_list))]
-            szmodel_path = os.path.abspath(os.path.join(self.cp_path, 'models/', 'size_%s_0.npy'%self.current_model))
-            self.model = models.Cellpose(device=device,
-                                        pretrained_model=cpmodel_path,
-                                        pretrained_size=szmodel_path,
-                                        diam_mean=szmean
-                                        )
+            print(self.current_model)
+            self.model = models.Cellpose(device=device, model_type=self.current_model)
 
     def compute_model(self):
         self.progress.setValue(0)
-        try:
+        if 1:
             self.clear_all()
             self.flows = [[],[],[],[]]
             self.initialize_model()
@@ -1089,12 +1076,12 @@ class MainW(QtGui.QMainWindow):
                 data = self.stack[0].copy()
             channels = self.get_channels()
             self.diameter = float(self.Diameter.text())
-            try:
+            if 1:
                 #rescale = np.array([27/(self.diameter*(np.pi**0.5/2))])
                 masks, flows, _, _ = self.model.eval([data], channels=channels,
                                                 diameter=self.diameter, invert=self.invert.isChecked(),
                                                 do_3D=do_3D, progress=self.progress)
-            except Exception as e:
+            else:#except Exception as e:
                 print('NET ERROR: %s'%e)
                 self.progress.setValue(0)
                 return
@@ -1118,7 +1105,7 @@ class MainW(QtGui.QMainWindow):
             self.progress.setValue(100)
 
             self.toggle_server(off=True)
-        except Exception as e:
+        else:#except Exception as e:
             print('ERROR: %s'%e)
 
 
