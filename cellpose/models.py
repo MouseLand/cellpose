@@ -198,8 +198,7 @@ class SizeModel():
                 progress.setValue(50)
         else:
             for i in range(len(feat)):
-                szest = self.net(feat[i])
-                diam_style[i] = np.exp(szest.asnumpy()[:,0] + np.log(self.diam_mean))
+                diam_style[i] = self.size_estimation(feat[i])
         diam_style[diam_style==0] = self.diam_mean
         diam_style[np.isnan(diam_style)] = self.diam_mean
         masks = self.cp.eval(x, rescale=self.diam_mean/diam_style, net_avg=False, tile=tile)[0]

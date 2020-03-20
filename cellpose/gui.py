@@ -649,6 +649,7 @@ class MainW(QtGui.QMainWindow):
 
     def make_viewbox(self):
         self.p0 = guiparts.ViewBoxNoRightDrag(
+            parent=self,
             lockAspect=True,
             name="plot1",
             border=[100, 100, 100],
@@ -1049,8 +1050,8 @@ class MainW(QtGui.QMainWindow):
         if not hasattr(self, 'model') or self.ModelChoose.currentText() != self.current_model:
             self.current_model = self.ModelChoose.currentText()
             change=True
-        elif (self.model.device==mx.gpu() and not self.useGPU.isChecked() or
-                self.model.device==mx.cpu() and self.useGPU.isChecked()):
+        elif ((self.model.device==mx.gpu() and not self.useGPU.isChecked()) or
+                (self.model.device==mx.cpu() and self.useGPU.isChecked())):
             # if device has changed, reload model
             self.current_model = self.ModelChoose.currentText()
             change=True
