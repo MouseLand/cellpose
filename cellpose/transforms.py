@@ -205,8 +205,8 @@ def reshape(data, channels=[0,0], invert=False):
                 else:
                     if i==0:
                         print("WARNING: 'chan to seg' has value range of ZERO")
-                    else:
-                        print("WARNING: 'chan2 (opt)' has value range of ZERO, can instead set chan2 to 0")
+                    #else:
+                    #    print("WARNING: 'chan2 (opt)' has value range of ZERO, can instead set chan2 to 0")
     if data.ndim==4:
         data = np.transpose(data, (3,0,1,2))
     else:
