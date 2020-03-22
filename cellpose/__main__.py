@@ -172,7 +172,7 @@ if __name__ == '__main__':
                 nimg = len(image_names_test)
                 test_images = [skimage.io.imread(image_names_test[n]) for n in range(nimg)]
                 test_labels = [skimage.io.imread(label_names_test[n]) for n in range(nimg)]
-            print'>>>> %s model'%['cellpose', 'unet'][args.unet])    
+            print('>>>> %s model'%(['cellpose', 'unet'][args.unet]))    
             model = models.CellposeModel(device=device, unet=args.unet, pretrained_model=cpmodel_path)
             model.train(images, labels, test_images, test_labels, learning_rate=args.learning_rate,
                         channels=channels, save_path=os.path.realpath(args.dir))
