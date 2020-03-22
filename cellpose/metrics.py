@@ -12,6 +12,13 @@ def label_overlap(x, y):
         overlap[x[i],y[i]] += 1
     return overlap
 
+def intersection_over_union(masks_true, masks_pred):
+    overlap = label_overlap(masks_true, masks_pred)
+    n_pixels_pred = np.sum(overlap, axis=0, keepdims=True)
+    n_pixels_true = np.sum(overlap, axis=1, keepdims=True)
+    iou = overlap / (n_pixels_pred + n_pixels_true - overlap)
+    return iou
+
 def flow_error(maski, flows):
     maski = np.reshape(np.unique(maski.astype(np.float32), return_inverse=True)[1],
                        (maski.shape[0], maski.shape[1]))
@@ -25,16 +32,6 @@ def flow_error(maski, flows):
         flow_error[i] = ((dX[ii] - flows[1][ii]/5)**2 +
                          (dY[ii] - flows[0][ii]/5)**2).mean()
     return flow_error, np.array(predicted_flow)
-
-def intersection_over_union(masks, labels):
-    # IOU
-    overlap = label_overlap(masks, labels.astype(np.int32))
-    n_pixels_pred = np.sum(overlap, axis=0, keepdims=True)
-    n_pixels_true = np.sum(overlap, axis=1, keepdims=True)
-    iou = overlap / (n_pixels_pred + n_pixels_true - overlap)
-    iou = iou.max(axis=1)
-    iou = iou[1:]
-    return iou
 
 def total_variation_loss(x):
     a = nd.square(x[:, :, :-1, :-1] - x[:, :, 1:, :-1])

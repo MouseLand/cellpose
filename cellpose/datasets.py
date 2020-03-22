@@ -22,7 +22,7 @@ def load_pickle(filename, filecell, cyto=True, specialist=False):
     if cyto:
         r[610] = 0. # put one of kenneth's images in test
         iscell = np.load(filecell)
-        ls = [1,2,3,4,5,0,6]
+        ls = [1,2,3,4,5,0]
         if specialist:
             ls = [1]
             iscell[140:] = -1
@@ -88,7 +88,7 @@ def load_pickle(filename, filecell, cyto=True, specialist=False):
                 img = np.concatenate((img, np.zeros_like(img)), axis=0)
         test_data.append(img)
         test_labels.append(vft[n][2][np.newaxis,...])
-        test_flows.append(vf[n][0][[3,1,2]])
+        test_flows.append(vft[n][0][[3,1,2]])
 
     
     print(r[0], len(train_data), len(vft))

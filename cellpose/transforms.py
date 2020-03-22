@@ -370,7 +370,7 @@ def random_rotate_and_resize(X, Y=None, scale_range=1., xy = (224,224), do_flip=
             labels = Y[n].copy()
             if labels.ndim<3:
                 labels = labels[np.newaxis,:,:]
-
+        
         if flip and do_flip:
             img = img[:, :, ::-1]
             if Y is not None:
@@ -393,7 +393,7 @@ def random_rotate_and_resize(X, Y=None, scale_range=1., xy = (224,224), do_flip=
             lbl[n,1] = (-v1 * np.sin(-theta) + v2*np.cos(-theta))
             lbl[n,2] = (v1 * np.cos(-theta) + v2*np.sin(-theta))
 
-    if Y[0].ndim<3:
-        lbl = lbl[0]
+    #if Y[0].ndim<3:
+    #    lbl = lbl[0]
     #imgi = np.transpose(imgi, (0, 3, 1, 2))
     return imgi, lbl, scale

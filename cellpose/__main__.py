@@ -42,6 +42,8 @@ if __name__ == '__main__':
     # settings for running cellpose
     parser.add_argument('--pretrained_model', required=False, 
                         default='cyto', type=str, help='model to use')
+    parser.add_argument('--unet', required=False, 
+                        default=0, type=int, help='run standard unet instead of cellpose flow output')
     parser.add_argument('--chan', required=False, 
                         default=0, type=int, help='channel to segment; 0: GRAY, 1: RED, 2: GREEN, 3: BLUE')
     parser.add_argument('--chan2', required=False, 
@@ -56,6 +58,8 @@ if __name__ == '__main__':
                         default='_masks', type=str, help='end string for masks to run on')
     parser.add_argument('--test_dir', required=False, 
                         default=[], type=str, help='folder containing test data (optional)')
+    parser.add_argument('--learning_rate', required=False, 
+                        default=0.2, type=float, help='learning rate')
     parser.add_argument('--n_epochs', required=False, 
                         default=500, type=int, help='number of epochs')
     parser.add_argument('--batch_size', required=False, 
@@ -168,7 +172,7 @@ if __name__ == '__main__':
                 nimg = len(image_names_test)
                 test_images = [skimage.io.imread(image_names_test[n]) for n in range(nimg)]
                 test_labels = [skimage.io.imread(label_names_test[n]) for n in range(nimg)]
-                
-            model = models.CellposeModel(device=device, pretrained_model=cpmodel_path)
-            model.train(images, labels, test_images, test_labels, 
+            print'>>>> %s model'%['cellpose', 'unet'][args.unet])    
+            model = models.CellposeModel(device=device, unet=args.unet, pretrained_model=cpmodel_path)
+            model.train(images, labels, test_images, test_labels, learning_rate=args.learning_rate,
                         channels=channels, save_path=os.path.realpath(args.dir))

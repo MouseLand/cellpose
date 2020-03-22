@@ -216,24 +216,32 @@ class SizeModel():
         return szest
 
 class CellposeModel():
-    def __init__(self, device, pretrained_model=None, batch_size=8,
+    def __init__(self, device, unet=False, pretrained_model=None, batch_size=8,
                     diam_mean=27., net_avg=True):
         super(CellposeModel, self).__init__()
         if device==mx.gpu() and utils.use_gpu():
             self.device = mx.gpu()
         else:
             self.device = mx.cpu()
+        self.unet = unet
+        if unet:
+            nout = 1
+        else:
+            nout = 3
         self.pretrained_model = pretrained_model
         self.batch_size=batch_size
         self.diam_mean = diam_mean
+
         nbase = [32,64,128,256]
-        self.net = resnet_style.CPnet(nbase, nout=3)
+        self.net = resnet_style.CPnet(nbase, nout=nout)
         self.net.hybridize(static_alloc=True, static_shape=True)
         self.net.initialize(ctx = self.device)#, grad_req='null')
+
         model_dir = pathlib.Path.home().joinpath('.cellpose', 'models')
+
         if pretrained_model is not None and isinstance(pretrained_model, str):
             self.net.load_parameters(pretrained_model)
-        elif pretrained_model is None:
+        elif pretrained_model is None and not unet:
             if net_avg:
                 pretrained_model = [os.fspath(model_dir.joinpath('cyto_%d'%j)) for j in range(4)]
                 if not os.path.isfile(pretrained_model[0]):
@@ -393,6 +401,8 @@ class CellposeModel():
         self.learning_rate = learning_rate
         self.weight_decay = weight_decay
         self.momentum = 0.9
+        if self.unet:
+            rescale = False
 
         nimg = len(train_data)
         
@@ -420,16 +430,21 @@ class CellposeModel():
             print('NOTE: test data not provided OR labels incorrect OR not same number of channels as train data')        
 
         # check if train_labels have flows
-        train_flows = dynamics.labels_to_flows(train_labels)
-        if run_test:
-            test_flows = dynamics.labels_to_flows(test_labels)
-            
+        if not self.unet:
+            train_flows = dynamics.labels_to_flows(train_labels)
+            if run_test:
+                test_flows = dynamics.labels_to_flows(test_labels)
+        else:
+            train_flows = list(map(np.uint16, train_labels))
+            test_flows = list(map(np.uint16, test_labels))
+                
         # compute average cell diameter
-        diam_train = np.array([utils.diameters(train_labels[k])[0] for k in range(len(train_labels))])
-        diam_train[diam_train<5] = 5.
-        if run_test:
-            diam_test = np.array([utils.diameters(test_labels[k])[0] for k in range(len(test_labels))])
-            diam_test[diam_test<5] = 5.
+        if rescale:
+            diam_train = np.array([utils.diameters(train_labels[k])[0] for k in range(len(train_labels))])
+            diam_train[diam_train<5] = 5.
+            if run_test:
+                diam_test = np.array([utils.diameters(test_labels[k])[0] for k in range(len(test_labels))])
+                diam_test[diam_test<5] = 5.
 
         print('>>>> training network with %d channel input <<<<'%nchan)
         print('>>>> saving every %d epochs'%save_every)
@@ -465,17 +480,24 @@ class CellposeModel():
             for ibatch in range(0,nimg,batch_size):
                 if rescale:
                     rsc = diam_train[rperm[ibatch:ibatch+batch_size]] / self.diam_mean
+                else:
+                    rsc = np.ones(len(rperm[ibatch:ibatch+batch_size]), np.float32)
                 
                 imgi, lbl, _ = transforms.random_rotate_and_resize(
                                         [train_data[i] for i in rperm[ibatch:ibatch+batch_size]],
                                         Y=[train_flows[i] for i in rperm[ibatch:ibatch+batch_size]],
                                         rescale=rsc)
                 X    = nd.array(imgi, ctx=self.device)
-                veci = 5. * nd.array(lbl[:,1:], ctx=self.device)
                 lbl  = nd.array(lbl[:,0]>.5, ctx=self.device)
+                if not self.unet:
+                    veci = 5. * nd.array(lbl[:,1:], ctx=self.device)
                 with mx.autograd.record():
                     y, style = self.net(X)
-                    loss = criterion(y[:,:-1] , veci) + criterion2(y[:,-1] , lbl)
+                    if self.unet:
+                        loss = criterion2(y[:,-1] , lbl)
+                    else:
+                        loss = criterion(y[:,:-1] , veci) + criterion2(y[:,-1] , lbl)
+
                 loss.backward()
                 train_loss = nd.sum(loss).asscalar()
                 lavg += train_loss
@@ -496,15 +518,21 @@ class CellposeModel():
                     for ibatch in range(0,len(test_data),batch_size):
                         if rescale:
                             rsc = diam_test[rperm[ibatch:ibatch+batch_size]] / self.diam_mean
+                        else:
+                            rsc = np.ones(len(rperm[ibatch:ibatch+batch_size]), np.float32)
                         imgi, lbl, _ = transforms.random_rotate_and_resize(
                                             [test_data[i] for i in rperm[ibatch:ibatch+batch_size]],
                                             Y=[test_flows[i] for i in rperm[ibatch:ibatch+batch_size]],
-                                            rescale=rsc)
+                                            scale_range=0., rescale=rsc)
                         X    = nd.array(imgi, ctx=self.device)
-                        veci = nd.array(lbl[:,1:], ctx=self.device)
                         lbl  = nd.array(lbl[:,0]>.5, ctx=self.device)
+                        if not self.unet:
+                            veci = 5. * nd.array(lbl[:,1:], ctx=self.device)
                         y, style = self.net(X)
-                        loss = criterion(y[:,:-1] , veci) + criterion2(y[:,-1] , lbl)
+                        if self.unet:
+                            loss = criterion2(y[:,-1] , lbl)
+                        else:
+                            loss = criterion(y[:,:-1] , veci) + criterion2(y[:,-1] , lbl)
                         lavgt += nd.sum(loss).asscalar()
                         nsum+=len(loss)
                     print('Epoch %d, Time %4.1fs, Loss %2.4f, Loss Test %2.4f, LR %2.4f'%
@@ -518,7 +546,7 @@ class CellposeModel():
             if save_path is not None:
                 if iepoch==self.n_epochs-1 or iepoch%save_every==1:
                     # save model at the end
-                    file = 'cellpose_{}_{}{}_{}'.format(file_label, d.month, d.day, ksave)
+                    file = 'cellpose_{}_{}_{}{}_{}'.format(self.unet, file_label, d.month, d.day, ksave)
                     ksave += 1
                     print('saving network parameters')
                     self.net.save_parameters(os.path.join(file_path, file))

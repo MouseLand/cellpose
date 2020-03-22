@@ -51,8 +51,6 @@ def show_segmentation(fig, img, maski, flowi, save_path=None):
         skimage.io.imsave(save_path + '_outlines.jpg', imgout)
         skimage.io.imsave(save_path + '_flows.jpg', flowi)
 
-
-
 def outline_overlay(img0, outlines, channels=[0,0], color=[255,0,0]):
     """ outlines are red by default """
     img = img0.copy()
@@ -97,8 +95,31 @@ def mask_overlay(img, masks, colors=None):
     RGB = (hsv_to_rgb(HSV) * 255).astype(np.uint8)
     return RGB
 
+
+def image_to_rgb(img0, channels=[0,0]):
+    """ image is 2 x Ly x Lx or Ly x Lx x 2 - change to RGB Ly x Lx x 3 """
+    img = img0.copy()
+    img = img.astype(np.float32)
+    if img.shape[0]<3:
+        img = np.transpose(img, (1,2,0))
+    for i in range(img.shape[-1]):
+        if np.ptp(img[:,:,i])>0:
+            img[:,:,i] = utils.normalize99(img[:,:,i])
+            img[:,:,i] = np.clip(img[:,:,i], 0, 1)
+    img *= 255
+    img = np.uint8(img)
+    RGB = np.zeros((img.shape[0], img.shape[1], 3), np.uint8)
+    if channels[0]==0:
+        RGB = np.tile(img[:,:,0][:,:,np.newaxis],(1,1,3))
+    else:
+        RGB[:,:,channels[0]-1] = img[:,:,0]
+        if channels[1] > 0:
+            RGB[:,:,channels[1]-1] = img[:,:,1]
+    return RGB
+
 def rgb_image(img):
     """ image is 2 x Ly x Lx or Ly x Lx x 2 - change to RGB Ly x Lx x 3 """
+    img = img.astype(np.float32)
     if img.shape[-1]<3:
         img = np.transpose(img, (2,0,1))
     gray = False
@@ -141,7 +162,7 @@ def disk(med, r, Ly, Lx):
 
 def circle(med, r):
     """ returns pixels of circle with radius r and center med """
-    theta = np.linspace(0.0,2*np.pi,100)
+    theta = np.linspace(0.0, 2*np.pi, 100)
     x = r * np.cos(theta) + med[0]
     y = r * np.sin(theta) + med[1]
     x = x.astype(np.int32)
@@ -166,65 +187,7 @@ def dx_to_circ(dP):
 def masks_to_outlines(masks):
     outlines = np.zeros(masks.shape, np.bool)
     outlines[find_boundaries(masks, mode='inner')] = 1
-    #Ly, Lx = masks.shape
-    #nmask = masks.max()
-    #outlines = np.zeros((Ly,Lx), np.bool)
-    ## pad T0 and mask by 2
-    #T = np.zeros((Ly+4)*(Lx+4), np.int32)
-    #Lx += 4
-    #iun = np.unique(masks)[1:]
-    #for iu in iun:
-    #    y,x = np.nonzero(masks==iu)
-    #    y+=1
-    #    x+=1
-    #    T[y*Lx + x] = 1
-    #    T[y*Lx + x] =  (T[(y-1)*Lx + x]   + T[(y+1)*Lx + x] +
-    #                    T[y*Lx + x-1]     + T[y*Lx + x+1] )
-    #    outlines[y-1,x-1] = np.logical_and(T[y*Lx+x]>0 , T[y*Lx+x]<4)
-    #    T[y*Lx + x] = 0
-    #outlines *= masks
     return outlines
-
-def masks_to_outlines_numbered(masks):
-    Ly, Lx = masks.shape
-    nmask = masks.max()
-    outlines = np.zeros((Ly,Lx), np.int32)
-    # pad T0 and mask by 2
-    T = np.zeros((Ly+2)*(Lx+2), np.int32)
-    Lx += 2
-    for k in range(nmask):
-        y,x = np.nonzero(masks==(k+1))
-        y+=1
-        x+=1
-        T[y*Lx + x] = 1
-        T[y*Lx + x] =  (T[(y-1)*Lx + x]   + T[(y+1)*Lx + x] +
-                        T[y*Lx + x-1]     + T[y*Lx + x+1] )
-        outlines[y-1,x-1] = (k+1)*np.logical_and(T[y*Lx+x]>0 , T[y*Lx+x]<4)
-        T[y*Lx + x] = 0
-    #outlines *= masks
-    return outlines
-
-def outline_from_mask(mask):
-    Y = mask.copy()
-    Ly, Lx = Y.shape
-    mu = np.zeros((Ly,Lx))
-    unq = np.unique(Y)
-    nmask = len(unq)-1
-    for j in range(nmask):
-        mask = (Y==unq[j+1])
-        y,x = (Y==unq[j+1]).nonzero()
-        y0 = np.min(y)
-        x0 = np.min(x)
-        y = y-y0
-        x = x-x0
-        Ly, Lx = np.max(y)+1, np.max(x)+1
-        ma0 = np.zeros((Ly,Lx))
-        ma0[y,x] = 1
-        ma = cv2.boxFilter(ma0, ksize=(3, 3), normalize=False, ddepth=-1)
-        maskE = np.logical_and(ma < 9, ma0>.5)
-        mu[y+y0,x+x0] = mu[y+y0,x+x0] +maskE[y,x]
-    return mu
-
 
 def plot_outlines(masks):
     outpix=[]
