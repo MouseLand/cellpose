@@ -1,4 +1,6 @@
 from scipy.ndimage.filters import maximum_filter1d
+import scipy.ndimage
+import skimage.morphology
 import numpy as np
 from tqdm import trange
 import time
@@ -96,6 +98,18 @@ def extend_centers(T,y,x,ymed,xmed,Lx, niter):
                                             T[(y+1)*Lx + x-1] + T[(y+1)*Lx + x+1])
     return T
 
+def fill_holes(masks):
+    slices = scipy.ndimage.find_objects(masks)
+    i = 0
+    for sr, sc in slices:
+        msk = masks[sr, sc] == (i+1)
+        msk = scipy.ndimage.morphology.binary_fill_holes(msk)
+        sm = np.logical_and(msk, ~skimage.morphology.remove_small_objects(msk, min_size=15, connectivity=1))
+        masks[sr, sc][msk] = (i+1)
+        masks[sr, sc][sm] = 0
+        i+=1
+    return masks
+
 def labels_to_flows(labels):
     nimg = len(labels)
     if labels[0].ndim < 3:
@@ -180,7 +194,7 @@ def steps3D(p, dP, inds, niter):
             p[2,z,y,x] = min(shape[2]-1, max(0, p[2,z,y,x] - dP[2,p0,p1,p2]))
     return p
 
-@njit('(float32[:,:,:],float32[:,:,:], int32[:,:], int32)')
+@njit('(float32[:,:,:], float32[:,:,:], int32[:,:], int32)')
 def steps2D(p, dP, inds, niter):
     shape = p.shape[1:]
     for t in range(niter):

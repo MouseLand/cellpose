@@ -9,22 +9,28 @@ def unaugment_tiles(y):
     ----------
     y : float32
         array that's ntiles x chan x Ly x Lx where chan = (dY, dX, cell prob)
-    
+        if unet is used, array is ntiles x 1 x Ly x Lx
     Returns
     -------
     y : float32
 
     """
-
+    #if y.shape[1]==1:
+    #    unet = True
+    #else:
+    #    unet = False
     for k in range(y.shape[0]):
         if k%4==1:
             y[k, :,:, :] = y[k, :,::-1, :]
+            #if not unet:        
             y[k,0,:,:] *= -1
         if k%4==2:
             y[k, :,:, :] = y[k, :,:, ::-1]
+            #if not unet:        
             y[k,1,:,:] *= -1
         if k%4==3:
             y[k, :,:, :] = y[k, :,::-1, ::-1]
+            #if not unet:        
             y[k,0,:,:] *= -1
             y[k,1,:,:] *= -1
     return y

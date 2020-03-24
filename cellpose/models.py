@@ -296,20 +296,22 @@ class CellposeModel():
                 progress.setValue(55)
             styles.append(style)
             if compute_masks:
-                cellprob = y[...,2]
-                dP = np.stack((y[...,0], y[...,1]), axis=0)
-                niter = self.diam_mean / rescale[i] * 5
-                p = dynamics.follow_flows(-1 * dP * (cellprob>0) / 5., niter=niter)
-                if progress is not None:
-                    progress.setValue(65)
-                maski = dynamics.get_masks(p, flows=dP, threshold=threshold)
-                if progress is not None:
-                    progress.setValue(75)
-                dZ = np.zeros((1,Ly,Lx), np.uint8)
-                dP = np.concatenate((dP, dZ), axis=0)
-                flow = plot.dx_to_circ(dP)
-                flows.append([flow, dP, cellprob])
-                masks.append(maski)
+                cellprob = y[...,-1]
+                if not self.unet:
+                    dP = np.stack((y[...,0], y[...,1]), axis=0)
+                    niter = 1 / rescale[i] * 200
+                    p = dynamics.follow_flows(-1 * dP * (cellprob>0) / 5., niter=niter)
+                    if progress is not None:
+                        progress.setValue(65)
+                    maski = dynamics.get_masks(p, flows=dP, threshold=threshold)
+                    if progress is not None:
+                        progress.setValue(75)
+                    dZ = np.zeros((1,Ly,Lx), np.uint8)
+                    dP = np.concatenate((dP, dZ), axis=0)
+                    flow = plot.dx_to_circ(dP)
+                    flows.append([flow, dP, cellprob])
+                    maski = dynamics.fill_holes(maski)
+                    masks.append(maski)
             else:
                 flows.append([None]*3)
                 masks.append([])
@@ -371,20 +373,20 @@ class CellposeModel():
             img = np.expand_dims(img, axis=-1)
         img = np.transpose(img, (2,0,1))
         
+        # pad for net so divisible by 4
+        img, ysub, xsub = transforms.pad_image(img)
         if tile:
             y,style = self.run_tiled(img, bsize)
             y = np.transpose(y[:3], (1,2,0))
         else:
-            # pad for net so divisible by 4
-            img, ysub, xsub = transforms.pad_image(img)
             img = nd.array(np.expand_dims(img, axis=0), ctx=self.device)
             y,style = self.net(img)
             img = img.asnumpy()
             y = np.transpose(y[0].asnumpy(), (1,2,0))
-            y = y[np.ix_(ysub, xsub, np.arange(3))]
             style = style.asnumpy()[0]
             style = np.ones(10)
-
+        
+        y = y[np.ix_(ysub, xsub, np.arange(3))]
         style /= (style**2).sum()**0.5     
         if rsz!=1.0:
             y = cv2.resize(y, (shape[1], shape[0]))
@@ -465,8 +467,11 @@ class CellposeModel():
 
         lavg, nsum = 0, 0
 
-        _, file_label = os.path.split(save_path)
-        file_path = os.path.join(save_path, 'models/')
+        if save_path is not None:
+            _, file_label = os.path.split(save_path)
+            file_path = os.path.join(save_path, 'models/')
+        else:
+            print('WARNING: no save_path given, model not saving')
         ksave = 0
         if not os.path.exists(file_path):
             os.makedirs(file_path)
@@ -550,3 +555,6 @@ class CellposeModel():
                     ksave += 1
                     print('saving network parameters')
                     self.net.save_parameters(os.path.join(file_path, file))
+
+        #if run_test:
+        #self.net.eval
