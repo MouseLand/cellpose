@@ -111,18 +111,14 @@ if __name__ == '__main__':
         else:
             device = mx.cpu()
         print('>>>> using %s'%(['CPU', 'GPU'][use_gpu]))
-
+        model_dir = pathlib.Path.home().joinpath('.cellpose', 'models')
         if args.pretrained_model=='cyto' or args.pretrained_model=='nuclei':
             cp_path = os.path.dirname(os.path.realpath(__file__))
             if not args.train:
-                model_list = ['%s_%d'%(args.pretrained_model, i) for i in range(4)]
-                cpmodel_path = [os.path.abspath(os.path.join(cp_path, 'models/', model_list[i]))
-                                    for i in range(len(model_list))]
+                cpmodel_path = [os.fspath(model_dir.joinpath('%s_%d'%(args.pretrained_model, j))) for j in range(4)]
             else:
-                model_list = ['%s_0'%(args.pretrained_model)]
-                cpmodel_path = os.path.join(cp_path, 'models/', model_list[0])
-            
-            szmodel_path = os.path.abspath(os.path.join(cp_path, 'models/', 'size_%s_0.npy'%args.pretrained_model))
+                cpmodel_path = os.fspath(model_dir.joinpath('%s_0'%(args.pretrained_model)))
+            szmodel_path = os.fspath(model_dir.joinpath('size_%s_0.npy'%(args.pretrained_model)))
             if args.pretrained_model=='cyto':
                 szmean = 27.
             else:
@@ -135,6 +131,11 @@ if __name__ == '__main__':
                 channels = None                
 
         if not args.train:
+            if not os.path.exists(cpmodel_path):
+                print('model path does not exist, using cyto model')
+                model_list = ['%s_%d'%(args.pretrained_model, i) for i in range(4)]
+                cpmodel_path = [os.fspath(model_dir.joinpath('cyto_%d'%j)) for j in range(4)]
+                szmodel_path = os.fspath(model_dir.joinpath('size_cyto_0.npy'))
             model = models.Cellpose(device=device, 
                                     pretrained_model=cpmodel_path,
                                     pretrained_size=szmodel_path,
@@ -165,7 +166,7 @@ if __name__ == '__main__':
             nimg = len(image_names)
             labels = [skimage.io.imread(label_names[n]) for n in range(nimg)]
             if not os.path.exists(cpmodel_path):
-                cpmodel_path = None
+                cpmodel_path = False
                 print('>>>> training from scratch')
             else:
                 print('>>>> training starting with pretrained_model %s'%cpmodel_path)
