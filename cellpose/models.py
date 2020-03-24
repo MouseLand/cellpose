@@ -216,7 +216,7 @@ class SizeModel():
         return szest
 
 class CellposeModel():
-    def __init__(self, device, unet=False, pretrained_model=None, batch_size=8,
+    def __init__(self, device, unet=False, pretrained_model=False, batch_size=8,
                     diam_mean=27., net_avg=True):
         super(CellposeModel, self).__init__()
         if device==mx.gpu() and utils.use_gpu():
@@ -403,9 +403,7 @@ class CellposeModel():
         self.learning_rate = learning_rate
         self.weight_decay = weight_decay
         self.momentum = 0.9
-        if self.unet:
-            rescale = False
-
+        
         nimg = len(train_data)
         
         # check that arrays are correct size
@@ -493,9 +491,9 @@ class CellposeModel():
                                         Y=[train_flows[i] for i in rperm[ibatch:ibatch+batch_size]],
                                         rescale=rsc)
                 X    = nd.array(imgi, ctx=self.device)
-                lbl  = nd.array(lbl[:,0]>.5, ctx=self.device)
                 if not self.unet:
                     veci = 5. * nd.array(lbl[:,1:], ctx=self.device)
+                lbl  = nd.array(lbl[:,0]>.5, ctx=self.device)
                 with mx.autograd.record():
                     y, style = self.net(X)
                     if self.unet:
@@ -530,9 +528,9 @@ class CellposeModel():
                                             Y=[test_flows[i] for i in rperm[ibatch:ibatch+batch_size]],
                                             scale_range=0., rescale=rsc)
                         X    = nd.array(imgi, ctx=self.device)
-                        lbl  = nd.array(lbl[:,0]>.5, ctx=self.device)
                         if not self.unet:
                             veci = 5. * nd.array(lbl[:,1:], ctx=self.device)
+                        lbl  = nd.array(lbl[:,0]>.5, ctx=self.device)
                         y, style = self.net(X)
                         if self.unet:
                             loss = criterion2(y[:,-1] , lbl)
@@ -551,7 +549,7 @@ class CellposeModel():
             if save_path is not None:
                 if iepoch==self.n_epochs-1 or iepoch%save_every==1:
                     # save model at the end
-                    file = 'cellpose_{}_{}_{}{}_{}'.format(self.unet, file_label, datetime.datetime.isoformat(d))
+                    file = 'cellpose_{}_{}_{}'.format(self.unet, file_label, datetime.datetime.isoformat(d))
                     ksave += 1
                     print('saving network parameters')
                     self.net.save_parameters(os.path.join(file_path, file))
