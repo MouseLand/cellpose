@@ -4,7 +4,13 @@ import os, argparse, glob
 import skimage
 from natsort import natsorted
 
-from cellpose import utils, models, gui
+from cellpose import utils, models
+
+try:
+    from cellpose import gui 
+    GUI_ENABLED = True 
+except:
+    GUI_ENABLED = False
 
 def get_image_files(folder):
     image_names = []
@@ -68,10 +74,9 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     if len(args.dir)==0:
-        try:
-            from cellpose import gui
-        except:
-            print('pyqt is not installed')
+        if not GUI_ENABLED:
+            print('ERROR: GUI version is not installed, to install, run')
+            print('     pip install cellpose[gui]')
         gui.run()
 
     else:
