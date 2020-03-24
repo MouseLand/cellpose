@@ -551,7 +551,7 @@ class CellposeModel():
             if save_path is not None:
                 if iepoch==self.n_epochs-1 or iepoch%save_every==1:
                     # save model at the end
-                    file = 'cellpose_{}_{}_{}{}_{}'.format(self.unet, file_label, d.month, d.day, ksave)
+                    file = 'cellpose_{}_{}_{}{}_{}'.format(self.unet, file_label, datetime.datetime.isoformat(d))
                     ksave += 1
                     print('saving network parameters')
                     self.net.save_parameters(os.path.join(file_path, file))
