@@ -291,7 +291,10 @@ def pad_image_ND(img0, div=16, extra = 1):
 
     I = np.pad(img0,pads, mode='constant')
 
-    return I, pads
+    Ly, Lx = img0.shape[-2:]
+    ysub = np.arange(xpad1, xpad1+Ly)
+    xsub = np.arange(ypad1, ypad1+Lx)
+    return I, ysub, xsub
 
 def pad_image(img0, div=16, extra = 1):
     """ pad image for test time (if tiling off) """

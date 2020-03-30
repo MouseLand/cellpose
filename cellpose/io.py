@@ -277,7 +277,7 @@ def masks_to_gui(parent, masks, outlines=None):
     shape = masks.shape
     _, masks = np.unique(masks, return_inverse=True)
     masks = np.reshape(masks, shape)
-    parent.cellpix = masks
+    parent.cellpix = masks.astype(np.uint16)
     # get outlines
     if outlines is None:
         parent.outpix = np.zeros(masks.shape, np.uint16)
@@ -322,6 +322,7 @@ def save_sets(parent):
                  'masks': parent.cellpix,
                  'current_channel': (parent.color-2)%5,
                  'filename': parent.filename,
+                 'flows': parent.flows,
                  'zdraw': parent.zdraw})
     else:
         image = parent.chanchoose(parent.stack[parent.currentZ].copy())

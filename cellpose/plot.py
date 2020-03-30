@@ -170,12 +170,11 @@ def circle(med, r):
     return x,y
 
 def dx_to_circ(dP):
+    """ dP is 2 x Y x X => 'optic' flow representation """
     sc = max(np.percentile(dP[0], 99), np.percentile(dP[0], 1))
     Y = np.clip(dP[0] / sc, -1, 1)
     sc = max(np.percentile(dP[1], 99), np.percentile(dP[1], 1))
     X = np.clip(dP[1] / sc, -1, 1)
-    #Y = (np.clip(utils.normalize99(dP[0]), 0,1) - 0.5) * 2
-    #X = (np.clip(utils.normalize99(dP[1]), 0,1) - 0.5) * 2
     H = (np.arctan2(Y, X) + np.pi) / (2*np.pi)
     S = utils.normalize99(dP[0]**2 + dP[1]**2)
     V = np.ones_like(S)

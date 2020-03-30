@@ -101,7 +101,6 @@ if __name__ == '__main__':
                 imn.append(im)
         image_names = imn
         nimg = len(image_names)
-        #nimg = 
         images = [skimage.io.imread(image_names[n]) for n in range(nimg)]
 
         if args.use_gpu:

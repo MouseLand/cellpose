@@ -30,18 +30,18 @@ def load_pickle(filename, filecell, cyto=True, specialist=False):
         vf=[]
         type_cell=[]
         for k in range(len(ls)):
-            irange = list((iscell==ls[k]).nonzero()[0])
+            irange = (iscell==ls[k]).nonzero()[0]
             type_cell.extend(list(np.ones(len(irange))*ls[k]))
             vf.extend([V[k] for k in irange])
         diam_mean = 27.
-        
+        print(len(vf))
     else:
         iscell = np.load(filecell)
         ls = [1,2,3,4]
         vf = []
         type_cell = []
         for k in range(len(ls)):
-            irange = list((iscell==ls[k]).nonzero()[0])
+            irange = (iscell==ls[k]).nonzero()[0]
             type_cell.extend(list(np.ones(len(irange))*ls[k]))
             vf.extend([V[k] for k in irange])
         diam_mean = 15.
@@ -53,6 +53,7 @@ def load_pickle(filename, filecell, cyto=True, specialist=False):
 
     vft = [vf[k] for k in (r[:len(vf)]<.1).nonzero()[0]]
     vf  = [vf[k] for k in (r[:len(vf)]>.1).nonzero()[0]]
+    print(len(vft), len(vf))
 
     train_data = []
     train_labels = []

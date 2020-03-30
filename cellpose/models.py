@@ -81,8 +81,8 @@ def download_model_weights(urls=urls):
 
 class Cellpose():
     """ main model which combines size and cellpose model """
-    def __init__(self, device=mx.cpu(), model_type=None, pretrained_model=None,
-                    pretrained_size=None, diam_mean=27., net_avg=True):
+    def __init__(self, gpu=False, model_type=None, pretrained_model=None,
+                    pretrained_size=None, diam_mean=27., net_avg=True, device=None):
         super(Cellpose, self).__init__()
         self.batch_size=8
         self.diam_mean = diam_mean
@@ -107,7 +107,9 @@ class Cellpose():
                     download_model_weights()
             if pretrained_size is None:
                 pretrained_size = os.fspath(model_dir.joinpath('size_cyto_0.npy'))
-        if device==mx.gpu() and utils.use_gpu():
+        if device is not None:
+            self.device = device
+        elif gpu and utils.use_gpu():
             self.device = mx.gpu()
         else:
             self.device = mx.cpu()
@@ -157,6 +159,7 @@ class SizeModel():
     def __init__(self, device=mx.cpu(), pretrained_size=None,
                     pretrained_model=None, cp_model=None, diam_mean=27., **kwargs):
         super(SizeModel, self).__init__(**kwargs)
+        
         self.device = device
         self.diam_mean = diam_mean # avg diameter in pixels
         self.pretrained_model = pretrained_model
@@ -216,13 +219,11 @@ class SizeModel():
         return szest
 
 class CellposeModel():
-    def __init__(self, device, unet=False, pretrained_model=False, batch_size=8,
+    def __init__(self, device=mx.cpu(), unet=False, pretrained_model=False, batch_size=8,
                     diam_mean=27., net_avg=True):
         super(CellposeModel, self).__init__()
-        if device==mx.gpu() and utils.use_gpu():
-            self.device = mx.gpu()
-        else:
-            self.device = mx.cpu()
+        
+        self.device = device
         self.unet = unet
         if unet:
             nout = 1
@@ -256,7 +257,7 @@ class CellposeModel():
     def eval(self, x, invert=False, rescale=None, tile=True, net_avg=True, compute_masks=True, channels=None,
                 do_3D=False, progress=None, threshold=0.4):
         """
-            segment list of images x
+            segment list of images x, or 4D array - Z x nchan x Y x X
         """
         nimg = len(x)
         if channels is not None:
@@ -264,6 +265,11 @@ class CellposeModel():
                 if not isinstance(channels[0], list):
                     channels = [channels for i in range(nimg)]
             x = [transforms.reshape(x[i], channels=channels[i], invert=invert) for i in range(nimg)]
+            if nimg>1 and do_3D:
+                x = np.array(x)
+                x = np.transpose(x, (1,0,2,3))
+        else:
+            print('WARNING: channels set to None, image values not rescaled for network')
         styles = []
         flows = []
         masks = []
@@ -280,41 +286,82 @@ class CellposeModel():
             self.net.load_parameters(self.pretrained_model[0])
             self.net.collect_params().grad_req = 'null'
 
-        for i in iterator:
-            img = x[i].copy()
-            if img.shape[0]<3:
-                img = np.transpose(img, (1,2,0))
-            Ly,Lx = img.shape[:2]
-            if img.shape[-1]==1:
-                img = np.concatenate((img, 0.*img), axis=-1)
-            #tic=time.time()
-            if isinstance(self.pretrained_model, str) or not net_avg:
-                y, style = self.run_net(img, rescale[i], tile)
-            else:
-                y, style = self.run_many(img, rescale[i], tile)
-            if progress is not None:
-                progress.setValue(55)
-            styles.append(style)
-            if compute_masks:
-                cellprob = y[...,-1]
-                if not self.unet:
-                    dP = np.stack((y[...,0], y[...,1]), axis=0)
-                    niter = 1 / rescale[i] * 200
-                    p = dynamics.follow_flows(-1 * dP * (cellprob>0) / 5., niter=niter)
-                    if progress is not None:
-                        progress.setValue(65)
-                    maski = dynamics.get_masks(p, flows=dP, threshold=threshold)
-                    if progress is not None:
-                        progress.setValue(75)
-                    dZ = np.zeros((1,Ly,Lx), np.uint8)
-                    dP = np.concatenate((dP, dZ), axis=0)
-                    flow = plot.dx_to_circ(dP)
-                    flows.append([flow, dP, cellprob])
-                    maski = dynamics.fill_holes(maski)
-                    masks.append(maski)
-            else:
-                flows.append([None]*3)
-                masks.append([])
+        if not do_3D or nimg==1:
+            for i in iterator:
+                img = x[i].copy()
+                if img.shape[0]<3:
+                    img = np.transpose(img, (1,2,0))
+                Ly,Lx = img.shape[:2]
+                if img.shape[-1]==1:
+                    img = np.concatenate((img, 0.*img), axis=-1)
+                #tic=time.time()
+                if isinstance(self.pretrained_model, str) or not net_avg:
+                    y, style = self.run_net(img, rescale[i], tile)
+                else:
+                    y, style = self.run_many(img, rescale[i], tile)
+                if progress is not None:
+                    progress.setValue(55)
+                styles.append(style)
+                if compute_masks:
+                    cellprob = y[...,-1]
+                    if not self.unet:
+                        dP = np.stack((y[...,0], y[...,1]), axis=0)
+                        niter = 1 / rescale[i] * 200
+                        p = dynamics.follow_flows(-1 * dP * (cellprob>0) / 5., niter=niter)
+                        if progress is not None:
+                            progress.setValue(65)
+                        maski = dynamics.get_masks(p, flows=dP, threshold=threshold)
+                        if progress is not None:
+                            progress.setValue(75)
+                        dZ = np.zeros((1,Ly,Lx), np.uint8)
+                        dP = np.concatenate((dP, dZ), axis=0)
+                        flow = plot.dx_to_circ(dP)
+                        flows.append([flow, dP, cellprob])
+                        maski = dynamics.fill_holes(maski)
+                        masks.append(maski)
+                else:
+                    flows.append([None]*3)
+                    masks.append([])
+        else:
+            styles = []
+            sstr = ['XY', 'XZ', 'YZ']
+            if x.shape[-1] < 3:
+                x = np.transpose(x, (3,0,1,2))
+            pm = [(1,2,3,0), (2,1,3,0), (3,1,2,0)]
+            ipm = [(0,1,2,3), (0,2,1,3), (0,2,3,1)]
+            tic=time.time()
+            for p in range(3):
+                xsl = np.transpose(x.copy(), pm[p])
+                print(xsl.shape)
+                flows.append(np.zeros(((3,xsl.shape[0],xsl.shape[1],xsl.shape[2])), np.float32))
+                # per image
+                iterator = trange(xsl.shape[0])
+                print('running %s \n'%sstr[p])
+                for i in iterator:
+                    if isinstance(self.pretrained_model, str) or not net_avg:
+                        y, style = self.run_net(xsl[i], rescale[0], tile=tile)
+                    else:
+                        y, style = self.run_many(xsl[i], rescale[0], tile=tile)
+                    y = np.transpose(y[:,:,[1,0,2]], (2,0,1))
+                    flows[p][:,i] = y
+                flows[p] = np.transpose(flows[p], ipm[p])
+                if progress is not None:
+                    progress.setValue(25+15*p)
+            dX = flows[0][0] + flows[1][0]
+            dY = flows[0][1] + flows[2][0]
+            dZ = flows[1][1] + flows[2][1]
+            cellprob = flows[0][-1] + flows[1][-1] + flows[2][-1]
+            dP = np.concatenate((dZ[np.newaxis,...], dY[np.newaxis,...], dX[np.newaxis,...]), axis=0)
+            print('flows computed %2.2fs'%(time.time()-tic))
+            yout = dynamics.follow_flows(-1 * dP * (cellprob>0.) / 5.)
+            print('dynamics computed %2.2fs'%(time.time()-tic))
+            masks = dynamics.get_masks(yout)
+            print('masks computed %2.2fs'%(time.time()-tic))
+            print(masks.shape)
+            flows = [np.array([plot.dx_to_circ(dP[1:,i]) for i in range(dP.shape[1])])]
+            flows.append(dP)
+            flows.append(cellprob)
+            print(dP.shape, cellprob.shape)
 
         return masks, flows, styles
 
@@ -374,7 +421,7 @@ class CellposeModel():
         img = np.transpose(img, (2,0,1))
         
         # pad for net so divisible by 4
-        img, ysub, xsub = transforms.pad_image(img)
+        img, ysub, xsub = transforms.pad_image_ND(img)
         if tile:
             y,style = self.run_tiled(img, bsize)
             y = np.transpose(y[:3], (1,2,0))

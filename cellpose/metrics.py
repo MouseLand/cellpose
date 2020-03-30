@@ -47,21 +47,24 @@ def average_precision(masks_true, masks_pred, threshold=[0.5, 0.75, 0.9]):
         fp[n] = n_pred[n] - tp[n]
         fn[n] = n_true[n] - tp[n]
         ap[n] = tp[n] / (tp[n] + fp[n] + fn[n])
-    return ap
+    return ap, tp, fp, fn
 
-def flow_error(maski, flows):
-    maski = np.reshape(np.unique(maski.astype(np.float32), return_inverse=True)[1],
-                       (maski.shape[0], maski.shape[1]))
+def flow_error(maski, dP_net):
+    maski = np.reshape(np.unique(maski.astype(np.float32), return_inverse=True)[1], maski.shape)
     # flows predicted from estimated masks
-    predicted_flow,_ = dynamics.masks_to_flows(maski)
-    dY,dX = predicted_flow
+    dP_masks,_ = dynamics.masks_to_flows(maski)
     iun = np.unique(maski)[1:]
     flow_error=np.zeros((len(iun),))
     for i,iu in enumerate(iun):
         ii = maski==iu
-        flow_error[i] = ((dX[ii] - flows[1][ii]/5)**2 +
-                         (dY[ii] - flows[0][ii]/5)**2).mean()
-    return flow_error, np.array(predicted_flow)
+        if dP_masks.shape[0]==2:
+            flow_error[i] += ((dP_masks[0][ii] - dP_net[0][ii]/5.)**2
+                            + (dP_masks[1][ii] - dP_net[1][ii]/5.)**2).mean()
+        else:
+            flow_error[i] += ((dP_masks[0][ii] - dP_net[0][ii]/5.)**2 * 0.5
+                            + (dP_masks[1][ii] - dP_net[1][ii]/5.)**2
+                            + (dP_masks[2][ii] - dP_net[2][ii]/5.)**2).mean()
+    return flow_error, dP_masks
 
 def total_variation_loss(x):
     a = nd.square(x[:, :, :-1, :-1] - x[:, :, 1:, :-1])

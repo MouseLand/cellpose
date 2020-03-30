@@ -98,13 +98,13 @@ def extend_centers(T,y,x,ymed,xmed,Lx, niter):
                                             T[(y+1)*Lx + x-1] + T[(y+1)*Lx + x+1])
     return T
 
-def fill_holes(masks):
+def fill_holes(masks, min_size=15):
     slices = scipy.ndimage.find_objects(masks)
     i = 0
     for sr, sc in slices:
         msk = masks[sr, sc] == (i+1)
         msk = scipy.ndimage.morphology.binary_fill_holes(msk)
-        sm = np.logical_and(msk, ~skimage.morphology.remove_small_objects(msk, min_size=15, connectivity=1))
+        sm = np.logical_and(msk, ~skimage.morphology.remove_small_objects(msk, min_size=min_size, connectivity=1))
         masks[sr, sc][msk] = (i+1)
         masks[sr, sc][sm] = 0
         i+=1
@@ -131,6 +131,20 @@ def labels_to_flows(labels):
     return flows
 
 def masks_to_flows(masks):
+    if masks.ndim > 2:
+        Lz, Ly, Lx = masks.shape
+        mu = np.zeros((3, Lz, Ly, Lx), np.float32)
+        for z in range(Lz):
+            mu0,_ = masks_to_flows(masks[z])
+            mu[[1,2], z] += mu0
+        for y in range(Ly):
+            mu0,_ = masks_to_flows(masks[:,y])
+            mu[[0,2], :, y] += mu0
+        for x in range(Lx):
+            mu0,_ = masks_to_flows(masks[:,:,x])
+            mu[[0,1], :, :, x] += mu0
+        return mu, None
+
     Ly, Lx = masks.shape
     mu = np.zeros((2, Ly, Lx), np.float64)
     mu_c = np.zeros((Ly, Lx), np.float64)
@@ -217,26 +231,22 @@ def steps2D2(dy, dx, py, px, y, x, shape, niter):
         px[y*Lx + x] = np.minimum(shape[1]-1, np.maximum(0, px[y*Lx + x] - dx[p0*Lx + p1]))
     return py, px
 
-def follow_flows(dP, niter=200, do_3D=False):
+def follow_flows(dP, niter=200):
     shape = np.array(dP.shape[1:]).astype(np.int32)
     niter = np.int32(niter)
-    if do_3D:
+    if len(shape)>2:
         p = np.meshgrid(np.arange(shape[0]), np.arange(shape[1]),
                 np.arange(shape[2]), indexing='ij')
-        p = np.array(p)
+        p = np.array(p).astype(np.float32)
+        # run dynamics on subset of pixels
         inds = np.array(np.nonzero((dP[0]!=0))).astype(np.int32).T
-        p = steps3D(p.astype(np.float32), dP, inds, niter)
+        p = steps3D(p, dP, inds, niter)
     else:
         p = np.meshgrid(np.arange(shape[0]), np.arange(shape[1]), indexing='ij')
         p = np.array(p).astype(np.float32)
         # run dynamics on subset of pixels
         inds = np.array(np.nonzero((dP[0]!=0))).astype(np.int32).T
         p = steps2D(p, dP, inds, niter)
-        # no loop (slow...)
-        #p = steps2D2(dP[0].flatten(), dP[1].flatten(),
-         #            p[0].flatten(), p[1].flatten(), inds[0], inds[1],
-          #           shape, niter)
-
     return p
 
 def remove_bad_flow_masks(masks, flows, threshold=0.5):

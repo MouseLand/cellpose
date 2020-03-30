@@ -1064,7 +1064,7 @@ class MainW(QtGui.QMainWindow):
         self.progress.setValue(0)
         if 1:
             self.clear_all()
-            self.flows = [[],[],[],[]]
+            self.flows = [[],[],[]]
             self.initialize_model()
 
             print('using model %s'%self.current_model)
@@ -1074,25 +1074,31 @@ class MainW(QtGui.QMainWindow):
                 do_3D = True
                 data = self.stack.copy()
             else:
-                data = self.stack[0].copy()
+                data = [self.stack[0].copy()]
             channels = self.get_channels()
             self.diameter = float(self.Diameter.text())
-            if 1:
-                #rescale = np.array([27/(self.diameter*(np.pi**0.5/2))])
-                masks, flows, _, _ = self.model.eval([data], channels=channels,
+            try:
+                masks, flows, _, _ = self.model.eval(data, channels=channels,
                                                 diameter=self.diameter, invert=self.invert.isChecked(),
                                                 do_3D=do_3D, progress=self.progress)
-            else:#except Exception as e:
+            except Exception as e:
                 print('NET ERROR: %s'%e)
                 self.progress.setValue(0)
                 return
 
             self.progress.setValue(75)
-            masks = masks[0]
-            flows = flows[0]
-            self.flows[0] = flows[0][np.newaxis,...]
-            self.flows[1] = (np.clip(utils.normalize99(flows[2]),0,1) * 255).astype(np.uint8)[np.newaxis,...]
-            self.flows[2] = (flows[1][-1]/10 * 127 + 127).astype(np.uint8)[np.newaxis,...]
+
+            if not do_3D:
+                masks = masks[0][np.newaxis,:,:]
+                flows = flows[0]
+            self.flows[0] = flows[0]
+            self.flows[1] = (np.clip(utils.normalize99(flows[2]),0,1) * 255).astype(np.uint8)
+            if not do_3D:
+                self.flows[2] = np.zeros(flows[1][0].shape, dtype=np.uint8)
+                self.flows = [self.flows[n][np.newaxis,...] for n in range(len(self.flows))]
+            else:
+                self.flows[2] = (flows[1][0]/10 * 127 + 127).astype(np.uint8)
+
 
             print('%d cells found with unet'%(len(np.unique(masks)[1:])))
             self.progress.setValue(80)
@@ -1102,7 +1108,7 @@ class MainW(QtGui.QMainWindow):
             self.MCheckBox.setChecked(True)
             self.OCheckBox.setChecked(True)
 
-            io.masks_to_gui(self, masks[np.newaxis,:,:], outlines=None)
+            io.masks_to_gui(self, masks, outlines=None)
             self.progress.setValue(100)
 
             self.toggle_server(off=True)
