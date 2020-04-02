@@ -35,8 +35,8 @@ from the network, a 64-dimensional summary of the input image. We trained a
 linear regression model to predict the size of objects from these style vectors 
 on the training data. On a new image the procedure is as follows.
 
-    1. Run the image through the cellpose network and obtain the style vector. Predict the size using the linear regression model from the style vector.
-    2. Resize the image based on the predicted size and run cellpose again, and produce masks. Take the final estimated size as the median diameter of the predicted masks.
+1. Run the image through the cellpose network and obtain the style vector. Predict the size using the linear regression model from the style vector.
+2. Resize the image based on the predicted size and run cellpose again, and produce masks. Take the final estimated size as the median diameter of the predicted masks.
 
 For automated estimation set ``diameter = None``. 
 However, if this estimate is incorrect please set the diameter by hand.
@@ -55,8 +55,8 @@ Cytoplasm model (`'cyto'`)
 The cytoplasm model in cellpose is trained on two-channel images, where 
 the first channel is the channel to segment, and the second channel is 
 an optional nuclear channel. Here are the options for each:
-    1. 0=grayscale, 1=red, 2=green, 3=blue 
-    2. 0=None (will set to zero), 1=red, 2=green, 3=blue
+1. 0=grayscale, 1=red, 2=green, 3=blue 
+2. 0=None (will set to zero), 1=red, 2=green, 3=blue
 
 Set channels to a list with each of these elements, e.g.
 ``channels = [0,0]`` if you want to segment cells in grayscale or for single channel images, or

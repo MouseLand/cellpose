@@ -1,7 +1,7 @@
 Outputs
 -------------------------
 
-*.npy output 
+_seg.npy output 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 ``*_seg.npy`` files have the following fields:
@@ -20,6 +20,7 @@ Outputs
 Here is an example of loading in a ``*_seg.npy`` file and plotting masks and outlines
 
 ::
+
     import numpy as np
     from cellpose import plot
     dat = np.load('_seg.npy', allow_pickle=True).item()
@@ -28,12 +29,8 @@ Here is an example of loading in a ``*_seg.npy`` file and plotting masks and out
     mask_RGB = plot.mask_overlay(dat['img'], dat['masks'],
                             colors=np.array(dat['colors']))
 
-    # plot image with outlines embedded in image in red (can change color of outline)
-    outline_RGB = plot.outline_overlay(dat['img'], dat['outlines'],
-                            channels=dat['chan_choose'], color=[255,0,0])
-
     # plot image with outlines overlaid in red
-    outlines = plot.plot_outlines(dat['masks'])
+    outlines = plot.outlines_list(dat['masks'])
     plt.imshow(dat['img'])
     for o in outlines:
         plt.plot(o[:,0], o[:,1], color='r')
@@ -70,17 +67,15 @@ In ``plot.py`` there are functions, like ``show_segmentation``:
 
 ::
 
-    from cellpose import plot, transforms
+    from cellpose import plot
 
+    nimg = len(imgs)
     for idx in range(nimg):
-        img = transforms.reshape(imgs[idx], channels[idx])
-        img = plot.rgb_image(img)
         maski = masks[idx]
         flowi = flows[idx][0]
 
-        fig = plt.figure(figsize=(12,3))
-        # can save images (set save_dir=None if not)
-        plot.show_segmentation(fig, img, maski, flowi)
+        fig = plt.figure(figsize=(12,5))
+        plot.show_segmentation(fig, imgs[idx], maski, flowi, channels=channels[idx])
         plt.tight_layout()
         plt.show()
 
