@@ -6,6 +6,8 @@ This code was written by Carsen Stringer and Marius Pachitariu. To learn about C
 
 You can quickly try out Cellpose on the [website](http://www.cellpose.org) first (some features disabled). If you want to improve Cellpose for yourself and for everyone else, please consider contributing manual segmentations for a few of your images via the built-in GUI interface (see instructions below). 
 
+### detailed documentation at [www.cellpose.org/docs](http://www.cellpose.org/static/docs/index.html)
+
 ## Installation
 
 We recommend installing an [Anaconda](https://www.anaconda.com/download/) distribution of Python -- Choose **Python 3.7** and your operating system. Note you might need to use an anaconda prompt if you did not add anaconda to the path. From your base environment (or you can make a new environment) in an anaconda prompt/command prompt, run
@@ -189,7 +191,6 @@ You can specify the full path to a pretrained model to use:
 python -m cellpose --dir ~/images_cyto/test/ --pretrained_model ~/images_cyto/test/model/cellpose_35_0 --save_png
 ~~~
 
-
 Parameters:
 ~~~
 usage: __main__.py [-h] [--train] [--dir DIR] [--img_filter IMG_FILTER]
@@ -240,21 +241,6 @@ optional arguments:
 - *flows* : flows[0] is XY flow in RGB, flows[1] is the cell probability in range 0-255 instead of 0.0 to 1.0, flows[2] is Z flow in range 0-255 (if it exists)
 - *est_diam* : estimated diameter (if run on command line)
 - *zdraw* : for each mask, which planes were manually labelled (planes in between manually drawn have interpolated masks)
-
-Here is an example of loading in a ``*_seg.npy`` file and plotting masks and outlines
-~~~~~~~~~
-    import numpy as np
-    from cellpose import plot
-    dat = np.load('_seg.npy', allow_pickle=True).item()
-
-    # plot image with masks overlaid
-    mask_RGB = plot.mask_overlay(dat['img'], dat['masks'],
-                            colors=np.array(dat['colors']))
-
-    # plot image with outlines overlaid in red (can change color of outline)
-    outline_RGB = plot.outline_overlay(dat['img'], dat['outlines'],
-                            channels=dat['chan_choose'], color=[255,0,0])
-~~~~~~~~~~
 
 ## Dependencies
 cellpose relies on the following excellent packages (which are automatically installed with conda/pip if missing):
