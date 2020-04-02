@@ -8,18 +8,18 @@ def mainmenu(parent):
     # load processed data
     loadImg = QtGui.QAction("&Load image (*.tif, *.png, *.jpg)", parent)
     loadImg.setShortcut("Ctrl+L")
-    loadImg.triggered.connect(lambda: io.load_image(parent))
+    loadImg.triggered.connect(lambda: io._load_image(parent))
     file_menu.addAction(loadImg)
 
     parent.loadMasks = QtGui.QAction("Load &masks (*.tif, *.png, *.jpg)", parent)
     parent.loadMasks.setShortcut("Ctrl+M")
-    parent.loadMasks.triggered.connect(lambda: io.load_masks(parent))
+    parent.loadMasks.triggered.connect(lambda: io._load_masks(parent))
     file_menu.addAction(parent.loadMasks)
     parent.loadMasks.setEnabled(False)
 
     loadManual = QtGui.QAction("Load &processed/labelled image (*_seg.npy)", parent)
     loadManual.setShortcut("Ctrl+P")
-    loadManual.triggered.connect(lambda: io.load_manual(parent))
+    loadManual.triggered.connect(lambda: io._load_seg(parent))
     file_menu.addAction(loadManual)
 
     #loadStack = QtGui.QAction("Load &numpy z-stack (*.npy nimgs x nchan x pixels x pixels)", parent)
@@ -27,15 +27,15 @@ def mainmenu(parent):
     #loadStack.triggered.connect(lambda: parent.load_zstack(None))
     #file_menu.addAction(loadStack)
 
-    parent.saveSet = QtGui.QAction("&Save masks and images (as *.npy)", parent)
+    parent.saveSet = QtGui.QAction("&Save masks and image (as *_seg.npy)", parent)
     parent.saveSet.setShortcut("Ctrl+S")
-    parent.saveSet.triggered.connect(lambda: io.save_sets(parent))
+    parent.saveSet.triggered.connect(lambda: io._save_sets(parent))
     file_menu.addAction(parent.saveSet)
     parent.saveSet.setEnabled(False)
 
     parent.savePNG = QtGui.QAction("Save masks as P&NG", parent)
     parent.savePNG.setShortcut("Ctrl+N")
-    parent.savePNG.triggered.connect(lambda: io.save_png(parent))
+    parent.savePNG.triggered.connect(lambda: io._save_png(parent))
     file_menu.addAction(parent.savePNG)
     parent.savePNG.setEnabled(False)
 

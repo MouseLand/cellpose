@@ -2,17 +2,27 @@
 import numpy as np
 import cv2
 
+def _taper_mask(bsize=224, sig=7.5):
+    xm = np.arange(bsize)
+    xm = np.abs(xm - xm.mean())
+    mask = 1/(1 + np.exp((xm - (bsize/2-20)) / sig))
+    mask = mask * mask[:, np.newaxis]
+    return mask
+
 def unaugment_tiles(y):
     """ reverse test-time augmentations for averaging
 
     Parameters
     ----------
-    y : float32
+
+    y: float32
         array that's ntiles x chan x Ly x Lx where chan = (dY, dX, cell prob)
         if unet is used, array is ntiles x 1 x Ly x Lx
+
     Returns
     -------
-    y : float32
+    
+    y: float32
 
     """
     #if y.shape[1]==1:
@@ -35,8 +45,54 @@ def unaugment_tiles(y):
             y[k,1,:,:] *= -1
     return y
 
+def average_tiles(y, ysub, xsub, Ly, Lx):
+    """ average results of network over tiles
+
+    Parameters
+    -------------
+
+    y: float, [ntiles x 3 x bsize x bsize]
+        output of cellpose network for each tile
+
+    ysub : list
+        list of arrays with start and end of tiles in Y of length ntiles 
+
+    xsub : list
+        list of arrays with start and end of tiles in X of length ntiles 
+    
+    Ly : int
+        size of pre-tiled image in Y (may be larger than original image if
+        image size is less than bsize)
+        
+    Lx : int
+        size of pre-tiled image in X (may be larger than original image if
+        image size is less than bsize)
+
+    Returns
+    -------------
+
+    yf: float32, [3 x Ly x Lx]
+        network output averaged over tiles 
+
+    """
+    Navg = np.zeros((Ly,Lx))
+    yf = np.zeros((3, Ly, Lx), np.float32)
+    # taper edges of tiles
+    mask = _taper_mask(bsize=y.shape[-1])
+    for j in range(len(ysub)):
+        yf[:, ysub[j][0]:ysub[j][1],  xsub[j][0]:xsub[j][1]] += y[j] * mask
+        Navg[ysub[j][0]:ysub[j][1],  xsub[j][0]:xsub[j][1]] += mask
+    yf /= Navg
+    return yf
+
 def make_tiles(imgi, bsize=224, augment=True):
     """ make tiles of image to run at test-time
+
+    there are 4 versions of each tile
+        * original
+        * flipped vertically
+        * flipped horizontally
+        * flipped vertically and horizontally
 
     Parameters
     ----------
@@ -47,14 +103,20 @@ def make_tiles(imgi, bsize=224, augment=True):
     -------
     IMG : float32
         array that's ntiles x nchan x bsize x bsize
+
     ysub : list
         list of arrays with start and end of tiles in Y of length ntiles 
+
     xsub : list
         list of arrays with start and end of tiles in X of length ntiles 
+
     Ly : int
-        size of tiles in Y
+        size of total image pre-tiling in Y (may be larger than original image if
+        image size is less than bsize)
+
     Lx : int
-        size of tiles in X
+        size of total image pre-tiling in X (may be larger than original image if
+        image size is less than bsize)
 
     """
 
@@ -99,62 +161,6 @@ def make_tiles(imgi, bsize=224, augment=True):
 
     return IMG, ysub, xsub, Ly, Lx
 
-def X2zoom(img, X2=1):
-    """ zoom in image
-
-    Parameters
-    ----------
-    img : numpy array that's Ly x Lx 
-    
-    Returns
-    -------
-    img : numpy array that's Ly x Lx 
-
-    """
-    ny,nx = img.shape[:2]
-    img = cv2.resize(img, (int(nx * (2**X2)), int(ny * (2**X2))))
-    return img
-
-def image_resizer(img, resize=512, to_uint8=False):
-    """ resize image
-
-    Parameters
-    ----------
-    img : numpy array that's Ly x Lx 
-    
-    resize : int
-        max size of image returned 
-
-    to_uint8 : bool
-        convert image to uint8
-
-    Returns
-    -------
-    img : numpy array that's Ly x Lx, Ly,Lx<resize
-
-    """
-    ny,nx = img.shape[:2]
-    if to_uint8:
-        if img.max()<=255 and img.min()>=0 and img.max()>1:
-            img = img.astype(np.uint8)
-        else:
-            img = img.astype(np.float32)
-            img -= img.min()
-            img /= img.max()
-            img *= 255
-            img = img.astype(np.uint8)
-    if np.array(img.shape).max() > resize:
-        if ny>nx:
-            nx = int(nx/ny * resize)
-            ny = resize
-        else:
-            ny = int(ny/nx * resize)
-            nx = resize
-        shape = (nx,ny)
-        img = cv2.resize(img, shape)
-        img = img.astype(np.uint8)
-    return img
-
 def normalize99(img):
     """ normalize image so 0.0 is 1st percentile and 1.0 is 99th percentile """
     X = img.copy()
@@ -168,9 +174,11 @@ def reshape(data, channels=[0,0], invert=False):
     ----------
     data : numpy array that's (Z x ) Ly x Lx x nchan
     
-    channels : int
-        list [chan to seg, chan2 (opt)]
-        (0=gray/none, 1=red, 2=green, 3=blue)
+    channels : list of int of length 2 (optional, default [0,0])
+        First element of list is the channel to segment (0=grayscale, 1=red, 2=blue, 3=green).
+        Second element of list is the optional nuclear channel (0=none, 1=red, 2=blue, 3=green).
+        For instance, to train on grayscale images, input [0,0]. To train on images with cells
+        in green and nuclei in blue, input [2,3].
 
     invert : bool
         invert intensities
@@ -219,8 +227,61 @@ def reshape(data, channels=[0,0], invert=False):
         data = np.transpose(data, (2,0,1))
     return data
 
+def normalize_img(img):
+    """ normalize each channel of the image so that so that 0.0=1st percentile
+    and 1.0=99th percentile of image intensities
+    
+    Parameters
+    ------------
+
+    img: ND-array
+        image of size [nchan x Ly x Lx]
+
+    Returns
+    ---------------
+
+    img: ND-array, float32
+        normalized image of size [nchan x Ly x Lx]
+    
+    """
+    img = img.astype(np.float32)
+    for k in range(img.shape[0]):
+        if np.ptp(img[k]) > 0.0:
+            img[k] = normalize99(img[k])
+    return img
+
 def reshape_data(train_data, test_data=None, channels=None):
-    """ inputs converted to correct shapes for training """
+    """ inputs converted to correct shapes for training and rescaled so that 0.0=1st percentile
+    and 1.0=99th percentile of image intensities in each channel.
+    
+    Parameters
+    --------------
+
+    train_data: list of ND-arrays, float
+        list of training images of size [Ly x Lx], [nchan x Ly x Lx], or [Ly x Lx x nchan]
+
+    test_data: list of ND-arrays, float (optional, default None)
+        list of testing images of size [Ly x Lx], [nchan x Ly x Lx], or [Ly x Lx x nchan]
+
+    channels: list of int of length 2 (optional, default None)
+        First element of list is the channel to segment (0=grayscale, 1=red, 2=blue, 3=green).
+        Second element of list is the optional nuclear channel (0=none, 1=red, 2=blue, 3=green).
+        For instance, to train on grayscale images, input [0,0]. To train on images with cells
+        in green and nuclei in blue, input [2,3].
+
+    Returns
+    -------------
+
+    train_data: list of ND-arrays, float
+        list of training images of size [2 x Ly x Lx]
+
+    test_data: list of ND-arrays, float (optional, default None)
+        list of testing images of size [2 x Ly x Lx]
+
+    run_test: bool
+        whether or not test_data was correct size and is useable during training
+
+    """
 
     # if training data is less than 2D
     nimg = len(train_data)
@@ -256,27 +317,40 @@ def reshape_data(train_data, test_data=None, channels=None):
             elif test_data[0].shape[0]==nchan:
                 run_test = True
 
-    #normalize_data
-    nimg = len(train_data)
-    for n in range(nimg):
-        train_data[n] = train_data[n].astype(np.float32)
-        for k in range(nchan):
-            if np.ptp(train_data[n][k]) > 0.0:
-                train_data[n][k] = normalize99(train_data[n][k])
-    if run_test:
-        nimg = len(test_data)
-        for n in range(nimg):
-            test_data[n] = test_data[n].astype(np.float32)
-            for k in range(nchan):
-                if np.ptp(test_data[n][k]) > 0.0:
-                    test_data[n][k] = normalize99(test_data[n][k])
-    
+    # normalize_data if no channels given
+    if channels is None:
+        nimg = len(train_data)
+        train_data = [normalize_img(train_data[n]) for n in range(nimg)]
+        if run_test:
+            nimg = len(test_data)
+            test_data = [normalize_img(test_data[n]) for n in range(nimg)]
+        
     return train_data, test_data, run_test
 
-
-
 def pad_image_ND(img0, div=16, extra = 1):
-    """ pad image for test-time (2 and 3D) """
+    """ pad image for test-time so that its dimensions are a multiple of 16 (2D or 3D) 
+    
+    Parameters
+    -------------
+
+    img0: ND-array
+        image of size [nchan (x Lz) x Ly x Lx]
+
+    div: int (optional, default 16)
+
+    Returns
+    --------------
+
+    I: ND-array
+        padded image
+
+    ysub: array, int
+        yrange of pixels in I corresponding to img0
+
+    xsub: array, int
+        xrange of pixels in I corresponding to img0
+    
+    """
     Lpad = int(div * np.ceil(img0.shape[-2]/div) - img0.shape[-2])
     xpad1 = extra*div//2 + Lpad//2
     xpad2 = extra*div//2 + Lpad - Lpad//2
@@ -296,45 +370,45 @@ def pad_image_ND(img0, div=16, extra = 1):
     xsub = np.arange(ypad1, ypad1+Lx)
     return I, ysub, xsub
 
-def pad_image(img0, div=16, extra = 1):
-    """ pad image for test time (if tiling off) """
-    nc, Ly, Lx = img0.shape
-    Lpad = int(div * np.ceil(Ly/div) - Ly)
-
-    xpad1 = extra*div//2 + Lpad//2
-    xpad2 = extra*div//2 + Lpad - Lpad//2
-    Lpad = int(div * np.ceil(Lx/div) - Lx)
-    ypad1 = extra*div//2 + Lpad//2
-    ypad2 = extra*div//2+Lpad - Lpad//2
-
-    pads = np.array([[0,0], [xpad1,xpad2], [ypad1, ypad2]])
-
-    ysub = np.arange(xpad1, xpad1+Ly)
-    xsub = np.arange(ypad1, ypad1+Lx)
-    I = np.pad(img0,pads, mode='constant')
-    return I, ysub, xsub
-
 def random_rotate_and_resize(X, Y=None, scale_range=1., xy = (224,224), do_flip=True, rescale=None):
     """ augmentation by random rotation and resizing
 
+        X and Y are lists or arrays of length nimg, with dims channels x Ly x Lx (channels optional)
+
         Parameters
         ----------
-        data : numpy array that's (Z x ) Ly x Lx x nchan
-        
-        channels : int
-            list [chan to seg, chan2 (opt)]
-            (0=gray/none, 1=red, 2=green, 3=blue)
+        X: list of ND-arrays, float 
+            list of image arrays of size [nchan x Ly x Lx] or [Ly x Lx]
 
-        invert : bool
-            invert intensities
+        Y: list of ND-arrays, float (optional, default None)
+            list of image labels of size [nlabels x Ly x Lx] or [Ly x Lx]. The 1st channel 
+            of Y is always nearest-neighbor interpolated (assumed to be masks or 0-1 representation).
+            If Y.shape[0]==3, then the labels are assumed to be [cell probability, Y flow, X flow].
+
+        scale_range: float (optional, default 1.0)
+            Range of resizing of images for augmentation. Images are resized by 
+            (1-scale_range/2) + scale_range * np.random.rand()
+        
+        xy: tuple, int (optional, default (224,224))
+            size of transformed images to return
+
+        do_flip: bool
+            whether or not to flip images horizontally
+
+        rescale: array, float (optional, default None)
+            how much to resize images by before performing augmentations
 
         Returns
         -------
-        data : numpy array that's nchan x (Z x ) Ly x Lx
+        imgi: ND-array, float
+            transformed images in array [nimg x nchan x xy[0] x xy[1]]
 
-        X and Y are lists or arrays of length nimg, with dims channels x Ly x Lx (channels optional)
+        lbl: ND-array, float
+            transformed labels in array [nimg x nchan x xy[0] x xy[1]]
 
-        if Y is 3 chan, it is [cell probability, Y flow, X flow]
+        scale: array, float
+            amount each image was resized by
+
     """
     scale_range = max(0, min(2, float(scale_range)))
     nimg = len(X)
@@ -402,7 +476,61 @@ def random_rotate_and_resize(X, Y=None, scale_range=1., xy = (224,224), do_flip=
             lbl[n,1] = (-v1 * np.sin(-theta) + v2*np.cos(-theta))
             lbl[n,2] = (v1 * np.cos(-theta) + v2*np.sin(-theta))
 
-    #if Y[0].ndim<3:
-    #    lbl = lbl[0]
-    #imgi = np.transpose(imgi, (0, 3, 1, 2))
     return imgi, lbl, scale
+
+
+def _X2zoom(img, X2=1):
+    """ zoom in image
+
+    Parameters
+    ----------
+    img : numpy array that's Ly x Lx 
+    
+    Returns
+    -------
+    img : numpy array that's Ly x Lx 
+
+    """
+    ny,nx = img.shape[:2]
+    img = cv2.resize(img, (int(nx * (2**X2)), int(ny * (2**X2))))
+    return img
+
+def _image_resizer(img, resize=512, to_uint8=False):
+    """ resize image
+
+    Parameters
+    ----------
+    img : numpy array that's Ly x Lx 
+    
+    resize : int
+        max size of image returned 
+
+    to_uint8 : bool
+        convert image to uint8
+
+    Returns
+    -------
+    img : numpy array that's Ly x Lx, Ly,Lx<resize
+
+    """
+    ny,nx = img.shape[:2]
+    if to_uint8:
+        if img.max()<=255 and img.min()>=0 and img.max()>1:
+            img = img.astype(np.uint8)
+        else:
+            img = img.astype(np.float32)
+            img -= img.min()
+            img /= img.max()
+            img *= 255
+            img = img.astype(np.uint8)
+    if np.array(img.shape).max() > resize:
+        if ny>nx:
+            nx = int(nx/ny * resize)
+            ny = resize
+        else:
+            ny = int(ny/nx * resize)
+            nx = resize
+        shape = (nx,ny)
+        img = cv2.resize(img, shape)
+        img = img.astype(np.uint8)
+    return img

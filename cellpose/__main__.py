@@ -4,7 +4,7 @@ import os, argparse, glob, pathlib
 import skimage
 from natsort import natsorted
 
-from cellpose import utils, models
+from . import utils, models, io
 
 try:
     from cellpose import gui 
@@ -77,7 +77,8 @@ if __name__ == '__main__':
         if not GUI_ENABLED:
             print('ERROR: GUI version is not installed, to install, run')
             print('     pip install cellpose[gui]')
-        gui.run()
+        else:
+            gui.run()
 
     else:
         use_gpu = False
@@ -110,65 +111,79 @@ if __name__ == '__main__':
         else:
             device = mx.cpu()
         print('>>>> using %s'%(['CPU', 'GPU'][use_gpu]))
-        model_dir = pathlib.Path.home().joinpath('.cellpose', 'models')
-        if args.pretrained_model=='cyto' or args.pretrained_model=='nuclei':
-            cp_path = os.path.dirname(os.path.realpath(__file__))
-            if not args.train:
-                cpmodel_path = [os.fspath(model_dir.joinpath('%s_%d'%(args.pretrained_model, j))) for j in range(4)]
-            else:
-                cpmodel_path = os.fspath(model_dir.joinpath('%s_0'%(args.pretrained_model)))
-            szmodel_path = os.fspath(model_dir.joinpath('size_%s_0.npy'%(args.pretrained_model)))
-            if args.pretrained_model=='cyto':
-                szmean = 27.
-            else:
-                szmean = 15.
-        else:
-            cpmodel_path = args.pretrained_model
-            szmodel_path = None
-            szmean = 27.
-            if args.all_channels:
-                channels = None                
+        model_dir = pathlib.Path.home().joinpath('.cellpose', 'models')              
 
         if not args.train:
-            if not os.path.exists(cpmodel_path):
-                print('model path does not exist, using cyto model')
-                model_list = ['%s_%d'%(args.pretrained_model, i) for i in range(4)]
-                cpmodel_path = [os.fspath(model_dir.joinpath('cyto_%d'%j)) for j in range(4)]
-                szmodel_path = os.fspath(model_dir.joinpath('size_cyto_0.npy'))
-            model = models.Cellpose(device=device, 
-                                    pretrained_model=cpmodel_path,
-                                    pretrained_size=szmodel_path,
-                                    diam_mean=szmean
-                                   )
-            if args.diameter==0:
-                diameter = None
-                if args.pretrained_model=='cyto' or args.pretrained_model=='nuclei':
+            if not args.pretrained_model=='cyto' or args.pretrained_model=='nuclei':
+                cpmodel_path = args.pretrained_model
+                if not os.path.exists(cpmodel_path):
+                    print('model path does not exist, using cyto model')
+                    args.pretrained_model = 'cyto'
+
+            if args.pretrained_model=='cyto' or args.pretrained_model=='nuclei':
+                model = models.Cellpose(device=device, model_type=args.pretrained_model)
+                    
+                if args.diameter==0:
+                    diameter = None
                     print('>>>> estimating diameter for each image')
                 else:
-                    print('>>>> using user-specified model, no auto-diameter estimation available')
+                    diameter = args.diameter
+                    print('>>>> using diameter %0.2f for all images'%diameter)
+
+                cstr0 = ['GRAY', 'RED', 'GREEN', 'BLUE']
+                cstr1 = ['NONE', 'RED', 'GREEN', 'BLUE']
+                print('running cellpose on %d images using chan_to_seg %s and chan (opt) %s'%
+                        (nimg, cstr0[channels[0]], cstr1[channels[1]]))
+                
+                masks, flows, _, diams = model.eval(images, channels=channels, diameter=diameter)
+                
             else:
-                diameter = args.diameter
-                print('using diameter %0.2f for all images'%diameter)
-            cstr0 = ['GRAY', 'RED', 'GREEN', 'BLUE']
-            cstr1 = ['NONE', 'RED', 'GREEN', 'BLUE']
-            print('running cellpose on %d images using chan_to_seg %s and chan (opt) %s'%
-                    (nimg, cstr0[channels[0]], cstr1[channels[1]]))
-            
-            masks, flows, _, diams = model.eval(images, channels=channels, diameter=diameter)
+                if args.all_channels:
+                    channels = None  
+                if args.diameter==0:
+                    print('>>>> using user-specified model, no auto-diameter estimation available')
+                model = models.CellposeModel(device=device, pretrained_model=cpmodel_path)
+                masks, flows, _ = model.eval(images, channels=channels)
+                diams = 30. * np.ones(len(images)) 
+                  
             print('>>>> saving results')
-            utils.masks_flows_to_seg(images, masks, flows, diams, channels, image_names)
+            io.masks_flows_to_seg(images, masks, flows, diams, image_names, channels)
             if args.save_png:
-                utils.save_to_png(images, masks, flows, image_names)
+                io.save_to_png(images, masks, flows, image_names)
                     
         else:
+            if args.pretrained_model=='cyto' or args.pretrained_model=='nuclei':
+                cpmodel_path = os.fspath(model_dir.joinpath('%s_0'%(args.pretrained_model)))
+                if args.pretrained_model=='cyto':
+                    szmean = 27.
+                else:
+                    szmean = 15.
+            else:
+                szmean = 27.
+            
+            if args.all_channels:
+                channels = None  
+
             label_names = get_label_files(image_names, imf, args.mask_filter)
             nimg = len(image_names)
             labels = [skimage.io.imread(label_names[n]) for n in range(nimg)]
             if not os.path.exists(cpmodel_path):
                 cpmodel_path = False
                 print('>>>> training from scratch')
+                if args.diameter==0:
+                    rescale = False 
+                    print('>>>> median diameter set to 0 => no rescaling during training')
+                else:
+                    rescale = True
+                    szmean = args.diameter * (np.pi**0.5/2)
             else:
+                rescale = True
+                args.diameter = szmean / (np.pi**0.5/2)
                 print('>>>> training starting with pretrained_model %s'%cpmodel_path)
+            if rescale:
+                print('>>>> rescaling diameter for each training image to %0.1f'%args.diameter)
+                
+            
 
             test_images, test_labels = None, None
             if len(args.test_dir) > 0:
@@ -178,6 +193,10 @@ if __name__ == '__main__':
                 test_images = [skimage.io.imread(image_names_test[n]) for n in range(nimg)]
                 test_labels = [skimage.io.imread(label_names_test[n]) for n in range(nimg)]
             print('>>>> %s model'%(['cellpose', 'unet'][args.unet]))    
-            model = models.CellposeModel(device=device, unet=args.unet, pretrained_model=cpmodel_path)
+            model = models.CellposeModel(device=device, 
+                                         unet=args.unet, 
+                                         pretrained_model=cpmodel_path, 
+                                         diam_mean=szmean)
+            
             model.train(images, labels, test_images, test_labels, learning_rate=args.learning_rate,
-                        channels=channels, save_path=os.path.realpath(args.dir))
+                        channels=channels, save_path=os.path.realpath(args.dir), rescale=rescale)

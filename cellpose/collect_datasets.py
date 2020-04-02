@@ -10,7 +10,6 @@ import cv2
 from glob import glob
 import sys
 
-sys.path.insert(0, 'D:\Github\cellpose')
 import cellpose
 from cellpose import utils, datasets
 

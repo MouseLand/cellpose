@@ -10,10 +10,12 @@ You can quickly try out Cellpose on the [website](http://www.cellpose.org) first
 
 We recommend installing an [Anaconda](https://www.anaconda.com/download/) distribution of Python -- Choose **Python 3.7** and your operating system. Note you might need to use an anaconda prompt if you did not add anaconda to the path. From your base environment (or you can make a new environment) in an anaconda prompt/command prompt, run
 ~~~~
-pip install cellpose
+pip install cellpose[gui]
 ~~~~
 
-Alternatively you can use the included environment file (if you'd like a cellpose-specific environment). This is **recommended** if you have problems with the pip. Please follow these instructions:
+If you want to install without the GUI dependencies, run ``pip install cellpose``.
+
+Alternatively you can use the included environment file (if you'd like a cellpose-specific environment). This environment file includes all the dependencies for using the GUI. Using the environment file is **recommended** if you have problems with the pip. Please follow these instructions:
 
 1. Download the [`environment.yml`](https://github.com/MouseLand/cellpose/blob/master/environment.yml?raw=true) file from the repository. You can do this by cloning the repository, or copy-pasting the text from the file into a text document on your local computer.
 2. Open an anaconda prompt / command prompt with `conda` for **python 3** in the path
@@ -50,7 +52,9 @@ If you receive an error associated with **matplotlib**, try upgrading it:
 pip install matplotlib --upgrade
 ~~~~
 
-If you are on Yosemite Mac OS, PyQt doesn't work and you won't be able to use the graphical interface for cellpose. More recent versions of Mac OS are fine. The software has been heavily tested on Windows 10 and Ubuntu 18.04, and less well tested on Mac OS. Please post an issue if you have installation problems.
+If you are having issues with the graphical interface, make sure you have **python 3.7** and not python 3.8 installed.
+
+If you are on Yosemite Mac OS or earlier, PyQt doesn't work and you won't be able to use the graphical interface for cellpose. More recent versions of Mac OS are fine. The software has been heavily tested on Windows 10 and Ubuntu 18.04, and less well tested on Mac OS. Please post an issue if you have installation problems.
 
 **CUDA version**
 
@@ -117,7 +121,7 @@ Main GUI mouse controls (works in all views):
 
 Overlaps in masks are NOT allowed. If you draw a mask on top of another mask, it is cropped so that it doesn't overlap with the old mask. Masks in 2D should be single strokes (if *single_stroke* is checked). 
 
-If you want to draw masks in 3D (experimental), then you can turn *single_stroke* option off and draw a stroke on each plane with the cell and then press ENTER. 3D labelling will fill in unlabelled z-planes so that you do not have to as densely label.
+If you want to draw masks in 3D, then you can turn *single_stroke* option off and draw a stroke on each plane with the cell and then press ENTER. 3D labelling will fill in unlabelled z-planes so that you do not have to as densely label.
 
 !NOTE!: The GUI automatically saves after you draw a mask but NOT after segmentation and NOT after 3D mask drawing (too slow). Save in the file menu or with Ctrl+S. The output file is in the same folder as the loaded image with `_seg.npy` appended.
 
@@ -227,29 +231,30 @@ optional arguments:
 `*_seg.npy` files have the following fields:
 
 - *filename* : filename of image
-- *img* : image with chosen channels (Z x nchan x Ly x Lx)
-- *masks* : masks (-1 = NO masks, 0,1,2,... = mask labels)
+- *img* : image with chosen channels (nchan x Ly x Lx) (if not multiplane)
+- *masks* : masks (0 = NO masks; 1,2,... = mask labels)
 - *colors* : colors for masks
-- *outlines* : outlines of masks (-1 = NO outline, 0,1,2,... = outline labels)
+- *outlines* : outlines of masks (0 = NO outline; 1,2,... = outline labels)
 - *chan_choose* : channels that you chose in GUI (0=gray/none, 1=red, 2=green, 3=blue)
 - *ismanual* : element *k* = whether or not mask *k* was manually drawn or computed by the cellpose algorithm
-- *flows* : flows[0] is XY flow in RGB, flows[1] is Z flow (if it exists), flows[2] is the cell probability in range 0-255 instead of 0.0 to 1.0
+- *flows* : flows[0] is XY flow in RGB, flows[1] is the cell probability in range 0-255 instead of 0.0 to 1.0, flows[2] is Z flow in range 0-255 (if it exists)
 - *est_diam* : estimated diameter (if run on command line)
+- *zdraw* : for each mask, which planes were manually labelled (planes in between manually drawn have interpolated masks)
 
-~~~~
-import numpy as np
-from cellpose import plot
+Here is an example of loading in a ``*_seg.npy`` file and plotting masks and outlines
+~~~~~~~~~
+    import numpy as np
+    from cellpose import plot
+    dat = np.load('_seg.npy', allow_pickle=True).item()
 
-dat = np.load('_seg.npy', allow_pickle=True).item()
+    # plot image with masks overlaid
+    mask_RGB = plot.mask_overlay(dat['img'], dat['masks'],
+                            colors=np.array(dat['colors']))
 
-# plot image with masks overlaid
-RGB = plot.mask_overlay(dat['img'], dat['masks'],
-                        colors=np.array(dat['colors']))
-
-# plot image with outlines overlaid in red (can change color of outline)
-RGB = plot.outline_overlay(dat['img'], dat['outlines'],
-                           channels=dat['chan_choose'], color=[255,0,0])
-~~~~~
+    # plot image with outlines overlaid in red (can change color of outline)
+    outline_RGB = plot.outline_overlay(dat['img'], dat['outlines'],
+                            channels=dat['chan_choose'], color=[255,0,0])
+~~~~~~~~~~
 
 ## Dependencies
 cellpose relies on the following excellent packages (which are automatically installed with conda/pip if missing):

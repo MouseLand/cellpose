@@ -7,6 +7,13 @@ sz  = [3, 3, 3, 3, 3]
 sz2 = [3, 3, 3, 3, 3]
 szf = [1]
 
+
+def total_variation_loss(x):
+    """ regularize convolutional masks (not currently in use) """
+    a = nd.square(x[:, :, :-1, :-1] - x[:, :, 1:, :-1])
+    b = nd.square(x[:, :, :-1, :-1] - x[:, :, :-1, 1:])
+    return nd.sum(nd.mean(nd.power(a + b, 1.25), axis=(2,3)))
+
 def convbatchrelu(nconv, sz):
     conv = nn.HybridSequential()
     with conv.name_scope():

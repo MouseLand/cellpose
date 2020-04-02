@@ -109,6 +109,8 @@ def run(image=None):
     app_icon.addFile(icon_path, QtCore.QSize(24, 24))
     app_icon.addFile(icon_path, QtCore.QSize(32, 32))
     app_icon.addFile(icon_path, QtCore.QSize(48, 48))
+    app_icon.addFile(icon_path, QtCore.QSize(64, 64))
+    app_icon.addFile(icon_path, QtCore.QSize(256, 256))
     app.setWindowIcon(app_icon)
     os.environ['MXNET_CUDNN_AUTOTUNE_DEFAULT'] = '0'
 
@@ -140,6 +142,8 @@ class MainW(QtGui.QMainWindow):
         app_icon.addFile(icon_path, QtCore.QSize(24, 24))
         app_icon.addFile(icon_path, QtCore.QSize(32, 32))
         app_icon.addFile(icon_path, QtCore.QSize(48, 48))
+        app_icon.addFile(icon_path, QtCore.QSize(64, 64))
+        app_icon.addFile(icon_path, QtCore.QSize(256, 256))
         self.setWindowIcon(app_icon)
 
         menus.mainmenu(self)
@@ -191,7 +195,7 @@ class MainW(QtGui.QMainWindow):
         # if called with image, load it
         if image is not None:
             self.filename = image
-            io.load_image(self, self.filename)
+            io._load_image(self, self.filename)
 
         self.setAcceptDrops(True)
         self.win.show()
@@ -602,12 +606,12 @@ class MainW(QtGui.QMainWindow):
     def get_prev_image(self):
         images, idx = self.get_files()
         idx = (idx-1)%len(images)
-        io.load_image(self, filename=images[idx])
+        io._load_image(self, filename=images[idx])
 
     def get_next_image(self):
         images, idx = self.get_files()
         idx = (idx+1)%len(images)
-        io.load_image(self, filename=images[idx])
+        io._load_image(self, filename=images[idx])
 
     def dragEnterEvent(self, event):
         if event.mimeData().hasUrls():
@@ -618,9 +622,9 @@ class MainW(QtGui.QMainWindow):
     def dropEvent(self, event):
         files = [u.toLocalFile() for u in event.mimeData().urls()]
         if os.path.splitext(files[0])[-1] == '.npy':
-            io.load_seg(self, filename=files[0])
+            io._load_seg(self, filename=files[0])
         else:
-            io.load_image(self, filename=files[0])
+            io._load_image(self, filename=files[0])
 
     def toggle_masks(self):
         if self.MCheckBox.isChecked():
@@ -790,7 +794,7 @@ class MainW(QtGui.QMainWindow):
         if self.ncells==0:
             self.ClearButton.setEnabled(False)
         if self.NZ==1:
-            io.save_sets(self)
+            io._save_sets(self)
 
     def remove_stroke(self, delete_points=True):
         #self.current_stroke = get_unique_points(self.current_stroke)
@@ -903,7 +907,7 @@ class MainW(QtGui.QMainWindow):
                 self.ismanual = np.append(self.ismanual, True)
                 if self.NZ==1:
                     # only save after each cell if single image
-                    io.save_sets(self)
+                    io._save_sets(self)
             self.current_stroke = []
             self.strokes = []
             self.current_point_set = []
@@ -937,11 +941,11 @@ class MainW(QtGui.QMainWindow):
             elif ioverlap.sum() > 0:
                 ar, ac = ar[~ioverlap], ac[~ioverlap]
                 # compute outline of new mask
-                mask = np.zeros((np.ptp(ar)+1, np.ptp(ac)+1), np.bool)
-                mask[ar-ar.min(), ac-ac.min()] = True
+                mask = np.zeros((np.ptp(ar)+4, np.ptp(ac)+4), np.uint8)
+                mask[ar-ar.min()+2, ac-ac.min()+2] = 1
                 outlines = plot.masks_to_outlines(mask)
                 vr, vc = np.nonzero(outlines)
-                vr, vc = vr + ar.min(), vc + ac.min()
+                vr, vc = vr + ar.min() - 2, vc + ac.min() - 2
 
             self.draw_mask(z, ar, ac, vr, vc, color)
 
@@ -1108,7 +1112,7 @@ class MainW(QtGui.QMainWindow):
             self.MCheckBox.setChecked(True)
             self.OCheckBox.setChecked(True)
 
-            io.masks_to_gui(self, masks, outlines=None)
+            io._masks_to_gui(self, masks, outlines=None)
             self.progress.setValue(100)
 
             self.toggle_server(off=True)

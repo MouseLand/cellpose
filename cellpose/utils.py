@@ -1,77 +1,63 @@
+import os, warnings, time, tempfile, datetime, pathlib, shutil
+from tqdm import tqdm
+from urllib.request import urlopen
+from urllib.parse import urlparse
 import cv2
 from scipy.ndimage.filters import maximum_filter1d
-import skimage
+import skimage.io
 import numpy as np
 import mxnet as mx
-import mxnet.ndarray as nd
-import os, warnings, time
-import matplotlib.pyplot as plt
 
-from cellpose import plot
-
-def masks_flows_to_seg(images, masks, flows, diams, channels, file_names):
-    """ save output of model eval to be loaded in GUI """
-    nimg = len(masks)
-    if channels is None:
-        channels = [0,0]
-    for n in range(nimg):
-        flowi = []
-        flowi.append(flows[n][0][np.newaxis,...])
-        flowi.append((np.clip(normalize99(flows[n][2]),0,1) * 255).astype(np.uint8)[np.newaxis,...])
-        flowi.append((flows[n][1][-1]/10 * 127 + 127).astype(np.uint8)[np.newaxis,...])
-        outlines = masks[n] * plot.masks_to_outlines(masks[n])
-        base = os.path.splitext(file_names[n])[0]
-        if images[n].shape[0]<8:
-            np.transpose(images[n], (1,2,0))
-        np.save(base+ '_seg.npy',
-                    {'outlines': outlines.astype(np.uint16),
-                     'masks': masks[n].astype(np.uint16),
-                     'chan_choose': channels,
-                     'img': images[n],
-                     'ismanual': np.zeros(masks[n].max(), np.bool),
-                     'filename': file_names[n],
-                     'flows': flowi,
-                     'est_diam': diams[n]})
-
-def save_to_png(images, masks, flows, file_names):
-    """ save nicely plotted segmentation image to png """
-    nimg = len(images)
-    for n in range(nimg):
-        img = images[n].copy()
-        if img.ndim<3:
-            img = img[:,:,np.newaxis]
-        elif img.shape[0]<8:
-            np.transpose(img, (1,2,0))
-        base = os.path.splitext(file_names[n])[0]
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            skimage.io.imsave(base+'_cp_masks.png', masks[n].astype(np.uint16))
-        maski = masks[n]
-        flowi = flows[n][0]
-        fig = plt.figure(figsize=(12,3))
-        # can save images (set save_dir=None if not)
-        plot.show_segmentation(fig, img, maski, flowi)
-        fig.savefig(base+'_cp.png', dpi=300)
-        plt.close(fig)
 
 def use_gpu(gpu_number=0):
     """ check if mxnet gpu works """
     try:
-        _ = mx.nd.array([1, 2, 3], ctx=mx.gpu(gpu_number))
+        _ = mx.ndarray.array([1, 2, 3], ctx=mx.gpu(gpu_number))
         return True
     except mx.MXNetError:
         return False
 
-def taper_mask(bsize=224, sig=7.5):
-    xm = np.arange(bsize)
-    xm = np.abs(xm - xm.mean())
-    mask = 1/(1 + np.exp((xm - (bsize/2-20)) / sig))
-    mask = mask * mask[:, np.newaxis]
-    return mask
+def download_url_to_file(url, dst, progress=True):
+    r"""Download object at the given URL to a local path.
+            Thanks to torch, slightly modified
+    Args:
+        url (string): URL of the object to download
+        dst (string): Full path where object will be saved, e.g. `/tmp/temporary_file`
+        progress (bool, optional): whether or not to display a progress bar to stderr
+            Default: True
+    """
+    file_size = None
+    u = urlopen(url)
+    meta = u.info()
+    if hasattr(meta, 'getheaders'):
+        content_length = meta.getheaders("Content-Length")
+    else:
+        content_length = meta.get_all("Content-Length")
+    if content_length is not None and len(content_length) > 0:
+        file_size = int(content_length[0])
+    # We deliberately save it in a temp file and move it after
+    dst = os.path.expanduser(dst)
+    dst_dir = os.path.dirname(dst)
+    f = tempfile.NamedTemporaryFile(delete=False, dir=dst_dir)
+    try:
+        with tqdm(total=file_size, disable=not progress,
+                  unit='B', unit_scale=True, unit_divisor=1024) as pbar:
+            while True:
+                buffer = u.read(8192)
+                if len(buffer) == 0:
+                    break
+                f.write(buffer)
+                pbar.update(len(buffer))
+        f.close()
+        shutil.move(f.name, dst)
+    finally:
+        f.close()
+        if os.path.exists(f.name):
+            os.remove(f.name)
 
 def diameters(masks):
     """ get median 'diameter' of masks """
-    unique, counts = np.unique(np.int32(masks), return_counts=True)
+    _, counts = np.unique(np.int32(masks), return_counts=True)
     counts = counts[1:]
     md = np.median(counts**0.5)
     if np.isnan(md):

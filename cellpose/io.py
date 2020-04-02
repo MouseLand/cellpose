@@ -1,8 +1,9 @@
-import os, datetime, gc
+import os, datetime, gc, warnings
 import numpy as np
-import skimage
+import skimage.io 
+import matplotlib.pyplot as plt
 
-from . import plot
+from . import plot, transforms
 
 try:
     from PyQt5 import QtGui, QtCore, Qt, QtWidgets
@@ -18,7 +19,145 @@ try:
 except:
     SERVER_UPLOAD = False
 
-def load_image(parent, filename=None):
+
+def masks_flows_to_seg(images, masks, flows, diams, file_names, channels=None):
+    """ save output of model eval to be loaded in GUI 
+
+    saved to file_names[k]+'_seg.npy'
+    
+    Parameters
+    -------------
+
+    images: list of 2D or 3D arrays
+        images input into cellpose
+
+    masks: list of 2D arrays, int
+        masks output from Cellpose.eval, where 0=NO masks; 1,2,...=mask labels
+
+    flows: list of lists of ND arrays 
+        flows output from Cellpose.eval
+
+    diams: float array
+        diameters used to run Cellpose
+
+    file_names: list of str
+        names of files of images
+
+    channels: list of int (optional, default None)
+        channels used to run Cellpose    
+    
+    """
+    nimg = len(masks)
+    if channels is None:
+        channels = [0,0]
+    for n in range(nimg):
+        flowi = []
+        flowi.append(flows[n][0][np.newaxis,...])
+        flowi.append((np.clip(transforms.normalize99(flows[n][2]),0,1) * 255).astype(np.uint8)[np.newaxis,...])
+        flowi.append((flows[n][1][-1]/10 * 127 + 127).astype(np.uint8)[np.newaxis,...])
+        outlines = masks[n] * plot.masks_to_outlines(masks[n])
+        base = os.path.splitext(file_names[n])[0]
+        if images[n].shape[0]<8:
+            np.transpose(images[n], (1,2,0))
+        np.save(base+ '_seg.npy',
+                    {'outlines': outlines.astype(np.uint16),
+                     'masks': masks[n].astype(np.uint16),
+                     'chan_choose': channels,
+                     'img': images[n],
+                     'ismanual': np.zeros(masks[n].max(), np.bool),
+                     'filename': file_names[n],
+                     'flows': flowi,
+                     'est_diam': diams[n]})
+
+def save_to_png(images, masks, flows, file_names):
+    """ save masks + nicely plotted segmentation image to png 
+
+    masks[k] for images[k] are saved to file_names[k]+'_cp_masks.png'
+
+    full segmentation figure is saved to file_names[k]+'_cp.png'
+    
+    Parameters
+    -------------
+
+    images: list of 2D or 3D arrays
+        images input into cellpose
+
+    masks: list of 2D arrays, int
+        masks output from Cellpose.eval, where 0=NO masks; 1,2,...=mask labels
+
+    flows: list of lists of ND arrays 
+        flows output from Cellpose.eval
+
+    file_names: list of str
+        names of files of images
+    
+    """
+    nimg = len(images)
+    for n in range(nimg):
+        img = images[n].copy()
+        if img.ndim<3:
+            img = img[:,:,np.newaxis]
+        elif img.shape[0]<8:
+            np.transpose(img, (1,2,0))
+        base = os.path.splitext(file_names[n])[0]
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            skimage.io.imsave(base+'_cp_masks.png', masks[n].astype(np.uint16))
+        maski = masks[n]
+        flowi = flows[n][0]
+        fig = plt.figure(figsize=(12,3))
+        # can save images (set save_dir=None if not)
+        plot.show_segmentation(fig, img, maski, flowi)
+        fig.savefig(base+'_cp.png', dpi=300)
+        plt.close(fig)
+
+def save_server(parent=None, filename=None):
+    """ Uploads a *_seg.npy file to the bucket.
+    
+    Parameters
+    ----------------
+
+    parent: PyQt.MainWindow (optional, default None)
+        GUI window to grab file info from
+
+    filename: str (optional, default None)
+        if no GUI, send this file to server
+
+    """
+    if parent is not None:
+        q = QtGui.QMessageBox.question(
+                                    parent,
+                                    "Send to server",
+                                    "Are you sure? Only send complete and fully manually segmented data.\n (do not send partially automated segmentations)",
+                                    QtGui.QMessageBox.Yes | QtGui.QMessageBox.No
+                                  )
+        if q != QtGui.QMessageBox.Yes:
+            return
+        else:
+            filename = parent.filename
+
+    if filename is not None:
+        bucket_name = 'cellpose_data'
+        base = os.path.splitext(filename)[0]
+        source_file_name = base + '_seg.npy'
+        print(source_file_name)
+        time = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S.%f")
+        filestring = time + '.npy'
+        print(filestring)
+        destination_blob_name = filestring
+        storage_client = storage.Client()
+        bucket = storage_client.bucket(bucket_name)
+        blob = bucket.blob(destination_blob_name)
+
+        blob.upload_from_filename(source_file_name)
+
+        print(
+            "File {} uploaded to {}.".format(
+                source_file_name, destination_blob_name
+            )
+        )
+
+def _load_image(parent, filename=None):
     """ load image with filename; if None, open QFileDialog """
     if filename is None:
         name = QtGui.QFileDialog.getOpenFileName(
@@ -28,11 +167,11 @@ def load_image(parent, filename=None):
     manual_file = os.path.splitext(filename)[0]+'_seg.npy'
     if os.path.isfile(manual_file):
         print(manual_file)
-        load_seg(parent, manual_file, image=skimage.io.imread(filename), image_file=filename)
+        _load_seg(parent, manual_file, image=skimage.io.imread(filename), image_file=filename)
         return
     elif os.path.isfile(os.path.splitext(filename)[0]+'_manual.npy'):
         manual_file = os.path.splitext(filename)[0]+'_manual.npy'
-        load_seg(parent, manual_file, image=skimage.io.imread(filename), image_file=filename)
+        _load_seg(parent, manual_file, image=skimage.io.imread(filename), image_file=filename)
         return
     try:
         image = skimage.io.imread(filename)
@@ -45,12 +184,12 @@ def load_image(parent, filename=None):
         parent.filename = filename
         print(filename)
         filename = os.path.split(parent.filename)[-1]
-        initialize_images(parent, image, resize=parent.resize, X2=0)
+        _initialize_images(parent, image, resize=parent.resize, X2=0)
         parent.clear_all()
         parent.loaded = True
         parent.enable_buttons()
 
-def initialize_images(parent, image, resize, X2):
+def _initialize_images(parent, image, resize, X2):
     """ format image for GUI """
     parent.onechan=False
     if image.ndim > 3:
@@ -95,12 +234,12 @@ def initialize_images(parent, image, resize, X2):
     for k,img in enumerate(parent.stack):
         # if grayscale make 3D
         if resize != -1:
-            img = transforms.image_resizer(img, resize=resize, to_uint8=False)
+            img = transforms._image_resizer(img, resize=resize, to_uint8=False)
         if img.ndim==2:
             img = np.tile(img[:,:,np.newaxis], (1,1,3))
             parent.onechan=True
         if X2!=0:
-            img = transforms.X2zoom(img, X2=X2)
+            img = transforms._X2zoom(img, X2=X2)
         parent.stack[k] = img
 
     parent.imask=0
@@ -115,7 +254,7 @@ def initialize_images(parent, image, resize, X2):
     parent.scroll.setValue(parent.currentZ)
     parent.zpos.setText(str(parent.currentZ))
 
-def load_seg(parent, filename=None, image=None, image_file=None):
+def _load_seg(parent, filename=None, image=None, image_file=None):
     """ load *_seg.npy with filename; if None, open QFileDialog """
     if filename is None:
         name = QtGui.QFileDialog.getOpenFileName(
@@ -174,7 +313,7 @@ def load_seg(parent, filename=None, image=None, image_file=None):
             parent.resize = max(dat['img'].shape)
     else:
         parent.resize = -1
-    initialize_images(parent, image, resize=parent.resize, X2=parent.X2)
+    _initialize_images(parent, image, resize=parent.resize, X2=parent.X2)
     if 'chan_choose' in dat:
         parent.ChannelChoose[0].setCurrentIndex(dat['chan_choose'][0])
         parent.ChannelChoose[1].setCurrentIndex(dat['chan_choose'][1])
@@ -238,7 +377,7 @@ def load_seg(parent, filename=None, image=None, image_file=None):
     del dat
     gc.collect()
 
-def load_masks(parent, filename=None):
+def _load_masks(parent, filename=None):
     """ load zeros-based masks (0=no cell, 1=cell 1, ...) """
     if filename is None:
         name = QtGui.QFileDialog.getOpenFileName(
@@ -267,11 +406,11 @@ def load_masks(parent, filename=None):
         return
     print('%d masks found'%(len(np.unique(masks))-1))
 
-    masks_to_gui(parent, masks, outlines)
+    _masks_to_gui(parent, masks, outlines)
 
     parent.update_plot()
 
-def masks_to_gui(parent, masks, outlines=None):
+def _masks_to_gui(parent, masks, outlines=None):
     """ masks loaded into GUI """
     # get unique values
     shape = masks.shape
@@ -300,7 +439,7 @@ def masks_to_gui(parent, masks, outlines=None):
         parent.toggle_mask_ops()
     parent.ismanual = np.zeros(parent.ncells, np.bool)
 
-def save_png(parent):
+def _save_png(parent):
     """ save masks to png or tiff (if 3D) """
     filename = parent.filename
     base = os.path.splitext(filename)[0]
@@ -311,7 +450,7 @@ def save_png(parent):
         print('saving 3D masks to tiff')
         skimage.io.imsave(base + '_masks.tif', parent.cellpix)
 
-def save_sets(parent):
+def _save_sets(parent):
     """ save masks to *_seg.npy """
     filename = parent.filename
     base = os.path.splitext(filename)[0]
@@ -343,38 +482,3 @@ def save_sets(parent):
     print('--- %d ROIs saved chan1 %s, chan2 %s'%(parent.ncells,
                                                   parent.ChannelChoose[0].currentText(),
                                                   parent.ChannelChoose[1].currentText()))
-
-def save_server(parent=None, filename=None):
-    """Uploads a *_seg.npy file to the bucket."""
-    if parent is not None:
-        q = QtGui.QMessageBox.question(
-                                    parent,
-                                    "Send to server",
-                                    "Are you sure? Only send complete and fully manually segmented data.\n (do not send partially automated segmentations)",
-                                    QtGui.QMessageBox.Yes | QtGui.QMessageBox.No
-                                  )
-        if q != QtGui.QMessageBox.Yes:
-            return
-        else:
-            filename = parent.filename
-
-    if filename is not None:
-        bucket_name = 'cellpose_data'
-        base = os.path.splitext(filename)[0]
-        source_file_name = base + '_seg.npy'
-        print(source_file_name)
-        time = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S.%f")
-        filestring = time + '.npy'
-        print(filestring)
-        destination_blob_name = filestring
-        storage_client = storage.Client()
-        bucket = storage_client.bucket(bucket_name)
-        blob = bucket.blob(destination_blob_name)
-
-        blob.upload_from_filename(source_file_name)
-
-        print(
-            "File {} uploaded to {}.".format(
-                source_file_name, destination_blob_name
-            )
-        )
