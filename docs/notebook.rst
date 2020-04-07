@@ -39,4 +39,4 @@ See `settings <settings.html>`__ for more information on run settings.
 
 See full notebook at `run_cellpose.ipynb`_. 
 
-.. _run_cellpose.ipynb: notebooks/run_cellpose.ipynb
+.. _run_cellpose.ipynb: https://nbviewer.jupyter.org/github/MouseLand/cellpose/blob/master/notebooks/run_cellpose.ipynb

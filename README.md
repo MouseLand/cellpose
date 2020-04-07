@@ -8,14 +8,25 @@ You can quickly try out Cellpose on the [website](http://www.cellpose.org) first
 
 ### Detailed documentation at [www.cellpose.org/docs](http://www.cellpose.org/static/docs/index.html).
 
+## System requirements
+
+Linux, Windows and Mac OS are supported for running the code. For running the graphical interface you will need a Mac OS later than Yosemite. At least 8GB of RAM is required to run the software. 16GB-32GB may be required for larger images and 3D volumes. The software has been heavily tested on Windows 10 and Ubuntu 18.04 and less well-tested on Mac OS. Please open an issue if you have problems with installation.
+
 ## Installation
 
-We recommend installing an [Anaconda](https://www.anaconda.com/download/) distribution of Python -- Choose **Python 3.7** and your operating system. Note you might need to use an anaconda prompt if you did not add anaconda to the path. From your base environment (or you can make a new environment) in an anaconda prompt/command prompt, run
+This process should take less than 5 minutes.
+
+### Standard install in base environment
+
+1. Install an [Anaconda](https://www.anaconda.com/download/) distribution of Python -- Choose **Python 3.7** and your operating system. Note you might need to use an anaconda prompt if you did not add anaconda to the path. 
+2. From your base environment (or you can make a new environment) in an anaconda prompt/command prompt, run
 ~~~~
 pip install cellpose[gui]
 ~~~~
 
-If you want to install without the GUI dependencies, run ``pip install cellpose``.
+If you want to install without the GUI dependencies, run `pip install cellpose`.
+
+### Install in a new environment
 
 Alternatively you can use the included environment file (if you'd like a cellpose-specific environment). This environment file includes all the dependencies for using the GUI. Using the environment file is **recommended** if you have problems with the pip. Please follow these instructions:
 
@@ -54,9 +65,18 @@ If you receive an error associated with **matplotlib**, try upgrading it:
 pip install matplotlib --upgrade
 ~~~~
 
-If you are having issues with the graphical interface, make sure you have **python 3.7** and not python 3.8 installed.
+You may have an issue on Mac with the latest *opencv-python* library (package name *cv2*). Downgrade it with the command
+~~~~
+pip install opencv-python==3.4.5.20
+~~~~
 
-If you are on Yosemite Mac OS or earlier, PyQt doesn't work and you won't be able to use the graphical interface for cellpose. More recent versions of Mac OS are fine. The software has been heavily tested on Windows 10 and Ubuntu 18.04, and less well tested on Mac OS. Please post an issue if you have installation problems.
+If you receive the error: `ImportError: _arpack DLL load failed`, then try uninstalling and reinstalling scipy
+~~~~
+pip uninstall scipy
+pip install scipy
+~~~~
+
+If you are having issues with the graphical interface, make sure you have **python 3.7** and not python 3.8 installed.
 
 **CUDA version**
 
@@ -86,7 +106,21 @@ python -m cellpose
 
 The first time cellpose runs it downloads the latest available trained model weights from the website.
 
-You can now **drag and drop** any images (*.tif, *.png, *.jpg, *.gif) into the GUI and run Cellpose, and/or manually segment them. When the GUI is processing, you will see the progress bar fill up and during this time you cannot click on anything in the GUI. For more information about what the GUI is doing you can look at the terminal/prompt you opened the GUI with. For example data, See [website](http://www.cellpose.org). For best accuracy and runtime performance, resize images so cells are less than 100 pixels across. 
+You can now **drag and drop** any images (*.tif, *.png, *.jpg, *.gif) into the GUI and run Cellpose, and/or manually segment them. When the GUI is processing, you will see the progress bar fill up and during this time you cannot click on anything in the GUI. For more information about what the GUI is doing you can look at the terminal/prompt you opened the GUI with. For example data, see [website](http://www.cellpose.org) or this google drive [folder](https://drive.google.com/open?id=18syVlaix8cIlrnNF20pEWKMWUsKx9R9z). For best accuracy and runtime performance, resize images so cells are less than 100 pixels across. 
+
+### Step-by-step demo
+
+1. Download the google drive [folder](https://drive.google.com/open?id=18syVlaix8cIlrnNF20pEWKMWUsKx9R9z) and unzip it. These are a subset of the test images from the paper.
+2. Start the GUI with `python -m cellpose`.
+3. Drag an image from the folder into the GUI.
+4. Set the model (in demo all are `cyto`) and the channel you want to segment (in demo all are `green`). Optionally set the second channel if you are segmenting `cyto` and have an available nucleus channel.
+5. Click the `calibrate` button to estimate the size of the objects in the image. Alternatively you can set the `cell diameter` by hand and press ENTER. You will see the size you set as a red disk at the bottom left of the image.
+6. Click the `run segmentation` button. If MASKS ON is checked, you should see masks drawn on the image.
+7. Now you can click the LEFT/RIGHT arrow keys to move through the folder and segment another image.
+
+On the demo images each of these steps should run in less than a few seconds on a standard laptop or desktop (with mkl working).
+
+### 3D segmentation
 
 For multi-channel, multi-Z tiff's, the expected format is Z x channels x Ly x Lx.
 
