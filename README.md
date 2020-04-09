@@ -54,17 +54,15 @@ pip uninstall mxnet
 pip install mxnet==1.4.0
 ~~~~
 
+**MAC OS ISSUE**: You may have an issue on Mac with the latest *opencv-python* library (package name *cv2*). Downgrade it with the command
+~~~~
+pip install opencv-python==3.4.5.20
+~~~~
+
 If you receive the error: `No module named PyQt5.sip`, then try uninstalling and reinstalling pyqt5
 ~~~~
 pip uninstall pyqt5 pyqt5-tools
 pip install pyqt5 pyqt5-tools pyqt5.sip
-~~~~
-
-** MAC OS ISSUE **
-
-You may have an issue on Mac with the latest *opencv-python* library (package name *cv2*). Downgrade it with the command
-~~~~
-pip install opencv-python==3.4.5.20
 ~~~~
 
 If you receive an error associated with **matplotlib**, try upgrading it:
