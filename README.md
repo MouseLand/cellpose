@@ -45,13 +45,18 @@ If you have an older `cellpose` environment you can remove it with `conda env re
 
 Note you will always have to run **conda activate cellpose** before you run cellpose. If you want to run jupyter notebooks in this environment, then also `conda install jupyter`.
 
-**Common issues**
+### Common issues
 
 If you receive the error: `Illegal instruction (core dumped)`, then likely mxnet does not recognize your MKL version. Please uninstall and reinstall mxnet without mkl:
 ~~~~
 pip uninstall mxnet-mkl
 pip uninstall mxnet
 pip install mxnet==1.4.0
+~~~~
+
+**MAC OS ISSUE**: You may have an issue on Mac with the latest *opencv-python* library (package name *cv2*). Downgrade it with the command
+~~~~
+pip install opencv-python==3.4.5.20
 ~~~~
 
 If you receive the error: `No module named PyQt5.sip`, then try uninstalling and reinstalling pyqt5
@@ -65,10 +70,6 @@ If you receive an error associated with **matplotlib**, try upgrading it:
 pip install matplotlib --upgrade
 ~~~~
 
-You may have an issue on Mac with the latest *opencv-python* library (package name *cv2*). Downgrade it with the command
-~~~~
-pip install opencv-python==3.4.5.20
-~~~~
 
 If you receive the error: `ImportError: _arpack DLL load failed`, then try uninstalling and reinstalling scipy
 ~~~~
@@ -93,7 +94,7 @@ When upgrading cellpose, you will want to ignore dependencies (so that mxnet-mkl
 pip install --no-deps cellpose --upgrade
 ~~~
 
-**Installation of github version**
+### Installation of github version
 
 Follow steps from above to install the dependencies. In the github repository, run `pip install -e .` and the github version will be installed. If you want to go back to the pip version of cellpose, then say `pip install cellpose`.
 
