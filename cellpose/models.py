@@ -129,6 +129,13 @@ class Cellpose():
         diams: list of diameters, or float (if do_3D=True)
          
         """
+        if not isinstance(x,list):
+            if x.ndim==2:
+                x = [x]
+            elif x.ndim==3:
+                if x.shape[-1]<5:
+                    x = [x]
+        print('processing %d images'%len(x))
         # make rescale into length of x
         if diameter is not None and diameter!=0:
             if not isinstance(diameter, list) or len(diameter)==1 or len(diameter)<len(x):

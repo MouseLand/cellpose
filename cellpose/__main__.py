@@ -6,11 +6,19 @@ from natsort import natsorted
 
 from . import utils, models, io
 
+
 try:
     from cellpose import gui 
     GUI_ENABLED = True 
-except:
+except ImportError as err:
+    GUI_ERROR = err
     GUI_ENABLED = False
+    GUI_IMPORT = True
+except Exception as err:
+    GUI_ENABLED = False
+    GUI_ERROR = err
+    GUI_IMPORT = False
+    raise
 
 def get_image_files(folder):
     image_names = []
@@ -75,8 +83,10 @@ if __name__ == '__main__':
 
     if len(args.dir)==0:
         if not GUI_ENABLED:
-            print('ERROR: GUI version is not installed, to install, run')
-            print('     pip install cellpose[gui]')
+            print('ERROR: %s'%GUI_ERROR)
+            if GUI_IMPORT:
+                print('GUI FAILED: GUI dependencies may not be installed, to install, run')
+                print('     pip install cellpose[gui]')
         else:
             gui.run()
 
@@ -114,7 +124,7 @@ if __name__ == '__main__':
         model_dir = pathlib.Path.home().joinpath('.cellpose', 'models')              
 
         if not args.train:
-            if not args.pretrained_model=='cyto' or args.pretrained_model=='nuclei':
+            if not (args.pretrained_model=='cyto' or args.pretrained_model=='nuclei'):
                 cpmodel_path = args.pretrained_model
                 if not os.path.exists(cpmodel_path):
                     print('model path does not exist, using cyto model')

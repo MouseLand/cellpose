@@ -43,7 +43,7 @@ def show_segmentation(fig, img, maski, flowi, channels=[0,0], file_name=None):
     img0 = img.copy()
     if img0.shape[0] < 4:
         img0 = np.transpose(img0, (1,2,0))
-    if img0.shape[-1] < 3:
+    if img0.shape[-1] < 3 or img0.ndim < 3:
         img0 = image_to_rgb(img0, channels=channels)
     else:
         if img0.max()<=50.0:
@@ -132,8 +132,12 @@ def image_to_rgb(img0, channels=[0,0]):
     """ image is 2 x Ly x Lx or Ly x Lx x 2 - change to RGB Ly x Lx x 3 """
     img = img0.copy()
     img = img.astype(np.float32)
-    if img.shape[0]<3:
+    if img.ndim<3:
+        img = img[:,:,np.newaxis]
+    if img.shape[0]<5:
         img = np.transpose(img, (1,2,0))
+    if channels[0]==0:
+        img = img.mean(axis=-1)[:,:,np.newaxis]
     for i in range(img.shape[-1]):
         if np.ptp(img[:,:,i])>0:
             img[:,:,i] = utils.normalize99(img[:,:,i])
@@ -141,8 +145,8 @@ def image_to_rgb(img0, channels=[0,0]):
     img *= 255
     img = np.uint8(img)
     RGB = np.zeros((img.shape[0], img.shape[1], 3), np.uint8)
-    if channels[0]==0:
-        RGB = np.tile(img[:,:,0][:,:,np.newaxis],(1,1,3))
+    if img.shape[-1]==1:
+        RGB = np.tile(img,(1,1,3))
     else:
         RGB[:,:,channels[0]-1] = img[:,:,0]
         if channels[1] > 0:
