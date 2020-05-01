@@ -229,21 +229,26 @@ python -m cellpose --dir ~/images_cyto/test/ --pretrained_model ~/images_cyto/te
 Parameters:
 ~~~
 usage: __main__.py [-h] [--train] [--dir DIR] [--img_filter IMG_FILTER]
-                   [--use_gpu] [--pretrained_model PRETRAINED_MODEL]
+                   [--use_gpu] [--do_3D] [--pretrained_model PRETRAINED_MODEL]
                    [--chan CHAN] [--chan2 CHAN2] [--all_channels]
-                   [--diameter DIAMETER] [--save_png]
+                   [--diameter DIAMETER] [--flow_threshold FLOW_THRESHOLD]
+                   [--cellprob_threshold CELLPROB_THRESHOLD] [--save_png]
                    [--mask_filter MASK_FILTER] [--test_dir TEST_DIR]
-                   [--n_epochs N_EPOCHS] [--batch_size BATCH_SIZE]
+                   [--learning_rate LEARNING_RATE] [--n_epochs N_EPOCHS]
+                   [--batch_size BATCH_SIZE]
 
 cellpose parameters
 
 optional arguments:
   -h, --help            show this help message and exit
-  --train               train network using images in dir
+  --train               train network using images in dir (not yet
+                        implemented)
   --dir DIR             folder containing data to run or train on
   --img_filter IMG_FILTER
                         end string for images to run on
   --use_gpu             use gpu if mxnet with cuda installed
+  --do_3D               process images as 3D stacks of images (nplanes x nchan
+                        x Ly x Lx
   --pretrained_model PRETRAINED_MODEL
                         model to use
   --chan CHAN           channel to segment; 0: GRAY, 1: RED, 2: GREEN, 3: BLUE
@@ -253,10 +258,17 @@ optional arguments:
                         images with special channels
   --diameter DIAMETER   cell diameter, if 0 cellpose will estimate for each
                         image
+  --flow_threshold FLOW_THRESHOLD
+                        flow error threshold, 0 turns off this optional QC
+                        step
+  --cellprob_threshold CELLPROB_THRESHOLD
+                        cell probability threshold, centered at 0.0
   --save_png            save masks as png
   --mask_filter MASK_FILTER
                         end string for masks to run on
   --test_dir TEST_DIR   folder containing test data (optional)
+  --learning_rate LEARNING_RATE
+                        learning rate
   --n_epochs N_EPOCHS   number of epochs
   --batch_size BATCH_SIZE
                         batch size
