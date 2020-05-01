@@ -211,7 +211,19 @@ python -m cellpose --dir ~/images_nuclei/test/ --pretrained_model nuclei --diame
 
 **Training**
 
-The same channel settings apply for training models. To train on cytoplasmic images (green cyto and red nuclei) starting with a pretrained model from cellpose (cyto or nuclei):
+The same channel settings apply for training models. Cellpose expects the labelled masks (0=no mask, 1,2...=masks) in a separate file, e.g:
+~~~
+wells_000.tif
+wells_000_masks.tif
+~~~
+
+If you use the --img_filter option (`--img_filter img` in this case):
+~~~
+wells_000_img.tif
+wells_000_masks.tif
+~~~
+
+To train on cytoplasmic images (green cyto and red nuclei) starting with a pretrained model from cellpose (cyto or nuclei):
 ~~~
 python -m cellpose --train --dir ~/images_cyto/train/ --test_dir ~/images_cyto/test/ --pretrained_model cyto --chan 2 --chan2 1
 ~~~
