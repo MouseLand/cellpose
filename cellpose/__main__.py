@@ -183,6 +183,7 @@ if __name__ == '__main__':
                 else:
                     szmean = 15.
             else:
+                cpmodel_path = os.fspath(args.pretrained_model)
                 szmean = 27.
             
             if args.all_channels:
