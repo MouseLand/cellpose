@@ -72,7 +72,7 @@ always set to an array of zeros. Therefore set the first channel as
 ``channels = [0,0]`` if you want to segment nuclei in grayscale or for single channel images, or 
 ``channels = [3,0]`` if you want to segment blue nuclei.
 
-Threshold
+Flow threshold
 ~~~~~~~~~~~~~~~~~~~~~~
 
 Note there is nothing keeping the neural network from predicting 
@@ -86,9 +86,20 @@ real masks, we recompute the flow gradients for these putative
 predicted masks, and compute the mean squared error between them and
 the flows predicted by the network. 
 
-The ``threshold`` parameter is the maximum allowed error of the flows 
-for each mask. The default is ``threshold=0.4``. Increase this threshold 
+The ``flow_threshold`` parameter is the maximum allowed error of the flows 
+for each mask. The default is ``flow_threshold=0.4``. Increase this threshold 
 if cellpose is not returning as many masks as you'd expect. 
 Similarly, decrease this threshold if cellpose is returning too many 
 ill-shaped masks.
+
+Cell probability threshold
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The network predicts 3 outputs: flows in X, flows in Y, and cell "probability". 
+The predictions the network makes of the probability are the inputs to a sigmoid 
+centered at zero, so they vary from around -6 to +6. The pixels greater than the 
+``cellprob_threshold`` are used to run dynamics and determine masks. The default 
+is ``cellprob_threshold=0.0``. Decrease this threshold if cellpose is not returning 
+as many masks as you'd expect. Similarly, decrease this threshold if cellpose is 
+returning too masks particularly from dim areas.
 

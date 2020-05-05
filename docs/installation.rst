@@ -81,6 +81,12 @@ it:
 
    pip install matplotlib --upgrade
 
+If you receive the error: ``ImportError: _arpack DLL load failed``, then try uninstalling and reinstalling scipy
+::
+
+   pip uninstall scipy
+   pip install scipy
+
 If you are having issues with the graphical interface, make sure you have **python 3.7** and not python 3.8 installed.
 
 If you are on Yosemite Mac OS or earlier, PyQt doesn't work and you won't be able
