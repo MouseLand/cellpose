@@ -939,17 +939,18 @@ class MainW(QtGui.QMainWindow):
             self.current_point_set = np.array(self.current_point_set)
             while len(self.strokes) > 0:
                 self.remove_stroke(delete_points=False)
-            col_rand = np.random.randint(1000)
-            color = self.colormap[col_rand,:3]
-            median = self.add_mask(points=self.current_point_set, color=color)
-            if median is not None:
-                self.toggle_mask_ops()
-                self.cellcolors.append(color)
-                self.ncells+=1
-                self.ismanual = np.append(self.ismanual, True)
-                if self.NZ==1:
-                    # only save after each cell if single image
-                    io._save_sets(self)
+            if len(self.current_point_set) > 8:
+                col_rand = np.random.randint(1000)
+                color = self.colormap[col_rand,:3]
+                median = self.add_mask(points=self.current_point_set, color=color)
+                if median is not None:
+                    self.toggle_mask_ops()
+                    self.cellcolors.append(color)
+                    self.ncells+=1
+                    self.ismanual = np.append(self.ismanual, True)
+                    if self.NZ==1:
+                        # only save after each cell if single image
+                        io._save_sets(self)
             self.current_stroke = []
             self.strokes = []
             self.current_point_set = []
