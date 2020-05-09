@@ -490,13 +490,13 @@ class CellposeModel():
             
         """
         IMG, ysub, xsub, Ly, Lx = transforms.make_tiles(imgi, bsize, augment=True)
-        IMG = nd.array(IMG, ctx=self.device)
         nbatch = self.batch_size
         niter = int(np.ceil(IMG.shape[0]/nbatch))
         y = np.zeros((IMG.shape[0], 3, bsize, bsize))
         for k in range(niter):
             irange = np.arange(nbatch*k, min(IMG.shape[0], nbatch*k+nbatch))
-            y0, style = self.net(IMG[irange])
+            img = nd.array(IMG[irange], ctx=self.device)
+            y0, style = self.net(img)
             y[irange] = y0.asnumpy()
             if k==0:
                 styles = style.asnumpy()[0]
