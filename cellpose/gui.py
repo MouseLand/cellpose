@@ -749,7 +749,7 @@ class MainW(QtGui.QMainWindow):
         if self.autobtn.isChecked():
             self.saturation = [[0,255] for n in range(self.NZ)]
         self.currentZ = 0
-        self.flows = [[],[],[],[]]
+        self.flows = [[],[],[]]
         self.stack = np.zeros((1,self.Ly,self.Lx,3))
         # masks matrix
         self.layers = 0*np.ones((1,self.Ly,self.Lx,4), np.uint8)
@@ -917,7 +917,7 @@ class MainW(QtGui.QMainWindow):
             self.img.setLevels(self.saturation[self.currentZ])
         else:
             image = np.zeros((self.Ly,self.Lx), np.uint8)
-            if hasattr(self, 'flows') and len(self.flows[self.view-1])>0:
+            if len(self.flows)>=self.view-1 and len(self.flows[self.view-1])>0:
                 image = self.flows[self.view-1][self.currentZ]
             if self.view>2:
                 self.img.setImage(image, autoLevels=False, lut=self.bwr)

@@ -390,7 +390,8 @@ def _load_seg(parent, filename=None, image=None, image_file=None):
             print(parent.flows[0].shape)
         except:
             try:
-                parent.flows = parent.flows[0]
+                if len(parent.flows[0])>0:
+                    parent.flows = parent.flows[0]
             except:
                 parent.flows = [[],[],[]]
 
