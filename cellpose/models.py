@@ -170,7 +170,7 @@ class Cellpose():
             else:
                 if rescale is None:
                     if do_3D:
-                        rescale = 1.0
+                        rescale = np.ones(1)
                     else:
                         rescale = np.ones(len(x), np.float32)
                 diams = self.diam_mean / rescale.copy() / (np.pi**0.5/2)
