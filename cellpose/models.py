@@ -650,12 +650,15 @@ class CellposeModel():
         if save_path is not None:
             _, file_label = os.path.split(save_path)
             file_path = os.path.join(save_path, 'models/')
+
+            if not os.path.exists(file_path):
+                os.makedirs(file_path)
         else:
             print('WARNING: no save_path given, model not saving')
+
         ksave = 0
-        if not os.path.exists(file_path):
-            os.makedirs(file_path)
         rsc = 1.0
+
         for iepoch in range(self.n_epochs):
             np.random.seed(iepoch)
             rperm = np.random.permutation(nimg)
