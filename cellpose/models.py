@@ -73,7 +73,8 @@ class Cellpose():
                             cp_model=self.cp)
 
     def eval(self, x, channels=None, diameter=30., invert=False, do_3D=False,
-                net_avg=True, tile=True, threshold=0.4, rescale=None, progress=None):
+             net_avg=True, tile=True, flow_threshold=0.4, cellprob_threshold=0.0,
+             rescale=None, progress=None):
         """ run cellpose and get masks
 
         Parameters
@@ -92,7 +93,7 @@ class Cellpose():
         diameter: float (optional, default 30.)
             if set to None, then diameter is automatically estimated if size model is loaded
 
-        diameter: bool (optional, default False)
+        invert: bool (optional, default False)
             invert image pixel intensity before running network
 
         do_3D: bool (optional, default False)
@@ -104,8 +105,11 @@ class Cellpose():
         tile: bool (optional, default True)
             tiles image for test time augmentation and to ensure GPU memory usage limited (recommended)
 
-        threshold: float (optional, default 0.4)
-            flow error threshold (all cells with errors below threshold are kept)
+        flow_threshold: float (optional, default 0.4)
+            flow error threshold (all cells with errors below threshold are kept) (not used for 3D)
+
+        cellprob_threshold: float (optional, default 0.0)
+            cell probability threshold (all pixels with prob above threshold kept for masks)
 
         rescale: float (optional, default None)
             if diameter is set to None, and rescale is not None, then rescale is used instead of diameter for resizing image
@@ -129,13 +133,25 @@ class Cellpose():
         diams: list of diameters, or float (if do_3D=True)
 
         """
+
         if not isinstance(x,list):
-            if x.ndim==2:
-                x = [x]
-            elif x.ndim==3:
-                if x.shape[-1]<5:
-                    x = [x]
-        print('processing %d images'%len(x))
+            nolist = True
+            x = [x]
+        else:
+            nolist = False
+
+        if do_3D:
+            for i in range(len(x)):
+                if x[i].ndim<3:
+                    raise ValueError('ERROR: cannot process 2D images in 3D mode') 
+                elif x[i].ndim<4:
+                    x[i] = x[i][...,np.newaxis]
+                if x[i].shape[1]<4:
+                    x[i] = np.transpose(x[i], (0,2,3,1))
+            print('multi-stack tiff read in as having is %d planes %d channels'%
+                    (x[0].shape[0], x[0].shape[-1]))
+
+        print('processing %d image(s)'%len(x))
         # make rescale into length of x
         if diameter is not None and diameter!=0:
             if not isinstance(diameter, list) or len(diameter)==1 or len(diameter)<len(x):
@@ -154,14 +170,17 @@ class Cellpose():
             else:
                 if rescale is None:
                     if do_3D:
-                        rescale = 1.0
+                        rescale = np.ones(1)
                     else:
                         rescale = np.ones(len(x), np.float32)
                 diams = self.diam_mean / rescale.copy() / (np.pi**0.5/2)
 
         masks, flows, styles = self.cp.eval(x, invert=invert, rescale=rescale, channels=channels, tile=tile,
                                             do_3D=do_3D, net_avg=net_avg, progress=progress,
-                                            threshold=0.4)
+                                            flow_threshold=flow_threshold, cellprob_threshold=cellprob_threshold)
+        if nolist:
+            masks, flows, styles, diams = masks[0], flows[0], styles[0], diams[0]
+        
         return masks, flows, styles, diams
 
 class CellposeModel():
@@ -238,8 +257,8 @@ class CellposeModel():
             self.diam_mean = 27.
             self.pretrained_model = pretrained_model
 
-    def eval(self, x, channels=None, invert=False, rescale=None, do_3D=False, net_avg=True,
-             tile=True, threshold=0.4, compute_masks=True, progress=None):
+    def eval(self, x, channels=None, invert=False, rescale=None, do_3D=False, net_avg=True, 
+             tile=True, flow_threshold=0.4, cellprob_threshold=0.0, compute_masks=True, progress=None):
         """
             segment list of images x, or 4D array - Z x nchan x Y x X
 
@@ -271,8 +290,11 @@ class CellposeModel():
             tile: bool (optional, default True)
                 tiles image for test time augmentation and to ensure GPU memory usage limited (recommended)
 
-            threshold: float (optional, default 0.4)
-                flow error threshold (all cells with errors below threshold are kept)
+            flow_threshold: float (optional, default 0.4)
+                flow error threshold (all cells with errors below threshold are kept) (not used for 3D)
+
+            cellprob_threshold: float (optional, default 0.0)
+                cell probability threshold (all pixels with prob above threshold kept for masks)
 
             compute_masks: bool (optional, default True)
                 Whether or not to compute dynamics and return masks.
@@ -301,9 +323,9 @@ class CellposeModel():
                 if not isinstance(channels[0], list):
                     channels = [channels for i in range(nimg)]
             x = [transforms.reshape(x[i], channels=channels[i], invert=invert) for i in range(nimg)]
-            if nimg>1 and do_3D:
-                x = np.array(x)
-                x = np.transpose(x, (1,0,2,3))
+        elif do_3D:
+            x = [np.transpose(x[i], (3,0,1,2)) for i in range(len(x))]
+            
         styles = []
         flows = []
         masks = []
@@ -320,7 +342,7 @@ class CellposeModel():
             self.net.load_parameters(self.pretrained_model[0])
             self.net.collect_params().grad_req = 'null'
 
-        if not do_3D or nimg==1:
+        if not do_3D:
             for i in iterator:
                 img = x[i].copy()
                 if img.shape[0]<3:
@@ -341,61 +363,61 @@ class CellposeModel():
                     if not self.unet:
                         dP = np.stack((y[...,0], y[...,1]), axis=0)
                         niter = 1 / rescale[i] * 200
-                        p = dynamics.follow_flows(-1 * dP * (cellprob>-1) / 5., niter=niter)
+                        p = dynamics.follow_flows(-1 * dP  / 5. , niter=niter)
                         if progress is not None:
                             progress.setValue(65)
-                        maski = dynamics.get_masks(p, flows=dP, threshold=threshold)
+                        maski = dynamics.get_masks(p, iscell=(cellprob>cellprob_threshold),
+                                                   flows=dP, threshold=flow_threshold)
                         if progress is not None:
                             progress.setValue(75)
                         dZ = np.zeros((1,Ly,Lx), np.uint8)
                         dP = np.concatenate((dP, dZ), axis=0)
                         flow = plot.dx_to_circ(dP)
-                        flows.append([flow, dP, cellprob])
+                        flows.append([flow, dP, cellprob, p])
                         maski = dynamics.fill_holes(maski)
                         masks.append(maski)
                 else:
                     flows.append([None]*3)
                     masks.append([])
         else:
-            styles = []
-            sstr = ['XY', 'XZ', 'YZ']
-            if x.shape[-1] < 3:
-                x = np.transpose(x, (3,0,1,2))
-            pm = [(1,2,3,0), (2,1,3,0), (3,1,2,0)]
-            ipm = [(0,1,2,3), (0,2,1,3), (0,2,3,1)]
-            tic=time.time()
-            for p in range(3):
-                xsl = np.transpose(x.copy(), pm[p])
-                print(xsl.shape)
-                flows.append(np.zeros(((3,xsl.shape[0],xsl.shape[1],xsl.shape[2])), np.float32))
-                # per image
-                iterator = trange(xsl.shape[0])
-                print('running %s \n'%sstr[p])
-                for i in iterator:
-                    if isinstance(self.pretrained_model, str) or not net_avg:
-                        y, style = self._run_net(xsl[i], rescale[0], tile=tile)
-                    else:
-                        y, style = self._run_many(xsl[i], rescale[0], tile=tile)
-                    y = np.transpose(y[:,:,[1,0,2]], (2,0,1))
-                    flows[p][:,i] = y
-                flows[p] = np.transpose(flows[p], ipm[p])
-                if progress is not None:
-                    progress.setValue(25+15*p)
-            dX = flows[0][0] + flows[1][0]
-            dY = flows[0][1] + flows[2][0]
-            dZ = flows[1][1] + flows[2][1]
-            cellprob = flows[0][-1] + flows[1][-1] + flows[2][-1]
-            dP = np.concatenate((dZ[np.newaxis,...], dY[np.newaxis,...], dX[np.newaxis,...]), axis=0)
-            print('flows computed %2.2fs'%(time.time()-tic))
-            yout = dynamics.follow_flows(-1 * dP * (cellprob>0.) / 5.)
-            print('dynamics computed %2.2fs'%(time.time()-tic))
-            masks = dynamics.get_masks(yout)
-            print('masks computed %2.2fs'%(time.time()-tic))
-            print(masks.shape)
-            flows = [np.array([plot.dx_to_circ(dP[1:,i]) for i in range(dP.shape[1])])]
-            flows.append(dP)
-            flows.append(cellprob)
-
+            for i in iterator:
+                sstr = ['XY', 'XZ', 'YZ']
+                if x[i].shape[-1] < 3:
+                    x[i] = np.transpose(x[i], (3,0,1,2))
+                pm = [(1,2,3,0), (2,1,3,0), (3,1,2,0)]
+                ipm = [(0,1,2,3), (0,2,1,3), (0,2,3,1)]
+                tic=time.time()
+                flowi=[]
+                for p in range(3):
+                    xsl = np.transpose(x[i].copy(), pm[p])
+                    flowi.append(np.zeros(((3,xsl.shape[0],xsl.shape[1],xsl.shape[2])), np.float32))
+                    # per image
+                    ziterator = trange(xsl.shape[0])
+                    print('running %s (%d, %d)\n'%(sstr[p], xsl.shape[1], xsl.shape[2]))
+                    for z in ziterator:
+                        if isinstance(self.pretrained_model, str) or not net_avg:
+                            y, style = self._run_net(xsl[z], rescale[0], tile=tile)
+                        else:
+                            y, style = self._run_many(xsl[z], rescale[0], tile=tile)
+                        y = np.transpose(y[:,:,[1,0,2]], (2,0,1))
+                        flowi[p][:,z] = y
+                    flowi[p] = np.transpose(flowi[p], ipm[p])
+                    if progress is not None:
+                        progress.setValue(25+15*p)
+                dX = flowi[0][0] + flowi[1][0]
+                dY = flowi[0][1] + flowi[2][0]
+                dZ = flowi[1][1] + flowi[2][1]
+                cellprob = flowi[0][-1] + flowi[1][-1] + flowi[2][-1]
+                dP = np.concatenate((dZ[np.newaxis,...], dY[np.newaxis,...], dX[np.newaxis,...]), axis=0)
+                print('flows computed %2.2fs'%(time.time()-tic))
+                yout = dynamics.follow_flows(-1 * dP / 5.)
+                print('dynamics computed %2.2fs'%(time.time()-tic))
+                maski = dynamics.get_masks(yout, iscell=(cellprob>cellprob_threshold))
+                print('masks computed %2.2fs'%(time.time()-tic))
+                flow = np.array([plot.dx_to_circ(dP[1:,i]) for i in range(dP.shape[1])])
+                flows.append([flow, dP, cellprob, yout])
+                masks.append(maski)
+                styles.append([])
         return masks, flows, styles
 
     def _run_many(self, img, rsz=1.0, tile=True):
@@ -467,13 +489,13 @@ class CellposeModel():
 
         """
         IMG, ysub, xsub, Ly, Lx = transforms.make_tiles(imgi, bsize, augment=True)
-        IMG = nd.array(IMG, ctx=self.device)
         nbatch = self.batch_size
         niter = int(np.ceil(IMG.shape[0]/nbatch))
         y = np.zeros((IMG.shape[0], 3, bsize, bsize))
         for k in range(niter):
             irange = np.arange(nbatch*k, min(IMG.shape[0], nbatch*k+nbatch))
-            y0, style = self.net(IMG[irange])
+            img = nd.array(IMG[irange], ctx=self.device)
+            y0, style = self.net(img)
             y[irange] = y0.asnumpy()
             if k==0:
                 styles = style.asnumpy()[0]
@@ -627,12 +649,15 @@ class CellposeModel():
         if save_path is not None:
             _, file_label = os.path.split(save_path)
             file_path = os.path.join(save_path, 'models/')
+
+            if not os.path.exists(file_path):
+                os.makedirs(file_path)
         else:
             print('WARNING: no save_path given, model not saving')
+
         ksave = 0
-        if not os.path.exists(file_path):
-            os.makedirs(file_path)
         rsc = 1.0
+
         for iepoch in range(self.n_epochs):
             np.random.seed(iepoch)
             rperm = np.random.permutation(nimg)

@@ -52,12 +52,13 @@ if __name__ == '__main__':
     parser.add_argument('--img_filter', required=False, 
                         default=[], type=str, help='end string for images to run on')
     parser.add_argument('--use_gpu', action='store_true', help='use gpu if mxnet with cuda installed')
-
+    parser.add_argument('--do_3D', action='store_true',
+                        help='process images as 3D stacks of images (nplanes x nchan x Ly x Lx')
     # settings for running cellpose
     parser.add_argument('--pretrained_model', required=False, 
                         default='cyto', type=str, help='model to use')
-    parser.add_argument('--unet', required=False, 
-                        default=0, type=int, help='run standard unet instead of cellpose flow output')
+    #parser.add_argument('--unet', required=False, 
+    #                    default=0, type=int, help='run standard unet instead of cellpose flow output')
     parser.add_argument('--chan', required=False, 
                         default=0, type=int, help='channel to segment; 0: GRAY, 1: RED, 2: GREEN, 3: BLUE')
     parser.add_argument('--chan2', required=False, 
@@ -65,7 +66,12 @@ if __name__ == '__main__':
     parser.add_argument('--all_channels', action='store_true', help='use all channels in image if using own model and images with special channels')
     parser.add_argument('--diameter', required=False, 
                         default=30., type=float, help='cell diameter, if 0 cellpose will estimate for each image')
+    parser.add_argument('--flow_threshold', required=False, 
+                        default=0.4, type=float, help='flow error threshold, 0 turns off this optional QC step')
+    parser.add_argument('--cellprob_threshold', required=False, 
+                        default=0.0, type=float, help='cell probability threshold, centered at 0.0')
     parser.add_argument('--save_png', action='store_true', help='save masks as png')
+    parser.add_argument('--no_npy', action='store_true', help='suppress saving of npy')
 
     # settings for training
     parser.add_argument('--mask_filter', required=False, 
@@ -145,19 +151,29 @@ if __name__ == '__main__':
                 print('running cellpose on %d images using chan_to_seg %s and chan (opt) %s'%
                         (nimg, cstr0[channels[0]], cstr1[channels[1]]))
                 
-                masks, flows, _, diams = model.eval(images, channels=channels, diameter=diameter)
+                masks, flows, _, diams = model.eval(images, channels=channels, diameter=diameter,
+                                                    do_3D=args.do_3D,
+                                                    flow_threshold=args.flow_threshold,
+                                                    cellprob_threshold=args.cellprob_threshold)
                 
             else:
                 if args.all_channels:
                     channels = None  
                 if args.diameter==0:
                     print('>>>> using user-specified model, no auto-diameter estimation available')
+                    diameter = 30.
+                else:
+                    diameter = args.diameter
                 model = models.CellposeModel(device=device, pretrained_model=cpmodel_path)
-                masks, flows, _ = model.eval(images, channels=channels)
-                diams = 30. * np.ones(len(images)) 
+                masks, flows, _ = model.eval(images, channels=channels, diameter=diameter,
+                                             do_3D=args.do_3D,
+                                             flow_threshold=args.flow_threshold,
+                                             cellprob_threshold=args.cellprob_threshold)
+                diams = diameter * np.ones(len(images)) 
                   
             print('>>>> saving results')
-            io.masks_flows_to_seg(images, masks, flows, diams, image_names, channels)
+            if not args.no_npy:
+                io.masks_flows_to_seg(images, masks, flows, diams, image_names, channels)
             if args.save_png:
                 io.save_to_png(images, masks, flows, image_names)
                     
@@ -169,6 +185,7 @@ if __name__ == '__main__':
                 else:
                     szmean = 15.
             else:
+                cpmodel_path = os.fspath(args.pretrained_model)
                 szmean = 27.
             
             if args.all_channels:
@@ -202,9 +219,8 @@ if __name__ == '__main__':
                 nimg = len(image_names_test)
                 test_images = [skimage.io.imread(image_names_test[n]) for n in range(nimg)]
                 test_labels = [skimage.io.imread(label_names_test[n]) for n in range(nimg)]
-            print('>>>> %s model'%(['cellpose', 'unet'][args.unet]))    
-            model = models.CellposeModel(device=device, 
-                                         unet=args.unet, 
+            #print('>>>> %s model'%(['cellpose', 'unet'][args.unet]))    
+            model = models.CellposeModel(device=device,
                                          pretrained_model=cpmodel_path, 
                                          diam_mean=szmean)
             

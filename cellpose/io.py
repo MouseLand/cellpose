@@ -52,9 +52,19 @@ def masks_flows_to_seg(images, masks, flows, diams, file_names, channels=None):
         channels = [0,0]
     for n in range(nimg):
         flowi = []
-        flowi.append(flows[n][0][np.newaxis,...])
+        if flows[n][0].ndim==3:
+            flowi.append(flows[n][0][np.newaxis,...])
+        else:
+            flowi.append(flows[n][0])
         flowi.append((np.clip(transforms.normalize99(flows[n][2]),0,1) * 255).astype(np.uint8)[np.newaxis,...])
-        flowi.append((flows[n][1][-1]/10 * 127 + 127).astype(np.uint8)[np.newaxis,...])
+        if flows[n][0].ndim==3:
+            flowi.append(np.zeros(flows[1][0].shape, dtype=np.uint8))
+            flowi[-1] = flowi[-1][np.newaxis,...]
+        else:
+            flowi.append((flows[n][1][0]/10 * 127 + 127).astype(np.uint8))
+        if len(flows[n])>2:
+            flowi.append(flows[n][3])
+            flowi.append(np.concatenate((flows[n][1], flows[n][2][np.newaxis,...]), axis=0))
         outlines = masks[n] * plot.masks_to_outlines(masks[n])
         base = os.path.splitext(file_names[n])[0]
         if images[n].shape[0]<8:
@@ -373,6 +383,17 @@ def _load_seg(parent, filename=None, image=None, image_file=None):
         parent.color = (dat['current_channel']+2)%5
         parent.RGBDropDown.setCurrentIndex(parent.color)
 
+    if 'flows' in dat:
+        parent.flows = dat['flows']
+        try:
+            print(parent.flows[0].shape)
+        except:
+            try:
+                if len(parent.flows[0])>0:
+                    parent.flows = parent.flows[0]
+            except:
+                parent.flows = [[],[],[]]
+
     parent.enable_buttons()
     del dat
     gc.collect()
@@ -438,6 +459,7 @@ def _masks_to_gui(parent, masks, outlines=None):
     if parent.ncells>0:
         parent.toggle_mask_ops()
     parent.ismanual = np.zeros(parent.ncells, np.bool)
+    parent.update_plot()
 
 def _save_png(parent):
     """ save masks to png or tiff (if 3D) """

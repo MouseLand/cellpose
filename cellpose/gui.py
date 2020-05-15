@@ -17,7 +17,7 @@ from skimage import draw
 import mxnet as mx
 from mxnet import nd
 
-from . import utils, transforms, models, guiparts, plot, menus, io
+from . import utils, transforms, models, guiparts, plot, menus, io, dynamics
 
 try:
     from google.cloud import storage
@@ -407,16 +407,58 @@ class MainW(QtGui.QMainWindow):
         self.progress.setStyleSheet('color: gray;')
         self.l0.addWidget(self.progress, b,0,1,2)
 
+        # post-hoc paramater tuning
+
+        b+=1
+        label = QtGui.QLabel('flow error threshold:')
+        label.setToolTip('threshold on flow error to accept for masks (set higher to get more cells)')
+        label.setStyleSheet('color: white;')
+        self.l0.addWidget(label, b, 0,1,2)
+
+        b+=1
+        self.threshold = 0.4
+        self.threshslider = QtGui.QSlider()
+        self.threshslider.setOrientation(QtCore.Qt.Horizontal)
+        self.threshslider.setMinimum(1.0)
+        self.threshslider.setMaximum(30.0)
+        self.threshslider.setValue(4)
+        self.l0.addWidget(self.threshslider, b, 0,1,2)
+        self.threshslider.valueChanged.connect(self.compute_cprob)
+        #self.threshslider.setEnabled(False)
+        
+        b+=1
+        label = QtGui.QLabel('cell prob threshold:')
+        label.setStyleSheet('color: white;')
+        self.l0.addWidget(label, b, 0,1,2)
+        label.setToolTip('cell probability threshold (set lower to get more cells)')
+        
+        b+=1
+        self.probslider = QtGui.QSlider()
+        self.probslider.setOrientation(QtCore.Qt.Horizontal)
+        self.probslider.setMinimum(-6.0)
+        self.probslider.setMaximum(6.0)
+        self.probslider.setValue(0.0)
+        self.cellprob = 0.0
+        self.l0.addWidget(self.probslider, b, 0,1,2)
+        self.probslider.valueChanged.connect(self.compute_cprob)
+        #self.probslider.setEnabled(False)
+
+
+        b+=1
+        line = QHLine()
+        line.setStyleSheet('color: white;')
+        self.l0.addWidget(line, b,0,1,2)
+
         self.autobtn = QtGui.QCheckBox('auto-adjust')
         self.autobtn.setStyleSheet(self.checkstyle)
         self.autobtn.setChecked(True)
         self.l0.addWidget(self.autobtn, b+2,0,1,1)
 
         b+=1
-        label = QtGui.QLabel('saturation')
+        label = QtGui.QLabel('Image saturation:')
         label.setStyleSheet(self.headings)
         label.setFont(self.boldfont)
-        self.l0.addWidget(label, b,1,1,1)
+        self.l0.addWidget(label, b,0,1,2)
 
         b+=1
         self.slider = guiparts.RangeSlider(self)
@@ -707,7 +749,7 @@ class MainW(QtGui.QMainWindow):
         if self.autobtn.isChecked():
             self.saturation = [[0,255] for n in range(self.NZ)]
         self.currentZ = 0
-        self.flows = [[],[],[],[]]
+        self.flows = [[],[],[]]
         self.stack = np.zeros((1,self.Ly,self.Lx,3))
         # masks matrix
         self.layers = 0*np.ones((1,self.Ly,self.Lx,4), np.uint8)
@@ -875,7 +917,7 @@ class MainW(QtGui.QMainWindow):
             self.img.setLevels(self.saturation[self.currentZ])
         else:
             image = np.zeros((self.Ly,self.Lx), np.uint8)
-            if hasattr(self, 'flows') and len(self.flows[self.view-1])>0:
+            if len(self.flows)>=self.view-1 and len(self.flows[self.view-1])>0:
                 image = self.flows[self.view-1][self.currentZ]
             if self.view>2:
                 self.img.setImage(image, autoLevels=False, lut=self.bwr)
@@ -897,17 +939,18 @@ class MainW(QtGui.QMainWindow):
             self.current_point_set = np.array(self.current_point_set)
             while len(self.strokes) > 0:
                 self.remove_stroke(delete_points=False)
-            col_rand = np.random.randint(1000)
-            color = self.colormap[col_rand,:3]
-            median = self.add_mask(points=self.current_point_set, color=color)
-            if median is not None:
-                self.toggle_mask_ops()
-                self.cellcolors.append(color)
-                self.ncells+=1
-                self.ismanual = np.append(self.ismanual, True)
-                if self.NZ==1:
-                    # only save after each cell if single image
-                    io._save_sets(self)
+            if len(self.current_point_set) > 8:
+                col_rand = np.random.randint(1000)
+                color = self.colormap[col_rand,:3]
+                median = self.add_mask(points=self.current_point_set, color=color)
+                if median is not None:
+                    self.toggle_mask_ops()
+                    self.cellcolors.append(color)
+                    self.ncells+=1
+                    self.ismanual = np.append(self.ismanual, True)
+                    if self.NZ==1:
+                        # only save after each cell if single image
+                        io._save_sets(self)
             self.current_stroke = []
             self.strokes = []
             self.current_point_set = []
@@ -1064,6 +1107,40 @@ class MainW(QtGui.QMainWindow):
             print(self.current_model)
             self.model = models.Cellpose(device=device, model_type=self.current_model)
 
+    def compute_cprob(self):
+        rerun = False
+        if self.cellprob != self.probslider.value():
+            rerun = True
+            self.cellprob = self.probslider.value()
+        if self.threshold != self.threshslider.value()/10.:
+            rerun = True
+            self.threshold = self.threshslider.value()/10.
+        if not rerun:
+            return
+        
+        if self.threshold==3.0 or self.NZ>1:
+            thresh = None
+            print('computing masks with cell prob=%0.3f, no flow error threshold'%
+                    (self.cellprob))
+        else:
+            thresh = self.threshold
+            print('computing masks with cell prob=%0.3f, flow error threshold=%0.3f'%
+                    (self.cellprob, thresh))
+        maski = dynamics.get_masks(self.flows[3].copy(), iscell=(self.flows[4][-1]>self.cellprob),
+                                    flows=self.flows[4][:-1], threshold=thresh)
+        if self.NZ==1:
+            maski = dynamics.fill_holes(maski)
+
+        self.masksOn = True
+        self.outlinesOn = True
+        self.MCheckBox.setChecked(True)
+        self.OCheckBox.setChecked(True)
+        if maski.ndim<3:
+            maski = maski[np.newaxis,...]
+        print('%d cells found'%(len(np.unique(maski)[1:])))
+        io._masks_to_gui(self, maski, outlines=None)
+        self.show()
+
     def compute_model(self):
         self.progress.setValue(0)
         if 1:
@@ -1078,7 +1155,7 @@ class MainW(QtGui.QMainWindow):
                 do_3D = True
                 data = self.stack.copy()
             else:
-                data = [self.stack[0].copy()]
+                data = self.stack[0].copy()
             channels = self.get_channels()
             self.diameter = float(self.Diameter.text())
             try:
@@ -1092,9 +1169,11 @@ class MainW(QtGui.QMainWindow):
 
             self.progress.setValue(75)
 
+            #if not do_3D:
+            #    masks = masks[0][np.newaxis,:,:]
+            #    flows = flows[0]
             if not do_3D:
-                masks = masks[0][np.newaxis,:,:]
-                flows = flows[0]
+                masks = masks[np.newaxis,...]
             self.flows[0] = flows[0]
             self.flows[1] = (np.clip(utils.normalize99(flows[2]),0,1) * 255).astype(np.uint8)
             if not do_3D:
@@ -1102,9 +1181,12 @@ class MainW(QtGui.QMainWindow):
                 self.flows = [self.flows[n][np.newaxis,...] for n in range(len(self.flows))]
             else:
                 self.flows[2] = (flows[1][0]/10 * 127 + 127).astype(np.uint8)
+            if len(flows)>2:
+                self.flows.append(flows[3])
+                self.flows.append(np.concatenate((flows[1], flows[2][np.newaxis,...]), axis=0))
+                print(self.flows[3].shape, self.flows[4].shape)
 
-
-            print('%d cells found with unet'%(len(np.unique(masks)[1:])))
+            print('%d cells found with cellpose net'%(len(np.unique(masks)[1:])))
             self.progress.setValue(80)
             z=0
             self.masksOn = True

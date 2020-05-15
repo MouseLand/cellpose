@@ -235,7 +235,7 @@ class ImageDraw(pg.ImageItem):
     def mouseClickEvent(self, ev):
         if self.parent.masksOn or self.parent.outlinesOn:
             if  self.parent.loaded and (ev.button()==QtCore.Qt.RightButton or 
-                    ev.modifiers() == QtCore.Qt.ShiftModifier):
+                    ev.modifiers() == QtCore.Qt.ShiftModifier and not ev.double()):
                 if not self.parent.in_stroke:
                     ev.accept()
                     self.create_start(ev.pos())
@@ -249,7 +249,8 @@ class ImageDraw(pg.ImageItem):
             elif not self.parent.in_stroke:
                 y,x = int(ev.pos().y()), int(ev.pos().x())
                 if y>=0 and y<self.parent.Ly and x>=0 and x<self.parent.Lx:
-                    if ev.button()==QtCore.Qt.LeftButton and ev.modifiers()==QtCore.Qt.ControlModifier:
+                    if (ev.button()==QtCore.Qt.LeftButton and ev.modifiers()==QtCore.Qt.ControlModifier
+                            and not ev.double()):
                         # delete mask selected
                         idx = self.parent.cellpix[self.parent.currentZ][y,x]
                         if idx > 0:

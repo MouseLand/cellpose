@@ -276,13 +276,13 @@ def follow_flows(dP, niter=200):
                 np.arange(shape[2]), indexing='ij')
         p = np.array(p).astype(np.float32)
         # run dynamics on subset of pixels
-        inds = np.array(np.nonzero((dP[0]!=0))).astype(np.int32).T
+        inds = np.array(np.nonzero(np.abs(dP[0])>1e-3)).astype(np.int32).T
         p = steps3D(p, dP, inds, niter)
     else:
         p = np.meshgrid(np.arange(shape[0]), np.arange(shape[1]), indexing='ij')
         p = np.array(p).astype(np.float32)
         # run dynamics on subset of pixels
-        inds = np.array(np.nonzero((dP[0]!=0))).astype(np.int32).T
+        inds = np.array(np.nonzero(np.abs(dP[0])>1e-3)).astype(np.int32).T
         p = steps2D(p, dP, inds, niter)
     return p
 
@@ -320,7 +320,7 @@ def remove_bad_flow_masks(masks, flows, threshold=0.4):
     masks[np.isin(masks, badi)] = 0
     return masks
 
-def get_masks(p, rpad=20, threshold=0.4, flows=None):
+def get_masks(p, iscell=None, rpad=20, flows=None, threshold=0.4):
     """ create masks using pixel convergence after running dynamics
     
     Makes a histogram of final pixel locations p, initializes masks 
@@ -334,6 +334,10 @@ def get_masks(p, rpad=20, threshold=0.4, flows=None):
     p: float32, 3D or 4D array
         final locations of each pixel after dynamics,
         size [axis x Ly x Lx] or [axis x Lz x Ly x Lx].
+
+    iscell: bool, 2D or 3D array
+        if iscell is not None, set pixels that are 
+        iscell False to stay in their original location.
 
     rpad: int (optional, default 20)
         histogram edge padding
@@ -356,10 +360,21 @@ def get_masks(p, rpad=20, threshold=0.4, flows=None):
         size [Ly x Lx] or [Lz x Ly x Lx]
     
     """
+    
     pflows = []
     edges = []
     shape0 = p.shape[1:]
     dims = len(p)
+    if iscell is not None:
+        if dims==3:
+            inds = np.meshgrid(np.arange(shape0[0]), np.arange(shape0[1]),
+                np.arange(shape0[2]), indexing='ij')
+        elif dims==2:
+            inds = np.meshgrid(np.arange(shape0[0]), np.arange(shape0[1]),
+                     indexing='ij')
+        for i in range(dims):
+            p[i, ~iscell] = inds[i][~iscell]
+
     for i in range(dims):
         pflows.append(p[i].flatten().astype('int32'))
         edges.append(np.arange(-.5-rpad, shape0[i]+.5+rpad, 1))
@@ -409,19 +424,24 @@ def get_masks(p, rpad=20, threshold=0.4, flows=None):
     M = np.zeros(h.shape, np.int32)
     for k in range(len(pix)):
         M[pix[k]] = 1+k
-        #).sum())
-
+        
     for i in range(dims):
         pflows[i] = pflows[i] + rpad
     M0 = M[tuple(pflows)]
+    _,counts = np.unique(M0, return_counts=True)
+    
+    # remove big masks
+    big = shape0[0] * shape0[1] * 0.35
+    for i in np.nonzero(counts > big)[0]:
+        M0[M0==i] = 0
     _,M0 = np.unique(M0, return_inverse=True)
     M0 = np.reshape(M0, shape0)
 
-    if threshold > 0 and flows is not None:
+    if threshold is not None and threshold > 0 and flows is not None:
         M0 = remove_bad_flow_masks(M0, flows, threshold=threshold)
-    _,M0 = np.unique(M0, return_inverse=True)
-    
-    M0 = np.reshape(M0, shape0).astype(np.int32)
+        _,M0 = np.unique(M0, return_inverse=True)
+        M0 = np.reshape(M0, shape0).astype(np.int32)
+
     return M0
 
 def fill_holes(masks, min_size=15):

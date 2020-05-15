@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="cellpose",
-    version="0.0.1.25",
+    version="0.0.2.3",
     license="BSD",
     author="Marius Pachitariu and Carsen Stringer",
     author_email="stringerc@janelia.hhmi.org",
