@@ -214,7 +214,8 @@ def outlines_list(masks):
     for n in np.unique(masks)[1:]:
         mn = masks==n
         if mn.sum() > 0:
-            contours, _ = cv2.findContours(mn.astype(np.uint8), mode=cv2.RETR_EXTERNAL, method=cv2.CHAIN_APPROX_SIMPLE)
+            contours = cv2.findContours(mn.astype(np.uint8), mode=cv2.RETR_EXTERNAL, method=cv2.CHAIN_APPROX_SIMPLE)
+            contours = contours[-2]
             #contours = measure.find_contours(mn, 0.5)
             cmax = np.argmax([c.shape[0] for c in contours])
             pix = contours[cmax].astype(int).squeeze()
