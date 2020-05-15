@@ -133,39 +133,38 @@ def masks_to_flows(masks):
     Ly, Lx = masks.shape
     mu = np.zeros((2, Ly, Lx), np.float64)
     mu_c = np.zeros((Ly, Lx), np.float64)
-    # remove redundant labels
-    Y = np.reshape(np.unique(masks, return_inverse=True)[1], (Ly, Lx))
-    nmask = Y.max()
-    # pad T0 and mask by 2
-    T = np.zeros((Ly+2)*(Lx+2), np.float64)
-
-    Lx += 2
+    
+    nmask = masks.max()
+    slices = scipy.ndimage.find_objects(masks)
     dia = utils.diameters(masks)[0]
     s2 = (.15 * dia)**2
-    for k in range(nmask):
-        y,x = np.nonzero(Y==(k+1))
-        y = y.astype(np.int32) + 1
-        x = x.astype(np.int32) + 1
-        ymed = np.median(y)
-        xmed = np.median(x)
-        imin = np.argmin((x-xmed)**2 + (y-ymed)**2)
-        xmed = x[imin]
-        ymed = y[imin]
+    for i,si in enumerate(slices):
+        if si is not None:
+            sr,sc = si
+            ly, lx = sr.stop - sr.start + 1, sc.stop - sc.start + 1
+            y,x = np.nonzero(masks[sr, sc] == (i+1))
+            y = y.astype(np.int32) + 1
+            x = x.astype(np.int32) + 1
+            ymed = np.median(y)
+            xmed = np.median(x)
+            imin = np.argmin((x-xmed)**2 + (y-ymed)**2)
+            xmed = x[imin]
+            ymed = y[imin]
 
-        d2 = (x-xmed)**2 + (y-ymed)**2
-        mu_c[y-1,x-1] = np.exp(-d2/s2)
+            d2 = (x-xmed)**2 + (y-ymed)**2
+            mu_c[sr.start+y-1, sc.start+x-1] = np.exp(-d2/s2)
 
-        niter = 2*np.int32(np.ptp(x) + np.ptp(y))
-        T = _extend_centers(T, y, x, ymed, xmed, np.int32(Lx), niter)
+            niter = 2*np.int32(np.ptp(x) + np.ptp(y))
+            T = np.zeros((ly+2)*(lx+2), np.float64)
+            T = _extend_centers(T, y, x, ymed, xmed, np.int32(lx), niter)
+            T[(y+1)*lx + x+1] = np.log(1.+T[(y+1)*lx + x+1])
 
-        T[(y+1)*Lx + x+1] = np.log(1.+T[(y+1)*Lx + x+1])
-
-        dy = T[(y+1)*Lx + x] - T[(y-1)*Lx + x]
-        dx = T[y*Lx + x+1] - T[y*Lx + x-1]
-        mu[:,y-1, x-1] = np.stack((dy,dx))
-        T[y*Lx + x] = 0
+            dy = T[(y+1)*lx + x] - T[(y-1)*lx + x]
+            dx = T[y*lx + x+1] - T[y*lx + x-1]
+            mu[:, sr.start+y-1, sc.start+x-1] = np.stack((dy,dx))
 
     mu /= (1e-20 + (mu**2).sum(axis=0)**0.5)
+
     return mu, mu_c
 
 @njit('(float32[:,:,:,:],float32[:,:,:,:], int32[:,:], int32)')

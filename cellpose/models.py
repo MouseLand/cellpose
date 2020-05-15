@@ -15,7 +15,7 @@ import __main__
 
 class Cellpose():
     """ main model which combines SizeModel and CellposeModel
-    
+
     Parameters
     ----------
 
@@ -29,7 +29,7 @@ class Cellpose():
         loads the 4 built-in networks and averages them if True, loads one network if False
 
     batch_size: int (optional, default 8)
-        number of 224x224 patches to run simultaneously on the GPU 
+        number of 224x224 patches to run simultaneously on the GPU
         (can make smaller or bigger depending on GPU memory usage)
 
     device: mxnet device (optional, default None)
@@ -48,12 +48,12 @@ class Cellpose():
         else:
             self.device = mx.cpu()
             print('>>>> using CPU')
-        
+
         self.batch_size=batch_size
         model_dir = pathlib.Path.home().joinpath('.cellpose', 'models')
         if model_type is None:
             model_type = 'cyto'
-        
+
         self.pretrained_model = [os.fspath(model_dir.joinpath('%s_%d'%(model_type,j))) for j in range(4)]
         self.pretrained_size = os.fspath(model_dir.joinpath('size_%s_0.npy'%(model_type)))
         if model_type=='cyto':
@@ -64,11 +64,11 @@ class Cellpose():
             download_model_weights()
         if not net_avg:
             self.pretrained_model = self.pretrained_model[0]
-        
+
         self.cp = CellposeModel(device=self.device,
                                 pretrained_model=self.pretrained_model,
                                 diam_mean=self.diam_mean)
-        
+
         self.sz = SizeModel(device=self.device, pretrained_size=self.pretrained_size,
                             cp_model=self.cp)
 
@@ -81,12 +81,12 @@ class Cellpose():
         x: list or array of images
             can be list of 2D/3D images, or array of 2D/3D images, or 4D image array
 
-        channels: list (optional, default None) 
+        channels: list (optional, default None)
             list of channels, either of length 2 or of length number of images by 2.
             First element of list is the channel to segment (0=grayscale, 1=red, 2=blue, 3=green).
             Second element of list is the optional nuclear channel (0=none, 1=red, 2=blue, 3=green).
             For instance, to segment grayscale images, input [0,0]. To segment images with cells
-            in green and nuclei in blue, input [2,3]. To segment one grayscale image and one 
+            in green and nuclei in blue, input [2,3]. To segment one grayscale image and one
             image with cells in green and nuclei in blue, input [[0,0], [2,3]].
 
         diameter: float (optional, default 30.)
@@ -101,7 +101,7 @@ class Cellpose():
         net_avg: bool (optional, default True)
             runs the 4 built-in networks and averages them if True, runs one network if False
 
-        tile: bool (optional, default True) 
+        tile: bool (optional, default True)
             tiles image for test time augmentation and to ensure GPU memory usage limited (recommended)
 
         threshold: float (optional, default 0.4)
@@ -112,7 +112,7 @@ class Cellpose():
 
         progress: pyqt progress bar (optional, default None)
             to return progress bar status to GUI
-        
+
         Returns
         -------
         masks: list of 2D arrays, or single 3D array (if do_3D=True)
@@ -127,7 +127,7 @@ class Cellpose():
             style vector summarizing each image, also used to estimate size of objects in image
 
         diams: list of diameters, or float (if do_3D=True)
-         
+
         """
         if not isinstance(x,list):
             if x.ndim==2:
@@ -158,7 +158,7 @@ class Cellpose():
                     else:
                         rescale = np.ones(len(x), np.float32)
                 diams = self.diam_mean / rescale.copy() / (np.pi**0.5/2)
-            
+
         masks, flows, styles = self.cp.eval(x, invert=invert, rescale=rescale, channels=channels, tile=tile,
                                             do_3D=do_3D, net_avg=net_avg, progress=progress,
                                             threshold=0.4)
@@ -166,7 +166,7 @@ class Cellpose():
 
 class CellposeModel():
     """
-    
+
     Parameters
     -------------------
 
@@ -181,7 +181,7 @@ class CellposeModel():
         loads the 4 built-in networks and averages them if True, loads one network if False
 
     batch_size: int (optional, default 8)
-        number of 224x224 patches to run simultaneously on the GPU 
+        number of 224x224 patches to run simultaneously on the GPU
         (can make smaller or bigger depending on GPU memory usage)
 
     diam_mean: float (optional, default 27.)
@@ -192,11 +192,11 @@ class CellposeModel():
         recommended if you want to use a specific GPU (e.g. mx.gpu(4))
 
     """
-    
+
     def __init__(self, gpu=False, pretrained_model=False, batch_size=8,
                     diam_mean=27., net_avg=True, device=None, unet=False):
         super(CellposeModel, self).__init__()
-        
+
         if device is not None:
             self.device = device
         elif gpu and utils.use_gpu():
@@ -238,22 +238,22 @@ class CellposeModel():
             self.diam_mean = 27.
             self.pretrained_model = pretrained_model
 
-    def eval(self, x, channels=None, invert=False, rescale=None, do_3D=False, net_avg=True, 
+    def eval(self, x, channels=None, invert=False, rescale=None, do_3D=False, net_avg=True,
              tile=True, threshold=0.4, compute_masks=True, progress=None):
         """
             segment list of images x, or 4D array - Z x nchan x Y x X
-        
+
             Parameters
             ----------
             x: list or array of images
                 can be list of 2D/3D images, or array of 2D/3D images, or 4D image array
 
-            channels: list (optional, default None) 
+            channels: list (optional, default None)
                 list of channels, either of length 2 or of length number of images by 2.
                 First element of list is the channel to segment (0=grayscale, 1=red, 2=blue, 3=green).
                 Second element of list is the optional nuclear channel (0=none, 1=red, 2=blue, 3=green).
                 For instance, to segment grayscale images, input [0,0]. To segment images with cells
-                in green and nuclei in blue, input [2,3]. To segment one grayscale image and one 
+                in green and nuclei in blue, input [2,3]. To segment one grayscale image and one
                 image with cells in green and nuclei in blue, input [[0,0], [2,3]].
 
             invert: bool (optional, default False)
@@ -268,7 +268,7 @@ class CellposeModel():
             net_avg: bool (optional, default True)
                 runs the 4 built-in networks and averages them if True, runs one network if False
 
-            tile: bool (optional, default True) 
+            tile: bool (optional, default True)
                 tiles image for test time augmentation and to ensure GPU memory usage limited (recommended)
 
             threshold: float (optional, default 0.4)
@@ -280,7 +280,7 @@ class CellposeModel():
 
             progress: pyqt progress bar (optional, default None)
                 to return progress bar status to GUI
-            
+
             Returns
             -------
             masks: list of 2D arrays, or single 3D array (if do_3D=True)
@@ -293,7 +293,7 @@ class CellposeModel():
 
             styles: list of 1D arrays of length 64, or single 1D array (if do_3D=True)
                 style vector summarizing each image, also used to estimate size of objects in image
-            
+
         """
         nimg = len(x)
         if channels is not None:
@@ -316,7 +316,7 @@ class CellposeModel():
         else:
             iterator = range(nimg)
 
-        if isinstance(self.pretrained_model, list) and not net_avg:    
+        if isinstance(self.pretrained_model, list) and not net_avg:
             self.net.load_parameters(self.pretrained_model[0])
             self.net.collect_params().grad_req = 'null'
 
@@ -341,7 +341,7 @@ class CellposeModel():
                     if not self.unet:
                         dP = np.stack((y[...,0], y[...,1]), axis=0)
                         niter = 1 / rescale[i] * 200
-                        p = dynamics.follow_flows(-1 * dP * (cellprob>0) / 5., niter=niter)
+                        p = dynamics.follow_flows(-1 * dP * (cellprob>-1) / 5., niter=niter)
                         if progress is not None:
                             progress.setValue(65)
                         maski = dynamics.get_masks(p, flows=dP, threshold=threshold)
@@ -411,7 +411,7 @@ class CellposeModel():
 
         tile: bool (optional, default True)
             tiles image for test time augmentation and to ensure GPU memory usage limited (recommended)
-            
+
         Returns
         ------------------
 
@@ -420,8 +420,8 @@ class CellposeModel():
             yup[0] is Y flow; yup[1] is X flow; yup[2] is cell probability
 
         style: array [64]
-            1D array summarizing the style of the image, 
-            if tiled it is averaged over tiles, 
+            1D array summarizing the style of the image,
+            if tiled it is averaged over tiles,
             but not averaged over networks.
 
         """
@@ -439,7 +439,7 @@ class CellposeModel():
     def _run_tiled(self, imgi, bsize=224):
         """ run network in tiles of size [bsize x bsize]
 
-        First image is split into overlapping tiles of size [bsize x bsize].        
+        First image is split into overlapping tiles of size [bsize x bsize].
         Then 4 versions of each tile are created:
             * original
             * flipped vertically
@@ -464,7 +464,7 @@ class CellposeModel():
 
         styles: array [64]
             1D array summarizing the style of the image, averaged over tiles
-            
+
         """
         IMG, ysub, xsub, Ly, Lx = transforms.make_tiles(imgi, bsize, augment=True)
         IMG = nd.array(IMG, ctx=self.device)
@@ -483,7 +483,7 @@ class CellposeModel():
         yf = transforms.average_tiles(y, ysub, xsub, Ly, Lx)
         yf = yf[:,:imgi.shape[1],:imgi.shape[2]]
         styles /= (styles**2).sum()**0.5
-        del IMG 
+        del IMG
         gc.collect()
         return yf, styles
 
@@ -511,9 +511,9 @@ class CellposeModel():
             y[0] is Y flow; y[1] is X flow; y[2] is cell probability
 
         style: array [64]
-            1D array summarizing the style of the image, 
+            1D array summarizing the style of the image,
             if tiled it is averaged over tiles
-            
+
         """
         shape = img.shape
         if abs(rsz - 1.0) < 0.03:
@@ -528,7 +528,7 @@ class CellposeModel():
         if img.ndim<3:
             img = np.expand_dims(img, axis=-1)
         img = np.transpose(img, (2,0,1))
-        
+
         # pad for net so divisible by 4
         img, ysub, xsub = transforms.pad_image_ND(img)
         if tile:
@@ -541,15 +541,15 @@ class CellposeModel():
             y = np.transpose(y[0].asnumpy(), (1,2,0))
             style = style.asnumpy()[0]
             style = np.ones(10)
-        
+
         y = y[np.ix_(ysub, xsub, np.arange(3))]
-        style /= (style**2).sum()**0.5     
+        style /= (style**2).sum()**0.5
         if rsz!=1.0:
             y = cv2.resize(y, (shape[1], shape[0]))
         return y, style
 
     def train(self, train_data, train_labels, test_data=None, test_labels=None, channels=None,
-              pretrained_model=None, save_path=None, save_every=100, 
+              pretrained_model=None, save_path=None, save_every=100,
               learning_rate=0.2, n_epochs=500, weight_decay=0.00001, batch_size=8, rescale=True):
 
         d = datetime.datetime.now()
@@ -559,9 +559,9 @@ class CellposeModel():
         self.learning_rate = learning_rate
         self.weight_decay = weight_decay
         self.momentum = 0.9
-        
+
         nimg = len(train_data)
-        
+
         # check that arrays are correct size
         if nimg != len(train_labels):
             raise ValueError('train data and labels not same length')
@@ -571,19 +571,19 @@ class CellposeModel():
             return
 
         # check if test_data correct length
-        if not (test_data is not None and test_labels is not None and 
+        if not (test_data is not None and test_labels is not None and
                 len(test_data) > 0 and len(test_data)==len(test_labels)):
             test_data = None
-        
+
         # make data correct shape and normalize it so that 0 and 1 are 1st and 99th percentile of data
         train_data, test_data, run_test = transforms.reshape_data(train_data, test_data=test_data, channels=channels)
         if train_data is None:
             raise ValueError('training data do not all have the same number of channels')
             return
         nchan = train_data[0].shape[0]
-        
+
         if not run_test:
-            print('NOTE: test data not provided OR labels incorrect OR not same number of channels as train data')        
+            print('NOTE: test data not provided OR labels incorrect OR not same number of channels as train data')
 
         # check if train_labels have flows
         if not self.unet:
@@ -593,7 +593,7 @@ class CellposeModel():
         else:
             train_flows = list(map(np.uint16, train_labels))
             test_flows = list(map(np.uint16, test_labels))
-                
+
         # compute average cell diameter
         if rescale:
             diam_train = np.array([utils.diameters(train_labels[k])[0] for k in range(len(train_labels))])
@@ -644,7 +644,7 @@ class CellposeModel():
                     rsc = diam_train[rperm[ibatch:ibatch+batch_size]] / self.diam_mean
                 else:
                     rsc = np.ones(len(rperm[ibatch:ibatch+batch_size]), np.float32)
-                
+
                 imgi, lbl, _ = transforms.random_rotate_and_resize(
                                         [train_data[i] for i in rperm[ibatch:ibatch+batch_size]],
                                         Y=[train_flows[i] for i in rperm[ibatch:ibatch+batch_size]],
@@ -703,11 +703,11 @@ class CellposeModel():
                     print('Epoch %d, Time %4.1fs, Loss %2.4f, LR %2.4f'%
                             (iepoch, time.time()-tic, lavg, LR))
                 lavg, nsum = 0, 0
-            
+
             if save_path is not None:
                 if iepoch==self.n_epochs-1 or iepoch%save_every==1:
                     # save model at the end
-                    file = 'cellpose_{}_{}_{}'.format(self.unet, file_label, d.strftime("%Y_%m_%d_%H_%M_%S.%f"))                       
+                    file = 'cellpose_{}_{}_{}'.format(self.unet, file_label, d.strftime("%Y_%m_%d_%H_%M_%S.%f"))
                     ksave += 1
                     print('saving network parameters')
                     self.net.save_parameters(os.path.join(file_path, file))
@@ -715,7 +715,7 @@ class CellposeModel():
 class SizeModel():
     """ linear regression model for determining the size of objects in image
         used to rescale before input to CellposeModel
-        uses styles from CellposeModel 
+        uses styles from CellposeModel
 
         Parameters
         -------------------
@@ -732,7 +732,7 @@ class SizeModel():
     """
     def __init__(self, cp_model, device=mx.cpu(), pretrained_size=None, **kwargs):
         super(SizeModel, self).__init__(**kwargs)
-        
+
         self.device = device
         self.pretrained_size = pretrained_size
         self.cp = cp_model
@@ -764,7 +764,7 @@ class SizeModel():
         if style is None and x is None:
             print('Error: no image or features given')
             return
-        
+
         nimg = len(x)
         if channels is not None:
             if len(channels)==2:
