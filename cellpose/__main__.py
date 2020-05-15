@@ -71,6 +71,7 @@ if __name__ == '__main__':
     parser.add_argument('--cellprob_threshold', required=False, 
                         default=0.0, type=float, help='cell probability threshold, centered at 0.0')
     parser.add_argument('--save_png', action='store_true', help='save masks as png')
+    parser.add_argument('--no_npy', action='store_true', help='suppress saving of npy')
 
     # settings for training
     parser.add_argument('--mask_filter', required=False, 
@@ -171,7 +172,8 @@ if __name__ == '__main__':
                 diams = diameter * np.ones(len(images)) 
                   
             print('>>>> saving results')
-            io.masks_flows_to_seg(images, masks, flows, diams, image_names, channels)
+            if not args.no_npy:
+                io.masks_flows_to_seg(images, masks, flows, diams, image_names, channels)
             if args.save_png:
                 io.save_to_png(images, masks, flows, image_names)
                     

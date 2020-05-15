@@ -56,7 +56,6 @@ def masks_flows_to_seg(images, masks, flows, diams, file_names, channels=None):
             flowi.append(flows[n][0][np.newaxis,...])
         else:
             flowi.append(flows[n][0])
-        print(flowi[0].shape)
         flowi.append((np.clip(transforms.normalize99(flows[n][2]),0,1) * 255).astype(np.uint8)[np.newaxis,...])
         if flows[n][0].ndim==3:
             flowi.append(np.zeros(flows[1][0].shape, dtype=np.uint8))
