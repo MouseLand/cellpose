@@ -4,7 +4,13 @@ A generalist algorithm for cell and nucleus segmentation.
 
 This code was written by Carsen Stringer and Marius Pachitariu. To learn about Cellpose, read the [paper](https://t.co/4HFsxDezAP?amp=1) or watch the [talk](https://t.co/JChCsTD0SK?amp=1). For support, please open an [issue](https://github.com/MouseLand/cellpose/issues). 
 
-You can quickly try out Cellpose on the [website](http://www.cellpose.org) first (some features disabled). If you want to improve Cellpose for yourself and for everyone else, please consider contributing manual segmentations for a few of your images via the built-in GUI interface (see instructions below). 
+If you want to improve Cellpose for yourself and for everyone else, please consider contributing manual segmentations for a few of your images via the built-in GUI interface (see instructions below). 
+
+### Run cellpose without local installation
+
+You can quickly try out Cellpose on the [website](http://www.cellpose.org) first (some features disabled). 
+
+You can also run Cellpose in google colab with a GPU ([![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/MouseLand/cellpose/blob/master/notebooks/run_cellpose_GPU.ipynb)). This is recommended if you have issues with MKL or run speed on your local computer (and are running 3D volumes). Colab does not allow you to run the GUI, but you can save `*_seg.npy` in colab that you can download and open in the GUI.
 
 ### Detailed documentation at [www.cellpose.org/docs](http://www.cellpose.org/static/docs/index.html).
 
