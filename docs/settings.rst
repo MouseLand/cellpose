@@ -97,7 +97,8 @@ Cell probability threshold
 
 The network predicts 3 outputs: flows in X, flows in Y, and cell "probability". 
 The predictions the network makes of the probability are the inputs to a sigmoid 
-centered at zero, so they vary from around -6 to +6. The pixels greater than the 
+centered at zero (1 / (1 + e^-x)), 
+so they vary from around -6 to +6. The pixels greater than the 
 ``cellprob_threshold`` are used to run dynamics and determine masks. The default 
 is ``cellprob_threshold=0.0``. Decrease this threshold if cellpose is not returning 
 as many masks as you'd expect. Similarly, decrease this threshold if cellpose is 

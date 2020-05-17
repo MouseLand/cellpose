@@ -9,15 +9,31 @@ If you choose to use a pretrained model, then this fixed median diameter is used
 
 If you choose to train from scratch, you can set the median diameter you want to use for rescaling with the ``--diameter`` flag, or set it to 0 to disable rescaling.
 
-Additional options for training
+The same channel settings apply for training models (see all Command line `options
+<http://www.cellpose.org/static/docs/command.html>`_). 
+
+Note Cellpose expects the labelled masks (0=no mask, 1,2...=masks) in a separate file, e.g:
+
+::
+
+    wells_000.tif
+    wells_000_masks.tif
+
+If you use the --img_filter option (`--img_filter img` in this case):
+
+::
+
+    wells_000_img.tif
+    wells_000_masks.tif
+
+Training-specific options
 
 ::
 
     --test_dir TEST_DIR       folder containing test data (optional)
     --n_epochs N_EPOCHS       number of epochs (default: 500)
-    --batch_size BATCH_SIZE   batch size (default: 8)
   
-The same channel settings apply for training models. To train on cytoplasmic images (green cyto and red nuclei) starting with a pretrained model from cellpose (cyto or nuclei):
+To train on cytoplasmic images (green cyto and red nuclei) starting with a pretrained model from cellpose (cyto or nuclei):
 
 ::
     

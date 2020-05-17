@@ -402,7 +402,7 @@ class CellposeModel():
                     flowi.append(np.zeros(((3,xsl.shape[0],xsl.shape[1],xsl.shape[2])), np.float32))
                     # per image
                     ziterator = trange(xsl.shape[0])
-                    print('running %s (%d, %d)\n'%(sstr[p], xsl.shape[1], xsl.shape[2]))
+                    print('\n running %s (%d, %d) \n\n'%(sstr[p], xsl.shape[1], xsl.shape[2]))
                     for z in ziterator:
                         if isinstance(self.pretrained_model, str) or not net_avg:
                             y, style = self._run_net(xsl[z], rescale[0], tile=tile)

@@ -198,7 +198,6 @@ CHAN TO SEG: this is the channel in which the cytoplasm or nuclei exist
 
 CHAN2 (OPT): if *cytoplasm* model is chosen, then choose the nuclear channel for this option
 
-
 ### In a notebook
 
 See [run_cellpose.ipynb](notebooks/run_cellpose.ipynb).
@@ -215,97 +214,11 @@ You can specify the diameter for all the images or set to 0 if you want the algo
 python -m cellpose --dir ~/images_nuclei/test/ --pretrained_model nuclei --diameter 0. --save_png
 ~~~
 
-**Training**
-
-The same channel settings apply for training models. Cellpose expects the labelled masks (0=no mask, 1,2...=masks) in a separate file, e.g:
-~~~
-wells_000.tif
-wells_000_masks.tif
-~~~
-
-If you use the --img_filter option (`--img_filter img` in this case):
-~~~
-wells_000_img.tif
-wells_000_masks.tif
-~~~
-
-To train on cytoplasmic images (green cyto and red nuclei) starting with a pretrained model from cellpose (cyto or nuclei):
-~~~
-python -m cellpose --train --dir ~/images_cyto/train/ --test_dir ~/images_cyto/test/ --pretrained_model cyto --chan 2 --chan2 1
-~~~
-
-You can train from scratch as well:
-~~~
-python -m cellpose --train --dir ~/images_nuclei/train/ --pretrained_model None
-~~~
-
-You can specify the full path to a pretrained model to use:
-~~~
-python -m cellpose --dir ~/images_cyto/test/ --pretrained_model ~/images_cyto/test/model/cellpose_35_0 --save_png
-~~~
-
-Parameters:
-~~~
-usage: __main__.py [-h] [--train] [--dir DIR] [--img_filter IMG_FILTER]
-                   [--use_gpu] [--do_3D] [--pretrained_model PRETRAINED_MODEL]
-                   [--chan CHAN] [--chan2 CHAN2] [--all_channels]
-                   [--diameter DIAMETER] [--flow_threshold FLOW_THRESHOLD]
-                   [--cellprob_threshold CELLPROB_THRESHOLD] [--save_png]
-                   [--mask_filter MASK_FILTER] [--test_dir TEST_DIR]
-                   [--learning_rate LEARNING_RATE] [--n_epochs N_EPOCHS]
-                   [--batch_size BATCH_SIZE]
-
-cellpose parameters
-
-optional arguments:
-  -h, --help            show this help message and exit
-  --train               train network using images in dir (not yet
-                        implemented)
-  --dir DIR             folder containing data to run or train on
-  --img_filter IMG_FILTER
-                        end string for images to run on
-  --use_gpu             use gpu if mxnet with cuda installed
-  --do_3D               process images as 3D stacks of images (nplanes x nchan
-                        x Ly x Lx
-  --pretrained_model PRETRAINED_MODEL
-                        model to use
-  --chan CHAN           channel to segment; 0: GRAY, 1: RED, 2: GREEN, 3: BLUE
-  --chan2 CHAN2         nuclear channel (if cyto, optional); 0: NONE, 1: RED,
-                        2: GREEN, 3: BLUE
-  --all_channels        use all channels in image if using own model and
-                        images with special channels
-  --diameter DIAMETER   cell diameter, if 0 cellpose will estimate for each
-                        image
-  --flow_threshold FLOW_THRESHOLD
-                        flow error threshold, 0 turns off this optional QC
-                        step
-  --cellprob_threshold CELLPROB_THRESHOLD
-                        cell probability threshold, centered at 0.0
-  --save_png            save masks as png
-  --mask_filter MASK_FILTER
-                        end string for masks to run on
-  --test_dir TEST_DIR   folder containing test data (optional)
-  --learning_rate LEARNING_RATE
-                        learning rate
-  --n_epochs N_EPOCHS   number of epochs
-  --batch_size BATCH_SIZE
-                        batch size
-~~~
+See the [docs](http://www.cellpose.org/static/docs/command.html) for more info.
 
 ## Outputs
 
-`*_seg.npy` files have the following fields:
-
-- *filename* : filename of image
-- *img* : image with chosen channels (nchan x Ly x Lx) (if not multiplane)
-- *masks* : masks (0 = NO masks; 1,2,... = mask labels)
-- *colors* : colors for masks
-- *outlines* : outlines of masks (0 = NO outline; 1,2,... = outline labels)
-- *chan_choose* : channels that you chose in GUI (0=gray/none, 1=red, 2=green, 3=blue)
-- *ismanual* : element *k* = whether or not mask *k* was manually drawn or computed by the cellpose algorithm
-- *flows* : flows[0] is XY flow in RGB, flows[1] is the cell probability in range 0-255 instead of 0.0 to 1.0, flows[2] is Z flow in range 0-255 (if it exists)
-- *est_diam* : estimated diameter (if run on command line)
-- *zdraw* : for each mask, which planes were manually labelled (planes in between manually drawn have interpolated masks)
+See the [docs](http://www.cellpose.org/static/docs/outputs.html) for info.
 
 ## Dependencies
 cellpose relies on the following excellent packages (which are automatically installed with conda/pip if missing):
