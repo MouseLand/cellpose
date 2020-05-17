@@ -20,7 +20,7 @@ except Exception as err:
     GUI_IMPORT = False
     raise
 
-def get_image_files(folder):
+def get_image_files(folder, mask_filter):
     image_names = []
     image_names.extend(glob.glob(folder + '/*%s.png'%imf))
     image_names.extend(glob.glob(folder + '/*%s.jpg'%imf))
@@ -28,6 +28,16 @@ def get_image_files(folder):
     image_names.extend(glob.glob(folder + '/*%s.tif'%imf))
     image_names.extend(glob.glob(folder + '/*%s.tiff'%imf))
     image_names = natsorted(image_names)
+    imn = []
+    for im in image_names:
+        imfile = os.path.splitext(im)[0]
+        if len(imfile) > len(mask_filter):
+            if imfile[-len(mask_filter):] != mask_filter:
+                imn.append(im)
+        else:
+            imn.append(im)
+    image_names = imn
+    
     return image_names
         
 def get_label_files(image_names, imf, mask_filter):
@@ -106,17 +116,7 @@ if __name__ == '__main__':
         else:
             imf = ''
 
-
-        image_names = get_image_files(args.dir)
-        imn = []
-        for im in image_names:
-            imfile = os.path.splitext(im)[0]
-            if len(imfile) > len(args.mask_filter):
-                if imfile[-len(args.mask_filter):] != args.mask_filter:
-                    imn.append(im)
-            else:
-                imn.append(im)
-        image_names = imn
+        image_names = get_image_files(args.dir, args.mask_filter)
         nimg = len(image_names)
         images = [skimage.io.imread(image_names[n]) for n in range(nimg)]
 
@@ -137,7 +137,8 @@ if __name__ == '__main__':
                     args.pretrained_model = 'cyto'
 
             if args.pretrained_model=='cyto' or args.pretrained_model=='nuclei':
-                model = models.Cellpose(device=device, model_type=args.pretrained_model)
+                model = models.Cellpose(device=device, model_type=args.pretrained_model, 
+                                        batch_size=args.batch_size)
                     
                 if args.diameter==0:
                     diameter = None
@@ -159,13 +160,15 @@ if __name__ == '__main__':
             else:
                 if args.all_channels:
                     channels = None  
+                model = models.CellposeModel(device=device, pretrained_model=cpmodel_path,
+                                             batch_size=args.batch_size)
                 if args.diameter==0:
                     print('>>>> using user-specified model, no auto-diameter estimation available')
-                    diameter = 30.
+                    diameter = model.diam_mean
                 else:
                     diameter = args.diameter
-                model = models.CellposeModel(device=device, pretrained_model=cpmodel_path)
-                masks, flows, _ = model.eval(images, channels=channels, diameter=diameter,
+                rescale = model.diam_mean / diameter
+                masks, flows, _ = model.eval(images, channels=channels, rescale=rescale,
                                              do_3D=args.do_3D,
                                              flow_threshold=args.flow_threshold,
                                              cellprob_threshold=args.cellprob_threshold)
@@ -214,7 +217,7 @@ if __name__ == '__main__':
 
             test_images, test_labels = None, None
             if len(args.test_dir) > 0:
-                image_names_test = get_image_files(args.test_dir)
+                image_names_test = get_image_files(args.test_dir, args.mask_filter)
                 label_names_test = get_label_files(image_names_test, imf, args.mask_filter)
                 nimg = len(image_names_test)
                 test_images = [skimage.io.imread(image_names_test[n]) for n in range(nimg)]
@@ -222,7 +225,8 @@ if __name__ == '__main__':
             #print('>>>> %s model'%(['cellpose', 'unet'][args.unet]))    
             model = models.CellposeModel(device=device,
                                          pretrained_model=cpmodel_path, 
-                                         diam_mean=szmean)
+                                         diam_mean=szmean,
+                                         batch_size=args.batch_size)
             
             model.train(images, labels, test_images, test_labels, learning_rate=args.learning_rate,
                         channels=channels, save_path=os.path.realpath(args.dir), rescale=rescale)

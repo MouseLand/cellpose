@@ -67,7 +67,8 @@ class Cellpose():
 
         self.cp = CellposeModel(device=self.device,
                                 pretrained_model=self.pretrained_model,
-                                diam_mean=self.diam_mean)
+                                diam_mean=self.diam_mean, 
+                                batch_size=self.batch_size)
 
         self.sz = SizeModel(device=self.device, pretrained_size=self.pretrained_size,
                             cp_model=self.cp)
@@ -148,7 +149,7 @@ class Cellpose():
                     x[i] = x[i][...,np.newaxis]
                 if x[i].shape[1]<4:
                     x[i] = np.transpose(x[i], (0,2,3,1))
-            print('multi-stack tiff read in as having is %d planes %d channels'%
+            print('multi-stack tiff read in as having %d planes %d channels'%
                     (x[0].shape[0], x[0].shape[-1]))
 
         print('processing %d image(s)'%len(x))
@@ -324,7 +325,15 @@ class CellposeModel():
                     channels = [channels for i in range(nimg)]
             x = [transforms.reshape(x[i], channels=channels[i], invert=invert) for i in range(nimg)]
         elif do_3D:
-            x = [np.transpose(x[i], (3,0,1,2)) for i in range(len(x))]
+            for i in range(len(x)):
+                if x[i].ndim<3:
+                    raise ValueError('ERROR: cannot process 2D images in 3D mode') 
+                elif x[i].ndim<4:
+                    x[i] = x[i][...,np.newaxis]
+                if x[i].shape[1]<4:
+                    x[i] = np.transpose(x[i], (0,2,3,1))
+                # put channels first
+                x[i] = np.transpose(x[i], (3,0,1,2))
             
         styles = []
         flows = []
