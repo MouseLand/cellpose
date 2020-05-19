@@ -331,9 +331,13 @@ class CellposeModel():
                 elif x[i].ndim<4:
                     x[i] = x[i][...,np.newaxis]
                 if x[i].shape[1]<4:
-                    x[i] = np.transpose(x[i], (0,2,3,1))
+                    x[i] = np.transpose(x[i], (1,0,2,3))
+                elif x[i].shape[-1]<4:
+                    x[i] = np.transpose(x[i], (3,0,1,2))
                 # put channels first
-                x[i] = np.transpose(x[i], (3,0,1,2))
+                if x[i].shape[0]>2:
+                    print('WARNING: more than 2 channels given, use "channels" input for specifying channels - just using first two channels to run processing')
+                    x[i] = x[i][:2]
             
         styles = []
         flows = []
