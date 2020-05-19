@@ -212,7 +212,7 @@ def reshape(data, channels=[0,0], invert=False):
             chanid = [channels[0]-1]
             if channels[1] > 0:
                 chanid.append(channels[1]-1)
-            data = data[:,:,chanid]
+            data = data[...,chanid]
             for i in range(data.shape[-1]):
                 if np.ptp(data[...,i]) > 0.0:
                     data[...,i] = normalize99(data[...,i])
