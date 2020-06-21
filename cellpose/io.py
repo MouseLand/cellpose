@@ -20,6 +20,15 @@ except:
     SERVER_UPLOAD = False
 
 
+def outlines_to_text(base, outlines):
+    with open(base + '_cp_outlines.txt', 'w') as f:
+        for o in outlines:
+            xy = list(o.flatten())
+            xy_str = ','.join(map(str, xy))
+            f.write(xy_str)
+            f.write('\n')
+
+
 def masks_flows_to_seg(images, masks, flows, diams, file_names, channels=None):
     """ save output of model eval to be loaded in GUI 
 
@@ -120,6 +129,8 @@ def save_to_png(images, masks, flows, file_names):
         plot.show_segmentation(fig, img, maski, flowi)
         fig.savefig(base+'_cp.png', dpi=300)
         plt.close(fig)
+        outlines = plot.outlines_list(maski)
+        outlines_to_text(base, outlines)
 
 def save_server(parent=None, filename=None):
     """ Uploads a *_seg.npy file to the bucket.
@@ -476,6 +487,17 @@ def _save_png(parent):
     else:
         print('saving 3D masks to tiff')
         skimage.io.imsave(base + '_masks.tif', parent.cellpix)
+
+def _save_outlines(parent):
+    filename = parent.filename
+    base = os.path.splitext(filename)[0]
+    if parent.NZ==1:
+        print('saving 2D outlines to text file, see docs for info to load into ImageJ')    
+        outlines = plot.outlines_list(parent.cellpix[0])
+        outlines_to_text(base, outlines)
+    else:
+        print('ERROR: cannot save 3D outlines')
+    
 
 def _save_sets(parent):
     """ save masks to *_seg.npy """

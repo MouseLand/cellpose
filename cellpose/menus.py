@@ -39,6 +39,12 @@ def mainmenu(parent):
     file_menu.addAction(parent.savePNG)
     parent.savePNG.setEnabled(False)
 
+    parent.saveOutlines = QtGui.QAction("Save &Outlines as text for imageJ", parent)
+    parent.saveOutlines.setShortcut("Ctrl+O")
+    parent.saveOutlines.triggered.connect(lambda: io._save_outlines(parent))
+    file_menu.addAction(parent.saveOutlines)
+    parent.saveOutlines.setEnabled(False)
+
     parent.saveServer = QtGui.QAction("Send manually labelled data to server", parent)
     parent.saveServer.triggered.connect(lambda: io.save_server(parent))
     file_menu.addAction(parent.saveServer)

@@ -4,17 +4,6 @@ from ij.gui import PolygonRoi;
 from ij.gui import Roi;
 from java.awt import FileDialog
 
-outlines = plot.outlines_list(masks)
-
-with open(r'C:\Users\carse\Pictures\t3\outlines.txt', 'w') as f:
-    for o in outlines:
-        xy = list(o.flatten())
-        xy_str = ','.join(map(str, xy))
-        #xy_str = np.array2string(xy, separator=',')[1:-1].replace(' ', '').replace('\n', '')
-        print(xy_str)
-        f.write(xy_str)
-        f.write('\n')
-
 fd = FileDialog(IJ.getInstance(), "Open", FileDialog.LOAD)
 fd.show()
 file_name = fd.getDirectory() + fd.getFile()
@@ -23,7 +12,6 @@ print(file_name)
 RM = RoiManager()
 rm = RM.getRoiManager()
 
-#textfile = open('C:/Users/carse/Pictures/t3/000_img_outlines.txt', 'r')
 imp = IJ.getImage()
 
 with open(file_name, 'r') as textfile:
