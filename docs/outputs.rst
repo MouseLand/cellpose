@@ -65,6 +65,35 @@ Or use the function below if running in a notebook
     from cellpose import io
     io.save_to_png(images, masks, flows, image_names)
 
+ROI manager compatible output for ImageJ
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+You can save the outlines of masks in a text file that's compatible with ImageJ 
+ROI Manager in the GUI File menu.
+
+To save using the command line, add the flag ``--save_png``.
+
+Or use the function below if running in a notebook
+
+::
+
+    from cellpose import io, plot
+
+    # image_name is file name of image 
+    # masks is numpy array of masks for image
+    base = os.path.splitext(image_name)[0]
+    outlines = plot.outlines_list(masks)
+    io.outlines_to_text(base, outlines)
+    
+To load this ``_cp_outlines.txt`` file into ImageJ, use the python script 
+provided in cellpose: ``imagej_roi_converter.py``. Run this as a macro after 
+opening your image file. It will ask you to input the path to the ``_cp_outlines.txt`` 
+file. Input that and the ROIs will appear in the ROI manager.
+
+.. image:: _static/cellpose_to_imagej.gif
+    :width: 600px
+    :align: center
+    :alt: cellpose to imagej
 
 Plotting functions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
