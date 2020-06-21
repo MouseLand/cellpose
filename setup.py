@@ -17,7 +17,18 @@ setuptools.setup(
     install_requires = ['numpy', 'scipy', 'natsort', 'Pillow<=7.0.0',
                         'tqdm', 'numba', 'scikit-image',
                         'matplotlib', 'mxnet_mkl', 'opencv_python'],
-    extras_require = {'gui': ['pyqtgraph==0.11.0rc0', 'PyQt5', 'google-cloud-storage']},
+    extras_require = {
+      "docs": [
+        'sphinx>=3.0',
+        'sphinxcontrib-apidoc',
+        'sphinx_rtd_theme',
+      ],
+      'gui': [
+        'pyqtgraph==0.11.0rc0', 
+        'PyQt5', 
+        'google-cloud-storage'
+        ]
+    },
     include_package_data=True,
     classifiers=(
         "Programming Language :: Python :: 3",
