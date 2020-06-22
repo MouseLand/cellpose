@@ -1,4 +1,4 @@
-import os, sys, time, shutil, tempfile, datetime, pathlib, gc
+import os, sys, time, shutil, tempfile, datetime, pathlib
 import numpy as np
 from tqdm import trange, tqdm
 from urllib.parse import urlparse
@@ -518,8 +518,6 @@ class CellposeModel():
         yf = transforms.average_tiles(y, ysub, xsub, Ly, Lx)
         yf = yf[:,:imgi.shape[1],:imgi.shape[2]]
         styles /= (styles**2).sum()**0.5
-        del IMG
-        gc.collect()
         return yf, styles
 
     def _run_net(self, img, rsz=1.0, tile=True, bsize=224):
