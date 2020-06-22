@@ -9,7 +9,7 @@ import mxnet.ndarray as nd
 from numba import njit, float32, int32, vectorize
 from . import utils, metrics
 
-@njit('(float64[:], int32[:], int32[:], int32, int32, int32, int32)')
+@njit('(float64[:], int32[:], int32[:], int32, int32, int32, int32)', nogil=True)
 def _extend_centers(T,y,x,ymed,xmed,Lx, niter):
     """ run diffusion from center of mask (ymed, xmed) on mask pixels (y, x)
 
@@ -167,7 +167,7 @@ def masks_to_flows(masks):
 
     return mu, mu_c
 
-@njit('(float32[:,:,:,:],float32[:,:,:,:], int32[:,:], int32)')
+@njit('(float32[:,:,:,:],float32[:,:,:,:], int32[:,:], int32)', nogil=True)
 def steps3D(p, dP, inds, niter):
     """ run dynamics of pixels to recover masks in 3D
     
@@ -208,7 +208,7 @@ def steps3D(p, dP, inds, niter):
             p[2,z,y,x] = min(shape[2]-1, max(0, p[2,z,y,x] - dP[2,p0,p1,p2]))
     return p
 
-@njit('(float32[:,:,:], float32[:,:,:], int32[:,:], int32)')
+@njit('(float32[:,:,:], float32[:,:,:], int32[:,:], int32)', nogil=True)
 def steps2D(p, dP, inds, niter):
     """ run dynamics of pixels to recover masks in 2D
     
