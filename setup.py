@@ -16,7 +16,7 @@ setuptools.setup(
     packages=setuptools.find_packages(),
     install_requires = ['numpy', 'scipy', 'natsort', 'Pillow<=7.0.0',
                         'tqdm', 'numba', 'scikit-image',
-                        'matplotlib', 'mxnet_mkl', 'opencv_python'],
+                        'matplotlib', 'mxnet_mkl', 'opencv-python-headless'],
     extras_require = {
       "docs": [
         'sphinx>=3.0',
