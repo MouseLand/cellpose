@@ -32,61 +32,71 @@ def outlines_to_text(base, outlines):
 def masks_flows_to_seg(images, masks, flows, diams, file_names, channels=None):
     """ save output of model eval to be loaded in GUI 
 
+    can be list output (run on multiple images) or single output (run on single image)
+
     saved to file_names[k]+'_seg.npy'
     
     Parameters
     -------------
 
-    images: list of 2D or 3D arrays
+    images: (list of) 2D or 3D arrays
         images input into cellpose
 
-    masks: list of 2D arrays, int
+    masks: (list of) 2D arrays, int
         masks output from Cellpose.eval, where 0=NO masks; 1,2,...=mask labels
 
-    flows: list of lists of ND arrays 
+    flows: (list of) list of ND arrays 
         flows output from Cellpose.eval
 
     diams: float array
         diameters used to run Cellpose
 
-    file_names: list of str
+    file_names: (list of) str
         names of files of images
 
     channels: list of int (optional, default None)
         channels used to run Cellpose    
     
     """
-    nimg = len(masks)
+    
     if channels is None:
         channels = [0,0]
-    for n in range(nimg):
-        flowi = []
-        if flows[n][0].ndim==3:
-            flowi.append(flows[n][0][np.newaxis,...])
-        else:
-            flowi.append(flows[n][0])
-        flowi.append((np.clip(transforms.normalize99(flows[n][2]),0,1) * 255).astype(np.uint8)[np.newaxis,...])
-        if flows[n][0].ndim==3:
-            flowi.append(np.zeros(flows[n][0].shape, dtype=np.uint8))
-            flowi[-1] = flowi[-1][np.newaxis,...]
-        else:
-            flowi.append((flows[n][1][0]/10 * 127 + 127).astype(np.uint8))
-        if len(flows[n])>2:
-            flowi.append(flows[n][3])
-            flowi.append(np.concatenate((flows[n][1], flows[n][2][np.newaxis,...]), axis=0))
-        outlines = masks[n] * plot.masks_to_outlines(masks[n])
-        base = os.path.splitext(file_names[n])[0]
-        if images[n].shape[0]<8:
-            np.transpose(images[n], (1,2,0))
-        np.save(base+ '_seg.npy',
-                    {'outlines': outlines.astype(np.uint16),
-                     'masks': masks[n].astype(np.uint16),
-                     'chan_choose': channels,
-                     'img': images[n],
-                     'ismanual': np.zeros(masks[n].max(), np.bool),
-                     'filename': file_names[n],
-                     'flows': flowi,
-                     'est_diam': diams[n]})
+    
+    if isinstance(masks, list):
+        for k, [image, mask, flow, diam, file_name] in enumerate(zip(images, masks, flows, diams, file_names)):
+            channels_img = channels
+            if channels_img is not None and len(channels) > 2:
+                channels_img = channels[k]
+            masks_flows_to_seg(image, mask, flow, diam, file_name, channels_img)
+        return
+
+    flowi = []
+    if flows[0].ndim==3:
+        flowi.append(flows[0][np.newaxis,...])
+    else:
+        flowi.append(flows[0])
+    flowi.append((np.clip(transforms.normalize99(flows[2]),0,1) * 255).astype(np.uint8)[np.newaxis,...])
+    if flows[0].ndim==3:
+        flowi.append(np.zeros(flows[0].shape, dtype=np.uint8))
+        flowi[-1] = flowi[-1][np.newaxis,...]
+    else:
+        flowi.append((flows[1][0]/10 * 127 + 127).astype(np.uint8))
+    if len(flows)>2:
+        flowi.append(flows[3])
+        flowi.append(np.concatenate((flows[1], flows[2][np.newaxis,...]), axis=0))
+    outlines = masks * plot.masks_to_outlines(masks)
+    base = os.path.splitext(file_names)[0]
+    if images.shape[0]<8:
+        np.transpose(images, (1,2,0))
+    np.save(base+ '_seg.npy',
+                {'outlines': outlines.astype(np.uint16),
+                    'masks': masks.astype(np.uint16),
+                    'chan_choose': channels,
+                    'img': images,
+                    'ismanual': np.zeros(masks.max(), np.bool),
+                    'filename': file_names,
+                    'flows': flowi,
+                    'est_diam': diams})
 
 def save_to_png(images, masks, flows, file_names):
     """ save masks + nicely plotted segmentation image to png 
@@ -94,36 +104,47 @@ def save_to_png(images, masks, flows, file_names):
     masks[k] for images[k] are saved to file_names[k]+'_cp_masks.png'
 
     full segmentation figure is saved to file_names[k]+'_cp.png'
+
+    does not work for 3D images
     
     Parameters
     -------------
 
-    images: list of 2D or 3D arrays
+    images: (list of) 2D or 3D arrays
         images input into cellpose
 
-    masks: list of 2D arrays, int
+    masks: (list of) 2D arrays, int
         masks output from Cellpose.eval, where 0=NO masks; 1,2,...=mask labels
 
-    flows: list of lists of ND arrays 
+    flows: (list of) list of ND arrays 
         flows output from Cellpose.eval
 
-    file_names: list of str
+    file_names: (list of) str
         names of files of images
     
     """
-    nimg = len(images)
-    for n in range(nimg):
-        img = images[n].copy()
+    
+    if isinstance(masks, list):
+        for image, mask, flow, file_name in zip(images, masks, flows, file_names):
+            save_to_png(image, mask, flow, file_name)
+        return
+    
+    if images.ndim > 3:
+        raise ValueError('cannot save 3D outputs as PNG')
+    elif images.ndim==3 and min(images.shape)>3:
+        raise ValueError('cannot save 3D outputs or 2D with more than 3 channels as PNG')
+    else:
+        img = images.copy()
         if img.ndim<3:
             img = img[:,:,np.newaxis]
         elif img.shape[0]<8:
             np.transpose(img, (1,2,0))
-        base = os.path.splitext(file_names[n])[0]
+        base = os.path.splitext(file_names)[0]
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            skimage.io.imsave(base+'_cp_masks.png', masks[n].astype(np.uint16))
-        maski = masks[n]
-        flowi = flows[n][0]
+            skimage.io.imsave(base+'_cp_masks.png', masks.astype(np.uint16))
+        maski = masks
+        flowi = flows[0]
         fig = plt.figure(figsize=(12,3))
         # can save images (set save_dir=None if not)
         plot.show_segmentation(fig, img, maski, flowi)
