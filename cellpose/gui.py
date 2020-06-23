@@ -630,7 +630,7 @@ class MainW(QtGui.QMainWindow):
         else:
             # remove previous cell
             if self.ncells> 0:
-                self.remove_cell(self.ncells-1)
+                self.remove_cell(self.ncells)
 
     def get_files(self):
         images = []
@@ -1212,6 +1212,7 @@ class MainW(QtGui.QMainWindow):
         self.loadMasks.setEnabled(True)
         self.saveSet.setEnabled(True)
         self.savePNG.setEnabled(True)
+        self.saveOutlines.setEnabled(True)
         self.toggle_mask_ops()
 
         self.update_plot()

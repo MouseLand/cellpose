@@ -17,7 +17,7 @@ Also check out these resources:
 - Marius's `talk`_ on cellpose
 - `paper`_ on biorxiv (see figure 1 below)
 
-.. image:: _static/fig1.png
+.. image:: _static/fig1.PNG
     :width: 1200px
     :align: center
     :alt: fig1
