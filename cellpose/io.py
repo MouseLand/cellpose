@@ -235,10 +235,12 @@ def _initialize_images(parent, image, resize, X2):
     """ format image for GUI """
     parent.onechan=False
     if image.ndim > 3:
-        # check tiff is Z x channels x W x H
+        # make tiff Z x channels x W x H
         if image.shape[0]<4:
+            # tiff is channels x Z x W x H
             image = np.transpose(image, (1,0,2,3))
         elif image.shape[-1]<4:
+            # tiff is Z x W x H x channels
             image = np.transpose(image, (0,3,1,2))
         # fill in with blank channels to make 3 channels
         if image.shape[1] < 3:

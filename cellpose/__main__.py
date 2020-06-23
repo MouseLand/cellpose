@@ -227,6 +227,6 @@ if __name__ == '__main__':
                                          pretrained_model=cpmodel_path, 
                                          diam_mean=szmean,
                                          batch_size=args.batch_size)
-            
+            n_epochs=args.n_epochs
             model.train(images, labels, test_images, test_labels, learning_rate=args.learning_rate,
-                        channels=channels, save_path=os.path.realpath(args.dir), rescale=rescale)
+                        channels=channels, save_path=os.path.realpath(args.dir), rescale=rescale, n_epochs=n_epochs)
