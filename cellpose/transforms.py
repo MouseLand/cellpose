@@ -21,7 +21,7 @@ def unaugment_tiles(y):
 
     Returns
     -------
-    
+
     y: float32
 
     """
@@ -32,15 +32,15 @@ def unaugment_tiles(y):
     for k in range(y.shape[0]):
         if k%4==1:
             y[k, :,:, :] = y[k, :,::-1, :]
-            #if not unet:        
+            #if not unet:
             y[k,0,:,:] *= -1
         if k%4==2:
             y[k, :,:, :] = y[k, :,:, ::-1]
-            #if not unet:        
+            #if not unet:
             y[k,1,:,:] *= -1
         if k%4==3:
             y[k, :,:, :] = y[k, :,::-1, ::-1]
-            #if not unet:        
+            #if not unet:
             y[k,0,:,:] *= -1
             y[k,1,:,:] *= -1
     return y
@@ -55,15 +55,15 @@ def average_tiles(y, ysub, xsub, Ly, Lx):
         output of cellpose network for each tile
 
     ysub : list
-        list of arrays with start and end of tiles in Y of length ntiles 
+        list of arrays with start and end of tiles in Y of length ntiles
 
     xsub : list
-        list of arrays with start and end of tiles in X of length ntiles 
-    
+        list of arrays with start and end of tiles in X of length ntiles
+
     Ly : int
         size of pre-tiled image in Y (may be larger than original image if
         image size is less than bsize)
-        
+
     Lx : int
         size of pre-tiled image in X (may be larger than original image if
         image size is less than bsize)
@@ -72,7 +72,7 @@ def average_tiles(y, ysub, xsub, Ly, Lx):
     -------------
 
     yf: float32, [3 x Ly x Lx]
-        network output averaged over tiles 
+        network output averaged over tiles
 
     """
     Navg = np.zeros((Ly,Lx))
@@ -98,17 +98,17 @@ def make_tiles(imgi, bsize=224, augment=True):
     ----------
     imgi : float32
         array that's nchan x Ly x Lx
-    
+
     Returns
     -------
     IMG : float32
         array that's ntiles x nchan x bsize x bsize
 
     ysub : list
-        list of arrays with start and end of tiles in Y of length ntiles 
+        list of arrays with start and end of tiles in Y of length ntiles
 
     xsub : list
-        list of arrays with start and end of tiles in X of length ntiles 
+        list of arrays with start and end of tiles in X of length ntiles
 
     Ly : int
         size of total image pre-tiling in Y (may be larger than original image if
@@ -173,7 +173,7 @@ def reshape(data, channels=[0,0], invert=False):
     Parameters
     ----------
     data : numpy array that's (Z x ) Ly x Lx x nchan
-    
+
     channels : list of int of length 2 (optional, default [0,0])
         First element of list is the channel to segment (0=grayscale, 1=red, 2=blue, 3=green).
         Second element of list is the optional nuclear channel (0=none, 1=red, 2=blue, 3=green).
@@ -212,7 +212,7 @@ def reshape(data, channels=[0,0], invert=False):
             chanid = [channels[0]-1]
             if channels[1] > 0:
                 chanid.append(channels[1]-1)
-            data = data[...,chanid]
+            data = data[:,:,chanid]
             for i in range(data.shape[-1]):
                 if np.ptp(data[...,i]) > 0.0:
                     data[...,i] = normalize99(data[...,i])
@@ -230,7 +230,7 @@ def reshape(data, channels=[0,0], invert=False):
 def normalize_img(img):
     """ normalize each channel of the image so that so that 0.0=1st percentile
     and 1.0=99th percentile of image intensities
-    
+
     Parameters
     ------------
 
@@ -242,7 +242,7 @@ def normalize_img(img):
 
     img: ND-array, float32
         normalized image of size [nchan x Ly x Lx]
-    
+
     """
     img = img.astype(np.float32)
     for k in range(img.shape[0]):
@@ -253,7 +253,7 @@ def normalize_img(img):
 def reshape_data(train_data, test_data=None, channels=None):
     """ inputs converted to correct shapes for training and rescaled so that 0.0=1st percentile
     and 1.0=99th percentile of image intensities in each channel.
-    
+
     Parameters
     --------------
 
@@ -324,12 +324,12 @@ def reshape_data(train_data, test_data=None, channels=None):
         if run_test:
             nimg = len(test_data)
             test_data = [normalize_img(test_data[n]) for n in range(nimg)]
-        
+
     return train_data, test_data, run_test
 
 def pad_image_ND(img0, div=16, extra = 1):
-    """ pad image for test-time so that its dimensions are a multiple of 16 (2D or 3D) 
-    
+    """ pad image for test-time so that its dimensions are a multiple of 16 (2D or 3D)
+
     Parameters
     -------------
 
@@ -349,7 +349,7 @@ def pad_image_ND(img0, div=16, extra = 1):
 
     xsub: array, int
         xrange of pixels in I corresponding to img0
-    
+
     """
     Lpad = int(div * np.ceil(img0.shape[-2]/div) - img0.shape[-2])
     xpad1 = extra*div//2 + Lpad//2
@@ -377,18 +377,18 @@ def random_rotate_and_resize(X, Y=None, scale_range=1., xy = (224,224), do_flip=
 
         Parameters
         ----------
-        X: list of ND-arrays, float 
+        X: list of ND-arrays, float
             list of image arrays of size [nchan x Ly x Lx] or [Ly x Lx]
 
         Y: list of ND-arrays, float (optional, default None)
-            list of image labels of size [nlabels x Ly x Lx] or [Ly x Lx]. The 1st channel 
+            list of image labels of size [nlabels x Ly x Lx] or [Ly x Lx]. The 1st channel
             of Y is always nearest-neighbor interpolated (assumed to be masks or 0-1 representation).
             If Y.shape[0]==3, then the labels are assumed to be [cell probability, Y flow, X flow].
 
         scale_range: float (optional, default 1.0)
-            Range of resizing of images for augmentation. Images are resized by 
+            Range of resizing of images for augmentation. Images are resized by
             (1-scale_range/2) + scale_range * np.random.rand()
-        
+
         xy: tuple, int (optional, default (224,224))
             size of transformed images to return
 
@@ -417,11 +417,11 @@ def random_rotate_and_resize(X, Y=None, scale_range=1., xy = (224,224), do_flip=
     else:
         nchan = 1
     imgi  = np.zeros((nimg, nchan, xy[0], xy[1]), np.float32)
-    
+
     lbl = []
     if Y is not None:
         if Y[0].ndim>2:
-            nt = Y[0].shape[0]     
+            nt = Y[0].shape[0]
         else:
             nt = 1
         lbl = np.zeros((nimg, nt, xy[0], xy[1]), np.float32)
@@ -453,7 +453,7 @@ def random_rotate_and_resize(X, Y=None, scale_range=1., xy = (224,224), do_flip=
             labels = Y[n].copy()
             if labels.ndim<3:
                 labels = labels[np.newaxis,:,:]
-        
+
         if flip and do_flip:
             img = img[:, :, ::-1]
             if Y is not None:
@@ -462,14 +462,16 @@ def random_rotate_and_resize(X, Y=None, scale_range=1., xy = (224,224), do_flip=
                     labels[2] = -labels[2]
 
         for k in range(nchan):
-            imgi[n,k] = cv2.warpAffine(img[k], M, (xy[0],xy[1]), flags=cv2.INTER_LINEAR)
+            I = cv2.warpAffine(img[k], M, (xy[1],xy[0]), flags=cv2.INTER_LINEAR)
+            print(I.shape)
+            imgi[n,k] = I
 
         for k in range(nt):
             if k==0:
-                lbl[n,k] = cv2.warpAffine(labels[k], M, (xy[0],xy[1]), flags=cv2.INTER_NEAREST)
+                lbl[n,k] = cv2.warpAffine(labels[k], M, (xy[1],xy[0]), flags=cv2.INTER_NEAREST)
             else:
-                lbl[n,k] = cv2.warpAffine(labels[k], M, (xy[0],xy[1]), flags=cv2.INTER_LINEAR)
-        
+                lbl[n,k] = cv2.warpAffine(labels[k], M, (xy[1],xy[0]), flags=cv2.INTER_LINEAR)
+
         if nt>1:
             v1 = lbl[n,2].copy()
             v2 = lbl[n,1].copy()
@@ -484,11 +486,11 @@ def _X2zoom(img, X2=1):
 
     Parameters
     ----------
-    img : numpy array that's Ly x Lx 
-    
+    img : numpy array that's Ly x Lx
+
     Returns
     -------
-    img : numpy array that's Ly x Lx 
+    img : numpy array that's Ly x Lx
 
     """
     ny,nx = img.shape[:2]
@@ -500,10 +502,10 @@ def _image_resizer(img, resize=512, to_uint8=False):
 
     Parameters
     ----------
-    img : numpy array that's Ly x Lx 
-    
+    img : numpy array that's Ly x Lx
+
     resize : int
-        max size of image returned 
+        max size of image returned
 
     to_uint8 : bool
         convert image to uint8
