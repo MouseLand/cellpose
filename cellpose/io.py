@@ -505,6 +505,7 @@ def _masks_to_gui(parent, masks, outlines=None):
     if parent.ncells>0:
         parent.toggle_mask_ops()
     parent.ismanual = np.zeros(parent.ncells, np.bool)
+    parent.zdraw = list(-1*np.ones(parent.ncells, np.int16))
     parent.update_plot()
 
 def _save_png(parent):
