@@ -154,51 +154,10 @@ The GUI serves two main functions:
 1. Running the segmentation algorithm.
 2. Manually labelling data.
 
-Main GUI mouse controls (works in all views):
-
-- Pan  = left-click  + drag  
-- Zoom = scroll wheel
-- Full view = double left-click
-- Select mask = left-click on mask
-- Delete mask = Ctrl + left-click
-- Start draw mask = right-click
-- End draw mask = right-click, or return to circle at beginning
-
-Overlaps in masks are NOT allowed. If you draw a mask on top of another mask, it is cropped so that it doesn't overlap with the old mask. Masks in 2D should be single strokes (if *single_stroke* is checked). 
-
-If you want to draw masks in 3D, then you can turn *single_stroke* option off and draw a stroke on each plane with the cell and then press ENTER. 3D labelling will fill in unlabelled z-planes so that you do not have to as densely label.
-
-!NOTE!: The GUI automatically saves after you draw a mask but NOT after segmentation and NOT after 3D mask drawing (too slow). Save in the file menu or with Ctrl+S. The output file is in the same folder as the loaded image with `_seg.npy` appended.
-
-| Keyboard shortcuts  | Description                                                                    |
-| ------------------- | ------------------------------------------------------------------------------ |
-| CTRL+H              | help                                                           |
-| CTRL+Z              | undo previously drawn mask/stroke                              |
-| CTRL+0              | clear all masks                                                |
-| CTRL+L              | load image (can alternatively drag and drop image)             |
-| CTRL+S              | SAVE MASKS IN IMAGE to `_seg.npy` file                      |
-| CTRL+P              | load `_seg.npy` file (note: it will load automatically with image if it exists) |
-| CTRL+M              | load masks file (must be same size as image with 0 for NO mask, and 1,2,3... for masks)|
-| CTRL+N              | load numpy stack (NOT WORKING ATM)                             |
-| A/D or LEFT/RIGHT   | cycle through images in current directory                      |
-| W/S or UP/DOWN      | change color (RGB/gray/red/green/blue)                         |
-| PAGE-UP / PAGE-DOWN | change to flows and cell prob views (if segmentation computed) |
-| , / .               | increase / decrease brush size for drawing masks               |
-| X                   | turn masks ON or OFF                                           |
-| Z                   | toggle outlines ON or OFF                                      |
-| C                   | cycle through labels for image type (saved to `_seg.npy`)   |
-
-**Segmentation options**
-
-SIZE: you can manually enter the approximate diameter for your cells, or press "calibrate" to let the model estimate it. The size is represented by a disk at the bottom of the view window (can turn this disk off by unchecking "scale disk on").
-
-use GPU: if you have installed the cuda version of mxnet, then you can activate this, but it won't give huge speedups when running single images in the GUI.
-
-MODEL: there is a *cytoplasm* model and a *nuclei* model, choose what you want to segment
-
-CHAN TO SEG: this is the channel in which the cytoplasm or nuclei exist
-
-CHAN2 (OPT): if *cytoplasm* model is chosen, then choose the nuclear channel for this option
+There is a help window in the GUI that provides more instructions and 
+a page in the documentation [here](https://cellpose.readthedocs.io/en/latest/gui.html).
+ Also, if you hover over certain words in the GUI, their definitions 
+ are revealed as tooltips.
 
 ### In a notebook
 

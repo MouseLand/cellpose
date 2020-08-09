@@ -170,7 +170,7 @@ class MainW(QtGui.QMainWindow):
         self.l0 = QtGui.QGridLayout()
         self.cwidget.setLayout(self.l0)
         self.setCentralWidget(self.cwidget)
-        self.l0.setVerticalSpacing(4)
+        self.l0.setVerticalSpacing(6)
 
         self.imask = 0
 
@@ -206,7 +206,16 @@ class MainW(QtGui.QMainWindow):
         HW.show()
 
     def make_buttons(self):
-        self.boldfont = QtGui.QFont("Arial", 10, QtGui.QFont.Bold)
+        label_style = """QLabel{
+                            color: white
+                            } 
+                         QToolTip { 
+                           background-color: black; 
+                           color: white; 
+                           border: black solid 1px
+                           }"""
+        self.boldfont = QtGui.QFont("Arial", 12, QtGui.QFont.Bold)
+        self.medfont = QtGui.QFont("Arial", 10)
         self.smallfont = QtGui.QFont("Arial", 8)
         self.headings = ('color: rgb(150,255,150);')
         self.dropdowns = ("color: white;"
@@ -220,13 +229,13 @@ class MainW(QtGui.QMainWindow):
         label.setFont(self.boldfont)
         self.l0.addWidget(label, 0,0,1,1)
 
-        label = QtGui.QLabel('[W/S]')
-        label.setStyleSheet('color: white')
-        #label.setFont(self.smallfont)
+        label = QtGui.QLabel('[up/down or W/S]')
+        label.setStyleSheet(label_style)
+        label.setFont(self.smallfont)
         self.l0.addWidget(label, 1,0,1,1)
 
         label = QtGui.QLabel('[pageup/down]')
-        label.setStyleSheet('color: white')
+        label.setStyleSheet(label_style)
         label.setFont(self.smallfont)
         self.l0.addWidget(label, 1,1,1,1)
 
@@ -236,6 +245,7 @@ class MainW(QtGui.QMainWindow):
         self.RGBChoose = guiparts.RGBRadioButtons(self, b,1)
         self.RGBDropDown = QtGui.QComboBox()
         self.RGBDropDown.addItems(["RGB","gray","red","green","blue"])
+        self.RGBDropDown.setFont(self.medfont)
         self.RGBDropDown.currentIndexChanged.connect(self.color_choose)
         self.RGBDropDown.setFixedWidth(60)
         self.RGBDropDown.setStyleSheet(self.dropdowns)
@@ -263,9 +273,11 @@ class MainW(QtGui.QMainWindow):
         self.BrushChoose.currentIndexChanged.connect(self.brush_choose)
         self.BrushChoose.setFixedWidth(60)
         self.BrushChoose.setStyleSheet(self.dropdowns)
+        self.BrushChoose.setFont(self.medfont)
         self.l0.addWidget(self.BrushChoose, b, 1,1,1)
         label = QtGui.QLabel('brush size: [, .]')
-        label.setStyleSheet('color: white;')
+        label.setStyleSheet(label_style)
+        label.setFont(self.medfont)
         self.l0.addWidget(label, b,0,1,1)
 
         # cross-hair
@@ -276,6 +288,7 @@ class MainW(QtGui.QMainWindow):
         # turn on draw mode
         self.SCheckBox = QtGui.QCheckBox('single stroke')
         self.SCheckBox.setStyleSheet(self.checkstyle)
+        self.SCheckBox.setFont(self.medfont)
         self.SCheckBox.toggled.connect(self.autosave_on)
         self.l0.addWidget(self.SCheckBox, b,0,1,2)
 
@@ -283,6 +296,7 @@ class MainW(QtGui.QMainWindow):
         # turn on crosshairs
         self.CHCheckBox = QtGui.QCheckBox('cross-hairs')
         self.CHCheckBox.setStyleSheet(self.checkstyle)
+        self.CHCheckBox.setFont(self.medfont)
         self.CHCheckBox.toggled.connect(self.cross_hairs)
         self.l0.addWidget(self.CHCheckBox, b,0,1,1)
 
@@ -292,6 +306,7 @@ class MainW(QtGui.QMainWindow):
         self.masksOn = True
         self.MCheckBox = QtGui.QCheckBox('MASKS ON [X]')
         self.MCheckBox.setStyleSheet(self.checkstyle)
+        self.MCheckBox.setFont(self.medfont)
         self.MCheckBox.setChecked(True)
         self.MCheckBox.toggled.connect(self.toggle_masks)
         self.l0.addWidget(self.MCheckBox, b,0,1,2)
@@ -301,6 +316,7 @@ class MainW(QtGui.QMainWindow):
         self.outlinesOn = True
         self.OCheckBox = QtGui.QCheckBox('outlines on [Z]')
         self.OCheckBox.setStyleSheet(self.checkstyle)
+        self.OCheckBox.setFont(self.medfont)
         self.OCheckBox.setChecked(True)
         self.OCheckBox.toggled.connect(self.toggle_masks)
         self.l0.addWidget(self.OCheckBox, b,0,1,2)
@@ -326,11 +342,14 @@ class MainW(QtGui.QMainWindow):
 
         b+=1
         self.diameter = 30
-        label = QtGui.QLabel('cell diameter (pix):')
-        label.setStyleSheet('color: white;')
+        label = QtGui.QLabel('cell diameter (pixels):')
+        label.setStyleSheet(label_style)
+        label.setFont(self.medfont)
+        label.setToolTip('you can manually enter the approximate diameter for your cells, or press “calibrate” to let the model estimate it. The size is represented by a disk at the bottom of the view window (can turn this disk of by unchecking “scale disk on”)')
         self.l0.addWidget(label, b, 0,1,2)
         self.Diameter = QtGui.QLineEdit()
         self.Diameter.setText(str(self.diameter))
+        self.Diameter.setFont(self.medfont)
         self.Diameter.returnPressed.connect(self.compute_scale)
         self.Diameter.setFixedWidth(50)
         b+=1
@@ -348,8 +367,10 @@ class MainW(QtGui.QMainWindow):
         b+=1
         self.scale_on = True
         self.ScaleOn = QtGui.QCheckBox('scale disk on')
+        self.ScaleOn.setFont(self.medfont)
         self.ScaleOn.setStyleSheet('color: red;')
         self.ScaleOn.setChecked(True)
+        self.ScaleOn.setToolTip('see current diameter as red disk at bottom')
         self.ScaleOn.toggled.connect(self.toggle_scale)
         self.l0.addWidget(self.ScaleOn, b,0,1,2)
 
@@ -357,6 +378,8 @@ class MainW(QtGui.QMainWindow):
         b+=1
         self.useGPU = QtGui.QCheckBox('use GPU')
         self.useGPU.setStyleSheet(self.checkstyle)
+        self.useGPU.setFont(self.medfont)
+        self.useGPU.setToolTip('if you have specially installed the cuda version of mxnet, then you can activate this, but it won’t give huge speedups when running single 2D images in the GUI.')
         self.check_gpu()
         self.l0.addWidget(self.useGPU, b,0,1,2)
 
@@ -368,9 +391,12 @@ class MainW(QtGui.QMainWindow):
         self.ModelChoose.addItems(models)
         self.ModelChoose.setFixedWidth(70)
         self.ModelChoose.setStyleSheet(self.dropdowns)
+        self.ModelChoose.setFont(self.medfont)
         self.l0.addWidget(self.ModelChoose, b, 1,1,1)
         label = QtGui.QLabel('model: ')
-        label.setStyleSheet('color: white;')
+        label.setStyleSheet(label_style)
+        label.setFont(self.medfont)
+        label.setToolTip('there is a <em>cytoplasm</em> model and a <em>nuclei</em> model, choose what you want to segment')
         self.l0.addWidget(label, b, 0,1,1)
 
         b+=1
@@ -378,12 +404,18 @@ class MainW(QtGui.QMainWindow):
         self.ChannelChoose = [QtGui.QComboBox(), QtGui.QComboBox()]
         self.ChannelChoose[0].addItems(['gray','red','green','blue'])
         self.ChannelChoose[1].addItems(['none','red','green','blue'])
-        cstr = ['chan to seg', 'chan2 (opt)']
+        cstr = ['chan to segment:', 'chan2 (optional): ']
         for i in range(2):
             self.ChannelChoose[i].setFixedWidth(70)
             self.ChannelChoose[i].setStyleSheet(self.dropdowns)
+            self.ChannelChoose[i].setFont(self.medfont)
             label = QtGui.QLabel(cstr[i])
-            label.setStyleSheet('color: white;')
+            label.setStyleSheet(label_style)
+            label.setFont(self.medfont)
+            if i==0:
+                label.setToolTip('this is the channel in which the cytoplasm or nuclei exist that you want to segment')
+            else:
+                label.setToolTip('if <em>cytoplasm</em> model is chosen, and you also have a nuclear channel, then choose the nuclear channel for this option')
             self.l0.addWidget(label, b, 0,1,1)
             self.l0.addWidget(self.ChannelChoose[i], b, 1,1,1)
             b+=1
@@ -392,6 +424,7 @@ class MainW(QtGui.QMainWindow):
         b+=1
         self.invert = QtGui.QCheckBox('invert grayscale')
         self.invert.setStyleSheet(self.checkstyle)
+        self.invert.setFont(self.medfont)
         self.l0.addWidget(self.invert, b,0,1,2)
 
         b+=1
@@ -412,7 +445,8 @@ class MainW(QtGui.QMainWindow):
         b+=1
         label = QtGui.QLabel('flow error threshold:')
         label.setToolTip('threshold on flow error to accept for masks (set higher to get more cells)')
-        label.setStyleSheet('color: white;')
+        label.setStyleSheet(label_style)
+        label.setFont(self.medfont)
         self.l0.addWidget(label, b, 0,1,2)
 
         b+=1
@@ -424,11 +458,13 @@ class MainW(QtGui.QMainWindow):
         self.threshslider.setValue(4)
         self.l0.addWidget(self.threshslider, b, 0,1,2)
         self.threshslider.valueChanged.connect(self.compute_cprob)
-        #self.threshslider.setEnabled(False)
+        self.threshslider.setStyleSheet(guiparts.horizontal_slider_style())
+        self.threshslider.setEnabled(False)
         
         b+=1
         label = QtGui.QLabel('cell prob threshold:')
-        label.setStyleSheet('color: white;')
+        label.setStyleSheet(label_style)
+        label.setFont(self.medfont)
         self.l0.addWidget(label, b, 0,1,2)
         label.setToolTip('cell probability threshold (set lower to get more cells)')
         
@@ -441,8 +477,8 @@ class MainW(QtGui.QMainWindow):
         self.cellprob = 0.0
         self.l0.addWidget(self.probslider, b, 0,1,2)
         self.probslider.valueChanged.connect(self.compute_cprob)
-        #self.probslider.setEnabled(False)
-
+        self.probslider.setStyleSheet(guiparts.horizontal_slider_style())
+        self.probslider.setEnabled(False)
 
         b+=1
         line = QHLine()
@@ -451,6 +487,7 @@ class MainW(QtGui.QMainWindow):
 
         self.autobtn = QtGui.QCheckBox('auto-adjust')
         self.autobtn.setStyleSheet(self.checkstyle)
+        self.autobtn.setFont(self.medfont)
         self.autobtn.setChecked(True)
         self.l0.addWidget(self.autobtn, b+2,0,1,1)
 
@@ -469,13 +506,13 @@ class MainW(QtGui.QMainWindow):
         self.slider.setTickPosition(QtGui.QSlider.TicksRight)
         self.l0.addWidget(self.slider, b,1,1,1)
         self.l0.setRowStretch(b, 1)
-
+        
         b+=2
         # add z position underneath
         self.currentZ = 0
         label = QtGui.QLabel('Z:')
         label.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
-        label.setStyleSheet('color: white;')
+        label.setStyleSheet(label_style)
         self.l0.addWidget(label, b, 0,1,1)
         self.zpos = QtGui.QLineEdit()
         self.zpos.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
@@ -749,7 +786,7 @@ class MainW(QtGui.QMainWindow):
         if self.autobtn.isChecked():
             self.saturation = [[0,255] for n in range(self.NZ)]
         self.currentZ = 0
-        self.flows = [[],[],[]]
+        self.flows = [[],[],[],[],[[]]]
         self.stack = np.zeros((1,self.Ly,self.Lx,3))
         # masks matrix
         self.layers = 0*np.ones((1,self.Ly,self.Lx,4), np.uint8)
@@ -929,8 +966,8 @@ class MainW(QtGui.QMainWindow):
         #self.img.set_ColorMap(self.bwr)
         if self.masksOn or self.outlinesOn:
             self.layer.setImage(self.layers[self.currentZ], autoLevels=False)
-        self.slider.setLow(self.saturation[self.currentZ][0])
-        self.slider.setHigh(self.saturation[self.currentZ][1])
+        #self.slider.setLow(self.saturation[self.currentZ][0])
+        #self.slider.setHigh(self.saturation[self.currentZ][1])
         self.win.show()
         self.show()
 
@@ -1143,7 +1180,7 @@ class MainW(QtGui.QMainWindow):
 
     def compute_model(self):
         self.progress.setValue(0)
-        if 1:
+        try:
             self.clear_all()
             self.flows = [[],[],[]]
             self.initialize_model()
@@ -1198,7 +1235,9 @@ class MainW(QtGui.QMainWindow):
             self.progress.setValue(100)
 
             self.toggle_server(off=True)
-        else:#except Exception as e:
+            self.threshslider.setEnabled(True)
+            self.probslider.setEnabled(True)
+        except Exception as e:
             print('ERROR: %s'%e)
 
 

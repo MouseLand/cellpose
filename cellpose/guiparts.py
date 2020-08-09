@@ -4,6 +4,64 @@ from pyqtgraph import functions as fn
 from pyqtgraph import Point
 import numpy as np
 
+def horizontal_slider_style():
+    return """QSlider::groove:horizontal {
+            border: 1px solid #bbb;
+            background: black;
+            height: 10px;
+            border-radius: 4px;
+            }
+
+            QSlider::sub-page:horizontal {
+            background: qlineargradient(x1: 0, y1: 0,    x2: 0, y2: 1,
+                stop: 0 black, stop: 1 rgb(150,255,150));
+            background: qlineargradient(x1: 0, y1: 0.2, x2: 1, y2: 1,
+                stop: 0 black, stop: 1 rgb(150,255,150));
+            border: 1px solid #777;
+            height: 10px;
+            border-radius: 4px;
+            }
+
+            QSlider::add-page:horizontal {
+            background: black;
+            border: 1px solid #777;
+            height: 10px;
+            border-radius: 4px;
+            }
+
+            QSlider::handle:horizontal {
+            background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
+                stop:0 #eee, stop:1 #ccc);
+            border: 1px solid #777;
+            width: 13px;
+            margin-top: -2px;
+            margin-bottom: -2px;
+            border-radius: 4px;
+            }
+
+            QSlider::handle:horizontal:hover {
+            background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
+                stop:0 #fff, stop:1 #ddd);
+            border: 1px solid #444;
+            border-radius: 4px;
+            }
+
+            QSlider::sub-page:horizontal:disabled {
+            background: #bbb;
+            border-color: #999;
+            }
+
+            QSlider::add-page:horizontal:disabled {
+            background: #eee;
+            border-color: #999;
+            }
+
+            QSlider::handle:horizontal:disabled {
+            background: #eee;
+            border: 1px solid #aaa;
+            border-radius: 4px;
+            }"""
+
 class HelpWindow(QtGui.QDialog):
     def __init__(self, parent=None):
         super(HelpWindow, self).__init__(parent)
@@ -19,7 +77,7 @@ class HelpWindow(QtGui.QDialog):
             <li class="has-line-data" data-line-start="8" data-line-end="9">Zoom = scroll wheel</li>
             <li class="has-line-data" data-line-start="9" data-line-end="10">Full view = double left-click</li>
             <li class="has-line-data" data-line-start="10" data-line-end="11">Select mask = left-click on mask</li>
-            <li class="has-line-data" data-line-start="11" data-line-end="12">Delete mask = Ctrl + left-click</li>
+            <li class="has-line-data" data-line-start="11" data-line-end="12">Delete mask = Ctrl (or COMMAND on Mac) + left-click</li>
             <li class="has-line-data" data-line-start="12" data-line-end="13">Start draw mask = right-click</li>
             <li class="has-line-data" data-line-start="13" data-line-end="15">End draw mask = right-click, or return to circle at beginning</li>
             </ul>
@@ -94,7 +152,7 @@ class HelpWindow(QtGui.QDialog):
             </table>
             <p class="has-line-data" data-line-start="36" data-line-end="37"><strong>Segmentation options (2D only) </strong></p>
             <p class="has-line-data" data-line-start="38" data-line-end="39">SIZE: you can manually enter the approximate diameter for your cells, or press “calibrate” to let the model estimate it. The size is represented by a disk at the bottom of the view window (can turn this disk of by unchecking “scale disk on”).</p>
-            <p class="has-line-data" data-line-start="40" data-line-end="41">use GPU: if you have specially installed the cuda version of mxnet, then you can activate this, but it won’t give huge speedups when running single images in the GUI.</p>
+            <p class="has-line-data" data-line-start="40" data-line-end="41">use GPU: if you have specially installed the cuda version of mxnet, then you can activate this, but it won’t give huge speedups when running single 2D images in the GUI.</p>
             <p class="has-line-data" data-line-start="42" data-line-end="43">MODEL: there is a <em>cytoplasm</em> model and a <em>nuclei</em> model, choose what you want to segment</p>
             <p class="has-line-data" data-line-start="44" data-line-end="45">CHAN TO SEG: this is the channel in which the cytoplasm or nuclei exist</p>
             <p class="has-line-data" data-line-start="46" data-line-end="47">CHAN2 (OPT): if <em>cytoplasm</em> model is chosen, then choose the nuclear channel for this option</p>
@@ -114,6 +172,7 @@ class TypeRadioButtons(QtGui.QButtonGroup):
         for b in range(len(self.bstr)):
             button = QtGui.QRadioButton(self.bstr[b])
             button.setStyleSheet('color: rgb(190,190,190);')
+            button.setFont(QtGui.QFont("Arial", 10))
             if b==0:
                 button.setChecked(True)
             self.addButton(button, b)
@@ -137,6 +196,7 @@ class RGBRadioButtons(QtGui.QButtonGroup):
         for b in range(len(self.bstr)):
             button = QtGui.QRadioButton(self.bstr[b])
             button.setStyleSheet('color: white;')
+            button.setFont(QtGui.QFont("Arial", 10))
             if b==0:
                 button.setChecked(True)
             self.addButton(button, b)
@@ -413,25 +473,27 @@ class RangeSlider(QtGui.QSlider):
         self.click_offset = 0
 
         self.setOrientation(QtCore.Qt.Vertical)
-        #self.setTickPosition(QtGui.QSlider.TicksRight)
-        self.setStyleSheet(\
-                "QSlider::handle:vertical {\
-                background-color: cyan;\
-                border: 1px solid white;\
-                border-radius: 2px;\
-                border-color: white;\
-                height: 16px;\
-                width: 3px;\
-                margin: 8px 2; \
-                }")
+        self.setTickPosition(QtGui.QSlider.TicksRight)
+        #self.setStyleSheet(\
+        #        "QSlider::handle:vertical {\
+        #        background-color: cyan;\
+        #        border: 1px solid white;\
+        #        border-radius: 2px;\
+        #        border-color: white;\
+        #        height: 16px;\
+        #        width: 3px;\
+        #        margin: 8px 2; \
+        #        }")
 
-
-        #self.opt = QtGui.QStyleOptionSlider()
-        #self.opt.orientation=QtCore.Qt.Vertical
-        #self.initStyleOption(self.opt)
+        # set groove color
+        
+        self.opt = QtGui.QStyleOptionSlider()
+        self.opt.orientation=QtCore.Qt.Vertical
+        self.initStyleOption(self.opt)
         # 0 for the low, 1 for the high, -1 for both
         self.active_slider = 0
         self.parent = parent
+        self.show()
 
 
     def level_change(self):
@@ -461,30 +523,39 @@ class RangeSlider(QtGui.QSlider):
         style = QtGui.QApplication.style()
 
         for i, value in enumerate([self._low, self._high]):
-            opt = QtGui.QStyleOptionSlider()
+            opt = QtWidgets.QStyleOptionSlider()
             self.initStyleOption(opt)
 
             # Only draw the groove for the first slider so it doesn't get drawn
             # on top of the existing ones every time
             if i == 0:
-                opt.subControls = QtGui.QStyle.SC_SliderHandle#QtGui.QStyle.SC_SliderGroove | QtGui.QStyle.SC_SliderHandle
+                opt.subControls = QtWidgets.QStyle.SC_SliderGroove | QtWidgets.QStyle.SC_SliderHandle
             else:
-                opt.subControls = QtGui.QStyle.SC_SliderHandle
+                opt.subControls = QtWidgets.QStyle.SC_SliderHandle
 
             if self.tickPosition() != self.NoTicks:
-                opt.subControls |= QtGui.QStyle.SC_SliderTickmarks
+                opt.subControls |= QtWidgets.QStyle.SC_SliderTickmarks
 
             if self.pressed_control:
                 opt.activeSubControls = self.pressed_control
-                opt.state |= QtGui.QStyle.State_Sunken
+                opt.state |= QtWidgets.QStyle.State_Sunken
             else:
                 opt.activeSubControls = self.hover_control
 
             opt.sliderPosition = value
             opt.sliderValue = value
-            style.drawComplexControl(QtGui.QStyle.CC_Slider, opt, painter, self)
 
-
+            if i==0:
+                pen = QtGui.QPen()
+                pen.setBrush(QtGui.QColor('#2e4f37'))
+                pen.setCapStyle(QtCore.Qt.RoundCap)
+                pen.setWidth(3)
+                painter.setPen(pen)
+                painter.setBrush(QtGui.QColor('#2e4f37'))
+                x1,y1,x2,y2 = event.rect().getCoords()
+                painter.drawRect(event.rect())
+            style.drawComplexControl(QtWidgets.QStyle.CC_Slider, opt, painter, self)
+            
     def mousePressEvent(self, event):
         event.accept()
 

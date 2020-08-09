@@ -29,7 +29,7 @@ Main GUI mouse controls (works in all views):
 -  Zoom = scroll wheel
 -  Full view = double left-click
 -  Select mask = left-click on mask
--  Delete mask = Ctrl + left-click
+-  Delete mask = Ctrl (or Command on Mac) + left-click
 -  Start draw mask = right-click
 -  End draw mask = right-click, or return to circle at beginning
 

@@ -230,6 +230,9 @@ def _load_image(parent, filename=None):
         parent.clear_all()
         parent.loaded = True
         parent.enable_buttons()
+        parent.threshslider.setEnabled(False)
+        parent.probslider.setEnabled(False)
+            
 
 def _initialize_images(parent, image, resize, X2):
     """ format image for GUI """
@@ -426,13 +429,17 @@ def _load_seg(parent, filename=None, image=None, image_file=None):
         parent.flows = dat['flows']
         try:
             print(parent.flows[0].shape)
+            parent.threshslider.setEnabled(True)
+            parent.probslider.setEnabled(True)
         except:
             try:
                 if len(parent.flows[0])>0:
                     parent.flows = parent.flows[0]
             except:
-                parent.flows = [[],[],[]]
-
+                parent.flows = [[],[],[],[],[[]]]
+            parent.threshslider.setEnabled(False)
+            parent.probslider.setEnabled(False)
+            
     parent.enable_buttons()
     del dat
     gc.collect()
