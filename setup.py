@@ -1,3 +1,4 @@
+import setuptools
 from setuptools import setup
 
 install_deps = ['numpy', 'scipy', 'natsort',
