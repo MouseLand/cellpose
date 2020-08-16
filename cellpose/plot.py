@@ -1,15 +1,25 @@
 import os
 import numpy as np
-from matplotlib.colors import hsv_to_rgb, rgb_to_hsv
 import cv2
 from scipy.ndimage import gaussian_filter
 import scipy
-import skimage.io
-from skimage import draw
-from skimage.segmentation import find_boundaries
+import colorsys
 
 from . import utils
 
+def rgb_to_hsv(arr):
+    rgb_to_hsv_channels = np.vectorize(colorsys.rgb_to_hsv)
+    r, g, b = np.rollaxis(arr, axis=-1)
+    h, s, v = rgb_to_hsv_channels(r, g, b)
+    hsv = np.stack((h,s,v), axis=-1)
+    return hsv
+
+def hsv_to_rgb(arr):
+    hsv_to_rgb_channels = np.vectorize(colorsys.hsv_to_rgb)
+    h, s, v = np.rollaxis(arr, axis=-1)
+    r, g, b = hsv_to_rgb_channels(h, s, v)
+    rgb = np.stack((r,g,b), axis=-1)
+    return rgb
 
 def show_segmentation(fig, img, maski, flowi, channels=[0,0], file_name=None):
     """ plot segmentation results (like on website)
@@ -77,9 +87,9 @@ def show_segmentation(fig, img, maski, flowi, channels=[0,0], file_name=None):
 
     if file_name is not None:
         save_path = os.path.splitext(file_name)[0]
-        skimage.io.imsave(save_path + '_overlay.jpg', overlay)
-        skimage.io.imsave(save_path + '_outlines.jpg', imgout)
-        skimage.io.imsave(save_path + '_flows.jpg', flowi)
+        io.imsave(save_path + '_overlay.jpg', overlay)
+        io.imsave(save_path + '_outlines.jpg', imgout)
+        io.imsave(save_path + '_flows.jpg', flowi)
 
 def mask_overlay(img, masks, colors=None):
     """ overlay masks on image (set image to grayscale)
@@ -194,19 +204,35 @@ def masks_to_outlines(masks):
     Parameters
     ----------------
 
-    masks: int, 2D array 
-        size [Ly x Lx], 0=NO masks; 1,2,...=mask labels
+    masks: int, 2D or 3D array 
+        size [Ly x Lx] or [Lz x Ly x Lx], 0=NO masks; 1,2,...=mask labels
 
     Returns
     ----------------
 
-    outlines: bool, 2D array
-        size [Ly x Lx], True pixels are outlines
+    outlines: 2D or 3D array 
+        size [Ly x Lx] or [Lz x Ly x Lx], True pixels are outlines
 
     """
+    if masks.ndim > 3 or masks.ndim < 2:
+        raise ValueError('masks_to_outlines takes 2D or 3D array, not %dD array'%masks.ndim)
     outlines = np.zeros(masks.shape, np.bool)
-    outlines[find_boundaries(masks, mode='inner')] = 1
-    return outlines
+    
+    if masks.ndim==3:
+        for i in range(masks.shape[0]):
+            outlines[i] = masks_to_outlines(masks[i])
+        return outlines
+    else:
+        slices = scipy.ndimage.find_objects(masks)
+        for i,si in enumerate(slices):
+            if si is not None:
+                sr,sc = si
+                mask = (masks[sr, sc] == (i+1)).astype(np.uint8)
+                contours = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+                pvc, pvr = np.concatenate(contours[0], axis=0).squeeze().T            
+                vr, vc = pvr + sr.start, pvc + sc.start 
+                outlines[vr, vc] = 1
+        return outlines
 
 def outlines_list(masks):
     """ get outlines of masks as a list to loop over for plotting """
@@ -214,15 +240,11 @@ def outlines_list(masks):
     for n in np.unique(masks)[1:]:
         mn = masks==n
         if mn.sum() > 0:
-            contours = cv2.findContours(mn.astype(np.uint8), mode=cv2.RETR_EXTERNAL, method=cv2.CHAIN_APPROX_SIMPLE)
-            contours = contours[-2]
-            #contours = measure.find_contours(mn, 0.5)
+            contours = cv2.findContours(mn.astype(np.uint8), mode=cv2.RETR_EXTERNAL, method=cv2.CHAIN_APPROX_NONE)
+            contours = contours[0]
             cmax = np.argmax([c.shape[0] for c in contours])
             pix = contours[cmax].astype(int).squeeze()
             if len(pix)>4:
-                pix=pix[:,::-1]
-                pix = draw.polygon_perimeter(pix[:,0], pix[:,1], (mn.shape[0], mn.shape[1]))
-                pix = np.array(pix).T[:,::-1]
                 outpix.append(pix)
             else:
                 outpix.append(np.zeros((0,2)))

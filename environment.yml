@@ -1,14 +1,11 @@
-name: cellpose
+name: cp
 dependencies:
   - python>3.4
   - pip
-  - mkl=2019.3
   - numpy
-  - scikit-image
   - numba>=0.43.1
   - pyqt
   - scipy
-  - matplotlib
   - pip:
     - mxnet-mkl
     - opencv-python-headless
@@ -16,4 +13,5 @@ dependencies:
     - natsort
     - google-cloud-storage
     - tqdm
+    - tifffile
     - cellpose

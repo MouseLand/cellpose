@@ -4,7 +4,6 @@ from urllib.request import urlopen
 from urllib.parse import urlparse
 import cv2
 from scipy.ndimage.filters import maximum_filter1d
-import skimage.io
 import numpy as np
 import mxnet as mx
 
@@ -13,8 +12,10 @@ def use_gpu(gpu_number=0):
     """ check if mxnet gpu works """
     try:
         _ = mx.ndarray.array([1, 2, 3], ctx=mx.gpu(gpu_number))
+        print('CUDA version installed and working.')
         return True
     except mx.MXNetError:
+        print('CUDA version not installed/working, will use CPU version.')
         return False
 
 def download_url_to_file(url, dst, progress=True):
@@ -62,6 +63,7 @@ def diameters(masks):
     md = np.median(counts**0.5)
     if np.isnan(md):
         md = 0
+    md /= (np.pi**0.5)/2
     return md, counts**0.5
 
 def radius_distribution(masks, bins):
@@ -74,6 +76,7 @@ def radius_distribution(masks, bins):
     md = np.median(counts**0.5)*0.5
     if np.isnan(md):
         md = 0
+    md /= (np.pi**0.5)/2
     return nb, md, (counts**0.5)/2
 
 def normalize99(img):
@@ -87,3 +90,4 @@ def process_cells(M0, npix=20):
         if ic[j]<npix:
             M0[M0==unq[j]] = 0
     return M0
+

@@ -1,7 +1,6 @@
+import os, argparse, glob, pathlib, time
+import subprocess
 import numpy as np
-import mxnet as mx
-import os, argparse, glob, pathlib
-import skimage
 from natsort import natsorted
 
 from . import utils, models, io
@@ -20,8 +19,11 @@ except Exception as err:
     GUI_IMPORT = False
     raise
 
-def get_image_files(folder, mask_filter):
+def get_image_files(folder, mask_filter, imf=None):
+    mask_filters = ['_cp_masks', '_cp_output', mask_filter]
     image_names = []
+    if imf is None:
+        imf = ''
     image_names.extend(glob.glob(folder + '/*%s.png'%imf))
     image_names.extend(glob.glob(folder + '/*%s.jpg'%imf))
     image_names.extend(glob.glob(folder + '/*%s.jpeg'%imf))
@@ -31,19 +33,18 @@ def get_image_files(folder, mask_filter):
     imn = []
     for im in image_names:
         imfile = os.path.splitext(im)[0]
-        if len(imfile) > len(mask_filter):
-            if imfile[-len(mask_filter):] != mask_filter:
-                imn.append(im)
-        else:
+        igood = all([(len(imfile) > len(mask_filter) and imfile[-len(mask_filter):] != mask_filter) or len(imfile) < len(mask_filter) 
+                        for mask_filter in mask_filters])
+        if igood:
             imn.append(im)
     image_names = imn
     
     return image_names
         
-def get_label_files(image_names, imf, mask_filter):
+def get_label_files(image_names, mask_filter, imf=None):
     nimg = len(image_names)
     label_names = [os.path.splitext(image_names[n])[0] for n in range(nimg)]
-    if len(imf) > 0:
+    if imf is not None and len(imf) > 0:
         label_names = [label_names[n][:-len(imf)] for n in range(nimg)]
     if os.path.exists(label_names[0] + mask_filter + '.tif'):
         label_names = [label_names[n] + mask_filter + '.tif' for n in range(nimg)]
@@ -54,8 +55,10 @@ def get_label_files(image_names, imf, mask_filter):
     return label_names
 
 
-if __name__ == '__main__':
+def main():
     parser = argparse.ArgumentParser(description='cellpose parameters')
+    parser.add_argument('--check_mkl', action='store_true', help='check if mkl working')
+    parser.add_argument('--mkldnn', action='store_true', help='force MXNET_SUBGRAPH_BACKEND = "MKLDNN"')
     parser.add_argument('--train', action='store_true', help='train network using images in dir (not yet implemented)')
     parser.add_argument('--dir', required=False, 
                         default=[], type=str, help='folder containing data to run or train on')
@@ -80,7 +83,9 @@ if __name__ == '__main__':
                         default=0.4, type=float, help='flow error threshold, 0 turns off this optional QC step')
     parser.add_argument('--cellprob_threshold', required=False, 
                         default=0.0, type=float, help='cell probability threshold, centered at 0.0')
-    parser.add_argument('--save_png', action='store_true', help='save masks as png')
+    parser.add_argument('--save_png', action='store_true', help='save masks as png and outlines as text file for ImageJ')
+    parser.add_argument('--save_tif', action='store_true', help='save masks as tif and outlines as text file for ImageJ')
+    parser.add_argument('--fast_mode', action='store_true', help="make code run faster by turning off augmentations and 4 network averaging")
     parser.add_argument('--no_npy', action='store_true', help='suppress saving of npy')
 
     # settings for training
@@ -95,7 +100,29 @@ if __name__ == '__main__':
     parser.add_argument('--batch_size', required=False, 
                         default=8, type=int, help='batch size')
 
+
     args = parser.parse_args()
+
+    if args.check_mkl:
+        print('Running test snippet to check if MKL running (https://mxnet.apache.org/versions/1.6/api/python/docs/tutorials/performance/backend/mkldnn/mkldnn_readme.html#4)')
+        process = subprocess.Popen('python test_mkl.py', stdout=subprocess.PIPE,
+                                        stderr=subprocess.PIPE, cwd=os.path.dirname(os.path.realpath(__file__)))
+        stdout, stderr = process.communicate()
+        if len(stdout)>0:
+            print('MKL version working - CPU version is hardware-accelerated.')
+            mkl_enabled = True
+        else:
+            print('WARNING: MKL version not working/installed - CPU version will be SLOW!')
+            mkl_enabled = False
+    else:
+        mkl_enabled = True
+
+    if not args.train and (mkl_enabled and args.mkldnn):
+        os.environ["MXNET_SUBGRAPH_BACKEND"]="MKLDNN"
+    else:
+        os.environ["MXNET_SUBGRAPH_BACKEND"]=""
+    
+    import mxnet as mx
 
     if len(args.dir)==0:
         if not GUI_ENABLED:
@@ -114,12 +141,13 @@ if __name__ == '__main__':
         if len(args.img_filter)>0:
             imf = args.img_filter
         else:
-            imf = ''
+            imf = None
 
-        image_names = get_image_files(args.dir, args.mask_filter)
+        image_names = get_image_files(args.dir, args.mask_filter, imf=imf)
         nimg = len(image_names)
-        images = [skimage.io.imread(image_names[n]) for n in range(nimg)]
+        images = [io.imread(image_names[n]) for n in range(nimg)]
 
+        
         if args.use_gpu:
             use_gpu = utils.use_gpu()
         if use_gpu:
@@ -130,6 +158,7 @@ if __name__ == '__main__':
         model_dir = pathlib.Path.home().joinpath('.cellpose', 'models')              
 
         if not args.train:
+            tic = time.time()
             if not (args.pretrained_model=='cyto' or args.pretrained_model=='nuclei'):
                 cpmodel_path = args.pretrained_model
                 if not os.path.exists(cpmodel_path):
@@ -153,7 +182,8 @@ if __name__ == '__main__':
                         (nimg, cstr0[channels[0]], cstr1[channels[1]]))
                 
                 masks, flows, _, diams = model.eval(images, channels=channels, diameter=diameter,
-                                                    do_3D=args.do_3D,
+                                                    do_3D=args.do_3D, net_avg=(not args.fast_mode),
+                                                    augment=(not args.fast_mode),
                                                     flow_threshold=args.flow_threshold,
                                                     cellprob_threshold=args.cellprob_threshold)
                 
@@ -170,6 +200,7 @@ if __name__ == '__main__':
                 rescale = model.diam_mean / diameter
                 masks, flows, _ = model.eval(images, channels=channels, rescale=rescale,
                                              do_3D=args.do_3D,
+                                             augment=(not args.fast_mode),
                                              flow_threshold=args.flow_threshold,
                                              cellprob_threshold=args.cellprob_threshold)
                 diams = diameter * np.ones(len(images)) 
@@ -177,26 +208,26 @@ if __name__ == '__main__':
             print('>>>> saving results')
             if not args.no_npy:
                 io.masks_flows_to_seg(images, masks, flows, diams, image_names, channels)
-            if args.save_png:
-                io.save_to_png(images, masks, flows, image_names)
-                    
+            if args.save_png or args.save_tif:
+                io.save_masks(images, masks, flows, image_names, png=args.save_png, tif=args.save_tif)
+            print('>>>> completed in %0.3f sec'%(time.time()-tic))
         else:
             if args.pretrained_model=='cyto' or args.pretrained_model=='nuclei':
                 cpmodel_path = os.fspath(model_dir.joinpath('%s_0'%(args.pretrained_model)))
                 if args.pretrained_model=='cyto':
-                    szmean = 27.
+                    szmean = 30.
                 else:
-                    szmean = 15.
+                    szmean = 17.
             else:
                 cpmodel_path = os.fspath(args.pretrained_model)
-                szmean = 27.
+                szmean = 30.
             
             if args.all_channels:
                 channels = None  
 
-            label_names = get_label_files(image_names, imf, args.mask_filter)
+            label_names = get_label_files(image_names, args.mask_filter, imf=imf)
             nimg = len(image_names)
-            labels = [skimage.io.imread(label_names[n]) for n in range(nimg)]
+            labels = [io.imread(label_names[n]) for n in range(nimg)]
             if not os.path.exists(cpmodel_path):
                 cpmodel_path = False
                 print('>>>> training from scratch')
@@ -205,10 +236,10 @@ if __name__ == '__main__':
                     print('>>>> median diameter set to 0 => no rescaling during training')
                 else:
                     rescale = True
-                    szmean = args.diameter * (np.pi**0.5/2)
+                    szmean = args.diameter 
             else:
                 rescale = True
-                args.diameter = szmean / (np.pi**0.5/2)
+                args.diameter = szmean 
                 print('>>>> training starting with pretrained_model %s'%cpmodel_path)
             if rescale:
                 print('>>>> rescaling diameter for each training image to %0.1f'%args.diameter)
@@ -217,11 +248,11 @@ if __name__ == '__main__':
 
             test_images, test_labels = None, None
             if len(args.test_dir) > 0:
-                image_names_test = get_image_files(args.test_dir, args.mask_filter)
-                label_names_test = get_label_files(image_names_test, imf, args.mask_filter)
+                image_names_test = get_image_files(args.test_dir, args.mask_filter, imf=imf)
+                label_names_test = get_label_files(image_names_test, args.mask_filter, imf=imf)
                 nimg = len(image_names_test)
-                test_images = [skimage.io.imread(image_names_test[n]) for n in range(nimg)]
-                test_labels = [skimage.io.imread(label_names_test[n]) for n in range(nimg)]
+                test_images = [io.imread(image_names_test[n]) for n in range(nimg)]
+                test_labels = [io.imread(label_names_test[n]) for n in range(nimg)]
             #print('>>>> %s model'%(['cellpose', 'unet'][args.unet]))    
             model = models.CellposeModel(device=device,
                                          pretrained_model=cpmodel_path, 
@@ -230,3 +261,6 @@ if __name__ == '__main__':
             n_epochs=args.n_epochs
             model.train(images, labels, test_images, test_labels, learning_rate=args.learning_rate,
                         channels=channels, save_path=os.path.realpath(args.dir), rescale=rescale, n_epochs=n_epochs)
+
+if __name__ == '__main__':
+    main()

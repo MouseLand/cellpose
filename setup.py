@@ -1,9 +1,20 @@
-import setuptools
+from setuptools import setup
+
+install_deps = ['numpy', 'scipy', 'natsort',
+                'tifffile', 'tqdm', 'numba',
+                'mxnet_mkl', 'opencv-python-headless']
+
+try:
+    import mxnet as mx
+    a = mx.nd.ones((2, 3))
+    install_deps.remove('mxnet_mkl')
+except:
+    pass
 
 with open("README.md", "r") as fh:
     long_description = fh.read()
 
-setuptools.setup(
+setup(
     name="cellpose",
     version="0.0.2.8",
     license="BSD",
@@ -14,18 +25,16 @@ setuptools.setup(
     long_description_content_type="text/markdown",
     url="https://github.com/MouseLand/cellpose",
     packages=setuptools.find_packages(),
-    install_requires = ['numpy', 'scipy', 'natsort', 'Pillow<=7.0.0',
-                        'tqdm', 'numba', 'scikit-image',
-                        'matplotlib', 'mxnet_mkl', 'opencv-python-headless'],
+    install_requires = install_deps,
     extras_require = {
-      "docs": [
+      'docs': [
         'sphinx>=3.0',
         'sphinxcontrib-apidoc',
         'sphinx_rtd_theme',
       ],
       'gui': [
         'pyqtgraph==0.11.0rc0', 
-        'PyQt5', 
+        'pyqt5', 
         'google-cloud-storage'
         ]
     },
@@ -35,4 +44,8 @@ setuptools.setup(
         "License :: OSI Approved :: BSD License",
         "Operating System :: OS Independent",
     ),
+     entry_points = {
+        'console_scripts': [
+          'cellpose = cellpose.__main__:main']
+     }
 )

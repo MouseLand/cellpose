@@ -1,4 +1,4 @@
-import sys, os, pathlib, warnings, datetime, tempfile, glob
+import sys, os, pathlib, warnings, datetime, tempfile, glob, time
 import gc
 from natsort import natsorted
 from tqdm import tqdm
@@ -6,18 +6,21 @@ from tqdm import tqdm
 from PyQt5 import QtGui, QtCore, Qt, QtWidgets
 import pyqtgraph as pg
 from pyqtgraph import GraphicsScene
-import matplotlib.pyplot as plt
 
 import numpy as np
 import cv2
 from scipy.ndimage import gaussian_filter
-from skimage import io
-from skimage import draw
 
 import mxnet as mx
 from mxnet import nd
 
 from . import utils, transforms, models, guiparts, plot, menus, io, dynamics
+
+try:
+    import matplotlib.pyplot as plt
+    MATPLOTLIB = True
+except:
+    MATPLOTLIB = False
 
 try:
     from google.cloud import storage
@@ -101,9 +104,11 @@ def run(image=None):
     # Always start by initializing Qt (only once per application)
     warnings.filterwarnings("ignore")
     app = QtGui.QApplication(sys.argv)
-    icon_path = os.path.join(
-        os.path.dirname(os.path.realpath(__file__)), 'logo/logo.png'
-    )
+    icon_path = pathlib.Path.home().joinpath('.cellpose', 'logo.png')
+    if not icon_path.is_file():
+        print('downloading logo')
+        utils.download_url_to_file('http://www.cellpose.org/static/images/cellpose_transparent.png', icon_path, progress=True)
+    icon_path = str(icon_path.resolve())
     app_icon = QtGui.QIcon()
     app_icon.addFile(icon_path, QtCore.QSize(16, 16))
     app_icon.addFile(icon_path, QtCore.QSize(24, 24))
@@ -135,9 +140,8 @@ class MainW(QtGui.QMainWindow):
         self.setWindowTitle("cellpose")
         self.cp_path = os.path.dirname(os.path.realpath(__file__))
         app_icon = QtGui.QIcon()
-        icon_path = os.path.abspath(os.path.join(
-            self.cp_path, "logo/logo.png")
-        )
+        icon_path = pathlib.Path.home().joinpath('.cellpose', 'logo.png')
+        icon_path = str(icon_path.resolve())
         app_icon.addFile(icon_path, QtCore.QSize(16, 16))
         app_icon.addFile(icon_path, QtCore.QSize(24, 24))
         app_icon.addFile(icon_path, QtCore.QSize(32, 32))
@@ -188,7 +192,10 @@ class MainW(QtGui.QMainWindow):
         for i in range(3):
             self.cmap.append(make_cmap(i).getLookupTable(start=0.0, stop=255.0, alpha=False))
 
-        self.colormap = (plt.get_cmap('gist_ncar')(np.linspace(0.0,.9,1000)) * 255).astype(np.uint8)
+        if MATPLOTLIB:
+            self.colormap = (plt.get_cmap('gist_ncar')(np.linspace(0.0,.9,1000)) * 255).astype(np.uint8)
+        else:
+            self.colormap = ((np.random.rand(1000,3)*0.8+0.1)*255).astype(np.uint8)
         self.reset()
 
         self.is_stack = True # always loading images of same FOV
@@ -342,7 +349,7 @@ class MainW(QtGui.QMainWindow):
 
         b+=1
         self.diameter = 30
-        label = QtGui.QLabel('cell diameter (pixels):')
+        label = QtGui.QLabel('cell diameter (pixels) (click ENTER):')
         label.setStyleSheet(label_style)
         label.setFont(self.medfont)
         label.setToolTip('you can manually enter the approximate diameter for your cells, or press “calibrate” to let the model estimate it. The size is represented by a disk at the bottom of the view window (can turn this disk of by unchecking “scale disk on”)')
@@ -379,9 +386,17 @@ class MainW(QtGui.QMainWindow):
         self.useGPU = QtGui.QCheckBox('use GPU')
         self.useGPU.setStyleSheet(self.checkstyle)
         self.useGPU.setFont(self.medfont)
-        self.useGPU.setToolTip('if you have specially installed the cuda version of mxnet, then you can activate this, but it won’t give huge speedups when running single 2D images in the GUI.')
+        self.useGPU.setToolTip('if you have specially installed the <i>cuda</i> version of mxnet, then you can activate this, but it won’t give huge speedups when running single 2D images in the GUI.')
         self.check_gpu()
-        self.l0.addWidget(self.useGPU, b,0,1,2)
+        self.l0.addWidget(self.useGPU, b,0,1,1)
+
+        # fast mode
+        self.FastMode = QtGui.QCheckBox('fast mode')
+        self.FastMode.setStyleSheet(self.checkstyle)
+        self.FastMode.setFont(self.medfont)
+        self.FastMode.setChecked(False)
+        self.FastMode.setToolTip('turn off augmentations + averaging 4 different fit networks to <i>increase</i> run speed')
+        self.l0.addWidget(self.FastMode, b,1,1,1)
 
         b+=1
         # choose models
@@ -956,7 +971,7 @@ class MainW(QtGui.QMainWindow):
             image = np.zeros((self.Ly,self.Lx), np.uint8)
             if len(self.flows)>=self.view-1 and len(self.flows[self.view-1])>0:
                 image = self.flows[self.view-1][self.currentZ]
-            if self.view>2:
+            if self.view>1:
                 self.img.setImage(image, autoLevels=False, lut=self.bwr)
             else:
                 self.img.setImage(image, autoLevels=False, lut=None)
@@ -1009,9 +1024,17 @@ class MainW(QtGui.QMainWindow):
             iz = points[:,0] == z
             vr = points[iz,1]
             vc = points[iz,2]
-
-            vr, vc = draw.polygon_perimeter(vr, vc, self.layers[z].shape[:2])
-            ar, ac = draw.polygon(vr, vc, self.layers[z].shape[:2])
+            # get points inside drawn points
+            mask = np.zeros((np.ptp(vr)+4, np.ptp(vc)+4), np.uint8)
+            pts = np.stack((vc-vc.min()+2,vr-vr.min()+2), axis=-1)[:,np.newaxis,:]
+            mask = cv2.fillPoly(mask, [pts], (255,0,0))
+            ar, ac = np.nonzero(mask)
+            ar, ac = ar+vr.min()-2, ac+vc.min()-2
+            # get dense outline
+            contours = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+            pvc, pvr = contours[0][0].squeeze().T            
+            vr, vc = pvr + vr.min() - 2, pvc + vc.min() - 2
+            # concatenate all points
             ar, ac = np.hstack((np.vstack((vr, vc)), np.vstack((ar, ac))))
             # if these pixels are overlapping with another cell, reassign them
             ioverlap = self.cellpix[z][ar, ac] > 0
@@ -1023,10 +1046,9 @@ class MainW(QtGui.QMainWindow):
                 # compute outline of new mask
                 mask = np.zeros((np.ptp(ar)+4, np.ptp(ac)+4), np.uint8)
                 mask[ar-ar.min()+2, ac-ac.min()+2] = 1
-                outlines = plot.masks_to_outlines(mask)
-                vr, vc = np.nonzero(outlines)
-                vr, vc = vr + ar.min() - 2, vc + ac.min() - 2
-
+                contours = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+                pvc, pvr = contours[0][0].squeeze().T            
+                vr, vc = pvr + ar.min() - 2, pvc + ac.min() - 2
             self.draw_mask(z, ar, ac, vr, vc, color)
 
             median.append(np.array([np.median(ar), np.median(ac)]))
@@ -1180,9 +1202,10 @@ class MainW(QtGui.QMainWindow):
 
     def compute_model(self):
         self.progress.setValue(0)
-        try:
+        if 1:
+            tic=time.time()
             self.clear_all()
-            self.flows = [[],[],[]]
+            self.flows = [[],[],[],[],[]]
             self.initialize_model()
 
             print('using model %s'%self.current_model)
@@ -1196,8 +1219,10 @@ class MainW(QtGui.QMainWindow):
             channels = self.get_channels()
             self.diameter = float(self.Diameter.text())
             try:
+                augment = (not self.FastMode.isChecked())
                 masks, flows, _, _ = self.model.eval(data, channels=channels,
                                                 diameter=self.diameter, invert=self.invert.isChecked(),
+                                                net_avg=augment, augment=augment,
                                                 do_3D=do_3D, progress=self.progress)
             except Exception as e:
                 print('NET ERROR: %s'%e)
@@ -1221,9 +1246,8 @@ class MainW(QtGui.QMainWindow):
             if len(flows)>2:
                 self.flows.append(flows[3])
                 self.flows.append(np.concatenate((flows[1], flows[2][np.newaxis,...]), axis=0))
-                print(self.flows[3].shape, self.flows[4].shape)
-
-            print('%d cells found with cellpose net'%(len(np.unique(masks)[1:])))
+                
+            print('%d cells found with cellpose net in %0.3f sec'%(len(np.unique(masks)[1:]), time.time()-tic))
             self.progress.setValue(80)
             z=0
             self.masksOn = True
@@ -1235,9 +1259,10 @@ class MainW(QtGui.QMainWindow):
             self.progress.setValue(100)
 
             self.toggle_server(off=True)
-            self.threshslider.setEnabled(True)
-            self.probslider.setEnabled(True)
-        except Exception as e:
+            if not do_3D:
+                self.threshslider.setEnabled(True)
+                self.probslider.setEnabled(True)
+        else: #except Exception as e:
             print('ERROR: %s'%e)
 
 

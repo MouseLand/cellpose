@@ -14,7 +14,7 @@ You can quickly try out Cellpose on the [website](http://www.cellpose.org) first
 
 You can also run Cellpose in google colab with a GPU -> [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/MouseLand/cellpose/blob/master/notebooks/run_cellpose_GPU.ipynb). This is recommended if you have issues with MKL or run speed on your local computer (and are running 3D volumes). Colab does not allow you to run the GUI, but you can save `*_seg.npy` files in colab that you can download and open in the GUI.
 
-### Detailed documentation at [www.cellpose.org/docs](http://www.cellpose.org/static/docs/index.html).
+### Detailed documentation at [www.cellpose.org/docs](http://www.cellpose.org/docs).
 
 ## System requirements
 
@@ -51,7 +51,8 @@ pip install cellpose --upgrade
 
 If you have an older `cellpose` environment you can remove it with `conda env remove -n cellpose` before creating a new one.
 
-Note you will always have to run **conda activate cellpose** before you run cellpose. If you want to run jupyter notebooks in this environment, then also `conda install jupyter`.
+Note you will always have to run **conda activate cellpose** before you run cellpose. If you want to run jupyter notebooks in this environment, then also `conda install jupyter` 
+and `pip install matplotlib`.
 
 ### Common issues
 
@@ -155,7 +156,7 @@ The GUI serves two main functions:
 2. Manually labelling data.
 
 There is a help window in the GUI that provides more instructions and 
-a page in the documentation [here](https://cellpose.readthedocs.io/en/latest/gui.html).
+a page in the documentation [here](http://cellpose.readthedocs.io/en/latest/gui.html).
  Also, if you hover over certain words in the GUI, their definitions 
  are revealed as tooltips.
 
@@ -175,11 +176,11 @@ You can specify the diameter for all the images or set to 0 if you want the algo
 python -m cellpose --dir ~/images_nuclei/test/ --pretrained_model nuclei --diameter 0. --save_png
 ~~~
 
-See the [docs](http://www.cellpose.org/static/docs/command.html) for more info.
+See the [docs](http://cellpose.readthedocs.io/en/latest/command.html) for more info.
 
 ## Outputs
 
-See the [docs](http://www.cellpose.org/static/docs/outputs.html) for info.
+See the [docs](http://cellpose.readthedocs.io/en/latest/outputs.html) for info.
 
 ## Dependencies
 cellpose relies on the following excellent packages (which are automatically installed with conda/pip if missing):
@@ -189,6 +190,4 @@ cellpose relies on the following excellent packages (which are automatically ins
 - [numpy](http://www.numpy.org/) (>=1.16.0)
 - [numba](http://numba.pydata.org/numba-doc/latest/user/5minguide.html)
 - [scipy](https://www.scipy.org/)
-- [scikit-image](https://scikit-image.org/)
 - [natsort](https://natsort.readthedocs.io/en/master/)
-- [matplotlib](https://matplotlib.org/)

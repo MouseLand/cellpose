@@ -1,15 +1,22 @@
 import os, datetime, gc, warnings
 import numpy as np
-import skimage.io 
-import matplotlib.pyplot as plt
+import cv2
+import tifffile
 
 from . import plot, transforms
 
 try:
     from PyQt5 import QtGui, QtCore, Qt, QtWidgets
-    GUI = False
-except:
     GUI = True
+except:
+    GUI = False
+
+try:
+    import matplotlib.pyplot as plt
+    MATPLOTLIB = True
+except:
+    MATPLOTLIB = False
+    print('matplotlib not installed')
 
 try:
     from google.cloud import storage
@@ -28,6 +35,27 @@ def outlines_to_text(base, outlines):
             f.write(xy_str)
             f.write('\n')
 
+def imread(filename):
+    ext = os.path.splitext(filename)[-1]
+    if ext== '.tif' or ext=='tiff':
+        img = tifffile.imread(filename)
+        return img
+    else:
+        try:
+            img = cv2.imread(filename, -1)#cv2.LOAD_IMAGE_ANYDEPTH)
+            if img.ndim > 2:
+                img = img[..., [2,1,0]]
+            return img
+        except Exception as e:
+            print('ERROR: could not read file, %s'%e)
+            return None
+
+def imsave(filename, arr):
+    ext = os.path.splitext(filename)[-1]
+    if ext== '.tif' or ext=='tiff':
+        tifffile.imsave(filename, arr)
+    else:
+        cv2.imwrite(filename, arr)
 
 def masks_flows_to_seg(images, masks, flows, diams, file_names, channels=None):
     """ save output of model eval to be loaded in GUI 
@@ -75,11 +103,12 @@ def masks_flows_to_seg(images, masks, flows, diams, file_names, channels=None):
         flowi.append(flows[0][np.newaxis,...])
     else:
         flowi.append(flows[0])
-    flowi.append((np.clip(transforms.normalize99(flows[2]),0,1) * 255).astype(np.uint8)[np.newaxis,...])
     if flows[0].ndim==3:
+        flowi.append((np.clip(transforms.normalize99(flows[2]),0,1) * 255).astype(np.uint8)[np.newaxis,...])
         flowi.append(np.zeros(flows[0].shape, dtype=np.uint8))
         flowi[-1] = flowi[-1][np.newaxis,...]
     else:
+        flowi.append((np.clip(transforms.normalize99(flows[2]),0,1) * 255).astype(np.uint8))
         flowi.append((flows[1][0]/10 * 127 + 127).astype(np.uint8))
     if len(flows)>2:
         flowi.append(flows[3])
@@ -99,18 +128,28 @@ def masks_flows_to_seg(images, masks, flows, diams, file_names, channels=None):
                     'est_diam': diams})
 
 def save_to_png(images, masks, flows, file_names):
-    """ save masks + nicely plotted segmentation image to png 
+    """ deprecated (runs io.save_masks with png=True) 
+    
+        does not work for 3D images
+    
+    """
+    save_masks(images, masks, flows, file_names, png=True)
 
-    masks[k] for images[k] are saved to file_names[k]+'_cp_masks.png'
+def save_masks(images, masks, flows, file_names, png=True, tif=False):
+    """ save masks + nicely plotted segmentation image to png and/or tiff
 
-    full segmentation figure is saved to file_names[k]+'_cp.png'
+    if png, masks[k] for images[k] are saved to file_names[k]+'_cp_masks.png'
 
-    does not work for 3D images
+    if tif, masks[k] for images[k] are saved to file_names[k]+'_cp_masks.tif'
+
+    if png and matplotlib installed, full segmentation figure is saved to file_names[k]+'_cp.png'
+
+    only tif option works for 3D data
     
     Parameters
     -------------
 
-    images: (list of) 2D or 3D arrays
+    images: (list of) 2D, 3D or 4D arrays
         images input into cellpose
 
     masks: (list of) 2D arrays, int
@@ -126,31 +165,40 @@ def save_to_png(images, masks, flows, file_names):
     
     if isinstance(masks, list):
         for image, mask, flow, file_name in zip(images, masks, flows, file_names):
-            save_to_png(image, mask, flow, file_name)
+            save_masks(image, mask, flow, file_name, png=png, tif=tif)
         return
     
-    if images.ndim > 3:
-        raise ValueError('cannot save 3D outputs as PNG')
-    elif images.ndim==3 and min(images.shape)>3:
-        raise ValueError('cannot save 3D outputs or 2D with more than 3 channels as PNG')
-    else:
+    if masks.ndim > 2 and not tif:
+        raise ValueError('cannot save 3D outputs as PNG, use tif option instead')
+
+    base = os.path.splitext(file_names)[0]
+    exts = []
+    if png:
+        exts.append('.png')
+    if tif:
+        exts.append('.tif')
+    
+    # save masks
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        for ext in exts:
+            imsave(base + '_cp_masks' + ext, masks.astype(np.uint16))
+
+    if png and MATPLOTLIB and not (images.ndim==3 and min(images.shape)>3):
         img = images.copy()
         if img.ndim<3:
             img = img[:,:,np.newaxis]
         elif img.shape[0]<8:
             np.transpose(img, (1,2,0))
-        base = os.path.splitext(file_names)[0]
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            skimage.io.imsave(base+'_cp_masks.png', masks.astype(np.uint16))
-        maski = masks
-        flowi = flows[0]
+        
         fig = plt.figure(figsize=(12,3))
         # can save images (set save_dir=None if not)
-        plot.show_segmentation(fig, img, maski, flowi)
-        fig.savefig(base+'_cp.png', dpi=300)
+        plot.show_segmentation(fig, img, masks, flows[0])
+        fig.savefig(base + '_cp_output.png', dpi=300)
         plt.close(fig)
-        outlines = plot.outlines_list(maski)
+
+    if masks[0].ndim < 3: 
+        outlines = plot.outlines_list(masks)
         outlines_to_text(base, outlines)
 
 def save_server(parent=None, filename=None):
@@ -209,14 +257,15 @@ def _load_image(parent, filename=None):
     manual_file = os.path.splitext(filename)[0]+'_seg.npy'
     if os.path.isfile(manual_file):
         print(manual_file)
-        _load_seg(parent, manual_file, image=skimage.io.imread(filename), image_file=filename)
+        _load_seg(parent, manual_file, image=imread(filename), image_file=filename)
         return
     elif os.path.isfile(os.path.splitext(filename)[0]+'_manual.npy'):
         manual_file = os.path.splitext(filename)[0]+'_manual.npy'
-        _load_seg(parent, manual_file, image=skimage.io.imread(filename), image_file=filename)
+        _load_seg(parent, manual_file, image=imread(filename), image_file=filename)
         return
     try:
-        image = skimage.io.imread(filename)
+        image = imread(filename)
+        image.shape
         parent.loaded = True
     except:
         print('images not compatible')
@@ -338,7 +387,7 @@ def _load_seg(parent, filename=None, image=None, image_file=None):
                     found_image = True
         if found_image:
             try:
-                image = skimage.io.imread(parent.filename)
+                image = imread(parent.filename)
             except:
                 parent.loaded = False
                 found_image = False
@@ -429,8 +478,12 @@ def _load_seg(parent, filename=None, image=None, image_file=None):
         parent.flows = dat['flows']
         try:
             print(parent.flows[0].shape)
-            parent.threshslider.setEnabled(True)
-            parent.probslider.setEnabled(True)
+            if parent.NZ==1:
+                parent.threshslider.setEnabled(True)
+                parent.probslider.setEnabled(True)
+            else:
+                parent.threshslider.setEnabled(False)
+                parent.probslider.setEnabled(False)
         except:
             try:
                 if len(parent.flows[0])>0:
@@ -451,7 +504,7 @@ def _load_masks(parent, filename=None):
             parent, "Load masks (PNG or TIFF)"
             )
         filename = name[0]
-    masks = skimage.io.imread(filename)
+    masks = imread(filename)
     outlines = None
     if masks.ndim>3:
         # Z x nchannels x Ly x Lx
@@ -514,10 +567,10 @@ def _save_png(parent):
     base = os.path.splitext(filename)[0]
     if parent.NZ==1:
         print('saving 2D masks to png')
-        skimage.io.imsave(base + '_masks.png', parent.cellpix[0])
+        imsave(base + '_cp_masks.png', parent.cellpix[0])
     else:
         print('saving 3D masks to tiff')
-        skimage.io.imsave(base + '_masks.tif', parent.cellpix)
+        imsave(base + '_cp_masks.tif', parent.cellpix)
 
 def _save_outlines(parent):
     filename = parent.filename

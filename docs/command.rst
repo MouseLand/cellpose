@@ -32,7 +32,13 @@ These are the same :ref:`settings`, but set up for the command line, e.g.
         run network on GPU
 
     * save_png: FLAG
-        save masks as png
+        save masks as png and outlines as text file for ImageJ
+
+    * save_tif: FLAG
+        save masks as tif and outlines as text file for ImageJ
+
+    * fast_mode: FLAG
+        make code run faster by turning off augmentations and 4 network averaging
 
     * all_channels: FLAG 
         run cellpose on all image channels (use for custom models ONLY)
@@ -70,19 +76,23 @@ You can run the help string and see all the options:
 
 ::
         
-    usage: __main__.py [-h] [--train] [--dir DIR] [--img_filter IMG_FILTER]
-                   [--use_gpu] [--do_3D] [--pretrained_model PRETRAINED_MODEL]
-                   [--chan CHAN] [--chan2 CHAN2] [--all_channels]
-                   [--diameter DIAMETER] [--flow_threshold FLOW_THRESHOLD]
+    usage: __main__.py [-h] [--check_mkl] [--mkldnn] [--train] [--dir DIR]
+                   [--img_filter IMG_FILTER] [--use_gpu] [--do_3D]
+                   [--pretrained_model PRETRAINED_MODEL] [--chan CHAN]
+                   [--chan2 CHAN2] [--all_channels] [--diameter DIAMETER]
+                   [--flow_threshold FLOW_THRESHOLD]
                    [--cellprob_threshold CELLPROB_THRESHOLD] [--save_png]
-                   [--no_npy] [--mask_filter MASK_FILTER]
-                   [--test_dir TEST_DIR] [--learning_rate LEARNING_RATE]
-                   [--n_epochs N_EPOCHS] [--batch_size BATCH_SIZE]
+                   [--save_tif] [--fast_mode] [--no_npy]
+                   [--mask_filter MASK_FILTER] [--test_dir TEST_DIR]
+                   [--learning_rate LEARNING_RATE] [--n_epochs N_EPOCHS]
+                   [--batch_size BATCH_SIZE]
 
     cellpose parameters
 
     optional arguments:
     -h, --help            show this help message and exit
+    --check_mkl           check if mkl working
+    --mkldnn              force MXNET_SUBGRAPH_BACKEND = "MKLDNN"
     --train               train network using images in dir (not yet
                             implemented)
     --dir DIR             folder containing data to run or train on
@@ -105,7 +115,10 @@ You can run the help string and see all the options:
                             step
     --cellprob_threshold CELLPROB_THRESHOLD
                             cell probability threshold, centered at 0.0
-    --save_png            save masks as png
+    --save_png            save masks as png and outlines as text file for ImageJ
+    --save_tif            save masks as tif and outlines as text file for ImageJ
+    --fast_mode           make code run faster by turning off augmentations and
+                            4 network averaging
     --no_npy              suppress saving of npy
     --mask_filter MASK_FILTER
                             end string for masks to run on

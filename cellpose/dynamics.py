@@ -1,6 +1,5 @@
 from scipy.ndimage.filters import maximum_filter1d
 import scipy.ndimage
-import skimage.morphology
 import numpy as np
 from tqdm import trange
 import time
@@ -276,6 +275,7 @@ def follow_flows(dP, niter=200):
                 np.arange(shape[2]), indexing='ij')
         p = np.array(p).astype(np.float32)
         # run dynamics on subset of pixels
+        #inds = np.array(np.nonzero(dP[0]!=0)).astype(np.int32).T
         inds = np.array(np.nonzero(np.abs(dP[0])>1e-3)).astype(np.int32).T
         p = steps3D(p, dP, inds, niter)
     else:
@@ -428,10 +428,10 @@ def get_masks(p, iscell=None, rpad=20, flows=None, threshold=0.4):
     for i in range(dims):
         pflows[i] = pflows[i] + rpad
     M0 = M[tuple(pflows)]
-    _,counts = np.unique(M0, return_counts=True)
     
     # remove big masks
-    big = shape0[0] * shape0[1] * 0.35
+    _,counts = np.unique(M0, return_counts=True)
+    big = np.prod(shape0) * 0.4
     for i in np.nonzero(counts > big)[0]:
         M0[M0==i] = 0
     _,M0 = np.unique(M0, return_inverse=True)
@@ -445,16 +445,16 @@ def get_masks(p, iscell=None, rpad=20, flows=None, threshold=0.4):
     return M0
 
 def fill_holes(masks, min_size=15):
-    """ fill holes in masks (2D) and discard masks smaller than min_size
+    """ fill holes in masks (2D/3D) and discard masks smaller than min_size (2D)
     
     fill holes in each mask using scipy.ndimage.morphology.binary_fill_holes
     
     Parameters
     ----------------
 
-    masks: int, 2D array
+    masks: int, 2D or 3D array
         labelled masks, 0=NO masks; 1,2,...=mask labels,
-        size [Ly x Lx]
+        size [Ly x Lx] or [Lz x Ly x Lx]
 
     min_size: int (optional, default 15)
         minimum number of pixels per mask
@@ -462,20 +462,62 @@ def fill_holes(masks, min_size=15):
     Returns
     ---------------
 
-    masks: int, 2D array
+    masks: int, 2D or 3D array
         masks with holes filled and masks smaller than min_size removed, 
         0=NO masks; 1,2,...=mask labels,
-        size [Ly x Lx]
+        size [Ly x Lx] or [Lz x Ly x Lx]
     
     """
-
+    if masks.ndim > 3 or masks.ndim < 2:
+        raise ValueError('masks_to_outlines takes 2D or 3D array, not %dD array'%masks.ndim)
+    
     slices = scipy.ndimage.find_objects(masks)
     i = 0
-    for sr, sc in slices:
-        msk = masks[sr, sc] == (i+1)
-        msk = scipy.ndimage.morphology.binary_fill_holes(msk)
-        sm = np.logical_and(msk, ~skimage.morphology.remove_small_objects(msk, min_size=min_size, connectivity=1))
-        masks[sr, sc][msk] = (i+1)
-        masks[sr, sc][sm] = 0
+    for slc in slices:
+        if slc is not None:
+            msk = masks[slc] == (i+1)
+            if msk.ndim==3:
+                small_objects = np.zeros(msk.shape, np.bool)
+                for k in range(msk.shape[0]):
+                    msk[k] = scipy.ndimage.morphology.binary_fill_holes(msk[k])
+                    #small_objects[k] = ~remove_small_objects(msk[k], min_size=min_size)
+            else:
+                msk = scipy.ndimage.morphology.binary_fill_holes(msk)
+                small_objects = ~remove_small_objects(msk, min_size=min_size)
+            sm = np.logical_and(msk, small_objects)
+            #~skimage.morphology.remove_small_objects(msk, min_size=min_size, connectivity=1))
+            masks[slc][msk] = (i+1)
+            masks[slc][sm] = 0
         i+=1
     return masks
+
+def remove_small_objects(ar, min_size=64, connectivity=1):
+    """ copied from skimage.morphology.remove_small_objects (required to be separate for pyinstaller) """
+    out = ar.copy()
+
+    if min_size == 0:  # shortcut for efficiency
+        return out
+
+    if out.dtype == bool:
+        selem = scipy.ndimage.generate_binary_structure(ar.ndim, connectivity)
+        ccs = np.zeros_like(ar, dtype=np.int32)
+        scipy.ndimage.label(ar, selem, output=ccs)
+    else:
+        ccs = out
+
+    try:
+        component_sizes = np.bincount(ccs.ravel())
+    except ValueError:
+        raise ValueError("Negative value labels are not supported. Try "
+                         "relabeling the input with `scipy.ndimage.label` or "
+                         "`skimage.morphology.label`.")
+
+    if len(component_sizes) == 2 and out.dtype != bool:
+        warn("Only one label was provided to `remove_small_objects`. "
+             "Did you mean to use a boolean array?")
+
+    too_small = component_sizes < min_size
+    too_small_mask = too_small[ccs]
+    out[too_small_mask] = 0
+
+    return out

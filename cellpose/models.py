@@ -57,9 +57,9 @@ class Cellpose():
         self.pretrained_model = [os.fspath(model_dir.joinpath('%s_%d'%(model_type,j))) for j in range(4)]
         self.pretrained_size = os.fspath(model_dir.joinpath('size_%s_0.npy'%(model_type)))
         if model_type=='cyto':
-            self.diam_mean = 27.
+            self.diam_mean = 30.
         else:
-            self.diam_mean = 15.
+            self.diam_mean = 17.
         if not os.path.isfile(self.pretrained_model[0]):
             download_model_weights()
         if not net_avg:
@@ -73,8 +73,8 @@ class Cellpose():
         self.sz = SizeModel(device=self.device, pretrained_size=self.pretrained_size,
                             cp_model=self.cp)
 
-    def eval(self, x, channels=None, diameter=30., invert=False, do_3D=False,
-             net_avg=True, tile=True, flow_threshold=0.4, cellprob_threshold=0.0,
+    def eval(self, x, channels=None, diameter=30., invert=False, do_3D=False, anisotropy=None,
+             net_avg=True, augment=True, tile=True, flow_threshold=0.4, cellprob_threshold=0.0,
              rescale=None, progress=None):
         """ run cellpose and get masks
 
@@ -100,11 +100,17 @@ class Cellpose():
         do_3D: bool (optional, default False)
             set to True to run 3D segmentation on 4D image input
 
+        anisotropy: float (optional, default None)
+            for 3D segmentation, optional rescaling factor (e.g. set to 2.0 if Z is sampled half as dense as X or Y)
+
         net_avg: bool (optional, default True)
             runs the 4 built-in networks and averages them if True, runs one network if False
 
+        augment: bool (optional, default True)
+            tiles image with overlapping tiles and flips overlapped regions to augment
+
         tile: bool (optional, default True)
-            tiles image for test time augmentation and to ensure GPU memory usage limited (recommended)
+            tiles image to ensure GPU/CPU memory usage limited (recommended)
 
         flow_threshold: float (optional, default 0.4)
             flow error threshold (all cells with errors below threshold are kept) (not used for 3D)
@@ -141,6 +147,7 @@ class Cellpose():
         else:
             nolist = False
 
+        tic0 = time.time()
         if do_3D:
             for i in range(len(x)):
                 if x[i].ndim<3:
@@ -152,33 +159,39 @@ class Cellpose():
             print('multi-stack tiff read in as having %d planes %d channels'%
                     (x[0].shape[0], x[0].shape[-1]))
 
-        print('processing %d image(s)'%len(x))
+        nimg = len(x)
+        print('processing %d image(s)'%nimg)
         # make rescale into length of x
         if diameter is not None and diameter!=0:
-            if not isinstance(diameter, list) or len(diameter)==1 or len(diameter)<len(x):
-                diams = diameter * np.ones(len(x), np.float32)
+            if not isinstance(diameter, list) or len(diameter)==1 or len(diameter)<nimg:
+                diams = diameter * np.ones(nimg, np.float32)
             else:
                 diams = diameter
-            rescale = self.diam_mean / (diams.copy() * (np.pi**0.5/2))
+            rescale = self.diam_mean / diams.copy() 
         else:
             if rescale is not None and (not isinstance(rescale, list) or len(rescale)==1):
-                rescale = rescale * np.ones(len(x), np.float32)
+                rescale = rescale * np.ones(nimg, np.float32)
             if self.pretrained_size is not None and rescale is None and not do_3D:
-                diams, diams_style = self.sz.eval(x, channels=channels, invert=invert, batch_size=self.batch_size, tile=tile)
+                tic = time.time()
+                diams, _ = self.sz.eval(x, channels=channels, invert=invert, batch_size=self.batch_size, augment=augment, tile=tile)
                 rescale = self.diam_mean / diams.copy()
-                diams /= (np.pi**0.5/2) # convert to circular
-                print('estimated cell diameters for all images')
+                print('estimated cell diameters for %d image(s) in %0.2f sec'%(nimg, time.time()-tic))
             else:
                 if rescale is None:
                     if do_3D:
                         rescale = np.ones(1)
                     else:
-                        rescale = np.ones(len(x), np.float32)
-                diams = self.diam_mean / rescale.copy() / (np.pi**0.5/2)
+                        rescale = np.ones(nimg, np.float32)
+                diams = self.diam_mean / rescale.copy() 
 
-        masks, flows, styles = self.cp.eval(x, invert=invert, rescale=rescale, channels=channels, tile=tile,
-                                            do_3D=do_3D, net_avg=net_avg, progress=progress,
+        tic = time.time()
+        masks, flows, styles = self.cp.eval(x, invert=invert, rescale=rescale, anisotropy=anisotropy, 
+                                            channels=channels, augment=augment, tile=tile, do_3D=do_3D, 
+                                            net_avg=net_avg, progress=progress,
                                             flow_threshold=flow_threshold, cellprob_threshold=cellprob_threshold)
+        print('estimated masks for %d image(s) in %0.2f sec'%(nimg, time.time()-tic))
+        print('>>>> TOTAL TIME %0.2f sec'%(time.time()-tic0))
+        
         if nolist:
             masks, flows, styles, diams = masks[0], flows[0], styles[0], diams[0]
         
@@ -214,7 +227,7 @@ class CellposeModel():
     """
 
     def __init__(self, gpu=False, pretrained_model=False, batch_size=8,
-                    diam_mean=27., net_avg=True, device=None, unet=False):
+                    diam_mean=30., net_avg=True, device=None, unet=False):
         super(CellposeModel, self).__init__()
 
         if device is not None:
@@ -255,10 +268,10 @@ class CellposeModel():
                 if not os.path.isfile(pretrained_model):
                     download_model_weights()
                 self.net.load_parameters(pretrained_model)
-            self.diam_mean = 27.
+            self.diam_mean = 30.
             self.pretrained_model = pretrained_model
 
-    def eval(self, x, channels=None, invert=False, rescale=None, do_3D=False, net_avg=True, 
+    def eval(self, x, channels=None, invert=False, rescale=None, do_3D=False, anisotropy=None, net_avg=True, augment=True,
              tile=True, flow_threshold=0.4, cellprob_threshold=0.0, compute_masks=True, progress=None):
         """
             segment list of images x, or 4D array - Z x nchan x Y x X
@@ -285,11 +298,17 @@ class CellposeModel():
             do_3D: bool (optional, default False)
                 set to True to run 3D segmentation on 4D image input
 
+            anisotropy: float (optional, default None)
+                for 3D segmentation, optional rescaling factor (e.g. set to 2.0 if Z is sampled half as dense as X or Y)
+
             net_avg: bool (optional, default True)
                 runs the 4 built-in networks and averages them if True, runs one network if False
 
+            augment: bool (optional, default True)
+                tiles image with overlapping tiles and flips overlapped regions to augment
+
             tile: bool (optional, default True)
-                tiles image for test time augmentation and to ensure GPU memory usage limited (recommended)
+                tiles image to ensure GPU/CPU memory usage limited (recommended)
 
             flow_threshold: float (optional, default 0.4)
                 flow error threshold (all cells with errors below threshold are kept) (not used for 3D)
@@ -332,8 +351,8 @@ class CellposeModel():
                     x[i] = x[i][...,np.newaxis]
                 if x[i].shape[1]<4:
                     x[i] = np.transpose(x[i], (1,0,2,3))
-                elif x[i].shape[-1]<4:
-                    x[i] = np.transpose(x[i], (3,0,1,2))
+                elif x[i].shape[0]<4:
+                    x[i] = np.transpose(x[i], (1,2,3,0))
                 # put channels first
                 if x[i].shape[0]>2:
                     print('WARNING: more than 2 channels given, use "channels" input for specifying channels - just using first two channels to run processing')
@@ -363,11 +382,11 @@ class CellposeModel():
                 Ly,Lx = img.shape[:2]
                 if img.shape[-1]==1:
                     img = np.concatenate((img, 0.*img), axis=-1)
-                #tic=time.time()
                 if isinstance(self.pretrained_model, str) or not net_avg:
-                    y, style = self._run_net(img, rescale[i], tile)
+                    y, style = self._run_net(img, rsz=rescale[i], augment=augment, tile=tile)
                 else:
-                    y, style = self._run_many(img, rescale[i], tile)
+                    y, style = self._run_many(img, rsz=rescale[i], augment=augment, tile=tile, progress=progress)
+                
                 if progress is not None:
                     progress.setValue(55)
                 styles.append(style)
@@ -392,11 +411,16 @@ class CellposeModel():
                 else:
                     flows.append([None]*3)
                     masks.append([])
+            
         else:
             for i in iterator:
-                sstr = ['XY', 'XZ', 'YZ']
-                if x[i].shape[-1] < 3:
-                    x[i] = np.transpose(x[i], (3,0,1,2))
+                sstr = ['YX', 'ZY', 'ZX']
+                if anisotropy is not None:
+                    rescaling = [[rescale[i], rescale[i]],
+                                 [rescale[i]*anisotropy, rescale[i]],
+                                 [rescale[i]*anisotropy, rescale[i]]]
+                else:
+                    rescaling = [rescale[i]] * 3
                 pm = [(1,2,3,0), (2,1,3,0), (3,1,2,0)]
                 ipm = [(0,1,2,3), (0,2,1,3), (0,2,3,1)]
                 tic=time.time()
@@ -405,15 +429,12 @@ class CellposeModel():
                     xsl = np.transpose(x[i].copy(), pm[p])
                     flowi.append(np.zeros(((3,xsl.shape[0],xsl.shape[1],xsl.shape[2])), np.float32))
                     # per image
-                    ziterator = trange(xsl.shape[0])
-                    print('\n running %s (%d, %d) \n\n'%(sstr[p], xsl.shape[1], xsl.shape[2]))
-                    for z in ziterator:
-                        if isinstance(self.pretrained_model, str) or not net_avg:
-                            y, style = self._run_net(xsl[z], rescale[0], tile=tile)
-                        else:
-                            y, style = self._run_many(xsl[z], rescale[0], tile=tile)
-                        y = np.transpose(y[:,:,[1,0,2]], (2,0,1))
-                        flowi[p][:,z] = y
+                    print('\n running %s: %d planes of size (%d, %d) \n\n'%(sstr[p], xsl.shape[0], xsl.shape[1], xsl.shape[2]))
+                    if isinstance(self.pretrained_model, str) or not net_avg:
+                        y, style = self._run_net(xsl, rescaling[p], augment=augment)
+                    else:
+                        y, style = self._run_many(xsl, rescaling[p], augment=augment, tile=tile)
+                    flowi[p] = np.transpose(y[..., [1,0,2]], (3,0,1,2))
                     flowi[p] = np.transpose(flowi[p], ipm[p])
                     if progress is not None:
                         progress.setValue(25+15*p)
@@ -423,9 +444,11 @@ class CellposeModel():
                 cellprob = flowi[0][-1] + flowi[1][-1] + flowi[2][-1]
                 dP = np.concatenate((dZ[np.newaxis,...], dY[np.newaxis,...], dX[np.newaxis,...]), axis=0)
                 print('flows computed %2.2fs'%(time.time()-tic))
-                yout = dynamics.follow_flows(-1 * dP / 5.)
+                # mask out values using cellprob to increase speed and reduce memory requirements
+                yout = dynamics.follow_flows(-1 * dP * (cellprob > cellprob_threshold) / 5.)
                 print('dynamics computed %2.2fs'%(time.time()-tic))
                 maski = dynamics.get_masks(yout, iscell=(cellprob>cellprob_threshold))
+                maski = dynamics.fill_holes(maski)
                 print('masks computed %2.2fs'%(time.time()-tic))
                 flow = np.array([plot.dx_to_circ(dP[1:,i]) for i in range(dP.shape[1])])
                 flows.append([flow, dP, cellprob, yout])
@@ -433,19 +456,25 @@ class CellposeModel():
                 styles.append([])
         return masks, flows, styles
 
-    def _run_many(self, img, rsz=1.0, tile=True):
-        """ loop over netwroks in pretrained_model and average results
+    def _run_many(self, img, rsz=1.0, augment=True, tile=True, progress=None):
+        """ loop over networks in pretrained_model and average results
 
         Parameters
         --------------
 
-        img: float, [Ly x Lx x nchan]
+        img: float, [Ly x Lx x nchan] or [Lz x Ly x Lx x nchan]
 
         rsz: float (optional, default 1.0)
             resize coefficient for image
 
+        augment: bool (optional, default True)
+            tiles image with overlapping tiles and flips overlapped regions to augment
+
         tile: bool (optional, default True)
-            tiles image for test time augmentation and to ensure GPU memory usage limited (recommended)
+            tiles image to ensure GPU memory usage limited (recommended)
+
+        progress: pyqt progress bar (optional, default None)
+                to return progress bar status to GUI
 
         Returns
         ------------------
@@ -463,15 +492,105 @@ class CellposeModel():
         for j in range(len(self.pretrained_model)):
             self.net.load_parameters(self.pretrained_model[j])
             self.net.collect_params().grad_req = 'null'
-            yup0, style = self._run_net(img, rsz, tile)
+            yup0, style = self._run_net(img, rsz=rsz, augment=augment, tile=tile)
+
             if j==0:
                 yup = yup0
             else:
                 yup += yup0
+            if progress is not None:
+                progress.setValue(10 + 10*j)
         yup = yup / len(self.pretrained_model)
         return yup, style
 
-    def _run_tiled(self, imgi, bsize=224):
+    def _run_net(self, imgs, rsz=1.0, augment=True, tile=True, bsize=224):
+        """ run network on stack of images at the same time
+
+        (faster if augment is False)
+
+        Parameters
+        --------------
+
+        imgs: array [Ly x Lx x nchan] or [Lz x Ly x Lx x nchan]
+
+        rsz: float (optional, default 1.0)
+            resize coefficient(s) for image
+
+        augment: bool (optional, default True)
+            tiles image with overlapping tiles and flips overlapped regions to augment
+
+        tile: bool (optional, default True)
+            tiles image to ensure GPU/CPU memory usage limited (recommended);
+            cannot be turned off for 3D segmentation
+
+        bsize: int (optional, default 224)
+            size of tiles to use in pixels [bsize x bsize]
+
+        Returns
+        ------------------
+
+        y: array [Ly x Lx x 3] or [Lz x Ly x Lx x 3]
+            y[...,0] is Y flow; y[...,1] is X flow; y[...,2] is cell probability
+
+        style: array [64]
+            1D array summarizing the style of the image,
+            if tiled it is averaged over tiles
+
+        """
+        
+        shape = imgs.shape
+        # rescale image for flow computation
+        if not isinstance(rsz, list):
+            rsz = [rsz, rsz]
+        if (np.abs(np.array(rsz) - 1.0) < 0.03).sum() < 2:
+            resize=True
+            Ly = int(imgs.shape[-3] * rsz[0])
+            Lx = int(imgs.shape[-2] * rsz[1])
+            imgs = transforms.resize_image(imgs, Ly, Lx)
+        else:
+            resize=False
+
+        if imgs.ndim==4:  
+            # make image Lz x nchan x Ly x Lx for net
+            imgs = np.transpose(imgs, (0,3,1,2))  
+            detranspose = (0,2,3,1)
+        else:
+            # make image nchan x Ly x Lx for net
+            imgs = np.transpose(imgs, (2,0,1))
+            detranspose = (1,2,0)
+
+        # pad image for net so Ly and Lx are divisible by 4
+        imgs, ysub, xsub = transforms.pad_image_ND(imgs)
+        # slices from padding
+        slc = [slice(0, imgs.shape[n]+1) for n in range(imgs.ndim)]
+        slc[-2] = slice(ysub[0], ysub[-1]+1)
+        slc[-1] = slice(xsub[0], xsub[-1]+1)
+        slc = tuple(slc)
+
+        # run network
+        if tile or augment or imgs.ndim==4:
+            y,style = self._run_tiled(imgs, augment=augment, bsize=bsize)
+        else:
+            imgs = nd.array(np.expand_dims(imgs, axis=0), ctx=self.device)
+            y,style = self.net(imgs)
+            y = y[0].asnumpy()
+            imgs = imgs.asnumpy()
+            style = style.asnumpy()[0]
+        style /= (style**2).sum()**0.5
+
+        # slice out padding
+        y = y[slc]
+
+        # transpose so channels axis is last again
+        y = np.transpose(y, detranspose)
+        
+        # rescale back to original size
+        if resize:
+            y = transforms.resize_image(y, shape[-3], shape[-2])
+        
+        return y, style
+    
+    def _run_tiled(self, imgi, augment=True, bsize=224):
         """ run network in tiles of size [bsize x bsize]
 
         First image is split into overlapping tiles of size [bsize x bsize].
@@ -485,7 +604,10 @@ class CellposeModel():
         Parameters
         --------------
 
-        imgi: array [nchan x Ly x Lx]
+        imgi: array [nchan x Ly x Lx] or [Lz x nchan x Ly x Lx]
+
+        augment: bool (optional, default True)
+            tiles image with overlapping tiles and flips overlapped regions to augment
 
         bsize: int (optional, default 224)
             size of tiles to use in pixels [bsize x bsize]
@@ -493,7 +615,7 @@ class CellposeModel():
         Returns
         ------------------
 
-        yf: array [3 x Ly x Lx]
+        yf: array [3 x Ly x Lx] or [Lz x 3 x Ly x Lx]
             yf is averaged over tiles
             yf[0] is Y flow; yf[1] is X flow; yf[2] is cell probability
 
@@ -501,87 +623,77 @@ class CellposeModel():
             1D array summarizing the style of the image, averaged over tiles
 
         """
-        IMG, ysub, xsub, Ly, Lx = transforms.make_tiles(imgi, bsize, augment=True)
-        nbatch = self.batch_size
-        niter = int(np.ceil(IMG.shape[0]/nbatch))
-        y = np.zeros((IMG.shape[0], 3, bsize, bsize))
-        for k in range(niter):
-            irange = np.arange(nbatch*k, min(IMG.shape[0], nbatch*k+nbatch))
-            img = nd.array(IMG[irange], ctx=self.device)
-            y0, style = self.net(img)
-            y[irange] = y0.asnumpy()
-            if k==0:
-                styles = style.asnumpy()[0]
-            styles += style.asnumpy().sum(axis=0)
-        styles /= IMG.shape[0]
-        y = transforms.unaugment_tiles(y)
-        yf = transforms.average_tiles(y, ysub, xsub, Ly, Lx)
-        yf = yf[:,:imgi.shape[1],:imgi.shape[2]]
-        styles /= (styles**2).sum()**0.5
-        del IMG
-        gc.collect()
-        return yf, styles
 
-    def _run_net(self, img, rsz=1.0, tile=True, bsize=224):
-        """ run network on image
-
-        Parameters
-        --------------
-
-        img: array [Ly x Lx x nchan]
-
-        rsz: float (optional, default 1.0)
-            resize coefficient for image
-
-        tile: bool (optional, default True)
-            tiles image for test time augmentation and to ensure GPU memory usage limited (recommended)
-
-        bsize: int (optional, default 224)
-            size of tiles to use in pixels [bsize x bsize]
-
-        Returns
-        ------------------
-
-        y: array [3 x Ly x Lx]
-            y[0] is Y flow; y[1] is X flow; y[2] is cell probability
-
-        style: array [64]
-            1D array summarizing the style of the image,
-            if tiled it is averaged over tiles
-
-        """
-        shape = img.shape
-        if abs(rsz - 1.0) < 0.03:
-            rsz = 1.0
-            Ly,Lx = img.shape[:2]
+        if imgi.ndim==4:
+            Lz, nchan = imgi.shape[:2]
+            IMG, ysub, xsub, Ly, Lx = transforms.make_tiles(imgi[0], bsize=bsize, augment=augment)
+            ny, nx, nchan = IMG.shape[:3]
+            yf = np.zeros((Lz, 3, imgi.shape[2], imgi.shape[3]), np.float32)
+            styles = []
+            if ny*nx > self.batch_size:
+                ziterator = trange(Lz)
+                for i in ziterator:
+                    yfi, stylei = self._run_tiled(imgi[i], augment=augment, bsize=bsize)
+                    yf[i] = yfi
+                    styles.append(stylei)
+            else:
+                # run multiple slices at the same time
+                ntiles = ny*nx
+                nimgs = max(2, int(np.round(self.batch_size / ntiles)))
+                niter = int(np.ceil(Lz/nimgs))
+                ziterator = trange(niter)
+                for k in ziterator:
+                    IMGa = np.zeros((ntiles*nimgs, nchan, bsize, bsize), np.float32)
+                    for i in range(min(Lz-k*nimgs, nimgs)):
+                        IMG, ysub, xsub, Ly, Lx = transforms.make_tiles(imgi[k*nimgs+i], bsize=bsize, augment=augment)
+                        IMGa[i*ntiles:(i+1)*ntiles] = np.reshape(IMG, (ny*nx, nchan, bsize, bsize))
+                    img = nd.array(IMGa, ctx=self.device)
+                    y0, style = self.net(img)
+                    ya = y0.asnumpy()
+                    stylea = style.asnumpy()
+                    for i in range(min(Lz-k*nimgs, nimgs)):
+                        y = ya[i*ntiles:(i+1)*ntiles]
+                        if augment:
+                            y = np.reshape(y, (ny, nx, 3, bsize, bsize))
+                            y = transforms.unaugment_tiles(y)
+                            y = np.reshape(y, (-1, 3, bsize, bsize))
+                        yfi = transforms.average_tiles(y, ysub, xsub, Ly, Lx)
+                        yfi = yfi[:,:imgi.shape[2],:imgi.shape[3]]
+                        yf[k*nimgs+i] = yfi
+                        stylei = stylea[i*ntiles:(i+1)*ntiles].sum(axis=0)
+                        stylei /= (stylei**2).sum()**0.5
+                        styles.append(stylei)
+                del IMGa 
+                gc.collect()
+            return yf, np.array(styles)
         else:
-            Ly = int(img.shape[0] * rsz)
-            Lx = int(img.shape[1] * rsz)
-            img = cv2.resize(img, (Lx, Ly))
-
-        # make image nchan x Ly x Lx for net
-        if img.ndim<3:
-            img = np.expand_dims(img, axis=-1)
-        img = np.transpose(img, (2,0,1))
-
-        # pad for net so divisible by 4
-        img, ysub, xsub = transforms.pad_image_ND(img)
-        if tile:
-            y,style = self._run_tiled(img, bsize)
-            y = np.transpose(y[:3], (1,2,0))
-        else:
-            img = nd.array(np.expand_dims(img, axis=0), ctx=self.device)
-            y,style = self.net(img)
-            img = img.asnumpy()
-            y = np.transpose(y[0].asnumpy(), (1,2,0))
-            style = style.asnumpy()[0]
-            style = np.ones(10)
-
-        y = y[np.ix_(ysub, xsub, np.arange(3))]
-        style /= (style**2).sum()**0.5
-        if rsz!=1.0:
-            y = cv2.resize(y, (shape[1], shape[0]))
-        return y, style
+            IMG, ysub, xsub, Ly, Lx = transforms.make_tiles(imgi, bsize=bsize, augment=augment)
+            ny, nx, nchan = IMG.shape[:3]
+            IMG = np.reshape(IMG, (ny*nx, nchan, bsize, bsize))
+            nbatch = self.batch_size
+            niter = int(np.ceil(IMG.shape[0]/nbatch))
+            y = np.zeros((IMG.shape[0], 3, bsize, bsize))
+            for k in range(niter):
+                irange = np.arange(nbatch*k, min(IMG.shape[0], nbatch*k+nbatch))
+                img = nd.array(IMG[irange], ctx=self.device)
+                y0, style = self.net(img)
+                y[irange] = y0.asnumpy()
+                if k==0:
+                    styles = style.asnumpy()[0]
+                styles += style.asnumpy().sum(axis=0)
+            
+            styles /= IMG.shape[0]
+            if augment:
+                y = np.reshape(y, (ny, nx, 3, bsize, bsize))
+                y = transforms.unaugment_tiles(y)
+                y = np.reshape(y, (-1, 3, bsize, bsize))
+            yf = transforms.average_tiles(y, ysub, xsub, Ly, Lx)
+            yf = yf[:,:imgi.shape[1],:imgi.shape[2]]
+            styles /= (styles**2).sum()**0.5
+            
+            del IMG
+            gc.collect()
+            return yf, styles
 
     def train(self, train_data, train_labels, test_data=None, test_labels=None, channels=None,
               pretrained_model=None, save_path=None, save_every=100,
@@ -779,7 +891,7 @@ class SizeModel():
             self.params = np.load(self.pretrained_size, allow_pickle=True).item()
             self.diam_mean = self.params['diam_mean']
 
-    def eval(self, x=None, style=None, channels=None, invert=False, tile=True,
+    def eval(self, x=None, style=None, channels=None, invert=False, augment=True, tile=True,
                 batch_size=8, progress=None):
         """ use images x to produce style or use style input to predict size of objects in image
 
@@ -812,10 +924,15 @@ class SizeModel():
         diam_style = np.zeros(nimg, np.float32)
         if progress is not None:
             progress.setValue(10)
+        
         if style is None:
-            for i in trange(nimg):
+            if nimg>1:
+                iterator = trange(nimg)
+            else:
+                iterator = range(nimg)
+            for i in iterator:
                 img = x[i]
-                style = self.cp.eval([img], net_avg=False, tile=tile, compute_masks=False)[-1]
+                style = self.cp.eval([img], net_avg=False, augment=augment, tile=tile, compute_masks=False)[-1]
                 if progress is not None:
                     progress.setValue(30)
                 diam_style[i] = self._size_estimation(style)
@@ -826,7 +943,7 @@ class SizeModel():
                 diam_style[i] = self._size_estimation(style[i])
         diam_style[diam_style==0] = self.diam_mean
         diam_style[np.isnan(diam_style)] = self.diam_mean
-        masks = self.cp.eval(x, rescale=self.diam_mean/diam_style, net_avg=False, tile=tile)[0]
+        masks = self.cp.eval(x, rescale=self.diam_mean/diam_style, net_avg=False, augment=augment, tile=tile)[0]
         diam = np.array([utils.diameters(masks[i])[0] for i in range(nimg)])
         diam[diam==0] = self.diam_mean
         diam[np.isnan(diam)] = self.diam_mean
@@ -835,10 +952,15 @@ class SizeModel():
         return diam, diam_style
 
     def _size_estimation(self, style):
-        """ linear regression from style to size """
+        """ linear regression from style to size 
+        
+            sizes were estimated using "diameters" from square estimates not circles; 
+            therefore a conversion factor is included (to be removed)
+        
+        """
         szest = np.exp(self.params['A'] @ (style - self.params['smean']).T +
-                        np.log(self.diam_mean) + self.params['ymean'])
-        szest = np.maximum(5., szest)
+                        np.log(self.diam_mean * (np.pi**0.5)/2) + self.params['ymean'])
+        szest = np.maximum(5., szest / ((np.pi**0.5)/2))
         return szest
 
 urls = ['http://www.cellpose.org/models/cyto_0',
