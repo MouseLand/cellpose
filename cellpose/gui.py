@@ -1205,7 +1205,7 @@ class MainW(QtGui.QMainWindow):
         if 1:
             tic=time.time()
             self.clear_all()
-            self.flows = [[],[],[],[],[]]
+            self.flows = [[],[],[]]
             self.initialize_model()
 
             print('using model %s'%self.current_model)
