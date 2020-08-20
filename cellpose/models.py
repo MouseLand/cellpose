@@ -274,7 +274,7 @@ class CellposeModel():
     def eval(self, x, channels=None, invert=False, rescale=None, do_3D=False, anisotropy=None, net_avg=True, augment=True,
              tile=True, flow_threshold=0.4, cellprob_threshold=0.0, compute_masks=True, progress=None):
         """
-            segment list of images x, or 4D array - Z x nchan x Y x X
+            segment list of images x, or 4D array - Z x x Y x X x nchan
 
             Parameters
             ----------
