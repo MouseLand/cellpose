@@ -1,4 +1,4 @@
-import os, sys, time, shutil, tempfile, datetime, pathlib, gc
+import os, sys, time, shutil, tempfile, datetime, pathlib
 import numpy as np
 from tqdm import trange, tqdm
 from urllib.parse import urlparse
@@ -536,8 +536,7 @@ class CellposeModel():
             1D array summarizing the style of the image,
             if tiled it is averaged over tiles
 
-        """
-        
+        """   
         shape = imgs.shape
         # rescale image for flow computation
         if not isinstance(rsz, list):
@@ -663,8 +662,6 @@ class CellposeModel():
                         stylei = stylea[i*ntiles:(i+1)*ntiles].sum(axis=0)
                         stylei /= (stylei**2).sum()**0.5
                         styles.append(stylei)
-                del IMGa 
-                gc.collect()
             return yf, np.array(styles)
         else:
             IMG, ysub, xsub, Ly, Lx = transforms.make_tiles(imgi, bsize=bsize, augment=augment)
@@ -690,9 +687,6 @@ class CellposeModel():
             yf = transforms.average_tiles(y, ysub, xsub, Ly, Lx)
             yf = yf[:,:imgi.shape[1],:imgi.shape[2]]
             styles /= (styles**2).sum()**0.5
-            
-            del IMG
-            gc.collect()
             return yf, styles
 
     def train(self, train_data, train_labels, test_data=None, test_labels=None, channels=None,
