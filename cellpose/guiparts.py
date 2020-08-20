@@ -74,7 +74,7 @@ class HelpWindow(QtGui.QDialog):
             <p class="has-line-data" data-line-start="5" data-line-end="6">Main GUI mouse controls:</p>
             <ul>
             <li class="has-line-data" data-line-start="7" data-line-end="8">Pan  = left-click  + drag</li>
-            <li class="has-line-data" data-line-start="8" data-line-end="9">Zoom = scroll wheel</li>
+            <li class="has-line-data" data-line-start="8" data-line-end="9">Zoom = scroll wheel (or +/= and - buttons) </li>
             <li class="has-line-data" data-line-start="9" data-line-end="10">Full view = double left-click</li>
             <li class="has-line-data" data-line-start="10" data-line-end="11">Select mask = left-click on mask</li>
             <li class="has-line-data" data-line-start="11" data-line-end="12">Delete mask = Ctrl (or COMMAND on Mac) + left-click</li>
@@ -92,6 +92,10 @@ class HelpWindow(QtGui.QDialog):
             </tr>
             </thead>
             <tbody>
+            <tr>
+            <td>=/+  button // - button</td>
+            <td>zoom in // zoom out</td>
+            </tr>
             <tr>
             <td>CTRL+Z</td>
             <td>undo previously drawn mask/stroke</td>
@@ -217,7 +221,24 @@ class ViewBoxNoRightDrag(pg.ViewBox):
         pg.ViewBox.__init__(self, None, border, lockAspect, enableMouse,
                             invertY, enableMenu, name, invertX)
         self.parent = parent
+        self.axHistoryPointer = -1
 
+    def keyPressEvent(self, ev):
+        """
+        This routine should capture key presses in the current view box.
+        The following events are implemented:
+        +/= : moves forward in the zooming stack (if it exists)
+        - : moves backward in the zooming stack (if it exists)
+
+        """
+        ev.accept()
+        if ev.text() == '-':
+            self.scaleBy([1.1, 1.1])
+        elif ev.text() in ['+', '=']:
+            self.scaleBy([0.9, 0.9])
+        else:
+            ev.ignore()
+    
     def mouseDragEvent(self, ev, axis=None):
         ## if axis is specified, event will only affect that axis.
         if self.parent is None or (self.parent is not None and not self.parent.in_stroke):

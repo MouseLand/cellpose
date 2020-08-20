@@ -625,6 +625,8 @@ class MainW(QtGui.QMainWindow):
                         self.undo_action()
                     if event.key() == QtCore.Qt.Key_0:
                         self.clear_all()
+        if event.key() == QtCore.Qt.Key_Minus or event.key() == QtCore.Qt.Key_Equal:
+            self.p0.keyPressEvent(event)
 
     def check_gpu(self):
         if utils.use_gpu():

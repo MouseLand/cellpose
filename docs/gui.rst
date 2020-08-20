@@ -26,7 +26,7 @@ The GUI serves two main functions:
 Main GUI mouse controls (works in all views):
 
 -  Pan = left-click + drag
--  Zoom = scroll wheel
+-  Zoom = scroll wheel (or +/= and - buttons)
 -  Full view = double left-click
 -  Select mask = left-click on mask
 -  Delete mask = Ctrl (or Command on Mac) + left-click
@@ -52,6 +52,8 @@ have to as densely label.
 | Keyboard shortcuts  | Description                                   |
 +=====================+===============================================+
 | CTRL+H              | help                                          |
++---------------------+-----------------------------------------------+            
+| =/+  // -           | zoom in // zoom out                           |
 +---------------------+-----------------------------------------------+
 | CTRL+Z              | undo previously drawn mask/stroke             |
 +---------------------+-----------------------------------------------+
