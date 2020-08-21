@@ -227,7 +227,8 @@ class CellposeModel():
     """
 
     def __init__(self, gpu=False, pretrained_model=False, batch_size=8,
-                    diam_mean=30., net_avg=True, device=None, unet=False):
+                    diam_mean=30., net_avg=True, device=None, unet=False,
+                    residual_on=True):
         super(CellposeModel, self).__init__()
 
         if device is not None:
@@ -250,7 +251,7 @@ class CellposeModel():
         self.diam_mean = diam_mean
 
         nbase = [32,64,128,256]
-        self.net = resnet_style.CPnet(nbase, nout=nout)
+        self.net = resnet_style.CPnet(nbase, nout=nout, residual_on=residual_on)
         self.net.hybridize(static_alloc=True, static_shape=True)
         self.net.initialize(ctx = self.device)#, grad_req='null')
 

@@ -115,6 +115,8 @@ def main():
                         default=500, type=int, help='number of epochs')
     parser.add_argument('--batch_size', required=False, 
                         default=8, type=int, help='batch size')
+    parser.add_argument('--residual_on', required=False, 
+                        default=1, type=int, help='use residual connections')
 
 
     args = parser.parse_args()
@@ -260,6 +262,7 @@ def main():
                 rescale = True
                 args.diameter = szmean 
                 print('>>>> training starting with pretrained_model %s'%cpmodel_path)
+                args.residual_on = 1
             if rescale:
                 print('>>>> rescaling diameter for each training image to %0.1f'%args.diameter)
                 
@@ -280,7 +283,8 @@ def main():
             model = models.CellposeModel(device=device,
                                          pretrained_model=cpmodel_path, 
                                          diam_mean=szmean,
-                                         batch_size=args.batch_size)
+                                         batch_size=args.batch_size,
+                                         residual_on=args.residual_on)
             n_epochs=args.n_epochs
             model.train(images, labels, train_files=image_names, 
                         test_data=test_images, test_labels=test_labels, test_files=image_names_test,
