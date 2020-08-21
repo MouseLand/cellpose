@@ -689,8 +689,9 @@ class CellposeModel():
             styles /= (styles**2).sum()**0.5
             return yf, styles
 
-    def train(self, train_data, train_labels, test_data=None, test_labels=None, channels=None,
-              pretrained_model=None, save_path=None, save_every=100,
+    def train(self, train_data, train_labels, train_files=None, 
+              test_data=None, test_labels=None, test_files=None,
+              channels=None, pretrained_model=None, save_path=None, save_every=100,
               learning_rate=0.2, n_epochs=500, weight_decay=0.00001, batch_size=8, rescale=True):
 
         d = datetime.datetime.now()
@@ -728,18 +729,22 @@ class CellposeModel():
 
         # check if train_labels have flows
         if not self.unet:
-            train_flows = dynamics.labels_to_flows(train_labels)
+            train_flows = dynamics.labels_to_flows(train_labels, files=train_files)
             if run_test:
-                test_flows = dynamics.labels_to_flows(test_labels)
+                test_flows = dynamics.labels_to_flows(test_labels, files=test_files)
         else:
             train_flows = list(map(np.uint16, train_labels))
             test_flows = list(map(np.uint16, test_labels))
 
         # compute average cell diameter
         if rescale:
+            if train_labels[0].ndim>2:
+                train_labels = [train_labels[k][0] for k in range(len(train_labels))]
             diam_train = np.array([utils.diameters(train_labels[k])[0] for k in range(len(train_labels))])
             diam_train[diam_train<5] = 5.
             if run_test:
+                if test_labels[0].ndim>2:
+                    test_labels = [test_labels[k][0] for k in range(len(test_labels))]
                 diam_test = np.array([utils.diameters(test_labels[k])[0] for k in range(len(test_labels))])
                 diam_test[diam_test<5] = 5.
             scale_range = 0.5

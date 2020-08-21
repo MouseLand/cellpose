@@ -1,8 +1,9 @@
+import time, os
 from scipy.ndimage.filters import maximum_filter1d
 import scipy.ndimage
 import numpy as np
+import tifffile
 from tqdm import trange
-import time
 import mxnet as mx
 import mxnet.ndarray as nd
 from numba import njit, float32, int32, vectorize
@@ -52,8 +53,10 @@ def _extend_centers(T,y,x,ymed,xmed,Lx, niter):
                                             T[(y+1)*Lx + x-1] + T[(y+1)*Lx + x+1])
     return T
 
-def labels_to_flows(labels):
+def labels_to_flows(labels, files=None):
     """ convert labels (list of masks or flows) to flows for training model 
+
+    if files is not None, flows are saved to files to be reused
 
     Parameters
     --------------
@@ -81,6 +84,10 @@ def labels_to_flows(labels):
         # concatenate flows with cell probability
         flows = [np.concatenate((labels[n][[0]]>0.5, veci[n]), axis=0).astype(np.float32)
                     for n in range(nimg)]
+        if files is not None:
+            for flow, file in zip(flows, files):
+                file_name = os.path.splitext(file)[0]
+                tifffile.imsave(file_name+'_flows.tif', flow)
     else:
         print('flows precomputed')
         if labels[0].shape[0] > 3:
