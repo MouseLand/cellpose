@@ -20,7 +20,7 @@ except Exception as err:
     raise
 
 def get_image_files(folder, mask_filter, imf=None):
-    mask_filters = ['_cp_masks', '_cp_output', mask_filter]
+    mask_filters = ['_cp_masks', '_cp_output', '_flows', mask_filter]
     image_names = []
     if imf is None:
         imf = ''
@@ -35,6 +35,7 @@ def get_image_files(folder, mask_filter, imf=None):
         imfile = os.path.splitext(im)[0]
         igood = all([(len(imfile) > len(mask_filter) and imfile[-len(mask_filter):] != mask_filter) or len(imfile) < len(mask_filter) 
                         for mask_filter in mask_filters])
+        igood &= imfile[-len(imf):]==imf
         if igood:
             imn.append(im)
     image_names = imn
@@ -43,16 +44,31 @@ def get_image_files(folder, mask_filter, imf=None):
         
 def get_label_files(image_names, mask_filter, imf=None):
     nimg = len(image_names)
-    label_names = [os.path.splitext(image_names[n])[0] for n in range(nimg)]
+    label_names0 = [os.path.splitext(image_names[n])[0] for n in range(nimg)]
     if imf is not None and len(imf) > 0:
-        label_names = [label_names[n][:-len(imf)] for n in range(nimg)]
+        label_names = [label_names0[n][:-len(imf)] for n in range(nimg)]
+    else:
+        label_names = label_names0
+        
+    # check for flows
+    if os.path.exists(label_names0[0] + '_flows.tif'):
+        flow_names = [label_names0[n] + '_flows.tif' for n in range(nimg)]
+    else:
+        flow_names = [label_names[n] + '_flows.tif' for n in range(nimg)]
+    if not all([os.path.exists(flow) for flow in flow_names]):
+        flow_names = None
+    
+    # check for masks
     if os.path.exists(label_names[0] + mask_filter + '.tif'):
         label_names = [label_names[n] + mask_filter + '.tif' for n in range(nimg)]
     elif os.path.exists(label_names[0] + mask_filter + '.png'):
         label_names = [label_names[n] + mask_filter + '.png' for n in range(nimg)]
     else:
         raise ValueError('labels not provided with correct --mask_filter')
-    return label_names
+    if not all([os.path.exists(label) for label in label_names]):
+        raise ValueError('labels not provided for all images in train and/or test set')
+
+    return label_names, flow_names
 
 
 def main():
@@ -99,6 +115,8 @@ def main():
                         default=500, type=int, help='number of epochs')
     parser.add_argument('--batch_size', required=False, 
                         default=8, type=int, help='batch size')
+    parser.add_argument('--residual_on', required=False, 
+                        default=1, type=int, help='use residual connections')
 
 
     args = parser.parse_args()
@@ -225,9 +243,12 @@ def main():
             if args.all_channels:
                 channels = None  
 
-            label_names = get_label_files(image_names, args.mask_filter, imf=imf)
+            label_names, flow_names = get_label_files(image_names, args.mask_filter, imf=imf)
             nimg = len(image_names)
             labels = [io.imread(label_names[n]) for n in range(nimg)]
+            if flow_names is not None:
+                labels = [np.concatenate((labels[n][np.newaxis,:,:], io.imread(flow_names[n])), axis=0) 
+                          for n in range(nimg)]
             if not os.path.exists(cpmodel_path):
                 cpmodel_path = False
                 print('>>>> training from scratch')
@@ -241,26 +262,34 @@ def main():
                 rescale = True
                 args.diameter = szmean 
                 print('>>>> training starting with pretrained_model %s'%cpmodel_path)
+                args.residual_on = 1
             if rescale:
                 print('>>>> rescaling diameter for each training image to %0.1f'%args.diameter)
                 
             
 
-            test_images, test_labels = None, None
+            test_images, test_labels, image_names_test = None, None, None
             if len(args.test_dir) > 0:
                 image_names_test = get_image_files(args.test_dir, args.mask_filter, imf=imf)
-                label_names_test = get_label_files(image_names_test, args.mask_filter, imf=imf)
+                label_names_test, flow_names_test = get_label_files(image_names_test, args.mask_filter, imf=imf)
                 nimg = len(image_names_test)
                 test_images = [io.imread(image_names_test[n]) for n in range(nimg)]
                 test_labels = [io.imread(label_names_test[n]) for n in range(nimg)]
+                if flow_names_test is not None:
+                    test_labels = [np.concatenate((test_labels[n][np.newaxis,:,:], io.imread(flow_names_test[n])), axis=0) 
+                                   for n in range(nimg)]
+                
             #print('>>>> %s model'%(['cellpose', 'unet'][args.unet]))    
             model = models.CellposeModel(device=device,
                                          pretrained_model=cpmodel_path, 
                                          diam_mean=szmean,
-                                         batch_size=args.batch_size)
+                                         batch_size=args.batch_size,
+                                         residual_on=args.residual_on)
             n_epochs=args.n_epochs
-            model.train(images, labels, test_images, test_labels, learning_rate=args.learning_rate,
-                        channels=channels, save_path=os.path.realpath(args.dir), rescale=rescale, n_epochs=n_epochs)
+            model.train(images, labels, train_files=image_names, 
+                        test_data=test_images, test_labels=test_labels, test_files=image_names_test,
+                        learning_rate=args.learning_rate, channels=channels, 
+                        save_path=os.path.realpath(args.dir), rescale=rescale, n_epochs=n_epochs)
 
 if __name__ == '__main__':
     main()
