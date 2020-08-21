@@ -1,4 +1,4 @@
-name: cp
+name: cellpose
 dependencies:
   - python>3.4
   - pip
