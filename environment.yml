@@ -1,6 +1,6 @@
 name: cellpose
 dependencies:
-  - python>3.4
+  - python>3.4,<3.8
   - pip
   - numpy
   - numba>=0.43.1
