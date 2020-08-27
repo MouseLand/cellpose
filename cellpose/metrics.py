@@ -3,6 +3,58 @@ from . import utils, dynamics
 from numba import jit
 from scipy.optimize import linear_sum_assignment
 
+
+def average_precision(masks_true, masks_pred, threshold=[0.5, 0.75, 0.9]):
+    """ average precision estimation: AP = TP / (TP + FP + FN)
+
+    This function is based heavily on the *fast* stardist matching functions
+    (https://github.com/mpicbg-csbd/stardist/blob/master/stardist/matching.py)
+
+    Parameters
+    ------------
+    
+    masks_true: list of ND-arrays (int) or ND-array (int) 
+        where 0=NO masks; 1,2... are mask labels
+    masks_pred: list of ND-arrays (int) or ND-array (int) 
+        ND-array (int) where 0=NO masks; 1,2... are mask labels
+
+    Returns
+    ------------
+
+    ap: array [len(masks_true) x len(threshold)]
+        average precision at thresholds
+    tp: array [len(masks_true) x len(threshold)]
+        number of true positives at thresholds
+    fp: array [len(masks_true) x len(threshold)]
+        number of false positives at thresholds
+    fn: array [len(masks_true) x len(threshold)]
+        number of false negatives at thresholds
+
+    """
+    not_list = False
+    if not isinstance(masks_true, list):
+        masks_true = [masks_true]
+        masks_pred = [masks_pred]
+        not_list = True
+    if not isinstance(threshold, list) and not isinstance(threshold, np.ndarray):
+        threshold = [threshold]
+    ap  = np.zeros((len(masks_true), len(threshold)), np.float32)
+    tp  = np.zeros((len(masks_true), len(threshold)), np.float32)
+    fp  = np.zeros((len(masks_true), len(threshold)), np.float32)
+    fn  = np.zeros((len(masks_true), len(threshold)), np.float32)
+    n_true = np.array(list(map(np.max, masks_true)))
+    n_pred = np.array(list(map(np.max, masks_pred)))
+    for n in range(len(masks_true)):
+        iou = _intersection_over_union(masks_true[n], masks_pred[n])[1:, 1:]
+        for k,th in enumerate(threshold):
+            tp[n,k] = _true_positive(iou, th)
+        fp[n] = n_pred[n] - tp[n]
+        fn[n] = n_true[n] - tp[n]
+        ap[n] = tp[n] / (tp[n] + fp[n] + fn[n])
+    if not_list:
+        ap, tp, fp, fn = ap[0], tp[0], fp[0], fn[0]
+    return ap, tp, fp, fn
+
 @jit(nopython=True)
 def _label_overlap(x, y):
     """ fast function to get pixel overlaps between masks in x and y 
@@ -77,57 +129,6 @@ def _true_positive(iou, th):
     match_ok = iou[true_ind, pred_ind] >= th
     tp = match_ok.sum()
     return tp
-
-def average_precision(masks_true, masks_pred, threshold=[0.5, 0.75, 0.9]):
-    """ average precision estimation: AP = TP / (TP + FP + FN)
-
-    This function is based heavily on the *fast* stardist matching functions
-    (https://github.com/mpicbg-csbd/stardist/blob/master/stardist/matching.py)
-
-    Parameters
-    ------------
-    
-    masks_true: list of ND-arrays (int) or ND-array (int) 
-        where 0=NO masks; 1,2... are mask labels
-    masks_pred: list of ND-arrays (int) or ND-array (int) 
-        ND-array (int) where 0=NO masks; 1,2... are mask labels
-
-    Returns
-    ------------
-
-    ap: array [len(masks_true) x len(threshold)]
-        average precision at thresholds
-    tp: array [len(masks_true) x len(threshold)]
-        number of true positives at thresholds
-    fp: array [len(masks_true) x len(threshold)]
-        number of false positives at thresholds
-    fn: array [len(masks_true) x len(threshold)]
-        number of false negatives at thresholds
-
-    """
-    not_list = False
-    if not isinstance(masks_true, list):
-        masks_true = [masks_true]
-        masks_pred = [masks_pred]
-        not_list = True
-    if not isinstance(threshold, list) and not isinstance(threshold, np.ndarray):
-        threshold = [threshold]
-    ap  = np.zeros((len(masks_true), len(threshold)), np.float32)
-    tp  = np.zeros((len(masks_true), len(threshold)), np.float32)
-    fp  = np.zeros((len(masks_true), len(threshold)), np.float32)
-    fn  = np.zeros((len(masks_true), len(threshold)), np.float32)
-    n_true = np.array(list(map(np.max, masks_true)))
-    n_pred = np.array(list(map(np.max, masks_pred)))
-    for n in range(len(masks_true)):
-        iou = _intersection_over_union(masks_true[n], masks_pred[n])[1:, 1:]
-        for k,th in enumerate(threshold):
-            tp[n,k] = _true_positive(iou, th)
-        fp[n] = n_pred[n] - tp[n]
-        fn[n] = n_true[n] - tp[n]
-        ap[n] = tp[n] / (tp[n] + fp[n] + fn[n])
-    if not_list:
-        ap, tp, fp, fn = ap[0], tp[0], fp[0], fn[0]
-    return ap, tp, fp, fn
 
 def flow_error(maski, dP_net):
     """ error in flows from predicted masks vs flows predicted by network run on image

@@ -97,7 +97,10 @@ class batchconvstyle(nn.HybridBlock):
         super(batchconvstyle, self).__init__(**kwargs)
         with self.name_scope():
             self.conv = batchconv(nconv, 3)
-            self.full = nn.Dense(nconv)
+            if concatenation:
+                self.full = nn.Dense(nconv*2)
+            else:
+                self.full = nn.Dense(nconv)
             self.concatenation = concatenation
 
     def hybrid_forward(self, F, style, x, y=None):
@@ -116,11 +119,11 @@ class convup(nn.HybridBlock):
         super(convup, self).__init__(**kwargs)
         with self.name_scope():
             self.conv = nn.HybridSequential()
-            for t in range(2):
-                self.conv.add(batchconvstyle(nconv, concatenation))
+            self.conv.add(batchconv(nconv, 3))
+            self.conv.add(batchconvstyle(nconv, concatenation))
             
     def hybrid_forward(self, F, x, y, style):
-        x = self.conv[0](style, x)
+        x = self.conv[0](x)
         x = self.conv[1](style, x, y)
         return x
 
@@ -131,8 +134,9 @@ class resup(nn.HybridBlock):
         with self.name_scope():
             self.conv = nn.HybridSequential()
             self.conv.add(batchconv(nconv,3))
-            for n in range(3):
-                self.conv.add(batchconvstyle(nconv, concatenation))
+            self.conv.add(batchconvstyle(nconv, concatenation))
+            self.conv.add(batchconvstyle(nconv))
+            self.conv.add(batchconvstyle(nconv))
             self.proj  = batchconv0(nconv, 1)
 
     def hybrid_forward(self, F, x, y, style):
@@ -188,7 +192,7 @@ class CPnet(gluon.HybridBlock):
         T0    = self.downsample(data)
         style = self.make_style(T0[-1])
         if not self.style_on:
-            style *= 0 
+            style = style * 0 
         T0    = self.upsample(style, T0)
         T0    = self.output(T0)
 

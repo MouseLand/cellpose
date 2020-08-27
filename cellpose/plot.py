@@ -62,7 +62,7 @@ def show_segmentation(fig, img, maski, flowi, channels=[0,0], file_name=None):
     ax.set_title('original image')
     ax.axis('off')
 
-    outlines = masks_to_outlines(maski)
+    outlines = utils.masks_to_outlines(maski)
     overlay = mask_overlay(img0, maski)
 
     ax = fig.add_subplot(1,4,2)
@@ -197,55 +197,3 @@ def dx_to_circ(dP):
     HSV = np.clip(HSV, 0.0, 1.0)
     flow = (hsv_to_rgb(HSV)*255).astype(np.uint8)
     return flow
-
-def masks_to_outlines(masks):
-    """ get outlines of masks as a 0-1 array 
-    
-    Parameters
-    ----------------
-
-    masks: int, 2D or 3D array 
-        size [Ly x Lx] or [Lz x Ly x Lx], 0=NO masks; 1,2,...=mask labels
-
-    Returns
-    ----------------
-
-    outlines: 2D or 3D array 
-        size [Ly x Lx] or [Lz x Ly x Lx], True pixels are outlines
-
-    """
-    if masks.ndim > 3 or masks.ndim < 2:
-        raise ValueError('masks_to_outlines takes 2D or 3D array, not %dD array'%masks.ndim)
-    outlines = np.zeros(masks.shape, np.bool)
-    
-    if masks.ndim==3:
-        for i in range(masks.shape[0]):
-            outlines[i] = masks_to_outlines(masks[i])
-        return outlines
-    else:
-        slices = scipy.ndimage.find_objects(masks)
-        for i,si in enumerate(slices):
-            if si is not None:
-                sr,sc = si
-                mask = (masks[sr, sc] == (i+1)).astype(np.uint8)
-                contours = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
-                pvc, pvr = np.concatenate(contours[0], axis=0).squeeze().T            
-                vr, vc = pvr + sr.start, pvc + sc.start 
-                outlines[vr, vc] = 1
-        return outlines
-
-def outlines_list(masks):
-    """ get outlines of masks as a list to loop over for plotting """
-    outpix=[]
-    for n in np.unique(masks)[1:]:
-        mn = masks==n
-        if mn.sum() > 0:
-            contours = cv2.findContours(mn.astype(np.uint8), mode=cv2.RETR_EXTERNAL, method=cv2.CHAIN_APPROX_NONE)
-            contours = contours[0]
-            cmax = np.argmax([c.shape[0] for c in contours])
-            pix = contours[cmax].astype(int).squeeze()
-            if len(pix)>4:
-                outpix.append(pix)
-            else:
-                outpix.append(np.zeros((0,2)))
-    return outpix

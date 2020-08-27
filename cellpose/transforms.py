@@ -1,5 +1,6 @@
 #from suite2p import nonrigid
 import numpy as np
+import warnings
 import cv2
 
 def _taper_mask(bsize=224, sig=7.5):
@@ -9,14 +10,17 @@ def _taper_mask(bsize=224, sig=7.5):
     mask = mask * mask[:, np.newaxis]
     return mask
 
-def unaugment_tiles(y):
+def unaugment_tiles(y, unet=False):
     """ reverse test-time augmentations for averaging
 
     Parameters
     ----------
 
     y: float32
-        array that's ntiles_y x ntiles_x x chan x Ly x Lx where chan = (dY, dX, cell prob);
+        array that's ntiles_y x ntiles_x x chan x Ly x Lx where chan = (dY, dX, cell prob)
+
+    unet: bool (optional, False)
+        whether or not unet output or cellpose output
     
     Returns
     -------
@@ -28,14 +32,17 @@ def unaugment_tiles(y):
         for i in range(y.shape[1]):
             if j%2==0 and i%2==1:
                 y[j,i] = y[j,i, :,::-1, :]
-                y[j,i,0] *= -1
+                if not unet:
+                    y[j,i,0] *= -1
             elif j%2==1 and i%2==0:
                 y[j,i] = y[j,i, :,:, ::-1]
-                y[j,i,1] *= -1
+                if not unet:
+                    y[j,i,1] *= -1
             elif j%2==1 and i%2==1:
                 y[j,i] = y[j,i, :,::-1, ::-1]
-                y[j,i,0] *= -1
-                y[j,i,1] *= -1
+                if not unet:
+                    y[j,i,0] *= -1
+                    y[j,i,1] *= -1
     return y
 
 def average_tiles(y, ysub, xsub, Ly, Lx):
@@ -44,7 +51,7 @@ def average_tiles(y, ysub, xsub, Ly, Lx):
     Parameters
     -------------
 
-    y: float, [ntiles x 3 x bsize x bsize]
+    y: float, [ntiles x nclasses x bsize x bsize]
         output of cellpose network for each tile
 
     ysub : list
@@ -64,12 +71,12 @@ def average_tiles(y, ysub, xsub, Ly, Lx):
     Returns
     -------------
 
-    yf: float32, [3 x Ly x Lx]
+    yf: float32, [nclasses x Ly x Lx]
         network output averaged over tiles
 
     """
     Navg = np.zeros((Ly,Lx))
-    yf = np.zeros((3, Ly, Lx), np.float32)
+    yf = np.zeros((y.shape[1], Ly, Lx), np.float32)
     # taper edges of tiles
     mask = _taper_mask(bsize=y.shape[-1])
     for j in range(len(ysub)):
@@ -223,9 +230,9 @@ def reshape(data, channels=[0,0], invert=False):
                     data[...,i] = normalize99(data[...,i])
                 else:
                     if i==0:
-                        print("WARNING: 'chan to seg' has value range of ZERO")
-                    #else:
-                    #    print("WARNING: 'chan2 (opt)' has value range of ZERO, can instead set chan2 to 0")
+                        warnings.warn("chan to seg' has value range of ZERO")
+                    else:
+                        warnings.warn("'chan2 (opt)' has value range of ZERO, can instead set chan2 to 0")
             
     if data.ndim==4:
         data = np.transpose(data, (3,0,1,2))
@@ -400,7 +407,8 @@ def pad_image_ND(img0, div=16, extra = 1):
     xsub = np.arange(ypad1, ypad1+Lx)
     return I, ysub, xsub
 
-def random_rotate_and_resize(X, Y=None, scale_range=1., xy = (224,224), do_flip=True, rescale=None):
+def random_rotate_and_resize(X, Y=None, scale_range=1., xy = (224,224), 
+                             do_flip=True, rescale=None, unet=False):
     """ augmentation by random rotation and resizing
 
         X and Y are lists or arrays of length nimg, with dims channels x Ly x Lx (channels optional)
@@ -413,7 +421,8 @@ def random_rotate_and_resize(X, Y=None, scale_range=1., xy = (224,224), do_flip=
         Y: LIST of ND-arrays, float (optional, default None)
             list of image labels of size [nlabels x Ly x Lx] or [Ly x Lx]. The 1st channel
             of Y is always nearest-neighbor interpolated (assumed to be masks or 0-1 representation).
-            If Y.shape[0]==3, then the labels are assumed to be [cell probability, Y flow, X flow].
+            If Y.shape[0]==3 and not unet, then the labels are assumed to be [cell probability, Y flow, X flow]. 
+            If unet, second channel is dist_to_bound.
 
         scale_range: float (optional, default 1.0)
             Range of resizing of images for augmentation. Images are resized by
@@ -422,11 +431,13 @@ def random_rotate_and_resize(X, Y=None, scale_range=1., xy = (224,224), do_flip=
         xy: tuple, int (optional, default (224,224))
             size of transformed images to return
 
-        do_flip: bool
+        do_flip: bool (optional, default True)
             whether or not to flip images horizontally
 
         rescale: array, float (optional, default None)
             how much to resize images by before performing augmentations
+
+        unet: bool (optional, default False)
 
         Returns
         -------
@@ -488,7 +499,7 @@ def random_rotate_and_resize(X, Y=None, scale_range=1., xy = (224,224), do_flip=
             img = img[..., ::-1]
             if Y is not None:
                 labels = labels[..., ::-1]
-                if nt > 1:
+                if nt > 1 and not unet:
                     labels[2] = -labels[2]
 
         for k in range(nchan):
@@ -502,7 +513,7 @@ def random_rotate_and_resize(X, Y=None, scale_range=1., xy = (224,224), do_flip=
                 else:
                     lbl[n,k] = cv2.warpAffine(labels[k], M, (xy[1],xy[0]), flags=cv2.INTER_LINEAR)
 
-            if nt>1:
+            if nt > 1 and not unet:
                 v1 = lbl[n,2].copy()
                 v2 = lbl[n,1].copy()
                 lbl[n,1] = (-v1 * np.sin(-theta) + v2*np.cos(-theta))

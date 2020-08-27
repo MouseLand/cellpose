@@ -45,6 +45,7 @@ def get_image_files(folder, mask_filter, imf=None):
 def get_label_files(image_names, mask_filter, imf=None):
     nimg = len(image_names)
     label_names0 = [os.path.splitext(image_names[n])[0] for n in range(nimg)]
+
     if imf is not None and len(imf) > 0:
         label_names = [label_names0[n][:-len(imf)] for n in range(nimg)]
     else:
@@ -86,8 +87,10 @@ def main():
     # settings for running cellpose
     parser.add_argument('--pretrained_model', required=False, 
                         default='cyto', type=str, help='model to use')
-    #parser.add_argument('--unet', required=False, 
-    #                    default=0, type=int, help='run standard unet instead of cellpose flow output')
+    parser.add_argument('--unet', required=False, 
+                        default=0, type=int, help='run standard unet instead of cellpose flow output')
+    parser.add_argument('--nclasses', required=False, 
+                        default=3, type=int, help='if running unet, choose 2 or 3, otherwise not used')
     parser.add_argument('--chan', required=False, 
                         default=0, type=int, help='channel to segment; 0: GRAY, 1: RED, 2: GREEN, 3: BLUE')
     parser.add_argument('--chan2', required=False, 
@@ -117,6 +120,10 @@ def main():
                         default=8, type=int, help='batch size')
     parser.add_argument('--residual_on', required=False, 
                         default=1, type=int, help='use residual connections')
+    parser.add_argument('--style_on', required=False, 
+                        default=1, type=int, help='use style vector')
+    parser.add_argument('--concatenation', required=False, 
+                        default=0, type=int, help='concatenate downsampled layers with upsampled layers (off by default which means they are added)')
 
 
     args = parser.parse_args()
@@ -263,6 +270,8 @@ def main():
                 args.diameter = szmean 
                 print('>>>> training starting with pretrained_model %s'%cpmodel_path)
                 args.residual_on = 1
+                args.style_on = 1
+                args.concatenation = 0
             if rescale:
                 print('>>>> rescaling diameter for each training image to %0.1f'%args.diameter)
                 
@@ -279,12 +288,24 @@ def main():
                     test_labels = [np.concatenate((test_labels[n][np.newaxis,:,:], io.imread(flow_names_test[n])), axis=0) 
                                    for n in range(nimg)]
                 
-            #print('>>>> %s model'%(['cellpose', 'unet'][args.unet]))    
-            model = models.CellposeModel(device=device,
-                                         pretrained_model=cpmodel_path, 
-                                         diam_mean=szmean,
-                                         batch_size=args.batch_size,
-                                         residual_on=args.residual_on)
+            print('>>>> %s model'%(['cellpose', 'unet'][args.unet]))    
+            if args.unet:
+                model = models.UnetModel(device=device,
+                                        pretrained_model=cpmodel_path, 
+                                        diam_mean=szmean,
+                                        batch_size=args.batch_size,
+                                        residual_on=args.residual_on,
+                                        style_on=args.style_on,
+                                        concatenation=args.concatenation,
+                                        nclasses=args.nclasses)
+            else:
+                model = models.CellposeModel(device=device,
+                                            pretrained_model=cpmodel_path, 
+                                            diam_mean=szmean,
+                                            batch_size=args.batch_size,
+                                            residual_on=args.residual_on,
+                                            style_on=args.style_on,
+                                            concatenation=args.concatenation)
             n_epochs=args.n_epochs
             model.train(images, labels, train_files=image_names, 
                         test_data=test_images, test_labels=test_labels, test_files=image_names_test,

@@ -1071,7 +1071,7 @@ class MainW(QtGui.QMainWindow):
                     mask[ar[ioverlap], ac[ioverlap]] = 0
                     ar, ac = ar[~ioverlap], ac[~ioverlap]
                 # compute outline of mask
-                outlines = plot.masks_to_outlines(mask)
+                outlines = utils.masks_to_outlines(mask)
                 vr, vc = np.nonzero(outlines)
                 vr, vc = vr+ymin, vc+xmin
                 ar, ac = ar+ymin, ac+xmin

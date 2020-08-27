@@ -3,7 +3,7 @@ import numpy as np
 import cv2
 import tifffile
 
-from . import plot, transforms
+from . import utils, plot, transforms
 
 try:
     from PyQt5 import QtGui, QtCore, Qt, QtWidgets
@@ -113,7 +113,7 @@ def masks_flows_to_seg(images, masks, flows, diams, file_names, channels=None):
     if len(flows)>2:
         flowi.append(flows[3])
         flowi.append(np.concatenate((flows[1], flows[2][np.newaxis,...]), axis=0))
-    outlines = masks * plot.masks_to_outlines(masks)
+    outlines = masks * utils.masks_to_outlines(masks)
     base = os.path.splitext(file_names)[0]
     if images.shape[0]<8:
         np.transpose(images, (1,2,0))
@@ -198,7 +198,7 @@ def save_masks(images, masks, flows, file_names, png=True, tif=False):
         plt.close(fig)
 
     if masks[0].ndim < 3: 
-        outlines = plot.outlines_list(masks)
+        outlines = utils.outlines_list(masks)
         outlines_to_text(base, outlines)
 
 def save_server(parent=None, filename=None):
@@ -541,7 +541,7 @@ def _masks_to_gui(parent, masks, outlines=None):
     if outlines is None:
         parent.outpix = np.zeros(masks.shape, np.uint16)
         for z in range(parent.NZ):
-            outlines = plot.masks_to_outlines(masks[z])
+            outlines = utils.masks_to_outlines(masks[z])
             parent.outpix[z] = ((outlines * masks[z])).astype(np.uint16)
             if z%50==0:
                 print('plane %d outlines processed'%z)
@@ -577,7 +577,7 @@ def _save_outlines(parent):
     base = os.path.splitext(filename)[0]
     if parent.NZ==1:
         print('saving 2D outlines to text file, see docs for info to load into ImageJ')    
-        outlines = plot.outlines_list(parent.cellpix[0])
+        outlines = utils.outlines_list(parent.cellpix[0])
         outlines_to_text(base, outlines)
     else:
         print('ERROR: cannot save 3D outlines')
