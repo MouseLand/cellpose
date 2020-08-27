@@ -253,7 +253,7 @@ def main():
             label_names, flow_names = get_label_files(image_names, args.mask_filter, imf=imf)
             nimg = len(image_names)
             labels = [io.imread(label_names[n]) for n in range(nimg)]
-            if flow_names is not None:
+            if flow_names is not None and not args.unet:
                 labels = [np.concatenate((labels[n][np.newaxis,:,:], io.imread(flow_names[n])), axis=0) 
                           for n in range(nimg)]
             if not os.path.exists(cpmodel_path):
@@ -284,7 +284,7 @@ def main():
                 nimg = len(image_names_test)
                 test_images = [io.imread(image_names_test[n]) for n in range(nimg)]
                 test_labels = [io.imread(label_names_test[n]) for n in range(nimg)]
-                if flow_names_test is not None:
+                if flow_names_test is not None and not args.unet:
                     test_labels = [np.concatenate((test_labels[n][np.newaxis,:,:], io.imread(flow_names_test[n])), axis=0) 
                                    for n in range(nimg)]
                 
