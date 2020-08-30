@@ -2,7 +2,7 @@ name: cellpose
 dependencies:
   - python>3.4,<3.8
   - pip
-  - numpy
+  - numpy<=1.16.6
   - numba>=0.43.1
   - pyqt
   - scipy
