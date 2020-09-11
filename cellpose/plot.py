@@ -4,6 +4,7 @@ import cv2
 from scipy.ndimage import gaussian_filter
 import scipy
 import colorsys
+import skimage.io as io
 
 from . import utils
 
