@@ -76,7 +76,7 @@ def main():
     parser = argparse.ArgumentParser(description='cellpose parameters')
     parser.add_argument('--check_mkl', action='store_true', help='check if mkl working')
     parser.add_argument('--mkldnn', action='store_true', help='force MXNET_SUBGRAPH_BACKEND = "MKLDNN"')
-    parser.add_argument('--train', action='store_true', help='train network using images in dir (not yet implemented)')
+    parser.add_argument('--train', action='store_true', help='train network using images in dir')
     parser.add_argument('--dir', required=False, 
                         default=[], type=str, help='folder containing data to run or train on')
     parser.add_argument('--img_filter', required=False, 
@@ -108,6 +108,7 @@ def main():
     parser.add_argument('--no_npy', action='store_true', help='suppress saving of npy')
 
     # settings for training
+    parser.add_argument('--train_size', action='store_true', help='train size network at end of training')
     parser.add_argument('--mask_filter', required=False, 
                         default='_masks', type=str, help='end string for masks to run on')
     parser.add_argument('--test_dir', required=False, 
@@ -311,6 +312,21 @@ def main():
                         test_data=test_images, test_labels=test_labels, test_files=image_names_test,
                         learning_rate=args.learning_rate, channels=channels, 
                         save_path=os.path.realpath(args.dir), rescale=rescale, n_epochs=n_epochs)
+
+            if args.train_size:
+                sz_model = models.SizeModel(model, device=device)
+                sz_model.train(train_data, train_labels, test_data, test_labels, channels=channels)
+                if test_images is not None:
+                    predicted_diams, diams_style = sz_model.eval(test_data, channels=channels)
+                    if test_labels[0].ndim>2:
+                        tlabels = [lbl[0] for lbl in test_labels]
+                    else:
+                        tlabels = test_labels 
+                    ccs = np.corrcoef(diams_style, np.array([utils.diameters(lbl)[0] for lbl in tlabels]))[0,1]
+                    cc = np.corrcoef(predicted_diams, np.array([utils.diameters(lbl)[0] for lbl in tlabels]))[0,1]
+                    print('style test correlation: %0.4f; final test correlation: %0.4f'%(ccs,cc))
+                    np.save(os.path.join(args.test_dir, 'predicted_diams.npy', 
+                                {'predicted_diams': predicted_diams, 'diams_style': diams_style})
 
 if __name__ == '__main__':
     main()

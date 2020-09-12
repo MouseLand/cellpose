@@ -5,7 +5,7 @@ from scipy.ndimage import gaussian_filter
 import scipy
 import colorsys
 
-from . import utils
+from . import utils, io
 
 def rgb_to_hsv(arr):
     rgb_to_hsv_channels = np.vectorize(colorsys.rgb_to_hsv)

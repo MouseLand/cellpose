@@ -191,9 +191,10 @@ class CPnet(gluon.HybridBlock):
         #data     = self.conv1(data)
         T0    = self.downsample(data)
         style = self.make_style(T0[-1])
+        style0 = style
         if not self.style_on:
             style = style * 0 
         T0    = self.upsample(style, T0)
         T0    = self.output(T0)
 
-        return T0, style
+        return T0, style0

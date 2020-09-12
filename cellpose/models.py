@@ -28,16 +28,12 @@ class Cellpose():
     net_avg: bool (optional, default True)
         loads the 4 built-in networks and averages them if True, loads one network if False
 
-    batch_size: int (optional, default 8)
-        number of 224x224 patches to run simultaneously on the GPU
-        (can make smaller or bigger depending on GPU memory usage)
-
     device: mxnet device (optional, default None)
         where model is saved (mx.gpu() or mx.cpu()), overrides gpu input,
         recommended if you want to use a specific GPU (e.g. mx.gpu(4))
 
     """
-    def __init__(self, gpu=False, model_type='cyto', net_avg=True, batch_size=8, device=None):
+    def __init__(self, gpu=False, model_type='cyto', net_avg=True, device=None):
         super(Cellpose, self).__init__()
         # assign device (GPU or CPU)
         if device is not None:
@@ -49,7 +45,6 @@ class Cellpose():
             self.device = mx.cpu()
             print('>>>> using CPU')
 
-        self.batch_size=batch_size
         model_dir = pathlib.Path.home().joinpath('.cellpose', 'models')
         if model_type is None:
             model_type = 'cyto'
@@ -67,21 +62,25 @@ class Cellpose():
 
         self.cp = CellposeModel(device=self.device,
                                 pretrained_model=self.pretrained_model,
-                                diam_mean=self.diam_mean, 
-                                batch_size=self.batch_size)
-
+                                diam_mean=self.diam_mean)
+        self.cp.model_type = model_type
         self.sz = SizeModel(device=self.device, pretrained_size=self.pretrained_size,
                             cp_model=self.cp)
+        self.sz.model_type = model_type
 
-    def eval(self, x, channels=None, diameter=30., invert=False, do_3D=False, anisotropy=None,
-             net_avg=True, augment=True, tile=True, flow_threshold=0.4, cellprob_threshold=0.0,
-             rescale=None, progress=None):
+    def eval(self, x, batch_size=8, channels=None, invert=False, normalize=True, diameter=30., do_3D=False, anisotropy=None,
+             net_avg=True, augment=False, tile=True, flow_threshold=0.4, cellprob_threshold=0.0,
+             min_size=15, stitch_threshold=0.0, rescale=None, progress=None):
         """ run cellpose and get masks
 
         Parameters
         ----------
         x: list or array of images
             can be list of 2D/3D images, or array of 2D/3D images, or 4D image array
+
+        batch_size: int (optional, default 8)
+            number of 224x224 patches to run simultaneously on the GPU
+            (can make smaller or bigger depending on GPU memory usage)
 
         channels: list (optional, default None)
             list of channels, either of length 2 or of length number of images by 2.
@@ -91,11 +90,14 @@ class Cellpose():
             in green and nuclei in blue, input [2,3]. To segment one grayscale image and one
             image with cells in green and nuclei in blue, input [[0,0], [2,3]].
 
+        invert: bool (optional, default False)
+            invert image pixel intensity before running network (if True, image is also normalized)
+
+        normalize: bool (optional, default True)
+                normalize data so 0.0=1st percentile and 1.0=99th percentile of image intensities in each channel
+
         diameter: float (optional, default 30.)
             if set to None, then diameter is automatically estimated if size model is loaded
-
-        invert: bool (optional, default False)
-            invert image pixel intensity before running network
 
         do_3D: bool (optional, default False)
             set to True to run 3D segmentation on 4D image input
@@ -106,7 +108,7 @@ class Cellpose():
         net_avg: bool (optional, default True)
             runs the 4 built-in networks and averages them if True, runs one network if False
 
-        augment: bool (optional, default True)
+        augment: bool (optional, default False)
             tiles image with overlapping tiles and flips overlapped regions to augment
 
         tile: bool (optional, default True)
@@ -117,6 +119,12 @@ class Cellpose():
 
         cellprob_threshold: float (optional, default 0.0)
             cell probability threshold (all pixels with prob above threshold kept for masks)
+
+        min_size: int (optional, default 15)
+                minimum number of pixels per mask, can turn off with -1
+
+        stitch_threshold: float (optional, default 0.0)
+            if stitch_threshold>0.0 and not do_3D and equal image sizes, masks are stitched in 3D to return volume segmentation
 
         rescale: float (optional, default None)
             if diameter is set to None, and rescale is not None, then rescale is used instead of diameter for resizing image
@@ -143,21 +151,29 @@ class Cellpose():
 
         if not isinstance(x,list):
             nolist = True
-            x = [x]
+            if x.ndim < 2 or x.ndim > 5:
+                raise ValueError('%dD images not supported'%x.ndim)
+            if x.ndim==4:
+                if do_3D:
+                    x = [x]
+                else:
+                    x = list(x)
+                    nolist = False
+            elif x.ndim==5: 
+                if do_3D:
+                    x = list(x)
+                    nolist = False
+                else:
+                    raise ValueError('4D images must be processed using 3D')
+            else:
+                x = [x]
         else:
             nolist = False
-
+            for xi in x:
+                if xi.ndim < 2 or xi.ndim > 5:
+                    raise ValueError('%dD images not supported'%xi.ndim)
+            
         tic0 = time.time()
-        if do_3D:
-            for i in range(len(x)):
-                if x[i].ndim<3:
-                    raise ValueError('ERROR: cannot process 2D images in 3D mode') 
-                elif x[i].ndim<4:
-                    x[i] = x[i][...,np.newaxis]
-                if x[i].shape[1]<4:
-                    x[i] = np.transpose(x[i], (0,2,3,1))
-            print('multi-stack tiff read in as having %d planes %d channels'%
-                    (x[0].shape[0], x[0].shape[-1]))
 
         nimg = len(x)
         print('processing %d image(s)'%nimg)
@@ -173,7 +189,7 @@ class Cellpose():
                 rescale = rescale * np.ones(nimg, np.float32)
             if self.pretrained_size is not None and rescale is None and not do_3D:
                 tic = time.time()
-                diams, _ = self.sz.eval(x, channels=channels, invert=invert, batch_size=self.batch_size, augment=augment, tile=tile)
+                diams, _ = self.sz.eval(x, channels=channels, invert=invert, batch_size=batch_size, augment=augment, tile=tile)
                 rescale = self.diam_mean / diams.copy()
                 print('estimated cell diameters for %d image(s) in %0.2f sec'%(nimg, time.time()-tic))
             else:
@@ -185,10 +201,12 @@ class Cellpose():
                 diams = self.diam_mean / rescale.copy() 
 
         tic = time.time()
-        masks, flows, styles = self.cp.eval(x, invert=invert, rescale=rescale, anisotropy=anisotropy, 
+        masks, flows, styles = self.cp.eval(x, batch_size=batch_size, invert=invert, rescale=rescale, anisotropy=anisotropy, 
                                             channels=channels, augment=augment, tile=tile, do_3D=do_3D, 
                                             net_avg=net_avg, progress=progress,
-                                            flow_threshold=flow_threshold, cellprob_threshold=cellprob_threshold)
+                                            flow_threshold=flow_threshold, 
+                                            cellprob_threshold=cellprob_threshold,
+                                            min_size=min_size, stitch_threshold=stitch_threshold)
         print('estimated masks for %d image(s) in %0.2f sec'%(nimg, time.time()-tic))
         print('>>>> TOTAL TIME %0.2f sec'%(time.time()-tic0))
         
@@ -217,7 +235,7 @@ def parse_model_string(pretrained_model):
     return nclasses, residual_on, style_on, concatenation
 
 class UnetModel():
-    def __init__(self, gpu=False, pretrained_model=False, batch_size=8,
+    def __init__(self, gpu=False, pretrained_model=False,
                     diam_mean=30., net_avg=True, device=None,
                     residual_on=False, style_on=False, concatenation=True,
                     nclasses = 3):
@@ -232,7 +250,6 @@ class UnetModel():
             print('>>>> using CPU')
 
         self.pretrained_model = pretrained_model
-        self.batch_size=batch_size
         self.diam_mean = diam_mean
 
         if pretrained_model:
@@ -245,7 +262,8 @@ class UnetModel():
                                                                                 ostr[residual_on],
                                                                                 ostr[style_on],
                                                                                 ostr[concatenation])                                             
-
+        if pretrained_model:
+            print(self.net_type)
         # create network
         self.nclasses = nclasses
         nbase = [32,64,128,256]
@@ -259,14 +277,19 @@ class UnetModel():
         if pretrained_model is not None and isinstance(pretrained_model, str):
             self.net.load_parameters(pretrained_model)
 
-    def eval(self, x, channels=None, invert=False, rescale=None, do_3D=False, anisotropy=None, net_avg=True, augment=True,
-             tile=True, cell_threshold=None, boundary_threshold=None):
+    def eval(self, x, batch_size=8, channels=None, invert=False, normalize=True,
+             rescale=None, do_3D=False, anisotropy=None, net_avg=True, augment=False,
+             tile=True, cell_threshold=None, boundary_threshold=None, min_size=15):
         """ segment list of images x
 
             Parameters
             ----------
             x: list or array of images
                 can be list of 2D/3D images, or array of 2D/3D images, or 4D image array
+
+            batch_size: int (optional, default 8)
+                number of 224x224 patches to run simultaneously on the GPU
+                (can make smaller or bigger depending on GPU memory usage)
 
             channels: list (optional, default None)
                 list of channels, either of length 2 or of length number of images by 2.
@@ -278,6 +301,9 @@ class UnetModel():
 
             invert: bool (optional, default False)
                 invert image pixel intensity before running network
+
+            normalize: bool (optional, default True)
+                normalize data so 0.0=1st percentile and 1.0=99th percentile of image intensities in each channel
 
             rescale: float (optional, default None)
                 resize factor for each image, if None, set to 1.0
@@ -291,7 +317,7 @@ class UnetModel():
             net_avg: bool (optional, default True)
                 runs the 4 built-in networks and averages them if True, runs one network if False
 
-            augment: bool (optional, default True)
+            augment: bool (optional, default False)
                 tiles image with overlapping tiles and flips overlapped regions to augment
 
             tile: bool (optional, default True)
@@ -302,6 +328,9 @@ class UnetModel():
 
             boundary_threshold: float (optional, default 0.0)
                 cell probability threshold (all pixels with prob above threshold kept for masks)
+
+            min_size: int (optional, default 15)
+                minimum number of pixels per mask, can turn off with -1
 
             Returns
             -------
@@ -317,28 +346,11 @@ class UnetModel():
                 style vector summarizing each image, also used to estimate size of objects in image
 
         """
+        x, nolist = convert_images(x, channels, do_3D, normalize, invert)
+        print(x[0].shape)
         nimg = len(x)
+        self.batch_size = batch_size
 
-        if channels is not None:
-            if len(channels)==2:
-                if not isinstance(channels[0], list):
-                    channels = [channels for i in range(nimg)]
-            x = [transforms.reshape(x[i], channels=channels[i], invert=invert) for i in range(nimg)]
-        elif do_3D:
-            for i in range(len(x)):
-                if x[i].ndim<3:
-                    raise ValueError('ERROR: cannot process 2D images in 3D mode') 
-                elif x[i].ndim<4:
-                    x[i] = x[i][...,np.newaxis]
-                if x[i].shape[1]<4:
-                    x[i] = np.transpose(x[i], (1,0,2,3))
-                elif x[i].shape[0]<4:
-                    x[i] = np.transpose(x[i], (1,2,3,0))
-                # put channels first
-                if x[i].shape[0]>2:
-                    print('WARNING: more than 2 channels given, use "channels" input for specifying channels - just using first two channels to run processing')
-                    x[i] = x[i][:2]
-            
         styles = []
         flows = []
         masks = []
@@ -373,25 +385,36 @@ class UnetModel():
         if not do_3D:
             for i in iterator:
                 img = x[i].copy()
-                if img.shape[0]<3:
-                    img = np.transpose(img, (1,2,0))
-                Ly,Lx = img.shape[:2]
-                if img.shape[-1]==1:
-                    img = np.concatenate((img, 0.*img), axis=-1)
-                if isinstance(self.pretrained_model, str) or not net_avg:
-                    y, style = self._run_net(img, rsz=rescale[i], augment=augment, tile=tile)
-                else:
-                    y, style = self._run_many(img, rsz=rescale[i], augment=augment, tile=tile, progress=progress)
-
-                masks.append(utils.get_masks_unet(y, cell_threshold, boundary_threshold))
+                y, style = self._run_nets(img, rsz=rescale[i], net_avg=net_avg, augment=augment, tile=tile)
+                
+                maski = utils.get_masks_unet(y, cell_threshold, boundary_threshold)
+                maski = utils.fill_holes_and_remove_small_masks(maski, min_size=min_size)
+                
+                masks.append(maski)
                 styles.append(style)
+        else:
+            for i in iterator:
+                tic=time.time()
+                yf, style = self._run_3D(x[i], rsz=rescale[i], anisotropy=anisotropy, 
+                                         net_avg=net_avg, augment=augment, tile=tile)
+                yf = yf.mean(axis=0)
+                print('probabilities computed %2.2fs'%(time.time()-tic))
+                maski = utils.get_masks_unet(yf.transpose((1,2,3,0)), cell_threshold, boundary_threshold)
+                maski = utils.fill_holes_and_remove_small_masks(maski, min_size=min_size)
+                masks.append(maski)
+                styles.append(style)
+                print('masks computed %2.2fs'%(time.time()-tic))
+                flows.append(yf)
+
+        if nolist:
+            masks, flows, styles = masks[0], flows[0], styles[0]
 
         return masks, flows, styles
 
                 
                 
-    def _run_many(self, img, rsz=1.0, augment=True, tile=True, progress=None):
-        """ loop over networks in pretrained_model and average results
+    def _run_nets(self, img, rsz=1.0, net_avg=True, augment=False, tile=True, bsize=224, progress=None):
+        """ run network (if more than one, loop over networks and average results
 
         Parameters
         --------------
@@ -401,7 +424,10 @@ class UnetModel():
         rsz: float (optional, default 1.0)
             resize coefficient for image
 
-        augment: bool (optional, default True)
+        net_avg: bool (optional, default True)
+            runs the 4 built-in networks and averages them if True, runs one network if False
+
+        augment: bool (optional, default False)
             tiles image with overlapping tiles and flips overlapped regions to augment
 
         tile: bool (optional, default True)
@@ -413,9 +439,9 @@ class UnetModel():
         Returns
         ------------------
 
-        yup: array [3 x Ly x Lx]
-            yup is output averaged over networks;
-            yup[0] is Y flow; yup[1] is X flow; yup[2] is cell probability
+        y: array [3 x Ly x Lx]
+            y is output (averaged over networks);
+            y[0] is Y flow; y[1] is X flow; y[2] is cell probability
 
         style: array [64]
             1D array summarizing the style of the image,
@@ -423,21 +449,24 @@ class UnetModel():
             but not averaged over networks.
 
         """
-        for j in range(len(self.pretrained_model)):
-            self.net.load_parameters(self.pretrained_model[j])
-            self.net.collect_params().grad_req = 'null'
-            yup0, style = self._run_net(img, rsz=rsz, augment=augment, tile=tile)
+        if isinstance(self.pretrained_model, str) or not net_avg:  
+            y, style = self._run_net(img, rsz=rsz, augment=augment, tile=tile, bsize=bsize)
+        else:  
+            for j in range(len(self.pretrained_model)):
+                self.net.load_parameters(self.pretrained_model[j])
+                self.net.collect_params().grad_req = 'null'
+                y0, style = self._run_net(img, rsz=rsz, augment=augment, tile=tile, bsize=bsize)
 
-            if j==0:
-                yup = yup0
-            else:
-                yup += yup0
-            if progress is not None:
-                progress.setValue(10 + 10*j)
-        yup = yup / len(self.pretrained_model)
-        return yup, style
+                if j==0:
+                    y = y0
+                else:
+                    y += y0
+                if progress is not None:
+                    progress.setValue(10 + 10*j)
+            y = y / len(self.pretrained_model)
+        return y, style
 
-    def _run_net(self, imgs, rsz=1.0, augment=True, tile=True, bsize=224):
+    def _run_net(self, imgs, rsz=1.0, augment=False, tile=True, bsize=224):
         """ run network on image or stack of images
 
         (faster if augment is False)
@@ -450,7 +479,7 @@ class UnetModel():
         rsz: float (optional, default 1.0)
             resize coefficient(s) for image
 
-        augment: bool (optional, default True)
+        augment: bool (optional, default False)
             tiles image with overlapping tiles and flips overlapped regions to augment
 
         tile: bool (optional, default True)
@@ -523,15 +552,11 @@ class UnetModel():
         
         return y, style
     
-    def _run_tiled(self, imgi, augment=True, bsize=224):
+    def _run_tiled(self, imgi, augment=False, bsize=224):
         """ run network in tiles of size [bsize x bsize]
 
         First image is split into overlapping tiles of size [bsize x bsize].
-        Then 4 versions of each tile are created:
-            * original
-            * flipped vertically
-            * flipped horizontally
-            * flipped vertically and horizontally
+        If augment, tiles have 50% overlap and are flipped at overlaps.
         The average of the network output over tiles is returned.
 
         Parameters
@@ -539,7 +564,7 @@ class UnetModel():
 
         imgi: array [nchan x Ly x Lx] or [Lz x nchan x Ly x Lx]
 
-        augment: bool (optional, default True)
+        augment: bool (optional, default False)
             tiles image with overlapping tiles and flips overlapped regions to augment
 
         bsize: int (optional, default 224)
@@ -580,8 +605,7 @@ class UnetModel():
                     for i in range(min(Lz-k*nimgs, nimgs)):
                         IMG, ysub, xsub, Ly, Lx = transforms.make_tiles(imgi[k*nimgs+i], bsize=bsize, augment=augment)
                         IMGa[i*ntiles:(i+1)*ntiles] = np.reshape(IMG, (ny*nx, nchan, bsize, bsize))
-                    img = nd.array(IMGa, ctx=self.device)
-                    y0, style = self.net(img)
+                    y0, style = self.net(nd.array(IMGa, ctx=self.device))
                     ya = y0.asnumpy()
                     stylea = style.asnumpy()
                     for i in range(min(Lz-k*nimgs, nimgs)):
@@ -606,9 +630,9 @@ class UnetModel():
             y = np.zeros((IMG.shape[0], self.nclasses, bsize, bsize))
             for k in range(niter):
                 irange = np.arange(nbatch*k, min(IMG.shape[0], nbatch*k+nbatch))
-                img = nd.array(IMG[irange], ctx=self.device)
-                y0, style = self.net(img)
-                y[irange] = y0.asnumpy()
+                y0, style = self.net(nd.array(IMG[irange], ctx=self.device))
+                y0 = y0.asnumpy()
+                y[irange] = y0
                 if k==0:
                     styles = style.asnumpy()[0]
                 styles += style.asnumpy().sum(axis=0)
@@ -618,10 +642,76 @@ class UnetModel():
                 y = np.reshape(y, (ny, nx, self.nclasses, bsize, bsize))
                 y = transforms.unaugment_tiles(y, self.unet)
                 y = np.reshape(y, (-1, self.nclasses, bsize, bsize))
+            
             yf = transforms.average_tiles(y, ysub, xsub, Ly, Lx)
             yf = yf[:,:imgi.shape[1],:imgi.shape[2]]
             styles /= (styles**2).sum()**0.5
             return yf, styles
+
+    def _run_3D(self, imgs, rsz=1.0, anisotropy=None, net_avg=True, 
+                augment=False, tile=True, bsize=224, progress=None):
+        """ run network on stack of images
+
+        (faster if augment is False)
+
+        Parameters
+        --------------
+
+        imgs: array [Lz x Ly x Lx x nchan]
+
+        rsz: float (optional, default 1.0)
+            resize coefficient(s) for image
+
+        anisotropy: float (optional, default None)
+                for 3D segmentation, optional rescaling factor (e.g. set to 2.0 if Z is sampled half as dense as X or Y)
+
+        net_avg: bool (optional, default True)
+            runs the 4 built-in networks and averages them if True, runs one network if False
+
+        augment: bool (optional, default False)
+            tiles image with overlapping tiles and flips overlapped regions to augment
+
+        tile: bool (optional, default True)
+            tiles image to ensure GPU/CPU memory usage limited (recommended);
+            cannot be turned off for 3D segmentation
+
+        bsize: int (optional, default 224)
+            size of tiles to use in pixels [bsize x bsize]
+
+        progress: pyqt progress bar (optional, default None)
+            to return progress bar status to GUI
+
+
+        Returns
+        ------------------
+
+        yf: array [Lz x Ly x Lx x 3]
+            y[...,0] is Y flow; y[...,1] is X flow; y[...,2] is cell probability
+
+        style: array [64]
+            1D array summarizing the style of the image,
+            if tiled it is averaged over tiles
+
+        """ 
+        sstr = ['YX', 'ZY', 'ZX']
+        if anisotropy is not None:
+            rescaling = [[rsz, rsz],
+                         [rsz*anisotropy, rsz],
+                         [rsz*anisotropy, rsz]]
+        else:
+            rescaling = [rsz] * 3
+        pm = [(0,1,2,3), (1,0,2,3), (2,0,1,3)]
+        ipm = [(3,0,1,2), (3,1,0,2), (3,1,2,0)]
+        yf = np.zeros((3, self.nclasses, imgs.shape[0], imgs.shape[1], imgs.shape[2]), np.float32)
+        for p in range(3 - 2*self.unet):
+            xsl = imgs.copy().transpose(pm[p])
+            # per image
+            print('\n running %s: %d planes of size (%d, %d) \n\n'%(sstr[p], xsl.shape[0], xsl.shape[1], xsl.shape[2]))
+            y, style = self._run_nets(xsl, rescaling[p], net_avg=net_avg, augment=augment, tile=tile, bsize=bsize)
+            yf[p] = y.transpose(ipm[p])
+            if progress is not None:
+                progress.setValue(25+15*p)
+        return yf, style
 
     def loss_fn(self, lbl, y):
         """ loss function between true labels lbl and prediction y """
@@ -639,34 +729,15 @@ class UnetModel():
 
     def train(self, train_data, train_labels, train_files=None, 
               test_data=None, test_labels=None, test_files=None,
-              channels=None, pretrained_model=None, save_path=None, save_every=100,
+              channels=None, normalize=True, pretrained_model=None, save_path=None, save_every=100,
               learning_rate=0.2, n_epochs=500, weight_decay=0.00001, batch_size=8, rescale=False):
         """ train function uses 0-1 mask label and boundary pixels for training """
 
         nimg = len(train_data)
 
-        # check that arrays are correct size
-        if nimg != len(train_labels):
-            raise ValueError('train data and labels not same length')
-            return
-        if train_labels[0].ndim < 2 or train_data[0].ndim < 2:
-            raise ValueError('training data or labels are not at least two-dimensional')
-            return
-
-        # check if test_data correct length
-        if not (test_data is not None and test_labels is not None and
-                len(test_data) > 0 and len(test_data)==len(test_labels)):
-            test_data = None
-
-        # make data correct shape and normalize it so that 0 and 1 are 1st and 99th percentile of data
-        train_data, test_data, run_test = transforms.reshape_data(train_data, test_data=test_data, channels=channels)
-        if train_data is None:
-            raise ValueError('training data do not all have the same number of channels')
-            return
-        
-        if not run_test:
-            print('NOTE: test data not provided OR labels incorrect OR not same number of channels as train data')
-            test_data, test_labels, test_flows = None, None, None
+        train_data, train_labels, test_data, test_labels, run_test = transforms.reshape_train_test(train_data, train_labels,
+                                                                                                   test_data, test_labels,
+                                                                                                   channels, normalize)
 
         # add dist_to_bound to labels
         if self.nclasses==3:
@@ -881,10 +952,7 @@ class CellposeModel(UnetModel):
     net_avg: bool (optional, default True)
         loads the 4 built-in networks and averages them if True, loads one network if False
 
-    batch_size: int (optional, default 8)
-        number of 224x224 patches to run simultaneously on the GPU
-        (can make smaller or bigger depending on GPU memory usage)
-
+    
     diam_mean: float (optional, default 27.)
         mean 'diameter', 27. is built in value for 'cyto' model
 
@@ -894,7 +962,7 @@ class CellposeModel(UnetModel):
 
     """
 
-    def __init__(self, gpu=False, pretrained_model=False, batch_size=8,
+    def __init__(self, gpu=False, pretrained_model=False,
                     diam_mean=30., net_avg=True, device=None,
                     residual_on=True, style_on=True, concatenation=False):
         nclasses = 3 # 3 prediction maps (dY, dX and cellprob)
@@ -920,7 +988,7 @@ class CellposeModel(UnetModel):
             concatenation = False
         
         # initialize network
-        super().__init__(gpu=gpu, pretrained_model=False, batch_size=batch_size,
+        super().__init__(gpu=gpu, pretrained_model=False,
                          diam_mean=diam_mean, net_avg=net_avg, device=device,
                          residual_on=residual_on, style_on=style_on, concatenation=concatenation,
                          nclasses=nclasses)
@@ -933,17 +1001,25 @@ class CellposeModel(UnetModel):
         self.net_type = 'cellpose_residual_{}_style_{}_concatenation_{}'.format(ostr[residual_on],
                                                                                 ostr[style_on],
                                                                                 ostr[concatenation])
+        if pretrained_model:
+            print(self.net_type)
 
 
-    def eval(self, x, channels=None, invert=False, rescale=None, do_3D=False, anisotropy=None, net_avg=True, augment=True,
-             tile=True, flow_threshold=0.4, cellprob_threshold=0.0, compute_masks=True, progress=None):
+    def eval(self, x, batch_size=8, channels=None, normalize=True, invert=False, rescale=None, 
+             do_3D=False, anisotropy=None, net_avg=True, augment=False, tile=True, 
+             flow_threshold=0.4, cellprob_threshold=0.0, compute_masks=True, 
+             min_size=15, stitch_threshold=0.0, progress=None):
         """
             segment list of images x, or 4D array - Z x nchan x Y x X
 
             Parameters
             ----------
             x: list or array of images
-                can be list of 2D/3D images, or array of 2D/3D images, or 4D image array
+                can be list of 2D/3D/4D images, or array of 2D/3D images
+
+            batch_size: int (optional, default 8)
+                number of 224x224 patches to run simultaneously on the GPU
+                (can make smaller or bigger depending on GPU memory usage)
 
             channels: list (optional, default None)
                 list of channels, either of length 2 or of length number of images by 2.
@@ -952,6 +1028,9 @@ class CellposeModel(UnetModel):
                 For instance, to segment grayscale images, input [0,0]. To segment images with cells
                 in green and nuclei in blue, input [2,3]. To segment one grayscale image and one
                 image with cells in green and nuclei in blue, input [[0,0], [2,3]].
+
+            normalize: bool (default, True)
+                normalize data so 0.0=1st percentile and 1.0=99th percentile of image intensities in each channel
 
             invert: bool (optional, default False)
                 invert image pixel intensity before running network
@@ -968,7 +1047,7 @@ class CellposeModel(UnetModel):
             net_avg: bool (optional, default True)
                 runs the 4 built-in networks and averages them if True, runs one network if False
 
-            augment: bool (optional, default True)
+            augment: bool (optional, default False)
                 tiles image with overlapping tiles and flips overlapped regions to augment
 
             tile: bool (optional, default True)
@@ -983,6 +1062,12 @@ class CellposeModel(UnetModel):
             compute_masks: bool (optional, default True)
                 Whether or not to compute dynamics and return masks.
                 This is set to False when retrieving the styles for the size model.
+
+            min_size: int (optional, default 15)
+                minimum number of pixels per mask, can turn off with -1
+
+            stitch_threshold: float (optional, default 0.0)
+                if stitch_threshold>0.0 and not do_3D, masks are stitched in 3D to return volume segmentation
 
             progress: pyqt progress bar (optional, default None)
                 to return progress bar status to GUI
@@ -1001,35 +1086,20 @@ class CellposeModel(UnetModel):
                 style vector summarizing each image, also used to estimate size of objects in image
 
         """
+        x, nolist = convert_images(x, channels, do_3D, normalize, invert)
+        
         nimg = len(x)
-
-        if channels is not None:
-            if len(channels)==2:
-                if not isinstance(channels[0], list):
-                    channels = [channels for i in range(nimg)]
-            x = [transforms.reshape(x[i], channels=channels[i], invert=invert) for i in range(nimg)]
-        elif do_3D:
-            for i in range(len(x)):
-                if x[i].ndim<3:
-                    raise ValueError('ERROR: cannot process 2D images in 3D mode') 
-                elif x[i].ndim<4:
-                    x[i] = x[i][...,np.newaxis]
-                if x[i].shape[1]<4:
-                    x[i] = np.transpose(x[i], (1,0,2,3))
-                elif x[i].shape[0]<4:
-                    x[i] = np.transpose(x[i], (1,2,3,0))
-                # put channels first
-                if x[i].shape[0]>2:
-                    print('WARNING: more than 2 channels given, use "channels" input for specifying channels - just using first two channels to run processing')
-                    x[i] = x[i][:2]
-            
+        self.batch_size = batch_size
+        
         styles = []
         flows = []
         masks = []
+
         if rescale is None:
             rescale = np.ones(nimg)
         elif isinstance(rescale, float):
             rescale = rescale * np.ones(nimg)
+
         if nimg > 1:
             iterator = trange(nimg)
         else:
@@ -1038,87 +1108,63 @@ class CellposeModel(UnetModel):
         if isinstance(self.pretrained_model, list) and not net_avg:
             self.net.load_parameters(self.pretrained_model[0])
             self.net.collect_params().grad_req = 'null'
-        
+
         if not do_3D:
             for i in iterator:
                 img = x[i].copy()
-                if img.shape[0]<3:
-                    img = np.transpose(img, (1,2,0))
                 Ly,Lx = img.shape[:2]
-                if img.shape[-1]==1:
-                    img = np.concatenate((img, 0.*img), axis=-1)
-                if isinstance(self.pretrained_model, str) or not net_avg:
-                    y, style = self._run_net(img, rsz=rescale[i], augment=augment, tile=tile)
-                else:
-                    y, style = self._run_many(img, rsz=rescale[i], augment=augment, tile=tile, progress=progress)
+
+                y, style = self._run_nets(img, rsz=rescale[i], net_avg=net_avg, 
+                                            augment=augment, tile=tile)
                 
                 if progress is not None:
                     progress.setValue(55)
                 styles.append(style)
                 if compute_masks:
-                    cellprob = y[...,-1]
-                    if not self.unet:
-                        dP = np.stack((y[...,0], y[...,1]), axis=0)
-                        niter = 1 / rescale[i] * 200
-                        p = dynamics.follow_flows(-1 * dP  / 5. , niter=niter)
-                        if progress is not None:
-                            progress.setValue(65)
-                        maski = dynamics.get_masks(p, iscell=(cellprob>cellprob_threshold),
-                                                   flows=dP, threshold=flow_threshold)
-                        if progress is not None:
-                            progress.setValue(75)
-                        dZ = np.zeros((1,Ly,Lx), np.uint8)
-                        dP = np.concatenate((dP, dZ), axis=0)
-                        flow = plot.dx_to_circ(dP)
-                        flows.append([flow, dP, cellprob, p])
-                        maski = utils.fill_holes(maski)
-                        masks.append(maski)
+                    cellprob = y[:,:,-1]
+                    dP = y[:,:,:2].transpose((2,0,1))
+                    niter = 1 / rescale[i] * 200
+                    p = dynamics.follow_flows(-1 * dP / 5., 
+                                                niter=niter)
+                    if progress is not None:
+                        progress.setValue(65)
+                    maski = dynamics.get_masks(p, iscell=(cellprob>cellprob_threshold),
+                                                flows=dP, threshold=flow_threshold)
+                    maski = utils.fill_holes_and_remove_small_masks(maski)
+                    if progress is not None:
+                        progress.setValue(75)
+                    dP = np.concatenate((dP, np.zeros((1,Ly,Lx), np.uint8)), axis=0)
+                    flows.append([plot.dx_to_circ(dP), dP, cellprob, p])
+                    masks.append(maski)
                 else:
                     flows.append([None]*3)
                     masks.append([])
-            
+
+            if stitch_threshold > 0.0 and nimg > 1 and all([m.shape==masks[0].shape for m in masks]):
+                print('stitching %d masks using stitch_threshold=%0.3f to make 3D masks'%(nimg, stitch_threshold))
+                masks = utils.stitch3D(np.array(masks), stitch_threshold=stitch_threshold)
         else:
             for i in iterator:
-                sstr = ['YX', 'ZY', 'ZX']
-                if anisotropy is not None:
-                    rescaling = [[rescale[i], rescale[i]],
-                                 [rescale[i]*anisotropy, rescale[i]],
-                                 [rescale[i]*anisotropy, rescale[i]]]
-                else:
-                    rescaling = [rescale[i]] * 3
-                pm = [(1,2,3,0), (2,1,3,0), (3,1,2,0)]
-                ipm = [(0,1,2,3), (0,2,1,3), (0,2,3,1)]
                 tic=time.time()
-                flowi=[]
-                for p in range(3):
-                    xsl = np.transpose(x[i].copy(), pm[p])
-                    flowi.append(np.zeros(((3,xsl.shape[0],xsl.shape[1],xsl.shape[2])), np.float32))
-                    # per image
-                    print('\n running %s: %d planes of size (%d, %d) \n\n'%(sstr[p], xsl.shape[0], xsl.shape[1], xsl.shape[2]))
-                    if isinstance(self.pretrained_model, str) or not net_avg:
-                        y, style = self._run_net(xsl, rescaling[p], augment=augment)
-                    else:
-                        y, style = self._run_many(xsl, rescaling[p], augment=augment, tile=tile)
-                    flowi[p] = np.transpose(y[..., [1,0,2]], (3,0,1,2))
-                    flowi[p] = np.transpose(flowi[p], ipm[p])
-                    if progress is not None:
-                        progress.setValue(25+15*p)
-                dX = flowi[0][0] + flowi[1][0]
-                dY = flowi[0][1] + flowi[2][0]
-                dZ = flowi[1][1] + flowi[2][1]
-                cellprob = flowi[0][-1] + flowi[1][-1] + flowi[2][-1]
-                dP = np.concatenate((dZ[np.newaxis,...], dY[np.newaxis,...], dX[np.newaxis,...]), axis=0)
+                yf, style = self._run_3D(x[i], rsz=rescale[i], anisotropy=anisotropy, 
+                                         net_avg=net_avg, augment=augment, tile=tile, progress=progress)
+                cellprob = yf[0][-1] + yf[1][-1] + yf[2][-1]
+                dP = np.stack((yf[1][0] + yf[2][0], yf[0][0] + yf[2][1], yf[0][1] + yf[1][1]), 
+                                axis=0) # (dZ, dY, dX)
                 print('flows computed %2.2fs'%(time.time()-tic))
-                # mask out values using cellprob to increase speed and reduce memory requirements
+
+                # ** mask out values using cellprob to increase speed and reduce memory requirements **
                 yout = dynamics.follow_flows(-1 * dP * (cellprob > cellprob_threshold) / 5.)
                 print('dynamics computed %2.2fs'%(time.time()-tic))
                 maski = dynamics.get_masks(yout, iscell=(cellprob>cellprob_threshold))
-                maski = utils.fill_holes(maski)
+                maski = utils.fill_holes_and_remove_small_masks(maski, min_size=min_size)
                 print('masks computed %2.2fs'%(time.time()-tic))
                 flow = np.array([plot.dx_to_circ(dP[1:,i]) for i in range(dP.shape[1])])
                 flows.append([flow, dP, cellprob, yout])
                 masks.append(maski)
-                styles.append([])
+                styles.append(style)
+        if nolist:
+            masks, flows, styles = masks[0], flows[0], styles[0]
         return masks, flows, styles
 
     def loss_fn(self, lbl, y):
@@ -1132,38 +1178,82 @@ class CellposeModel(UnetModel):
 
     def train(self, train_data, train_labels, train_files=None, 
               test_data=None, test_labels=None, test_files=None,
-              channels=None, pretrained_model=None, save_path=None, save_every=100,
+              channels=None, normalize=True, pretrained_model=None, 
+              save_path=None, save_every=100,
               learning_rate=0.2, n_epochs=500, weight_decay=0.00001, batch_size=8, rescale=True):
+
+        """ train network with images train_data 
+        
+            Parameters
+            ------------------
+
+            train_data: list of arrays (2D or 3D)
+                images for training
+
+            train_labels: list of arrays (2D or 3D)
+                labels for train_data, where 0=no masks; 1,2,...=mask labels
+                can include flows as additional images
+
+            train_files: list of strings
+                file names for images in train_data (to save flows for future runs)
+
+            test_data: list of arrays (2D or 3D)
+                images for testing
+
+            test_labels: list of arrays (2D or 3D)
+                labels for test_data, where 0=no masks; 1,2,...=mask labels; 
+                can include flows as additional images
+        
+            test_files: list of strings
+                file names for images in test_data (to save flows for future runs)
+
+            channels: list of ints (default, None)
+                channels to use for training
+
+            normalize: bool (default, True)
+                normalize data so 0.0=1st percentile and 1.0=99th percentile of image intensities in each channel
+
+            pretrained_model: string (default, None)
+                path to pretrained_model to start from, if None it is trained from scratch
+
+            save_path: string (default, None)
+                where to save trained model, if None it is not saved
+
+            save_every: int (default, 100)
+                save network every [save_every] epochs
+
+            learning_rate: float (default, 0.2)
+                learning rate for training
+
+            n_epochs: int (default, 500)
+                how many times to go through whole training set during training
+
+            weight_decay: float (default, 0.00001)
+
+            batch_size: int (optional, default 8)
+                number of 224x224 patches to run simultaneously on the GPU
+                (can make smaller or bigger depending on GPU memory usage)
+
+            rescale: bool (default, True)
+                whether or not to rescale images to diam_mean during training, 
+                if True it assumes you will fit a size model after training or resize your images accordingly,
+                if False it will try to train the model to be scale-invariant (works worse)
+
+
+        """
 
         nimg = len(train_data)
 
-        # check that arrays are correct size
-        if nimg != len(train_labels):
-            raise ValueError('train data and labels not same length')
-            return
-        if train_labels[0].ndim < 2 or train_data[0].ndim < 2:
-            raise ValueError('training data or labels are not at least two-dimensional')
-            return
-
-        # check if test_data correct length
-        if not (test_data is not None and test_labels is not None and
-                len(test_data) > 0 and len(test_data)==len(test_labels)):
-            test_data = None
-
-        # make data correct shape and normalize it so that 0 and 1 are 1st and 99th percentile of data
-        train_data, test_data, run_test = transforms.reshape_data(train_data, test_data=test_data, channels=channels)
-        if train_data is None:
-            raise ValueError('training data do not all have the same number of channels')
-            return
-        
-        if not run_test:
-            print('NOTE: test data not provided OR labels incorrect OR not same number of channels as train data')
-            test_data, test_labels, test_flows = None, None, None
+        train_data, train_labels, test_data, test_labels, run_test = transforms.reshape_train_test(train_data, train_labels,
+                                                                                                   test_data, test_labels,
+                                                                                                   channels, normalize)
 
         # check if train_labels have flows
         train_flows = dynamics.labels_to_flows(train_labels, files=train_files)
         if run_test:
             test_flows = dynamics.labels_to_flows(test_labels, files=test_files)
+        else:
+            test_flows = None
         
         self._train_net(train_data, train_flows, 
                        test_data, test_flows,
@@ -1172,14 +1262,14 @@ class CellposeModel(UnetModel):
 
 class SizeModel():
     """ linear regression model for determining the size of objects in image
-        used to rescale before input to CellposeModel
-        uses styles from CellposeModel
+        used to rescale before input to cp_model
+        uses styles from cp_model
 
         Parameters
         -------------------
 
-        cp_model: CellposeModel
-            cellpose model from which to get styles
+        cp_model: UnetModel or CellposeModel
+            model from which to get styles
 
         device: mxnet device (optional, default mx.cpu())
             where cellpose model is saved (mx.gpu() or mx.cpu())
@@ -1198,65 +1288,93 @@ class SizeModel():
         if pretrained_size is not None:
             self.params = np.load(self.pretrained_size, allow_pickle=True).item()
             self.diam_mean = self.params['diam_mean']
-
-    def eval(self, x=None, style=None, channels=None, invert=False, augment=True, tile=True,
+        if not hasattr(self.cp, 'pretrained_model'):
+            raise ValueError('provided model does not have a pretrained_model')
+        
+    def eval(self, x=None, styles=None, channels=None, invert=False, augment=False, tile=True,
                 batch_size=8, progress=None):
         """ use images x to produce style or use style input to predict size of objects in image
 
-        Object size estimation is done in two steps:
-        1. use a linear regression model to predict size from style in image
-        2. resize image to predicted size and run CellposeModel to get output masks.
-            Take the median object size of the predicted masks as the final predicted size.
+            Object size estimation is done in two steps:
+            1. use a linear regression model to predict size from style in image
+            2. resize image to predicted size and run CellposeModel to get output masks.
+                Take the median object size of the predicted masks as the final predicted size.
 
-        Parameters
-        -------------------
+            Parameters
+            -------------------
 
-        cp_model: CellposeModel
-            cellpose model from which to get styles
-        device: mxnet device (optional, default mx.cpu())
-            where cellpose model is saved (mx.gpu() or mx.cpu())
-        pretrained_size: str
-            path to pretrained size model
+            x: list or array of images (optional, default None)
+                can be list of 2D/3D images, or array of 2D/3D images
+
+            styles: list or array of styles (optional, default None)
+                styles for images x - if x is None then styles must not be None
+
+            channels: list (optional, default None)
+                list of channels, either of length 2 or of length number of images by 2.
+                First element of list is the channel to segment (0=grayscale, 1=red, 2=blue, 3=green).
+                Second element of list is the optional nuclear channel (0=none, 1=red, 2=blue, 3=green).
+                For instance, to segment grayscale images, input [0,0]. To segment images with cells
+                in green and nuclei in blue, input [2,3]. To segment one grayscale image and one
+                image with cells in green and nuclei in blue, input [[0,0], [2,3]].
+
+            invert: bool (optional, default False)
+                invert image pixel intensity before running network
+
+            augment: bool (optional, default False)
+                tiles image with overlapping tiles and flips overlapped regions to augment
+
+            tile: bool (optional, default True)
+                tiles image to ensure GPU/CPU memory usage limited (recommended)
+
+            progress: pyqt progress bar (optional, default None)
+                to return progress bar status to GUI
+
+            Returns
+            -------
+            diam: array, float
+                final estimated diameters from images x or styles style after running both steps
+
+            diam_style: array, float
+                estimated diameters from style alone
 
         """
-        if style is None and x is None:
-            print('Error: no image or features given')
-            return
-
+        if styles is None and x is None:
+            raise ValueError('no image or features given')
+            
         nimg = len(x)
-        if channels is not None:
-            if len(channels)==2:
-                if not isinstance(channels[0], list):
-                    channels = [channels for i in range(nimg)]
-            x = [transforms.reshape(x[i], channels=channels[i], invert=invert) for i in range(nimg)]
-        diam_style = np.zeros(nimg, np.float32)
+        
         if progress is not None:
             progress.setValue(10)
         
-        if style is None:
-            if nimg>1:
-                iterator = trange(nimg)
-            else:
-                iterator = range(nimg)
-            for i in iterator:
-                img = x[i]
-                style = self.cp.eval([img], net_avg=False, augment=augment, tile=tile, compute_masks=False)[-1]
-                if progress is not None:
-                    progress.setValue(30)
-                diam_style[i] = self._size_estimation(style)
+        if styles is None:
+            styles = self.cp.eval(x, channels=channels, net_avg=False, augment=augment, tile=tile, compute_masks=False)[-1]
+            if progress is not None:
+                progress.setValue(30)
+            diam_style = self._size_estimation(np.array(styles))
             if progress is not None:
                 progress.setValue(50)
         else:
-            for i in range(len(style)):
-                diam_style[i] = self._size_estimation(style[i])
-        diam_style[diam_style==0] = self.diam_mean
+            if isinstance(styles, list):
+                styles = np.array(styles)
+            diam_style = self._size_estimation(styles)
         diam_style[np.isnan(diam_style)] = self.diam_mean
-        masks = self.cp.eval(x, rescale=self.diam_mean/diam_style, net_avg=False, augment=augment, tile=tile)[0]
-        diam = np.array([utils.diameters(masks[i])[0] for i in range(nimg)])
-        diam[diam==0] = self.diam_mean
-        diam[np.isnan(diam)] = self.diam_mean
-        if progress is not None:
-            progress.setValue(100)
+
+        if x is not None:
+            masks = self.cp.eval(x, channels=channels, rescale=self.diam_mean/diam_style, net_avg=False, 
+                                augment=augment, tile=tile)[0]
+            diam = np.array([utils.diameters(masks[i])[0] for i in range(nimg)])
+            if progress is not None:
+                progress.setValue(100)
+            if hasattr(self, 'model_type') and (self.model_type=='nuclei' or self.model_type=='cyto'):
+                diam_style /= (np.pi**0.5)/2
+                diam[diam==0] = self.diam_mean / ((np.pi**0.5)/2)
+                diam[np.isnan(diam)] = self.diam_mean / ((np.pi**0.5)/2)
+            else:
+                diam[diam==0] = self.diam_mean
+                diam[np.isnan(diam)] = self.diam_mean
+        else:
+            diam = diam_style
+            print('no images provided, using diameters estimated from styles alone')
         return diam, diam_style
 
     def _size_estimation(self, style):
@@ -1267,9 +1385,149 @@ class SizeModel():
         
         """
         szest = np.exp(self.params['A'] @ (style - self.params['smean']).T +
-                        np.log(self.diam_mean * (np.pi**0.5)/2) + self.params['ymean'])
-        szest = np.maximum(5., szest / ((np.pi**0.5)/2))
+                        np.log(self.diam_mean) + self.params['ymean'])
+        szest = np.maximum(5., szest)
         return szest
+
+    def train(self, train_data, train_labels,
+              test_data=None, test_labels=None,
+              channels=None, normalize=True, 
+              learning_rate=0.2, n_epochs=10, 
+              l2_regularization=1.0, batch_size=8):
+        """ train size model with images train_data to estimate linear model from styles to diameters
+        
+            Parameters
+            ------------------
+
+            train_data: list of arrays (2D or 3D)
+                images for training
+
+            train_labels: list of arrays (2D or 3D)
+                labels for train_data, where 0=no masks; 1,2,...=mask labels
+                can include flows as additional images
+
+            channels: list of ints (default, None)
+                channels to use for training
+
+            normalize: bool (default, True)
+                normalize data so 0.0=1st percentile and 1.0=99th percentile of image intensities in each channel
+
+            n_epochs: int (default, 10)
+                how many times to go through whole training set (taking random patches) for styles for diameter estimation
+
+            l2_regularization: float (default, 1.0)
+                regularize linear model from styles to diameters
+
+            batch_size: int (optional, default 8)
+                number of 224x224 patches to run simultaneously on the GPU
+                (can make smaller or bigger depending on GPU memory usage)
+        """
+        self.cp.batch_size = batch_size
+        train_data, train_labels, test_data, test_labels, run_test = transforms.reshape_train_test(train_data, train_labels,
+                                                                                                   test_data, test_labels,
+                                                                                                   channels, normalize)
+        if isinstance(self.cp.pretrained_model, list) and len(self.cp.pretrained_model)>1:
+            cp_model_path = self.cp.pretrained_model[0]
+            self.cp.net.load_parameters(cp_model_path)
+            self.cp.net.collect_params().grad_req = 'null'
+        else:
+            cp_model_path = self.cp.pretrained_model
+
+        diam_train = np.array([utils.diameters(lbl)[0] for lbl in train_labels])
+        if run_test: 
+            diam_test = np.array([utils.diameters(lbl)[0] for lbl in test_labels])
+        
+        nimg = len(train_data)
+        styles = np.zeros((n_epochs*nimg, 256), np.float32)
+        diams = np.zeros((n_epochs*nimg,), np.float32)
+        tic = time.time()
+        for iepoch in range(n_epochs):
+            iall = np.arange(0,nimg,1,int)
+            for ibatch in range(0,nimg,batch_size):
+                inds = iall[ibatch:ibatch+batch_size]
+                imgi,lbl,scale = transforms.random_rotate_and_resize(
+                            [train_data[i] for i in inds],
+                            Y=[train_labels[i].astype(np.int16) for i in inds], scale_range=1, xy=(512,512))
+                feat = self.cp.net(nd.array(imgi, ctx=self.device))[-1].asnumpy()
+                styles[inds+nimg*iepoch] = feat
+                diams[inds+nimg*iepoch] = np.log(diam_train[inds]) - np.log(self.diam_mean) + np.log(scale)
+            del feat
+            if (iepoch+1)%2==0:
+                print('ran %d epochs in %0.3f sec'%(iepoch+1, time.time()-tic))
+
+        # create model
+        smean = styles.mean(axis=0)
+        X = ((styles - smean).T).copy()
+        ymean = diams.mean()
+        y = diams - ymean
+
+        A = np.linalg.solve(X@X.T + l2_regularization*np.eye(X.shape[0]), X @ y)
+        ypred = A @ X
+        print('train correlation: %0.4f'%np.corrcoef(y, ypred)[0,1])
+            
+        if run_test:
+            nimg_test = len(test_data)
+            styles_test = np.zeros((nimg_test, 256), np.float32)
+            for i in range(nimg_test):
+                styles_test[i] = self.cp._run_net(test_data[i].transpose((1,2,0)))[1]
+            diam_test_pred = np.exp(A @ (styles_test - smean).T + np.log(self.diam_mean) + ymean)
+            diam_test_pred = np.maximum(5., diam_test_pred)
+            print('test correlation: %0.4f'%np.corrcoef(diam_test, diam_test_pred)[0,1])
+
+        self.pretrained_size = cp_model_path+'_size.npy'
+        self.params = {'A': A, 'smean': smean, 'diam_mean': self.diam_mean, 'ymean': ymean}
+        np.save(self.pretrained_size, self.params)
+        return self.params
+
+def convert_images(x, channels, do_3D, normalize, invert):
+    """ return list of images with channels last and normalized intensities """
+    if not isinstance(x,list) and not (x.ndim>3 and not do_3D):
+        nolist = True
+        x = [x]
+    else:
+        nolist = False
+    
+    nimg = len(x)
+    if do_3D:
+        for i in range(len(x)):
+            if x[i].ndim<3:
+                raise ValueError('ERROR: cannot process 2D images in 3D mode') 
+            elif x[i].ndim<4:
+                x[i] = x[i][...,np.newaxis]
+            if x[i].shape[1]<4:
+                x[i] = x[i].transpose((0,2,3,1))
+            elif x[i].shape[0]<4:
+                x[i] = x[i].transpose((1,2,3,0))
+            print('multi-stack tiff read in as having %d planes %d channels'%
+                    (x[0].shape[0], x[0].shape[-1]))
+
+    if channels is not None:
+        if len(channels)==2:
+            if not isinstance(channels[0], list):
+                channels = [channels for i in range(nimg)]
+        x = [transforms.reshape(x[i], channels=channels[i]) for i in range(nimg)]
+    elif do_3D:
+        for i in range(len(x)):
+            # code above put channels last
+            if x[i].shape[-1]>2:
+                print('WARNING: more than 2 channels given, use "channels" input for specifying channels - just using first two channels to run processing')
+                x[i] = x[i][...,:2]
+    else:
+        for i in range(len(x)):
+            if x[i].ndim>3:
+                raise ValueError('ERROR: cannot process 4D images in 2D mode')
+            elif x[i].ndim==2:
+                x[i] = np.stack((x[i], np.zeros_like(x[i])), axis=2)
+            elif x[i].shape[0]<8:
+                x[i] = x[i].transpose((1,2,0))
+            if x[i].shape[-1]>2:
+                print('WARNING: more than 2 channels given, use "channels" input for specifying channels - just using first two channels to run processing')
+                x[i] = x[i][:,:,:2]
+
+    if normalize or invert:
+        x = [transforms.normalize_img(x[i], invert=invert) for i in range(nimg)]
+
+    return x, nolist
 
 urls = ['http://www.cellpose.org/models/cyto_0',
         'http://www.cellpose.org/models/cyto_1',

@@ -7,7 +7,7 @@ from scipy.ndimage import find_objects, gaussian_filter, generate_binary_structu
 import numpy as np
 import mxnet as mx
 
-
+from . import metrics
 
 def use_gpu(gpu_number=0):
     """ check if mxnet gpu works """
@@ -169,7 +169,7 @@ def outlines_list(masks):
 
 def get_masks_unet(output, cell_threshold=0, boundary_threshold=0):
     """ create masks using cell probability and cell boundary """
-    cells = (output[:,:,1] - output[:,:,0])>cell_threshold
+    cells = (output[...,1] - output[...,0])>cell_threshold
     selem = generate_binary_structure(cells.ndim, connectivity=1)
     labels, nlabels = label(cells, selem)
 
@@ -177,25 +177,37 @@ def get_masks_unet(output, cell_threshold=0, boundary_threshold=0):
         slices = find_objects(labels)
         dists = 10000*np.ones(labels.shape, np.float32)
         mins = np.zeros(labels.shape, np.int32)
-        borders = np.logical_and(~(labels>0), output[:,:,2]>boundary_threshold)
+        borders = np.logical_and(~(labels>0), output[...,2]>boundary_threshold)
         pad = 10
-        for i,si in enumerate(slices):
-            if si is not None:
-                sr,sc = si
-                sr = slice(sr.start-pad, sr.stop+pad)
-                sc = slice(sc.start-pad, sc.stop+pad)
-                ly, lx = sr.stop - sr.start + pad, sc.stop - sc.start + pad
-                msk = (labels[sr,sc] == (i+1)).astype(np.float32)
+        for i,slc in enumerate(slices):
+            if slc is not None:
+                slc_pad = tuple([slice(max(0,sli.start-pad), min(labels.shape[j], sli.stop+pad))
+                                    for j,sli in enumerate(slc)])
+                msk = (labels[slc_pad] == (i+1)).astype(np.float32)
                 msk = 1 - gaussian_filter(msk, 5)
-                dists[sr,sc] = np.minimum(dists[sr,sc], msk)
-                mins[sr,sc][dists[sr,sc]==msk] = (i+1)
+                dists[slc_pad] = np.minimum(dists[slc_pad], msk)
+                mins[slc_pad][dists[slc_pad]==msk] = (i+1)
         labels[labels==0] = borders[labels==0] * mins[labels==0]
         
     masks = labels
-    masks = fill_holes(masks)
     shape0 = masks.shape
     _,masks = np.unique(masks, return_inverse=True)
     masks = np.reshape(masks, shape0)
+    return masks
+
+def stitch3D(masks, stitch_threshold=0.25):
+    """ stitch 2D masks into 3D volume with stitch_threshold on IOU """
+    mmax = masks[0].max()
+    for i in range(len(masks)-1):
+        iou = metrics._intersection_over_union(masks[i+1], masks[i])[1:,1:]
+        iou[iou < stitch_threshold] = 0.0
+        iou[iou < iou.max(axis=0)] = 0.0
+        istitch = iou.argmax(axis=1) + 1
+        ino = np.nonzero(iou.max(axis=1)==0.0)[0]
+        istitch[ino] = np.arange(mmax+1, mmax+len(ino)+1, 1, int)
+        mmax += len(ino)
+        istitch = np.append(np.array(0), istitch)
+        masks[i+1] = istitch[masks[i+1]]
     return masks
 
 def diameters(masks):
@@ -234,7 +246,7 @@ def process_cells(M0, npix=20):
     return M0
 
 
-def fill_holes(masks, min_size=15):
+def fill_holes_and_remove_small_masks(masks, min_size=15):
     """ fill holes in masks (2D/3D) and discard masks smaller than min_size (2D)
     
     fill holes in each mask using scipy.ndimage.morphology.binary_fill_holes
@@ -247,7 +259,7 @@ def fill_holes(masks, min_size=15):
         size [Ly x Lx] or [Lz x Ly x Lx]
 
     min_size: int (optional, default 15)
-        minimum number of pixels per mask
+        minimum number of pixels per mask, can turn off with -1
 
     Returns
     ---------------
@@ -262,52 +274,19 @@ def fill_holes(masks, min_size=15):
         raise ValueError('masks_to_outlines takes 2D or 3D array, not %dD array'%masks.ndim)
     
     slices = find_objects(masks)
-    i = 0
-    for slc in slices:
+    j = 0
+    for i,slc in enumerate(slices):
         if slc is not None:
             msk = masks[slc] == (i+1)
-            if msk.ndim==3:
-                small_objects = np.zeros(msk.shape, np.bool)
-                for k in range(msk.shape[0]):
-                    msk[k] = binary_fill_holes(msk[k])
-                    #small_objects[k] = ~remove_small_objects(msk[k], min_size=min_size)
-            else:
-                msk = binary_fill_holes(msk)
-                small_objects = ~remove_small_objects(msk, min_size=min_size)
-            sm = np.logical_and(msk, small_objects)
-            #~skimage.morphology.remove_small_objects(msk, min_size=min_size, connectivity=1))
-            masks[slc][msk] = (i+1)
-            masks[slc][sm] = 0
-        i+=1
+            npix = msk.sum()
+            if min_size > 0 and npix < min_size:
+                masks[slc][msk] = 0
+            else:    
+                if msk.ndim==3:
+                    for k in range(msk.shape[0]):
+                        msk[k] = binary_fill_holes(msk[k])
+                else:
+                    msk = binary_fill_holes(msk)
+                masks[slc][msk] = (j+1)
+                j+=1
     return masks
-
-def remove_small_objects(ar, min_size=64, connectivity=1):
-    """ copied from skimage.morphology.remove_small_objects (required to be separate for pyinstaller) """
-    out = ar.copy()
-
-    if min_size == 0:  # shortcut for efficiency
-        return out
-
-    if out.dtype == bool:
-        selem = generate_binary_structure(ar.ndim, connectivity)
-        ccs = np.zeros_like(ar, dtype=np.int32)
-        label(ar, selem, output=ccs)
-    else:
-        ccs = out
-
-    try:
-        component_sizes = np.bincount(ccs.ravel())
-    except ValueError:
-        raise ValueError("Negative value labels are not supported. Try "
-                         "relabeling the input with `scipy.ndimage.label` or "
-                         "`skimage.morphology.label`.")
-
-    if len(component_sizes) == 2 and out.dtype != bool:
-        warn("Only one label was provided to `remove_small_objects`. "
-             "Did you mean to use a boolean array?")
-
-    too_small = component_sizes < min_size
-    too_small_mask = too_small[ccs]
-    out[too_small_mask] = 0
-
-    return out

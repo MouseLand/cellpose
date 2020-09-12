@@ -45,6 +45,7 @@ def average_precision(masks_true, masks_pred, threshold=[0.5, 0.75, 0.9]):
     n_true = np.array(list(map(np.max, masks_true)))
     n_pred = np.array(list(map(np.max, masks_pred)))
     for n in range(len(masks_true)):
+        #_,mt = np.reshape(np.unique(masks_true[n], return_index=True), masks_pred[n].shape)
         iou = _intersection_over_union(masks_true[n], masks_pred[n])[1:, 1:]
         for k,th in enumerate(threshold):
             tp[n,k] = _true_positive(iou, th)
@@ -103,6 +104,7 @@ def _intersection_over_union(masks_true, masks_pred):
     n_pixels_pred = np.sum(overlap, axis=0, keepdims=True)
     n_pixels_true = np.sum(overlap, axis=1, keepdims=True)
     iou = overlap / (n_pixels_pred + n_pixels_true - overlap)
+    iou[np.isnan(iou)] = 0.0
     return iou
 
 def _true_positive(iou, th):
