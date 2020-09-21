@@ -884,8 +884,6 @@ class UnetModel():
                 if self.unet and lbl.shape[1]>1 and rescale:
                     #lbl[:,1] *= scale[0]**2
                     lbl[:,1] /= diam_batch[:,np.newaxis,np.newaxis]**2
-            scale[n] *= 1. / rescale[n]
-        
                 X = nd.array(imgi, ctx=self.device)
                 with mx.autograd.record():
                     y, style = self.net(X)

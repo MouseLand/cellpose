@@ -99,8 +99,8 @@ def train_unets(data_root):
 
 def test_unets_main(data_root, save_root):
     """ data_root is folder with folders images_.../train/models/, images_cyto/test and images_nuclei/test """
-    #model_types = ['cyto', 'cyto_sp', 'nuclei']
-    model_types = ['cyto']
+    model_types = ['cyto', 'cyto_sp', 'nuclei']
+    #model_types = ['cyto']
     for model_type in model_types:
         model_root = os.path.join(data_root, 'images_%s/train/models/'%model_type)
         test_root = os.path.join(data_root, 'images_%s/test/'%model_type.split('_')[0])
