@@ -91,6 +91,44 @@ def show_segmentation(fig, img, maski, flowi, channels=[0,0], file_name=None):
         io.imsave(save_path + '_outlines.jpg', imgout)
         io.imsave(save_path + '_flows.jpg', flowi)
 
+def mask_rgb(masks, colors=None):
+    """ masks in random rgb colors
+
+    Parameters
+    ----------------
+
+    masks: int, 2D array
+        masks where 0=NO masks; 1,2,...=mask labels
+
+    colors: int, 2D array (optional, default None)
+        size [nmasks x 3], each entry is a color in 0-255 range
+
+    Returns
+    ----------------
+
+    RGB: uint8, 3D array
+        array of masks overlaid on grayscale image
+
+    """
+    if colors is not None:
+        if colors.max()>1:
+            colors = np.float32(colors)
+            colors /= 255
+        colors = rgb_to_hsv(colors)
+    
+    HSV = np.zeros((masks.shape[0], masks.shape[1], 3), np.float32)
+    HSV[:,:,2] = 1.0
+    for n in range(int(masks.max())):
+        ipix = (masks==n+1).nonzero()
+        if colors is None:
+            HSV[ipix[0],ipix[1],0] = np.random.rand()
+        else:
+            HSV[ipix[0],ipix[1],0] = colors[n,0]
+        HSV[ipix[0],ipix[1],1] = np.random.rand()*0.5+0.5
+        HSV[ipix[0],ipix[1],2] = np.random.rand()*0.5+0.5
+    RGB = (hsv_to_rgb(HSV) * 255).astype(np.uint8)
+    return RGB
+
 def mask_overlay(img, masks, colors=None):
     """ overlay masks on image (set image to grayscale)
 
@@ -136,7 +174,6 @@ def mask_overlay(img, masks, colors=None):
         HSV[ipix[0],ipix[1],1] = 1.0
     RGB = (hsv_to_rgb(HSV) * 255).astype(np.uint8)
     return RGB
-
 
 def image_to_rgb(img0, channels=[0,0]):
     """ image is 2 x Ly x Lx or Ly x Lx x 2 - change to RGB Ly x Lx x 3 """

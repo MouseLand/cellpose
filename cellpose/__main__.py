@@ -130,9 +130,11 @@ def main():
     args = parser.parse_args()
 
     if args.check_mkl:
+        tic=time.time()
         print('Running test snippet to check if MKL running (https://mxnet.apache.org/versions/1.6/api/python/docs/tutorials/performance/backend/mkldnn/mkldnn_readme.html#4)')
-        process = subprocess.Popen('python test_mkl.py', stdout=subprocess.PIPE,
-                                        stderr=subprocess.PIPE, cwd=os.path.dirname(os.path.realpath(__file__)))
+        process = subprocess.Popen(['python', 'test_mkl.py'],
+                                    stdout=subprocess.PIPE, stderr=subprocess.PIPE, 
+                                    cwd=os.path.dirname(os.path.abspath(__file__)))
         stdout, stderr = process.communicate()
         if len(stdout)>0:
             print('MKL version working - CPU version is hardware-accelerated.')
@@ -140,6 +142,7 @@ def main():
         else:
             print('WARNING: MKL version not working/installed - CPU version will be SLOW!')
             mkl_enabled = False
+        print(time.time()-tic)
     else:
         mkl_enabled = True
 
@@ -183,7 +186,7 @@ def main():
         print('>>>> using %s'%(['CPU', 'GPU'][use_gpu]))
         model_dir = pathlib.Path.home().joinpath('.cellpose', 'models')              
 
-        if not args.train:
+        if not args.train and not args.train_size:
             tic = time.time()
             if not (args.pretrained_model=='cyto' or args.pretrained_model=='nuclei'):
                 cpmodel_path = args.pretrained_model
@@ -192,8 +195,7 @@ def main():
                     args.pretrained_model = 'cyto'
 
             if args.pretrained_model=='cyto' or args.pretrained_model=='nuclei':
-                model = models.Cellpose(device=device, model_type=args.pretrained_model, 
-                                        batch_size=args.batch_size)
+                model = models.Cellpose(device=device, model_type=args.pretrained_model)
                     
                 if args.diameter==0:
                     diameter = None
@@ -211,7 +213,8 @@ def main():
                                                     do_3D=args.do_3D, net_avg=(not args.fast_mode),
                                                     augment=(not args.fast_mode),
                                                     flow_threshold=args.flow_threshold,
-                                                    cellprob_threshold=args.cellprob_threshold)
+                                                    cellprob_threshold=args.cellprob_threshold,
+                                                    batch_size=args.batch_size)
                 
             else:
                 if args.all_channels:
@@ -251,13 +254,30 @@ def main():
             if args.all_channels:
                 channels = None  
 
+            # training data
             label_names, flow_names = get_label_files(image_names, args.mask_filter, imf=imf)
             nimg = len(image_names)
             labels = [io.imread(label_names[n]) for n in range(nimg)]
             if flow_names is not None and not args.unet:
                 labels = [np.concatenate((labels[n][np.newaxis,:,:], io.imread(flow_names[n])), axis=0) 
                           for n in range(nimg)]
+
+            # testing data
+            test_images, test_labels, image_names_test = None, None, None
+            if len(args.test_dir) > 0:
+                image_names_test = get_image_files(args.test_dir, args.mask_filter, imf=imf)
+                label_names_test, flow_names_test = get_label_files(image_names_test, args.mask_filter, imf=imf)
+                nimg = len(image_names_test)
+                test_images = [io.imread(image_names_test[n]) for n in range(nimg)]
+                test_labels = [io.imread(label_names_test[n]) for n in range(nimg)]
+                if flow_names_test is not None and not args.unet:
+                    test_labels = [np.concatenate((test_labels[n][np.newaxis,:,:], io.imread(flow_names_test[n])), axis=0) 
+                                   for n in range(nimg)]
+
+            # model path
             if not os.path.exists(cpmodel_path):
+                if not args.train:
+                    raise ValueError('ERROR: model path missing or incorrect - cannot train size model')
                 cpmodel_path = False
                 print('>>>> training from scratch')
                 if args.diameter==0:
@@ -269,32 +289,18 @@ def main():
             else:
                 rescale = True
                 args.diameter = szmean 
-                print('>>>> training starting with pretrained_model %s'%cpmodel_path)
+                print('>>>> pretrained model %s is being used'%cpmodel_path)
                 args.residual_on = 1
                 args.style_on = 1
                 args.concatenation = 0
-            if rescale:
-                print('>>>> rescaling diameter for each training image to %0.1f'%args.diameter)
+            if rescale and args.train:
+                print('>>>> during training rescaling images to fixed diameter of %0.1f pixels'%args.diameter)
                 
-            
-
-            test_images, test_labels, image_names_test = None, None, None
-            if len(args.test_dir) > 0:
-                image_names_test = get_image_files(args.test_dir, args.mask_filter, imf=imf)
-                label_names_test, flow_names_test = get_label_files(image_names_test, args.mask_filter, imf=imf)
-                nimg = len(image_names_test)
-                test_images = [io.imread(image_names_test[n]) for n in range(nimg)]
-                test_labels = [io.imread(label_names_test[n]) for n in range(nimg)]
-                if flow_names_test is not None and not args.unet:
-                    test_labels = [np.concatenate((test_labels[n][np.newaxis,:,:], io.imread(flow_names_test[n])), axis=0) 
-                                   for n in range(nimg)]
-                
-            print('>>>> %s model'%(['cellpose', 'unet'][args.unet]))    
+            # initialize model
             if args.unet:
                 model = models.UnetModel(device=device,
                                         pretrained_model=cpmodel_path, 
                                         diam_mean=szmean,
-                                        batch_size=args.batch_size,
                                         residual_on=args.residual_on,
                                         style_on=args.style_on,
                                         concatenation=args.concatenation,
@@ -303,21 +309,24 @@ def main():
                 model = models.CellposeModel(device=device,
                                             pretrained_model=cpmodel_path, 
                                             diam_mean=szmean,
-                                            batch_size=args.batch_size,
                                             residual_on=args.residual_on,
                                             style_on=args.style_on,
                                             concatenation=args.concatenation)
-            n_epochs=args.n_epochs
-            model.train(images, labels, train_files=image_names, 
-                        test_data=test_images, test_labels=test_labels, test_files=image_names_test,
-                        learning_rate=args.learning_rate, channels=channels, 
-                        save_path=os.path.realpath(args.dir), rescale=rescale, n_epochs=n_epochs)
+            
+            # train segmentation model
+            if args.train:
+                cpmodel_path = model.train(images, labels, train_files=image_names, 
+                                            test_data=test_images, test_labels=test_labels, test_files=image_names_test,
+                                            learning_rate=args.learning_rate, channels=channels, 
+                                            save_path=os.path.realpath(args.dir), rescale=rescale, n_epochs=args.n_epochs)
+                print('>>>> model trained and saved to %s'%cpmodel_path)
 
+            # train size model
             if args.train_size:
                 sz_model = models.SizeModel(model, device=device)
-                sz_model.train(train_data, train_labels, test_data, test_labels, channels=channels)
+                sz_model.train(images, labels, test_images, test_labels, channels=channels)
                 if test_images is not None:
-                    predicted_diams, diams_style = sz_model.eval(test_data, channels=channels)
+                    predicted_diams, diams_style = sz_model.eval(test_images, channels=channels)
                     if test_labels[0].ndim>2:
                         tlabels = [lbl[0] for lbl in test_labels]
                     else:
@@ -325,8 +334,8 @@ def main():
                     ccs = np.corrcoef(diams_style, np.array([utils.diameters(lbl)[0] for lbl in tlabels]))[0,1]
                     cc = np.corrcoef(predicted_diams, np.array([utils.diameters(lbl)[0] for lbl in tlabels]))[0,1]
                     print('style test correlation: %0.4f; final test correlation: %0.4f'%(ccs,cc))
-                    np.save(os.path.join(args.test_dir, 'predicted_diams.npy', 
-                                {'predicted_diams': predicted_diams, 'diams_style': diams_style})
+                    np.save(os.path.join(args.test_dir, '%s_predicted_diams.npy'%os.path.split(cpmodel_path)[1]), 
+                            {'predicted_diams': predicted_diams, 'diams_style': diams_style})
 
 if __name__ == '__main__':
     main()

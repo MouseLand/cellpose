@@ -1,14 +1,13 @@
-import sys, os
-import numpy as np
-import matplotlib.pyplot as plt
-import mxnet as mx
-import shutil
+import sys, os, time, string, shutil
 from natsort import natsorted
 from glob import glob
 from pathlib import Path
-import string
+import numpy as np
+import matplotlib.pyplot as plt
+import mxnet as mx
 import matplotlib.pyplot as plt
 from matplotlib import rc
+import cv2
 from scipy import stats
 from cellpose import models, datasets, utils, transforms, io, metrics
 
@@ -101,7 +100,7 @@ def train_unets(data_root):
 def test_unets_main(data_root, save_root):
     """ data_root is folder with folders images_.../train/models/, images_cyto/test and images_nuclei/test """
     #model_types = ['cyto', 'cyto_sp', 'nuclei']
-    model_types = ['nuclei']
+    model_types = ['cyto']
     for model_type in model_types:
         model_root = os.path.join(data_root, 'images_%s/train/models/'%model_type)
         test_root = os.path.join(data_root, 'images_%s/test/'%model_type.split('_')[0])
@@ -224,11 +223,37 @@ def test_cellpose_main(data_root, save_root):
         test_cellpose(test_root, save_root, pretrained_models, model_type)
         
 
-def test_cellpose(test_root, save_root, pretrained_models, model_type='cyto'):
+def test_timing(test_root, save_root):
+    itest=14
+    test_data = io.imread(os.path.join(test_root, '%03d_img.tif'%itest))
+    dat = np.load(os.path.join(test_root, 'predicted_diams.npy'), allow_pickle=True).item()
+    rescale = 30. / dat['predicted_diams'][itest]
+    Ly, Lx = test_data.shape[1:]
+    test_data = cv2.resize(np.transpose(test_data, (1,2,0)), (int(Lx*rescale), int(Ly*rescale)))
+    
+    devices = [mx.gpu(), mx.cpu()]
+    bsize = [256, 512, 1024]
+    t100 = np.zeros((2,3,2))
+    for d,device in enumerate(devices):
+        model = models.CellposeModel(device=device, pretrained_model=None)
+        for j in range(3):
+            if j==2:
+                test_data = np.tile(test_data, (2,2,1))
+            img = test_data[:bsize[j], :bsize[j]]
+            imgs = [img for i in range(100)]
+            for k in [0,1]:
+                tic = time.time()
+                masks = model.eval(imgs, channels=[2,1], rescale=1.0, net_avg=k)[0]
+                print(masks[0].max())
+                t100[d,j,k] = time.time()-tic
+                print(t100[d,j,k])
+
+
+def test_cellpose(test_root, save_root, pretrained_models, diam_file=None, model_type='cyto'):
     """ test single cellpose net or 4 nets averaged """
     device = mx.gpu()
     ntest = len(glob(os.path.join(test_root, '*_img.tif')))
-    if model_type[:4]=='cyto':
+    if model_type[:4]!='nuclei':
         channels = [2,1]
     else:
         channels = [0,0]
@@ -237,7 +262,10 @@ def test_cellpose(test_root, save_root, pretrained_models, model_type='cyto'):
     
     # saved diameters
     if model_type != 'cyto_sp':
-        dat = np.load(os.path.join(test_root, 'predicted_diams.npy'), allow_pickle=True).item()
+        if diam_file is None:
+            dat = np.load(os.path.join(test_root, 'predicted_diams.npy'), allow_pickle=True).item()
+        else:
+            dat = np.load(diam_file, allow_pickle=True).item()
         if model_type=='cyto':
             rescale = 30. / dat['predicted_diams']
         else:
@@ -276,6 +304,46 @@ def test_nets_3D(stack, model_root, test_region=None):
             masks = utils.fill_holes_and_remove_small_masks(masks, min_size=2000)
         np.save(os.path.join(save_root, '%s_3D_masks.npy'%model_arch), masks)
 
+def test_cellpose_kfold_aug(data_root, save_root):
+    """ test trained cellpose networks on all cyto images """
+    device = mx.gpu()
+    ntest = 68
+    concatenation = [0]
+    residual_on = [1]
+    style_on = [1]
+    channels = [2,1]
+
+    aps = np.zeros((9,68,len(thresholds)))
+    
+    for j in range(9):
+        train_root = os.path.join(data_root, 'train%d/'%j)
+        model_root = os.path.join(train_root, 'models/')
+
+        test_root = os.path.join(data_root, 'test%d/'%j)
+        test_data = [io.imread(os.path.join(test_root, '%03d_img.tif'%i)) for i in range(ntest)]
+        test_labels = [io.imread(os.path.join(test_root, '%03d_masks.tif'%i)) for i in range(ntest)]
+            
+        k=0
+        
+        pretrained_models = get_pretrained_models(model_root, 0, 3, 
+                                                    residual_on[k], style_on[k], 
+                                                    concatenation[k])
+        print(pretrained_models)
+        
+        cp_model = models.CellposeModel(device=device,
+                                        pretrained_model=pretrained_models)
+        
+        dat = np.load(test_root+'predicted_diams.npy', allow_pickle=True).item()
+        rescale = 30. / dat['predicted_diams']
+        
+        masks = cp_model.eval(test_data, channels=channels, rescale=rescale, net_avg=True, augment=True)[0]
+        ap = metrics.average_precision(test_labels, masks, 
+                                        threshold=thresholds)[0]
+        print(ap[:,[0,5,8]].mean(axis=0))
+        aps[j] = ap
+
+    return aps
+
 def test_cellpose_kfold(data_root, save_root):
     """ test trained cellpose networks on all cyto images """
     device = mx.gpu()
@@ -294,7 +362,7 @@ def test_cellpose_kfold(data_root, save_root):
         test_root = os.path.join(data_root, 'test%d/'%j)
         test_data = [io.imread(os.path.join(test_root, '%03d_img.tif'%i)) for i in range(ntest)]
         test_labels = [io.imread(os.path.join(test_root, '%03d_masks.tif'%i)) for i in range(ntest)]
-        
+            
         for k in range(len(concatenation)):
             
             pretrained_models = get_pretrained_models(model_root, 0, 3, 
@@ -325,6 +393,19 @@ def test_cellpose_kfold(data_root, save_root):
                     print(ap[:,[0,5,8]].mean(axis=0))
                     aps[j,m+5] = ap
     np.save(os.path.join(save_root, 'ap_cellpose_all.npy'), aps)
+
+def size_distributions(data_root, save_root):
+    """ size distributions for all images """
+    ntest = 68
+    sz_dist = np.zeros((9,ntest))
+    
+    for j in range(9):
+        test_root = os.path.join(data_root, 'test%d/'%j)
+        test_labels = [io.imread(os.path.join(test_root, '%03d_masks.tif'%i)) for i in range(ntest)]
+        sz_dist[j] = np.array([utils.size_distribution(lbl) for lbl in test_labels])
+    np.save(os.path.join(save_root, 'size_distribution.npy'), sz_dist)
+    return sz_dist
+
 
             
 

@@ -872,7 +872,8 @@ class UnetModel():
                 trainer.set_learning_rate(LR)
             for ibatch in range(0,nimg,batch_size):
                 if rescale:
-                    rsc = diam_train[rperm[ibatch:ibatch+batch_size]] / self.diam_mean
+                    diam_batch = diam_train[rperm[ibatch:ibatch+batch_size]]
+                    rsc = diam_batch / self.diam_mean
                 else:
                     rsc = np.ones(len(rperm[ibatch:ibatch+batch_size]), np.float32)
 
@@ -880,8 +881,11 @@ class UnetModel():
                                         [train_data[i] for i in rperm[ibatch:ibatch+batch_size]],
                                         Y=[train_labels[i][1:] for i in rperm[ibatch:ibatch+batch_size]],
                                         rescale=rsc, scale_range=scale_range, unet=self.unet)
-                if self.unet and lbl.shape[1]>1:
-                    lbl[:,1] *= scale[0]**2
+                if self.unet and lbl.shape[1]>1 and rescale:
+                    #lbl[:,1] *= scale[0]**2
+                    lbl[:,1] /= diam_batch[:,np.newaxis,np.newaxis]**2
+            scale[n] *= 1. / rescale[n]
+        
                 X = nd.array(imgi, ctx=self.device)
                 with mx.autograd.record():
                     y, style = self.net(X)
@@ -965,6 +969,8 @@ class CellposeModel(UnetModel):
     def __init__(self, gpu=False, pretrained_model=False,
                     diam_mean=30., net_avg=True, device=None,
                     residual_on=True, style_on=True, concatenation=False):
+        if isinstance(pretrained_model, np.ndarray):
+            pretrained_model = list(pretrained_model)
         nclasses = 3 # 3 prediction maps (dY, dX and cellprob)
         self.nclasses = nclasses 
         model_dir = pathlib.Path.home().joinpath('.cellpose', 'models')
@@ -1110,21 +1116,25 @@ class CellposeModel(UnetModel):
             self.net.collect_params().grad_req = 'null'
 
         if not do_3D:
+            flow_time = 0
+            net_time = 0
             for i in iterator:
                 img = x[i].copy()
                 Ly,Lx = img.shape[:2]
 
+                tic = time.time()
                 y, style = self._run_nets(img, rsz=rescale[i], net_avg=net_avg, 
                                             augment=augment, tile=tile)
-                
+                net_time += time.time() - tic
                 if progress is not None:
                     progress.setValue(55)
                 styles.append(style)
                 if compute_masks:
+                    tic=time.time()
                     cellprob = y[:,:,-1]
                     dP = y[:,:,:2].transpose((2,0,1))
                     niter = 1 / rescale[i] * 200
-                    p = dynamics.follow_flows(-1 * dP / 5., 
+                    p = dynamics.follow_flows(-1 * dP * (cellprob > cellprob_threshold) / 5., 
                                                 niter=niter)
                     if progress is not None:
                         progress.setValue(65)
@@ -1136,9 +1146,11 @@ class CellposeModel(UnetModel):
                     dP = np.concatenate((dP, np.zeros((1,Ly,Lx), np.uint8)), axis=0)
                     flows.append([plot.dx_to_circ(dP), dP, cellprob, p])
                     masks.append(maski)
+                    flow_time += time.time() - tic
                 else:
                     flows.append([None]*3)
                     masks.append([])
+            print('time spent: running network %0.2fs; flow+mask computation %0.2f'%(net_time, flow_time))
 
             if stitch_threshold > 0.0 and nimg > 1 and all([m.shape==masks[0].shape for m in masks]):
                 print('stitching %d masks using stitch_threshold=%0.3f to make 3D masks'%(nimg, stitch_threshold))
@@ -1255,10 +1267,11 @@ class CellposeModel(UnetModel):
         else:
             test_flows = None
         
-        self._train_net(train_data, train_flows, 
-                       test_data, test_flows,
-                       pretrained_model, save_path, save_every,
-                       learning_rate, n_epochs, weight_decay, batch_size, rescale)
+        model_path = self._train_net(train_data, train_flows, 
+                                     test_data, test_flows,
+                                     pretrained_model, save_path, save_every,
+                                     learning_rate, n_epochs, weight_decay, batch_size, rescale)
+        return model_path
 
 class SizeModel():
     """ linear regression model for determining the size of objects in image

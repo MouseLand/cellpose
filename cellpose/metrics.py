@@ -2,6 +2,72 @@ import numpy as np
 from . import utils, dynamics
 from numba import jit
 from scipy.optimize import linear_sum_assignment
+from scipy.ndimage import convolve
+
+
+def mask_ious(masks_true, masks_pred):
+    """ return best-matched masks """
+    iou = _intersection_over_union(masks_true, masks_pred)[1:,1:]
+    n_min = min(iou.shape[0], iou.shape[1])
+    costs = -(iou >= 0.5).astype(float) - iou / (2*n_min)
+    true_ind, pred_ind = linear_sum_assignment(costs)
+    iout = np.zeros(masks_true.max())
+    iout[true_ind] = iou[true_ind,pred_ind]
+    preds = np.zeros(masks_true.max(), 'int')
+    preds[true_ind] = pred_ind+1
+    return iout, preds
+
+def boundary_scores(masks_true, masks_pred, scales):
+    """ boundary precision / recall / Fscore """
+    diams = [utils.diameters(lbl)[0] for lbl in masks_true]
+    precision = np.zeros((len(scales), len(masks_true)))
+    recall = np.zeros((len(scales), len(masks_true)))
+    fscore = np.zeros((len(scales), len(masks_true)))
+    for j, scale in enumerate(scales):
+        for n in range(len(masks_true)):
+            diam = max(1, scale * diams[n])
+            rs, ys, xs = utils.circleMask([int(np.ceil(diam)), int(np.ceil(diam))])
+            filt = (rs <= diam).astype(np.float32)
+            otrue = utils.masks_to_outlines(masks_true[n])
+            otrue = convolve(otrue, filt)
+            opred = utils.masks_to_outlines(masks_pred[n])
+            opred = convolve(opred, filt)
+            tp = np.logical_and(otrue==1, opred==1).sum()
+            fp = np.logical_and(otrue==0, opred==1).sum()
+            fn = np.logical_and(otrue==1, opred==0).sum()
+            precision[j,n] = tp / (tp + fp)
+            recall[j,n] = tp / (tp + fn)
+        fscore[j] = 2 * precision[j] * recall[j] / (precision[j] + recall[j])
+    return precision, recall, fscore
+
+
+def aggregated_jaccard_index(masks_true, masks_pred):
+    """ AJI = intersection of all matched masks / union of all masks 
+    
+    Parameters
+    ------------
+    
+    masks_true: list of ND-arrays (int) or ND-array (int) 
+        where 0=NO masks; 1,2... are mask labels
+    masks_pred: list of ND-arrays (int) or ND-array (int) 
+        ND-array (int) where 0=NO masks; 1,2... are mask labels
+
+    Returns
+    ------------
+
+    aji : aggregated jaccard index for each set of masks
+
+    """
+
+    aji = np.zeros(len(masks_true))
+    for n in range(len(masks_true)):
+        iout, preds = mask_ious(masks_true[n], masks_pred[n])
+        inds = np.arange(0, masks_true[n].max(), 1, int)
+        overlap = _label_overlap(masks_true[n], masks_pred[n])
+        union = np.logical_or(masks_true[n]>0, masks_pred[n]>0).sum()
+        overlap = overlap[inds[preds>0]+1, preds[preds>0].astype(int)]
+        aji[n] = overlap.sum() / union
+    return aji 
 
 
 def average_precision(masks_true, masks_pred, threshold=[0.5, 0.75, 0.9]):

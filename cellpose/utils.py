@@ -4,6 +4,7 @@ from urllib.request import urlopen
 from urllib.parse import urlparse
 import cv2
 from scipy.ndimage import find_objects, gaussian_filter, generate_binary_structure, label, maximum_filter1d, binary_fill_holes
+from scipy.spatial import ConvexHull
 import numpy as np
 import mxnet as mx
 
@@ -74,7 +75,7 @@ def distance_to_boundary(masks):
 
     """
     if masks.ndim > 3 or masks.ndim < 2:
-        raise ValueError('masks_to_outlines takes 2D or 3D array, not %dD array'%masks.ndim)
+        raise ValueError('distance_to_boundary takes 2D or 3D array, not %dD array'%masks.ndim)
     dist_to_bound = np.zeros(masks.shape, np.float64)
     
     if masks.ndim==3:
@@ -167,6 +168,93 @@ def outlines_list(masks):
                 outpix.append(np.zeros((0,2)))
     return outpix
 
+def get_perimeter(points):
+    """ perimeter of points - npoints x ndim """
+    if points.shape[0]>4:
+        points = np.append(points, points[:1], axis=0)
+        return ((np.diff(points, axis=0)**2).sum(axis=1)**0.5).sum()
+    else:
+        return 0
+
+def get_mask_compactness(masks):
+    perimeters = get_mask_perimeters(masks)
+    #outlines = masks_to_outlines(masks)
+    #perimeters = np.unique(outlines*masks, return_counts=True)[1][1:]
+    npoints = np.unique(masks, return_counts=True)[1][1:]
+    areas = npoints
+    compactness =  4 * np.pi * areas / perimeters**2
+    compactness[perimeters==0] = 0
+    compactness[compactness>1.0] = 1.0
+    return compactness
+
+def get_mask_perimeters(masks):
+    """ get perimeters of masks """
+    perimeters = np.zeros(masks.max())
+    for n in range(masks.max()):
+        mn = masks==(n+1)
+        if mn.sum() > 0:
+            contours = cv2.findContours(mn.astype(np.uint8), mode=cv2.RETR_EXTERNAL,
+                                        method=cv2.CHAIN_APPROX_NONE)[0]
+            #cmax = np.argmax([c.shape[0] for c in contours])
+            #perimeters[n] = get_perimeter(contours[cmax].astype(int).squeeze())
+            perimeters[n] = np.array([get_perimeter(c.astype(int).squeeze()) for c in contours]).sum()
+
+    return perimeters
+
+def circleMask(d0):
+    """ creates array with indices which are the radius of that x,y point
+        inputs:
+            d0 (patch of (-d0,d0+1) over which radius computed
+        outputs:
+            rs: array (2*d0+1,2*d0+1) of radii
+            dx,dy: indices of patch
+    """
+    dx  = np.tile(np.arange(-d0[1],d0[1]+1), (2*d0[0]+1,1))
+    dy  = np.tile(np.arange(-d0[0],d0[0]+1), (2*d0[1]+1,1))
+    dy  = dy.transpose()
+
+    rs  = (dy**2 + dx**2) ** 0.5
+    return rs, dx, dy
+
+def get_mask_stats(masks_true):
+    mask_perimeters = get_mask_perimeters(masks_true)
+
+    # disk for compactness
+    rs,dy,dx = circleMask(np.array([100, 100]))
+    rsort = np.sort(rs.flatten())
+
+    # area for solidity
+    npoints = np.unique(masks_true, return_counts=True)[1][1:]
+    areas = npoints - mask_perimeters / 2 - 1
+    
+    compactness = np.zeros(masks_true.max())
+    convexity = np.zeros(masks_true.max())
+    solidity = np.zeros(masks_true.max())
+    convex_perimeters = np.zeros(masks_true.max())
+    convex_areas = np.zeros(masks_true.max())
+    for ic in range(masks_true.max()):
+        points = np.array(np.nonzero(masks_true==(ic+1))).T
+        if len(points)>15 and mask_perimeters[ic] > 0:
+            med = np.median(points, axis=0)
+            # compute compactness of ROI
+            r2 = ((points - med)**2).sum(axis=1)**0.5
+            compactness[ic] = (rsort[:r2.size].mean() + 1e-10) / r2.mean()
+            try:
+                hull = ConvexHull(points)
+                convex_perimeters[ic] = hull.area
+                convex_areas[ic] = hull.volume
+            except:
+                convex_perimeters[ic] = 0
+                
+    convexity[mask_perimeters>0.0] = (convex_perimeters[mask_perimeters>0.0] / 
+                                      mask_perimeters[mask_perimeters>0.0])
+    solidity[convex_areas>0.0] = (areas[convex_areas>0.0] / 
+                                     convex_areas[convex_areas>0.0])
+    convexity = np.clip(convexity, 0.0, 1.0)
+    solidity = np.clip(solidity, 0.0, 1.0)
+    compactness = np.clip(compactness, 0.0, 1.0)
+    return convexity, solidity, compactness
+
 def get_masks_unet(output, cell_threshold=0, boundary_threshold=0):
     """ create masks using cell probability and cell boundary """
     cells = (output[...,1] - output[...,0])>cell_threshold
@@ -232,6 +320,10 @@ def radius_distribution(masks, bins):
         md = 0
     md /= (np.pi**0.5)/2
     return nb, md, (counts**0.5)/2
+
+def size_distribution(masks):
+    counts = np.unique(masks, return_counts=True)[1][1:]
+    return np.percentile(counts, 25) / np.percentile(counts, 75)
 
 def normalize99(img):
     X = img.copy()
