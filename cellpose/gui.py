@@ -106,6 +106,8 @@ def run(image=None):
     app = QtGui.QApplication(sys.argv)
     icon_path = pathlib.Path.home().joinpath('.cellpose', 'logo.png')
     if not icon_path.is_file():
+        cp_dir = pathlib.Path.home().joinpath('.cellpose')
+        cp_dir.mkdir(exist_ok=True)
         print('downloading logo')
         utils.download_url_to_file('http://www.cellpose.org/static/images/cellpose_transparent.png', icon_path, progress=True)
     icon_path = str(icon_path.resolve())

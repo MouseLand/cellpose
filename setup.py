@@ -17,7 +17,7 @@ with open("README.md", "r") as fh:
 
 setup(
     name="cellpose",
-    version="0.0.2.8",
+    version="0.0.3.1",
     license="BSD",
     author="Marius Pachitariu and Carsen Stringer",
     author_email="stringerc@janelia.hhmi.org",
