@@ -194,7 +194,7 @@ class RGBRadioButtons(QtGui.QButtonGroup):
         super(RGBRadioButtons, self).__init__()
         parent.color = 0
         self.parent = parent
-        self.bstr = ["image", "flowsXY", "cellprob", "flowsZ"]
+        self.bstr = ["image", "gradXY", "cellprob", "gradZ"]
         #self.buttons = QtGui.QButtonGroup()
         self.dropdown = []
         for b in range(len(self.bstr)):

@@ -1,8 +1,9 @@
+import time, os
 from scipy.ndimage.filters import maximum_filter1d
 import scipy.ndimage
 import numpy as np
+import tifffile
 from tqdm import trange
-import time
 import mxnet as mx
 import mxnet.ndarray as nd
 from numba import njit, float32, int32, vectorize
@@ -52,8 +53,10 @@ def _extend_centers(T,y,x,ymed,xmed,Lx, niter):
                                             T[(y+1)*Lx + x-1] + T[(y+1)*Lx + x+1])
     return T
 
-def labels_to_flows(labels):
+def labels_to_flows(labels, files=None):
     """ convert labels (list of masks or flows) to flows for training model 
+
+    if files is not None, flows are saved to files to be reused
 
     Parameters
     --------------
@@ -65,8 +68,8 @@ def labels_to_flows(labels):
     Returns
     --------------
 
-    flows: list of [3 x Ly x Lx] arrays
-        flows[k][0] is cell probability, flows[k][1] is Y flow, and flows[k][2] is X flow
+    flows: list of [4 x Ly x Lx] arrays
+        flows[k][0] is labels[k], flows[k][1] is cell probability, flows[k][2] is Y flow, and flows[k][3] is X flow
 
     """
 
@@ -79,14 +82,15 @@ def labels_to_flows(labels):
         # compute flows        
         veci = [masks_to_flows(labels[n][0])[0] for n in trange(nimg)]
         # concatenate flows with cell probability
-        flows = [np.concatenate((labels[n][[0]]>0.5, veci[n]), axis=0).astype(np.float32)
+        flows = [np.concatenate((labels[n][[0]], labels[n][[0]]>0.5, veci[n]), axis=0).astype(np.float32)
                     for n in range(nimg)]
+        if files is not None:
+            for flow, file in zip(flows, files):
+                file_name = os.path.splitext(file)[0]
+                tifffile.imsave(file_name+'_flows.tif', flow)
     else:
         print('flows precomputed')
-        if labels[0].shape[0] > 3:
-            flows = [labels[n][1:].astype(np.float32) for n in range(nimg)]
-        else:
-            flows = [labels[n].astype(np.float32) for n in range(nimg)]
+        flows = [labels[n].astype(np.float32) for n in range(nimg)]
     return flows
 
 def masks_to_flows(masks):
@@ -119,13 +123,13 @@ def masks_to_flows(masks):
         Lz, Ly, Lx = masks.shape
         mu = np.zeros((3, Lz, Ly, Lx), np.float32)
         for z in range(Lz):
-            mu0,_ = masks_to_flows(masks[z])
+            mu0 = masks_to_flows(masks[z])[0]
             mu[[1,2], z] += mu0
         for y in range(Ly):
-            mu0,_ = masks_to_flows(masks[:,y])
+            mu0 = masks_to_flows(masks[:,y])[0]
             mu[[0,2], :, y] += mu0
         for x in range(Lx):
-            mu0,_ = masks_to_flows(masks[:,:,x])
+            mu0 = masks_to_flows(masks[:,:,x])[0]
             mu[[0,1], :, :, x] += mu0
         return mu, None
 
@@ -443,81 +447,3 @@ def get_masks(p, iscell=None, rpad=20, flows=None, threshold=0.4):
         M0 = np.reshape(M0, shape0).astype(np.int32)
 
     return M0
-
-def fill_holes(masks, min_size=15):
-    """ fill holes in masks (2D/3D) and discard masks smaller than min_size (2D)
-    
-    fill holes in each mask using scipy.ndimage.morphology.binary_fill_holes
-    
-    Parameters
-    ----------------
-
-    masks: int, 2D or 3D array
-        labelled masks, 0=NO masks; 1,2,...=mask labels,
-        size [Ly x Lx] or [Lz x Ly x Lx]
-
-    min_size: int (optional, default 15)
-        minimum number of pixels per mask
-
-    Returns
-    ---------------
-
-    masks: int, 2D or 3D array
-        masks with holes filled and masks smaller than min_size removed, 
-        0=NO masks; 1,2,...=mask labels,
-        size [Ly x Lx] or [Lz x Ly x Lx]
-    
-    """
-    if masks.ndim > 3 or masks.ndim < 2:
-        raise ValueError('masks_to_outlines takes 2D or 3D array, not %dD array'%masks.ndim)
-    
-    slices = scipy.ndimage.find_objects(masks)
-    i = 0
-    for slc in slices:
-        if slc is not None:
-            msk = masks[slc] == (i+1)
-            if msk.ndim==3:
-                small_objects = np.zeros(msk.shape, np.bool)
-                for k in range(msk.shape[0]):
-                    msk[k] = scipy.ndimage.morphology.binary_fill_holes(msk[k])
-                    #small_objects[k] = ~remove_small_objects(msk[k], min_size=min_size)
-            else:
-                msk = scipy.ndimage.morphology.binary_fill_holes(msk)
-                small_objects = ~remove_small_objects(msk, min_size=min_size)
-            sm = np.logical_and(msk, small_objects)
-            #~skimage.morphology.remove_small_objects(msk, min_size=min_size, connectivity=1))
-            masks[slc][msk] = (i+1)
-            masks[slc][sm] = 0
-        i+=1
-    return masks
-
-def remove_small_objects(ar, min_size=64, connectivity=1):
-    """ copied from skimage.morphology.remove_small_objects (required to be separate for pyinstaller) """
-    out = ar.copy()
-
-    if min_size == 0:  # shortcut for efficiency
-        return out
-
-    if out.dtype == bool:
-        selem = scipy.ndimage.generate_binary_structure(ar.ndim, connectivity)
-        ccs = np.zeros_like(ar, dtype=np.int32)
-        scipy.ndimage.label(ar, selem, output=ccs)
-    else:
-        ccs = out
-
-    try:
-        component_sizes = np.bincount(ccs.ravel())
-    except ValueError:
-        raise ValueError("Negative value labels are not supported. Try "
-                         "relabeling the input with `scipy.ndimage.label` or "
-                         "`skimage.morphology.label`.")
-
-    if len(component_sizes) == 2 and out.dtype != bool:
-        warn("Only one label was provided to `remove_small_objects`. "
-             "Did you mean to use a boolean array?")
-
-    too_small = component_sizes < min_size
-    too_small_mask = too_small[ccs]
-    out[too_small_mask] = 0
-
-    return out

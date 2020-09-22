@@ -354,9 +354,10 @@ class MainW(QtGui.QMainWindow):
         label = QtGui.QLabel('cell diameter (pixels) (click ENTER):')
         label.setStyleSheet(label_style)
         label.setFont(self.medfont)
-        label.setToolTip('you can manually enter the approximate diameter for your cells, or press “calibrate” to let the model estimate it. The size is represented by a disk at the bottom of the view window (can turn this disk of by unchecking “scale disk on”)')
+        label.setToolTip('you can manually enter the approximate diameter for your cells, \nor press “calibrate” to let the model estimate it. \nThe size is represented by a disk at the bottom of the view window \n(can turn this disk off by unchecking “scale disk on”)')
         self.l0.addWidget(label, b, 0,1,2)
         self.Diameter = QtGui.QLineEdit()
+        self.Diameter.setToolTip('you can manually enter the approximate diameter for your cells, \nor press “calibrate” to let the model estimate it. \nThe size is represented by a disk at the bottom of the view window \n(can turn this disk off by unchecking “scale disk on”)')
         self.Diameter.setText(str(self.diameter))
         self.Diameter.setFont(self.medfont)
         self.Diameter.returnPressed.connect(self.compute_scale)
@@ -393,12 +394,11 @@ class MainW(QtGui.QMainWindow):
         self.l0.addWidget(self.useGPU, b,0,1,1)
 
         # fast mode
-        self.FastMode = QtGui.QCheckBox('fast mode')
-        self.FastMode.setStyleSheet(self.checkstyle)
-        self.FastMode.setFont(self.medfont)
-        self.FastMode.setChecked(False)
-        self.FastMode.setToolTip('turn off augmentations + averaging 4 different fit networks to <i>increase</i> run speed')
-        self.l0.addWidget(self.FastMode, b,1,1,1)
+        self.NetAvg = QtGui.QComboBox()
+        self.NetAvg.addItems(['average 4 nets', 'run 1 net (fast)'])
+        self.NetAvg.setFont(self.medfont)
+        self.NetAvg.setToolTip('average 4 different fit networks or run 1 network to <i>increase</i> run speed')
+        self.l0.addWidget(self.NetAvg, b,1,1,1)
 
         b+=1
         # choose models
@@ -414,6 +414,7 @@ class MainW(QtGui.QMainWindow):
         label.setStyleSheet(label_style)
         label.setFont(self.medfont)
         label.setToolTip('there is a <em>cytoplasm</em> model and a <em>nuclei</em> model, choose what you want to segment')
+        self.ModelChoose.setToolTip('there is a <em>cytoplasm</em> model and a <em>nuclei</em> model, choose what you want to segment')
         self.l0.addWidget(label, b, 0,1,1)
 
         b+=1
@@ -431,8 +432,10 @@ class MainW(QtGui.QMainWindow):
             label.setFont(self.medfont)
             if i==0:
                 label.setToolTip('this is the channel in which the cytoplasm or nuclei exist that you want to segment')
+                self.ChannelChoose[i].setToolTip('this is the channel in which the cytoplasm or nuclei exist that you want to segment')
             else:
                 label.setToolTip('if <em>cytoplasm</em> model is chosen, and you also have a nuclear channel, then choose the nuclear channel for this option')
+                self.ChannelChoose[i].setToolTip('if <em>cytoplasm</em> model is chosen, and you also have a nuclear channel, then choose the nuclear channel for this option')
             self.l0.addWidget(label, b, 0,1,1)
             self.l0.addWidget(self.ChannelChoose[i], b, 1,1,1)
             b+=1
@@ -460,8 +463,8 @@ class MainW(QtGui.QMainWindow):
         # post-hoc paramater tuning
 
         b+=1
-        label = QtGui.QLabel('flow error threshold:')
-        label.setToolTip('threshold on flow error to accept for masks (set higher to get more cells)')
+        label = QtGui.QLabel('model match threshold:')
+        label.setToolTip('threshold on gradient match to accept a mask (set lower to get more cells)')
         label.setStyleSheet(label_style)
         label.setFont(self.medfont)
         self.l0.addWidget(label, b, 0,1,2)
@@ -472,7 +475,7 @@ class MainW(QtGui.QMainWindow):
         self.threshslider.setOrientation(QtCore.Qt.Horizontal)
         self.threshslider.setMinimum(1.0)
         self.threshslider.setMaximum(30.0)
-        self.threshslider.setValue(4)
+        self.threshslider.setValue(31 - 4)
         self.l0.addWidget(self.threshslider, b, 0,1,2)
         self.threshslider.valueChanged.connect(self.compute_cprob)
         self.threshslider.setStyleSheet(guiparts.horizontal_slider_style())
@@ -1073,7 +1076,7 @@ class MainW(QtGui.QMainWindow):
                     mask[ar[ioverlap], ac[ioverlap]] = 0
                     ar, ac = ar[~ioverlap], ac[~ioverlap]
                 # compute outline of mask
-                outlines = plot.masks_to_outlines(mask)
+                outlines = utils.masks_to_outlines(mask)
                 vr, vc = np.nonzero(outlines)
                 vr, vc = vr+ymin, vc+xmin
                 ar, ac = ar+ymin, ac+xmin
@@ -1175,9 +1178,9 @@ class MainW(QtGui.QMainWindow):
         if self.cellprob != self.probslider.value():
             rerun = True
             self.cellprob = self.probslider.value()
-        if self.threshold != self.threshslider.value()/10.:
+        if self.threshold != (31 - self.threshslider.value())/10.:
             rerun = True
-            self.threshold = self.threshslider.value()/10.
+            self.threshold = (31 - self.threshslider.value())/10.
         if not rerun:
             return
         
@@ -1192,7 +1195,7 @@ class MainW(QtGui.QMainWindow):
         maski = dynamics.get_masks(self.flows[3].copy(), iscell=(self.flows[4][-1]>self.cellprob),
                                     flows=self.flows[4][:-1], threshold=thresh)
         if self.NZ==1:
-            maski = dynamics.fill_holes(maski)
+            maski = utils.fill_holes_and_remove_small_masks(maski)
 
         self.masksOn = True
         self.outlinesOn = True
@@ -1223,11 +1226,11 @@ class MainW(QtGui.QMainWindow):
             channels = self.get_channels()
             self.diameter = float(self.Diameter.text())
             try:
-                augment = (not self.FastMode.isChecked())
+                net_avg = 1 - self.NetAvg.currentIndex()
                 masks, flows, _, _ = self.model.eval(data, channels=channels,
-                                                diameter=self.diameter, invert=self.invert.isChecked(),
-                                                net_avg=augment, augment=augment,
-                                                do_3D=do_3D, progress=self.progress)
+                                                    diameter=self.diameter, invert=self.invert.isChecked(),
+                                                    net_avg=net_avg, augment=False,
+                                                    do_3D=do_3D, progress=self.progress)
             except Exception as e:
                 print('NET ERROR: %s'%e)
                 self.progress.setValue(0)

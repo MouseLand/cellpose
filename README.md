@@ -51,44 +51,11 @@ pip install cellpose --upgrade
 
 If you have an older `cellpose` environment you can remove it with `conda env remove -n cellpose` before creating a new one.
 
-Note you will always have to run **conda activate cellpose** before you run cellpose. If you want to run jupyter notebooks in this environment, then also `conda install jupyter` 
-and `pip install matplotlib`.
+Note you will always have to run **conda activate cellpose** before you run cellpose. If you want to run jupyter notebooks in this environment, then also `conda install jupyter` and `pip install matplotlib`.
 
-### Common issues
+If you have **issues** with installation, see the [docs](https://cellpose.readthedocs.io/en/latest/installation.html) for more details, and then if the suggestions fail, open an issue.
 
-If you receive the error: `Illegal instruction (core dumped)`, then likely mxnet does not recognize your MKL version. Please uninstall and reinstall mxnet without mkl:
-~~~~
-pip uninstall mxnet-mkl
-pip uninstall mxnet
-pip install mxnet==1.4.0
-~~~~
-
-**MAC OS ISSUE**: You may have an issue on Mac with the latest *opencv-python* library (package name *cv2*). Downgrade it with the command
-~~~~
-pip install opencv-python==3.4.5.20
-~~~~
-
-If you receive the error: `No module named PyQt5.sip`, then try uninstalling and reinstalling pyqt5
-~~~~
-pip uninstall pyqt5 pyqt5-tools
-pip install pyqt5 pyqt5-tools pyqt5.sip
-~~~~
-
-If you receive an error associated with **matplotlib**, try upgrading it:
-~~~~
-pip install matplotlib --upgrade
-~~~~
-
-
-If you receive the error: `ImportError: _arpack DLL load failed`, then try uninstalling and reinstalling scipy
-~~~~
-pip uninstall scipy
-pip install scipy
-~~~~
-
-If you are having issues with the graphical interface, make sure you have **python 3.7** and not python 3.8 installed.
-
-**CUDA version**
+### CUDA version
 
 If you plan on running many images, you may want to install a GPU version of *mxnet*. I recommend using CUDA 10.0 or greater. Follow the instructions [here](https://mxnet.apache.org/get_started?).
 
@@ -157,8 +124,7 @@ The GUI serves two main functions:
 
 There is a help window in the GUI that provides more instructions and 
 a page in the documentation [here](http://cellpose.readthedocs.io/en/latest/gui.html).
- Also, if you hover over certain words in the GUI, their definitions 
- are revealed as tooltips.
+Also, if you hover over certain words in the GUI, their definitions are revealed as tooltips.
 
 ### In a notebook
 
@@ -177,6 +143,19 @@ python -m cellpose --dir ~/images_nuclei/test/ --pretrained_model nuclei --diame
 ~~~
 
 See the [docs](http://cellpose.readthedocs.io/en/latest/command.html) for more info.
+
+### Timing
+
+You can check if cellpose is running the MKL version (if you are using the CPU not the GPU) by adding the flag `--check_mkl`. If you are not using MKL cellpose will be much slower. Here are Cellpose run times divided into the time it takes to run the deep neural network (DNN) and the time for postprocessing (gradient tracking, segmentation, quality control etc.). The DNN runtime is shown using either a GPU (Nvidia GTX 1080Ti) or a CPU (Intel 10-core 7900X), with or without network ensembling (4net vs 1net). The postprocessing runtime is similar regardless of ensembling or CPU/GPU version. Runtime is shown for different image sizes, all with a cell diameter of 30 pixels (the average from our training set).
+
+|   | 256 pix | 512 pix | 1024 pix |
+|----|-------|------|----------|
+| DNN (1net, GPU) | 0.054 s | 0.12 s | 0.31 s  |
+| DNN (1net, CPU) | 0.30 s | 0.65 s | 2.4 s  |
+| DNN (4net, GPU) | 0.23 s | 0.41 s | 1.3 s |
+| DNN (4net, CPU) | 1.3 s | 2.5 s | 9.1 s  |
+|  | |  |  |
+| Postprocessing (CPU) | 0.32 s | 1.2 s | 6.1 s  |
 
 ## Outputs
 
