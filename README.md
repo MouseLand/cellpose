@@ -129,7 +129,7 @@ a page in the documentation [here](http://cellpose.readthedocs.io/en/latest/gui.
 Also, if you hover over certain words in the GUI, their definitions are revealed as tooltips. 
 Here is a summary of their functions:
 
-<img src="docs/static/cellpose_gui.png" width="400" title="cellpose gui" alt="cellpose gui" align="right" vspace = "50">
+<img src="docs/_static/cellpose_gui.png" width="400" title="cellpose gui" alt="cellpose gui" align="right" vspace = "50">
 
 ### In a notebook
 
