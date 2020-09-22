@@ -35,7 +35,8 @@ def get_image_files(folder, mask_filter, imf=None):
         imfile = os.path.splitext(im)[0]
         igood = all([(len(imfile) > len(mask_filter) and imfile[-len(mask_filter):] != mask_filter) or len(imfile) < len(mask_filter) 
                         for mask_filter in mask_filters])
-        igood &= imfile[-len(imf):]==imf
+        if len(imf)>0:
+            igood &= imfile[-len(imf):]==imf
         if igood:
             imn.append(im)
     image_names = imn
@@ -104,7 +105,7 @@ def main():
                         default=0.0, type=float, help='cell probability threshold, centered at 0.0')
     parser.add_argument('--save_png', action='store_true', help='save masks as png and outlines as text file for ImageJ')
     parser.add_argument('--save_tif', action='store_true', help='save masks as tif and outlines as text file for ImageJ')
-    parser.add_argument('--fast_mode', action='store_true', help="make code run faster by turning off augmentations and 4 network averaging")
+    parser.add_argument('--fast_mode', action='store_true', help="make code run faster by turning off 4 network averaging")
     parser.add_argument('--no_npy', action='store_true', help='suppress saving of npy')
 
     # settings for training
@@ -211,7 +212,7 @@ def main():
                 
                 masks, flows, _, diams = model.eval(images, channels=channels, diameter=diameter,
                                                     do_3D=args.do_3D, net_avg=(not args.fast_mode),
-                                                    augment=(not args.fast_mode),
+                                                    augment=False,
                                                     flow_threshold=args.flow_threshold,
                                                     cellprob_threshold=args.cellprob_threshold,
                                                     batch_size=args.batch_size)
@@ -229,7 +230,7 @@ def main():
                 rescale = model.diam_mean / diameter
                 masks, flows, _ = model.eval(images, channels=channels, rescale=rescale,
                                              do_3D=args.do_3D,
-                                             augment=(not args.fast_mode),
+                                             augment=False,
                                              flow_threshold=args.flow_threshold,
                                              cellprob_threshold=args.cellprob_threshold)
                 diams = diameter * np.ones(len(images)) 

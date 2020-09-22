@@ -1195,7 +1195,7 @@ class MainW(QtGui.QMainWindow):
         maski = dynamics.get_masks(self.flows[3].copy(), iscell=(self.flows[4][-1]>self.cellprob),
                                     flows=self.flows[4][:-1], threshold=thresh)
         if self.NZ==1:
-            maski = dynamics.fill_holes(maski)
+            maski = utils.fill_holes_and_remove_small_masks(maski)
 
         self.masksOn = True
         self.outlinesOn = True
