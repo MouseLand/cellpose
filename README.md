@@ -14,6 +14,8 @@ You can quickly try out Cellpose on the [website](http://www.cellpose.org) first
 
 You can also run Cellpose in google colab with a GPU -> [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/MouseLand/cellpose/blob/master/notebooks/run_cellpose_GPU.ipynb). This is recommended if you have issues with MKL or run speed on your local computer (and are running 3D volumes). Colab does not allow you to run the GUI, but you can save `*_seg.npy` files in colab that you can download and open in the GUI.
 
+You can also download an executable file for [windows](www.cellpose.org/windows) and for [mac](www.cellpose.org/mac) that were made using PyInstaller.
+
 ### Detailed documentation at [www.cellpose.org/docs](http://www.cellpose.org/docs).
 
 ## System requirements
