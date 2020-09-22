@@ -107,9 +107,11 @@ def cyto(test_root, save_root, save_figure=False):
         ax = fig.add_axes([0.1+.22*t,0.1,0.17,0.25])
         for j in range(len(mdl)):
             ap = aps[t//2][j][inds[t%2]].mean(axis=0)
-            print(ap)
+            #print(titles[t], mdl[j], ap[0])
             ax.plot(thresholds, ap, color=col[j])
             #print(aps[0][j][:11].mean(axis=0)[0])
+            if t==2:
+                print(mdl[j], aps[t//2][j].mean(axis=0)[0])
         ax.spines['right'].set_visible(False)
         ax.spines['top'].set_visible(False)
         ax.set_ylim([0, 1])
@@ -124,6 +126,12 @@ def cyto(test_root, save_root, save_figure=False):
         if t==0:
             for j in range(len(mdl)):
                 ax.text(.05, .4 - .075*j, mdl[j], color=col[j], fontsize=6, transform=ax.transAxes)
+
+    ax = fig.add_axes([.05,.37,.25,.65])
+    img = io.imread(os.path.join(save_root, 'figs/training_schematic_final.PNG'))
+    ax.imshow(img)
+    ax.axis('off')
+    ax.text(0, 1.09, 'a', fontsize = ltrf, transform=ax.transAxes)
 
     if save_figure:
         os.makedirs(os.path.join(save_root, 'figs'), exist_ok=True)
@@ -310,7 +318,6 @@ def suppfig_cellpose_params(test_root, save_root, save_figure=False):
         fig.savefig(os.path.join(save_root, 'figs/suppfig_cellpose_params.pdf'), 
                     bbox_inches='tight')
 
-
 def cyto3d(save_root, save_figure=True):
     thresholds = np.arange(0.25, 1.0, 0.05)
 
@@ -318,7 +325,7 @@ def cyto3d(save_root, save_figure=True):
                     'cellpose', 'unet3', 'unet2', 
                     'cellpose_stitch', 'maskrcnn_stitch', 'stardist_stitch']
     model_names = [['\u2014 ilastik'], 
-                    ['\u2014 cellpose', '\u2014 unet3', '\u2014 unet2'],
+                    ['\u2014 cellpose3D', '\u2014 unet3', '\u2014 unet2'],
                     ['-- cellpose', '-- mask r-cnn', '-- stardist']]
     titles = ['3D trained', '2D extended', '2D stitched']
     
@@ -539,8 +546,9 @@ def mask_stats(test_root, save_root, save_figure=False):
     # ap for all images
     aps=np.load(os.path.join(save_root, 'ap_cellpose_all.npy'))
     # example low-high masks
-    d=np.load(os.path.join(save_root, 'example_masks.npy'), allow_pickle=True).item()
+    d=np.load(os.path.join(save_root, 'example_size_masks.npy'), allow_pickle=True).item()
     msks = d['masks']
+    imgs = d['imgs']
     inds = d['inds']
     szs = sz_dist.flatten()
     ap5 = aps[:,0,:,0].flatten()
@@ -552,7 +560,7 @@ def mask_stats(test_root, save_root, save_figure=False):
         ax = fig.add_axes([.07, .2-0.3*(j), 0.14,0.28])
         #inds = np.nonzero(np.logical_and(sz_dist[0,:]>xb[j], sz_dist[0,:]<xb[j+1]))[0]
         ic = inds[j]
-        maski = plot.mask_rgb(msks[j])
+        maski = plot.mask_overlay(imgs[j], msks[j])
         patch = plot.interesting_patch(msks[j], bsize=bs[j])
         ax.imshow(maski[np.ix_(patch[0], patch[1])])
         

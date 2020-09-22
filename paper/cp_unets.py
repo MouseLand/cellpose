@@ -99,8 +99,8 @@ def train_unets(data_root):
 
 def test_unets_main(data_root, save_root):
     """ data_root is folder with folders images_.../train/models/, images_cyto/test and images_nuclei/test """
-    model_types = ['cyto', 'cyto_sp', 'nuclei']
-    #model_types = ['cyto']
+    #model_types = ['cyto', 'cyto_sp', 'nuclei']
+    model_types = ['cyto_sp', 'nuclei']
     for model_type in model_types:
         model_root = os.path.join(data_root, 'images_%s/train/models/'%model_type)
         test_root = os.path.join(data_root, 'images_%s/test/'%model_type.split('_')[0])
@@ -136,7 +136,7 @@ def test_unets(model_root, test_root, save_root, model_type='cyto'):
         rescale = np.ones(len(test_data))
 
 
-    for k in range(len(concatenation)):
+    for k in range(1):#len(concatenation)):
         pretrained_models = get_pretrained_models(model_root, 1, nclasses[k], 
                                                     residual_on[k], style_on[k], 
                                                     concatenation[k])
@@ -278,15 +278,15 @@ def test_cellpose(test_root, save_root, pretrained_models, diam_file=None, model
     
     np.save(os.path.join(save_root, 'cellpose_%s_masks.npy'%model_type), masks)
 
-def test_nets_3D(stack, model_root, test_region=None):
+def test_nets_3D(stack, model_root, save_root, test_region=None):
     """ input 3D stack and test_region (where ground truth is labelled) """
     device = mx.gpu()
 
-    model_archs = ['unet3', 'unet2', 'cellpose']
+    model_archs = ['unet3']#, 'unet2', 'cellpose']
     # found thresholds using ground truth
     cell_thresholds = [3., 0.25]
     boundary_thresholds = [0., 0.]
-    for model_arch in model_archs:
+    for m,model_arch in enumerate(model_archs):
         if model_arch=='cellpose':
             pretrained_models = [str(Path.home().joinpath('.cellpose/models/cyto_%d'%j)) for j in range(4)]
             model = models.CellposeModel(device=device, pretrained_model=pretrained_models)
