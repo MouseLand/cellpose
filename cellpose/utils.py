@@ -1,4 +1,4 @@
-import os, warnings, time, tempfile, datetime, pathlib, shutil
+import os, warnings, time, tempfile, datetime, pathlib, shutil, subprocess
 from tqdm import tqdm
 from urllib.request import urlopen
 from urllib.parse import urlparse
@@ -14,7 +14,7 @@ def use_gpu(gpu_number=0):
     """ check if mxnet gpu works """
     try:
         _ = mx.ndarray.array([1, 2, 3], ctx=mx.gpu(gpu_number))
-        print('CUDA version installed and working.')
+        print('** CUDA version installed and working. **')
         return True
     except mx.MXNetError:
         print('CUDA version not installed/working, will use CPU version.')
@@ -382,3 +382,18 @@ def fill_holes_and_remove_small_masks(masks, min_size=15):
                 masks[slc][msk] = (j+1)
                 j+=1
     return masks
+
+def check_mkl():
+    print('Running test snippet to check if MKL running (https://mxnet.apache.org/versions/1.6/api/python/docs/tutorials/performance/backend/mkldnn/mkldnn_readme.html#4)')
+    process = subprocess.Popen(['python', 'test_mkl.py'],
+                                stdout=subprocess.PIPE, stderr=subprocess.PIPE, 
+                                cwd=os.path.dirname(os.path.abspath(__file__)))
+    stdout, stderr = process.communicate()
+    if len(stdout)>0:
+        print('** MKL version working - CPU version is fast. **')
+        mkl_enabled = True
+    else:
+        print('WARNING: MKL version not working/installed - CPU version will be SLOW!')
+        mkl_enabled = False
+    return mkl_enabled
+        

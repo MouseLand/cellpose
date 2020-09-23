@@ -131,19 +131,7 @@ def main():
     args = parser.parse_args()
 
     if args.check_mkl:
-        tic=time.time()
-        print('Running test snippet to check if MKL running (https://mxnet.apache.org/versions/1.6/api/python/docs/tutorials/performance/backend/mkldnn/mkldnn_readme.html#4)')
-        process = subprocess.Popen(['python', 'test_mkl.py'],
-                                    stdout=subprocess.PIPE, stderr=subprocess.PIPE, 
-                                    cwd=os.path.dirname(os.path.abspath(__file__)))
-        stdout, stderr = process.communicate()
-        if len(stdout)>0:
-            print('MKL version working - CPU version is hardware-accelerated.')
-            mkl_enabled = True
-        else:
-            print('WARNING: MKL version not working/installed - CPU version will be SLOW!')
-            mkl_enabled = False
-        print(time.time()-tic)
+        mkl_enabled = utils.check_mkl()
     else:
         mkl_enabled = True
 

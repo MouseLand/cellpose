@@ -1,6 +1,5 @@
 from PyQt5 import QtGui, QtCore, Qt, QtWidgets
-
-from . import io
+from . import io, utils
 
 def mainmenu(parent):
     main_menu = parent.menuBar()
@@ -75,12 +74,16 @@ def helpmenu(parent):
     main_menu = parent.menuBar()
     help_menu = main_menu.addMenu("&Help")
     
+    checkMKL = QtGui.QAction("Check CPU mxnet-mkl -- see terminal", parent)
+    checkMKL.triggered.connect(utils.check_mkl)
+    help_menu.addAction(checkMKL)
+
     openHelp = QtGui.QAction("&Help window", parent)
     openHelp.setShortcut("Ctrl+H")
     openHelp.triggered.connect(parent.help_window)
     help_menu.addAction(openHelp)
 
-    openGUI = QtGui.QAction("&GUI example image", parent)
+    openGUI = QtGui.QAction("&GUI layout", parent)
     openGUI.setShortcut("Ctrl+G")
     openGUI.triggered.connect(parent.gui_window)
     help_menu.addAction(openGUI)
