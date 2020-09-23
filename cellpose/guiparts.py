@@ -5,6 +5,47 @@ from pyqtgraph import Point
 import numpy as np
 import pathlib
 
+def make_quadrants(parent):
+    """ make quadrant buttons """
+    parent.quadbtns = QtGui.QButtonGroup(parent)
+    for b in range(9):
+        btn = QuadButton(b, ' '+str(b+1), parent)
+        parent.quadbtns.addButton(btn, b)
+        parent.l0.addWidget(btn, 0 + parent.quadbtns.button(b).ypos, 29 + parent.quadbtns.button(b).xpos, 1, 1)
+        btn.setEnabled(True)
+        b += 1
+    parent.quadbtns.setExclusive(True)
+
+class QuadButton(QtGui.QPushButton):
+    """ custom QPushButton class for quadrant plotting
+        requires buttons to put into a QButtonGroup (parent.quadbtns)
+         allows only 1 button to pressed at a time
+    """
+    def __init__(self, bid, Text, parent=None):
+        super(QuadButton,self).__init__(parent)
+        self.setText(Text)
+        self.setCheckable(True)
+        self.setStyleSheet(parent.styleUnpressed)
+        self.setFont(QtGui.QFont("Arial", 8, QtGui.QFont.Bold))
+        self.resize(self.minimumSizeHint())
+        self.setMaximumWidth(22)
+        self.xpos = bid%3
+        self.ypos = int(np.floor(bid/3))
+        self.clicked.connect(lambda: self.press(parent, bid))
+        self.show()
+
+    def press(self, parent, bid):
+        for b in range(9):
+            if parent.quadbtns.button(b).isEnabled():
+                parent.quadbtns.button(b).setStyleSheet(parent.styleUnpressed)
+        self.setStyleSheet(parent.stylePressed)
+        self.xrange = np.array([self.xpos-.2, self.xpos+1.2]) * parent.Lx/3
+        self.yrange = np.array([self.ypos-.2, self.ypos+1.2]) * parent.Ly/3
+        # change the zoom
+        parent.p0.setXRange(self.xrange[0], self.xrange[1])
+        parent.p0.setYRange(self.yrange[0], self.yrange[1])
+        parent.show()
+
 def horizontal_slider_style():
     return """QSlider::groove:horizontal {
             border: 1px solid #bbb;

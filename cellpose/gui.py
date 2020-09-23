@@ -784,6 +784,8 @@ class MainW(QtGui.QMainWindow):
         self.p0.addItem(self.layer)
         self.p0.addItem(self.scale)
 
+        guiparts.make_quadrants(self)
+
     def reset(self):
         # ---- start sets of points ---- #
         self.selected = 0
