@@ -160,6 +160,10 @@ class HelpWindow(QtGui.QDialog):
             <td>undo previously drawn mask/stroke</td>
             </tr>
             <tr>
+            <td>CTRL+Y</td>
+            <td>undo remove mask</td>
+            </tr>
+            <tr>
             <td>CTRL+0</td>
             <td>clear all masks</td>
             </tr>

@@ -698,6 +698,9 @@ class MainW(QtGui.QMainWindow):
             if self.ncells> 0:
                 self.remove_cell(self.ncells)
 
+    def undo_remove_action(self):
+        self.undo_remove_cell()
+
     def get_files(self):
         images = []
         images.extend(glob.glob(os.path.dirname(self.filename) + '/*.png'))
@@ -800,6 +803,7 @@ class MainW(QtGui.QMainWindow):
         self.stroke_appended = True
         self.ncells = 0
         self.zdraw = []
+        self.removed_cell = []
         self.cellcolors = [np.array([255,255,255])]
         # -- set menus to default -- #
         self.color = 0
@@ -884,7 +888,6 @@ class MainW(QtGui.QMainWindow):
     def remove_cell(self, idx):
         # remove from manual array
         self.selected = 0
-        self.ismanual = np.delete(self.ismanual, idx-1)
         for z in range(self.NZ):
             cp = self.cellpix[z]==idx
             op = self.outpix[z]==idx
@@ -897,6 +900,11 @@ class MainW(QtGui.QMainWindow):
             self.cellpix[z, self.cellpix[z]>idx] -= 1
             self.outpix[z, self.outpix[z]>idx] -= 1
         self.update_plot()
+        if self.NZ==1:
+            self.removed_cell = [self.ismanual[idx-1], self.cellcolors[idx], np.nonzero(cp), np.nonzero(op)]
+            self.redo.setEnabled(True)
+        # remove cell from lists
+        self.ismanual = np.delete(self.ismanual, idx-1)
         del self.cellcolors[idx]
         del self.zdraw[idx-1]
         self.ncells -= 1
@@ -905,6 +913,25 @@ class MainW(QtGui.QMainWindow):
             self.ClearButton.setEnabled(False)
         if self.NZ==1:
             io._save_sets(self)
+
+    def undo_remove_cell(self):
+        if len(self.removed_cell) > 0:
+            z = 0
+            ar, ac = self.removed_cell[2]
+            vr, vc = self.removed_cell[3]
+            color = self.removed_cell[1]
+            self.draw_mask(z, ar, ac, vr, vc, color)
+            self.toggle_mask_ops()
+            self.cellcolors.append(color)
+            self.ncells+=1
+            self.ismanual = np.append(self.ismanual, self.removed_cell[0])
+            self.zdraw.append([])
+            print('added back removed cell')
+            self.update_plot()
+            io._save_sets(self)
+            self.removed_cell = []
+            self.redo.setEnabled(False)
+
 
     def remove_stroke(self, delete_points=True):
         #self.current_stroke = get_unique_points(self.current_stroke)
@@ -1012,6 +1039,7 @@ class MainW(QtGui.QMainWindow):
                 color = self.colormap[col_rand,:3]
                 median = self.add_mask(points=self.current_point_set, color=color)
                 if median is not None:
+                    self.removed_cell = []
                     self.toggle_mask_ops()
                     self.cellcolors.append(color)
                     self.ncells+=1
