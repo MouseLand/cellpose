@@ -74,7 +74,13 @@ def editmenu(parent):
 def helpmenu(parent):
     main_menu = parent.menuBar()
     help_menu = main_menu.addMenu("&Help")
+    
     openHelp = QtGui.QAction("&Help window", parent)
     openHelp.setShortcut("Ctrl+H")
     openHelp.triggered.connect(parent.help_window)
     help_menu.addAction(openHelp)
+
+    openGUI = QtGui.QAction("&GUI example image", parent)
+    openGUI.setShortcut("Ctrl+G")
+    openGUI.triggered.connect(parent.gui_window)
+    help_menu.addAction(openGUI)

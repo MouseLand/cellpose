@@ -3,6 +3,7 @@ import pyqtgraph as pg
 from pyqtgraph import functions as fn
 from pyqtgraph import Point
 import numpy as np
+import pathlib
 
 def horizontal_slider_style():
     return """QSlider::groove:horizontal {
@@ -62,6 +63,22 @@ def horizontal_slider_style():
             border-radius: 4px;
             }"""
 
+class ExampleGUI(QtGui.QDialog):
+    def __init__(self, parent=None):
+        super(ExampleGUI, self).__init__(parent)
+        self.setGeometry(100,100,1300,900)
+        self.setWindowTitle('GUI layout')
+        self.win = QtGui.QWidget(self)
+        layout = QtGui.QGridLayout()
+        self.win.setLayout(layout)
+        guip_path = pathlib.Path.home().joinpath('.cellpose', 'cellpose_gui.png')
+        guip_path = str(guip_path.resolve())
+        pixmap = QtGui.QPixmap(guip_path)
+        label = QtGui.QLabel(self)
+        label.setPixmap(pixmap)
+        pixmap.scaled
+        layout.addWidget(label, 0, 0, 1, 1)
+
 class HelpWindow(QtGui.QDialog):
     def __init__(self, parent=None):
         super(HelpWindow, self).__init__(parent)
@@ -70,6 +87,7 @@ class HelpWindow(QtGui.QDialog):
         self.win = QtGui.QWidget(self)
         layout = QtGui.QGridLayout()
         self.win.setLayout(layout)
+        
         text = ('''
             <p class="has-line-data" data-line-start="5" data-line-end="6">Main GUI mouse controls:</p>
             <ul>
