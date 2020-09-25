@@ -377,7 +377,7 @@ def reshape_and_normalize_data(train_data, test_data=None, channels=None, normal
 
     return train_data, test_data, run_test
 
-def resize_image(img0, Ly, Lx):
+def resize_image(img0, Ly=None, Lx=None, rsz=None, interpolation=cv2.INTER_LINEAR):
     """ resize image for computing flows / unresize for computing dynamics
 
     Parameters
@@ -386,6 +386,15 @@ def resize_image(img0, Ly, Lx):
     img0: ND-array
         image of size [y x x x nchan] or [Lz x y x x x nchan]
 
+    Ly: int, optional
+
+    Lx: int, optional
+
+    rsz: float, optional
+        resize coefficient(s) for image; if Ly is None then rsz is used
+
+    interpolation: cv2 interp method (optional, default cv2.INTER_LINEAR)
+
     Returns
     --------------
 
@@ -393,12 +402,22 @@ def resize_image(img0, Ly, Lx):
         image of size [Ly x Lx x nchan] or [Lz x Ly x Lx x nchan]
 
     """
+    if Ly is None and rsz is None:
+        raise ValueError('must give size to resize to or factor to use for resizing')
+
+    if Ly is None:
+        # determine Ly and Lx using rsz
+        if not isinstance(rsz, list) or not isinstance(rsz, np.ndarray):
+            rsz = [rsz, rsz]
+        Ly = int(img0.shape[-3] * rsz[-2])
+        Lx = int(img0.shape[-2] * rsz[-1])
+    
     if img0.ndim==4:
         imgs = np.zeros((img0.shape[0], Ly, Lx, img0.shape[-1]), np.float32)
         for i,img in enumerate(img0):
-            imgs[i] = cv2.resize(img, (Lx, Ly))
+            imgs[i] = cv2.resize(img, (Lx, Ly), interpolation=interpolation)
     else:
-        imgs = cv2.resize(img0, (Lx, Ly))
+        imgs = cv2.resize(img0, (Lx, Ly), interpolation=interpolation)
     return imgs
 
 def pad_image_ND(img0, div=16, extra = 1):

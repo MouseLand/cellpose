@@ -9,6 +9,7 @@ import mxnet.ndarray as nd
 from numba import njit, float32, int32, vectorize
 from . import utils, metrics
 
+
 @njit('(float64[:], int32[:], int32[:], int32, int32, int32, int32)', nogil=True)
 def _extend_centers(T,y,x,ymed,xmed,Lx, niter):
     """ run diffusion from center of mask (ymed, xmed) on mask pixels (y, x)
