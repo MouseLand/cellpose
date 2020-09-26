@@ -1,6 +1,6 @@
 from cellpose import io, models, metrics
 from pathlib import Path
-import subprocess
+import subprocess, shlex
 import os
 import numpy as np
 
@@ -22,14 +22,16 @@ def clear_output(data_dir, image_names):
             os.remove(output)
 
 def test_cli_2D(data_dir, image_names):
+    clear_output(data_dir, image_names)
     model_types = ['cyto', 'nuclei']
     chan = [2,1]
     chan2 = [1,0]
     for m,model_type in enumerate(model_types):
-        process = subprocess.Popen('python -m cellpose --dir %s --pretrained_model %s --fast_mode --chan %d --chan2 %d --diameter 0 --save_png'%
-                                   (str(data_dir.joinpath('2D')), model_type, chan[m], chan2[m]), 
+        cmd = 'python -m cellpose --dir %s --pretrained_model %s --fast_mode --chan %d --chan2 %d --diameter 0 --save_png'%(str(data_dir.joinpath('2D')), model_type, chan[m], chan2[m])
+        process = subprocess.Popen(cmd, 
                                    stdout=subprocess.PIPE,
-                                   stderr=subprocess.PIPE)
+                                   stderr=subprocess.PIPE,
+                                   shell=True)
         stdout, stderr = process.communicate()
         print(stdout)
         print(stderr)
@@ -37,20 +39,21 @@ def test_cli_2D(data_dir, image_names):
         clear_output(data_dir, image_names)
 
 def test_cli_3D(data_dir, image_names):
+    clear_output(data_dir, image_names)
     model_types = ['cyto', 'nuclei']
     chan = [2,1]
     chan2 = [1,0]
     for m,model_type in enumerate(model_types):
-        process = subprocess.Popen('python -m cellpose --dir %s --do_3D --pretrained_model %s --fast_mode --chan %d --chan2 %d --diameter 25 --save_tif'%
-                                   (str(data_dir.joinpath('3D')), model_type, chan[m], chan2[m]), 
+        cmd = 'python -m cellpose --dir %s --do_3D --pretrained_model %s --fast_mode --chan %d --chan2 %d --diameter 25 --save_tif'%(str(data_dir.joinpath('3D')), model_type, chan[m], chan2[m])
+        process = subprocess.Popen(cmd, 
                                    stdout=subprocess.PIPE,
-                                   stderr=subprocess.PIPE)
+                                   stderr=subprocess.PIPE,
+                                   shell=True)
         stdout, stderr = process.communicate()
         print(stdout)
         print(stderr)
         check_output(data_dir, image_names, '3D', model_type)
-        clear_output(data_dir, image_names)
-
+        
 def check_output(data_dir, image_names, runtype, model_type):
     """
     Helper function to check if outputs given by a test are exactly the same
