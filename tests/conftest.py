@@ -14,6 +14,7 @@ def image_names():
 @pytest.fixture()
 def data_dir(image_names):
     cp_dir = Path.home().joinpath('.cellpose')
+    cp_dir.mkdir(exist_ok=True)
     data_dir = cp_dir.joinpath('data')
     data_dir.mkdir(exist_ok=True)
     data_dir_2D = data_dir.joinpath('2D')

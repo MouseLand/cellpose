@@ -78,6 +78,7 @@ def check_output(data_dir, image_names, runtype, model_type):
                 masks_test = io.imread(output_test)
                 masks_true = io.imread(output_true)
                 ap = metrics.average_precision(masks_true, masks_test)
+                print('average precision of [%0.3f %0.3f %0.3f]'%(ap[0],ap[1],ap[2]))
                 yield np.allclose(ap, np.ones(3), rtol=r_tol, atol=a_tol)
 
                 matching_pix = np.logical_and(masks_test>0, masks_true>0).mean()
