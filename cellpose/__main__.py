@@ -248,8 +248,12 @@ def main():
             nimg = len(image_names)
             labels = [io.imread(label_names[n]) for n in range(nimg)]
             if flow_names is not None and not args.unet:
-                labels = [np.concatenate((labels[n][np.newaxis,:,:], io.imread(flow_names[n])), axis=0) 
-                          for n in range(nimg)]
+                for n in range(nimg):
+                    flows = io.imread(flow_names[n])
+                    if flows.shape[0]<4:
+                        labels[n] = np.concatenate((labels[n][np.newaxis,:,:], flows), axis=0) 
+                    else:
+                        labels[n] = flows
 
             # testing data
             test_images, test_labels, image_names_test = None, None, None
