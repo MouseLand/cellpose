@@ -12,6 +12,7 @@ jobs:
     - bash ./miniconda.sh -b
     - export PATH=~/miniconda3/bin:$PATH
     - conda update --yes conda
+    - export MPLBACKEND=Agg
   - name: Python 3.7.1 on Linux Bionic
     dist: bionic
     services:
@@ -23,6 +24,7 @@ jobs:
       - bash ./miniconda.sh -b
       - export PATH=~/miniconda3/bin:$PATH
       - conda update --yes conda
+      - export MPLBACKEND=Agg
   - name: Python 3.7.7 on macOS
     os: osx
     osx_image: xcode12
@@ -33,6 +35,7 @@ jobs:
     - bash ./miniconda.sh -b
     - export PATH=~/miniconda3/bin:$PATH
     - conda update --yes conda
+    - export MPLBACKEND=Agg
   - name: Python 3.7.7 on Windows
     os: windows
     language: shell
@@ -52,7 +55,7 @@ jobs:
 install:
 - conda env create -f environment.yml
 - source activate cellpose
-- pip install .[gui]
+- pip install .
 - pip install matplotlib
 - pip install coveralls
 script:
