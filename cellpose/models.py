@@ -347,7 +347,6 @@ class UnetModel():
 
         """
         x, nolist = convert_images(x, channels, do_3D, normalize, invert)
-        print(x[0].shape)
         nimg = len(x)
         self.batch_size = batch_size
 
@@ -501,7 +500,6 @@ class UnetModel():
             if tiled it is averaged over tiles
 
         """   
-        
         if imgs.ndim==4:  
             # make image Lz x nchan x Ly x Lx for net
             imgs = np.transpose(imgs, (0,3,1,2))  
@@ -999,16 +997,16 @@ class CellposeModel(UnetModel):
             print(self.net_type)
 
 
-    def eval(self, x, batch_size=8, channels=None, normalize=True, invert=False, rescale=None, 
+    def eval(self, imgs, batch_size=8, channels=None, normalize=True, invert=False, rescale=None, 
              do_3D=False, anisotropy=None, net_avg=True, augment=False, tile=True, 
              flow_threshold=0.4, cellprob_threshold=0.0, compute_masks=True, 
              min_size=15, stitch_threshold=0.0, progress=None):
         """
-            segment list of images x, or 4D array - Z x nchan x Y x X
+            segment list of images imgs, or 4D array - Z x nchan x Y x X
 
             Parameters
             ----------
-            x: list or array of images
+            imgs: list or array of images
                 can be list of 2D/3D/4D images, or array of 2D/3D images
 
             batch_size: int (optional, default 8)
@@ -1080,7 +1078,7 @@ class CellposeModel(UnetModel):
                 style vector summarizing each image, also used to estimate size of objects in image
 
         """
-        x, nolist = convert_images(x, channels, do_3D, normalize, invert)
+        x, nolist = convert_images(imgs.copy(), channels, do_3D, normalize, invert)
         
         nimg = len(x)
         self.batch_size = batch_size
@@ -1297,9 +1295,9 @@ class SizeModel():
         if not hasattr(self.cp, 'pretrained_model'):
             raise ValueError('provided model does not have a pretrained_model')
         
-    def eval(self, x=None, styles=None, channels=None, invert=False, augment=False, tile=True,
+    def eval(self, imgs=None, styles=None, channels=None, normalize=True, invert=False, augment=False, tile=True,
                 batch_size=8, progress=None):
-        """ use images x to produce style or use style input to predict size of objects in image
+        """ use images imgs to produce style or use style input to predict size of objects in image
 
             Object size estimation is done in two steps:
             1. use a linear regression model to predict size from style in image
@@ -1309,7 +1307,7 @@ class SizeModel():
             Parameters
             -------------------
 
-            x: list or array of images (optional, default None)
+            imgs: list or array of images (optional, default None)
                 can be list of 2D/3D images, or array of 2D/3D images
 
             styles: list or array of styles (optional, default None)
@@ -1322,6 +1320,9 @@ class SizeModel():
                 For instance, to segment grayscale images, input [0,0]. To segment images with cells
                 in green and nuclei in blue, input [2,3]. To segment one grayscale image and one
                 image with cells in green and nuclei in blue, input [[0,0], [2,3]].
+
+            normalize: bool (default, True)
+                normalize data so 0.0=1st percentile and 1.0=99th percentile of image intensities in each channel
 
             invert: bool (optional, default False)
                 invert image pixel intensity before running network
@@ -1344,14 +1345,17 @@ class SizeModel():
                 estimated diameters from style alone
 
         """
-        if styles is None and x is None:
+        if styles is None and imgs is None:
             raise ValueError('no image or features given')
             
-        nimg = len(x)
+        nimg = len(imgs)
         
         if progress is not None:
             progress.setValue(10)
         
+        if imgs is not None:
+            x, nolist = convert_images(imgs.copy(), channels, False, normalize, invert)
+
         if styles is None:
             styles = self.cp.eval(x, channels=channels, net_avg=False, augment=augment, tile=tile, compute_masks=False)[-1]
             if progress is not None:
@@ -1365,7 +1369,7 @@ class SizeModel():
             diam_style = self._size_estimation(styles)
         diam_style[np.isnan(diam_style)] = self.diam_mean
 
-        if x is not None:
+        if imgs is not None:
             masks = self.cp.eval(x, channels=channels, rescale=self.diam_mean/diam_style, net_avg=False, 
                                 augment=augment, tile=tile)[0]
             diam = np.array([utils.diameters(masks[i])[0] for i in range(nimg)])
@@ -1532,7 +1536,6 @@ def convert_images(x, channels, do_3D, normalize, invert):
 
     if normalize or invert:
         x = [transforms.normalize_img(x[i], invert=invert) for i in range(nimg)]
-
     return x, nolist
 
 urls = ['http://www.cellpose.org/models/cyto_0',

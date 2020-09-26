@@ -52,7 +52,8 @@ jobs:
 install:
 - conda env create -f environment.yml
 - source activate cellpose
-- pip install .
+- pip install .[gui]
+- pip install matplotlib
 - pip install coveralls
 script:
 - coverage run --source=cellpose setup.py test

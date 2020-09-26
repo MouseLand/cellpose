@@ -1,8 +1,9 @@
-from cellpose import io, models, metrics
+from cellpose import io, models, metrics, plot
 from pathlib import Path
 import subprocess, shlex
 import os
 import numpy as np
+import matplotlib.pyplot as plt
 
 r_tol, a_tol = 1e-2, 1e-2
 
@@ -21,6 +22,32 @@ def clear_output(data_dir, image_names):
         if os.path.exists(output):
             os.remove(output)
 
+def test_class_2D(data_dir, image_names):
+    clear_output(data_dir, image_names)
+    img = io.imread(str(data_dir.joinpath('2D').joinpath('rgb_2D.png')))
+    model_types = ['cyto', 'nuclei']
+    chan = [2,1]
+    chan2 = [1,0]
+    for m,model_type in enumerate(model_types):
+        model = models.Cellpose(model_type=model_type)
+        masks, flows, _, _ = model.eval(img, diameter=0, channels=[chan[m],chan2[m]])
+        io.imsave(str(data_dir.joinpath('2D').joinpath('rgb_2D_cp_masks.png')), masks)
+        check_output(data_dir, image_names, '2D', model_type)
+        fig = plt.figure(figsize=(8,3))
+        plot.show_segmentation(fig, img, masks, flows[0], channels=[chan[m],chan2[m]])
+
+def test_class_3D(data_dir, image_names):
+    clear_output(data_dir, image_names)
+    model = models.Cellpose()
+    img = io.imread(str(data_dir.joinpath('3D').joinpath('rgb_3D.tif')))
+    model_types = ['cyto', 'nuclei']
+    chan = [2,1]
+    chan2 = [1,0]
+    for m,model_type in enumerate(model_types):
+        masks = model.eval(img, diameter=0, channels=[chan[m],chan2[m]])[0]
+        io.imsave(str(data_dir.joinpath('3D').joinpath('rgb_3D_cp_masks.tif')), masks)
+        check_output(data_dir, image_names, '3D', model_type)
+        
 def test_cli_2D(data_dir, image_names):
     clear_output(data_dir, image_names)
     model_types = ['cyto', 'nuclei']
@@ -36,8 +63,7 @@ def test_cli_2D(data_dir, image_names):
         print(stdout)
         print(stderr)
         check_output(data_dir, image_names, '2D', model_type)
-        clear_output(data_dir, image_names)
-
+        
 def test_cli_3D(data_dir, image_names):
     clear_output(data_dir, image_names)
     model_types = ['cyto', 'nuclei']
@@ -88,7 +114,9 @@ def check_output(data_dir, image_names, runtype, model_type):
                 all_pix = (masks_test>0).mean()
                 yield np.allclose(all_pix, matching_pix, rtol=r_tol, atol=a_tol)
             else:
-                raise NameError('no file of name %s found'%output_test)
+                print('ERROR: no file of name %s found'%output_test)
+                assert False
+    clear_output(data_dir, image_names)
 
 #def test_cli_3D(data_dir):
 #    os.system('python -m cellpose --dir %s'%str(data_dir.join('3D').resolve()))
