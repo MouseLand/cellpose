@@ -1,0 +1,68 @@
+language: python
+jobs:
+  include:
+  - name: Python 3.7.1 on Linux
+    dist: xenial
+    services:
+      - xvfb
+    python: 3.7
+    before_install:
+    - wget http://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O
+      miniconda.sh
+    - bash ./miniconda.sh -b
+    - export PATH=~/miniconda3/bin:$PATH
+    - conda update --yes conda
+  - name: Python 3.7.1 on Linux Bionic
+    dist: bionic
+    services:
+      - xvfb
+    python: 3.7
+    before_install:
+      - wget http://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O
+        miniconda.sh
+      - bash ./miniconda.sh -b
+      - export PATH=~/miniconda3/bin:$PATH
+      - conda update --yes conda
+  - name: Python 3.7.7 on macOS
+    os: osx
+    osx_image: xcode12
+    language: shell
+    before_install:
+    - wget https://repo.anaconda.com/miniconda/Miniconda3-latest-MacOSX-x86_64.sh
+      -O miniconda.sh
+    - bash ./miniconda.sh -b
+    - export PATH=~/miniconda3/bin:$PATH
+    - conda update --yes conda
+  - name: Python 3.7.7 on Windows
+    os: windows
+    language: shell
+    before_install:
+    - choco install python --version 3.7.7
+    - export MINICONDA=/c/miniconda
+    - MINICONDA_WIN=$(cygpath --windows $MINICONDA)
+    - choco install openssl.light
+    - choco install miniconda3 --params="'/AddToPath:0 /D:$MINICONDA_WIN'"
+    - PATH=$(echo "$PATH" | sed -e 's|:/c/ProgramData/chocolatey/bin||')
+    - PATH=$(echo "$PATH" | sed -e 's|:/c/ProgramData/chocolatey/lib/mingw/tools/install/mingw64/bin||')
+    - source $MINICONDA/Scripts/activate
+    - source $MINICONDA/etc/profile.d/conda.sh
+  allow_failures:
+  - os: osx
+  - os: windows
+install:
+- conda env create -f environment.yml
+- source activate cellpose
+- pip install .
+- pip install coveralls
+script:
+- coverage run --source=cellpose setup.py test
+after_success: coveralls
+#deploy:
+#  skip_cleanup: true
+#  skip_existing: true
+#  provider: pypi
+#  user: __token__
+#  password:
+#    secure: iIUxK/XrLFS0yu7MwkXaAfuX0/CmaIVe+vFMOOdw+b1P1Yx+Lj+t074wrUS7/Ky0ZO9gY8PELnvqF+HQNbRUprMOl+P+4rdpJ5lw4LPWOMUSD14jiTaal3hYICOZSs/0sKFLYga0+/aCEYhOFfKOsPthlE6VDpUnmCvihGwZAFItnWJdq+/hKkLjOgLQbTCxLlQrudUYDRJWzgomoStjYt/B53YaoY2U2IC/RqfI5e2kOeNTK4qxWC6RnpjA81w0KMywkbWeSwB372j2+z180nvXEvsdln/QIq1bCpM3saKf2JjDDeKpq8r16sJ/pIr2OPldRMTa/UE6CvkssGWy7qA8lNbw/uwnMFIr/yvJboLJk/jG/4JjUWtJnNpDyzVt/o1DbimQDlQiacTwGmHlo4E/DrGQpbneSTU7Dfjg6ka5mvoxp2htMRRDfX1m9rdc/B7yjS49dN34GrWjcJiq24mlhYuACCLjZJvNF/CSUJg5JqR9aXpNjak0NOPs/JDs0mDWZNfdbcjff3+RXNEdpQVqYvayJsmEubnUoIPNm671Dc4xab5saEaxeS6oxwabCThQNhswksDEfzWtW8/7oAv2DfjfBEUClvjV6iD+NqWsRtotUrOXfSA/I6KjVsXVUBh+PhePwKceCT+M0Dp5WiRNbog6S7uEcCd2Nd0as38=
+#  on:
+#    tags: true

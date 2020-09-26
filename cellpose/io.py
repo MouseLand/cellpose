@@ -170,7 +170,7 @@ def save_masks(images, masks, flows, file_names, png=True, tif=False):
     
     if masks.ndim > 2 and not tif:
         raise ValueError('cannot save 3D outputs as PNG, use tif option instead')
-
+    print(masks.shape)
     base = os.path.splitext(file_names)[0]
     exts = []
     if png:
@@ -197,7 +197,7 @@ def save_masks(images, masks, flows, file_names, png=True, tif=False):
         fig.savefig(base + '_cp_output.png', dpi=300)
         plt.close(fig)
 
-    if masks[0].ndim < 3: 
+    if masks.ndim < 3: 
         outlines = utils.outlines_list(masks)
         outlines_to_text(base, outlines)
 

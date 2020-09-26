@@ -1505,7 +1505,7 @@ def convert_images(x, channels, do_3D, normalize, invert):
             elif x[i].shape[0]<4:
                 x[i] = x[i].transpose((1,2,3,0))
             print('multi-stack tiff read in as having %d planes %d channels'%
-                    (x[0].shape[0], x[0].shape[-1]))
+                    (x[i].shape[0], x[i].shape[-1]))
 
     if channels is not None:
         if len(channels)==2:

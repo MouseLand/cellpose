@@ -1,42 +1,90 @@
-from cellpose import io, models
+from cellpose import io, models, metrics
 from pathlib import Path
 import subprocess
 import os
+import numpy as np
 
-def clear_output():
+r_tol, a_tol = 1e-2, 1e-2
+
+def clear_output(data_dir, image_names):
+    data_dir_2D = data_dir.joinpath('2D')
+    data_dir_3D = data_dir.joinpath('2D')
     for image_name in image_names:
         if '2D' in image_name:
-            cached_file = str(data_dir_2D.joinpath(image_name).resolve())
+            cached_file = str(data_dir_2D.joinpath(image_name))
+            ext = '.png'
         else:
-            cached_file = str(data_dir_3D.joinpath(image_name).resolve())
+            cached_file = str(data_dir_3D.joinpath(image_name))
+            ext = '.tif'
         name, ext = os.path.splitext(cached_file)
         output = name + '_cp_masks' + ext
         if os.path.exists(output):
             os.remove(output)
 
-def test_cli_2D(data_dir):
-    process = subprocess.Popen('python -m cellpose --dir %s --chan 2 --chan2 3'%str(data_dir.join('2D').resolve()), 
-                                stdout=subprocess.PIPE,
-                                stderr=subprocess.PIPE)
-    stdout, stderr = process.communicate()
-    for l in stdout:
-        print(l)
-    
-    clear_output()
+def test_cli_2D(data_dir, image_names):
+    model_types = ['cyto', 'nuclei']
+    chan = [2,1]
+    chan2 = [1,0]
+    for m,model_type in enumerate(model_types):
+        process = subprocess.Popen('python -m cellpose --dir %s --pretrained_model %s --fast_mode --chan %d --chan2 %d --diameter 0 --save_png'%
+                                   (str(data_dir.joinpath('2D')), model_type, chan[m], chan2[m]), 
+                                   stdout=subprocess.PIPE,
+                                   stderr=subprocess.PIPE)
+        stdout, stderr = process.communicate()
+        print(stdout)
+        print(stderr)
+        check_output(data_dir, image_names, '2D', model_type)
+        clear_output(data_dir, image_names)
 
-def check_output(runtype):
+def test_cli_3D(data_dir, image_names):
+    model_types = ['cyto', 'nuclei']
+    chan = [2,1]
+    chan2 = [1,0]
+    for m,model_type in enumerate(model_types):
+        process = subprocess.Popen('python -m cellpose --dir %s --do_3D --pretrained_model %s --fast_mode --chan %d --chan2 %d --diameter 25 --save_tif'%
+                                   (str(data_dir.joinpath('3D')), model_type, chan[m], chan2[m]), 
+                                   stdout=subprocess.PIPE,
+                                   stderr=subprocess.PIPE)
+        stdout, stderr = process.communicate()
+        print(stdout)
+        print(stderr)
+        check_output(data_dir, image_names, '3D', model_type)
+        clear_output(data_dir, image_names)
+
+def check_output(data_dir, image_names, runtype, model_type):
     """
     Helper function to check if outputs given by a test are exactly the same
     as the ground truth outputs.
     """
+    data_dir_2D = data_dir.joinpath('2D')
+    data_dir_3D = data_dir.joinpath('3D')
     for image_name in image_names:
-    for i in range(nplanes):
-        compare_list_of_outputs(i,
-                                outputs_to_check,
-                                get_list_of_test_data(outputs_to_check, test_data_dir, nplanes, nchannels, added_tag, i),
-                                get_list_of_output_data(outputs_to_check, output_root, i)
-        )
+        if '2D' in runtype and '2D' in image_name:
+            image_file = str(data_dir_2D.joinpath(image_name))
+            name, ext = os.path.splitext(image_file)
+            output_test = name + '_cp_masks.png'
+            output_true = name + '_%s_masks.png'%model_type
+            check = True
+        elif '3D' in runtype and '3D' in image_name:
+            image_file = str(data_dir_3D.joinpath(image_name))
+            name, ext = os.path.splitext(image_file)
+            output_test = name + '_cp_masks.tif'
+            output_true = name + '_%s_masks.tif'%model_type
+            check = True
 
+        if check:
+            if os.path.exists(output_test):
+                print('checking output %s'%output_test)
+                masks_test = io.imread(output_test)
+                masks_true = io.imread(output_true)
+                ap = metrics.average_precision(masks_true, masks_test)
+                yield np.allclose(ap, np.ones(3), rtol=r_tol, atol=a_tol)
+
+                matching_pix = np.logical_and(masks_test>0, masks_true>0).mean()
+                all_pix = (masks_test>0).mean()
+                yield np.allclose(all_pix, matching_pix, rtol=r_tol, atol=a_tol)
+            else:
+                raise NameError('no file of name %s found'%output_test)
 
 #def test_cli_3D(data_dir):
 #    os.system('python -m cellpose --dir %s'%str(data_dir.join('3D').resolve()))
