@@ -1,8 +1,7 @@
 from cellpose import io, models, metrics, plot
 from pathlib import Path
-import subprocess, shlex
 from subprocess import check_output, STDOUT
-import os
+import os, shutil
 import numpy as np
 try:
     import matplotlib.pyplot as plt
@@ -86,15 +85,6 @@ def test_cli_3D(data_dir, image_names):
             raise ValueError(e)
         compare_masks(data_dir, image_names, '3D', model_type)
         clear_output(data_dir, image_names)
-        
-def test_cli_train(data_dir, image_names):
-    train_dir = str(data_dir.joinpath('2D').joinpath('train'))
-    cmd = 'python -m cellpose --train --train_size --n_epochs 10 --dir %s --mask_filter _cyto_masks --pretrained_model cyto --chan 2 --chan2 1 --diameter 30'%train_dir
-    try:
-        cmd_stdout = check_output(cmd, stderr=STDOUT, shell=True).decode()
-    except Exception as e:
-        print(e) 
-        raise ValueError(e)
         
 def compare_masks(data_dir, image_names, runtype, model_type):
     """

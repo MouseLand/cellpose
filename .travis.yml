@@ -4,7 +4,7 @@ jobs:
   - name: Python 3.7.1 on Linux
     dist: xenial
     services:
-      - xvfb
+    - xvfb
     python: 3.7
     before_install:
     - wget http://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O
@@ -16,15 +16,15 @@ jobs:
   - name: Python 3.7.1 on Linux Bionic
     dist: bionic
     services:
-      - xvfb
+    - xvfb
     python: 3.7
     before_install:
-      - wget http://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O
-        miniconda.sh
-      - bash ./miniconda.sh -b
-      - export PATH=~/miniconda3/bin:$PATH
-      - conda update --yes conda
-      - export MPLBACKEND=Agg
+    - wget http://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O
+      miniconda.sh
+    - bash ./miniconda.sh -b
+    - export PATH=~/miniconda3/bin:$PATH
+    - conda update --yes conda
+    - export MPLBACKEND=Agg
   - name: Python 3.7.7 on macOS
     os: osx
     osx_image: xcode12
@@ -59,14 +59,15 @@ install:
 - pip install matplotlib
 - pip install coveralls
 script:
-- coverage run --source=cellpose --omit=cellpose/gui.py,cellpose/guiparts.py,cellpose/menus.py setup.py test
+- coverage run --source=cellpose --omit=cellpose/gui.py,cellpose/guiparts.py,cellpose/menus.py,cellpose/__main__.py
+  setup.py test
 after_success: coveralls
-#deploy:
-#  skip_cleanup: true
-#  skip_existing: true
-#  provider: pypi
-#  user: __token__
-#  password:
-#    secure: iIUxK/XrLFS0yu7MwkXaAfuX0/CmaIVe+vFMOOdw+b1P1Yx+Lj+t074wrUS7/Ky0ZO9gY8PELnvqF+HQNbRUprMOl+P+4rdpJ5lw4LPWOMUSD14jiTaal3hYICOZSs/0sKFLYga0+/aCEYhOFfKOsPthlE6VDpUnmCvihGwZAFItnWJdq+/hKkLjOgLQbTCxLlQrudUYDRJWzgomoStjYt/B53YaoY2U2IC/RqfI5e2kOeNTK4qxWC6RnpjA81w0KMywkbWeSwB372j2+z180nvXEvsdln/QIq1bCpM3saKf2JjDDeKpq8r16sJ/pIr2OPldRMTa/UE6CvkssGWy7qA8lNbw/uwnMFIr/yvJboLJk/jG/4JjUWtJnNpDyzVt/o1DbimQDlQiacTwGmHlo4E/DrGQpbneSTU7Dfjg6ka5mvoxp2htMRRDfX1m9rdc/B7yjS49dN34GrWjcJiq24mlhYuACCLjZJvNF/CSUJg5JqR9aXpNjak0NOPs/JDs0mDWZNfdbcjff3+RXNEdpQVqYvayJsmEubnUoIPNm671Dc4xab5saEaxeS6oxwabCThQNhswksDEfzWtW8/7oAv2DfjfBEUClvjV6iD+NqWsRtotUrOXfSA/I6KjVsXVUBh+PhePwKceCT+M0Dp5WiRNbog6S7uEcCd2Nd0as38=
-#  on:
-#    tags: true
+deploy:
+  skip_cleanup: true
+  skip_existing: true
+  provider: pypi
+  user: __token__
+  password:
+    secure: uoXsDSxaiQISL++Ppo1hKgIHL2pE6WDweG6g5XmaXbnZJVk6YV4K4inlk4VPMYi7DXVo2HG6Gwv044+oLOVAH4leJIHJm+aKtSeE2/Dt+FVfUdA8xOYkAdFHBaPLGOrag1run0vEbacrP6ffjlVz4Ri/2IL816XK3/59MWjxU5/mrhDIW48hkwQoJmNzm0aXUNXik0OM/FaPuQQ7++ESpaFZVs8XF149f7upflnBwf7Uct7XrtKgeM1xZSNwJsaY4xAIljb+hnFiXI8PyeQmehXio/M2RicC9JyELkNWQsCgDKDSfZMw+YpS2qkIWQ72DvE6vFiKdpMplugkPxKaY0amxyrR4YdhhRLANQK8eSQaeug5YZv+uDUzUtzgDBx6fM0OZAla1xRC3izEQyulmO7hbSupMVaUUAfOJnOf/4j19wz9GMIc1rxOKGgLLsYPqgf5Vnv4vUp9Ga9mJDZeT/EnWMoMO2nASf5VmcN4n7W0EIwAPKUyhDZ0/sep8Iq8nM1uic736UlsG+NDByiEiZvYywxAfxHStceaxkn/o2uCXVMnrLm5idyOaTdn6U94RJlMKCYtWytTquiRp9pOt60f3eBoOXLx2n6QSBoQjjTLWrziMSc2nHeTd0geGuUM3agbNMd+6hGom1j0ZiDrLeSRzISYEmksB3MprH4PxrU=
+  on:
+    tags: true
