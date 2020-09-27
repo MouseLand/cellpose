@@ -19,60 +19,6 @@ except Exception as err:
     GUI_IMPORT = False
     raise
 
-def get_image_files(folder, mask_filter, imf=None):
-    mask_filters = ['_cp_masks', '_cp_output', '_flows', mask_filter]
-    image_names = []
-    if imf is None:
-        imf = ''
-    image_names.extend(glob.glob(folder + '/*%s.png'%imf))
-    image_names.extend(glob.glob(folder + '/*%s.jpg'%imf))
-    image_names.extend(glob.glob(folder + '/*%s.jpeg'%imf))
-    image_names.extend(glob.glob(folder + '/*%s.tif'%imf))
-    image_names.extend(glob.glob(folder + '/*%s.tiff'%imf))
-    image_names = natsorted(image_names)
-    imn = []
-    for im in image_names:
-        imfile = os.path.splitext(im)[0]
-        igood = all([(len(imfile) > len(mask_filter) and imfile[-len(mask_filter):] != mask_filter) or len(imfile) < len(mask_filter) 
-                        for mask_filter in mask_filters])
-        if len(imf)>0:
-            igood &= imfile[-len(imf):]==imf
-        if igood:
-            imn.append(im)
-    image_names = imn
-    
-    return image_names
-        
-def get_label_files(image_names, mask_filter, imf=None):
-    nimg = len(image_names)
-    label_names0 = [os.path.splitext(image_names[n])[0] for n in range(nimg)]
-
-    if imf is not None and len(imf) > 0:
-        label_names = [label_names0[n][:-len(imf)] for n in range(nimg)]
-    else:
-        label_names = label_names0
-        
-    # check for flows
-    if os.path.exists(label_names0[0] + '_flows.tif'):
-        flow_names = [label_names0[n] + '_flows.tif' for n in range(nimg)]
-    else:
-        flow_names = [label_names[n] + '_flows.tif' for n in range(nimg)]
-    if not all([os.path.exists(flow) for flow in flow_names]):
-        flow_names = None
-    
-    # check for masks
-    if os.path.exists(label_names[0] + mask_filter + '.tif'):
-        label_names = [label_names[n] + mask_filter + '.tif' for n in range(nimg)]
-    elif os.path.exists(label_names[0] + mask_filter + '.png'):
-        label_names = [label_names[n] + mask_filter + '.png' for n in range(nimg)]
-    else:
-        raise ValueError('labels not provided with correct --mask_filter')
-    if not all([os.path.exists(label) for label in label_names]):
-        raise ValueError('labels not provided for all images in train and/or test set')
-
-    return label_names, flow_names
-
-
 def main():
     parser = argparse.ArgumentParser(description='cellpose parameters')
     parser.add_argument('--check_mkl', action='store_true', help='check if mkl working')
@@ -161,10 +107,7 @@ def main():
         else:
             imf = None
 
-        image_names = get_image_files(args.dir, args.mask_filter, imf=imf)
-        nimg = len(image_names)
-        images = [io.imread(image_names[n]) for n in range(nimg)]
-
+        
         
         if args.use_gpu:
             use_gpu = utils.use_gpu()
@@ -182,6 +125,10 @@ def main():
                 if not os.path.exists(cpmodel_path):
                     print('model path does not exist, using cyto model')
                     args.pretrained_model = 'cyto'
+
+            image_names = io.get_image_files(args.dir, args.mask_filter, imf=imf)
+            nimg = len(image_names)
+            images = [io.imread(image_names[n]) for n in range(nimg)]
 
             if args.pretrained_model=='cyto' or args.pretrained_model=='nuclei':
                 model = models.Cellpose(device=device, model_type=args.pretrained_model)
@@ -243,25 +190,9 @@ def main():
             if args.all_channels:
                 channels = None  
 
-            # training data
-            label_names, flow_names = get_label_files(image_names, args.mask_filter, imf=imf)
-            nimg = len(image_names)
-            labels = [io.imread(label_names[n]) for n in range(nimg)]
-            if flow_names is not None and not args.unet:
-                labels = [np.concatenate((labels[n][np.newaxis,:,:], io.imread(flow_names[n])), axis=0) 
-                          for n in range(nimg)]
-
-            # testing data
-            test_images, test_labels, image_names_test = None, None, None
-            if len(args.test_dir) > 0:
-                image_names_test = get_image_files(args.test_dir, args.mask_filter, imf=imf)
-                label_names_test, flow_names_test = get_label_files(image_names_test, args.mask_filter, imf=imf)
-                nimg = len(image_names_test)
-                test_images = [io.imread(image_names_test[n]) for n in range(nimg)]
-                test_labels = [io.imread(label_names_test[n]) for n in range(nimg)]
-                if flow_names_test is not None and not args.unet:
-                    test_labels = [np.concatenate((test_labels[n][np.newaxis,:,:], io.imread(flow_names_test[n])), axis=0) 
-                                   for n in range(nimg)]
+            test_dir = None if len(args.test_dir)==0 else args.test_dir
+            output = io.load_train_test_data(args.dir, test_dir, imf, args.mask_filter, args.unet)
+            images, labels, image_names, test_images, test_labels, image_names_test = output
 
             # model path
             if not os.path.exists(cpmodel_path):

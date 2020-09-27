@@ -1233,7 +1233,7 @@ class MainW(QtGui.QMainWindow):
                                     flows=self.flows[4][:-1], threshold=thresh)
         if self.NZ==1:
             maski = utils.fill_holes_and_remove_small_masks(maski)
-
+        maski = transforms.resize_image(maski, self.flows[0].shape[-3], self.flows[0].shape[-2])
         self.masksOn = True
         self.outlinesOn = True
         self.MCheckBox.setChecked(True)
@@ -1280,13 +1280,18 @@ class MainW(QtGui.QMainWindow):
             #    flows = flows[0]
             if not do_3D:
                 masks = masks[np.newaxis,...]
-            self.flows[0] = flows[0]
+            self.flows[0] = transforms.resize_image(flows[0].copy(), masks.shape[-2], masks.shape[-1],
+                                                    interpolation=cv2.INTER_NEAREST)
             self.flows[1] = (np.clip(utils.normalize99(flows[2]),0,1) * 255).astype(np.uint8)
+            self.flows[1] = transforms.resize_image(self.flows[1], masks.shape[-2], masks.shape[-1],
+                                                    interpolation=cv2.INTER_NEAREST)
             if not do_3D:
-                self.flows[2] = np.zeros(flows[1][0].shape, dtype=np.uint8)
+                self.flows[2] = np.zeros(masks.shape[1:], dtype=np.uint8)
                 self.flows = [self.flows[n][np.newaxis,...] for n in range(len(self.flows))]
             else:
                 self.flows[2] = (flows[1][0]/10 * 127 + 127).astype(np.uint8)
+                self.flows[2] = transforms.resize_image(self.flows[2], masks.shape[-2], masks.shape[-1],
+                                                        interpolation=cv2.INTER_NEAREST)
             if len(flows)>2:
                 self.flows.append(flows[3])
                 self.flows.append(np.concatenate((flows[1], flows[2][np.newaxis,...]), axis=0))

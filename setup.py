@@ -25,8 +25,16 @@ setup(
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/MouseLand/cellpose",
+    setup_requires=[
+      'pytest-runner',
+      'setuptools_scm',
+    ],
     packages=setuptools.find_packages(),
     install_requires = install_deps,
+    tests_require=[
+      'pytest',
+      'pytest-qt',
+    ],
     extras_require = {
       'docs': [
         'sphinx>=3.0',

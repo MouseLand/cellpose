@@ -1,4 +1,5 @@
-import os, datetime, gc, warnings
+import os, datetime, gc, warnings, glob
+from natsort import natsorted
 import numpy as np
 import cv2
 import tifffile
@@ -56,6 +57,96 @@ def imsave(filename, arr):
         tifffile.imsave(filename, arr)
     else:
         cv2.imwrite(filename, arr)
+
+def get_image_files(folder, mask_filter, imf=None):
+    mask_filters = ['_cp_masks', '_cp_output', '_flows', mask_filter]
+    image_names = []
+    if imf is None:
+        imf = ''
+    image_names.extend(glob.glob(folder + '/*%s.png'%imf))
+    image_names.extend(glob.glob(folder + '/*%s.jpg'%imf))
+    image_names.extend(glob.glob(folder + '/*%s.jpeg'%imf))
+    image_names.extend(glob.glob(folder + '/*%s.tif'%imf))
+    image_names.extend(glob.glob(folder + '/*%s.tiff'%imf))
+    image_names = natsorted(image_names)
+    imn = []
+    for im in image_names:
+        imfile = os.path.splitext(im)[0]
+        igood = all([(len(imfile) > len(mask_filter) and imfile[-len(mask_filter):] != mask_filter) or len(imfile) < len(mask_filter) 
+                        for mask_filter in mask_filters])
+        if len(imf)>0:
+            igood &= imfile[-len(imf):]==imf
+        if igood:
+            imn.append(im)
+    image_names = imn
+    
+    return image_names
+        
+def get_label_files(image_names, mask_filter, imf=None):
+    nimg = len(image_names)
+    label_names0 = [os.path.splitext(image_names[n])[0] for n in range(nimg)]
+
+    if imf is not None and len(imf) > 0:
+        label_names = [label_names0[n][:-len(imf)] for n in range(nimg)]
+    else:
+        label_names = label_names0
+        
+    # check for flows
+    if os.path.exists(label_names0[0] + '_flows.tif'):
+        flow_names = [label_names0[n] + '_flows.tif' for n in range(nimg)]
+    else:
+        flow_names = [label_names[n] + '_flows.tif' for n in range(nimg)]
+    if not all([os.path.exists(flow) for flow in flow_names]):
+        flow_names = None
+    
+    # check for masks
+    if os.path.exists(label_names[0] + mask_filter + '.tif'):
+        label_names = [label_names[n] + mask_filter + '.tif' for n in range(nimg)]
+    elif os.path.exists(label_names[0] + mask_filter + '.png'):
+        label_names = [label_names[n] + mask_filter + '.png' for n in range(nimg)]
+    else:
+        raise ValueError('labels not provided with correct --mask_filter')
+    if not all([os.path.exists(label) for label in label_names]):
+        raise ValueError('labels not provided for all images in train and/or test set')
+
+    return label_names, flow_names
+
+
+def load_train_test_data(train_dir, test_dir=None, image_filter=None, mask_filter='_masks', unet=False):
+    image_names = get_image_files(train_dir, mask_filter, imf=image_filter)
+    nimg = len(image_names)
+    images = [imread(image_names[n]) for n in range(nimg)]
+
+    # training data
+    label_names, flow_names = get_label_files(image_names, mask_filter, imf=image_filter)
+    nimg = len(image_names)
+    labels = [imread(label_names[n]) for n in range(nimg)]
+    if flow_names is not None and not unet:
+        for n in range(nimg):
+            flows = imread(flow_names[n])
+            if flows.shape[0]<4:
+                labels[n] = np.concatenate((labels[n][np.newaxis,:,:], flows), axis=0) 
+            else:
+                labels[n] = flows
+
+    # testing data
+    test_images, test_labels, image_names_test = None, None, None
+    if test_dir is not None:
+        image_names_test = get_image_files(test_dir, mask_filter, imf=image_filter)
+        label_names_test, flow_names_test = get_label_files(image_names_test, mask_filter, imf=image_filter)
+        nimg = len(image_names_test)
+        test_images = [imread(image_names_test[n]) for n in range(nimg)]
+        test_labels = [imread(label_names_test[n]) for n in range(nimg)]
+        if flow_names_test is not None and not unet:
+            for n in range(nimg):
+                flows = imread(flow_names[n])
+                if flows.shape[0]<4:
+                    test_labels[n] = np.concatenate((test_labels[n][np.newaxis,:,:], flows), axis=0) 
+                else:
+                    test_labels[n] = flows
+    return images, labels, image_names, test_images, test_labels, image_names_test
+
+
 
 def masks_flows_to_seg(images, masks, flows, diams, file_names, channels=None):
     """ save output of model eval to be loaded in GUI 
@@ -170,7 +261,7 @@ def save_masks(images, masks, flows, file_names, png=True, tif=False):
     
     if masks.ndim > 2 and not tif:
         raise ValueError('cannot save 3D outputs as PNG, use tif option instead')
-
+    print(masks.shape)
     base = os.path.splitext(file_names)[0]
     exts = []
     if png:
@@ -197,7 +288,7 @@ def save_masks(images, masks, flows, file_names, png=True, tif=False):
         fig.savefig(base + '_cp_output.png', dpi=300)
         plt.close(fig)
 
-    if masks[0].ndim < 3: 
+    if masks.ndim < 3: 
         outlines = utils.outlines_list(masks)
         outlines_to_text(base, outlines)
 

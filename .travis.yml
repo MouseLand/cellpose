@@ -1,0 +1,73 @@
+language: python
+jobs:
+  include:
+  - name: Python 3.7.1 on Linux
+    dist: xenial
+    services:
+    - xvfb
+    python: 3.7
+    before_install:
+    - wget http://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O
+      miniconda.sh
+    - bash ./miniconda.sh -b
+    - export PATH=~/miniconda3/bin:$PATH
+    - conda update --yes conda
+    - export MPLBACKEND=Agg
+  - name: Python 3.7.1 on Linux Bionic
+    dist: bionic
+    services:
+    - xvfb
+    python: 3.7
+    before_install:
+    - wget http://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O
+      miniconda.sh
+    - bash ./miniconda.sh -b
+    - export PATH=~/miniconda3/bin:$PATH
+    - conda update --yes conda
+    - export MPLBACKEND=Agg
+  - name: Python 3.7.7 on macOS
+    os: osx
+    osx_image: xcode12
+    language: shell
+    before_install:
+    - wget https://repo.anaconda.com/miniconda/Miniconda3-latest-MacOSX-x86_64.sh
+      -O miniconda.sh
+    - bash ./miniconda.sh -b
+    - export PATH=~/miniconda3/bin:$PATH
+    - conda update --yes conda
+    - export MPLBACKEND=Agg
+  - name: Python 3.7.7 on Windows
+    os: windows
+    language: shell
+    before_install:
+    - choco install python --version 3.7.7
+    - export MINICONDA=/c/miniconda
+    - MINICONDA_WIN=$(cygpath --windows $MINICONDA)
+    - choco install openssl.light
+    - choco install miniconda3 --params="'/AddToPath:0 /D:$MINICONDA_WIN'"
+    - PATH=$(echo "$PATH" | sed -e 's|:/c/ProgramData/chocolatey/bin||')
+    - PATH=$(echo "$PATH" | sed -e 's|:/c/ProgramData/chocolatey/lib/mingw/tools/install/mingw64/bin||')
+    - source $MINICONDA/Scripts/activate
+    - source $MINICONDA/etc/profile.d/conda.sh
+  allow_failures:
+  - os: osx
+  - os: windows
+install:
+- conda env create -f environment.yml
+- source activate cellpose
+- pip install .
+- pip install matplotlib
+- pip install coveralls
+script:
+- coverage run --source=cellpose --omit=cellpose/gui.py,cellpose/guiparts.py,cellpose/menus.py,cellpose/__main__.py
+  setup.py test
+after_success: coveralls
+deploy:
+  skip_cleanup: true
+  skip_existing: true
+  provider: pypi
+  user: __token__
+  password:
+    secure: uoXsDSxaiQISL++Ppo1hKgIHL2pE6WDweG6g5XmaXbnZJVk6YV4K4inlk4VPMYi7DXVo2HG6Gwv044+oLOVAH4leJIHJm+aKtSeE2/Dt+FVfUdA8xOYkAdFHBaPLGOrag1run0vEbacrP6ffjlVz4Ri/2IL816XK3/59MWjxU5/mrhDIW48hkwQoJmNzm0aXUNXik0OM/FaPuQQ7++ESpaFZVs8XF149f7upflnBwf7Uct7XrtKgeM1xZSNwJsaY4xAIljb+hnFiXI8PyeQmehXio/M2RicC9JyELkNWQsCgDKDSfZMw+YpS2qkIWQ72DvE6vFiKdpMplugkPxKaY0amxyrR4YdhhRLANQK8eSQaeug5YZv+uDUzUtzgDBx6fM0OZAla1xRC3izEQyulmO7hbSupMVaUUAfOJnOf/4j19wz9GMIc1rxOKGgLLsYPqgf5Vnv4vUp9Ga9mJDZeT/EnWMoMO2nASf5VmcN4n7W0EIwAPKUyhDZ0/sep8Iq8nM1uic736UlsG+NDByiEiZvYywxAfxHStceaxkn/o2uCXVMnrLm5idyOaTdn6U94RJlMKCYtWytTquiRp9pOt60f3eBoOXLx2n6QSBoQjjTLWrziMSc2nHeTd0geGuUM3agbNMd+6hGom1j0ZiDrLeSRzISYEmksB3MprH4PxrU=
+  on:
+    tags: true
