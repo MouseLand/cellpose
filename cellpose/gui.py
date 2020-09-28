@@ -1233,7 +1233,8 @@ class MainW(QtGui.QMainWindow):
                                     flows=self.flows[4][:-1], threshold=thresh)
         if self.NZ==1:
             maski = utils.fill_holes_and_remove_small_masks(maski)
-        maski = transforms.resize_image(maski, self.flows[0].shape[-3], self.flows[0].shape[-2])
+        maski = transforms.resize_image(maski, self.cellpix.shape[-2], self.cellpix.shape[-1],
+                                        interpolation=cv2.INTER_NEAREST)
         self.masksOn = True
         self.outlinesOn = True
         self.MCheckBox.setChecked(True)
