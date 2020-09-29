@@ -1,0 +1,7 @@
+mxnet-mkl
+opencv-python-headless
+pyqtgraph==0.11.0rc0
+natsort
+google-cloud-storage
+tqdm
+cellpose

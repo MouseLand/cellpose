@@ -1,0 +1,65 @@
+name: cp_installer
+channels:
+  - defaults
+dependencies:
+  - ca-certificates=2020.6.24=0
+  - certifi=2020.6.20=py37_0
+  - libcxx=10.0.0=1
+  - libedit=3.1.20191231=h1de35cc_1
+  - libffi=3.3=hb1e8313_2
+  - ncurses=6.2=h0a44026_1
+  - openssl=1.1.1g=h1de35cc_0
+  - pip=20.2.2=py37_0
+  - python=3.7.7=hf48f09d_4
+  - readline=8.0=h1de35cc_0
+  - setuptools=49.6.0=py37_0
+  - sqlite=3.32.3=hffcf06c_0
+  - tk=8.6.10=hb0a8c7a_0
+  - xz=5.2.5=h1de35cc_0
+  - zlib=1.2.11=h1de35cc_3
+  - pip:
+    - altgraph==0.17
+    - cachetools==4.1.1
+    - cffi==1.14.2
+    - chardet==3.0.4
+    - distro==1.5.0
+    - google-api-core==1.22.1
+    - google-auth==1.20.1
+    - google-cloud-core==1.4.1
+    - google-cloud-storage==1.30.0
+    - google-crc32c==0.1.0
+    - google-resumable-media==0.7.1
+    - googleapis-common-protos==1.52.0
+    - idna==2.10
+    - llvmlite==0.34.0
+    - macholib==1.14
+    - mxnet-mkl==1.5.1.post0
+    - natsort==7.0.1
+    - numba==0.51.0
+    - numpy==1.19.1
+    - opencv-python-headless==4.3.0.38
+    - packaging==20.4
+    - protobuf==3.13.0
+    - pyasn1==0.4.8
+    - pyasn1-modules==0.2.8
+    - pycparser==2.20
+    - pyinstaller==4.0
+    - pyinstaller-hooks-contrib==2020.7
+    - pyparsing==2.4.7
+    - pyqt5==5.10
+    - pyqt5-sip==12.8.0
+    - pyqtgraph==0.11.0rc0
+    - python-graphviz==0.8.4
+    - pytz==2020.1
+    - requests==2.24.0
+    - rsa==4.6
+    - scikit-build==0.11.1
+    - scipy==1.5.2
+    - sip==4.19.8
+    - six==1.15.0
+    - tifffile==2020.8.13
+    - tqdm==4.48.2
+    - urllib3==1.25.10
+    - wheel==0.35.1
+prefix: /opt/anaconda3/envs/cp_installer
+
