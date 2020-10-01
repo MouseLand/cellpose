@@ -1356,7 +1356,7 @@ class SizeModel():
             nimg = len(x)
         
         if styles is None:
-            styles = self.cp.eval(x, channels=channels, net_avg=False, augment=augment, tile=tile, compute_masks=False)[-1]
+            styles = self.cp.eval(x, net_avg=False, augment=augment, tile=tile, compute_masks=False)[-1]
             if progress is not None:
                 progress.setValue(30)
             diam_style = self._size_estimation(np.array(styles))
@@ -1369,7 +1369,7 @@ class SizeModel():
         diam_style[np.isnan(diam_style)] = self.diam_mean
 
         if imgs is not None:
-            masks = self.cp.eval(x, channels=channels, rescale=self.diam_mean/diam_style, net_avg=False, 
+            masks = self.cp.eval(x, rescale=self.diam_mean/diam_style, net_avg=False, 
                                 augment=augment, tile=tile)[0]
             diam = np.array([utils.diameters(masks[i])[0] for i in range(nimg)])
             if progress is not None:
