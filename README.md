@@ -31,9 +31,9 @@ You can also run Cellpose in google colab with a GPU -> [![Open In Colab](https:
 1. Open a terminal and run `cd ~/Downloads/`.
 2. Run `chmod 777 cellpose_mac.dms` to make the file executable.
 3. Run `./cellpose_mac.dms` to open the cellpose GUI. Messages from cellpose will be printed in the terminal.
-4. You can also run using the command line interface, e.g. as `./cellpose_mac.dms --dir ~/Pictures/ --chan 2'.
+4. You can also run using the command line interface, e.g. as `./cellpose_mac.dms --dir ~/Pictures/ --chan 2 --save_png`.
 
-* The *Windows 10* file is an exe and you can click on it to run the GUI. You can also run using the command line interface, e.g. as `cellpose.exe --dir Pictures/`
+* The *Windows 10* file is an exe and you can click on it to run the GUI. You can also run using the command line interface, e.g. as `cellpose.exe --dir Pictures/ --chan 2 --save_png`
 
 ### Detailed documentation at [www.cellpose.org/docs](http://www.cellpose.org/docs).
 
