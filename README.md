@@ -19,7 +19,7 @@ This code was written by Carsen Stringer and Marius Pachitariu. To learn about C
 
 If you want to improve Cellpose for yourself and for everyone else, please consider contributing manual segmentations for a few of your images via the built-in GUI interface (see instructions below). 
 
-### Run cellpose without local installation
+### Run cellpose without local python installation
 
 You can quickly try out Cellpose on the [website](http://www.cellpose.org) first (some features disabled). 
 
