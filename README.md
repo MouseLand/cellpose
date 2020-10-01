@@ -25,15 +25,15 @@ You can quickly try out Cellpose on the [website](http://www.cellpose.org) first
 
 You can also run Cellpose in google colab with a GPU -> [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/MouseLand/cellpose/blob/master/notebooks/run_cellpose_GPU.ipynb). This is recommended if you have issues with MKL or run speed on your local computer (and are running 3D volumes). Colab does not allow you to run the GUI, but you can save `*_seg.npy` files in colab that you can download and open in the GUI.
 
-**Executable file**: You can download an executable file for [Windows 10](http://www.cellpose.org/windows) or for [Mac OS](http://www.cellpose.org/mac) (High Sierra or greater) that were made using PyInstaller on Intel processors (MKL acceleration works, but no GPU support). Note in both cases it will take a few seconds to open.
+**Executable file**: You can download an executable file for [*Windows 10*](http://www.cellpose.org/windows) or for [*Mac OS*](http://www.cellpose.org/mac) (High Sierra or greater) that were made using PyInstaller on Intel processors (MKL acceleration works, but no GPU support). Note in both cases it will take a few seconds to open.
 
-* The *Mac OS* file will download as `cellpose_mac.dms`. You will need to make it into an executable file and run it through the terminal:
+* The [*Mac OS*](http://www.cellpose.org/mac) file will download as `cellpose_mac` OR `cellpose_mac.dms`. You will need to make it into an executable file and run it through the terminal:
 1. Open a terminal and run `cd ~/Downloads/`.
-2. Run `chmod 777 cellpose_mac.dms` to make the file executable.
-3. Run `./cellpose_mac.dms` to open the cellpose GUI. Messages from cellpose will be printed in the terminal.
-4. You can also run using the command line interface, e.g. as `./cellpose_mac.dms --dir ~/Pictures/ --chan 2 --save_png`.
+2. Run `chmod 777 cellpose_mac` OR `chmod 777 cellpose_mac.dms` to make the file executable.
+3. Run `./cellpose_mac` OR `./cellpose_mac.dms` to open the cellpose GUI. Messages from cellpose will be printed in the terminal.
+4. You can also run using the command line interface, e.g. as `./cellpose_mac --dir ~/Pictures/ --chan 2 --save_png`.
 
-* The *Windows 10* file is an exe and you can click on it to run the GUI. You can also run using the command line interface, e.g. as `cellpose.exe --dir Pictures/ --chan 2 --save_png`
+* The [*Windows 10*](http://www.cellpose.org/windows) file is an exe and you can click on it to run the GUI. You can also run using the command line interface, e.g. as `cellpose.exe --dir Pictures/ --chan 2 --save_png`
 
 ### Detailed documentation at [www.cellpose.org/docs](http://www.cellpose.org/docs).
 
