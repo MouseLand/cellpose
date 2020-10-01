@@ -657,13 +657,13 @@ class MainW(QtGui.QMainWindow):
 
     def calibrate_size(self):
         self.initialize_model()
-        diams, _ = self.model.sz.eval([self.stack[self.currentZ].copy()], invert=self.invert.isChecked(),
+        diams, _ = self.model.sz.eval(self.stack[self.currentZ].copy(), invert=self.invert.isChecked(),
                                    channels=self.get_channels(), progress=self.progress)
         diams = np.maximum(5.0, diams)
         print('estimated diameter of cells using %s model = %0.1f pixels'%
                 (self.current_model, diams))
-        self.Diameter.setText('%0.1f'%diams[0])
-        self.diameter = diams[0]
+        self.Diameter.setText('%0.1f'%diams)
+        self.diameter = diams
         self.compute_scale()
         self.progress.setValue(100)
 

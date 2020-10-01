@@ -183,14 +183,14 @@ class Cellpose():
                 diams = diameter * np.ones(nimg, np.float32)
             else:
                 diams = diameter
-            rescale = self.diam_mean / diams.copy() 
+            rescale = self.diam_mean / diams
         else:
             if rescale is not None and (not isinstance(rescale, list) or len(rescale)==1):
                 rescale = rescale * np.ones(nimg, np.float32)
             if self.pretrained_size is not None and rescale is None and not do_3D:
                 tic = time.time()
                 diams, _ = self.sz.eval(x, channels=channels, invert=invert, batch_size=batch_size, augment=augment, tile=tile)
-                rescale = self.diam_mean / diams.copy()
+                rescale = self.diam_mean / diams
                 print('estimated cell diameters for %d image(s) in %0.2f sec'%(nimg, time.time()-tic))
             else:
                 if rescale is None:
@@ -198,7 +198,7 @@ class Cellpose():
                         rescale = np.ones(1)
                     else:
                         rescale = np.ones(nimg, np.float32)
-                diams = self.diam_mean / rescale.copy() 
+                diams = self.diam_mean / rescale
 
         tic = time.time()
         masks, flows, styles = self.cp.eval(x, batch_size=batch_size, invert=invert, rescale=rescale, anisotropy=anisotropy, 
@@ -1347,15 +1347,14 @@ class SizeModel():
         """
         if styles is None and imgs is None:
             raise ValueError('no image or features given')
-            
-        nimg = len(imgs)
         
         if progress is not None:
             progress.setValue(10)
         
         if imgs is not None:
             x, nolist = convert_images(imgs.copy(), channels, False, normalize, invert)
-
+            nimg = len(x)
+        
         if styles is None:
             styles = self.cp.eval(x, channels=channels, net_avg=False, augment=augment, tile=tile, compute_masks=False)[-1]
             if progress is not None:
@@ -1385,7 +1384,10 @@ class SizeModel():
         else:
             diam = diam_style
             print('no images provided, using diameters estimated from styles alone')
-        return diam, diam_style
+        if nolist:
+            return diam[0], diam_style[0]
+        else:
+            return diam, diam_style
 
     def _size_estimation(self, style):
         """ linear regression from style to size 
