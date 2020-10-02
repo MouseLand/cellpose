@@ -139,7 +139,7 @@ def load_train_test_data(train_dir, test_dir=None, image_filter=None, mask_filte
         test_labels = [imread(label_names_test[n]) for n in range(nimg)]
         if flow_names_test is not None and not unet:
             for n in range(nimg):
-                flows = imread(flow_names[n])
+                flows = imread(flow_names_test[n])
                 if flows.shape[0]<4:
                     test_labels[n] = np.concatenate((test_labels[n][np.newaxis,:,:], flows), axis=0) 
                 else:
