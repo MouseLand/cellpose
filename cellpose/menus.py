@@ -1,5 +1,5 @@
 from PyQt5 import QtGui, QtCore, Qt, QtWidgets
-from . import io, utils
+from . import io, models
 
 def mainmenu(parent):
     main_menu = parent.menuBar()
@@ -81,7 +81,7 @@ def helpmenu(parent):
     help_menu = main_menu.addMenu("&Help")
     
     checkMKL = QtGui.QAction("Check CPU mxnet-mkl -- see terminal", parent)
-    checkMKL.triggered.connect(utils.check_mkl)
+    checkMKL.triggered.connect(models.check_mkl)
     help_menu.addAction(checkMKL)
 
     openHelp = QtGui.QAction("&Help window", parent)

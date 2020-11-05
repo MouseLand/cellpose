@@ -21,8 +21,6 @@ except:
 
 try:
     from google.cloud import storage
-    os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = os.path.join(os.path.dirname(os.path.realpath(__file__)),
-                                                        'key/cellpose-data-writer.json')
     SERVER_UPLOAD = True
 except:
     SERVER_UPLOAD = False
@@ -318,6 +316,8 @@ def save_server(parent=None, filename=None):
             filename = parent.filename
 
     if filename is not None:
+        os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = os.path.join(os.path.dirname(os.path.realpath(__file__)),
+                                                        'key/cellpose-data-writer.json')
         bucket_name = 'cellpose_data'
         base = os.path.splitext(filename)[0]
         source_file_name = base + '_seg.npy'

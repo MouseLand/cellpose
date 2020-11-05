@@ -6,19 +6,23 @@ import cv2
 from scipy.ndimage import find_objects, gaussian_filter, generate_binary_structure, label, maximum_filter1d, binary_fill_holes
 from scipy.spatial import ConvexHull
 import numpy as np
-import mxnet as mx
+import colorsys
 
 from . import metrics
 
-def use_gpu(gpu_number=0):
-    """ check if mxnet gpu works """
-    try:
-        _ = mx.ndarray.array([1, 2, 3], ctx=mx.gpu(gpu_number))
-        print('** CUDA version installed and working. **')
-        return True
-    except mx.MXNetError:
-        print('CUDA version not installed/working, will use CPU version.')
-        return False
+def rgb_to_hsv(arr):
+    rgb_to_hsv_channels = np.vectorize(colorsys.rgb_to_hsv)
+    r, g, b = np.rollaxis(arr, axis=-1)
+    h, s, v = rgb_to_hsv_channels(r, g, b)
+    hsv = np.stack((h,s,v), axis=-1)
+    return hsv
+
+def hsv_to_rgb(arr):
+    hsv_to_rgb_channels = np.vectorize(colorsys.hsv_to_rgb)
+    h, s, v = np.rollaxis(arr, axis=-1)
+    r, g, b = hsv_to_rgb_channels(h, s, v)
+    rgb = np.stack((r,g,b), axis=-1)
+    return rgb
 
 def download_url_to_file(url, dst, progress=True):
     r"""Download object at the given URL to a local path.
@@ -382,18 +386,3 @@ def fill_holes_and_remove_small_masks(masks, min_size=15):
                 masks[slc][msk] = (j+1)
                 j+=1
     return masks
-
-def check_mkl():
-    print('Running test snippet to check if MKL running (https://mxnet.apache.org/versions/1.6/api/python/docs/tutorials/performance/backend/mkldnn/mkldnn_readme.html#4)')
-    process = subprocess.Popen(['python', 'test_mkl.py'],
-                                stdout=subprocess.PIPE, stderr=subprocess.PIPE, 
-                                cwd=os.path.dirname(os.path.abspath(__file__)))
-    stdout, stderr = process.communicate()
-    if len(stdout)>0:
-        print('** MKL version working - CPU version is fast. **')
-        mkl_enabled = True
-    else:
-        print('WARNING: MKL version not working/installed - CPU version will be SLOW!')
-        mkl_enabled = False
-    return mkl_enabled
-        

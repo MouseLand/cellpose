@@ -3,7 +3,7 @@ os.environ["MKLDNN_VERBOSE"]="1"
 import numpy as np
 import mxnet as mx
 import time
-from cellpose.utils import use_gpu
+from cellpose.models import use_gpu
 
 def test_mkl():
     num_filter = 32

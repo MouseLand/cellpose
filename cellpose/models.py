@@ -13,6 +13,44 @@ import mxnet as mx
 from . import transforms, dynamics, utils, resnet_style, plot, metrics
 import __main__
 
+def use_gpu(gpu_number=0):
+    """ check if mxnet gpu works """
+    try:
+        _ = mx.ndarray.array([1, 2, 3], ctx=mx.gpu(gpu_number))
+        print('** CUDA version installed and working. **')
+        return True
+    except mx.MXNetError:
+        print('CUDA version not installed/working, will use CPU version.')
+        return False
+
+def check_mkl():
+    print('Running test snippet to check if MKL running (https://mxnet.apache.org/versions/1.6/api/python/docs/tutorials/performance/backend/mkldnn/mkldnn_readme.html#4)')
+    process = subprocess.Popen(['python', 'test_mkl.py'],
+                                stdout=subprocess.PIPE, stderr=subprocess.PIPE, 
+                                cwd=os.path.dirname(os.path.abspath(__file__)))
+    stdout, stderr = process.communicate()
+    if len(stdout)>0:
+        print('** MKL version working - CPU version is fast. **')
+        mkl_enabled = True
+    else:
+        print('WARNING: MKL version not working/installed - CPU version will be SLOW!')
+        mkl_enabled = False
+    return mkl_enabled
+
+def dx_to_circ(dP):
+    """ dP is 2 x Y x X => 'optic' flow representation """
+    sc = max(np.percentile(dP[0], 99), np.percentile(dP[0], 1))
+    Y = np.clip(dP[0] / sc, -1, 1)
+    sc = max(np.percentile(dP[1], 99), np.percentile(dP[1], 1))
+    X = np.clip(dP[1] / sc, -1, 1)
+    H = (np.arctan2(Y, X) + np.pi) / (2*np.pi)
+    S = utils.normalize99(dP[0]**2 + dP[1]**2)
+    V = np.ones_like(S)
+    HSV = np.concatenate((H[:,:,np.newaxis], S[:,:,np.newaxis], S[:,:,np.newaxis]), axis=-1)
+    HSV = np.clip(HSV, 0.0, 1.0)
+    flow = (utils.hsv_to_rgb(HSV)*255).astype(np.uint8)
+    return flow
+
 class Cellpose():
     """ main model which combines SizeModel and CellposeModel
 
@@ -38,7 +76,7 @@ class Cellpose():
         # assign device (GPU or CPU)
         if device is not None:
             self.device = device
-        elif gpu and utils.use_gpu():
+        elif gpu and use_gpu():
             self.device = mx.gpu()
             print('>>>> using GPU')
         else:
@@ -242,7 +280,7 @@ class UnetModel():
         self.unet = True
         if device is not None:
             self.device = device
-        elif gpu and utils.use_gpu():
+        elif gpu and use_gpu():
             self.device = mx.gpu()
             print('>>>> using GPU')
         else:
@@ -1135,7 +1173,7 @@ class CellposeModel(UnetModel):
                     if progress is not None:
                         progress.setValue(75)
                     #dP = np.concatenate((dP, np.zeros((1,dP.shape[1],dP.shape[2]), np.uint8)), axis=0)
-                    flows.append([plot.dx_to_circ(dP), dP, cellprob, p])
+                    flows.append([dx_to_circ(dP), dP, cellprob, p])
                     masks.append(maski)
                     flow_time += time.time() - tic
                 else:
@@ -1162,7 +1200,7 @@ class CellposeModel(UnetModel):
                 maski = dynamics.get_masks(yout, iscell=(cellprob>cellprob_threshold))
                 maski = utils.fill_holes_and_remove_small_masks(maski, min_size=min_size)
                 print('masks computed %2.2fs'%(time.time()-tic))
-                flow = np.array([plot.dx_to_circ(dP[1:,i]) for i in range(dP.shape[1])])
+                flow = np.array([dx_to_circ(dP[1:,i]) for i in range(dP.shape[1])])
                 flows.append([flow, dP, cellprob, yout])
                 masks.append(maski)
                 styles.append(style)

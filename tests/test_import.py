@@ -9,5 +9,5 @@ def test_gui_imports_without_error():
     from cellpose import gui
 
 def test_gpu_check():
-    from cellpose import utils
-    utils.use_gpu()
+    from cellpose import models
+    models.use_gpu()
