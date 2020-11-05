@@ -74,6 +74,11 @@ uninstalling and reinstalling pyqt5
    pip uninstall pyqt5 pyqt5-tools
    pip install pyqt5 pyqt5-tools pyqt5.sip
 
+If you have errors related to OpenMP and libiomp5, then try 
+
+::
+   conda install nomkl
+
 If you receive an error associated with **matplotlib**, try upgrading
 it:
 
