@@ -1170,9 +1170,6 @@ class CellposeModel(UnetModel):
                     maski = utils.fill_holes_and_remove_small_masks(maski)
                     maski = transforms.resize_image(maski, shape[-3], shape[-2], 
                                                     interpolation=cv2.INTER_NEAREST)
-                    dP = transforms.resize_image(dP.transpose((1,2,0)), shape[-3], shape[-2]).transpose((2,0,1))
-                    cellprob = transforms.resize_image(cellprob, shape[-3], shape[-2])
-                    p = transforms.resize_image(p.transpose((1,2,0)), shape[-3], shape[-2]).transpose((2,0,1))
                     if progress is not None:
                         progress.setValue(75)
                     #dP = np.concatenate((dP, np.zeros((1,dP.shape[1],dP.shape[2]), np.uint8)), axis=0)
