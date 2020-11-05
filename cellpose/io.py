@@ -187,6 +187,9 @@ def masks_flows_to_seg(images, masks, flows, diams, file_names, channels=None):
             masks_flows_to_seg(image, mask, flow, diam, file_name, channels_img)
         return
 
+    if len(channels)==1:
+        channels = channels[0]
+
     flowi = []
     if flows[0].ndim==3:
         flowi.append(flows[0][np.newaxis,...])
@@ -204,17 +207,27 @@ def masks_flows_to_seg(images, masks, flows, diams, file_names, channels=None):
         flowi.append(np.concatenate((flows[1], flows[2][np.newaxis,...]), axis=0))
     outlines = masks * utils.masks_to_outlines(masks)
     base = os.path.splitext(file_names)[0]
-    if images.shape[0]<8:
-        np.transpose(images, (1,2,0))
-    np.save(base+ '_seg.npy',
-                {'outlines': outlines.astype(np.uint16),
+    if masks.ndim==3:
+        np.save(base+ '_seg.npy',
+                    {'outlines': outlines.astype(np.uint16),
+                        'masks': masks.astype(np.uint16),
+                        'chan_choose': channels,
+                        'img': images,
+                        'ismanual': np.zeros(masks.max(), np.bool),
+                        'filename': file_names,
+                        'flows': flowi,
+                        'est_diam': diams})
+    else:
+        if images.shape[0]<8:
+            np.transpose(images, (1,2,0))
+        np.save(base+ '_seg.npy',
+                    {'outlines': outlines.astype(np.uint16),
                     'masks': masks.astype(np.uint16),
                     'chan_choose': channels,
-                    'img': images,
                     'ismanual': np.zeros(masks.max(), np.bool),
                     'filename': file_names,
                     'flows': flowi,
-                    'est_diam': diams})
+                    'est_diam': diams})    
 
 def save_to_png(images, masks, flows, file_names):
     """ deprecated (runs io.save_masks with png=True) 
@@ -262,7 +275,9 @@ def save_masks(images, masks, flows, file_names, png=True, tif=False):
     print(masks.shape)
     base = os.path.splitext(file_names)[0]
     exts = []
-    if png:
+    if masks.ndim > 2:
+        png = False
+    if png:    
         exts.append('.png')
     if tif:
         exts.append('.tif')
@@ -273,7 +288,7 @@ def save_masks(images, masks, flows, file_names, png=True, tif=False):
         for ext in exts:
             imsave(base + '_cp_masks' + ext, masks.astype(np.uint16))
 
-    if png and MATPLOTLIB and not (images.ndim==3 and min(images.shape)>3):
+    if png and MATPLOTLIB and not min(images.shape) > 3:
         img = images.copy()
         if img.ndim<3:
             img = img[:,:,np.newaxis]
