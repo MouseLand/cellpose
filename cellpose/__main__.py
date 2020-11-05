@@ -155,8 +155,7 @@ def main():
             else:
                 if args.all_channels:
                     channels = None  
-                model = models.CellposeModel(device=device, pretrained_model=cpmodel_path,
-                                             batch_size=args.batch_size)
+                model = models.CellposeModel(device=device, pretrained_model=cpmodel_path)
                 if args.diameter==0:
                     print('>>>> using user-specified model, no auto-diameter estimation available')
                     diameter = model.diam_mean
@@ -167,7 +166,8 @@ def main():
                                              do_3D=args.do_3D,
                                              augment=False,
                                              flow_threshold=args.flow_threshold,
-                                             cellprob_threshold=args.cellprob_threshold)
+                                             cellprob_threshold=args.cellprob_threshold,
+                                             batch_size=args.batch_size)
                 diams = diameter * np.ones(len(images)) 
                   
             print('>>>> saving results')
@@ -238,13 +238,14 @@ def main():
                 cpmodel_path = model.train(images, labels, train_files=image_names, 
                                             test_data=test_images, test_labels=test_labels, test_files=image_names_test,
                                             learning_rate=args.learning_rate, channels=channels, 
-                                            save_path=os.path.realpath(args.dir), rescale=rescale, n_epochs=args.n_epochs)
+                                            save_path=os.path.realpath(args.dir), rescale=rescale, n_epochs=args.n_epochs,
+                                            batch_size=args.batch_size)
                 print('>>>> model trained and saved to %s'%cpmodel_path)
 
             # train size model
             if args.train_size:
                 sz_model = models.SizeModel(model, device=device)
-                sz_model.train(images, labels, test_images, test_labels, channels=channels)
+                sz_model.train(images, labels, test_images, test_labels, channels=channels, batch_size=args.batch_size)
                 if test_images is not None:
                     predicted_diams, diams_style = sz_model.eval(test_images, channels=channels)
                     if test_labels[0].ndim>2:
