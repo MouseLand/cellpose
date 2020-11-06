@@ -402,9 +402,9 @@ class MainW(QtGui.QMainWindow):
 
         # fast mode
         self.NetAvg = QtGui.QComboBox()
-        self.NetAvg.addItems(['average 4 nets', 'run 1 net (fast)'])
+        self.NetAvg.addItems(['average 4 nets', '+ resample (slow)', 'run 1 net (fast)', ])
         self.NetAvg.setFont(self.medfont)
-        self.NetAvg.setToolTip('average 4 different fit networks or run 1 network to <i>increase</i> run speed')
+        self.NetAvg.setToolTip('average 4 different fit networks (default) + resample for smooth masks (slow) or run 1 network (fast)')
         self.l0.addWidget(self.NetAvg, b,1,1,1)
 
         b+=1
@@ -1264,10 +1264,11 @@ class MainW(QtGui.QMainWindow):
             channels = self.get_channels()
             self.diameter = float(self.Diameter.text())
             try:
-                net_avg = 1 - self.NetAvg.currentIndex()
+                net_avg = self.NetAvg.currentIndex()<2
+                resample = self.NetAvg.currentIndex()==1
                 masks, flows, _, _ = self.model.eval(data, channels=channels,
                                                     diameter=self.diameter, invert=self.invert.isChecked(),
-                                                    net_avg=net_avg, augment=False,
+                                                    net_avg=net_avg, augment=False, resample=resample,
                                                     do_3D=do_3D, progress=self.progress)
             except Exception as e:
                 print('NET ERROR: %s'%e)

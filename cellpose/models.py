@@ -107,7 +107,7 @@ class Cellpose():
         self.sz.model_type = model_type
 
     def eval(self, x, batch_size=8, channels=None, invert=False, normalize=True, diameter=30., do_3D=False, anisotropy=None,
-             net_avg=True, augment=False, tile=True, flow_threshold=0.4, cellprob_threshold=0.0,
+             net_avg=True, augment=False, tile=True, resample=False, flow_threshold=0.4, cellprob_threshold=0.0,
              min_size=15, stitch_threshold=0.0, rescale=None, progress=None):
         """ run cellpose and get masks
 
@@ -242,6 +242,7 @@ class Cellpose():
         masks, flows, styles = self.cp.eval(x, batch_size=batch_size, invert=invert, rescale=rescale, anisotropy=anisotropy, 
                                             channels=channels, augment=augment, tile=tile, do_3D=do_3D, 
                                             net_avg=net_avg, progress=progress,
+                                            resample=resample,
                                             flow_threshold=flow_threshold, 
                                             cellprob_threshold=cellprob_threshold,
                                             min_size=min_size, stitch_threshold=stitch_threshold)
@@ -1037,7 +1038,7 @@ class CellposeModel(UnetModel):
 
     def eval(self, imgs, batch_size=8, channels=None, normalize=True, invert=False, rescale=None, 
              do_3D=False, anisotropy=None, net_avg=True, augment=False, tile=True, 
-             flow_threshold=0.4, cellprob_threshold=0.0, compute_masks=True, 
+             resample=False, flow_threshold=0.4, cellprob_threshold=0.0, compute_masks=True, 
              min_size=15, stitch_threshold=0.0, progress=None):
         """
             segment list of images imgs, or 4D array - Z x nchan x Y x X
@@ -1158,6 +1159,8 @@ class CellposeModel(UnetModel):
                 styles.append(style)
                 if compute_masks:
                     tic=time.time()
+                    if resample:
+                        y = transforms.resize_image(y, shape[-3], shape[-2])
                     cellprob = y[:,:,-1]
                     dP = y[:,:,:2].transpose((2,0,1))
                     niter = 1 / rescale[i] * 200

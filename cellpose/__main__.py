@@ -52,6 +52,7 @@ def main():
     parser.add_argument('--save_png', action='store_true', help='save masks as png and outlines as text file for ImageJ')
     parser.add_argument('--save_tif', action='store_true', help='save masks as tif and outlines as text file for ImageJ')
     parser.add_argument('--fast_mode', action='store_true', help="make code run faster by turning off 4 network averaging")
+    parser.add_argument('--resample', action='store_true', help="run dynamics on full image (slower for images with large diameters)")
     parser.add_argument('--no_npy', action='store_true', help='suppress saving of npy')
 
     # settings for training
@@ -148,6 +149,7 @@ def main():
                 masks, flows, _, diams = model.eval(images, channels=channels, diameter=diameter,
                                                     do_3D=args.do_3D, net_avg=(not args.fast_mode),
                                                     augment=False,
+                                                    resample=args.resample,
                                                     flow_threshold=args.flow_threshold,
                                                     cellprob_threshold=args.cellprob_threshold,
                                                     batch_size=args.batch_size)
@@ -165,6 +167,7 @@ def main():
                 masks, flows, _ = model.eval(images, channels=channels, rescale=rescale,
                                              do_3D=args.do_3D,
                                              augment=False,
+                                             resample=args.resample,
                                              flow_threshold=args.flow_threshold,
                                              cellprob_threshold=args.cellprob_threshold,
                                              batch_size=args.batch_size)
