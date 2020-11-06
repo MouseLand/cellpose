@@ -137,6 +137,7 @@ class HelpWindow(QtGui.QDialog):
             <li class="has-line-data" data-line-start="9" data-line-end="10">Full view = double left-click</li>
             <li class="has-line-data" data-line-start="10" data-line-end="11">Select mask = left-click on mask</li>
             <li class="has-line-data" data-line-start="11" data-line-end="12">Delete mask = Ctrl (or COMMAND on Mac) + left-click</li>
+            <li class="has-line-data" data-line-start="11" data-line-end="12">Merge masks = Alt + left-click (will merge last two)</li>
             <li class="has-line-data" data-line-start="12" data-line-end="13">Start draw mask = right-click</li>
             <li class="has-line-data" data-line-start="13" data-line-end="15">End draw mask = right-click, or return to circle at beginning</li>
             </ul>
@@ -393,18 +394,18 @@ class ImageDraw(pg.ImageItem):
             elif not self.parent.in_stroke:
                 y,x = int(ev.pos().y()), int(ev.pos().x())
                 if y>=0 and y<self.parent.Ly and x>=0 and x<self.parent.Lx:
-                    if (ev.button()==QtCore.Qt.LeftButton and ev.modifiers()==QtCore.Qt.ControlModifier
-                            and not ev.double()):
-                        # delete mask selected
+                    if ev.button()==QtCore.Qt.LeftButton and not ev.double():
                         idx = self.parent.cellpix[self.parent.currentZ][y,x]
                         if idx > 0:
-                            self.parent.remove_cell(idx)
-                    elif ev.button()==QtCore.Qt.LeftButton and self.parent.masksOn:
-                        idx = self.parent.cellpix[self.parent.currentZ][int(ev.pos().y()), int(ev.pos().x())]
-                        if idx > 0:
-                            self.parent.unselect_cell()
-                            self.parent.select_cell(idx)
-                        else:
+                            if ev.modifiers()==QtCore.Qt.ControlModifier:
+                                # delete mask selected
+                                self.parent.remove_cell(idx)
+                            elif ev.modifiers()==QtCore.Qt.AltModifier:
+                                self.parent.merge_cells(idx)
+                            elif self.parent.masksOn:
+                                self.parent.unselect_cell()
+                                self.parent.select_cell(idx)
+                        elif self.parent.masksOn:
                             self.parent.unselect_cell()
                     else:
                         ev.ignore()

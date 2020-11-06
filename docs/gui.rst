@@ -30,6 +30,7 @@ Main GUI mouse controls (works in all views):
 -  Full view = double left-click
 -  Select mask = left-click on mask
 -  Delete mask = Ctrl (or Command on Mac) + left-click
+-  Merge masks = Alt + left-click (will merge last two)
 -  Start draw mask = right-click
 -  End draw mask = right-click, or return to circle at beginning
 

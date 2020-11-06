@@ -855,6 +855,7 @@ class MainW(QtGui.QMainWindow):
             self.p0.removeItem(self.hLine)
 
     def clear_all(self):
+        self.prev_selected = 0
         self.selected = 0
         #self.layers_undo, self.cellpix_undo, self.outpix_undo = [],[],[]
         self.layers = 0*np.ones((self.NZ,self.Ly,self.Lx,4), np.uint8)
@@ -867,6 +868,7 @@ class MainW(QtGui.QMainWindow):
         self.update_plot()
 
     def select_cell(self, idx):
+        self.prev_selected = self.selected
         self.selected = idx
         if self.selected > 0:
             self.layers[self.cellpix==idx] = np.array([255,255,255,self.opacity])
@@ -913,6 +915,38 @@ class MainW(QtGui.QMainWindow):
             self.ClearButton.setEnabled(False)
         if self.NZ==1:
             io._save_sets(self)
+
+    def merge_cells(self, idx):
+        self.prev_selected = self.selected
+        self.selected = idx
+        if self.selected != self.prev_selected:
+            for z in range(self.NZ):
+                ar0, ac0 = np.nonzero(self.cellpix[z]==self.prev_selected)
+                ar1, ac1 = np.nonzero(self.cellpix[z]==self.selected)
+                touching = np.logical_and((ar0[:,np.newaxis] - ar1)==1,
+                                            (ac0[:,np.newaxis] - ac1)==1).sum()
+                print(touching)
+                ar = np.hstack((ar0, ar1))
+                ac = np.hstack((ac0, ac1))
+                if touching:
+                    mask = np.zeros((np.ptp(ar)+4, np.ptp(ac)+4), np.uint8)
+                    mask[ar-ar.min()+2, ac-ac.min()+2] = 1
+                    contours = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+                    pvc, pvr = contours[0][0].squeeze().T            
+                    vr, vc = pvr + ar.min() - 2, pvc + ac.min() - 2
+                else:
+                    vr0, vc0 = np.nonzero(self.outpix[z]==self.prev_selected)
+                    vr1, vc1 = np.nonzero(self.outpix[z]==self.selected)
+                    vr = np.hstack((vr0, vr1))
+                    vc = np.hstack((vc0, vc1))
+                color = self.cellcolors[self.prev_selected]
+                self.draw_mask(z, ar, ac, vr, vc, color, idx=self.prev_selected)
+            self.remove_cell(self.selected)
+            print('merged two cells')
+            self.update_plot()
+            io._save_sets(self)
+            self.undo.setEnabled(False)      
+            self.redo.setEnabled(False)    
 
     def undo_remove_cell(self):
         if len(self.removed_cell) > 0:
@@ -1122,11 +1156,13 @@ class MainW(QtGui.QMainWindow):
 
         return median
 
-    def draw_mask(self, z, ar, ac, vr, vc, color):
+    def draw_mask(self, z, ar, ac, vr, vc, color, idx=None):
         ''' draw single mask using outlines and area '''
-        self.cellpix[z][vr, vc] = self.ncells+1
-        self.cellpix[z][ar, ac] = self.ncells+1
-        self.outpix[z][vr, vc] = self.ncells+1
+        if idx is None:
+            idx = self.ncells+1
+        self.cellpix[z][vr, vc] = idx
+        self.cellpix[z][ar, ac] = idx
+        self.outpix[z][vr, vc] = idx
         if self.masksOn:
             self.layers[z][ar, ac, :3] = color
             self.layers[z][ar, ac, -1] = self.opacity
