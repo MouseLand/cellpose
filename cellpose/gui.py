@@ -91,6 +91,16 @@ def make_bwr():
     bwr = pg.ColorMap(pos=np.linspace(0.0,255,256), color=color)
     return bwr
 
+def make_spectral():
+    # make spectral colormap
+    r = np.array([0,4,8,12,16,20,24,28,32,36,40,44,48,52,56,60,64,68,72,76,80,84,88,92,96,100,104,108,112,116,120,124,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,120,112,104,96,88,80,72,64,56,48,40,32,24,16,8,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,3,7,11,15,19,23,27,31,35,39,43,47,51,55,59,63,67,71,75,79,83,87,91,95,99,103,107,111,115,119,123,127,131,135,139,143,147,151,155,159,163,167,171,175,179,183,187,191,195,199,203,207,211,215,219,223,227,231,235,239,243,247,251,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255])
+    g = np.array([0,1,2,3,4,5,6,7,8,9,10,9,9,8,8,7,7,6,6,5,5,5,4,4,3,3,2,2,1,1,0,0,0,7,15,23,31,39,47,55,63,71,79,87,95,103,111,119,127,135,143,151,159,167,175,183,191,199,207,215,223,231,239,247,255,247,239,231,223,215,207,199,191,183,175,167,159,151,143,135,128,129,131,132,134,135,137,139,140,142,143,145,147,148,150,151,153,154,156,158,159,161,162,164,166,167,169,170,172,174,175,177,178,180,181,183,185,186,188,189,191,193,194,196,197,199,201,202,204,205,207,208,210,212,213,215,216,218,220,221,223,224,226,228,229,231,232,234,235,237,239,240,242,243,245,247,248,250,251,253,255,251,247,243,239,235,231,227,223,219,215,211,207,203,199,195,191,187,183,179,175,171,167,163,159,155,151,147,143,139,135,131,127,123,119,115,111,107,103,99,95,91,87,83,79,75,71,67,63,59,55,51,47,43,39,35,31,27,23,19,15,11,7,3,0,8,16,24,32,41,49,57,65,74,82,90,98,106,115,123,131,139,148,156,164,172,180,189,197,205,213,222,230,238,246,254])
+    b = np.array([0,7,15,23,31,39,47,55,63,71,79,87,95,103,111,119,127,135,143,151,159,167,175,183,191,199,207,215,223,231,239,247,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,251,247,243,239,235,231,227,223,219,215,211,207,203,199,195,191,187,183,179,175,171,167,163,159,155,151,147,143,139,135,131,128,126,124,122,120,118,116,114,112,110,108,106,104,102,100,98,96,94,92,90,88,86,84,82,80,78,76,74,72,70,68,66,64,62,60,58,56,54,52,50,48,46,44,42,40,38,36,34,32,30,28,26,24,22,20,18,16,14,12,10,8,6,4,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,8,16,24,32,41,49,57,65,74,82,90,98,106,115,123,131,139,148,156,164,172,180,189,197,205,213,222,230,238,246,254])
+    color = (np.vstack((r,g,b)).T).astype(np.uint8)
+    spectral = pg.ColorMap(pos=np.linspace(0.0,255,256), color=color)
+    return spectral
+    
+
 def make_cmap(cm=0):
     # make a single channel colormap
     r = np.arange(0,256)
@@ -194,6 +204,9 @@ class MainW(QtGui.QMainWindow):
         bwrmap = make_bwr()
         self.bwr = bwrmap.getLookupTable(start=0.0, stop=255.0, alpha=False)
         self.cmap = []
+        # spectral colormap
+        self.cmap.append(make_spectral().getLookupTable(start=0.0, stop=255.0, alpha=False))
+        # single channel colormaps
         for i in range(3):
             self.cmap.append(make_cmap(i).getLookupTable(start=0.0, stop=255.0, alpha=False))
 
@@ -260,7 +273,7 @@ class MainW(QtGui.QMainWindow):
         self.color = 0 # 0=RGB, 1=gray, 2=R, 3=G, 4=B
         self.RGBChoose = guiparts.RGBRadioButtons(self, b,1)
         self.RGBDropDown = QtGui.QComboBox()
-        self.RGBDropDown.addItems(["RGB","gray","red","green","blue"])
+        self.RGBDropDown.addItems(["RGB","gray","spectral","red","green","blue"])
         self.RGBDropDown.setFont(self.medfont)
         self.RGBDropDown.currentIndexChanged.connect(self.color_choose)
         self.RGBDropDown.setFixedWidth(60)
@@ -615,10 +628,10 @@ class MainW(QtGui.QMainWindow):
 
                 # can change background or stroke size if cell not finished
                 if event.key() == QtCore.Qt.Key_Up or event.key() == QtCore.Qt.Key_W:
-                    self.color = (self.color-1)%(5)
+                    self.color = (self.color-1)%(6)
                     self.RGBDropDown.setCurrentIndex(self.color)
                 elif event.key() == QtCore.Qt.Key_Down or event.key() == QtCore.Qt.Key_S:
-                    self.color = (self.color+1)%(5)
+                    self.color = (self.color+1)%(6)
                     self.RGBDropDown.setCurrentIndex(self.color)
                 elif (event.key() == QtCore.Qt.Key_Comma or
                         event.key() == QtCore.Qt.Key_Period):
@@ -1040,8 +1053,11 @@ class MainW(QtGui.QMainWindow):
             elif self.color==1:
                 image = image.astype(np.float32).mean(axis=-1).astype(np.uint8)
                 self.img.setImage(image, autoLevels=False, lut=None)
-            elif self.color>1:
-                image = image[:,:,self.color-2]
+            elif self.color==2:
+                image = image.astype(np.float32).mean(axis=-1).astype(np.uint8)
+                self.img.setImage(image, autoLevels=False, lut=self.cmap[0])
+            elif self.color>2:
+                image = image[:,:,self.color-3]
                 self.img.setImage(image, autoLevels=False, lut=self.cmap[self.color-2])
             self.img.setLevels(self.saturation[self.currentZ])
         else:
