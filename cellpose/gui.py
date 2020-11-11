@@ -945,7 +945,7 @@ class MainW(QtGui.QMainWindow):
                     mask = np.zeros((np.ptp(ar)+4, np.ptp(ac)+4), np.uint8)
                     mask[ar-ar.min()+2, ac-ac.min()+2] = 1
                     contours = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
-                    pvc, pvr = contours[0][0].squeeze().T            
+                    pvc, pvr = contours[-2][0].squeeze().T            
                     vr, vc = pvr + ar.min() - 2, pvc + ac.min() - 2
                 else:
                     vr0, vc0 = np.nonzero(self.outpix[z]==self.prev_selected)
@@ -1126,7 +1126,7 @@ class MainW(QtGui.QMainWindow):
             ar, ac = ar+vr.min()-2, ac+vc.min()-2
             # get dense outline
             contours = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
-            pvc, pvr = contours[0][0].squeeze().T            
+            pvc, pvr = contours[-2][0].squeeze().T            
             vr, vc = pvr + vr.min() - 2, pvc + vc.min() - 2
             # concatenate all points
             ar, ac = np.hstack((np.vstack((vr, vc)), np.vstack((ar, ac))))
@@ -1141,7 +1141,7 @@ class MainW(QtGui.QMainWindow):
                 mask = np.zeros((np.ptp(ar)+4, np.ptp(ac)+4), np.uint8)
                 mask[ar-ar.min()+2, ac-ac.min()+2] = 1
                 contours = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
-                pvc, pvr = contours[0][0].squeeze().T            
+                pvc, pvr = contours[-2][0].squeeze().T            
                 vr, vc = pvr + ar.min() - 2, pvc + ac.min() - 2
             self.draw_mask(z, ar, ac, vr, vc, color)
 

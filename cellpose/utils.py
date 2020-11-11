@@ -93,7 +93,7 @@ def distance_to_boundary(masks):
                 sr,sc = si
                 mask = (masks[sr, sc] == (i+1)).astype(np.uint8)
                 contours = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
-                pvc, pvr = np.concatenate(contours[0], axis=0).squeeze().T  
+                pvc, pvr = np.concatenate(contours[-2], axis=0).squeeze().T  
                 ypix, xpix = np.nonzero(mask)
                 min_dist = ((ypix[:,np.newaxis] - pvr)**2 + 
                             (xpix[:,np.newaxis] - pvc)**2).min(axis=1)
@@ -145,13 +145,13 @@ def masks_to_outlines(masks):
             outlines[i] = masks_to_outlines(masks[i])
         return outlines
     else:
-        slices = find_objects(masks)
+        slices = find_objects(masks.astype(int))
         for i,si in enumerate(slices):
             if si is not None:
                 sr,sc = si
                 mask = (masks[sr, sc] == (i+1)).astype(np.uint8)
                 contours = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
-                pvc, pvr = np.concatenate(contours[0], axis=0).squeeze().T            
+                pvc, pvr = np.concatenate(contours[-2], axis=0).squeeze().T            
                 vr, vc = pvr + sr.start, pvc + sc.start 
                 outlines[vr, vc] = 1
         return outlines
@@ -163,7 +163,7 @@ def outlines_list(masks):
         mn = masks==n
         if mn.sum() > 0:
             contours = cv2.findContours(mn.astype(np.uint8), mode=cv2.RETR_EXTERNAL, method=cv2.CHAIN_APPROX_NONE)
-            contours = contours[0]
+            contours = contours[-2]
             cmax = np.argmax([c.shape[0] for c in contours])
             pix = contours[cmax].astype(int).squeeze()
             if len(pix)>4:
@@ -198,7 +198,7 @@ def get_mask_perimeters(masks):
         mn = masks==(n+1)
         if mn.sum() > 0:
             contours = cv2.findContours(mn.astype(np.uint8), mode=cv2.RETR_EXTERNAL,
-                                        method=cv2.CHAIN_APPROX_NONE)[0]
+                                        method=cv2.CHAIN_APPROX_NONE)[-2]
             #cmax = np.argmax([c.shape[0] for c in contours])
             #perimeters[n] = get_perimeter(contours[cmax].astype(int).squeeze())
             perimeters[n] = np.array([get_perimeter(c.astype(int).squeeze()) for c in contours]).sum()

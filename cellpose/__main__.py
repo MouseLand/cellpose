@@ -78,7 +78,7 @@ def main():
     args = parser.parse_args()
 
     if args.check_mkl:
-        mkl_enabled = utils.check_mkl()
+        mkl_enabled = models.check_mkl()
     else:
         mkl_enabled = True
 
@@ -111,7 +111,7 @@ def main():
         
         
         if args.use_gpu:
-            use_gpu = utils.use_gpu()
+            use_gpu = models.use_gpu()
         if use_gpu:
             device = mx.gpu()
         else:

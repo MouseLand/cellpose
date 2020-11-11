@@ -409,7 +409,7 @@ def resize_image(img0, Ly=None, Lx=None, rsz=None, interpolation=cv2.INTER_LINEA
 
     if Ly is None:
         # determine Ly and Lx using rsz
-        if not isinstance(rsz, list) or not isinstance(rsz, np.ndarray):
+        if not isinstance(rsz, list) and not isinstance(rsz, np.ndarray):
             rsz = [rsz, rsz]
         Ly = int(img0.shape[-3] * rsz[-2])
         Lx = int(img0.shape[-2] * rsz[-1])
