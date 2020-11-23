@@ -107,7 +107,7 @@ class Cellpose():
         self.sz.model_type = model_type
 
     def eval(self, x, batch_size=8, channels=None, invert=False, normalize=True, diameter=30., do_3D=False, anisotropy=None,
-             net_avg=True, augment=False, tile=True, resample=False, flow_threshold=0.4, cellprob_threshold=0.0,
+             net_avg=True, augment=False, tile=True, tile_overlap=0.1, resample=False, flow_threshold=0.4, cellprob_threshold=0.0,
              min_size=15, stitch_threshold=0.0, rescale=None, progress=None):
         """ run cellpose and get masks
 
@@ -151,6 +151,12 @@ class Cellpose():
 
         tile: bool (optional, default True)
             tiles image to ensure GPU/CPU memory usage limited (recommended)
+
+        tile_overlap: float (optional, default 0.1)
+            fraction of overlap of tiles when computing flows
+
+        resample: bool (optional, default False)
+            run dynamics at original image size (will be slower but create more accurate boundaries)
 
         flow_threshold: float (optional, default 0.4)
             flow error threshold (all cells with errors below threshold are kept) (not used for 3D)
@@ -239,13 +245,22 @@ class Cellpose():
                 diams = self.diam_mean / rescale
 
         tic = time.time()
-        masks, flows, styles = self.cp.eval(x, batch_size=batch_size, invert=invert, rescale=rescale, anisotropy=anisotropy, 
-                                            channels=channels, augment=augment, tile=tile, do_3D=do_3D, 
+        masks, flows, styles = self.cp.eval(x, 
+                                            batch_size=batch_size, 
+                                            invert=invert, 
+                                            rescale=rescale, 
+                                            anisotropy=anisotropy, 
+                                            channels=channels, 
+                                            augment=augment, 
+                                            tile=tile, 
+                                            do_3D=do_3D, 
                                             net_avg=net_avg, progress=progress,
+                                            tile_overlap=tile_overlap,
                                             resample=resample,
                                             flow_threshold=flow_threshold, 
                                             cellprob_threshold=cellprob_threshold,
-                                            min_size=min_size, stitch_threshold=stitch_threshold)
+                                            min_size=min_size, 
+                                            stitch_threshold=stitch_threshold)
         print('estimated masks for %d image(s) in %0.2f sec'%(nimg, time.time()-tic))
         print('>>>> TOTAL TIME %0.2f sec'%(time.time()-tic0))
         
@@ -455,7 +470,7 @@ class UnetModel():
 
                 
                 
-    def _run_nets(self, img, net_avg=True, augment=False, tile=True, bsize=224, progress=None):
+    def _run_nets(self, img, net_avg=True, augment=False, tile=True, tile_overlap=0.1, bsize=224, progress=None):
         """ run network (if more than one, loop over networks and average results
 
         Parameters
@@ -471,6 +486,9 @@ class UnetModel():
 
         tile: bool (optional, default True)
             tiles image to ensure GPU memory usage limited (recommended)
+
+        tile_overlap: float (optional, default 0.1)
+            fraction of overlap of tiles when computing flows
 
         progress: pyqt progress bar (optional, default None)
                 to return progress bar status to GUI
@@ -494,7 +512,8 @@ class UnetModel():
             for j in range(len(self.pretrained_model)):
                 self.net.load_parameters(self.pretrained_model[j])
                 self.net.collect_params().grad_req = 'null'
-                y0, style = self._run_net(img, augment=augment, tile=tile, bsize=bsize)
+                y0, style = self._run_net(img, augment=augment, tile=tile, 
+                                          tile_overlap=tile_overlap, bsize=bsize)
 
                 if j==0:
                     y = y0
@@ -505,7 +524,7 @@ class UnetModel():
             y = y / len(self.pretrained_model)
         return y, style
 
-    def _run_net(self, imgs, augment=False, tile=True, bsize=224):
+    def _run_net(self, imgs, augment=False, tile=True, tile_overlap=0.1, bsize=224):
         """ run network on image or stack of images
 
         (faster if augment is False)
@@ -524,6 +543,9 @@ class UnetModel():
         tile: bool (optional, default True)
             tiles image to ensure GPU/CPU memory usage limited (recommended);
             cannot be turned off for 3D segmentation
+
+        tile_overlap: float (optional, default 0.1)
+            fraction of overlap of tiles when computing flows
 
         bsize: int (optional, default 224)
             size of tiles to use in pixels [bsize x bsize]
@@ -558,7 +580,7 @@ class UnetModel():
 
         # run network
         if tile or augment or imgs.ndim==4:
-            y,style = self._run_tiled(imgs, augment=augment, bsize=bsize)
+            y,style = self._run_tiled(imgs, augment=augment, bsize=bsize, tile_overlap=tile_overlap)
         else:
             imgs = nd.array(np.expand_dims(imgs, axis=0), ctx=self.device)
             y,style = self.net(imgs)
@@ -575,7 +597,7 @@ class UnetModel():
          
         return y, style
     
-    def _run_tiled(self, imgi, augment=False, bsize=224):
+    def _run_tiled(self, imgi, augment=False, bsize=224, tile_overlap=0.1):
         """ run network in tiles of size [bsize x bsize]
 
         First image is split into overlapping tiles of size [bsize x bsize].
@@ -592,6 +614,9 @@ class UnetModel():
 
         bsize: int (optional, default 224)
             size of tiles to use in pixels [bsize x bsize]
+         
+        tile_overlap: float (optional, default 0.1)
+            fraction of overlap of tiles when computing flows
 
         Returns
         ------------------
@@ -606,37 +631,42 @@ class UnetModel():
         """
 
         if imgi.ndim==4:
+            batch_size = self.batch_size 
             Lz, nchan = imgi.shape[:2]
-            IMG, ysub, xsub, Ly, Lx = transforms.make_tiles(imgi[0], bsize=bsize, augment=augment)
-            ny, nx, nchan = IMG.shape[:3]
-            yf = np.zeros((Lz, self.nclasses, imgi.shape[2], imgi.shape[3]), np.float32)
+            IMG, ysub, xsub, Ly, Lx = transforms.make_tiles(imgi[0], bsize=bsize, 
+                                                            augment=augment, tile_overlap=tile_overlap)
+            ny, nx, nchan, ly, lx = IMG.shape
+            batch_size *= max(4, (bsize**2 // (ly*lx))**0.5)
+            yf = np.zeros((Lz, self.nclasses, imgi.shape[-2], imgi.shape[-1]), np.float32)
             styles = []
-            if ny*nx > self.batch_size:
+            if ny*nx > batch_size:
                 ziterator = trange(Lz)
                 for i in ziterator:
-                    yfi, stylei = self._run_tiled(imgi[i], augment=augment, bsize=bsize)
+                    yfi, stylei = self._run_tiled(imgi[i], augment=augment, 
+                                                  bsize=bsize, tile_overlap=tile_overlap)
                     yf[i] = yfi
                     styles.append(stylei)
             else:
                 # run multiple slices at the same time
                 ntiles = ny*nx
-                nimgs = max(2, int(np.round(self.batch_size / ntiles)))
+                nimgs = max(2, int(np.round(batch_size / ntiles)))
                 niter = int(np.ceil(Lz/nimgs))
                 ziterator = trange(niter)
                 for k in ziterator:
-                    IMGa = np.zeros((ntiles*nimgs, nchan, bsize, bsize), np.float32)
+                    IMGa = np.zeros((ntiles*nimgs, nchan, ly, lx), np.float32)
                     for i in range(min(Lz-k*nimgs, nimgs)):
-                        IMG, ysub, xsub, Ly, Lx = transforms.make_tiles(imgi[k*nimgs+i], bsize=bsize, augment=augment)
-                        IMGa[i*ntiles:(i+1)*ntiles] = np.reshape(IMG, (ny*nx, nchan, bsize, bsize))
+                        IMG, ysub, xsub, Ly, Lx = transforms.make_tiles(imgi[k*nimgs+i], bsize=bsize, 
+                                                                        augment=augment, tile_overlap=tile_overlap)
+                        IMGa[i*ntiles:(i+1)*ntiles] = np.reshape(IMG, (ny*nx, nchan, ly, lx))
                     y0, style = self.net(nd.array(IMGa, ctx=self.device))
                     ya = y0.asnumpy()
                     stylea = style.asnumpy()
                     for i in range(min(Lz-k*nimgs, nimgs)):
                         y = ya[i*ntiles:(i+1)*ntiles]
                         if augment:
-                            y = np.reshape(y, (ny, nx, 3, bsize, bsize))
+                            y = np.reshape(y, (ny, nx, 3, ly, lx))
                             y = transforms.unaugment_tiles(y, self.unet)
-                            y = np.reshape(y, (-1, 3, bsize, bsize))
+                            y = np.reshape(y, (-1, 3, ly, lx))
                         yfi = transforms.average_tiles(y, ysub, xsub, Ly, Lx)
                         yfi = yfi[:,:imgi.shape[2],:imgi.shape[3]]
                         yf[k*nimgs+i] = yfi
@@ -645,21 +675,21 @@ class UnetModel():
                         styles.append(stylei)
             return yf, np.array(styles)
         else:
-            IMG, ysub, xsub, Ly, Lx = transforms.make_tiles(imgi, bsize=bsize, augment=augment)
-            ny, nx, nchan = IMG.shape[:3]
-            IMG = np.reshape(IMG, (ny*nx, nchan, bsize, bsize))
-            nbatch = self.batch_size
-            niter = int(np.ceil(IMG.shape[0]/nbatch))
-            y = np.zeros((IMG.shape[0], self.nclasses, bsize, bsize))
+            IMG, ysub, xsub, Ly, Lx = transforms.make_tiles(imgi, bsize=bsize, 
+                                                            augment=augment, tile_overlap=tile_overlap)
+            ny, nx, nchan, ly, lx = IMG.shape
+            IMG = np.reshape(IMG, (ny*nx, nchan, ly, lx))
+            batch_size = self.batch_size
+            niter = int(np.ceil(IMG.shape[0] / batch_size))
+            y = np.zeros((IMG.shape[0], self.nclasses, ly, lx))
             for k in range(niter):
-                irange = np.arange(nbatch*k, min(IMG.shape[0], nbatch*k+nbatch))
+                irange = np.arange(batch_size*k, min(IMG.shape[0], batch_size*k+batch_size))
                 y0, style = self.net(nd.array(IMG[irange], ctx=self.device))
                 y0 = y0.asnumpy()
                 y[irange] = y0
                 if k==0:
                     styles = style.asnumpy()[0]
                 styles += style.asnumpy().sum(axis=0)
-            
             styles /= IMG.shape[0]
             if augment:
                 y = np.reshape(y, (ny, nx, self.nclasses, bsize, bsize))
@@ -672,7 +702,8 @@ class UnetModel():
             return yf, styles
 
     def _run_3D(self, imgs, rsz=1.0, anisotropy=None, net_avg=True, 
-                augment=False, tile=True, bsize=224, progress=None):
+                augment=False, tile=True, tile_overlap=0.1, 
+                bsize=224, progress=None):
         """ run network on stack of images
 
         (faster if augment is False)
@@ -697,6 +728,9 @@ class UnetModel():
         tile: bool (optional, default True)
             tiles image to ensure GPU/CPU memory usage limited (recommended);
             cannot be turned off for 3D segmentation
+
+        tile_overlap: float (optional, default 0.1)
+            fraction of overlap of tiles when computing flows
 
         bsize: int (optional, default 224)
             size of tiles to use in pixels [bsize x bsize]
@@ -733,7 +767,8 @@ class UnetModel():
             xsl = transforms.resize_image(xsl, rsz=rescaling[p])    
             # per image
             print('\n running %s: %d planes of size (%d, %d) \n\n'%(sstr[p], shape[0], shape[1], shape[2]))
-            y, style = self._run_nets(xsl, net_avg=net_avg, augment=augment, tile=tile, bsize=bsize)
+            y, style = self._run_nets(xsl, net_avg=net_avg, augment=augment, tile=tile, 
+                                      bsize=bsize, tile_overlap=tile_overlap)
             y = transforms.resize_image(y, shape[1], shape[2])    
             yf[p] = y.transpose(ipm[p])
             if progress is not None:
@@ -1037,7 +1072,7 @@ class CellposeModel(UnetModel):
 
 
     def eval(self, imgs, batch_size=8, channels=None, normalize=True, invert=False, rescale=None, 
-             do_3D=False, anisotropy=None, net_avg=True, augment=False, tile=True, 
+             do_3D=False, anisotropy=None, net_avg=True, augment=False, tile=True, tile_overlap=0.1,
              resample=False, flow_threshold=0.4, cellprob_threshold=0.0, compute_masks=True, 
              min_size=15, stitch_threshold=0.0, progress=None):
         """
@@ -1083,6 +1118,12 @@ class CellposeModel(UnetModel):
 
             tile: bool (optional, default True)
                 tiles image to ensure GPU/CPU memory usage limited (recommended)
+
+            tile_overlap: float (optional, default 0.1)
+                fraction of overlap of tiles when computing flows
+
+            resample: bool (optional, default False)
+                run dynamics at original image size (will be slower but create more accurate boundaries)
 
             flow_threshold: float (optional, default 0.4)
                 flow error threshold (all cells with errors below threshold are kept) (not used for 3D)
@@ -1152,7 +1193,8 @@ class CellposeModel(UnetModel):
                 # rescale image for flow computation
                 img = transforms.resize_image(img, rsz=rescale[i])
                 y, style = self._run_nets(img, net_avg=net_avg, 
-                                            augment=augment, tile=tile)
+                                            augment=augment, tile=tile,
+                                            tile_overlap=tile_overlap)
                 net_time += time.time() - tic
                 if progress is not None:
                     progress.setValue(55)
@@ -1192,7 +1234,8 @@ class CellposeModel(UnetModel):
                 tic=time.time()
                 shape = x[i].shape
                 yf, style = self._run_3D(x[i], rsz=rescale[i], anisotropy=anisotropy, 
-                                         net_avg=net_avg, augment=augment, tile=tile, progress=progress)
+                                         net_avg=net_avg, augment=augment, tile=tile, 
+                                         tile_overlap=tile_overlap, progress=progress)
                 cellprob = yf[0][-1] + yf[1][-1] + yf[2][-1]
                 dP = np.stack((yf[1][0] + yf[2][0], yf[0][0] + yf[2][1], yf[0][1] + yf[1][1]), 
                                 axis=0) # (dZ, dY, dX)
