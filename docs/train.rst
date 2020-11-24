@@ -26,6 +26,8 @@ If you use the --img_filter option (`--img_filter img` in this case):
     wells_000_img.tif
     wells_000_masks.tif
 
+/!\ The path given to `--dir` and `--test` must be absolute path.
+
 Training-specific options
 
 ::
