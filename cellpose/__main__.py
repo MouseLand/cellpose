@@ -2,6 +2,7 @@ import os, argparse, glob, pathlib, time
 import subprocess
 import numpy as np
 from natsort import natsorted
+from tqdm import tqdm
 
 from . import utils, models, io
 
@@ -74,7 +75,6 @@ def main():
     parser.add_argument('--concatenation', required=False, 
                         default=0, type=int, help='concatenate downsampled layers with upsampled layers (off by default which means they are added)')
 
-
     args = parser.parse_args()
 
     if args.check_mkl:
@@ -108,8 +108,6 @@ def main():
         else:
             imf = None
 
-        
-        
         if args.use_gpu:
             use_gpu = models.use_gpu()
         if use_gpu:
@@ -129,55 +127,53 @@ def main():
 
             image_names = io.get_image_files(args.dir, args.mask_filter, imf=imf)
             nimg = len(image_names)
-            images = [io.imread(image_names[n]) for n in range(nimg)]
-
-            if args.pretrained_model=='cyto' or args.pretrained_model=='nuclei':
-                model = models.Cellpose(device=device, model_type=args.pretrained_model)
-                    
-                if args.diameter==0:
+            if args.diameter==0:
+                if args.pretrained_model=='cyto' or args.pretrained_model=='nuclei':
                     diameter = None
                     print('>>>> estimating diameter for each image')
                 else:
-                    diameter = args.diameter
-                    print('>>>> using diameter %0.2f for all images'%diameter)
-
-                cstr0 = ['GRAY', 'RED', 'GREEN', 'BLUE']
-                cstr1 = ['NONE', 'RED', 'GREEN', 'BLUE']
-                print('running cellpose on %d images using chan_to_seg %s and chan (opt) %s'%
-                        (nimg, cstr0[channels[0]], cstr1[channels[1]]))
-                
-                masks, flows, _, diams = model.eval(images, channels=channels, diameter=diameter,
-                                                    do_3D=args.do_3D, net_avg=(not args.fast_mode),
-                                                    augment=False,
-                                                    resample=args.resample,
-                                                    flow_threshold=args.flow_threshold,
-                                                    cellprob_threshold=args.cellprob_threshold,
-                                                    batch_size=args.batch_size)
-                
-            else:
-                if args.all_channels:
-                    channels = None  
-                model = models.CellposeModel(device=device, pretrained_model=cpmodel_path)
-                if args.diameter==0:
                     print('>>>> using user-specified model, no auto-diameter estimation available')
                     diameter = model.diam_mean
+            else:
+                diameter = args.diameter
+                print('>>>> using diameter %0.2f for all images'%diameter)
+                
+            cstr0 = ['GRAY', 'RED', 'GREEN', 'BLUE']
+            cstr1 = ['NONE', 'RED', 'GREEN', 'BLUE']
+            print('>>>> running cellpose on %d images using chan_to_seg %s and chan (opt) %s'%
+                            (nimg, cstr0[channels[0]], cstr1[channels[1]]))
+                    
+            for image_name in tqdm(image_names):
+                image = io.imread(image_name)
+
+                if args.pretrained_model=='cyto' or args.pretrained_model=='nuclei':
+                    model = models.Cellpose(device=device, model_type=args.pretrained_model)
+                    masks, flows, _, diams = model.eval(image, channels=channels, diameter=diameter,
+                                                        do_3D=args.do_3D, net_avg=(not args.fast_mode),
+                                                        augment=False,
+                                                        resample=args.resample,
+                                                        flow_threshold=args.flow_threshold,
+                                                        cellprob_threshold=args.cellprob_threshold,
+                                                        batch_size=args.batch_size)
+                    
                 else:
-                    diameter = args.diameter
-                rescale = model.diam_mean / diameter
-                masks, flows, _ = model.eval(images, channels=channels, rescale=rescale,
-                                             do_3D=args.do_3D,
-                                             augment=False,
-                                             resample=args.resample,
-                                             flow_threshold=args.flow_threshold,
-                                             cellprob_threshold=args.cellprob_threshold,
-                                             batch_size=args.batch_size)
-                diams = diameter * np.ones(len(images)) 
-                  
-            print('>>>> saving results')
-            if not args.no_npy:
-                io.masks_flows_to_seg(images, masks, flows, diams, image_names, channels)
-            if args.save_png or args.save_tif:
-                io.save_masks(images, masks, flows, image_names, png=args.save_png, tif=args.save_tif)
+                    if args.all_channels:
+                        channels = None  
+                    model = models.CellposeModel(device=device, pretrained_model=cpmodel_path)
+                    
+                    rescale = model.diam_mean / diameter
+                    masks, flows, _ = model.eval(image, channels=channels, rescale=rescale,
+                                                do_3D=args.do_3D,
+                                                augment=False,
+                                                resample=args.resample,
+                                                flow_threshold=args.flow_threshold,
+                                                cellprob_threshold=args.cellprob_threshold,
+                                                batch_size=args.batch_size)
+                    
+                if not args.no_npy:
+                    io.masks_flows_to_seg(image, masks, flows, diams, image_name, channels)
+                if args.save_png or args.save_tif:
+                    io.save_masks(image, masks, flows, image_name, png=args.save_png, tif=args.save_tif)
             print('>>>> completed in %0.3f sec'%(time.time()-tic))
         else:
             if args.pretrained_model=='cyto' or args.pretrained_model=='nuclei':

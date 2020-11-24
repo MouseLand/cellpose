@@ -209,8 +209,8 @@ def masks_flows_to_seg(images, masks, flows, diams, file_names, channels=None):
     base = os.path.splitext(file_names)[0]
     if masks.ndim==3:
         np.save(base+ '_seg.npy',
-                    {'outlines': outlines.astype(np.uint16),
-                        'masks': masks.astype(np.uint16),
+                    {'outlines': outlines.astype(np.uint16) if outlines.max()<2**16-1 else outlines.astype(np.uint32),
+                        'masks': masks.astype(np.uint16) if outlines.max()<2**16-1 else masks.astype(np.uint32),
                         'chan_choose': channels,
                         'img': images,
                         'ismanual': np.zeros(masks.max(), np.bool),
@@ -221,13 +221,13 @@ def masks_flows_to_seg(images, masks, flows, diams, file_names, channels=None):
         if images.shape[0]<8:
             np.transpose(images, (1,2,0))
         np.save(base+ '_seg.npy',
-                    {'outlines': outlines.astype(np.uint16),
-                    'masks': masks.astype(np.uint16),
-                    'chan_choose': channels,
-                    'ismanual': np.zeros(masks.max(), np.bool),
-                    'filename': file_names,
-                    'flows': flowi,
-                    'est_diam': diams})    
+                    {'outlines': outlines.astype(np.uint16) if outlines.max()<2**16-1 else outlines.astype(np.uint32),
+                     'masks': masks.astype(np.uint16) if masks.max()<2**16-1 else masks.astype(np.uint32),
+                     'chan_choose': channels,
+                     'ismanual': np.zeros(masks.max(), np.bool),
+                     'filename': file_names,
+                     'flows': flowi,
+                     'est_diam': diams})    
 
 def save_to_png(images, masks, flows, file_names):
     """ deprecated (runs io.save_masks with png=True) 
@@ -272,21 +272,24 @@ def save_masks(images, masks, flows, file_names, png=True, tif=False):
     
     if masks.ndim > 2 and not tif:
         raise ValueError('cannot save 3D outputs as PNG, use tif option instead')
-    print(masks.shape)
     base = os.path.splitext(file_names)[0]
     exts = []
-    if masks.ndim > 2:
+    if masks.ndim > 2 or masks.max()>2**16-1:
         png = False
+        tif = True
     if png:    
         exts.append('.png')
     if tif:
         exts.append('.tif')
+
+    # convert to uint16 if possible so can save as PNG if needed
+    masks = masks.astype(np.uint16) if masks.max()<2**16-1 else masks.astype(np.uint32)
     
     # save masks
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         for ext in exts:
-            imsave(base + '_cp_masks' + ext, masks.astype(np.uint16))
+            imsave(base + '_cp_masks' + ext, masks)
 
     if png and MATPLOTLIB and not min(images.shape) > 3:
         img = images.copy()
@@ -553,7 +556,7 @@ def _load_seg(parent, filename=None, image=None, image_file=None):
             parent.cellpix = dat['masks']
             parent.outpix = dat['outlines']
             parent.cellcolors.extend(colors)
-            parent.ncells = np.uint16(parent.cellpix.max())
+            parent.ncells = parent.cellpix.max()
             parent.draw_masks()
             if 'est_diam' in dat:
                 parent.Diameter.setText('%0.1f'%dat['est_diam'])
@@ -642,13 +645,15 @@ def _masks_to_gui(parent, masks, outlines=None):
     shape = masks.shape
     _, masks = np.unique(masks, return_inverse=True)
     masks = np.reshape(masks, shape)
-    parent.cellpix = masks.astype(np.uint16)
+    masks = masks.astype(np.uint16) if masks.max()<2**16-1 else masks.astype(np.uint32)
+    parent.cellpix = masks
+
     # get outlines
     if outlines is None:
-        parent.outpix = np.zeros(masks.shape, np.uint16)
+        parent.outpix = np.zeros_like(masks)
         for z in range(parent.NZ):
             outlines = utils.masks_to_outlines(masks[z])
-            parent.outpix[z] = ((outlines * masks[z])).astype(np.uint16)
+            parent.outpix[z] = outlines * masks[z]
             if z%50==0:
                 print('plane %d outlines processed'%z)
     else:
@@ -657,7 +662,7 @@ def _masks_to_gui(parent, masks, outlines=None):
         _,parent.outpix = np.unique(parent.outpix, return_inverse=True)
         parent.outpix = np.reshape(parent.outpix, shape)
 
-    parent.ncells = np.uint16(parent.cellpix.max())
+    parent.ncells = parent.cellpix.max()
     colors = parent.colormap[np.random.randint(0,1000,size=parent.ncells), :3]
     parent.cellcolors = list(np.concatenate((np.array([[255,255,255]]), colors), axis=0).astype(np.uint8))
     parent.draw_masks()
