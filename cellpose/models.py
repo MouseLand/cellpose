@@ -639,6 +639,7 @@ class UnetModel():
             batch_size *= max(4, (bsize**2 // (ly*lx))**0.5)
             yf = np.zeros((Lz, self.nclasses, imgi.shape[-2], imgi.shape[-1]), np.float32)
             styles = []
+            print(ny*nx, batch_size)
             if ny*nx > batch_size:
                 ziterator = trange(Lz)
                 for i in ziterator:
