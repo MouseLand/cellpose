@@ -3,11 +3,14 @@ import numpy as np
 import warnings
 import cv2
 
-def _taper_mask(bsize=224, sig=7.5):
+def _taper_mask(ly=224, lx=224, sig=7.5):
+    bsize = max(224, max(ly, lx))
     xm = np.arange(bsize)
     xm = np.abs(xm - xm.mean())
     mask = 1/(1 + np.exp((xm - (bsize/2-20)) / sig))
     mask = mask * mask[:, np.newaxis]
+    mask = mask[bsize//2-ly//2 : bsize//2+ly//2+ly%2, 
+                bsize//2-lx//2 : bsize//2+lx//2+lx%2]
     return mask
 
 def unaugment_tiles(y, unet=False):
@@ -78,7 +81,7 @@ def average_tiles(y, ysub, xsub, Ly, Lx):
     Navg = np.zeros((Ly,Lx))
     yf = np.zeros((y.shape[1], Ly, Lx), np.float32)
     # taper edges of tiles
-    mask = _taper_mask(bsize=y.shape[-1])
+    mask = _taper_mask(ly=y.shape[-2], lx=y.shape[-1])
     for j in range(len(ysub)):
         yf[:, ysub[j][0]:ysub[j][1],  xsub[j][0]:xsub[j][1]] += y[j] * mask
         Navg[ysub[j][0]:ysub[j][1],  xsub[j][0]:xsub[j][1]] += mask
