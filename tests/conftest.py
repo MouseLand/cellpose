@@ -23,7 +23,7 @@ def data_dir(image_names):
     data_dir_3D.mkdir(exist_ok=True)
 
     for i,image_name in enumerate(image_names):
-        url = 'http://www.cellpose.org/static/data/' + image_name
+        url = 'https://www.cellpose.org/static/data/' + image_name
         if '2D' in image_name:
             cached_file = str(data_dir_2D.joinpath(image_name))
             ext = '.png'
@@ -44,7 +44,7 @@ def data_dir(image_names):
             os.remove(mask_file)
         cached_mask_files = [name + '_cyto_masks' + ext, name + '_nuclei_masks' + ext]
         for c,cached_mask_file in enumerate(cached_mask_files):
-            url = 'http://www.cellpose.org/static/data/' + os.path.split(cached_mask_file)[-1]
+            url = 'https://www.cellpose.org/static/data/' + os.path.split(cached_mask_file)[-1]
             if not os.path.exists(cached_mask_file):
                 print(cached_mask_file)
                 utils.download_url_to_file(url, cached_mask_file, progress=True)

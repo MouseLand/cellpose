@@ -10,7 +10,7 @@ If you choose to use a pretrained model, then this fixed median diameter is used
 If you choose to train from scratch, you can set the median diameter you want to use for rescaling with the ``--diameter`` flag, or set it to 0 to disable rescaling.
 
 The same channel settings apply for training models (see all Command line `options
-<http://www.cellpose.org/static/docs/command.html>`_). 
+<https://cellpose.readthedocs.io/en/latest/settings.html#diameter>`_). 
 
 Note Cellpose expects the labelled masks (0=no mask, 1,2...=masks) in a separate file, e.g:
 

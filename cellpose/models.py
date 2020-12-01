@@ -1624,16 +1624,16 @@ def convert_images(x, channels, do_3D, normalize, invert):
         x = [transforms.normalize_img(x[i], invert=invert) for i in range(nimg)]
     return x, nolist
 
-urls = ['http://www.cellpose.org/models/cyto_0',
-        'http://www.cellpose.org/models/cyto_1',
-        'http://www.cellpose.org/models/cyto_2',
-        'http://www.cellpose.org/models/cyto_3',
-        'http://www.cellpose.org/models/size_cyto_0.npy',
-        'http://www.cellpose.org/models/nuclei_0',
-        'http://www.cellpose.org/models/nuclei_1',
-        'http://www.cellpose.org/models/nuclei_2',
-        'http://www.cellpose.org/models/nuclei_3',
-        'http://www.cellpose.org/models/size_nuclei_0.npy']
+urls = ['https://www.cellpose.org/models/cyto_0',
+        'https://www.cellpose.org/models/cyto_1',
+        'https://www.cellpose.org/models/cyto_2',
+        'https://www.cellpose.org/models/cyto_3',
+        'https://www.cellpose.org/models/size_cyto_0.npy',
+        'https://www.cellpose.org/models/nuclei_0',
+        'https://www.cellpose.org/models/nuclei_1',
+        'https://www.cellpose.org/models/nuclei_2',
+        'https://www.cellpose.org/models/nuclei_3',
+        'https://www.cellpose.org/models/size_nuclei_0.npy']
 
 
 def download_model_weights(urls=urls):

@@ -22,7 +22,7 @@ Also check out these resources:
     :align: center
     :alt: fig1
 
-.. _cellpose.org: http://www.cellpose.org
+.. _cellpose.org: https://www.cellpose.org
 .. _thread: https://twitter.com/computingnature/status/1224477812763119617
 .. _issue: https://github.com/MouseLand/cellpose/issues
 .. _paper: https://www.biorxiv.org/content/10.1101/2020.02.02.931238v1

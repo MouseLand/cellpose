@@ -152,8 +152,8 @@ automatically installed with conda/pip if missing):
 .. _mxnet_mkl: https://mxnet.apache.org/
 .. _pyqtgraph: http://pyqtgraph.org/
 .. _PyQt5: http://pyqt.sourceforge.net/Docs/PyQt5/
-.. _numpy: http://www.numpy.org/
-.. _numba: http://numba.pydata.org/numba-doc/latest/user/5minguide.html
+.. _numpy: https://www.numpy.org/
+.. _numba: https://numba.pydata.org/numba-doc/latest/user/5minguide.html
 .. _scipy: https://www.scipy.org/
 .. _scikit-image: https://scikit-image.org/
 .. _natsort: https://natsort.readthedocs.io/en/master/
