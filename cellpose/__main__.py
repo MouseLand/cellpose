@@ -4,7 +4,7 @@ import numpy as np
 from natsort import natsorted
 from tqdm import tqdm
 
-from . import utils, models, io
+from . import utils, models, io, resnet_torch
 
 
 try:
@@ -159,7 +159,7 @@ def main():
                 else:
                     if args.all_channels:
                         channels = None  
-                    model = models.CellposeModel(device=device, pretrained_model=cpmodel_path)
+                    model = resnet_torch.CellposeModel()#, pretrained_model=cpmodel_path)
                     
                     rescale = model.diam_mean / diameter
                     masks, flows, _ = model.eval(image, channels=channels, rescale=rescale,
