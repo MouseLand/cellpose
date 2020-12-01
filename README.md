@@ -21,21 +21,21 @@ If you want to improve Cellpose for yourself and for everyone else, please consi
 
 ### Run cellpose without local python installation
 
-You can quickly try out Cellpose on the [website](http://www.cellpose.org) first (some features disabled). 
+You can quickly try out Cellpose on the [website](https://www.cellpose.org) first (some features disabled). 
 
 You can also run Cellpose in google colab with a GPU -> [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/MouseLand/cellpose/blob/master/notebooks/run_cellpose_GPU.ipynb). This is recommended if you have issues with MKL or run speed on your local computer (and are running 3D volumes). Colab does not allow you to run the GUI, but you can save `*_seg.npy` files in colab that you can download and open in the GUI.
 
-**Executable file**: You can download an executable file for [*Windows 10*](http://www.cellpose.org/windows) or for [*Mac OS*](http://www.cellpose.org/mac) (High Sierra or greater) that were made using PyInstaller on Intel processors (MKL acceleration works, but no GPU support). Note in both cases it will take a few seconds to open.
+**Executable file**: You can download an executable file for [*Windows 10*](https://www.cellpose.org/windows) or for [*Mac OS*](https://www.cellpose.org/mac) (High Sierra or greater) that were made using PyInstaller on Intel processors (MKL acceleration works, but no GPU support). Note in both cases it will take a few seconds to open.
 
-* The [*Mac OS*](http://www.cellpose.org/mac) file will download as `cellpose_mac` OR `cellpose_mac.dms`. You will need to make it into an executable file and run it through the terminal:
+* The [*Mac OS*](https://www.cellpose.org/mac) file will download as `cellpose_mac` OR `cellpose_mac.dms`. You will need to make it into an executable file and run it through the terminal:
 1. Open a terminal and run `cd ~/Downloads/`.
 2. Run `chmod 777 cellpose_mac` OR `chmod 777 cellpose_mac.dms` to make the file executable.
 3. Run `./cellpose_mac` OR `./cellpose_mac.dms` to open the cellpose GUI. Messages from cellpose will be printed in the terminal.
 4. You can also run using the command line interface, e.g. as `./cellpose_mac --dir ~/Pictures/ --chan 2 --save_png`.
 
-* The [*Windows 10*](http://www.cellpose.org/windows) file is an exe and you can click on it to run the GUI. You can also run using the command line interface, e.g. as `cellpose.exe --dir Pictures/ --chan 2 --save_png`
+* The [*Windows 10*](https://www.cellpose.org/windows) file is an exe and you can click on it to run the GUI. You can also run using the command line interface, e.g. as `cellpose.exe --dir Pictures/ --chan 2 --save_png`
 
-### Detailed documentation at [www.cellpose.org/docs](http://www.cellpose.org/docs).
+### Detailed documentation at [www.cellpose.org/docs](https://www.cellpose.org/docs).
 
 ## System requirements
 
@@ -104,7 +104,7 @@ python -m cellpose
 
 The first time cellpose runs it downloads the latest available trained model weights from the website.
 
-You can now **drag and drop** any images (*.tif, *.png, *.jpg, *.gif) into the GUI and run Cellpose, and/or manually segment them. When the GUI is processing, you will see the progress bar fill up and during this time you cannot click on anything in the GUI. For more information about what the GUI is doing you can look at the terminal/prompt you opened the GUI with. For example data, see [website](http://www.cellpose.org) or this google drive [folder](https://drive.google.com/open?id=18syVlaix8cIlrnNF20pEWKMWUsKx9R9z). For best accuracy and runtime performance, resize images so cells are less than 100 pixels across. 
+You can now **drag and drop** any images (*.tif, *.png, *.jpg, *.gif) into the GUI and run Cellpose, and/or manually segment them. When the GUI is processing, you will see the progress bar fill up and during this time you cannot click on anything in the GUI. For more information about what the GUI is doing you can look at the terminal/prompt you opened the GUI with. For example data, see [website](https://www.cellpose.org) or this google drive [folder](https://drive.google.com/open?id=18syVlaix8cIlrnNF20pEWKMWUsKx9R9z). For best accuracy and runtime performance, resize images so cells are less than 100 pixels across. 
 
 ### Step-by-step demo
 
@@ -144,7 +144,7 @@ The GUI serves two main functions:
 2. Manually labelling data.
 
 There is a help window in the GUI that provides more instructions and 
-a page in the documentation [here](http://cellpose.readthedocs.io/en/latest/gui.html).
+a page in the documentation [here](https://cellpose.readthedocs.io/en/latest/gui.html).
 Also, if you hover over certain words in the GUI, their definitions are revealed as tooltips. 
 Here is a summary of their functions:
 
@@ -166,7 +166,7 @@ You can specify the diameter for all the images or set to 0 if you want the algo
 python -m cellpose --dir ~/images_nuclei/test/ --pretrained_model nuclei --diameter 0. --save_png
 ~~~
 
-See the [docs](http://cellpose.readthedocs.io/en/latest/command.html) for more info.
+See the [docs](https://cellpose.readthedocs.io/en/latest/command.html) for more info.
 
 ### Timing
 
@@ -183,7 +183,7 @@ You can check if cellpose is running the MKL version (if you are using the CPU n
 
 ## Outputs
 
-See the [docs](http://cellpose.readthedocs.io/en/latest/outputs.html) for info.
+See the [docs](https://cellpose.readthedocs.io/en/latest/outputs.html) for info.
 
 ## Dependencies
 cellpose relies on the following excellent packages (which are automatically installed with conda/pip if missing):
