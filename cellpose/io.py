@@ -126,7 +126,7 @@ def load_train_test_data(train_dir, test_dir=None, image_filter=None, mask_filte
                 labels[n] = np.concatenate((labels[n][np.newaxis,:,:], flows), axis=0) 
             else:
                 labels[n] = flows
-
+            
     # testing data
     test_images, test_labels, image_names_test = None, None, None
     if test_dir is not None:

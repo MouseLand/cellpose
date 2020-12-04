@@ -4,7 +4,7 @@ import numpy as np
 from natsort import natsorted
 from tqdm import tqdm
 
-from . import utils, models, io, resnet_torch
+from . import utils, models, io
 
 
 try:
@@ -27,6 +27,7 @@ def main():
     parser.add_argument('--train', action='store_true', help='train network using images in dir')
     parser.add_argument('--dir', required=False, 
                         default=[], type=str, help='folder containing data to run or train on')
+    parser.add_argument('--torch', action='store_true', help='use pytorch')
     parser.add_argument('--img_filter', required=False, 
                         default=[], type=str, help='end string for images to run on')
     parser.add_argument('--use_gpu', action='store_true', help='use gpu if mxnet with cuda installed')
@@ -108,14 +109,9 @@ def main():
         else:
             imf = None
 
-        if args.use_gpu:
-            use_gpu = models.use_gpu()
-        if use_gpu:
-            device = mx.gpu()
-        else:
-            device = mx.cpu()
-        print('>>>> using %s'%(['CPU', 'GPU'][use_gpu]))
-        model_dir = pathlib.Path.home().joinpath('.cellpose', 'models')              
+
+        device = models.assign_device(args.torch, args.use_gpu)
+        model_dir = models.model_dir              
 
         if not args.train and not args.train_size:
             tic = time.time()
@@ -147,7 +143,7 @@ def main():
                 image = io.imread(image_name)
 
                 if args.pretrained_model=='cyto' or args.pretrained_model=='nuclei':
-                    model = models.Cellpose(device=device, model_type=args.pretrained_model)
+                    model = models.Cellpose(device=device, model_type=args.pretrained_model, torch=args.torch)
                     masks, flows, _, diams = model.eval(image, channels=channels, diameter=diameter,
                                                         do_3D=args.do_3D, net_avg=(not args.fast_mode),
                                                         augment=False,
@@ -217,7 +213,7 @@ def main():
                 
             # initialize model
             if args.unet:
-                model = models.UnetModel(device=device,
+                model = core.UnetModel(device=device,
                                         pretrained_model=cpmodel_path, 
                                         diam_mean=szmean,
                                         residual_on=args.residual_on,
@@ -226,6 +222,7 @@ def main():
                                         nclasses=args.nclasses)
             else:
                 model = models.CellposeModel(device=device,
+                                            torch=args.torch,
                                             pretrained_model=cpmodel_path, 
                                             diam_mean=szmean,
                                             residual_on=args.residual_on,
@@ -239,11 +236,12 @@ def main():
                                             learning_rate=args.learning_rate, channels=channels, 
                                             save_path=os.path.realpath(args.dir), rescale=rescale, n_epochs=args.n_epochs,
                                             batch_size=args.batch_size)
+                model.pretrained_model = cpmodel_path
                 print('>>>> model trained and saved to %s'%cpmodel_path)
 
             # train size model
             if args.train_size:
-                sz_model = models.SizeModel(model, device=device)
+                sz_model = models.SizeModel(cp_model=model, device=device)
                 sz_model.train(images, labels, test_images, test_labels, channels=channels, batch_size=args.batch_size)
                 if test_images is not None:
                     predicted_diams, diams_style = sz_model.eval(test_images, channels=channels)

@@ -1,9 +1,9 @@
 
 def test_cellpose_imports_without_error():
     import cellpose
-    from cellpose import models
+    from cellpose import models, core
     model = models.CellposeModel()
-    model = models.UnetModel()
+    model = core.UnetModel()
 
 def test_gui_imports_without_error():
     from cellpose import gui
