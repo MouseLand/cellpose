@@ -8,13 +8,17 @@ from scipy.ndimage import median_filter
 import cv2
 
 from . import transforms, dynamics, utils, plot, metrics, core
-from .core import UnetModel, assign_device, check_mkl, use_gpu
+from .core import UnetModel, assign_device, check_mkl, use_gpu, TORCH_ENABLED
 
 urls = ['http://www.cellpose.org/models/cyto_0',
         'http://www.cellpose.org/models/cyto_1',
         'http://www.cellpose.org/models/cyto_2',
         'http://www.cellpose.org/models/cyto_3',
-        'http://www.cellpose.org/models/size_cyto_0.npy',
+        'http://www.cellpose.org/models/cytotorch_0',
+        'http://www.cellpose.org/models/cytotorch_1',
+        'http://www.cellpose.org/models/cytotorch_2',
+        'http://www.cellpose.org/models/cytotorch_3',
+        'http://www.cellpose.org/models/size_cytotorch_0.npy',
         'http://www.cellpose.org/models/nuclei_0',
         'http://www.cellpose.org/models/nuclei_1',
         'http://www.cellpose.org/models/nuclei_2',
@@ -80,8 +84,8 @@ class Cellpose():
     def __init__(self, gpu=False, model_type='cyto', net_avg=True, device=None, torch=False):
         super(Cellpose, self).__init__()
         if torch:
-            if not core.TORCH_ENABLED:
-                print('torch not installed')
+            if not TORCH_ENABLED:
+                print('WARNING: torch not installed, using mxnet')
                 torch = False
         self.torch = torch
         torch_str = ['','torch'][self.torch]
@@ -327,11 +331,16 @@ class CellposeModel(UnetModel):
     def __init__(self, gpu=False, pretrained_model=False, torch=False,
                     diam_mean=30., net_avg=True, device=None,
                     residual_on=True, style_on=True, concatenation=False):
+        if torch:
+            if not TORCH_ENABLED:
+                print('WARNING: torch not installed, using mxnet')
+                torch = False
+        self.torch = torch
+        
         if isinstance(pretrained_model, np.ndarray):
             pretrained_model = list(pretrained_model)
         nclasses = 3 # 3 prediction maps (dY, dX and cellprob)
         self.nclasses = nclasses 
-        self.torch = torch
         if pretrained_model:
             params = parse_model_string(pretrained_model)
             if params is not None:

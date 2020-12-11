@@ -46,6 +46,9 @@ setup(
         'pyqt5', 
         'google-cloud-storage'
         ]
+      'torch': [
+        'torch>=1.6'
+        ]
     },
     include_package_data=True,
     classifiers=(

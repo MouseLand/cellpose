@@ -42,7 +42,7 @@ def _use_gpu_mxnet(gpu_number=0):
         print('** MXNET CUDA version installed and working. **')
         return True
     except mx.MXNetError:
-        print('MXNET CUDA version not installed/working, will use CPU version.')
+        print('MXNET CUDA version not installed/working.')
         return False
 
 def _use_gpu_torch(gpu_number=0):
@@ -52,7 +52,7 @@ def _use_gpu_torch(gpu_number=0):
         print('** TORCH CUDA version installed and working. **')
         return True
     except mx.MXNetError:
-        print('TORCH CUDA version not installed/working, will use CPU version.')
+        print('TORCH CUDA version not installed/working.')
         return False
 
 def assign_device(torch, gpu):
