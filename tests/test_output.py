@@ -61,7 +61,7 @@ def test_cli_2D(data_dir, image_names):
     chan = [2]
     chan2 = [1]
     for m,model_type in enumerate(model_types):
-        cmd = 'python -m cellpose --dir %s --pretrained_model %s --fast_mode --chan %d --chan2 %d --diameter 0 --save_png'%(str(data_dir.joinpath('2D')), model_type, chan[m], chan2[m])
+        cmd = 'python -m cellpose --dir %s --pretrained_model %s --fast_mode --chan %d --chan2 %d --diameter 0 --no_interp --save_png'%(str(data_dir.joinpath('2D')), model_type, chan[m], chan2[m])
         try:
             cmd_stdout = check_output(cmd, stderr=STDOUT, shell=True).decode()
             print(cmd_stdout)

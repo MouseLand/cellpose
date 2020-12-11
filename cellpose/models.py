@@ -8,9 +8,7 @@ from scipy.ndimage import median_filter
 import cv2
 
 from . import transforms, dynamics, utils, plot, metrics, core
-from .core import UnetModel
-
-from mxnet import nd, gluon
+from .core import UnetModel, assign_device, check_mkl, use_gpu
 
 urls = ['http://www.cellpose.org/models/cyto_0',
         'http://www.cellpose.org/models/cyto_1',
@@ -41,21 +39,6 @@ def download_model_weights(urls=urls):
 
 download_model_weights()
 model_dir = pathlib.Path.home().joinpath('.cellpose', 'models')
-
-def check_mkl():
-    return core.check_mkl()
-
-def use_gpu(gpu_number=0, torch=False):
-    return core.use_gpu(gpu_number=gpu_number, torch=torch)
-
-def assign_device(torch, gpu):
-    if gpu and use_gpu(torch=torch):
-        device = core.torch_GPU if torch else core.mx_GPU
-        print('>>>> using GPU')
-    else:
-        device = core.torch_CPU if torch else core.mx_CPU
-        print('>>>> using CPU')
-    return device
 
 def dx_to_circ(dP):
     """ dP is 2 x Y x X => 'optic' flow representation """
@@ -101,19 +84,21 @@ class Cellpose():
                 print('torch not installed')
                 torch = False
         self.torch = torch
-        torch = ['','torch'][self.torch]
+        torch_str = ['','torch'][self.torch]
         
         # assign device (GPU or CPU)
-        self.device = device if device is not None else assign_device(torch, gpu)
+        sdevice, gpu = assign_device(torch, gpu)
+        self.device = device if device is not None else sdevice
+        self.gpu = gpu
         model_type = 'cyto' if model_type is None else model_type
-        self.pretrained_model = [os.fspath(model_dir.joinpath('%s%s_%d'%(model_type,torch,j))) for j in range(4)]
-        self.pretrained_size = os.fspath(model_dir.joinpath('size_%s%s_0.npy'%(model_type,torch)))
+        self.pretrained_model = [os.fspath(model_dir.joinpath('%s%s_%d'%(model_type,torch_str,j))) for j in range(4)]
+        self.pretrained_size = os.fspath(model_dir.joinpath('size_%s%s_0.npy'%(model_type,torch_str)))
         self.diam_mean = 30. if model_type=='cyto' else 17.
         
         if not net_avg:
             self.pretrained_model = self.pretrained_model[0]
 
-        self.cp = CellposeModel(device=self.device,
+        self.cp = CellposeModel(device=self.device, gpu=self.gpu,
                                 pretrained_model=self.pretrained_model,
                                 diam_mean=self.diam_mean, torch=self.torch)
         self.cp.model_type = model_type
@@ -123,8 +108,9 @@ class Cellpose():
         self.sz.model_type = model_type
 
     def eval(self, x, batch_size=8, channels=None, invert=False, normalize=True, diameter=30., do_3D=False, anisotropy=None,
-             net_avg=True, augment=False, tile=True, tile_overlap=0.1, resample=False, flow_threshold=0.4, cellprob_threshold=0.0,
-             min_size=15, stitch_threshold=0.0, rescale=None, progress=None):
+             net_avg=True, augment=False, tile=True, tile_overlap=0.1, resample=False, interp=True,
+             flow_threshold=0.4, cellprob_threshold=0.0, min_size=15, 
+              stitch_threshold=0.0, rescale=None, progress=None):
         """ run cellpose and get masks
 
         Parameters
@@ -173,6 +159,10 @@ class Cellpose():
 
         resample: bool (optional, default False)
             run dynamics at original image size (will be slower but create more accurate boundaries)
+
+        interp: bool (optional, default True)
+                interpolate during 2D dynamics (not available in 3D) 
+                (in previous versions it was False)
 
         flow_threshold: float (optional, default 0.4)
             flow error threshold (all cells with errors below threshold are kept) (not used for 3D)
@@ -238,8 +228,8 @@ class Cellpose():
         nimg = len(x)
         print('processing %d image(s)'%nimg)
         # make rescale into length of x
-        if diameter is not None and diameter!=0:
-            if not isinstance(diameter, list) or len(diameter)==1 or len(diameter)<nimg:
+        if diameter is not None and not (not isinstance(diameter, (list, np.ndarray)) and diameter==0):    
+            if not isinstance(diameter, (list, np.ndarray)) or len(diameter)==1 or len(diameter)<nimg:
                 diams = diameter * np.ones(nimg, np.float32)
             else:
                 diams = diameter
@@ -249,9 +239,11 @@ class Cellpose():
                 rescale = rescale * np.ones(nimg, np.float32)
             if self.pretrained_size is not None and rescale is None and not do_3D:
                 tic = time.time()
-                diams, _ = self.sz.eval(x, channels=channels, invert=invert, batch_size=batch_size, augment=augment, tile=tile)
+                diams, _ = self.sz.eval(x, channels=channels, invert=invert, batch_size=batch_size, 
+                                        augment=augment, tile=tile)
                 rescale = self.diam_mean / diams
                 print('estimated cell diameters for %d image(s) in %0.2f sec'%(nimg, time.time()-tic))
+                print('>>> diameter(s) = ', diams)
             else:
                 if rescale is None:
                     if do_3D:
@@ -273,6 +265,7 @@ class Cellpose():
                                             net_avg=net_avg, progress=progress,
                                             tile_overlap=tile_overlap,
                                             resample=resample,
+                                            interp=interp,
                                             flow_threshold=flow_threshold, 
                                             cellprob_threshold=cellprob_threshold,
                                             min_size=min_size, 
@@ -338,13 +331,15 @@ class CellposeModel(UnetModel):
             pretrained_model = list(pretrained_model)
         nclasses = 3 # 3 prediction maps (dY, dX and cellprob)
         self.nclasses = nclasses 
+        self.torch = torch
         if pretrained_model:
             params = parse_model_string(pretrained_model)
             if params is not None:
                 nclasses, residual_on, style_on, concatenation = params
         # load default cyto model if pretrained_model is None
         elif pretrained_model is None:
-            pretrained_model = [os.fspath(model_dir.joinpath('cyto_%d'%j)) for j in range(4)] if net_avg else os.fspath(model_dir.joinpath('cyto_0'))
+            torch_str = ['','torch'][self.torch]
+            pretrained_model = [os.fspath(model_dir.joinpath('cyto%s_%d'%(torch_str,j))) for j in range(4)] if net_avg else os.fspath(model_dir.joinpath('cyto_0'))
             self.diam_mean = 30.
             residual_on, style_on, concatenation = True, True, False
         
@@ -362,9 +357,10 @@ class CellposeModel(UnetModel):
                                                                                 ostr[style_on],
                                                                                 ostr[concatenation])
                                                                                 
-    def eval(self, imgs, batch_size=8, channels=None, normalize=True, invert=False, rescale=None, 
-             do_3D=False, anisotropy=None, net_avg=True, augment=False, tile=True, tile_overlap=0.1,
-             resample=False, flow_threshold=0.4, cellprob_threshold=0.0, compute_masks=True, 
+    def eval(self, imgs, batch_size=8, channels=None, normalize=True, invert=False, 
+             rescale=None, diameter=None, do_3D=False, anisotropy=None, net_avg=True, 
+             augment=False, tile=True, tile_overlap=0.1,
+             resample=False, interp=True, flow_threshold=0.4, cellprob_threshold=0.0, compute_masks=True, 
              min_size=15, stitch_threshold=0.0, progress=None):
         """
             segment list of images imgs, or 4D array - Z x nchan x Y x X
@@ -395,6 +391,10 @@ class CellposeModel(UnetModel):
             rescale: float (optional, default None)
                 resize factor for each image, if None, set to 1.0
 
+            diameter: float (optional, default None)
+                diameter for each image (only used if rescale is None), 
+                if diameter is None, set to diam_mean
+
             do_3D: bool (optional, default False)
                 set to True to run 3D segmentation on 4D image input
 
@@ -415,6 +415,10 @@ class CellposeModel(UnetModel):
 
             resample: bool (optional, default False)
                 run dynamics at original image size (will be slower but create more accurate boundaries)
+
+            interp: bool (optional, default True)
+                interpolate during 2D dynamics (not available in 3D) 
+                (in previous versions it was False)
 
             flow_threshold: float (optional, default 0.4)
                 flow error threshold (all cells with errors below threshold are kept) (not used for 3D)
@@ -459,7 +463,12 @@ class CellposeModel(UnetModel):
         masks = []
 
         if rescale is None:
-            rescale = np.ones(nimg)
+            if diameter is not None:
+                if not isinstance(diameter, (list, np.ndarray)):
+                    diameter = diameter * np.ones(nimg)
+                rescale = self.diam_mean / diameter
+            else:
+                rescale = np.ones(nimg)
         elif isinstance(rescale, float):
             rescale = rescale * np.ones(nimg)
 
@@ -467,7 +476,8 @@ class CellposeModel(UnetModel):
         
         if isinstance(self.pretrained_model, list) and not net_avg:
             self.net.load_model(self.pretrained_model[0])
-            self.net.collect_params().grad_req = 'null'
+            if not self.torch:
+                self.net.collect_params().grad_req = 'null'
 
         if not do_3D:
             flow_time = 0
@@ -495,7 +505,7 @@ class CellposeModel(UnetModel):
                     dP = y[:,:,:2].transpose((2,0,1))
                     niter = 1 / rescale[i] * 200
                     p = dynamics.follow_flows(-1 * dP * (cellprob > cellprob_threshold) / 5., 
-                                                niter=niter)
+                                                niter=niter, interp=interp, use_gpu=self.gpu)
                     if progress is not None:
                         progress.setValue(65)
                     maski = dynamics.get_masks(p, iscell=(cellprob>cellprob_threshold),
@@ -512,7 +522,8 @@ class CellposeModel(UnetModel):
                 else:
                     flows.append([None]*3)
                     masks.append([])
-            print('time spent: running network %0.2fs; flow+mask computation %0.2f'%(net_time, flow_time))
+            if compute_masks:
+                print('time spent: running network %0.2fs; flow+mask computation %0.2f'%(net_time, flow_time))
 
             if stitch_threshold > 0.0 and nimg > 1 and all([m.shape==masks[0].shape for m in masks]):
                 print('stitching %d masks using stitch_threshold=%0.3f to make 3D masks'%(nimg, stitch_threshold))
@@ -733,6 +744,7 @@ class SizeModel():
             nimg = len(x)
         
         if styles is None:
+            print('computing styles from images')
             styles = self.cp.eval(x, net_avg=False, augment=augment, tile=tile, compute_masks=False)[-1]
             if progress is not None:
                 progress.setValue(30)
@@ -746,7 +758,7 @@ class SizeModel():
 
         if imgs is not None:
             masks = self.cp.eval(x, rescale=self.diam_mean/diam_style, net_avg=False, 
-                                augment=augment, tile=tile)[0]
+                                augment=augment, tile=tile, interp=False)[0]
             diam = np.array([utils.diameters(masks[i])[0] for i in range(nimg)])
             if progress is not None:
                 progress.setValue(100)
@@ -819,7 +831,8 @@ class SizeModel():
         if isinstance(self.cp.pretrained_model, list) and len(self.cp.pretrained_model)>1:
             cp_model_path = self.cp.pretrained_model[0]
             self.cp.net.load_model(cp_model_path)
-            self.cp.net.collect_params().grad_req = 'null'
+            if not self.torch:
+                self.cp.net.collect_params().grad_req = 'null'
         else:
             cp_model_path = self.cp.pretrained_model
 

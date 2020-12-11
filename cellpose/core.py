@@ -55,6 +55,17 @@ def _use_gpu_torch(gpu_number=0):
         print('TORCH CUDA version not installed/working, will use CPU version.')
         return False
 
+def assign_device(torch, gpu):
+    if gpu and use_gpu(torch=torch):
+        device = torch_GPU if torch else mx_GPU
+        gpu=True
+        print('>>>> using GPU')
+    else:
+        device = torch_CPU if torch else mx_CPU
+        print('>>>> using CPU')
+        gpu=False
+    return device, gpu
+
 def check_mkl():
     print('Running test snippet to check if MKL running (https://mxnet.apache.org/versions/1.6/api/python/docs/tutorials/performance/backend/mkldnn/mkldnn_readme.html#4)')
     process = subprocess.Popen(['python', 'test_mkl.py'],
@@ -80,16 +91,10 @@ class UnetModel():
                 print('torch not installed')
                 torch = False
         self.torch = torch
-        
-        if device is not None:
-            self.device = device
-        elif gpu and use_gpu():
-            self.device = torch.device('cuda') if self.torch else mx.gpu()
-            print('>>>> using GPU')
-        else:
-            self.device = torch.device('cpu') if self.torch else mx.cpu()
-            print('>>>> using CPU')
-
+        if device is None:
+            sdevice, gpu = assign_device(torch, gpu)
+        self.device = device if device is not None else sdevice
+        self.gpu = gpu
         self.pretrained_model = pretrained_model
         self.diam_mean = diam_mean
 
@@ -108,7 +113,6 @@ class UnetModel():
         # create network
         self.nclasses = nclasses
         nbase = [32,64,128,256]
-        print(self.torch)
         if self.torch:
             nchan = 2
             nbase = [nchan, 32, 64, 128, 256]
@@ -213,7 +217,8 @@ class UnetModel():
             model_path = self.pretrained_model[0]
             if not net_avg:
                 self.net.load_model(self.pretrained_model[0])
-                self.net.collect_params().grad_req = 'null'
+                if not self.torch:
+                    self.net.collect_params().grad_req = 'null'
         else:
             model_path = self.pretrained_model
 
@@ -327,7 +332,8 @@ class UnetModel():
         else:  
             for j in range(len(self.pretrained_model)):
                 self.net.load_model(self.pretrained_model[j])
-                self.net.collect_params().grad_req = 'null'
+                if not self.torch:
+                    self.net.collect_params().grad_req = 'null'
                 y0, style = self._run_net(img, augment=augment, tile=tile, 
                                           tile_overlap=tile_overlap, bsize=bsize)
 

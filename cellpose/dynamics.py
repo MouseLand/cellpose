@@ -4,10 +4,17 @@ import scipy.ndimage
 import numpy as np
 import tifffile
 from tqdm import trange
-import mxnet as mx
-import mxnet.ndarray as nd
 from numba import njit, float32, int32, vectorize
 from . import utils, metrics
+
+try:
+    import torch
+    from torch import optim, nn
+    from . import resnet_torch
+    TORCH_ENABLED = True 
+    torch_GPU = torch.device('cuda')
+except:
+    TORCH_ENABLED = False
 
 @njit('(float64[:], int32[:], int32[:], int32, int32, int32, int32)', nogil=True)
 def _extend_centers(T,y,x,ymed,xmed,Lx, niter):
@@ -170,6 +177,69 @@ def masks_to_flows(masks):
 
     return mu, mu_c
 
+@njit(['(int16[:,:,:],float32[:], float32[:], float32[:,:])', 
+        '(float32[:,:,:],float32[:], float32[:], float32[:,:])'], cache=True)
+def map_coordinates(I, yc, xc, Y):
+    """
+    bilinear interpolation of image 'I' in-place with ycoordinates yc and xcoordinates xc to Y
+    
+    Parameters
+    -------------
+    I : C x Ly x Lx
+    yc : ni
+        new y coordinates
+    xc : ni
+        new x coordinates
+    Y : C x ni
+        I sampled at (yc,xc)
+    """
+    C,Ly,Lx = I.shape
+    yc_floor = yc.astype(np.int32)
+    xc_floor = xc.astype(np.int32)
+    yc = yc - yc_floor
+    xc = xc - xc_floor
+    for i in range(yc_floor.shape[0]):
+        yf = min(Ly-1, max(0, yc_floor[i]))
+        xf = min(Lx-1, max(0, xc_floor[i]))
+        yf1= min(Ly-1, yf+1)
+        xf1= min(Lx-1, xf+1)
+        y = yc[i]
+        x = xc[i]
+        for c in range(C):
+            Y[c,i] = (np.float32(I[c, yf, xf]) * (1 - y) * (1 - x) +
+                      np.float32(I[c, yf, xf1]) * (1 - y) * x +
+                      np.float32(I[c, yf1, xf]) * y * (1 - x) +
+                      np.float32(I[c, yf1, xf1]) * y * x )
+
+def steps2D_interp(p, dP, niter, use_gpu=False):
+    shape = dP.shape[1:]
+    if use_gpu and TORCH_ENABLED:
+        device = torch_GPU
+        pt = torch.from_numpy(p[[1,0]].T).double().to(device)
+        pt = pt.unsqueeze(0).unsqueeze(0)
+        pt[:,:,:,0] = (pt[:,:,:,0]/(shape[1]-1)) # normalize to between  0 and 1
+        pt[:,:,:,1] = (pt[:,:,:,1]/(shape[0]-1)) # normalize to between  0 and 1
+        pt = pt*2-1                       # normalize to between -1 and 1
+        im = torch.from_numpy(dP[[1,0]]).double().to(device)
+        im = im.unsqueeze(0)
+        for k in range(2):
+            im[:,k,:,:] /= (shape[1-k]-1) / 2.
+        for t in range(niter):
+            dPt = torch.nn.functional.grid_sample(im, pt)
+            for k in range(2):
+                pt[:,:,:,k] = torch.clamp(pt[:,:,:,k] - dPt[:,k,:,:], -1., 1.)
+        pt = (pt+1)*0.5
+        pt[:,:,:,0] = pt[:,:,:,0] * (shape[1]-1)
+        pt[:,:,:,1] = pt[:,:,:,1] * (shape[0]-1)
+        return pt[:,:,:,[1,0]].cpu().numpy().squeeze().T
+    else:
+        dPt = np.zeros(p.shape, np.float32)
+        for t in range(niter):
+            map_coordinates(dP, p[0], p[1], dPt)
+            p[0] = np.minimum(shape[0]-1, np.maximum(0, p[0] - dPt[0]))
+            p[1] = np.minimum(shape[1]-1, np.maximum(0, p[1] - dPt[1]))
+        return p
+
 @njit('(float32[:,:,:,:],float32[:,:,:,:], int32[:,:], int32)', nogil=True)
 def steps3D(p, dP, inds, niter):
     """ run dynamics of pixels to recover masks in 3D
@@ -250,7 +320,7 @@ def steps2D(p, dP, inds, niter):
             p[1,y,x] = min(shape[1]-1, max(0, p[1,y,x] - dP[1,p0,p1]))
     return p
 
-def follow_flows(dP, niter=200):
+def follow_flows(dP, niter=200, interp=True, use_gpu=False):
     """ define pixels and run dynamics to recover masks in 2D
     
     Pixels are meshgrid. Only pixels with non-zero cell-probability
@@ -264,6 +334,14 @@ def follow_flows(dP, niter=200):
 
     niter: int (optional, default 200)
         number of iterations of dynamics to run
+
+    interp: bool (optional, default True)
+        interpolate during 2D dynamics (not available in 3D) 
+        (in previous versions + paper it was False)
+
+    use_gpu: bool (optional, default False)
+        use GPU to run interpolated dynamics (faster than CPU)
+
 
     Returns
     ---------------
@@ -287,7 +365,11 @@ def follow_flows(dP, niter=200):
         p = np.array(p).astype(np.float32)
         # run dynamics on subset of pixels
         inds = np.array(np.nonzero(np.abs(dP[0])>1e-3)).astype(np.int32).T
-        p = steps2D(p, dP, inds, niter)
+        if not interp:
+            p = steps2D(p, dP, inds, niter)
+        else:
+            p[:,inds[:,0],inds[:,1]] = steps2D_interp(p[:,inds[:,0], inds[:,1]], 
+                                                      dP, niter, use_gpu=use_gpu)
     return p
 
 def remove_bad_flow_masks(masks, flows, threshold=0.4):
