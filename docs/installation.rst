@@ -13,9 +13,11 @@ To upgrade cellpose (pypi `package <https://pypi.org/project/cellpose/>`_), run 
 
    pip install cellpose --upgrade
 
-If you have an older `cellpose` environment you can remove it with ``conda env remove -n cellpose`` before creating a new one.
+If you have an older ``cellpose`` environment you can remove it with ``conda env remove -n cellpose`` before creating a new one.
 
-Note you will always have to run **conda activate cellpose** before you run cellpose. If you want to run jupyter notebooks in this environment, then also `conda install jupyter` and `pip install matplotlib`.
+Note you will always have to run **conda activate cellpose** before you run cellpose. 
+If you want to run jupyter notebooks in this environment, then also 
+``conda install jupyter`` and ``pip install matplotlib``.
 
 If you're feeling adventurous you can also try to install cellpose from your base environment using the command
 ::
@@ -32,41 +34,6 @@ prompt/command prompt, run
    pip install cellpose[gui]
 
 If you want to install without the GUI dependencies, run ``pip install cellpose``.
-
-.. note::
-    The first time you run cellpose it downloads the latest available trained 
-    model weights from the cellpose website. These models are saved in your home 
-    directory in a .cellpose folder, not in the code package.
-
-With an environment file 
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Alternatively you can use the included environment file (if you'd like a
-cellpose-specific environment). This environment file includes all the 
-dependencies for using the GUI. Using the environment file is 
-**recommended** if you have problems with the pip. 
-Please follow these instructions:
-
-1. Download the `environment.yml`_ file from the repository. You can
-   do this by cloning the repository, or copy-pasting the text from the
-   file into a text document on your local computer.
-2. Open an anaconda prompt / command prompt with ``conda`` for **python
-   3** in the path
-3. Change directories to where the ``environment.yml`` is and run
-   ``conda env create -f environment.yml``
-4. To activate this new environment, run ``conda activate cellpose``
-5. You should see ``(cellpose)`` on the left side of the terminal line.
-   Now run ``python -m cellpose`` and you're all set.
-
-To upgrade cellpose (package `here`_), run the following in the
-environment:
-
-::
-
-   pip install cellpose --upgrade
-
-If you have an older ``cellpose`` environment you can remove it with
-``conda env remove -n cellpose`` before creating a new one.
 
 .. note:: 
     Now you will always have to run **conda activate cellpose** before you
