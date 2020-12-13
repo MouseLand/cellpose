@@ -1016,7 +1016,6 @@ class CellposeModel(UnetModel):
     net_avg: bool (optional, default True)
         loads the 4 built-in networks and averages them if True, loads one network if False
 
-    
     diam_mean: float (optional, default 27.)
         mean 'diameter', 27. is built in value for 'cyto' model
 
@@ -1326,10 +1325,7 @@ class CellposeModel(UnetModel):
                 if True it assumes you will fit a size model after training or resize your images accordingly,
                 if False it will try to train the model to be scale-invariant (works worse)
 
-
         """
-
-        nimg = len(train_data)
 
         train_data, train_labels, test_data, test_labels, run_test = transforms.reshape_train_test(train_data, train_labels,
                                                                                                    test_data, test_labels,

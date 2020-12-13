@@ -7,7 +7,12 @@ mask image (``dynamics.labels_to_flows``).
 The cellpose pretrained models are trained using resized images so that the cells have the same median diameter across all images.
 If you choose to use a pretrained model, then this fixed median diameter is used.
 
-If you choose to train from scratch, you can set the median diameter you want to use for rescaling with the ``--diameter`` flag, or set it to 0 to disable rescaling.
+If you choose to train from scratch, you can set the median diameter you want to use for rescaling with the ``--diameter`` flag, or set it to 0 to disable rescaling. 
+We trained the `cyto` model with a diameter of 30 pixels and the `nuclei` model with a diameter of 17 pixels.
+
+When you rescale everything to 30. pixel diameter, if you have images with varying diameters
+ you may also want to learn a `SizeModel` that predicts the diameter from the styles that the 
+ network outputs. Add the flag `--train_size` and this will be learned.
 
 The same channel settings apply for training models (see all Command line `options
 <http://www.cellpose.org/static/docs/command.html>`_). 
@@ -47,7 +52,14 @@ You can train from scratch as well:
 
     python -m cellpose --train --dir ~/images_nuclei/train/ --pretrained_model None
 
-You can specify the full path to a pretrained model to use:
+To train the cyto model from scratch using the same parameters we did, download the dataset and run
+
+::
+
+    python -m cellpose --train --train_size --use_gpu --dir ~/cellpose_dataset/train/ --test_dir ~/cellpose_dataset/test/ --img_filter _img --pretrained_model None --chan 2 --chan2 1
+
+
+You can also specify the full path to a pretrained model to use:
 
 ::
 
