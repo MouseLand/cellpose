@@ -23,7 +23,12 @@ urls = ['http://www.cellpose.org/models/cyto_0',
         'http://www.cellpose.org/models/nuclei_1',
         'http://www.cellpose.org/models/nuclei_2',
         'http://www.cellpose.org/models/nuclei_3',
-        'http://www.cellpose.org/models/size_nuclei_0.npy']
+        'http://www.cellpose.org/models/size_nuclei_0.npy',
+        'http://www.cellpose.org/models/nucleitorch_0',
+        'http://www.cellpose.org/models/nucleitorch_1',
+        'http://www.cellpose.org/models/nucleitorch_2',
+        'http://www.cellpose.org/models/nucleitorch_3',
+        'http://www.cellpose.org/models/size_nucleitorch_0.npy']
 
 
 def download_model_weights(urls=urls):
