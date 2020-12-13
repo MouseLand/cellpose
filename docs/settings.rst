@@ -123,7 +123,16 @@ returning too masks particularly from dim areas.
 
 Volumetric stacks do not always have the same sampling in XY as they do in Z. 
 Therefore you can set an ``anisotropy`` parameter to allow for differences in 
-sampling, e.g. set to 2.0 if Z is sampled half as dense as X or Y.
+sampling, e.g. set to 2.0 if Z is sampled half as dense as X or Y. 
+
+There may be additional differences in YZ and XZ slices 
+that make them unable to be used for 3D segmentation. 
+I'd recommend viewing the volume in those dimensions if 
+the segmentation is failing. In those instances, you may want to turn off 
+3D segmentation (``do_3D=False``) and run instead with ``stitch_threshold>0``. 
+Cellpose will create masks in 2D on each XY slice and then stitch them across 
+slices if the IoU between the mask on the current slice and the next slice is 
+greater than or equal to the ``stitch_threshold``. 
 
 
 
