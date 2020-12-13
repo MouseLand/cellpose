@@ -35,11 +35,6 @@ prompt/command prompt, run
 
 If you want to install without the GUI dependencies, run ``pip install cellpose``.
 
-.. note:: 
-    Now you will always have to run **conda activate cellpose** before you
-    run cellpose. If you want to run jupyter notebooks in this environment,
-    then also ``conda install jupyter``.
-
 Common issues
 ~~~~~~~~~~~~~~~~~~~~~~~
 
