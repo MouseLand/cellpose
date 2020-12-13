@@ -232,14 +232,15 @@ class Cellpose():
         nimg = len(x)
         print('processing %d image(s)'%nimg)
         # make rescale into length of x
-        if diameter is not None and not (not isinstance(diameter, (list, np.ndarray)) and diameter==0):    
+        if diameter is not None and not (not isinstance(diameter, (list, np.ndarray)) and 
+                (diameter==0 or (diameter==30. and rescale is not None))):    
             if not isinstance(diameter, (list, np.ndarray)) or len(diameter)==1 or len(diameter)<nimg:
                 diams = diameter * np.ones(nimg, np.float32)
             else:
                 diams = diameter
             rescale = self.diam_mean / diams
         else:
-            if rescale is not None and (not isinstance(rescale, list) or len(rescale)==1):
+            if rescale is not None and (not isinstance(rescale, (list, np.ndarray)) or len(rescale)==1):
                 rescale = rescale * np.ones(nimg, np.float32)
             if self.pretrained_size is not None and rescale is None and not do_3D:
                 tic = time.time()
@@ -255,7 +256,6 @@ class Cellpose():
                     else:
                         rescale = np.ones(nimg, np.float32)
                 diams = self.diam_mean / rescale
-
         tic = time.time()
         masks, flows, styles = self.cp.eval(x, 
                                             batch_size=batch_size, 
