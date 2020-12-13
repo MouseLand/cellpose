@@ -45,25 +45,12 @@ Linux, Windows and Mac OS are supported for running the code. For running the gr
 
 This process should take less than 5 minutes.
 
-### (Option 1) Standard install in base environment
-
 1. Install an [Anaconda](https://www.anaconda.com/download/) distribution of Python -- Choose **Python 3.7** and your operating system. Note you might need to use an anaconda prompt if you did not add anaconda to the path. 
-2. From your base environment in an anaconda prompt/command prompt, run
-~~~~
-pip install cellpose[gui]
-~~~~
-
-If you want to install without the GUI dependencies, run `pip install cellpose`.
-
-### (Option 2) Install in a new environment
-
-Alternatively you can use the included environment file (if you'd like a cellpose-specific environment). This environment file includes all the dependencies for using the GUI. Using the environment file is **recommended** if you have problems with *option 1*. Please follow these instructions:
-
-1. Download the [`environment.yml`](https://github.com/MouseLand/cellpose/blob/master/environment.yml?raw=true) file from the repository. You can do this by cloning the repository, or copy-pasting the text from the file into a text document on your local computer.
-2. Open an anaconda prompt / command prompt with `conda` for **python 3** in the path
-3. Change directories to where the `environment.yml` is and run `conda env create -f environment.yml`
-4. To activate this new environment, run `conda activate cellpose`
-5. You should see `(cellpose)` on the left side of the terminal line. Now run `python -m cellpose` and you're all set.
+2. Download the [`environment.yml`](https://github.com/MouseLand/cellpose/blob/master/environment.yml?raw=true) file from the repository. You can do this by cloning the repository, or copy-pasting the text from the file into a text document on your local computer.
+3. Open an anaconda prompt / command prompt with `conda` for **python 3** in the path
+4. Change directories to where the `environment.yml` is and run `conda env create -f environment.yml`
+5. To activate this new environment, run `conda activate cellpose`
+6. You should see `(cellpose)` on the left side of the terminal line. Now run `python -m cellpose` and you're all set.
 
 To upgrade cellpose (package [here](https://pypi.org/project/cellpose/)), run the following in the environment:
 ~~~~
@@ -74,21 +61,28 @@ If you have an older `cellpose` environment you can remove it with `conda env re
 
 Note you will always have to run **conda activate cellpose** before you run cellpose. If you want to run jupyter notebooks in this environment, then also `conda install jupyter` and `pip install matplotlib`.
 
+If you're feeling adventurous you can also try to install cellpose from your base environment using the command
+~~~~
+pip install cellpose[gui]
+~~~~
+
 If you have **issues** with installation, see the [docs](https://cellpose.readthedocs.io/en/latest/installation.html) for more details, and then if the suggestions fail, open an issue.
 
 ### CUDA version
 
-If you plan on running many images, you may want to install a GPU version of *mxnet*. I recommend using CUDA 10.0 or greater. Follow the instructions [here](https://mxnet.apache.org/get_started?).
+If you plan on running many images, you may want to install a GPU version of *mxnet*. I recommend using CUDA 10.0 or greater. Follow the instructions [here](https://mxnet.apache.org/get_started?) to find the version to install.
+
+Note when upgrading cellpose in the future, you will want to ignore dependencies (so that mxnet-mkl does not install):
+~~~
+pip install --no-deps cellpose --upgrade
+~~~
+
+**ON LINUX**
 
 Before installing the GPU version, remove the CPU version:
 ~~~
 pip uninstall mxnet-mkl
 pip uninstall mxnet
-~~~
-
-When upgrading cellpose, you will want to ignore dependencies (so that mxnet-mkl does not install):
-~~~
-pip install --no-deps cellpose --upgrade
 ~~~
 
 ### Installation of github version

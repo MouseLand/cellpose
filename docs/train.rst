@@ -11,8 +11,9 @@ If you choose to train from scratch, you can set the median diameter you want to
 We trained the `cyto` model with a diameter of 30 pixels and the `nuclei` model with a diameter of 17 pixels.
 
 When you rescale everything to 30. pixel diameter, if you have images with varying diameters
- you may also want to learn a `SizeModel` that predicts the diameter from the styles that the 
- network outputs. Add the flag `--train_size` and this will be learned.
+you may also want to learn a `SizeModel` that predicts the diameter from the styles that the 
+network outputs. Add the flag ``--train_size`` and this model will be trained and saved as an 
+``*.npy`` file.
 
 The same channel settings apply for training models (see all Command line `options
 <http://www.cellpose.org/static/docs/command.html>`_). 
@@ -24,14 +25,14 @@ Note Cellpose expects the labelled masks (0=no mask, 1,2...=masks) in a separate
     wells_000.tif
     wells_000_masks.tif
 
-If you use the --img_filter option (`--img_filter img` in this case):
+If you use the --img_filter option (``--img_filter img`` in this case):
 
 ::
 
     wells_000_img.tif
     wells_000_masks.tif
 
-/!\ The path given to `--dir` and `--test` must be absolute path.
+/!\ The path given to ``--dir`` and ``--test_dir`` must be an absolute path.
 
 Training-specific options
 

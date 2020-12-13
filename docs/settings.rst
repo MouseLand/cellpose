@@ -21,31 +21,6 @@ running a list of images for reference:
 You can make lists of channels/diameter for each image, or set the same channels/diameter for all images
 as shown in the example above.
 
-Diameter 
-~~~~~~~~~~~~~~~~~~~~~~~~
-
-The cellpose models have been trained on images which were rescaled 
-to all have the same diameter (30 pixels in the case of the `cyto` 
-model and 17 pixels in the case of the `nuclei` model). Therefore, 
-cellpose needs a user-defined cell diameter (in pixels) as input, or to estimate 
-the object size of an image-by-image basis.
-
-The automated estimation of the diameter is a two-step process using the `style` vector 
-from the network, a 64-dimensional summary of the input image. We trained a 
-linear regression model to predict the size of objects from these style vectors 
-on the training data. On a new image the procedure is as follows.
-
-1. Run the image through the cellpose network and obtain the style vector. Predict the size using the linear regression model from the style vector.
-2. Resize the image based on the predicted size and run cellpose again, and produce masks. Take the final estimated size as the median diameter of the predicted masks.
-
-For automated estimation set ``diameter = None``. 
-However, if this estimate is incorrect please set the diameter by hand.
-
-Changing the diameter will change the results that the algorithm 
-outputs. When the diameter is set smaller than the true size 
-then cellpose may over-split cells. Similarly, if the diameter 
-is set too big then cellpose may over-merge cells.
-
 Channels
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -72,8 +47,47 @@ always set to an array of zeros. Therefore set the first channel as
 ``channels = [0,0]`` if you want to segment nuclei in grayscale or for single channel images, or 
 ``channels = [3,0]`` if you want to segment blue nuclei.
 
-Flow threshold
-~~~~~~~~~~~~~~~~~~~~~~
+
+Diameter 
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+The cellpose models have been trained on images which were rescaled 
+to all have the same diameter (30 pixels in the case of the `cyto` 
+model and 17 pixels in the case of the `nuclei` model). Therefore, 
+cellpose needs a user-defined cell diameter (in pixels) as input, or to estimate 
+the object size of an image-by-image basis.
+
+The automated estimation of the diameter is a two-step process using the `style` vector 
+from the network, a 64-dimensional summary of the input image. We trained a 
+linear regression model to predict the size of objects from these style vectors 
+on the training data. On a new image the procedure is as follows.
+
+1. Run the image through the cellpose network and obtain the style vector. Predict the size using the linear regression model from the style vector.
+2. Resize the image based on the predicted size and run cellpose again, and produce masks. Take the final estimated size as the median diameter of the predicted masks.
+
+For automated estimation set ``diameter = None``. 
+However, if this estimate is incorrect please set the diameter by hand.
+
+Changing the diameter will change the results that the algorithm 
+outputs. When the diameter is set smaller than the true size 
+then cellpose may over-split cells. Similarly, if the diameter 
+is set too big then cellpose may over-merge cells.
+
+Resample
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+The cellpose network is run on your rescaled image -- where the rescaling factor is determined 
+by the diameter you input (or determined automatically as above). For instance, if you have 
+an image with 60 pixel diameter cells, the rescaling factor is 30./60. = 0.5. After determining 
+the flows (dX, dY, cellprob), the model runs the dynamics. The dynamics can be run at the rescaled 
+size (``resample=False``), or the dynamics can be run on the resampled, interpolated flows 
+at the true image size (``resample=True``). ``resample=True`` will create smoother masks when the 
+cells are large but will be slower in case; ``resample=False`` will find more masks when the cells 
+are small but will be slower in this case. By default in v0.5 ``resample=False``, but in 
+previous releases the default was ``resample=True``.
+
+Flow threshold (aka model fit threshold in GUI)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Note there is nothing keeping the neural network from predicting 
 horizontal and vertical flows that do not correspond to any real 
@@ -103,4 +117,15 @@ so they vary from around -6 to +6. The pixels greater than the
 is ``cellprob_threshold=0.0``. Decrease this threshold if cellpose is not returning 
 as many masks as you'd expect. Similarly, increase this threshold if cellpose is 
 returning too masks particularly from dim areas.
+
+3D settings
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Volumetric stacks do not always have the same sampling in XY as they do in Z. 
+Therefore you can set an ``anisotropy`` parameter to allow for differences in 
+sampling, e.g. set to 2.0 if Z is sampled half as dense as X or Y.
+
+
+
+
 
