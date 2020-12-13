@@ -45,7 +45,7 @@ setup(
         'pyqtgraph==0.11.0rc0', 
         'pyqt5', 
         'google-cloud-storage'
-        ]
+        ],
       'torch': [
         'torch>=1.6'
         ]
