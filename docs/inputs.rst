@@ -36,4 +36,4 @@ in the folder as 3D tiffs).
 
 If the 3D segmentation is not working well and there is inhomogeneity in Z, try stitching 
 masks in Z instead of running ``do_3D=True``. See details for this option here: 
-`stitch_threshold <settings.html#3D_settings>`__.
+`stitch_threshold <settings.html#d-settings>`__.
