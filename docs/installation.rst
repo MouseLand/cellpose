@@ -1,39 +1,7 @@
 Installation
 ------------------------------
 
-1. Install an Anaconda distribution of Python -- Choose **Python 3.7** and your operating system. Note you might need to use an anaconda prompt if you did not add anaconda to the path. 
-2. Download the `environment.yml <https://github.com/MouseLand/cellpose/blob/master/environment.yml?raw=true>`_ file from the repository. You can do this by cloning the repository, or copy-pasting the text from the file into a text document on your local computer.
-3. Open an anaconda prompt / command prompt with ``conda`` for **python 3** in the path
-4. Change directories to where the ``environment.yml`` is and run ``conda env create -f environment.yml``
-5. To activate this new environment, run `conda activate cellpose`
-6. You should see ``(cellpose)`` on the left side of the terminal line. Now run ``python -m cellpose`` and you're all set.
-
-To upgrade cellpose (pypi `package <https://pypi.org/project/cellpose/>`_), run the following in the environment:
-::
-
-   pip install cellpose --upgrade
-
-If you have an older ``cellpose`` environment you can remove it with ``conda env remove -n cellpose`` before creating a new one.
-
-Note you will always have to run **conda activate cellpose** before you run cellpose. 
-If you want to run jupyter notebooks in this environment, then also 
-``conda install jupyter`` and ``pip install matplotlib``.
-
-If you're feeling adventurous you can also try to install cellpose from your base environment using the command
-::
-
-   pip install cellpose[gui]
-
-
-From your base
-environment (or you can make a new environment) in an anaconda
-prompt/command prompt, run
-
-::
-
-   pip install cellpose[gui]
-
-If you want to install without the GUI dependencies, run ``pip install cellpose``.
+For basic install instructions, look up the main github readme. 
 
 Common issues
 ~~~~~~~~~~~~~~~~~~~~~~~
