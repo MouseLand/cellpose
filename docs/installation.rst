@@ -50,34 +50,6 @@ OS are fine. The software has been heavily tested on Windows 10 and
 Ubuntu 18.04, and less well tested on Mac OS. Please post an issue if
 you have installation problems.
 
-CUDA version
-~~~~~~~~~~~~~~~~~~~~~~
-
-If you plan on running many images, you may want to install a GPU
-version of *mxnet*. I recommend using CUDA 10.0 or greater. Follow the
-instructions `here <https://mxnet.apache.org/get_started?>`__.
-
-When upgrading cellpose, you will want to ignore dependencies (so that
-mxnet-mkl does not install):
-
-::
-
-   pip install --no-deps cellpose --upgrade
-
-ON LINUX before installing the GPU version, remove the CPU version:
-
-::
-
-   pip uninstall mxnet-mkl
-   pip uninstall mxnet
-
-**Installation of github version**
-
-Follow steps from above to install the dependencies. In the github
-repository, run ``pip install -e .`` and the github version will be
-installed. If you want to go back to the pip version of cellpose, then
-say ``pip install cellpose``.
-
 
 Dependencies
 ~~~~~~~~~~~~~~~~~~~~~~
