@@ -68,13 +68,16 @@ pip install cellpose[gui]
 
 If you have **issues** with installation, see the [docs](https://cellpose.readthedocs.io/en/latest/installation.html) for more details, and then if the suggestions fail, open an issue.
 
-### CUDA version
+### GPU version (CUDA)
 
-If you plan on running many images, you may want to install a GPU version of *mxnet*. I recommend using CUDA 10.0 or greater. Follow the instructions [here](https://mxnet.apache.org/get_started?) to find the version to install.
+If you plan on running many images, you may want to install a GPU version of *mxnet*. We recommend using CUDA 10.0 or greater. 
 
-Note when upgrading cellpose in the future, you will want to ignore dependencies (so that mxnet-mkl does not install):
+**ON WINDOWS**
+
+Just install the GPU version of mxnet directly in the environment, i.e.:
+
 ~~~
-pip install --no-deps cellpose --upgrade
+pip install mxnet-cu101
 ~~~
 
 **ON LINUX**
@@ -83,6 +86,12 @@ Before installing the GPU version, remove the CPU version:
 ~~~
 pip uninstall mxnet-mkl
 pip uninstall mxnet
+pip install mxnet-cu101
+~~~
+
+Follow the instructions [here](https://mxnet.apache.org/get_started?) to determine what version to install to match your CUDA install. When upgrading GPU Cellpose in the future, you will want to ignore dependencies (so that mxnet-mkl does not install):
+~~~
+pip install --no-deps cellpose --upgrade
 ~~~
 
 ### Installation of github version
