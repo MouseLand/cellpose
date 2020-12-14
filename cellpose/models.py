@@ -834,6 +834,7 @@ class UnetModel():
         print('>>>> finding best thresholds using validation set')
         cell_threshold, boundary_threshold = self.threshold_validation(val_data, val_labels)
         np.save(model_path+'_cell_boundary_threshold.npy', np.array([cell_threshold, boundary_threshold]))
+        self.pretrained_model = model_path
 
     def threshold_validation(self, val_data, val_labels):
         cell_thresholds = np.arange(-4.0, 4.25, 0.5)
@@ -1342,6 +1343,7 @@ class CellposeModel(UnetModel):
                                      test_data, test_flows,
                                      pretrained_model, save_path, save_every,
                                      learning_rate, n_epochs, weight_decay, batch_size, rescale)
+        self.pretrained_model = model_path
         return model_path
 
 class SizeModel():

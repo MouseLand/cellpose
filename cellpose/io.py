@@ -77,6 +77,9 @@ def get_image_files(folder, mask_filter, imf=None):
         if igood:
             imn.append(im)
     image_names = imn
+
+    if len(image_names)==0:
+        raise ValueError('ERROR: no images in --dir folder')
     
     return image_names
         
