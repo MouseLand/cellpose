@@ -10,25 +10,26 @@ import cv2
 from . import transforms, dynamics, utils, plot, metrics, core
 from .core import UnetModel, assign_device, check_mkl, use_gpu, TORCH_ENABLED
 
-urls = ['http://www.cellpose.org/models/cyto_0',
-        'http://www.cellpose.org/models/cyto_1',
-        'http://www.cellpose.org/models/cyto_2',
-        'http://www.cellpose.org/models/cyto_3',
-        'http://www.cellpose.org/models/cytotorch_0',
-        'http://www.cellpose.org/models/cytotorch_1',
-        'http://www.cellpose.org/models/cytotorch_2',
-        'http://www.cellpose.org/models/cytotorch_3',
-        'http://www.cellpose.org/models/size_cytotorch_0.npy',
-        'http://www.cellpose.org/models/nuclei_0',
-        'http://www.cellpose.org/models/nuclei_1',
-        'http://www.cellpose.org/models/nuclei_2',
-        'http://www.cellpose.org/models/nuclei_3',
-        'http://www.cellpose.org/models/size_nuclei_0.npy',
-        'http://www.cellpose.org/models/nucleitorch_0',
-        'http://www.cellpose.org/models/nucleitorch_1',
-        'http://www.cellpose.org/models/nucleitorch_2',
-        'http://www.cellpose.org/models/nucleitorch_3',
-        'http://www.cellpose.org/models/size_nucleitorch_0.npy']
+urls = ['https://www.cellpose.org/models/cyto_0',
+        'https://www.cellpose.org/models/cyto_1',
+        'https://www.cellpose.org/models/cyto_2',
+        'https://www.cellpose.org/models/cyto_3',
+        'https://www.cellpose.org/models/size_cyto_0.npy',
+        'https://www.cellpose.org/models/cytotorch_0',
+        'https://www.cellpose.org/models/cytotorch_1',
+        'https://www.cellpose.org/models/cytotorch_2',
+        'https://www.cellpose.org/models/cytotorch_3',
+        'https://www.cellpose.org/models/size_cytotorch_0.npy',
+        'https://www.cellpose.org/models/nuclei_0',
+        'https://www.cellpose.org/models/nuclei_1',
+        'https://www.cellpose.org/models/nuclei_2',
+        'https://www.cellpose.org/models/nuclei_3',
+        'https://www.cellpose.org/models/size_nuclei_0.npy',
+        'https://www.cellpose.org/models/nucleitorch_0',
+        'https://www.cellpose.org/models/nucleitorch_1',
+        'https://www.cellpose.org/models/nucleitorch_2',
+        'https://www.cellpose.org/models/nucleitorch_3',
+        'https://www.cellpose.org/models/size_nucleitorch_0.npy']
 
 
 def download_model_weights(urls=urls):
