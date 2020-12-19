@@ -6,6 +6,7 @@ from torch import optim
 import torch.nn.functional as F
 import datetime
 
+
 from . import transforms, io, dynamics, utils
 
 sz = 3
@@ -92,11 +93,13 @@ class batchconvstyle(nn.Module):
         else:
             self.full = nn.Linear(style_channels, out_channels)
         
-    def forward(self, style, x, y=None):
-        if y is not None:
-            x = x + y
+    def forward(self, style, x, mkldnn=False):
         feat = self.full(style)
-        y = x + feat.unsqueeze(-1).unsqueeze(-1)
+        if mkldnn:
+            x = x.to_dense()
+            y = (x + feat.unsqueeze(-1).unsqueeze(-1)).to_mkldnn()
+        else:
+            y = x + feat.unsqueeze(-1).unsqueeze(-1)
         y = self.conv(y)
         return y
     
@@ -110,9 +113,9 @@ class resup(nn.Module):
         self.conv.add_module('conv_3', batchconvstyle(out_channels, out_channels, style_channels, sz))
         self.proj  = batchconv0(in_channels, out_channels, 1)
 
-    def forward(self, x, y, style):
-        x = self.proj(x) + self.conv[1](style, self.conv[0](x), y)
-        x = x + self.conv[3](style, self.conv[2](style, x))
+    def forward(self, x, y, style, mkldnn=False):
+        x = self.proj(x) + self.conv[1](style, self.conv[0](x) + y, mkldnn=mkldnn)
+        x = x + self.conv[3](style, self.conv[2](style, x, mkldnn=mkldnn), mkldnn=mkldnn)
         return x
     
 class convup(nn.Module):
@@ -123,7 +126,7 @@ class convup(nn.Module):
         self.conv.add_module('conv_1', batchconvstyle(out_channels, out_channels, style_channels, sz, concatenation=concatenation))
         
     def forward(self, x, y, style):
-        x = self.conv[1](style, self.conv[0](x), y)
+        x = self.conv[1](style, self.conv[0](x) + y)
         return x
     
 class make_style(nn.Module):
@@ -153,17 +156,22 @@ class upsample(nn.Module):
                 self.up.add_module('conv_up_%d'%(n-1), 
                     convup(nbase[n], nbase[n-1], nbase[-1], sz, concatenation))
 
-    def forward(self, style, xd):
-        x = self.up[-1](xd[-1], xd[-1], style)
+    def forward(self, style, xd, mkldnn=False):
+        x = self.up[-1](xd[-1], xd[-1], style, mkldnn=mkldnn)
         for n in range(len(self.up)-2,-1,-1):
-            x= self.upsampling(x)
-            x = self.up[n](x, xd[n], style)
+            if mkldnn:
+                x = self.upsampling(x.to_dense()).to_mkldnn()
+            else:
+                x = self.upsampling(x)
+            x = self.up[n](x, xd[n], style, mkldnn=mkldnn)
         return x
     
 class CPnet(nn.Module):
-    def __init__(self, nbase, nout, sz, residual_on=True, style_on=True, concatenation=False):
+    def __init__(self, nbase, nout, sz, residual_on=True, 
+                 style_on=True, concatenation=False, mkldnn=False):
         super(CPnet, self).__init__()
         self.nbase = nbase
+        self.mkldnn = mkldnn if mkldnn is not None else False
         self.downsample = downsample(nbase, sz, residual_on=residual_on)
         nbaseup = nbase[1:]
         nbaseup.append(nbaseup[-1])
@@ -173,188 +181,28 @@ class CPnet(nn.Module):
         self.style_on = style_on
         
     def forward(self, data):
+        if self.mkldnn:
+            data = data.to_mkldnn()
         T0    = self.downsample(data)
-        style = self.make_style(T0[-1])
-        style0 = style 
+        if self.mkldnn:
+            style = self.make_style(T0[-1].to_dense()) 
+        else:
+            style = self.make_style(T0[-1])
+        style0 = style
         if not self.style_on:
             style = style * 0
-        T0 = self.upsample(style, T0)
+        T0 = self.upsample(style, T0, self.mkldnn)
         T0    = self.output(T0)
+        if self.mkldnn:
+            T0 = T0.to_dense()    
         return T0, style0
 
     def save_model(self, filename):
         torch.save(self.state_dict(), filename)
 
-    def load_model(self, filename):
-        self.load_state_dict(torch.load(filename))
-
-
-class CellposeModel(): 
-    def __init__(self, device=None): 
-        nchan = 2
-        nbase = [nchan, 32, 64, 128, 256]
-        net = CPnet(nbase, 3, sz)
-        if device is None:
-            self.device = torch.device('cuda')
+    def load_model(self, filename, cpu=False):
+        if not cpu:
+            self.load_state_dict(torch.load(filename))
         else:
-            self.device = device
-        self.diam_mean = 30
-        self.net = CPnet(nbase, 3, 3).to(self.device)
-
-    def loss_fn(self, lbl, y):
-        criterion  = nn.MSELoss(reduction='mean')
-        criterion2 = nn.BCEWithLogitsLoss(reduction='mean')
-        veci = 5. * torch.from_numpy(lbl[:,1:]).float().to(self.device)
-        lbl  = torch.from_numpy(lbl[:,0]>0.5).float().to(self.device)
-        loss = criterion(y[:,:-1], veci) / 2 + criterion2(y[:,-1] , lbl)
-        return loss
-    
-    def train(self, train_data, train_labels, train_files=None, 
-              test_data=None, test_labels=None, test_files=None,
-              channels=None, normalize=True, pretrained_model=None, 
-              save_path=None, save_every=100,
-              learning_rate=0.2, n_epochs=500, weight_decay=0.00001, batch_size=8, rescale=True):
-        
-        nimg = len(train_data)
-
-        train_data, train_labels, test_data, test_labels, run_test = transforms.reshape_train_test(train_data, train_labels,
-                                                                                                   test_data, test_labels,
-                                                                                                   channels, normalize)
-
-        # check if train_labels have flows
-        train_flows = dynamics.labels_to_flows(train_labels, files=train_files)
-        if run_test:
-            test_flows = dynamics.labels_to_flows(test_labels, files=test_files)
-        else:
-            test_flows = None
-        
-        netstr='cellpose'
-        
-        d = datetime.datetime.now()
-        self.learning_rate = learning_rate
-        self.n_epochs = n_epochs
-        self.batch_size = batch_size
-        self.learning_rate = learning_rate
-        self.weight_decay = 0.00001
-        self.momentum = 0.95
-
-        nimg = len(train_data)
-
-        # compute average cell diameter
-        if rescale:
-            diam_train = np.array([utils.diameters(train_labels[k][0])[0] for k in range(len(train_labels))])
-            diam_train[diam_train<5] = 5.
-            if test_data is not None:
-                diam_test = np.array([utils.diameters(test_labels[k][0])[0] for k in range(len(test_labels))])
-                diam_test[diam_test<5] = 5.
-            scale_range = 0.5
-        else:
-            scale_range = 1.0
-
-        net_type='cellpose'
-
-        nchan = train_data[0].shape[0]
-        print('>>>> training network with %d channel input <<<<'%nchan)
-        print('>>>> saving every %d epochs'%save_every)
-        print('>>>> median diameter = %d'%self.diam_mean)
-        print('>>>> LR: %0.5f, batch_size: %d, weight_decay: %0.5f'%(self.learning_rate, self.batch_size, self.weight_decay))
-        print('>>>> ntrain = %d'%nimg)
-        if test_data is not None:
-            print('>>>> ntest = %d'%len(test_data))
-        print(train_data[0].shape)
-
-        optimizer = optim.SGD(self.net.parameters(), lr=self.learning_rate,
-                            momentum=self.momentum, weight_decay=self.weight_decay)
-
-        eta = np.linspace(0, self.learning_rate, 10)
-        tic = time.time()
-
-        lavg, nsum = 0., 0
-
-        if save_path is not None:
-            _, file_label = os.path.split(save_path)
-            file_path = os.path.join(save_path, 'models/')
-
-            if not os.path.exists(file_path):
-                os.makedirs(file_path)
-        else:
-            print('WARNING: no save_path given, model not saving')
-
-        ksave = 0
-        rsc = 1.0
-
-        self.net.train()
-
-        for iepoch in range(self.n_epochs):
-            np.random.seed(iepoch)
-            rperm = np.random.permutation(nimg)
-            if iepoch<len(eta):
-                LR = eta[iepoch]
-                for param_group in optimizer.param_groups:
-                    param_group['lr'] = LR
-            for ibatch in range(0,nimg,batch_size):
-                if rescale:
-                    diam_batch = diam_train[rperm[ibatch:ibatch+batch_size]]
-                    rsc = diam_batch / self.diam_mean
-                else:
-                    rsc = np.ones(len(rperm[ibatch:ibatch+batch_size]), np.float32)
-
-                imgi, lbl, scale = transforms.random_rotate_and_resize(
-                                        [train_data[i] for i in rperm[ibatch:ibatch+batch_size]],
-                                        Y=[train_labels[i][1:] for i in rperm[ibatch:ibatch+batch_size]],
-                                        rescale=rsc, scale_range=scale_range)
-                X = torch.from_numpy(imgi).float().to(self.device)
-                
-                optimizer.zero_grad()
-                self.net.train()
-                y, style = self.net(X)
-                loss = self.loss_fn(lbl,y)
-                loss.backward()
-                train_loss = loss.item()
-                if iepoch>0:
-                    optimizer.step()
-                lavg += train_loss * len(imgi)
-                nsum += len(imgi)
-            if iepoch>self.n_epochs-100 and iepoch%10==1:
-                LR = LR/2
-                for param_group in optimizer.param_groups:
-                    param_group['lr'] = LR
-
-            if iepoch%10==0 or iepoch<10:
-                lavg = lavg / nsum
-                if test_data is not None:
-                    lavgt = 0.
-                    nsum = 0
-                    np.random.seed(42)
-                    rperm = np.arange(0, len(test_data), 1, int)
-                    for ibatch in range(0,len(test_data),batch_size):
-                        if rescale:
-                            rsc = diam_test[rperm[ibatch:ibatch+batch_size]] / self.diam_mean
-                        else:
-                            rsc = np.ones(len(rperm[ibatch:ibatch+batch_size]), np.float32)
-                        imgi, lbl, scale = transforms.random_rotate_and_resize(
-                                            [test_data[i] for i in rperm[ibatch:ibatch+batch_size]],
-                                            Y=[test_labels[i][1:] for i in rperm[ibatch:ibatch+batch_size]],
-                                            scale_range=0., rescale=rsc)
-                        X    = torch.from_numpy(imgi).float().to(self.device)
-                        self.net.eval()
-                        y, style = self.net(X)
-                        loss = self.loss_fn(lbl, y)
-                        test_loss = loss.item()
-                        lavgt += test_loss * len(imgi)
-                        nsum += len(imgi)
-                    print('Epoch %d, Time %4.1fs, Loss %2.4f, Loss Test %2.4f, LR %2.4f'%
-                            (iepoch, time.time()-tic, lavg, lavgt/nsum, LR))
-                else:
-                    print('Epoch %d, Time %4.1fs, Loss %2.4f, LR %2.4f'%
-                            (iepoch, time.time()-tic, lavg, LR))
-                lavg, nsum = 0., 0
-
-            if save_path is not None:
-                if iepoch==self.n_epochs-1 or iepoch%save_every==1:
-                    # save model at the end
-                    file = '{}_{}_{}'.format(net_type, file_label, d.strftime("%Y_%m_%d_%H_%M_%S.%f"))
-                    ksave += 1
-                    print('saving network parameters')
-                    torch.save(self.net.state_dict(), os.path.join(file_path, file))
-        return os.path.join(file_path, file)
+            self.to(torch.device('cpu'))
+            self.load_state_dict(torch.load(filename, map_location=torch.device('cpu')))

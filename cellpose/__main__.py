@@ -22,11 +22,11 @@ except Exception as err:
 def main():
     parser = argparse.ArgumentParser(description='cellpose parameters')
     parser.add_argument('--check_mkl', action='store_true', help='check if mkl working')
-    parser.add_argument('--mkldnn', action='store_true', help='force MXNET_SUBGRAPH_BACKEND = "MKLDNN"')
+    parser.add_argument('--mkldnn', action='store_true', help='for mxnet, force MXNET_SUBGRAPH_BACKEND = "MKLDNN"')
     parser.add_argument('--train', action='store_true', help='train network using images in dir')
     parser.add_argument('--dir', required=False, 
                         default=[], type=str, help='folder containing data to run or train on')
-    parser.add_argument('--torch', action='store_true', help='use pytorch')
+    parser.add_argument('--mxnet', action='store_true', help='use mxnet')
     parser.add_argument('--img_filter', required=False, 
                         default=[], type=str, help='end string for images to run on')
     parser.add_argument('--use_gpu', action='store_true', help='use gpu if mxnet with cuda installed')
@@ -110,7 +110,7 @@ def main():
             imf = None
 
 
-        device, gpu = models.assign_device(args.torch, args.use_gpu)
+        device, gpu = models.assign_device((not args.mxnet), args.use_gpu)
         model_dir = models.model_dir              
 
         if not args.train and not args.train_size:
@@ -141,13 +141,13 @@ def main():
                     
             if args.pretrained_model=='cyto' or args.pretrained_model=='nuclei':
                 model = models.Cellpose(gpu=gpu, device=device, model_type=args.pretrained_model, 
-                                            torch=args.torch)
+                                            torch=(not args.mxnet))
             else:
                 if args.all_channels:
                     channels = None  
                 model = models.CellposeModel(gpu=gpu, device=device,
                                              pretrained_model=cpmodel_path,
-                                             torch=args.torch)
+                                             torch=(not args.mxnet))
                 
             for image_name in tqdm(image_names):
                 image = io.imread(image_name)
@@ -216,7 +216,7 @@ def main():
                                         nclasses=args.nclasses)
             else:
                 model = models.CellposeModel(device=device,
-                                            torch=args.torch,
+                                            torch=(not args.mxnet),
                                             pretrained_model=cpmodel_path, 
                                             diam_mean=szmean,
                                             residual_on=args.residual_on,

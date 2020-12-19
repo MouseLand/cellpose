@@ -202,6 +202,6 @@ class CPnet(gluon.HybridBlock):
     def save_model(self, filename):
         self.save_parameters(filename)
 
-    def load_model(self, filename):
+    def load_model(self, filename, cpu=None):
         self.load_parameters(filename)
 

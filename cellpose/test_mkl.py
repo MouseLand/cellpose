@@ -1,9 +1,14 @@
 import os, sys
 os.environ["MKLDNN_VERBOSE"]="1"
 import numpy as np
-import mxnet as mx
 import time
 from cellpose.models import use_gpu
+
+try:
+    import mxnet as mx
+    MXNET_ENABLED = True 
+except:
+    MXNET_ENABLED = False
 
 def test_mkl():
     num_filter = 32
@@ -22,6 +27,8 @@ def test_mkl():
     exe.forward(is_train=False)
     o = exe.outputs[0]
     t = o.asnumpy()
-    
+
 if __name__ == '__main__':
-    test_mkl()
+    if MXNET_ENABLED:
+        test_mkl()
+

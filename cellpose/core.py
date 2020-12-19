@@ -22,6 +22,7 @@ except:
 try:
     import torch
     from torch import optim, nn
+    from torch.utils import mkldnn as mkldnn_utils
     from . import resnet_torch
     TORCH_ENABLED = True 
     torch_GPU = torch.device('cuda')
@@ -29,9 +30,28 @@ try:
 except:
     TORCH_ENABLED = False
 
-def use_gpu(gpu_number=0, torch=False):
+def parse_model_string(pretrained_model):
+    if isinstance(pretrained_model, list):
+        model_str = os.path.split(pretrained_model[0])[-1]
+    else:
+        model_str = os.path.split(pretrained_model)[-1]
+    if len(model_str)>3 and model_str[:4]=='unet':
+        print('parsing model string to get unet options')
+        nclasses = max(2, int(model_str[4]))
+    elif len(model_str)>7 and model_str[:8]=='cellpose':
+        print('parsing model string to get cellpose options')
+        nclasses = 3
+    else:
+        return None
+    ostrs = model_str.split('_')[2::2]
+    residual_on = ostrs[0]=='on'
+    style_on = ostrs[1]=='on'
+    concatenation = ostrs[2]=='on'
+    return nclasses, residual_on, style_on, concatenation
+
+def use_gpu(gpu_number=0, istorch=False):
     """ check if gpu works """
-    if torch:
+    if istorch:
         return _use_gpu_torch(gpu_number)
     else:
         return _use_gpu_mxnet(gpu_number)
@@ -55,46 +75,114 @@ def _use_gpu_torch(gpu_number=0):
         print('TORCH CUDA version not installed/working.')
         return False
 
-def assign_device(torch, gpu):
-    if gpu and use_gpu(torch=torch):
-        device = torch_GPU if torch else mx_GPU
+def assign_device(istorch, gpu):
+    if gpu and use_gpu(istorch=torch):
+        device = torch_GPU if istorch else mx_GPU
         gpu=True
         print('>>>> using GPU')
     else:
-        device = torch_CPU if torch else mx_CPU
+        device = torch_CPU if istorch else mx_CPU
         print('>>>> using CPU')
         gpu=False
     return device, gpu
 
-def check_mkl():
-    print('Running test snippet to check if MKL running (https://mxnet.apache.org/versions/1.6/api/python/docs/tutorials/performance/backend/mkldnn/mkldnn_readme.html#4)')
-    process = subprocess.Popen(['python', 'test_mkl.py'],
-                                stdout=subprocess.PIPE, stderr=subprocess.PIPE, 
-                                cwd=os.path.dirname(os.path.abspath(__file__)))
-    stdout, stderr = process.communicate()
-    if len(stdout)>0:
-        print('** MKL version working - CPU version is fast. **')
-        mkl_enabled = True
+def check_mkl(istorch=True):
+    print('Running test snippet to check if MKL-DNN working')
+    if istorch:
+        print('see https://pytorch.org/docs/stable/backends.html?highlight=mkl')
     else:
-        print('WARNING: MKL version not working/installed - CPU version will be SLOW!')
-        mkl_enabled = False
+        print('see https://mxnet.apache.org/versions/1.6/api/python/docs/tutorials/performance/backend/mkldnn/mkldnn_readme.html#4)')
+    if istorch:
+        mkl_enabled = torch.backends.mkldnn.is_available()
+    else:
+        process = subprocess.Popen(['python', 'test_mkl.py'],
+                                    stdout=subprocess.PIPE, stderr=subprocess.PIPE, 
+                                    cwd=os.path.dirname(os.path.abspath(__file__)))
+        stdout, stderr = process.communicate()
+        if len(stdout)>0:
+            mkl_enabled = True
+        else:
+            mkl_enabled = False
+    if mkl_enabled:
+        print('** MKL version working - CPU version is sped up. **')
+    elif not istorch:
+        print('WARNING: MKL version on mxnet not working/installed - CPU version will be SLOW.')
+    else:
+        print('WARNING: MKL version on torch not working/installed - CPU version will be slightly slower.')
     return mkl_enabled
+
+
+def convert_images(x, channels, do_3D, normalize, invert):
+    """ return list of images with channels last and normalized intensities """
+    if not isinstance(x,list) and not (x.ndim>3 and not do_3D):
+        nolist = True
+        x = [x]
+    else:
+        nolist = False
+    
+    nimg = len(x)
+    if do_3D:
+        for i in range(len(x)):
+            if x[i].ndim<3:
+                raise ValueError('ERROR: cannot process 2D images in 3D mode') 
+            elif x[i].ndim<4:
+                x[i] = x[i][...,np.newaxis]
+            if x[i].shape[1]<4:
+                x[i] = x[i].transpose((0,2,3,1))
+            elif x[i].shape[0]<4:
+                x[i] = x[i].transpose((1,2,3,0))
+            print('multi-stack tiff read in as having %d planes %d channels'%
+                    (x[i].shape[0], x[i].shape[-1]))
+
+    if channels is not None:
+        if len(channels)==2:
+            if not isinstance(channels[0], list):
+                channels = [channels for i in range(nimg)]
+        for i in range(len(x)):
+            if x[i].shape[0]<4:
+                x[i] = x[i].transpose(1,2,0)
+        x = [transforms.reshape(x[i], channels=channels[i]) for i in range(nimg)]
+    elif do_3D:
+        for i in range(len(x)):
+            # code above put channels last
+            if x[i].shape[-1]>2:
+                print('WARNING: more than 2 channels given, use "channels" input for specifying channels - just using first two channels to run processing')
+                x[i] = x[i][...,:2]
+    else:
+        for i in range(len(x)):
+            if x[i].ndim>3:
+                raise ValueError('ERROR: cannot process 4D images in 2D mode')
+            elif x[i].ndim==2:
+                x[i] = np.stack((x[i], np.zeros_like(x[i])), axis=2)
+            elif x[i].shape[0]<8:
+                x[i] = x[i].transpose((1,2,0))
+            if x[i].shape[-1]>2:
+                print('WARNING: more than 2 channels given, use "channels" input for specifying channels - just using first two channels to run processing')
+                x[i] = x[i][:,:,:2]
+
+    if normalize or invert:
+        x = [transforms.normalize_img(x[i], invert=invert) for i in range(nimg)]
+    return x, nolist
+
 
 class UnetModel():
     def __init__(self, gpu=False, pretrained_model=False,
                     diam_mean=30., net_avg=True, device=None,
                     residual_on=False, style_on=False, concatenation=True,
-                    nclasses = 3, torch=False):
+                    nclasses = 3, torch=True):
         self.unet = True
         if torch:
             if not TORCH_ENABLED:
                 print('torch not installed')
                 torch = False
         self.torch = torch
+        self.mkldnn = None
         if device is None:
             sdevice, gpu = assign_device(torch, gpu)
         self.device = device if device is not None else sdevice
         self.gpu = gpu
+        if torch and not self.gpu:
+            self.mkldnn = check_mkl(self.torch)
         self.pretrained_model = pretrained_model
         self.diam_mean = diam_mean
 
@@ -116,7 +204,13 @@ class UnetModel():
         if self.torch:
             nchan = 2
             nbase = [nchan, 32, 64, 128, 256]
-            self.net = resnet_torch.CPnet(nbase, self.nclasses, 3).to(self.device)
+            self.net = resnet_torch.CPnet(nbase, 
+                                          self.nclasses, 
+                                          3,
+                                          residual_on=residual_on, 
+                                          style_on=style_on,
+                                          concatenation=concatenation,
+                                          mkldnn=self.mkldnn).to(self.device)
         else:
             self.net = resnet_style.CPnet(nbase, nout=self.nclasses,
                                         residual_on=residual_on, 
@@ -126,7 +220,7 @@ class UnetModel():
             self.net.initialize(ctx = self.device)
 
         if pretrained_model is not None and isinstance(pretrained_model, str):
-            self.net.load_model(pretrained_model)
+            self.net.load_model(pretrained_model, cpu=(not self.gpu))
 
     def eval(self, x, batch_size=8, channels=None, invert=False, normalize=True,
              rescale=None, do_3D=False, anisotropy=None, net_avg=True, augment=False,
@@ -286,7 +380,11 @@ class UnetModel():
         X = self._to_device(x)
         if self.torch:
             self.net.eval()
+            if self.mkldnn:
+                self.net = mkldnn_utils.to_mkldnn(self.net)
         y, style = self.net(X)
+        if self.mkldnn:
+            self.net.to(torch_CPU)
         y = self._from_device(y)
         style = self._from_device(style)
         return y,style
@@ -331,7 +429,7 @@ class UnetModel():
             y, style = self._run_net(img, augment=augment, tile=tile, bsize=bsize)
         else:  
             for j in range(len(self.pretrained_model)):
-                self.net.load_model(self.pretrained_model[j])
+                self.net.load_model(self.pretrained_model[j], cpu=(not self.gpu))
                 if not self.torch:
                     self.net.collect_params().grad_req = 'null'
                 y0, style = self._run_net(img, augment=augment, tile=tile, 

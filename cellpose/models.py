@@ -8,7 +8,7 @@ from scipy.ndimage import median_filter
 import cv2
 
 from . import transforms, dynamics, utils, plot, metrics, core
-from .core import UnetModel, assign_device, check_mkl, use_gpu, TORCH_ENABLED
+from .core import UnetModel, assign_device, check_mkl, use_gpu, convert_images, TORCH_ENABLED, parse_model_string
 
 urls = ['https://www.cellpose.org/models/cyto_0',
         'https://www.cellpose.org/models/cyto_1',
@@ -87,7 +87,7 @@ class Cellpose():
         run model using torch if available
 
     """
-    def __init__(self, gpu=False, model_type='cyto', net_avg=True, device=None, torch=False):
+    def __init__(self, gpu=False, model_type='cyto', net_avg=True, device=None, torch=True):
         super(Cellpose, self).__init__()
         if torch:
             if not TORCH_ENABLED:
@@ -288,26 +288,6 @@ class Cellpose():
         
         return masks, flows, styles, diams
 
-def parse_model_string(pretrained_model):
-    if isinstance(pretrained_model, list):
-        model_str = os.path.split(pretrained_model[0])[-1]
-    else:
-        model_str = os.path.split(pretrained_model)[-1]
-    if len(model_str)>3 and model_str[:4]=='unet':
-        print('parsing model string to get unet options')
-        nclasses = max(2, int(model_str[4]))
-    elif len(model_str)>7 and model_str[:8]=='cellpose':
-        print('parsing model string to get cellpose options')
-        nclasses = 3
-    else:
-        return None
-    ostrs = model_str.split('_')[2::2]
-    residual_on = ostrs[0]=='on'
-    style_on = ostrs[1]=='on'
-    concatenation = ostrs[2]=='on'
-    return nclasses, residual_on, style_on, concatenation
-
-
 class CellposeModel(UnetModel):
     """
 
@@ -366,7 +346,7 @@ class CellposeModel(UnetModel):
         self.unet = False
         self.pretrained_model = pretrained_model
         if self.pretrained_model is not None and isinstance(self.pretrained_model, str):
-            self.net.load_model(self.pretrained_model)
+            self.net.load_model(self.pretrained_model, cpu=(not self.gpu))
         ostr = ['off', 'on']
         self.net_type = 'cellpose_residual_{}_style_{}_concatenation_{}'.format(ostr[residual_on],
                                                                                 ostr[style_on],
@@ -490,7 +470,7 @@ class CellposeModel(UnetModel):
         iterator = trange(nimg) if nimg>1 else range(nimg)
         
         if isinstance(self.pretrained_model, list) and not net_avg:
-            self.net.load_model(self.pretrained_model[0])
+            self.net.load_model(self.pretrained_model[0], cpu=(not self.gpu))
             if not self.torch:
                 self.net.collect_params().grad_req = 'null'
 
@@ -845,7 +825,7 @@ class SizeModel():
                                                                                                    channels, normalize)
         if isinstance(self.cp.pretrained_model, list) and len(self.cp.pretrained_model)>1:
             cp_model_path = self.cp.pretrained_model[0]
-            self.cp.net.load_model(cp_model_path)
+            self.cp.net.load_model(cp_model_path, cpu=(not self.gpu))
             if not self.torch:
                 self.cp.net.collect_params().grad_req = 'null'
         else:
@@ -896,56 +876,3 @@ class SizeModel():
         self.params = {'A': A, 'smean': smean, 'diam_mean': self.diam_mean, 'ymean': ymean}
         np.save(self.pretrained_size, self.params)
         return self.params
-
-def convert_images(x, channels, do_3D, normalize, invert):
-    """ return list of images with channels last and normalized intensities """
-    if not isinstance(x,list) and not (x.ndim>3 and not do_3D):
-        nolist = True
-        x = [x]
-    else:
-        nolist = False
-    
-    nimg = len(x)
-    if do_3D:
-        for i in range(len(x)):
-            if x[i].ndim<3:
-                raise ValueError('ERROR: cannot process 2D images in 3D mode') 
-            elif x[i].ndim<4:
-                x[i] = x[i][...,np.newaxis]
-            if x[i].shape[1]<4:
-                x[i] = x[i].transpose((0,2,3,1))
-            elif x[i].shape[0]<4:
-                x[i] = x[i].transpose((1,2,3,0))
-            print('multi-stack tiff read in as having %d planes %d channels'%
-                    (x[i].shape[0], x[i].shape[-1]))
-
-    if channels is not None:
-        if len(channels)==2:
-            if not isinstance(channels[0], list):
-                channels = [channels for i in range(nimg)]
-        for i in range(len(x)):
-            if x[i].shape[0]<4:
-                x[i] = x[i].transpose(1,2,0)
-        x = [transforms.reshape(x[i], channels=channels[i]) for i in range(nimg)]
-    elif do_3D:
-        for i in range(len(x)):
-            # code above put channels last
-            if x[i].shape[-1]>2:
-                print('WARNING: more than 2 channels given, use "channels" input for specifying channels - just using first two channels to run processing')
-                x[i] = x[i][...,:2]
-    else:
-        for i in range(len(x)):
-            if x[i].ndim>3:
-                raise ValueError('ERROR: cannot process 4D images in 2D mode')
-            elif x[i].ndim==2:
-                x[i] = np.stack((x[i], np.zeros_like(x[i])), axis=2)
-            elif x[i].shape[0]<8:
-                x[i] = x[i].transpose((1,2,0))
-            if x[i].shape[-1]>2:
-                print('WARNING: more than 2 channels given, use "channels" input for specifying channels - just using first two channels to run processing')
-                x[i] = x[i][:,:,:2]
-
-    if normalize or invert:
-        x = [transforms.normalize_img(x[i], invert=invert) for i in range(nimg)]
-    return x, nolist
-
