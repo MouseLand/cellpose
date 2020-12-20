@@ -34,3 +34,6 @@ You can give a list of 3D inputs, or a single 3D/4D stack.
 When running on the command line, add the flag ``--do_3D`` (it will run all tiffs 
 in the folder as 3D tiffs). 
 
+If the 3D segmentation is not working well and there is inhomogeneity in Z, try stitching 
+masks in Z instead of running ``do_3D=True``. See details for this option here: 
+`stitch_threshold <settings.html#d-settings>`__.

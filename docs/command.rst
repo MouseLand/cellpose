@@ -69,6 +69,10 @@ estimated:
 
    python -m cellpose --dir ~/images_nuclei/test/ --pretrained_model nuclei --diameter 0. --save_png
 
+.. warning:: 
+    The path given to ``--dir`` must be an absolute path.
+
+
 Options
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
