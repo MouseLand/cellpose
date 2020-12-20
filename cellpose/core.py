@@ -76,7 +76,7 @@ def _use_gpu_torch(gpu_number=0):
         return False
 
 def assign_device(istorch, gpu):
-    if gpu and use_gpu(istorch=torch):
+    if gpu and use_gpu(istorch=istorch):
         device = torch_GPU if istorch else mx_GPU
         gpu=True
         print('>>>> using GPU')

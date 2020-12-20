@@ -97,7 +97,7 @@ class Cellpose():
         torch_str = ['','torch'][self.torch]
         
         # assign device (GPU or CPU)
-        sdevice, gpu = assign_device(torch, gpu)
+        sdevice, gpu = assign_device(self.torch, gpu)
         self.device = device if device is not None else sdevice
         self.gpu = gpu
         model_type = 'cyto' if model_type is None else model_type
