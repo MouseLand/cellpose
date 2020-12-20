@@ -171,6 +171,11 @@ class CPnet(nn.Module):
                  style_on=True, concatenation=False, mkldnn=False):
         super(CPnet, self).__init__()
         self.nbase = nbase
+        self.nout = nout
+        self.sz = sz
+        self.residual_on = residual_on
+        self.style_on = style_on
+        self.concatenation = concatenation
         self.mkldnn = mkldnn if mkldnn is not None else False
         self.downsample = downsample(nbase, sz, residual_on=residual_on)
         nbaseup = nbase[1:]
@@ -204,5 +209,11 @@ class CPnet(nn.Module):
         if not cpu:
             self.load_state_dict(torch.load(filename))
         else:
-            self.to(torch.device('cpu'))
+            self.__init__(self.nbase,
+                          self.nout,
+                          self.sz,
+                          self.residual_on,
+                          self.style_on,
+                          self.concatenation,
+                          self.mkldnn)
             self.load_state_dict(torch.load(filename, map_location=torch.device('cpu')))
