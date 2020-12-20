@@ -79,7 +79,7 @@ def main():
     args = parser.parse_args()
 
     if args.check_mkl:
-        mkl_enabled = models.check_mkl()
+        mkl_enabled = models.check_mkl((not args.mxnet))
     else:
         mkl_enabled = True
 
@@ -88,8 +88,6 @@ def main():
     else:
         os.environ["MXNET_SUBGRAPH_BACKEND"]=""
     
-    import mxnet as mx
-
     if len(args.dir)==0:
         if not GUI_ENABLED:
             print('ERROR: %s'%GUI_ERROR)
