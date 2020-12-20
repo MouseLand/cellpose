@@ -49,6 +49,14 @@ def mainmenu(parent):
     file_menu.addAction(parent.saveServer)
     parent.saveServer.setEnabled(False)
 
+    parent.switchBackend = QtGui.QAction("Switch backend to MXNET if installed", parent)
+    parent.switchBackend.triggered.connect(lambda: parent.check_gpu(False))
+    file_menu.addAction(parent.switchBackend)
+    if models.MXNET_ENABLED:
+        parent.switchBackend.setEnabled(True)
+    else:
+        parent.switchBackend.setEnabled(False)
+
 def editmenu(parent):
     main_menu = parent.menuBar()
     edit_menu = main_menu.addMenu("&Edit")

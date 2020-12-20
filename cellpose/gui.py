@@ -650,12 +650,12 @@ class MainW(QtGui.QMainWindow):
         if event.key() == QtCore.Qt.Key_Minus or event.key() == QtCore.Qt.Key_Equal:
             self.p0.keyPressEvent(event)
 
-    def check_gpu(self):
+    def check_gpu(self, torch=True):
         # also decide whether or not to use torch
-        self.torch = True
+        self.torch = torch
         self.useGPU.setChecked(False)
         self.useGPU.setEnabled(False)    
-        if models.use_gpu(istorch=True):
+        if self.torch and models.use_gpu(istorch=True):
             self.useGPU.setEnabled(True)
             self.useGPU.setChecked(True)
         elif models.MXNET_ENABLED:
@@ -667,6 +667,9 @@ class MainW(QtGui.QMainWindow):
             elif models.check_mkl(istorch=False):
                 print('>>> will run model on CPU (MKL-accelerated) in mxnet <<<')
                 self.torch = False
+                self.useGPU.setStyleSheet("color: rgb(80,80,80);")
+            elif not self.torch:
+                print('>>> will run model on CPU (not MKL-accelerated) in mxnet <<<')
                 self.useGPU.setStyleSheet("color: rgb(80,80,80);")
             else:
                 self.useGPU.setStyleSheet("color: rgb(80,80,80);")

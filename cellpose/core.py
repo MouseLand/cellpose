@@ -49,7 +49,7 @@ def parse_model_string(pretrained_model):
     concatenation = ostrs[2]=='on'
     return nclasses, residual_on, style_on, concatenation
 
-def use_gpu(gpu_number=0, istorch=False):
+def use_gpu(gpu_number=0, istorch=True):
     """ check if gpu works """
     if istorch:
         return _use_gpu_torch(gpu_number)
