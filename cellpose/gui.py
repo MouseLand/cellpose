@@ -11,9 +11,6 @@ import numpy as np
 import cv2
 from scipy.ndimage import gaussian_filter
 
-import mxnet as mx
-from mxnet import nd
-
 from . import utils, transforms, models, guiparts, plot, menus, io, dynamics
 
 try:
@@ -653,13 +650,30 @@ class MainW(QtGui.QMainWindow):
         if event.key() == QtCore.Qt.Key_Minus or event.key() == QtCore.Qt.Key_Equal:
             self.p0.keyPressEvent(event)
 
-    def check_gpu(self):
-        if models.use_gpu():
+    def check_gpu(self, torch=True):
+        # also decide whether or not to use torch
+        self.torch = torch
+        self.useGPU.setChecked(False)
+        self.useGPU.setEnabled(False)    
+        if self.torch and models.use_gpu(istorch=True):
             self.useGPU.setEnabled(True)
             self.useGPU.setChecked(True)
+        elif models.MXNET_ENABLED:
+            if models.use_gpu(istorch=False):
+                print('>>> will run model on GPU in mxnet <<<')
+                self.torch = False
+                self.useGPU.setEnabled(True)
+                self.useGPU.setChecked(True)
+            elif models.check_mkl(istorch=False):
+                print('>>> will run model on CPU (MKL-accelerated) in mxnet <<<')
+                self.torch = False
+                self.useGPU.setStyleSheet("color: rgb(80,80,80);")
+            elif not self.torch:
+                print('>>> will run model on CPU (not MKL-accelerated) in mxnet <<<')
+                self.useGPU.setStyleSheet("color: rgb(80,80,80);")
+            else:
+                self.useGPU.setStyleSheet("color: rgb(80,80,80);")
         else:
-            self.useGPU.setChecked(False)
-            self.useGPU.setEnabled(False)
             self.useGPU.setStyleSheet("color: rgb(80,80,80);")
 
     def get_channels(self):
@@ -1243,24 +1257,11 @@ class MainW(QtGui.QMainWindow):
         return image
 
     def initialize_model(self):
-        if self.useGPU.isChecked():
-            device = mx.gpu()
-        else:
-            device = mx.cpu()
-
-        change=False
-        if not hasattr(self, 'model') or self.ModelChoose.currentText() != self.current_model:
-            self.current_model = self.ModelChoose.currentText()
-            change=True
-        elif ((self.model.device==mx.gpu() and not self.useGPU.isChecked()) or
-                (self.model.device==mx.cpu() and self.useGPU.isChecked())):
-            # if device has changed, reload model
-            self.current_model = self.ModelChoose.currentText()
-            change=True
-
-        if change:
-            print(self.current_model)
-            self.model = models.Cellpose(device=device, model_type=self.current_model)
+        self.current_model = self.ModelChoose.currentText()
+        print(self.current_model)
+        self.model = models.Cellpose(gpu=self.useGPU.isChecked(), 
+                                     torch=self.torch,
+                                     model_type=self.current_model)
 
     def compute_cprob(self):
         rerun = False

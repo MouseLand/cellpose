@@ -198,3 +198,10 @@ class CPnet(gluon.HybridBlock):
         T0    = self.output(T0)
 
         return T0, style0
+
+    def save_model(self, filename):
+        self.save_parameters(filename)
+
+    def load_model(self, filename, cpu=None):
+        self.load_parameters(filename)
+

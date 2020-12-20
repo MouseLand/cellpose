@@ -28,7 +28,8 @@ def clear_output(data_dir, image_names):
 
 def test_class_2D(data_dir, image_names):
     clear_output(data_dir, image_names)
-    img = io.imread(str(data_dir.joinpath('2D').joinpath('rgb_2D.png')))
+    image_name = 'rgb_2D.png'
+    img = io.imread(str(data_dir.joinpath('2D').joinpath(image_name)))
     model_types = ['nuclei']
     chan = [1]
     chan2 = [0]
@@ -36,7 +37,7 @@ def test_class_2D(data_dir, image_names):
         model = models.Cellpose(model_type=model_type)
         masks, flows, _, _ = model.eval(img, diameter=0, channels=[chan[m],chan2[m]], net_avg=False)
         io.imsave(str(data_dir.joinpath('2D').joinpath('rgb_2D_cp_masks.png')), masks)
-        compare_masks(data_dir, ['rgb_2D.png'], '2D', model_type)
+        compare_masks(data_dir, [image_name], '2D', model_type)
         clear_output(data_dir, image_names)
         if MATPLOTLIB:
             fig = plt.figure(figsize=(8,3))
@@ -61,7 +62,7 @@ def test_cli_2D(data_dir, image_names):
     chan = [2]
     chan2 = [1]
     for m,model_type in enumerate(model_types):
-        cmd = 'python -m cellpose --dir %s --pretrained_model %s --fast_mode --chan %d --chan2 %d --diameter 0 --save_png'%(str(data_dir.joinpath('2D')), model_type, chan[m], chan2[m])
+        cmd = 'python -m cellpose --dir %s --pretrained_model %s --fast_mode --chan %d --chan2 %d --diameter 0 --no_interp --save_png'%(str(data_dir.joinpath('2D')), model_type, chan[m], chan2[m])
         try:
             cmd_stdout = check_output(cmd, stderr=STDOUT, shell=True).decode()
             print(cmd_stdout)

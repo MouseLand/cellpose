@@ -86,6 +86,15 @@ cells are large but will be slower in case; ``resample=False`` will find more ma
 are small but will be slower in this case. By default in v0.5 ``resample=False``, but in 
 previous releases the default was ``resample=True``.
 
+The nuclear model in cellpose is trained on two-channel images, where 
+the first channel is the channel to segment, and the second channel is 
+always set to an array of zeros. Therefore set the first channel as 
+0=grayscale, 1=red, 2=green, 3=blue; and set the second channel to zero, e.g.
+``channels = [0,0]`` if you want to segment nuclei in grayscale or for single channel images, or 
+``channels = [3,0]`` if you want to segment blue nuclei.
+
+If the nuclear model isn't working well, try the cytoplasmic model.
+
 Flow threshold (aka model fit threshold in GUI)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
