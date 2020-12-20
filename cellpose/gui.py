@@ -652,18 +652,22 @@ class MainW(QtGui.QMainWindow):
 
     def check_gpu(self):
         # also decide whether or not to use torch
-        self.torch = False
+        self.torch = True
         self.useGPU.setChecked(False)
         self.useGPU.setEnabled(False)    
-        if models.use_gpu(torch=False):
+        if models.use_gpu(istorch=True):
             self.useGPU.setEnabled(True)
             self.useGPU.setChecked(True)
-        elif models.TORCH_ENABLED:
-            if models.use_gpu(torch=True):
-                print('>>> will run models in torch <<<')
-                self.torch = True
+        elif models.MXNET_ENABLED:
+            if models.use_gpu(istorch=False):
+                print('>>> will run model on GPU in mxnet <<<')
+                self.torch = False
                 self.useGPU.setEnabled(True)
                 self.useGPU.setChecked(True)
+            elif models.check_mkl(istorch=False):
+                print('>>> will run model on CPU (MKL-accelerated) in mxnet <<<')
+                self.torch = False
+                self.useGPU.setStyleSheet("color: rgb(80,80,80);")
             else:
                 self.useGPU.setStyleSheet("color: rgb(80,80,80);")
         else:

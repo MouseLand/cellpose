@@ -8,7 +8,7 @@ from scipy.ndimage import median_filter
 import cv2
 
 from . import transforms, dynamics, utils, plot, metrics, core
-from .core import UnetModel, assign_device, check_mkl, use_gpu, convert_images, TORCH_ENABLED, parse_model_string
+from .core import UnetModel, assign_device, check_mkl, use_gpu, convert_images, MXNET_ENABLED, parse_model_string
 
 urls = ['https://www.cellpose.org/models/cyto_0',
         'https://www.cellpose.org/models/cyto_1',
@@ -89,10 +89,10 @@ class Cellpose():
     """
     def __init__(self, gpu=False, model_type='cyto', net_avg=True, device=None, torch=True):
         super(Cellpose, self).__init__()
-        if torch:
-            if not TORCH_ENABLED:
-                print('WARNING: torch not installed, using mxnet')
-                torch = False
+        if not torch:
+            if not MXNET_ENABLED:
+                print('WARNING: mxnet not installed, using torch')
+                torch = True
         self.torch = torch
         torch_str = ['','torch'][self.torch]
         
@@ -314,13 +314,13 @@ class CellposeModel(UnetModel):
 
     """
 
-    def __init__(self, gpu=False, pretrained_model=False, torch=False,
+    def __init__(self, gpu=False, pretrained_model=False, torch=True,
                     diam_mean=30., net_avg=True, device=None,
                     residual_on=True, style_on=True, concatenation=False):
-        if torch:
-            if not TORCH_ENABLED:
-                print('WARNING: torch not installed, using mxnet')
-                torch = False
+        if not torch:
+            if not MXNET_ENABLED:
+                print('WARNING: mxnet not installed, using torch')
+                torch = True
         self.torch = torch
         
         if isinstance(pretrained_model, np.ndarray):

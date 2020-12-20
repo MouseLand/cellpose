@@ -2,13 +2,16 @@ import setuptools
 from setuptools import setup
 
 install_deps = ['numpy', 'scipy', 'natsort',
-                'tifffile', 'tqdm', 'numba',
-                'mxnet_mkl', 'opencv-python-headless']
+                'tifffile', 'tqdm', 'numba', 
+                'torch>=1.6',
+                'opencv-python-headless']
 
 try:
-    import mxnet as mx
-    a = mx.nd.ones((2, 3))
-    install_deps.remove('mxnet_mkl')
+    import torch
+    a = torch.ones(2, 3)
+    version = int(torch.__version__[2])
+    if version >= 6:
+        install_deps.remove('torch')
 except:
     pass
 
@@ -32,8 +35,7 @@ setup(
     use_scm_version=True,
     install_requires = install_deps,
     tests_require=[
-      'pytest',
-      'pytest-qt',
+      'pytest'
     ],
     extras_require = {
       'docs': [
@@ -45,9 +47,6 @@ setup(
         'pyqtgraph==0.11.0rc0', 
         'pyqt5', 
         'google-cloud-storage'
-        ],
-      'torch': [
-        'torch>=1.6'
         ]
     },
     include_package_data=True,

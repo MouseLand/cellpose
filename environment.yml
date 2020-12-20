@@ -4,12 +4,13 @@ dependencies:
   - pip
   - pyqt
   - pip:
-    - numpy<=1.16.6,>1.14.6
+    - pyqt5.sip
+    - numpy>1.14.6
     - numba>=0.43.1
     - scipy
-    - mxnet-mkl==1.5.0
+    - torch>=1.6
     - opencv-python-headless
-    - pyqtgraph==0.11.0rc0
+    - pyqtgraph>=0.11.0rc0
     - natsort
     - google-cloud-storage
     - tqdm

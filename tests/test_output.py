@@ -28,7 +28,8 @@ def clear_output(data_dir, image_names):
 
 def test_class_2D(data_dir, image_names):
     clear_output(data_dir, image_names)
-    img = io.imread(str(data_dir.joinpath('2D').joinpath('rgb_2D.png')))
+    image_name = 'rgb_2D.png'
+    img = io.imread(str(data_dir.joinpath('2D').joinpath(image_name)))
     model_types = ['nuclei']
     chan = [1]
     chan2 = [0]
@@ -36,7 +37,7 @@ def test_class_2D(data_dir, image_names):
         model = models.Cellpose(model_type=model_type)
         masks, flows, _, _ = model.eval(img, diameter=0, channels=[chan[m],chan2[m]], net_avg=False)
         io.imsave(str(data_dir.joinpath('2D').joinpath('rgb_2D_cp_masks.png')), masks)
-        compare_masks(data_dir, ['rgb_2D.png'], '2D', model_type)
+        compare_masks(data_dir, [image_name], '2D', model_type)
         clear_output(data_dir, image_names)
         if MATPLOTLIB:
             fig = plt.figure(figsize=(8,3))

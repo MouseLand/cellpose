@@ -71,7 +71,7 @@ def _use_gpu_torch(gpu_number=0):
         _ = torch.zeros([1, 2, 3]).to(device)
         print('** TORCH CUDA version installed and working. **')
         return True
-    except mx.MXNetError:
+    except:
         print('TORCH CUDA version not installed/working.')
         return False
 
@@ -909,6 +909,9 @@ class UnetModel():
         ksave = 0
         rsc = 1.0
 
+        # cannot train with mkldnn
+        self.net.mkldnn = False
+
         for iepoch in range(self.n_epochs):
             np.random.seed(iepoch)
             rperm = np.random.permutation(nimg)
@@ -960,5 +963,8 @@ class UnetModel():
                     ksave += 1
                     print('saving network parameters')
                     self.net.save_model(os.path.join(file_path, file))
+
+        # reset to mkldnn if available
+        self.net.mkldnn = self.mkldnn
 
         return os.path.join(file_path, file)

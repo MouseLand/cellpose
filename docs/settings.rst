@@ -72,6 +72,8 @@ always set to an array of zeros. Therefore set the first channel as
 ``channels = [0,0]`` if you want to segment nuclei in grayscale or for single channel images, or 
 ``channels = [3,0]`` if you want to segment blue nuclei.
 
+If the nuclear model isn't working well, try the cytoplasmic model.
+
 Flow threshold
 ~~~~~~~~~~~~~~~~~~~~~~
 

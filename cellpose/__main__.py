@@ -167,7 +167,8 @@ def main():
             print('>>>> completed in %0.3f sec'%(time.time()-tic))
         else:
             if args.pretrained_model=='cyto' or args.pretrained_model=='nuclei':
-                cpmodel_path = os.fspath(model_dir.joinpath('%s_0'%(args.pretrained_model)))
+                torch_str = ['torch', '']
+                cpmodel_path = os.fspath(model_dir.joinpath('%s%s_0'%(args.pretrained_model, torch_str[args.mxnet])))
                 if args.pretrained_model=='cyto':
                     szmean = 30.
                 else:
