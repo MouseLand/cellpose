@@ -19,6 +19,10 @@ This code was written by Carsen Stringer and Marius Pachitariu. To learn about C
 
 If you want to improve Cellpose for yourself and for everyone else, please consider contributing manual segmentations for a few of your images via the built-in GUI interface (see instructions below). 
 
+### UPDATE (Dec 2020)
+
+Pytorch is now the default deep neural network software for cellpose. Mxnet will still temporarily be supported. To use mxnet in a notebook, declare `torch=False` when creating a model, e.g. `model = models.Cellpose(torch=False)`. To use mxnet on the command line, add the flag `--mxnet`, e.g. `python -m cellpose --dir ~/images/ --mxnet`. The pytorch implementation is 20% faster than the mxnet implementation when running on the GPU and 20% slower when running on the CPU.
+
 ### Run cellpose without local python installation
 
 You can quickly try out Cellpose on the [website](http://www.cellpose.org) first (some features disabled). 
@@ -68,28 +72,22 @@ pip install cellpose[gui]
 
 If you have **issues** with installation, see the [docs](https://cellpose.readthedocs.io/en/latest/installation.html) for more details, and then if the suggestions fail, open an issue.
 
-### GPU version (CUDA)
+### GPU version (CUDA) on Windows or Linux
 
-If you plan on running many images, you may want to install a GPU version of *mxnet*. We recommend using CUDA 10.0 or greater. 
-
-**ON WINDOWS**
-
-Just install the GPU version of mxnet directly in the environment, i.e.:
-
-~~~
-pip install mxnet-cu101
-~~~
-
-**ON LINUX**
+If you plan on running many images, you may want to install a GPU version of *torch*. 
 
 Before installing the GPU version, remove the CPU version:
 ~~~
-pip uninstall mxnet-mkl
-pip uninstall mxnet
-pip install mxnet-cu101
+pip uninstall torch
 ~~~
 
-Follow the instructions [here](https://mxnet.apache.org/get_started?) to determine what version to install to match your CUDA install. When upgrading GPU Cellpose in the future, you will want to ignore dependencies (so that mxnet-mkl does not install):
+Follow the instructions [here](https://pytorch.org/get-started/locally/) to determine what version to install to match your CUDA install. The Anaconda install is recommended and a CUDA version 10.0 or greater. For instance this command will install the 10.2 version on Linux and Windows (note the `torchvision` and `torchaudio` commands are removed because cellpose doesn't require them):
+
+~~~
+conda install pytorch cudatoolkit=10.2 -c pytorch
+~~~~
+
+When upgrading GPU Cellpose in the future, you will want to ignore dependencies (to ensure that the pip version of torch does not install):
 ~~~
 pip install --no-deps cellpose --upgrade
 ~~~
