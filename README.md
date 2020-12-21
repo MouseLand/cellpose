@@ -74,14 +74,14 @@ If you have **issues** with installation, see the [docs](https://cellpose.readth
 
 ### GPU version (CUDA) on Windows or Linux
 
-If you plan on running many images, you may want to install a GPU version of *torch*. 
+If you plan on running many images, you may want to install a GPU version of *torch* (if it isn't already installed).
 
 Before installing the GPU version, remove the CPU version:
 ~~~
 pip uninstall torch
 ~~~
 
-Follow the instructions [here](https://pytorch.org/get-started/locally/) to determine what version to install to match your CUDA install. The Anaconda install is recommended and a CUDA version 10.0 or greater. For instance this command will install the 10.2 version on Linux and Windows (note the `torchvision` and `torchaudio` commands are removed because cellpose doesn't require them):
+Follow the instructions [here](https://pytorch.org/get-started/locally/) to determine what version to install. The Anaconda install is recommended along with CUDA version 10.2. For instance this command will install the 10.2 version on Linux and Windows (note the `torchvision` and `torchaudio` commands are removed because cellpose doesn't require them):
 
 ~~~
 conda install pytorch cudatoolkit=10.2 -c pytorch
