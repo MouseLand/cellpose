@@ -196,8 +196,8 @@ def reshape(data, channels=[0,0], chan_first=False):
         if data.ndim==8 and data.shape[0]<8, assumed to be nchan x Ly x Lx
 
     channels : list of int of length 2 (optional, default [0,0])
-        First element of list is the channel to segment (0=grayscale, 1=red, 2=blue, 3=green).
-        Second element of list is the optional nuclear channel (0=none, 1=red, 2=blue, 3=green).
+        First element of list is the channel to segment (0=grayscale, 1=red, 2=green, 3=blue).
+        Second element of list is the optional nuclear channel (0=none, 1=red, 2=green, 3=blue).
         For instance, to train on grayscale images, input [0,0]. To train on images with cells
         in green and nuclei in blue, input [2,3].
 
@@ -324,8 +324,8 @@ def reshape_and_normalize_data(train_data, test_data=None, channels=None, normal
         list of testing images of size [Ly x Lx], [nchan x Ly x Lx], or [Ly x Lx x nchan]
 
     channels: list of int of length 2 (optional, default None)
-        First element of list is the channel to segment (0=grayscale, 1=red, 2=blue, 3=green).
-        Second element of list is the optional nuclear channel (0=none, 1=red, 2=blue, 3=green).
+        First element of list is the channel to segment (0=grayscale, 1=red, 2=green, 3=blue).
+        Second element of list is the optional nuclear channel (0=none, 1=red, 2=green, 3=blue).
         For instance, to train on grayscale images, input [0,0]. To train on images with cells
         in green and nuclei in blue, input [2,3].
 

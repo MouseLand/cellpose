@@ -238,8 +238,8 @@ class UnetModel():
 
             channels: list (optional, default None)
                 list of channels, either of length 2 or of length number of images by 2.
-                First element of list is the channel to segment (0=grayscale, 1=red, 2=blue, 3=green).
-                Second element of list is the optional nuclear channel (0=none, 1=red, 2=blue, 3=green).
+                First element of list is the channel to segment (0=grayscale, 1=red, 2=green, 3=blue).
+                Second element of list is the optional nuclear channel (0=none, 1=red, 2=green, 3=blue).
                 For instance, to segment grayscale images, input [0,0]. To segment images with cells
                 in green and nuclei in blue, input [2,3]. To segment one grayscale image and one
                 image with cells in green and nuclei in blue, input [[0,0], [2,3]].
