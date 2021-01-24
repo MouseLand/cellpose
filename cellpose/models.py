@@ -514,7 +514,7 @@ class CellposeModel(UnetModel):
                     masks.append(maski)
                     flow_time += time.time() - tic
                 else:
-                    flows.append([None]*3)
+                    flows.append([dx_to_circ(dP), dP, cellprob, []])
                     masks.append([])
             if compute_masks:
                 print('time spent: running network %0.2fs; flow+mask computation %0.2f'%(net_time, flow_time))
