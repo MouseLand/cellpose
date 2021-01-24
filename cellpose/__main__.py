@@ -150,16 +150,20 @@ def main():
                 
             for image_name in tqdm(image_names):
                 image = io.imread(image_name)
-                masks, flows, _, diams = model.eval(image, channels=channels, diameter=diameter,
-                                                    do_3D=args.do_3D, net_avg=(not args.fast_mode),
-                                                    augment=False,
-                                                    resample=args.resample,
-                                                    flow_threshold=args.flow_threshold,
-                                                    cellprob_threshold=args.cellprob_threshold,
-                                                    invert=args.invert,
-                                                    batch_size=args.batch_size,
-                                                    interp=(not args.no_interp))
-                    
+                out = model.eval(image, channels=channels, diameter=diameter,
+                                do_3D=args.do_3D, net_avg=(not args.fast_mode),
+                                augment=False,
+                                resample=args.resample,
+                                flow_threshold=args.flow_threshold,
+                                cellprob_threshold=args.cellprob_threshold,
+                                invert=args.invert,
+                                batch_size=args.batch_size,
+                                interp=(not args.no_interp))
+                masks, flows = out[:2]
+                if len(out) > 3:
+                    diams = out[-1]
+                else:
+                    diams = diameter
                 if not args.no_npy:
                     io.masks_flows_to_seg(image, masks, flows, diams, image_name, channels)
                 if args.save_png or args.save_tif:

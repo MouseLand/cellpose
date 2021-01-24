@@ -786,7 +786,10 @@ class UnetModel():
         X = self._to_device(x)
         if self.torch:
             self.optimizer.zero_grad()
-            self.net.train()
+            if self.gpu:
+                self.net.train().cuda()
+            else:
+                self.net.train()
             y, style = self.net(X)
             loss = self.loss_fn(lbl,y)
             loss.backward()
