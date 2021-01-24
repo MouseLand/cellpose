@@ -492,7 +492,7 @@ class CellposeModel(UnetModel):
                     progress.setValue(55)
                 styles.append(style)
                 if resample:
-                        y = transforms.resize_image(y, shape[-3], shape[-2])
+                    y = transforms.resize_image(y, shape[-3], shape[-2])
                 cellprob = y[:,:,-1]
                 dP = y[:,:,:2].transpose((2,0,1))
                 if compute_masks:
