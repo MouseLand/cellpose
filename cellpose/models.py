@@ -491,12 +491,12 @@ class CellposeModel(UnetModel):
                 if progress is not None:
                     progress.setValue(55)
                 styles.append(style)
+                if resample:
+                        y = transforms.resize_image(y, shape[-3], shape[-2])
+                cellprob = y[:,:,-1]
+                dP = y[:,:,:2].transpose((2,0,1))
                 if compute_masks:
                     tic=time.time()
-                    if resample:
-                        y = transforms.resize_image(y, shape[-3], shape[-2])
-                    cellprob = y[:,:,-1]
-                    dP = y[:,:,:2].transpose((2,0,1))
                     niter = 1 / rescale[i] * 200
                     p = dynamics.follow_flows(-1 * dP * (cellprob > cellprob_threshold) / 5., 
                                                 niter=niter, interp=interp, use_gpu=self.gpu)
