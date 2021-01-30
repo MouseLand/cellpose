@@ -89,7 +89,7 @@ Follow the instructions [here](https://pytorch.org/get-started/locally/) to dete
 conda install pytorch cudatoolkit=10.2 -c pytorch
 ~~~~
 
-For the GPU version of mxnet, you will need to install the cuda toolkit first if you haven't already:
+For the GPU version of mxnet, you will need to install the cuda toolkit first if you haven't already (on Windows it may be necessary to install via anaconda as below):
 
 ~~~
 conda install -c anaconda cudatoolkit

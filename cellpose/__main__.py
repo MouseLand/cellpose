@@ -4,7 +4,7 @@ import numpy as np
 from natsort import natsorted
 from tqdm import tqdm
 
-from . import utils, models, io
+from cellpose import utils, models, io
 
 try:
     from cellpose import gui 
