@@ -195,11 +195,14 @@ def masks_flows_to_seg(images, masks, flows, diams, file_names, channels=None):
 
     flowi = []
     if flows[0].ndim==3:
-        flowi.append(flows[0][np.newaxis,...])
+        Ly, Lx = masks.shape[-2:]
+        flowi.append(cv2.resize(flows[0], (Lx, Ly), interpolation=cv2.INTER_NEAREST)[np.newaxis,...])
     else:
         flowi.append(flows[0])
     if flows[0].ndim==3:
-        flowi.append((np.clip(transforms.normalize99(flows[2]),0,1) * 255).astype(np.uint8)[np.newaxis,...])
+        cellprob = (np.clip(transforms.normalize99(flows[2]),0,1) * 255).astype(np.uint8)
+        cellprob = cv2.resize(cellprob, (Lx, Ly), interpolation=cv2.INTER_NEAREST)
+        flowi.append(cellprob[np.newaxis,...])
         flowi.append(np.zeros(flows[0].shape, dtype=np.uint8))
         flowi[-1] = flowi[-1][np.newaxis,...]
     else:
@@ -588,8 +591,11 @@ def _load_seg(parent, filename=None, image=None, image_file=None):
 
     if 'flows' in dat:
         parent.flows = dat['flows']
+        if parent.flows[0].shape[-3]!=dat['masks'].shape[-2]:
+            Ly, Lx = dat['masks'].shape[-2:]
+            parent.flows[0] = cv2.resize(parent.flows[0][0], (Lx, Ly), interpolation=cv2.INTER_NEAREST)[np.newaxis,...]
+            parent.flows[1] = cv2.resize(parent.flows[1][0], (Lx, Ly), interpolation=cv2.INTER_NEAREST)[np.newaxis,...]
         try:
-            print(parent.flows[0].shape)
             if parent.NZ==1:
                 parent.threshslider.setEnabled(True)
                 parent.probslider.setEnabled(True)
