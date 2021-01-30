@@ -89,6 +89,12 @@ Follow the instructions [here](https://pytorch.org/get-started/locally/) to dete
 conda install pytorch cudatoolkit=10.2 -c pytorch
 ~~~~
 
+For the GPU version of mxnet, you will need to install the cuda toolkit first if you haven't already:
+
+~~~
+conda install -c anaconda cudatoolkit
+~~~
+
 When upgrading GPU Cellpose in the future, you will want to ignore dependencies (to ensure that the pip version of torch does not install):
 ~~~
 pip install --no-deps cellpose --upgrade
