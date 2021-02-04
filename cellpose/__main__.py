@@ -220,7 +220,8 @@ def main():
                                         concatenation=args.concatenation,
                                         nclasses=args.nclasses)
             else:
-                model = models.CellposeModel(device=device,
+                model = models.CellposeModel(gpu=gpu,
+                                            device=device,
                                             torch=(not args.mxnet),
                                             pretrained_model=cpmodel_path, 
                                             diam_mean=szmean,
