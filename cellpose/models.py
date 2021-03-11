@@ -83,7 +83,7 @@ class Cellpose():
         where model is saved (e.g. mx.gpu() or mx.cpu()), overrides gpu input,
         recommended if you want to use a specific GPU (e.g. mx.gpu(4) or torch.cuda.device(4))
 
-    torch: bool (optional, default False)
+    torch: bool (optional, default True)
         run model using torch if available
 
     """
