@@ -4,7 +4,7 @@ import numpy as np
 from natsort import natsorted
 from tqdm import tqdm
 
-from . import utils, models, io
+from cellpose import utils, models, io
 
 try:
     from cellpose import gui 
@@ -46,6 +46,7 @@ def main():
                         default=0, type=int, help='channel to segment; 0: GRAY, 1: RED, 2: GREEN, 3: BLUE')
     parser.add_argument('--chan2', required=False, 
                         default=0, type=int, help='nuclear channel (if cyto, optional); 0: NONE, 1: RED, 2: GREEN, 3: BLUE')
+    parser.add_argument('--invert', required=False, action='store_true', help='invert grayscale channel')
     parser.add_argument('--all_channels', action='store_true', help='use all channels in image if using own model and images with special channels')
     parser.add_argument('--diameter', required=False, 
                         default=30., type=float, help='cell diameter, if 0 cellpose will estimate for each image')
@@ -149,15 +150,20 @@ def main():
                 
             for image_name in tqdm(image_names):
                 image = io.imread(image_name)
-                masks, flows, _, diams = model.eval(image, channels=channels, diameter=diameter,
-                                                    do_3D=args.do_3D, net_avg=(not args.fast_mode),
-                                                    augment=False,
-                                                    resample=args.resample,
-                                                    flow_threshold=args.flow_threshold,
-                                                    cellprob_threshold=args.cellprob_threshold,
-                                                    batch_size=args.batch_size,
-                                                    interp=(not args.no_interp))
-                    
+                out = model.eval(image, channels=channels, diameter=diameter,
+                                do_3D=args.do_3D, net_avg=(not args.fast_mode),
+                                augment=False,
+                                resample=args.resample,
+                                flow_threshold=args.flow_threshold,
+                                cellprob_threshold=args.cellprob_threshold,
+                                invert=args.invert,
+                                batch_size=args.batch_size,
+                                interp=(not args.no_interp))
+                masks, flows = out[:2]
+                if len(out) > 3:
+                    diams = out[-1]
+                else:
+                    diams = diameter
                 if not args.no_npy:
                     io.masks_flows_to_seg(image, masks, flows, diams, image_name, channels)
                 if args.save_png or args.save_tif:
@@ -224,7 +230,7 @@ def main():
             
             # train segmentation model
             if args.train:
-                cpmodel_path = model.train(images, labels, train_files=image_names, 
+                cpmodel_path = model.train(images, labels, train_files=image_names,
                                             test_data=test_images, test_labels=test_labels, test_files=image_names_test,
                                             learning_rate=args.learning_rate, channels=channels, 
                                             save_path=os.path.realpath(args.dir), rescale=rescale, n_epochs=args.n_epochs,

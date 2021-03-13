@@ -133,8 +133,8 @@ class Cellpose():
 
         channels: list (optional, default None)
             list of channels, either of length 2 or of length number of images by 2.
-            First element of list is the channel to segment (0=grayscale, 1=red, 2=blue, 3=green).
-            Second element of list is the optional nuclear channel (0=none, 1=red, 2=blue, 3=green).
+            First element of list is the channel to segment (0=grayscale, 1=red, 2=green, 3=blue).
+            Second element of list is the optional nuclear channel (0=none, 1=red, 2=green, 3=blue).
             For instance, to segment grayscale images, input [0,0]. To segment images with cells
             in green and nuclei in blue, input [2,3]. To segment one grayscale image and one
             image with cells in green and nuclei in blue, input [[0,0], [2,3]].
@@ -369,8 +369,8 @@ class CellposeModel(UnetModel):
 
             channels: list (optional, default None)
                 list of channels, either of length 2 or of length number of images by 2.
-                First element of list is the channel to segment (0=grayscale, 1=red, 2=blue, 3=green).
-                Second element of list is the optional nuclear channel (0=none, 1=red, 2=blue, 3=green).
+                First element of list is the channel to segment (0=grayscale, 1=red, 2=green, 3=blue).
+                Second element of list is the optional nuclear channel (0=none, 1=red, 2=green, 3=blue).
                 For instance, to segment grayscale images, input [0,0]. To segment images with cells
                 in green and nuclei in blue, input [2,3]. To segment one grayscale image and one
                 image with cells in green and nuclei in blue, input [[0,0], [2,3]].
@@ -494,11 +494,11 @@ class CellposeModel(UnetModel):
                 if progress is not None:
                     progress.setValue(55)
                 styles.append(style)
+                if resample:
+                    y = transforms.resize_image(y, shape[-3], shape[-2])
+                cellprob = y[:,:,-1]
+                dP = y[:,:,:2].transpose((2,0,1))
                 if compute_masks:
-                    if resample:
-                        y = transforms.resize_image(y, shape[-3], shape[-2])
-                    cellprob = y[:,:,2]
-                    dP = y[:,:,:2].transpose((2,0,1))
                     niter = 1 / rescale[i] * 200
                     if progress is not None:
                         progress.setValue(65)
@@ -516,8 +516,6 @@ class CellposeModel(UnetModel):
                         progress.setValue(75)
                     #dP = np.concatenate((dP, np.zeros((1,dP.shape[1],dP.shape[2]), np.uint8)), axis=0)
                 else:
-                    cellprob = y[:,:,2]
-                    dP = y[:,:,:2].transpose((2,0,1))
                     p = []
                     maski = []
                 flows.append([dx_to_circ(dP), dP, cellprob, p])
@@ -706,8 +704,8 @@ class SizeModel():
 
             channels: list (optional, default None)
                 list of channels, either of length 2 or of length number of images by 2.
-                First element of list is the channel to segment (0=grayscale, 1=red, 2=blue, 3=green).
-                Second element of list is the optional nuclear channel (0=none, 1=red, 2=blue, 3=green).
+                First element of list is the channel to segment (0=grayscale, 1=red, 2=green, 3=blue).
+                Second element of list is the optional nuclear channel (0=none, 1=red, 2=green, 3=blue).
                 For instance, to segment grayscale images, input [0,0]. To segment images with cells
                 in green and nuclei in blue, input [2,3]. To segment one grayscale image and one
                 image with cells in green and nuclei in blue, input [[0,0], [2,3]].

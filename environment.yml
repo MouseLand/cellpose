@@ -4,7 +4,6 @@ dependencies:
   - pip
   - pyqt
   - pip:
-    - pyqt5.sip
     - numpy>1.14.6,<1.19.4
     - numba>=0.43.1
     - scipy
