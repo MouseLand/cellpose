@@ -521,6 +521,9 @@ def follow_flows(dP, niter=200, interp=True, use_gpu=True, device=None):
         p = np.array(p).astype(np.float32)
         # run dynamics on subset of pixels
         inds = np.array(np.nonzero(np.abs(dP[0])>1e-3)).astype(np.int32).T
+        if inds.ndim < 2 or inds.shape[0] < 5:
+            print('WARNING: no mask pixels found')
+            return p
         if not interp:
             p = steps2D(p, dP, inds, niter)
         else:
@@ -680,7 +683,7 @@ def get_masks(p, iscell=None, rpad=20, flows=None, threshold=0.4, use_gpu=False,
     _,M0 = np.unique(M0, return_inverse=True)
     M0 = np.reshape(M0, shape0)
 
-    if threshold is not None and threshold > 0 and flows is not None:
+    if M0.max()>0 and threshold is not None and threshold > 0 and flows is not None:
         M0 = remove_bad_flow_masks(M0, flows, threshold=threshold, use_gpu=use_gpu, device=device)
         _,M0 = np.unique(M0, return_inverse=True)
         M0 = np.reshape(M0, shape0).astype(np.int32)
