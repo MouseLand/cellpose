@@ -367,8 +367,7 @@ def fill_holes_and_remove_small_masks(masks, min_size=15):
     
     """
     if masks.ndim > 3 or masks.ndim < 2:
-        raise ValueError('masks_to_outlines takes 2D or 3D array, not %dD array'%masks.ndim)
-    
+        raise ValueError('fill_holes_and_remove_small_masks takes 2D or 3D array, not %dD array'%masks.ndim)
     slices = find_objects(masks)
     j = 0
     for i,slc in enumerate(slices):

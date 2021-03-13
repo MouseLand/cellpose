@@ -195,9 +195,9 @@ class CPnet(gluon.HybridBlock):
         if not self.style_on:
             style = style * 0 
         T0    = self.upsample(style, T0)
-        T0    = self.output(T0)
+        T1    = self.output(T0)
 
-        return T0, style0
+        return T1, style0, T0
 
     def save_model(self, filename):
         self.save_parameters(filename)

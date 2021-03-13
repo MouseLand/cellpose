@@ -56,12 +56,11 @@ def dx_to_circ(dP):
     Y = np.clip(dP[0] / sc, -1, 1)
     sc = max(np.percentile(dP[1], 99), np.percentile(dP[1], 1))
     X = np.clip(dP[1] / sc, -1, 1)
-    H = (np.arctan2(Y, X) + np.pi) / (2*np.pi)
-    S = utils.normalize99(dP[0]**2 + dP[1]**2)
-    V = np.ones_like(S)
-    HSV = np.concatenate((H[:,:,np.newaxis], S[:,:,np.newaxis], S[:,:,np.newaxis]), axis=-1)
-    HSV = np.clip(HSV, 0.0, 1.0)
-    flow = (utils.hsv_to_rgb(HSV)*255).astype(np.uint8)
+    H = (np.arctan2(Y, X) + np.pi) / (2*np.pi) * 179
+    S = np.clip(utils.normalize99(dP[0]**2 + dP[1]**2), 0.0, 1.0) * 255
+    V = np.ones_like(S) * 255
+    HSV = np.stack((H,S,S), axis=-1)
+    flow = cv2.cvtColor(HSV.astype(np.uint8), cv2.COLOR_HSV2RGB)
     return flow
 
 class Cellpose():
@@ -355,7 +354,7 @@ class CellposeModel(UnetModel):
              rescale=None, diameter=None, do_3D=False, anisotropy=None, net_avg=True, 
              augment=False, tile=True, tile_overlap=0.1,
              resample=False, interp=True, flow_threshold=0.4, cellprob_threshold=0.0, compute_masks=True, 
-             min_size=15, stitch_threshold=0.0, progress=None):
+             min_size=15, stitch_threshold=0.0, return_conv=False, progress=None):
         """
             segment list of images imgs, or 4D array - Z x nchan x Y x X
 
@@ -430,6 +429,9 @@ class CellposeModel(UnetModel):
             stitch_threshold: float (optional, default 0.0)
                 if stitch_threshold>0.0 and not do_3D, masks are stitched in 3D to return volume segmentation
 
+            return_conv: bool (optional, default False)
+                return activations from final convolutional layer
+
             progress: pyqt progress bar (optional, default None)
                 to return progress bar status to GUI
 
@@ -485,37 +487,46 @@ class CellposeModel(UnetModel):
                 # rescale image for flow computation
                 img = transforms.resize_image(img, rsz=rescale[i])
                 y, style = self._run_nets(img, net_avg=net_avg, 
-                                            augment=augment, tile=tile,
-                                            tile_overlap=tile_overlap)
+                                          augment=augment, tile=tile,
+                                          tile_overlap=tile_overlap,
+                                          return_conv=return_conv)
                 net_time += time.time() - tic
                 if progress is not None:
                     progress.setValue(55)
                 styles.append(style)
                 if compute_masks:
-                    tic=time.time()
                     if resample:
                         y = transforms.resize_image(y, shape[-3], shape[-2])
-                    cellprob = y[:,:,-1]
+                    cellprob = y[:,:,2]
                     dP = y[:,:,:2].transpose((2,0,1))
                     niter = 1 / rescale[i] * 200
-                    p = dynamics.follow_flows(-1 * dP * (cellprob > cellprob_threshold) / 5., 
-                                                niter=niter, interp=interp, use_gpu=self.gpu)
                     if progress is not None:
                         progress.setValue(65)
+                    tic=time.time()
+                    p = dynamics.follow_flows(-1 * dP * (cellprob > cellprob_threshold) / 5., 
+                                                   niter=niter, interp=interp, use_gpu=self.gpu,
+                                                   device=self.device)
                     maski = dynamics.get_masks(p, iscell=(cellprob>cellprob_threshold),
-                                                flows=dP, threshold=flow_threshold)
+                                                    flows=dP, threshold=flow_threshold,
+                                                    use_gpu=self.gpu, device=self.device)
                     maski = utils.fill_holes_and_remove_small_masks(maski)
                     maski = transforms.resize_image(maski, shape[-3], shape[-2], 
                                                     interpolation=cv2.INTER_NEAREST)
                     if progress is not None:
                         progress.setValue(75)
                     #dP = np.concatenate((dP, np.zeros((1,dP.shape[1],dP.shape[2]), np.uint8)), axis=0)
-                    flows.append([dx_to_circ(dP), dP, cellprob, p])
-                    masks.append(maski)
-                    flow_time += time.time() - tic
                 else:
-                    flows.append([None]*3)
-                    masks.append([])
+                    cellprob = y[:,:,2]
+                    dP = y[:,:,:2].transpose((2,0,1))
+                    p = []
+                    maski = []
+                flows.append([dx_to_circ(dP), dP, cellprob, p])
+                
+                if return_conv:
+                    flows[-1].append(y[:,:,3:])
+                masks.append(maski)
+                
+                flow_time += time.time() - tic
             if compute_masks:
                 print('time spent: running network %0.2fs; flow+mask computation %0.2f'%(net_time, flow_time))
 
@@ -529,7 +540,7 @@ class CellposeModel(UnetModel):
                 yf, style = self._run_3D(x[i], rsz=rescale[i], anisotropy=anisotropy, 
                                          net_avg=net_avg, augment=augment, tile=tile, 
                                          tile_overlap=tile_overlap, progress=progress)
-                cellprob = yf[0][-1] + yf[1][-1] + yf[2][-1]
+                cellprob = yf[0][2] + yf[1][2] + yf[2][2]
                 dP = np.stack((yf[1][0] + yf[2][0], yf[0][0] + yf[2][1], yf[0][1] + yf[1][1]), 
                                 axis=0) # (dZ, dY, dX)
                 print('flows computed %2.2fs'%(time.time()-tic))
@@ -555,7 +566,7 @@ class CellposeModel(UnetModel):
         loss = self.criterion(y[:,:2] , veci) 
         if self.torch:
             loss /= 2.
-        loss2 = self.criterion2(y[:,-1] , lbl)
+        loss2 = self.criterion2(y[:,2] , lbl)
         loss = loss + loss2
         return loss
 
@@ -843,7 +854,7 @@ class SizeModel():
                 imgi,lbl,scale = transforms.random_rotate_and_resize(
                             [train_data[i] for i in inds],
                             Y=[train_labels[i].astype(np.int16) for i in inds], scale_range=1, xy=(512,512))
-                feat = self.cp.network(imgi)[-1]
+                feat = self.cp.network(imgi)[1]
                 styles[inds+nimg*iepoch] = feat
                 diams[inds+nimg*iepoch] = np.log(diam_train[inds]) - np.log(self.diam_mean) + np.log(scale)
             del feat
