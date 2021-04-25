@@ -2,8 +2,9 @@ name: cellpose
 dependencies:
   - python>3.4,<3.8
   - pip
-  - pyqt
   - pip:
+    - PyQt5
+    - PyQt5.sip
     - numpy>1.14.6,<1.19.4
     - numba>=0.43.1
     - scipy
@@ -14,3 +15,5 @@ dependencies:
     - google-cloud-storage
     - tqdm
     - tifffile
+    
+  
