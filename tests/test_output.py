@@ -122,7 +122,6 @@ def compare_masks(data_dir, image_names, runtype, model_type):
                 matching_pix = np.logical_and(masks_test>0, masks_true>0).mean()
                 all_pix = (masks_test>0).mean()
                 pix_precision = np.allclose(all_pix, matching_pix, rtol=r_tol, atol=a_tol)
-
                 assert all([ap_precision, pix_precision])
             else:
                 print('ERROR: no output file of name %s found'%output_test)

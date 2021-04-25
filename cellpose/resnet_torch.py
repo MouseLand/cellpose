@@ -197,10 +197,11 @@ class CPnet(nn.Module):
         if not self.style_on:
             style = style * 0
         T0 = self.upsample(style, T0, self.mkldnn)
-        T0    = self.output(T0)
+        T1    = self.output(T0)
         if self.mkldnn:
             T0 = T0.to_dense()    
-        return T0, style0
+            T1 = T1.to_dense()    
+        return T1, style0, T0
 
     def save_model(self, filename):
         torch.save(self.state_dict(), filename)

@@ -2,7 +2,7 @@ import numpy as np
 from . import utils, dynamics
 from numba import jit
 from scipy.optimize import linear_sum_assignment
-from scipy.ndimage import convolve
+from scipy.ndimage import convolve, mean
 
 
 def mask_ious(masks_true, masks_pred):
@@ -200,7 +200,7 @@ def _true_positive(iou, th):
     tp = match_ok.sum()
     return tp
 
-def flow_error(maski, dP_net):
+def flow_error(maski, dP_net, use_gpu=False, device=None):
     """ error in flows from predicted masks vs flows predicted by network run on image
 
     This function serves to benchmark the quality of masks, it works as follows
@@ -232,18 +232,17 @@ def flow_error(maski, dP_net):
     if dP_net.shape[1:] != maski.shape:
         print('ERROR: net flow is not same size as predicted masks')
         return
+
+    # ensure unique masks
     maski = np.reshape(np.unique(maski.astype(np.float32), return_inverse=True)[1], maski.shape)
+  
     # flows predicted from estimated masks
-    dP_masks,_ = dynamics.masks_to_flows(maski)
-    iun = np.unique(maski)[1:]
-    flow_errors=np.zeros((len(iun),))
-    for i,iu in enumerate(iun):
-        ii = maski==iu
-        if dP_masks.shape[0]==2:
-            flow_errors[i] += ((dP_masks[0][ii] - dP_net[0][ii]/5.)**2
-                            + (dP_masks[1][ii] - dP_net[1][ii]/5.)**2).mean()
-        else:
-            flow_errors[i] += ((dP_masks[0][ii] - dP_net[0][ii]/5.)**2 * 0.5
-                            + (dP_masks[1][ii] - dP_net[1][ii]/5.)**2
-                            + (dP_masks[2][ii] - dP_net[2][ii]/5.)**2).mean()
+    dP_masks = dynamics.masks_to_flows(maski, use_gpu=use_gpu, device=device)[0]
+    
+    # difference between predicted flows vs mask flows
+    flow_errors=np.zeros(maski.max())
+    for i in range(dP_masks.shape[0]):
+        flow_errors += mean((dP_masks[i] - dP_net[i]/5.)**2, maski,
+                            index=np.arange(1, maski.max()+1))
+    
     return flow_errors, dP_masks
