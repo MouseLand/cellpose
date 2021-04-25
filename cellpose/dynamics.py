@@ -5,6 +5,10 @@ import numpy as np
 import tifffile
 from tqdm import trange
 from numba import njit, float32, int32, vectorize
+
+import logging
+dynamics_logger = logging.getLogger(__name__)
+
 from . import utils, metrics
 
 try:
@@ -85,9 +89,10 @@ def labels_to_flows(labels, files=None):
         labels = [labels[n][np.newaxis,:,:] for n in range(nimg)]
 
     if labels[0].shape[0] == 1 or labels[0].ndim < 3:
-        print('NOTE: computing flows for labels (could be done before to save time)')
+        dynamics_logger.info('NOTE: computing flows for labels (could be done before to save time)')
         # compute flows        
-        veci = [masks_to_flows(labels[n][0])[0] for n in trange(nimg)]
+        tqdm_out = utils.TqdmToLogger(dynamics_logger,level=logging.INFO)
+        veci = [masks_to_flows(labels[n][0])[0] for n in trange(nimg, file=tqdm_out)]
         # concatenate flows with cell probability
         flows = [np.concatenate((labels[n][[0]], labels[n][[0]]>0.5, veci[n]), axis=0).astype(np.float32)
                     for n in range(nimg)]
@@ -96,7 +101,7 @@ def labels_to_flows(labels, files=None):
                 file_name = os.path.splitext(file)[0]
                 tifffile.imsave(file_name+'_flows.tif', flow)
     else:
-        print('flows precomputed')
+        dynamics_logger.info('flows precomputed')
         flows = [labels[n].astype(np.float32) for n in range(nimg)]
     return flows
 

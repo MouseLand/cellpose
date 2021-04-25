@@ -3,6 +3,7 @@ from natsort import natsorted
 import numpy as np
 import cv2
 import tifffile
+import logging
 
 from . import utils, plot, transforms
 
@@ -17,14 +18,12 @@ try:
     MATPLOTLIB = True
 except:
     MATPLOTLIB = False
-    print('matplotlib not installed')
-
+    
 try:
     from google.cloud import storage
     SERVER_UPLOAD = True
 except:
     SERVER_UPLOAD = False
-
 
 def outlines_to_text(base, outlines):
     with open(base + '_cp_outlines.txt', 'w') as f:

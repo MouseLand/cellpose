@@ -1,4 +1,4 @@
-import os, argparse, glob, pathlib, time
+import sys, os, argparse, glob, pathlib, time
 import subprocess
 import numpy as np
 from natsort import natsorted
@@ -19,7 +19,31 @@ except Exception as err:
     GUI_IMPORT = False
     raise
 
+import logging
+
+def logger_setup():
+    cp_dir = pathlib.Path.home().joinpath('.cellpose')
+    cp_dir.mkdir(exist_ok=True)
+    log_file = cp_dir.joinpath('run.log')
+    try:
+        log_file.unlink()
+    except:
+        print('creating new log file')
+    logging.basicConfig(
+                    level=logging.INFO,
+                    format="%(asctime)s [%(levelname)s] %(message)s",
+                    handlers=[
+                        logging.FileHandler(log_file),
+                        logging.StreamHandler()
+                    ]
+                )
+    logger = logging.getLogger(__name__)
+    logger.info(f'WRITING LOG OUTPUT TO {log_file}')
+    return logger, log_file
+
 def main():
+    logger, log_file = logger_setup()
+
     parser = argparse.ArgumentParser(description='cellpose parameters')
     parser.add_argument('--check_mkl', action='store_true', help='check if mkl working')
     parser.add_argument('--mkldnn', action='store_true', help='for mxnet, force MXNET_SUBGRAPH_BACKEND = "MKLDNN"')
@@ -91,10 +115,10 @@ def main():
     
     if len(args.dir)==0:
         if not GUI_ENABLED:
-            print('ERROR: %s'%GUI_ERROR)
+            logger.critical('ERROR: %s'%GUI_ERROR)
             if GUI_IMPORT:
-                print('GUI FAILED: GUI dependencies may not be installed, to install, run')
-                print('     pip install cellpose[gui]')
+                logger.critical('GUI FAILED: GUI dependencies may not be installed, to install, run')
+                logger.critical('     pip install cellpose[gui]')
         else:
             gui.run()
 
@@ -117,7 +141,7 @@ def main():
             if not (args.pretrained_model=='cyto' or args.pretrained_model=='nuclei'):
                 cpmodel_path = args.pretrained_model
                 if not os.path.exists(cpmodel_path):
-                    print('model path does not exist, using cyto model')
+                    logger.warning('model path does not exist, using cyto model')
                     args.pretrained_model = 'cyto'
 
             image_names = io.get_image_files(args.dir, args.mask_filter, imf=imf)
@@ -125,17 +149,17 @@ def main():
             if args.diameter==0:
                 if args.pretrained_model=='cyto' or args.pretrained_model=='nuclei':
                     diameter = None
-                    print('>>>> estimating diameter for each image')
+                    logger.info('>>>> estimating diameter for each image')
                 else:
-                    print('>>>> using user-specified model, no auto-diameter estimation available')
+                    logger.info('>>>> using user-specified model, no auto-diameter estimation available')
                     diameter = model.diam_mean
             else:
                 diameter = args.diameter
-                print('>>>> using diameter %0.2f for all images'%diameter)
+                logger.info('>>>> using diameter %0.2f for all images'%diameter)
                 
             cstr0 = ['GRAY', 'RED', 'GREEN', 'BLUE']
             cstr1 = ['NONE', 'RED', 'GREEN', 'BLUE']
-            print('>>>> running cellpose on %d images using chan_to_seg %s and chan (opt) %s'%
+            logger.info('>>>> running cellpose on %d images using chan_to_seg %s and chan (opt) %s'%
                             (nimg, cstr0[channels[0]], cstr1[channels[1]]))
                     
             if args.pretrained_model=='cyto' or args.pretrained_model=='nuclei':
@@ -147,8 +171,9 @@ def main():
                 model = models.CellposeModel(gpu=gpu, device=device,
                                              pretrained_model=cpmodel_path,
                                              torch=(not args.mxnet))
-                
-            for image_name in tqdm(image_names):
+            
+            tqdm_out = utils.TqdmToLogger(logger,level=logging.INFO)
+            for image_name in tqdm(image_names, file=tqdm_out):
                 image = io.imread(image_name)
                 out = model.eval(image, channels=channels, diameter=diameter,
                                 do_3D=args.do_3D, net_avg=(not args.fast_mode),
@@ -168,7 +193,7 @@ def main():
                     io.masks_flows_to_seg(image, masks, flows, diams, image_name, channels)
                 if args.save_png or args.save_tif:
                     io.save_masks(image, masks, flows, image_name, png=args.save_png, tif=args.save_tif)
-            print('>>>> completed in %0.3f sec'%(time.time()-tic))
+            logger.info('>>>> completed in %0.3f sec'%(time.time()-tic))
         else:
             if args.pretrained_model=='cyto' or args.pretrained_model=='nuclei':
                 torch_str = ['torch', '']
@@ -191,24 +216,26 @@ def main():
             # model path
             if not os.path.exists(cpmodel_path):
                 if not args.train:
-                    raise ValueError('ERROR: model path missing or incorrect - cannot train size model')
+                    error_message = 'ERROR: model path missing or incorrect - cannot train size model'
+                    logger.critical(error_message)
+                    raise ValueError(error_message)
                 cpmodel_path = False
-                print('>>>> training from scratch')
+                logger.info('>>>> training from scratch')
                 if args.diameter==0:
                     rescale = False 
-                    print('>>>> median diameter set to 0 => no rescaling during training')
+                    logger.info('>>>> median diameter set to 0 => no rescaling during training')
                 else:
                     rescale = True
                     szmean = args.diameter 
             else:
                 rescale = True
                 args.diameter = szmean 
-                print('>>>> pretrained model %s is being used'%cpmodel_path)
+                logger.info('>>>> pretrained model %s is being used'%cpmodel_path)
                 args.residual_on = 1
                 args.style_on = 1
                 args.concatenation = 0
             if rescale and args.train:
-                print('>>>> during training rescaling images to fixed diameter of %0.1f pixels'%args.diameter)
+                logger.info('>>>> during training rescaling images to fixed diameter of %0.1f pixels'%args.diameter)
                 
             # initialize model
             if args.unet:
@@ -236,7 +263,7 @@ def main():
                                             save_path=os.path.realpath(args.dir), rescale=rescale, n_epochs=args.n_epochs,
                                             batch_size=args.batch_size)
                 model.pretrained_model = cpmodel_path
-                print('>>>> model trained and saved to %s'%cpmodel_path)
+                logger.info('>>>> model trained and saved to %s'%cpmodel_path)
 
             # train size model
             if args.train_size:
@@ -250,7 +277,7 @@ def main():
                         tlabels = test_labels 
                     ccs = np.corrcoef(diams_style, np.array([utils.diameters(lbl)[0] for lbl in tlabels]))[0,1]
                     cc = np.corrcoef(predicted_diams, np.array([utils.diameters(lbl)[0] for lbl in tlabels]))[0,1]
-                    print('style test correlation: %0.4f; final test correlation: %0.4f'%(ccs,cc))
+                    logger.info('style test correlation: %0.4f; final test correlation: %0.4f'%(ccs,cc))
                     np.save(os.path.join(args.test_dir, '%s_predicted_diams.npy'%os.path.split(cpmodel_path)[1]), 
                             {'predicted_diams': predicted_diams, 'diams_style': diams_style})
 

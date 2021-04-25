@@ -1,7 +1,9 @@
-#from suite2p import nonrigid
 import numpy as np
 import warnings
 import cv2
+
+import logging
+transforms_logger = logging.getLogger(__name__)
 
 def _taper_mask(ly=224, lx=224, sig=7.5):
     bsize = max(224, max(ly, lx))
@@ -183,7 +185,9 @@ def make_tiles(imgi, bsize=224, augment=False, tile_overlap=0.1):
 def normalize99(img):
     """ normalize image so 0.0 is 1st percentile and 1.0 is 99th percentile """
     X = img.copy()
-    X = (X - np.percentile(X, 1)) / (np.percentile(X, 99) - np.percentile(X, 1))
+    x01 = np.percentile(X, 1)
+    x99 = np.percentile(X, 99)
+    X = (X - x01) / (x99 - x01)
     return X
 
 def reshape(data, channels=[0,0], chan_first=False):
@@ -264,7 +268,9 @@ def normalize_img(img, axis=-1, invert=False):
 
     """
     if img.ndim<3:
-        raise ValueError('Image needs to have at least 3 dimensions')
+        error_message = 'Image needs to have at least 3 dimensions'
+        transforms_logger.critical(error_message)
+        raise ValueError(error_message)
 
     img = img.astype(np.float32)
     img = np.moveaxis(img, axis, 0)
@@ -281,14 +287,20 @@ def reshape_train_test(train_data, train_labels, test_data, test_labels, channel
     nimg = len(train_data)
     # check that arrays are correct size
     if nimg != len(train_labels):
-        raise ValueError('train data and labels not same length')
+        error_message = 'train data and labels not same length'
+        transforms_logger.critical(error_message)
+        raise ValueError(error_message)
         return
     if train_labels[0].ndim < 2 or train_data[0].ndim < 2:
-        raise ValueError('training data or labels are not at least two-dimensional')
+        error_message = 'training data or labels are not at least two-dimensional'
+        transforms_logger.critical(error_message)
+        raise ValueError(error_message)
         return
 
     if train_data[0].ndim > 3:
-        raise ValueError('training data is more than three-dimensional (should be 2D or 3D array)')
+        error_message = 'training data is more than three-dimensional (should be 2D or 3D array)'
+        transforms_logger.critical(error_message)
+        raise ValueError(error_message)
         return
 
     # check if test_data correct length
@@ -301,11 +313,13 @@ def reshape_train_test(train_data, train_labels, test_data, test_labels, channel
                                                                  channels=channels, normalize=normalize)
 
     if train_data is None:
-        raise ValueError('training data do not all have the same number of channels')
+        error_message = 'training data do not all have the same number of channels'
+        transforms_logger.critical(error_message)
+        raise ValueError(error_message)
         return
 
     if not run_test:
-        print('NOTE: test data not provided OR labels incorrect OR not same number of channels as train data')
+        transforms_logger.info('NOTE: test data not provided OR labels incorrect OR not same number of channels as train data')
         test_data, test_labels = None, None
 
     return train_data, train_labels, test_data, test_labels, run_test
@@ -353,7 +367,7 @@ def reshape_and_normalize_data(train_data, test_data=None, channels=None, normal
     if train_data[0].ndim < 3:
         train_data = [train_data[n][:,:,np.newaxis] for n in range(nimg)]
     elif train_data[0].shape[-1] < 8:
-        print('NOTE: assuming train_data provided as Ly x Lx x nchannels, transposing axes to put channels first')
+        transforms_logger.info('NOTE: assuming train_data provided as Ly x Lx x nchannels, transposing axes to put channels first')
         train_data = [np.transpose(train_data[n], (2,0,1)) for n in range(nimg)]
     nchan = [train_data[n].shape[0] for n in range(nimg)]
     if nchan.count(nchan[0]) != len(nchan):
@@ -372,7 +386,7 @@ def reshape_and_normalize_data(train_data, test_data=None, channels=None, normal
                 test_data = [test_data[n][np.newaxis,:,:] for n in range(nimgt)]
         elif test_data[0].ndim==3:
             if test_data[0].shape[-1] < 8:
-                print('NOTE: assuming test_data provided as Ly x Lx x nchannels, transposing axes to put channels first')
+                transforms_logger.info('NOTE: assuming test_data provided as Ly x Lx x nchannels, transposing axes to put channels first')
                 test_data = [np.transpose(test_data[n], (2,0,1)) for n in range(nimgt)]
             nchan_test = [test_data[n].shape[0] for n in range(nimgt)]
             if nchan_test.count(nchan_test[0]) != len(nchan_test):
@@ -387,14 +401,14 @@ def reshape_and_normalize_data(train_data, test_data=None, channels=None, normal
 
     return train_data, test_data, run_test
 
-def resize_image(img0, Ly=None, Lx=None, rsz=None, interpolation=cv2.INTER_LINEAR):
+def resize_image(img0, Ly=None, Lx=None, rsz=None, interpolation=cv2.INTER_LINEAR, no_channels=False):
     """ resize image for computing flows / unresize for computing dynamics
 
     Parameters
     -------------
 
     img0: ND-array
-        image of size [y x x x nchan] or [Lz x y x x x nchan]
+        image of size [y x x x nchan] or [Lz x y x x x nchan] or [Lz x y x x]
 
     Ly: int, optional
 
@@ -413,17 +427,26 @@ def resize_image(img0, Ly=None, Lx=None, rsz=None, interpolation=cv2.INTER_LINEA
 
     """
     if Ly is None and rsz is None:
-        raise ValueError('must give size to resize to or factor to use for resizing')
+        error_message = 'must give size to resize to or factor to use for resizing'
+        transforms_logger.critical(error_message)
+        raise ValueError(error_message)
 
     if Ly is None:
         # determine Ly and Lx using rsz
         if not isinstance(rsz, list) and not isinstance(rsz, np.ndarray):
             rsz = [rsz, rsz]
-        Ly = int(img0.shape[-3] * rsz[-2])
-        Lx = int(img0.shape[-2] * rsz[-1])
+        if no_channels:
+            Ly = int(img0.shape[-2] * rsz[-2])
+            Lx = int(img0.shape[-1] * rsz[-1])
+        else:
+            Ly = int(img0.shape[-3] * rsz[-2])
+            Lx = int(img0.shape[-2] * rsz[-1])
     
-    if img0.ndim==4:
-        imgs = np.zeros((img0.shape[0], Ly, Lx, img0.shape[-1]), np.float32)
+    if (img0.ndim>2 and no_channels) or (img0.ndim==4 and not no_channels):
+        if no_channels:
+            imgs = np.zeros((img0.shape[0], Ly, Lx), np.float32)
+        else:
+            imgs = np.zeros((img0.shape[0], Ly, Lx, img0.shape[-1]), np.float32)
         for i,img in enumerate(img0):
             imgs[i] = cv2.resize(img, (Lx, Ly), interpolation=interpolation)
     else:

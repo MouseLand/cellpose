@@ -1,9 +1,9 @@
 import os, sys, time, shutil, tempfile, datetime, pathlib, subprocess
+import logging
 import numpy as np
 from tqdm import trange, tqdm
 from urllib.parse import urlparse
 import tempfile
-
 from scipy.ndimage import median_filter
 import cv2
 
@@ -30,16 +30,20 @@ try:
 except:
     TORCH_ENABLED = False
 
+core_logger = logging.getLogger(__name__)
+core_logger.setLevel(logging.DEBUG)
+tqdm_out = utils.TqdmToLogger(core_logger, level=logging.INFO)
+
 def parse_model_string(pretrained_model):
     if isinstance(pretrained_model, list):
         model_str = os.path.split(pretrained_model[0])[-1]
     else:
         model_str = os.path.split(pretrained_model)[-1]
     if len(model_str)>3 and model_str[:4]=='unet':
-        print('parsing model string to get unet options')
+        core_logger.info(f'parsing model string {model_str} to get unet options')
         nclasses = max(2, int(model_str[4]))
     elif len(model_str)>7 and model_str[:8]=='cellpose':
-        print('parsing model string to get cellpose options')
+        core_logger.info(f'parsing model string {model_str} to get cellpose options')
         nclasses = 3
     else:
         return None
@@ -59,39 +63,35 @@ def use_gpu(gpu_number=0, istorch=True):
 def _use_gpu_mxnet(gpu_number=0):
     try:
         _ = mx.ndarray.array([1, 2, 3], ctx=mx.gpu(gpu_number))
-        print('** MXNET CUDA version installed and working. **')
+        core_logger.info('** MXNET CUDA version installed and working. **')
         return True
     except mx.MXNetError:
-        print('MXNET CUDA version not installed/working.')
+        core_logger.info('MXNET CUDA version not installed/working.')
         return False
 
 def _use_gpu_torch(gpu_number=0):
     try:
         device = torch.device('cuda:' + str(gpu_number))
         _ = torch.zeros([1, 2, 3]).to(device)
-        print('** TORCH CUDA version installed and working. **')
+        core_logger.info('** TORCH CUDA version installed and working. **')
         return True
     except:
-        print('TORCH CUDA version not installed/working.')
+        core_logger.info('TORCH CUDA version not installed/working.')
         return False
 
 def assign_device(istorch, gpu):
     if gpu and use_gpu(istorch=istorch):
         device = torch_GPU if istorch else mx_GPU
         gpu=True
-        print('>>>> using GPU')
+        core_logger.info('>>>> using GPU')
     else:
         device = torch_CPU if istorch else mx_CPU
-        print('>>>> using CPU')
+        core_logger.info('>>>> using CPU')
         gpu=False
     return device, gpu
 
 def check_mkl(istorch=True):
-    print('Running test snippet to check if MKL-DNN working')
-    if istorch:
-        print('see https://pytorch.org/docs/stable/backends.html?highlight=mkl')
-    else:
-        print('see https://mxnet.apache.org/versions/1.6/api/python/docs/tutorials/performance/backend/mkldnn/mkldnn_readme.html#4)')
+    #core_logger.info('Running test snippet to check if MKL-DNN working')
     if istorch:
         mkl_enabled = torch.backends.mkldnn.is_available()
     else:
@@ -104,15 +104,18 @@ def check_mkl(istorch=True):
         else:
             mkl_enabled = False
     if mkl_enabled:
-        print('** MKL version working - CPU version is sped up. **')
+        mkl_enabled = True
+        #core_logger.info('MKL version working - CPU version is sped up.')
     elif not istorch:
-        print('WARNING: MKL version on mxnet not working/installed - CPU version will be SLOW.')
+        core_logger.info('WARNING: MKL version on mxnet not working/installed - CPU version will be SLOW.')
+        core_logger.info('see https://mxnet.apache.org/versions/1.6/api/python/docs/tutorials/performance/backend/mkldnn/mkldnn_readme.html#4)')
     else:
-        print('WARNING: MKL version on torch not working/installed - CPU version will be slightly slower.')
+        core_logger.info('WARNING: MKL version on torch not working/installed - CPU version will be slightly slower.')
+        core_logger.info('see https://pytorch.org/docs/stable/backends.html?highlight=mkl')
     return mkl_enabled
 
 
-def convert_images(x, channels, do_3D, normalize, invert):
+def convert_images(x, channels, channels_last=False, do_3D=False, normalize=True, invert=False):
     """ return list of images with channels last and normalized intensities """
     if not isinstance(x,list) and not (x.ndim>3 and not do_3D):
         nolist = True
@@ -124,14 +127,15 @@ def convert_images(x, channels, do_3D, normalize, invert):
     if do_3D:
         for i in range(len(x)):
             if x[i].ndim<3:
+                core_logger.critical('ERROR: cannot process 2D images in 3D mode')
                 raise ValueError('ERROR: cannot process 2D images in 3D mode') 
             elif x[i].ndim<4:
                 x[i] = x[i][...,np.newaxis]
-            if x[i].shape[1]<4:
+            if not channels_last and x[i].shape[1]<4:
                 x[i] = x[i].transpose((0,2,3,1))
-            elif x[i].shape[0]<4:
+            elif not channels_last and x[i].shape[0]<4:
                 x[i] = x[i].transpose((1,2,3,0))
-            print('multi-stack tiff read in as having %d planes %d channels'%
+            core_logger.info('multi-stack tiff read in as having %d planes %d channels'%
                     (x[i].shape[0], x[i].shape[-1]))
 
     if channels is not None:
@@ -139,25 +143,27 @@ def convert_images(x, channels, do_3D, normalize, invert):
             if not isinstance(channels[0], list):
                 channels = [channels for i in range(nimg)]
         for i in range(len(x)):
-            if x[i].shape[0]<4:
+            if not channels_last and x[i].shape[0]<4:
                 x[i] = x[i].transpose(1,2,0)
         x = [transforms.reshape(x[i], channels=channels[i]) for i in range(nimg)]
+        
     elif do_3D:
         for i in range(len(x)):
             # code above put channels last
             if x[i].shape[-1]>2:
-                print('WARNING: more than 2 channels given, use "channels" input for specifying channels - just using first two channels to run processing')
+                core_logger.warning('WARNING: more than 2 channels given, use "channels" input for specifying channels - just using first two channels to run processing')
                 x[i] = x[i][...,:2]
     else:
         for i in range(len(x)):
             if x[i].ndim>3:
+                core_logger.critical('ERROR: cannot process 4D images in 2D mode')
                 raise ValueError('ERROR: cannot process 4D images in 2D mode')
             elif x[i].ndim==2:
                 x[i] = np.stack((x[i], np.zeros_like(x[i])), axis=2)
-            elif x[i].shape[0]<8:
+            elif not channels_last and x[i].shape[0]<8:
                 x[i] = x[i].transpose((1,2,0))
             if x[i].shape[-1]>2:
-                print('WARNING: more than 2 channels given, use "channels" input for specifying channels - just using first two channels to run processing')
+                core_logger.warning('WARNING: more than 2 channels given, use "channels" input for specifying channels - just using first two channels to run processing')
                 x[i] = x[i][:,:,:2]
 
     if normalize or invert:
@@ -173,7 +179,6 @@ class UnetModel():
         self.unet = True
         if torch:
             if not TORCH_ENABLED:
-                print('torch not installed')
                 torch = False
         self.torch = torch
         self.mkldnn = None
@@ -197,7 +202,7 @@ class UnetModel():
                                                                                 ostr[style_on],
                                                                                 ostr[concatenation])                                             
         if pretrained_model:
-            print(self.net_type)
+            core_logger.info(f'u-net net type: {self.net_type}')
         # create network
         self.nclasses = nclasses
         nbase = [32,64,128,256]
@@ -222,7 +227,7 @@ class UnetModel():
         if pretrained_model is not None and isinstance(pretrained_model, str):
             self.net.load_model(pretrained_model, cpu=(not self.gpu))
 
-    def eval(self, x, batch_size=8, channels=None, invert=False, normalize=True,
+    def eval(self, x, batch_size=8, channels=None, channels_last=False, invert=False, normalize=True,
              rescale=None, do_3D=False, anisotropy=None, net_avg=True, augment=False,
              tile=True, cell_threshold=None, boundary_threshold=None, min_size=15):
         """ segment list of images x
@@ -243,6 +248,10 @@ class UnetModel():
                 For instance, to segment grayscale images, input [0,0]. To segment images with cells
                 in green and nuclei in blue, input [2,3]. To segment one grayscale image and one
                 image with cells in green and nuclei in blue, input [[0,0], [2,3]].
+
+            channels_last: bool (optional, default False)
+                set to True if image given with channels as last dimension, otherwise channels 
+                dimension is attempted to be automatically determined
 
             invert: bool (optional, default False)
                 invert image pixel intensity before running network
@@ -291,7 +300,7 @@ class UnetModel():
                 style vector summarizing each image, also used to estimate size of objects in image
 
         """
-        x, nolist = convert_images(x, channels, do_3D, normalize, invert)
+        x, nolist = convert_images(x, channels, channels_last, do_3D, normalize, invert)
         nimg = len(x)
         self.batch_size = batch_size
 
@@ -303,7 +312,7 @@ class UnetModel():
         elif isinstance(rescale, float):
             rescale = rescale * np.ones(nimg)
         if nimg > 1:
-            iterator = trange(nimg)
+            iterator = trange(nimg, file=tqdm_out)
         else:
             iterator = range(nimg)
 
@@ -320,9 +329,9 @@ class UnetModel():
             try:
                 thresholds = np.load(model_path+'_cell_boundary_threshold.npy')
                 cell_threshold, boundary_threshold = thresholds
-                print('>>>> found saved thresholds from validation set')
+                core_logger.info('>>>> found saved thresholds from validation set')
             except:
-                print('WARNING: no thresholds found, using default / user input')
+                core_logger.warning('WARNING: no thresholds found, using default / user input')
 
         cell_threshold = 2.0 if cell_threshold is None else cell_threshold
         boundary_threshold = 0.5 if boundary_threshold is None else boundary_threshold
@@ -347,12 +356,12 @@ class UnetModel():
                 yf, style = self._run_3D(x[i], rsz=rescale[i], anisotropy=anisotropy, 
                                          net_avg=net_avg, augment=augment, tile=tile)
                 yf = yf.mean(axis=0)
-                print('probabilities computed %2.2fs'%(time.time()-tic))
+                core_logger.info('probabilities computed %2.2fs'%(time.time()-tic))
                 maski = utils.get_masks_unet(yf.transpose((1,2,3,0)), cell_threshold, boundary_threshold)
                 maski = utils.fill_holes_and_remove_small_masks(maski, min_size=min_size)
                 masks.append(maski)
                 styles.append(style)
-                print('masks computed %2.2fs'%(time.time()-tic))
+                core_logger.info('masks computed %2.2fs'%(time.time()-tic))
                 flows.append(yf)
 
         if nolist:
@@ -558,7 +567,7 @@ class UnetModel():
             yf = np.zeros((Lz, self.nclasses, imgi.shape[-2], imgi.shape[-1]), np.float32)
             styles = []
             if ny*nx > batch_size:
-                ziterator = trange(Lz)
+                ziterator = trange(Lz, file=tqdm_out)
                 for i in ziterator:
                     yfi, stylei = self._run_tiled(imgi[i], augment=augment, 
                                                   bsize=bsize, tile_overlap=tile_overlap)
@@ -569,7 +578,7 @@ class UnetModel():
                 ntiles = ny*nx
                 nimgs = max(2, int(np.round(batch_size / ntiles)))
                 niter = int(np.ceil(Lz/nimgs))
-                ziterator = trange(niter)
+                ziterator = trange(niter, file=tqdm_out)
                 for k in ziterator:
                     IMGa = np.zeros((ntiles*nimgs, nchan, ly, lx), np.float32)
                     for i in range(min(Lz-k*nimgs, nimgs)):
@@ -679,9 +688,9 @@ class UnetModel():
             xsl = imgs.copy().transpose(pm[p])
             # rescale image for flow computation
             shape = xsl.shape
-            xsl = transforms.resize_image(xsl, rsz=rescaling[p])    
+            xsl = transforms.resize_image(xsl, rsz=rescaling[p])  
             # per image
-            print('\n running %s: %d planes of size (%d, %d) \n\n'%(sstr[p], shape[0], shape[1], shape[2]))
+            core_logger.info('running %s: %d planes of size (%d, %d)'%(sstr[p], shape[0], shape[1], shape[2]))
             y, style = self._run_nets(xsl, net_avg=net_avg, augment=augment, tile=tile, 
                                       bsize=bsize, tile_overlap=tile_overlap)
             y = transforms.resize_image(y, shape[1], shape[2])    
@@ -717,19 +726,19 @@ class UnetModel():
 
         # add dist_to_bound to labels
         if self.nclasses==3:
-            print('computing boundary pixels')
+            core_logger.info('computing boundary pixels')
             train_classes = [np.stack((label, label>0, utils.distance_to_boundary(label)), axis=0).astype(np.float32)
-                                for label in tqdm(train_labels)]
+                                for label in tqdm(train_labels, file=tqdm_out)]
         else:
             train_classes = [np.stack((label, label>0), axis=0).astype(np.float32)
-                                for label in tqdm(train_labels)]
+                                for label in tqdm(train_labels, file=tqdm_out)]
         if run_test:
             if self.nclasses==3:
                 test_classes = [np.stack((label, label>0, utils.distance_to_boundary(label)), axis=0).astype(np.float32)
-                                    for label in tqdm(test_labels)]
+                                    for label in tqdm(test_labels, file=tqdm_out)]
             else:
                 test_classes = [np.stack((label, label>0), axis=0).astype(np.float32)
-                                    for label in tqdm(test_labels)]
+                                    for label in tqdm(test_labels, file=tqdm_out)]
         
         # split train data into train and val
         val_data = train_data[::8]
@@ -745,7 +754,7 @@ class UnetModel():
 
 
         # find threshold using validation set
-        print('>>>> finding best thresholds using validation set')
+        core_logger.info('>>>> finding best thresholds using validation set')
         cell_threshold, boundary_threshold = self.threshold_validation(val_data, val_labels)
         np.save(model_path+'_cell_boundary_threshold.npy', np.array([cell_threshold, boundary_threshold]))
 
@@ -770,7 +779,7 @@ class UnetModel():
             else:
                 kbest = 0
             if j%4==0:
-                print('best threshold at cell_threshold = {} => boundary_threshold = {}, ap @ 0.5 = {}'.format(cell_threshold, boundary_thresholds[kbest], 
+                core_logger.info('best threshold at cell_threshold = {} => boundary_threshold = {}, ap @ 0.5 = {}'.format(cell_threshold, boundary_thresholds[kbest], 
                                                                         aps[j,kbest,0]))   
         if self.nclasses==3: 
             jbest, kbest = np.unravel_index(aps.mean(axis=-1).argmax(), aps.shape[:2])
@@ -778,7 +787,7 @@ class UnetModel():
             jbest = aps.squeeze().mean(axis=-1).argmax()
             kbest = 0
         cell_threshold, boundary_threshold = cell_thresholds[jbest], boundary_thresholds[kbest]
-        print('>>>> best overall thresholds: (cell_threshold = {}, boundary_threshold = {}); ap @ 0.5 = {}'.format(cell_threshold, boundary_threshold, 
+        core_logger.info('>>>> best overall thresholds: (cell_threshold = {}, boundary_threshold = {}); ap @ 0.5 = {}'.format(cell_threshold, boundary_threshold, 
                                                           aps[jbest,kbest,0]))
         return cell_threshold, boundary_threshold
 
@@ -878,14 +887,14 @@ class UnetModel():
             scale_range = 1.0
 
         nchan = train_data[0].shape[0]
-        print('>>>> training network with %d channel input <<<<'%nchan)
-        print('>>>> saving every %d epochs'%save_every)
-        print('>>>> median diameter = %d'%self.diam_mean)
-        print('>>>> LR: %0.5f, batch_size: %d, weight_decay: %0.5f'%(self.learning_rate, self.batch_size, weight_decay))
-        print('>>>> ntrain = %d'%nimg)
+        core_logger.info('>>>> training network with %d channel input <<<<'%nchan)
+        core_logger.info('>>>> saving every %d epochs'%save_every)
+        core_logger.info('>>>> median diameter = %d'%self.diam_mean)
+        core_logger.info('>>>> LR: %0.5f, batch_size: %d, weight_decay: %0.5f'%(self.learning_rate, self.batch_size, weight_decay))
+        core_logger.info('>>>> ntrain = %d'%nimg)
         if test_data is not None:
-            print('>>>> ntest = %d'%len(test_data))
-        print(train_data[0].shape)
+            core_logger.info('>>>> ntest = %d'%len(test_data))
+        core_logger.info(train_data[0].shape)
 
         # set learning rate schedule    
         LR = np.linspace(0, self.learning_rate, 10)
@@ -907,7 +916,7 @@ class UnetModel():
             if not os.path.exists(file_path):
                 os.makedirs(file_path)
         else:
-            print('WARNING: no save_path given, model not saving')
+            core_logger.warning('WARNING: no save_path given, model not saving')
 
         ksave = 0
         rsc = 1.0
@@ -952,22 +961,23 @@ class UnetModel():
                         lavgt += test_loss
                         nsum += len(imgi)
 
-                    print('Epoch %d, Time %4.1fs, Loss %2.4f, Loss Test %2.4f, LR %2.4f'%
+                    core_logger.info('Epoch %d, Time %4.1fs, Loss %2.4f, Loss Test %2.4f, LR %2.4f'%
                             (iepoch, time.time()-tic, lavg, lavgt/nsum, LR[iepoch]))
                 else:
-                    print('Epoch %d, Time %4.1fs, Loss %2.4f, LR %2.4f'%
+                    core_logger.info('Epoch %d, Time %4.1fs, Loss %2.4f, LR %2.4f'%
                             (iepoch, time.time()-tic, lavg, LR[iepoch]))
                 lavg, nsum = 0, 0
 
             if save_path is not None:
                 if iepoch==self.n_epochs-1 or iepoch%save_every==1:
                     # save model at the end
-                    file = '{}_{}_{}'.format(self.net_type, file_label, d.strftime("%Y_%m_%d_%H_%M_%S.%f"))
+                    file_name = '{}_{}_{}'.format(self.net_type, file_label, d.strftime("%Y_%m_%d_%H_%M_%S.%f"))
+                    file_name = os.path.join(file_path, file_name)
                     ksave += 1
-                    print('saving network parameters')
-                    self.net.save_model(os.path.join(file_path, file))
+                    core_logger.info(f'saving network parameters to {file_name}')
+                    self.net.save_model(file_name)
 
         # reset to mkldnn if available
         self.net.mkldnn = self.mkldnn
 
-        return os.path.join(file_path, file)
+        return file_name
