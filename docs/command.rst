@@ -23,7 +23,7 @@ These are the same :ref:`settings`, but set up for the command line, e.g.
         (optional); 0 = None (will be set to zero); 1 = red; 2 = green; 3 = blue
 
     * pretrained_model: (string)
-        cyto = cytoplasm; nuclei = nucleus
+        cyto = cellpose cytoplasm model; nuclei = cellpose nucleus model; can also specify absolute path to model file
 
     * diameter: (float)
         average diameter of objects in image, if 0 cellpose will estimate for each image, default is 30
