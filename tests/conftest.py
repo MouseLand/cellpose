@@ -1,8 +1,6 @@
 import pytest
 import os, sys, shutil
 from cellpose import utils
-from urllib.request import urlopen
-from urllib.parse import urlparse
 
 from pathlib import Path
 

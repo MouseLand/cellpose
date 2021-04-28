@@ -138,6 +138,25 @@ def masks_to_edges(masks, threshold=1.0):
     edges = (dist_to_bound < threshold) * (masks > 0)
     return edges
 
+def remove_edge_masks(masks):
+    """ remove masks with pixels on edge of image
+    
+    Parameters
+    ----------------
+
+    masks: int, 2D or 3D array 
+        size [Ly x Lx] or [Lz x Ly x Lx], 0=NO masks; 1,2,...=mask labels
+
+    Returns
+    ----------------
+
+    outlines: 2D or 3D array 
+        size [Ly x Lx] or [Lz x Ly x Lx], 0=NO masks; 1,2,...=mask labels
+
+    """
+    # TODO
+    return True
+
 def masks_to_outlines(masks):
     """ get outlines of masks as a 0-1 array 
     
