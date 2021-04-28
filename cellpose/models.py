@@ -264,7 +264,10 @@ class Cellpose():
                                         augment=augment, tile=tile)
                 rescale = self.diam_mean / diams
                 models_logger.info('estimated cell diameters for %d image(s) in %0.2f sec'%(nimg, time.time()-tic))
-                models_logger.info('>>> diameter(s) = ', diams)
+                models_logger.info('>>> diameter(s) = ')
+                diam_string = '[' + ''.join(['%0.2f'%d for d in diams]) + ']'
+                models_logger.info(diam_string)
+
             else:
                 if rescale is None:
                     if do_3D:
