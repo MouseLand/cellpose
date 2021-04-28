@@ -206,13 +206,22 @@ def main():
                 cpmodel_path = os.fspath(args.pretrained_model)
                 szmean = 30.
             
-            if args.all_channels:
-                channels = None  
-
             test_dir = None if len(args.test_dir)==0 else args.test_dir
             output = io.load_train_test_data(args.dir, test_dir, imf, args.mask_filter, args.unet)
             images, labels, image_names, test_images, test_labels, image_names_test = output
 
+            # training with all channels
+            if args.all_channels:
+                img = images[0]
+                if img.ndim==3:
+                    nchan = min(img.shape)
+                elif img.ndim==2:
+                    nchan = 1
+                channels = None 
+            else:
+                nchan = 2 
+
+            
             # model path
             if not os.path.exists(cpmodel_path):
                 if not args.train:
@@ -245,7 +254,8 @@ def main():
                                         residual_on=args.residual_on,
                                         style_on=args.style_on,
                                         concatenation=args.concatenation,
-                                        nclasses=args.nclasses)
+                                        nclasses=args.nclasses,
+                                        nchan=nchan)
             else:
                 model = models.CellposeModel(device=device,
                                             torch=(not args.mxnet),
@@ -253,7 +263,8 @@ def main():
                                             diam_mean=szmean,
                                             residual_on=args.residual_on,
                                             style_on=args.style_on,
-                                            concatenation=args.concatenation)
+                                            concatenation=args.concatenation,
+                                            nchan=nchan)
             
             # train segmentation model
             if args.train:

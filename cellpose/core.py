@@ -175,7 +175,7 @@ class UnetModel():
     def __init__(self, gpu=False, pretrained_model=False,
                     diam_mean=30., net_avg=True, device=None,
                     residual_on=False, style_on=False, concatenation=True,
-                    nclasses = 3, torch=True):
+                    nclasses = 3, torch=True, nchan=2):
         self.unet = True
         if torch:
             if not TORCH_ENABLED:
@@ -207,7 +207,7 @@ class UnetModel():
         self.nclasses = nclasses
         nbase = [32,64,128,256]
         if self.torch:
-            nchan = 2
+            nchan = nchan
             nbase = [nchan, 32, 64, 128, 256]
             self.net = resnet_torch.CPnet(nbase, 
                                           self.nclasses, 

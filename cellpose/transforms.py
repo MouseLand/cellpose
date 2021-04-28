@@ -365,7 +365,7 @@ def reshape_and_normalize_data(train_data, test_data=None, channels=None, normal
     if channels is not None:
         train_data = [reshape(train_data[n], channels=channels, chan_first=True) for n in range(nimg)]
     if train_data[0].ndim < 3:
-        train_data = [train_data[n][:,:,np.newaxis] for n in range(nimg)]
+        train_data = [train_data[n][np.newaxis,:,:] for n in range(nimg)]
     elif train_data[0].shape[-1] < 8:
         transforms_logger.info('NOTE: assuming train_data provided as Ly x Lx x nchannels, transposing axes to put channels first')
         train_data = [np.transpose(train_data[n], (2,0,1)) for n in range(nimg)]
@@ -398,7 +398,6 @@ def reshape_and_normalize_data(train_data, test_data=None, channels=None, normal
         train_data = [normalize_img(train_data[n], axis=0) for n in range(nimg)]
         if run_test:
             test_data = [normalize_img(test_data[n], axis=0) for n in range(nimgt)]
-
     return train_data, test_data, run_test
 
 def resize_image(img0, Ly=None, Lx=None, rsz=None, interpolation=cv2.INTER_LINEAR, no_channels=False):
