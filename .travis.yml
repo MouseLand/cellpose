@@ -59,7 +59,7 @@ install:
 - pip install matplotlib
 - pip install coveralls
 script:
-- coverage run --source=cellpose --omit=cellpose/gui.py,cellpose/guiparts.py,cellpose/menus.py,cellpose/__main__.py
+- coverage run --source=cellpose --omit=cellpose/gui/gui.py,cellpose/gui/guiparts.py,cellpose/gui/io.py,cellpose/gui/menus.py,cellpose/__main__.py
   setup.py test
 after_success: coveralls
 deploy:

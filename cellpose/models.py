@@ -104,9 +104,11 @@ class Cellpose():
         self.device = device if device is not None else sdevice
         self.gpu = gpu
         model_type = 'cyto' if model_type is None else model_type
+        if model_type=='cyto2' and not self.torch:
+            model_type='cyto'
         self.pretrained_model = [os.fspath(model_dir.joinpath('%s%s_%d'%(model_type,torch_str,j))) for j in range(4)]
         self.pretrained_size = os.fspath(model_dir.joinpath('size_%s%s_0.npy'%(model_type,torch_str)))
-        self.diam_mean = 30. if model_type=='cyto' else 17.
+        self.diam_mean = 30. if model_type!='nuclei' else 17.
         
         if not net_avg:
             self.pretrained_model = self.pretrained_model[0]
@@ -234,7 +236,7 @@ class Cellpose():
             else:
                 diam_string = '[ %0.2f ]'%diams
             models_logger.info(diam_string)
-        else:
+        elif estimate_size:
             if self.pretrained_size is None:
                 reason = 'no pretrained size model specified in model Cellpose'
             else:
@@ -315,7 +317,7 @@ class CellposeModel(UnetModel):
         
         if model_type is not None or (pretrained_model and not os.path.exists(pretrained_model[0])):
             pretrained_model_string = model_type 
-            if (pretrained_model_string !='cyto' and pretrained_model_string !='nuclei') or pretrained_model_string is None:
+            if (pretrained_model_string !='cyto' and pretrained_model_string !='nuclei' and pretrained_model_string != 'cyto2') or pretrained_model_string is None:
                 pretrained_model_string = 'cyto'
             pretrained_model = None 
             if (pretrained_model and not os.path.exists(pretrained_model[0])):
