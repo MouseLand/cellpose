@@ -138,7 +138,7 @@ def masks_to_edges(masks, threshold=1.0):
     edges = (dist_to_bound < threshold) * (masks > 0)
     return edges
 
-def remove_edge_masks(masks):
+def remove_edge_masks(masks, change_index=True):
     """ remove masks with pixels on edge of image
     
     Parameters
@@ -147,6 +147,9 @@ def remove_edge_masks(masks):
     masks: int, 2D or 3D array 
         size [Ly x Lx] or [Lz x Ly x Lx], 0=NO masks; 1,2,...=mask labels
 
+    change_index: bool (optional, default True)
+        if True, after removing masks change indexing so no missing label numbers
+
     Returns
     ----------------
 
@@ -154,8 +157,22 @@ def remove_edge_masks(masks):
         size [Ly x Lx] or [Lz x Ly x Lx], 0=NO masks; 1,2,...=mask labels
 
     """
-    # TODO
-    return True
+    slices = find_objects(masks.astype(int))
+    for i,si in enumerate(slices):
+        remove = False
+        if si is not None:
+            for d,sid in enumerate(si):
+                if sid.start==0 or sid.stop==masks.shape[d]:
+                    remove=True
+                    break  
+            if remove:
+                masks[si][masks[si]==i+1] = 0
+    shape = masks.shape
+    if change_index:
+        _,masks = np.unique(masks, return_inverse=True)
+        masks = np.reshape(masks, shape).astype(np.int32)
+
+    return masks
 
 def masks_to_outlines(masks):
     """ get outlines of masks as a 0-1 array 

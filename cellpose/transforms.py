@@ -4,6 +4,8 @@ import cv2
 
 import logging
 transforms_logger = logging.getLogger(__name__)
+transforms_logger.setLevel(logging.DEBUG)
+
 
 def _taper_mask(ly=224, lx=224, sig=7.5):
     bsize = max(224, max(ly, lx))
@@ -190,6 +192,115 @@ def normalize99(img):
     X = (X - x01) / (x99 - x01)
     return X
 
+def move_axis(img, m_axis=-1, first=True):
+    """ move axis m_axis to first or last position """
+    if m_axis==-1:
+        m_axis = img.ndim-1
+    m_axis = min(img.ndim-1, m_axis)
+    axes = np.arange(0, img.ndim)
+    if first:
+        axes[1:m_axis+1] = axes[:m_axis]
+        axes[0] = m_axis
+    else:
+        axes[m_axis:-1] = axes[m_axis+1:]
+        axes[-1] = m_axis
+    img = img.transpose(tuple(axes))
+    return img
+
+def move_min_dim(img, force=False):
+    """ move minimum dimension last as channels if < 10, or force==True """
+    min_dim = min(img.shape)
+    if min_dim < 10 or force:
+        channel_axis = (img.shape).index(min_dim)
+        img = move_axis(img, m_axis=channel_axis, first=False)
+    return img
+
+def update_axis(m_axis, to_squeeze, ndim):
+    if m_axis==-1:
+        m_axis = ndim-1
+    if (to_squeeze==m_axis).sum() == 1:
+        m_axis = None
+    else:
+        inds = np.ones(ndim, np.bool)
+        inds[to_squeeze] = False
+        m_axis = np.nonzero(np.arange(0, ndim)[inds]==m_axis)[0]
+        if len(m_axis) > 0:
+            m_axis = m_axis[0]
+        else:
+            m_axis = None
+    return m_axis
+
+def convert_image(x, channels, channel_axis=None, z_axis=None,
+                  do_3D=False, normalize=True, invert=False,
+                  nchan=2):
+    """ return image with z first, channels last and normalized intensities """
+    if len(channels)==1:
+        channels = channels[0]
+
+    if len(channels) < 2:
+        transforms_logger.critical('ERROR: two channels not specified')
+        raise ValueError('ERROR: two channels not specified') 
+
+    # squeeze image, and if channel_axis or z_axis given, transpose image
+    if x.ndim > 3:
+        to_squeeze = np.array([int(isq) for isq,s in enumerate(x.shape) if s==1])
+        # remove channel axis if number of channels is 1
+        if len(to_squeeze) > 0: 
+            channel_axis = update_axis(channel_axis, to_squeeze, x.ndim) if channel_axis is not None else channel_axis
+            z_axis = update_axis(z_axis, to_squeeze, x.ndim) if z_axis is not None else z_axis
+        x = x.squeeze()
+
+    # put z axis first
+    if z_axis and x.ndim > 2:
+        x = move_axis(x, m_axis=z_axis, first=True)
+        if channel_axis is not None:
+            channel_axis += 1
+        if x.ndim==3:
+            x = x[...,np.newaxis]
+
+    # put channel axis last
+    if channel_axis and x.ndim > 2:
+        x = move_axis(x, m_axis=channel_axis, first=False)
+    elif x.ndim == 2:
+        x = x[:,:,np.newaxis]
+
+    if do_3D :
+        if x.ndim < 3:
+            transforms_logger.critical('ERROR: cannot process 2D images in 3D mode')
+            raise ValueError('ERROR: cannot process 2D images in 3D mode') 
+        elif x.ndim<4:
+            x = x[...,np.newaxis]
+
+    if channel_axis is None:
+        x = move_min_dim(x)
+        
+    if x.ndim > 3:
+        transforms_logger.info('multi-stack tiff read in as having %d planes %d channels'%
+                (x.shape[0], x.shape[-1]))
+
+    if channels is not None:
+        x = reshape(x, channels=channels)
+        
+    else:
+        # code above put channels last
+        if x.shape[-1] > nchan:
+            transforms_logger.warning('WARNING: more than %d channels given, use "channels" input for specifying channels - just using first %d channels to run processing'%(nchan,nchan))
+            x = x[...,:nchan]
+
+        if not do_3D and x.ndim>3:
+            transforms_logger.critical('ERROR: cannot process 4D images in 2D mode')
+            raise ValueError('ERROR: cannot process 4D images in 2D mode')
+            
+        if x.shape[-1] < nchan:
+            x = np.concatenate((x, 
+                                np.tile(np.zeros_like(x), (1,1,nchan-1))), 
+                                axis=-1)
+            
+    if normalize or invert:
+        x = normalize_img(x, invert=invert)
+        
+    return x
+
 def reshape(data, channels=[0,0], chan_first=False):
     """ reshape data using channels
 
@@ -361,43 +472,22 @@ def reshape_and_normalize_data(train_data, test_data=None, channels=None, normal
     """
 
     # if training data is less than 2D
-    nimg = len(train_data)
-    if channels is not None:
-        train_data = [reshape(train_data[n], channels=channels, chan_first=True) for n in range(nimg)]
-    if train_data[0].ndim < 3:
-        train_data = [train_data[n][np.newaxis,:,:] for n in range(nimg)]
-    elif train_data[0].shape[-1] < 8:
-        transforms_logger.info('NOTE: assuming train_data provided as Ly x Lx x nchannels, transposing axes to put channels first')
-        train_data = [np.transpose(train_data[n], (2,0,1)) for n in range(nimg)]
-    nchan = [train_data[n].shape[0] for n in range(nimg)]
-    if nchan.count(nchan[0]) != len(nchan):
-        return None, None, None
-    nchan = nchan[0]
-
-    # check for valid test data
     run_test = False
-    if test_data is not None:
-        nimgt = len(test_data)
-        if channels is not None:
-            test_data = [reshape(test_data[n], channels=channels, chan_first=True) for n in range(nimgt)]
-        if test_data[0].ndim==2:
-            if nchan==1:
-                run_test = True
-                test_data = [test_data[n][np.newaxis,:,:] for n in range(nimgt)]
-        elif test_data[0].ndim==3:
-            if test_data[0].shape[-1] < 8:
-                transforms_logger.info('NOTE: assuming test_data provided as Ly x Lx x nchannels, transposing axes to put channels first')
-                test_data = [np.transpose(test_data[n], (2,0,1)) for n in range(nimgt)]
-            nchan_test = [test_data[n].shape[0] for n in range(nimgt)]
-            if nchan_test.count(nchan_test[0]) != len(nchan_test):
-                run_test = False
-            elif test_data[0].shape[0]==nchan:
-                run_test = True
-    
-    if normalize:
-        train_data = [normalize_img(train_data[n], axis=0) for n in range(nimg)]
-        if run_test:
-            test_data = [normalize_img(test_data[n], axis=0) for n in range(nimgt)]
+    for test, data in enumerate([train_data, test_data]):
+        if data is None:
+            return train_data, test_data, run_test
+        nimg = len(data)
+        for i in range(nimg):
+            data[i] = move_min_dim(data[i], force=True)
+            if channels is not None:
+                data[i] = reshape(data[i], channels=channels, chan_first=True)
+            if data[i].ndim < 3:
+                data[i] = data[i][np.newaxis,:,:]
+            if normalize:
+                data[i] = normalize_img(data[i], axis=0)
+        nchan = [data[i].shape[0] for i in range(nimg)]
+        transforms_logger.info('%s channels = %d'%(['train', 'test'][test], nchan[0]))
+    run_test = True
     return train_data, test_data, run_test
 
 def resize_image(img0, Ly=None, Lx=None, rsz=None, interpolation=cv2.INTER_LINEAR, no_channels=False):

@@ -20,30 +20,10 @@ except Exception as err:
     raise
 
 import logging
-
-def logger_setup():
-    cp_dir = pathlib.Path.home().joinpath('.cellpose')
-    cp_dir.mkdir(exist_ok=True)
-    log_file = cp_dir.joinpath('run.log')
-    try:
-        log_file.unlink()
-    except:
-        print('creating new log file')
-    logging.basicConfig(
-                    level=logging.INFO,
-                    format="%(asctime)s [%(levelname)s] %(message)s",
-                    handlers=[
-                        logging.FileHandler(log_file),
-                        logging.StreamHandler()
-                    ]
-                )
-    logger = logging.getLogger(__name__)
-    logger.info(f'WRITING LOG OUTPUT TO {log_file}')
-    return logger, log_file
+logger = logging.getLogger(__name__)
 
 def main():
-    logger, log_file = logger_setup()
-
+    
     parser = argparse.ArgumentParser(description='cellpose parameters')
     parser.add_argument('--check_mkl', action='store_true', help='check if mkl working')
     parser.add_argument('--mkldnn', action='store_true', help='for mxnet, force MXNET_SUBGRAPH_BACKEND = "MKLDNN"')
@@ -78,9 +58,16 @@ def main():
                         default=0.4, type=float, help='flow error threshold, 0 turns off this optional QC step')
     parser.add_argument('--cellprob_threshold', required=False, 
                         default=0.0, type=float, help='cell probability threshold, centered at 0.0')
-    parser.add_argument('--save_png', action='store_true', help='save masks as png and outlines as text file for ImageJ')
-    parser.add_argument('--save_tif', action='store_true', help='save masks as tif and outlines as text file for ImageJ')
+    parser.add_argument('--save_png', action='store_true', help='save masks as png')
+    parser.add_argument('--save_outlines', action='store_true', help='save outlines as text file for ImageJ')
+    parser.add_argument('--save_tif', action='store_true', help='save masks as tif')
     parser.add_argument('--no_npy', action='store_true', help='suppress saving of npy')
+    parser.add_argument('--channel_axis', required=False, 
+                        default=None, type=int, help='axis of image which corresponds to image channels')
+    parser.add_argument('--z_axis', required=False, 
+                        default=None, type=int, help='axis of image which corresponds to Z dimension')
+    parser.add_argument('--exclude_on_edges', action='store_true', 
+                        help='discard masks which touch edges of image')
 
     # settings for training
     parser.add_argument('--train_size', action='store_true', help='train size network at end of training')
@@ -183,16 +170,23 @@ def main():
                                 cellprob_threshold=args.cellprob_threshold,
                                 invert=args.invert,
                                 batch_size=args.batch_size,
-                                interp=(not args.no_interp))
+                                interp=(not args.no_interp),
+                                channel_axis=args.channel_axis,
+                                z_axis=args.z_axis)
                 masks, flows = out[:2]
                 if len(out) > 3:
                     diams = out[-1]
                 else:
                     diams = diameter
+                if args.exclude_on_edges:
+                    masks = utils.remove_edge_masks(masks)
                 if not args.no_npy:
                     io.masks_flows_to_seg(image, masks, flows, diams, image_name, channels)
-                if args.save_png or args.save_tif:
-                    io.save_masks(image, masks, flows, image_name, png=args.save_png, tif=args.save_tif)
+                if args.save_png or args.save_tif or args.save_outlines:
+                    io.save_masks(image, masks, flows, image_name, 
+                                  png=args.save_png, 
+                                  tif=args.save_tif,
+                                  outlines=args.save_outlines)
             logger.info('>>>> completed in %0.3f sec'%(time.time()-tic))
         else:
             if args.pretrained_model=='cyto' or args.pretrained_model=='nuclei':
