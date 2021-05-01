@@ -30,6 +30,8 @@ def main():
     parser.add_argument('--train', action='store_true', help='train network using images in dir')
     parser.add_argument('--dir', required=False, 
                         default=[], type=str, help='folder containing data to run or train on')
+    parser.add_argument('--look_one_level_down', action='store_true', 
+                        help='')
     parser.add_argument('--mxnet', action='store_true', help='use mxnet')
     parser.add_argument('--img_filter', required=False, 
                         default=[], type=str, help='end string for images to run on')
@@ -131,7 +133,10 @@ def main():
                     logger.warning('model path does not exist, using cyto model')
                     args.pretrained_model = 'cyto'
 
-            image_names = io.get_image_files(args.dir, args.mask_filter, imf=imf)
+            image_names = io.get_image_files(args.dir, 
+                                             args.mask_filter, 
+                                             imf=imf,
+                                             look_one_level_down=args.look_one_level_down)
             nimg = len(image_names)
             if args.diameter==0:
                 if args.pretrained_model=='cyto' or args.pretrained_model=='nuclei':

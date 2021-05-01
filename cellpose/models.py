@@ -453,8 +453,11 @@ class CellposeModel(UnetModel):
         """
         if isinstance(x, list) or x.squeeze().ndim==5:
             masks, styles, flows = [], [], []
-            for i, xi in enumerate(x):
-                maski, stylei, flowi = self.eval(xi, 
+            tqdm_out = utils.TqdmToLogger(models_logger, level=logging.INFO)
+            nimg = len(x)
+            iterator = trange(nimg, file=tqdm_out) if nimg>1 else range(nimg)
+            for i in iterator:
+                maski, stylei, flowi = self.eval(x[i], 
                                                  batch_size=batch_size, 
                                                  channels=channels[i] if (len(channels)==len(x) and 
                                                                           (isinstance(channels[i], list) and isinstance(channels[i], np.ndarray)) and 
@@ -794,8 +797,10 @@ class SizeModel():
         
         if isinstance(x, list):
             diams, diams_style = [], []
-            for i, xi in enumerate(x):
-                diam, diam_style = self.eval(xi, 
+            nimg = len(x)
+            iterator = trange(nimg, file=tqdm_out) if nimg>1 else range(nimg)
+            for i in iterator:
+                diam, diam_style = self.eval(x[i], 
                                             channels=channels[i] if (len(channels)==len(x) and 
                                                                      (isinstance(channels[i], list) and isinstance(channels[i], np.ndarray)) and 
                                                                      len(channels[i])==2) else channels, 
@@ -810,6 +815,10 @@ class SizeModel():
                 diams_style.append(diam_style)
 
             return diams, diams_style
+
+        if x.squeeze().ndim > 3:
+            models_logger.warning('image is not 2D cannot compute diameter')
+            return self.diam_mean, self.diam_mean
 
         models_logger.info('computing styles from images')
         styles = self.cp.eval(x, 

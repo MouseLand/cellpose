@@ -80,16 +80,24 @@ def imsave(filename, arr):
     else:
         cv2.imwrite(filename, arr)
 
-def get_image_files(folder, mask_filter, imf=None):
+def get_image_files(folder, mask_filter, imf=None, look_one_level_down=False):
+    """ find all images in a folder and if look_one_level_down all subfolders """
     mask_filters = ['_cp_masks', '_cp_output', '_flows', mask_filter]
     image_names = []
     if imf is None:
         imf = ''
-    image_names.extend(glob.glob(folder + '/*%s.png'%imf))
-    image_names.extend(glob.glob(folder + '/*%s.jpg'%imf))
-    image_names.extend(glob.glob(folder + '/*%s.jpeg'%imf))
-    image_names.extend(glob.glob(folder + '/*%s.tif'%imf))
-    image_names.extend(glob.glob(folder + '/*%s.tiff'%imf))
+    
+    folders = []
+    if look_one_level_down:
+        folders = natsorted(glob.glob(os.path.join(folder, "*/")))
+    folders.append(folder)
+
+    for folder in folders:
+        image_names.extend(glob.glob(folder + '/*%s.png'%imf))
+        image_names.extend(glob.glob(folder + '/*%s.jpg'%imf))
+        image_names.extend(glob.glob(folder + '/*%s.jpeg'%imf))
+        image_names.extend(glob.glob(folder + '/*%s.tif'%imf))
+        image_names.extend(glob.glob(folder + '/*%s.tiff'%imf))
     image_names = natsorted(image_names)
     imn = []
     for im in image_names:
