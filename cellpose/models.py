@@ -243,6 +243,8 @@ class Cellpose():
                 reason = 'does not work on non-2D images'
             models_logger.warning(f'could not estimate diameter, {reason}')
             diams = self.diam_mean 
+        else:
+            diams = diameter
 
         tic = time.time()
         masks, flows, styles = self.cp.eval(x, 
