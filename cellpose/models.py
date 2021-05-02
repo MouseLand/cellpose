@@ -23,6 +23,11 @@ urls = ['https://www.cellpose.org/models/cyto_0',
         'https://www.cellpose.org/models/cytotorch_2',
         'https://www.cellpose.org/models/cytotorch_3',
         'https://www.cellpose.org/models/size_cytotorch_0.npy',
+        'https://www.cellpose.org/models/cyto2torch_0',
+        'https://www.cellpose.org/models/cyto2torch_1',
+        'https://www.cellpose.org/models/cyto2torch_2',
+        'https://www.cellpose.org/models/cyto2torch_3',
+        'https://www.cellpose.org/models/size_cyto2torch_0.npy',
         'https://www.cellpose.org/models/nuclei_0',
         'https://www.cellpose.org/models/nuclei_1',
         'https://www.cellpose.org/models/nuclei_2',
@@ -225,14 +230,15 @@ class Cellpose():
         estimate_size = True if (diameter is None or diameter==0) else False
         if estimate_size and self.pretrained_size is not None and not do_3D and x[0].ndim < 4:
             tic = time.time()
+            models_logger.info('~~~ ESTIMATING CELL DIAMETER(S) ~~~')
             diams, _ = self.sz.eval(x, channels=channels, channel_axis=channel_axis, invert=invert, batch_size=batch_size, 
                                     augment=augment, tile=tile)
-            rescale = self.diam_mean / diams
+            rescale = self.diam_mean / np.array(diams)
             diameter = None
             models_logger.info('estimated cell diameter(s) in %0.2f sec'%(time.time()-tic))
             models_logger.info('>>> diameter(s) = ')
             if isinstance(diams, list) or isinstance(diams, np.ndarray):
-                diam_string = '[' + ''.join(['%0.2f'%d for d in diams]) + ']'
+                diam_string = '[' + ''.join(['%0.2f, '%d for d in diams]) + ']'
             else:
                 diam_string = '[ %0.2f ]'%diams
             models_logger.info(diam_string)
@@ -247,6 +253,7 @@ class Cellpose():
             diams = diameter
 
         tic = time.time()
+        models_logger.info('~~~ FINDING MASKS ~~~')
         masks, flows, styles = self.cp.eval(x, 
                                             batch_size=batch_size, 
                                             invert=invert, 
@@ -573,7 +580,8 @@ class CellposeModel(UnetModel):
                 styles[i] = style
         
         net_time = time.time() - tic
-        models_logger.info('network run in %2.2fs'%(net_time))
+        if nimg > 1:
+            models_logger.info('network run in %2.2fs'%(net_time))
 
         if compute_masks:
             tic=time.time()
@@ -596,7 +604,8 @@ class CellposeModel(UnetModel):
                     masks = utils.stitch3D(masks, stitch_threshold=stitch_threshold)
             
             flow_time = time.time() - tic
-            models_logger.info('masks created in %2.2fs'%(flow_time))
+            if nimg > 1:
+                models_logger.info('masks created in %2.2fs'%(flow_time))
         else:
             masks, p = np.zeros(0), np.zeros(0)
 
@@ -802,6 +811,7 @@ class SizeModel():
         if isinstance(x, list):
             diams, diams_style = [], []
             nimg = len(x)
+            tqdm_out = utils.TqdmToLogger(models_logger, level=logging.INFO)
             iterator = trange(nimg, file=tqdm_out) if nimg>1 else range(nimg)
             for i in iterator:
                 diam, diam_style = self.eval(x[i], 
@@ -824,7 +834,6 @@ class SizeModel():
             models_logger.warning('image is not 2D cannot compute diameter')
             return self.diam_mean, self.diam_mean
 
-        models_logger.info('computing styles from images')
         styles = self.cp.eval(x, 
                               channels=channels, 
                               channel_axis=channel_axis, 
@@ -912,9 +921,9 @@ class SizeModel():
         train_data, train_labels, test_data, test_labels, run_test = transforms.reshape_train_test(train_data, train_labels,
                                                                                                    test_data, test_labels,
                                                                                                    channels, normalize)
-        if isinstance(self.cp.pretrained_model, list) and len(self.cp.pretrained_model)>1:
+        if isinstance(self.cp.pretrained_model, list):
             cp_model_path = self.cp.pretrained_model[0]
-            self.cp.net.load_model(cp_model_path, cpu=(not self.gpu))
+            self.cp.net.load_model(cp_model_path, cpu=(not self.cp.gpu))
             if not self.torch:
                 self.cp.net.collect_params().grad_req = 'null'
         else:
@@ -923,7 +932,18 @@ class SizeModel():
         diam_train = np.array([utils.diameters(lbl)[0] for lbl in train_labels])
         if run_test: 
             diam_test = np.array([utils.diameters(lbl)[0] for lbl in test_labels])
-        
+
+        # remove images with no masks
+        for i in range(len(diam_train)):
+            if diam_train[i]==0.0:
+                del train_data[i]
+                del train_labels[i]
+
+        for i in range(len(diam_test)):
+            if diam_test[i]==0.0:
+                del test_data[i]
+                del test_labels[i]
+
         nimg = len(train_data)
         styles = np.zeros((n_epochs*nimg, 256), np.float32)
         diams = np.zeros((n_epochs*nimg,), np.float32)

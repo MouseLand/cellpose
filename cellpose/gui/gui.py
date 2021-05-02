@@ -426,7 +426,7 @@ class MainW(QtGui.QMainWindow):
         # choose models
         self.ModelChoose = QtGui.QComboBox()
         self.model_dir = pathlib.Path.home().joinpath('.cellpose', 'models')
-        models = ['cyto', 'nuclei']
+        models = ['cyto', 'nuclei', 'cyto2']
         self.ModelChoose.addItems(models)
         self.ModelChoose.setFixedWidth(70)
         self.ModelChoose.setStyleSheet(self.dropdowns)
