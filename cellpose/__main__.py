@@ -1,6 +1,5 @@
 import sys, os, argparse, glob, pathlib, time
 import subprocess
-import warnings
 
 import numpy as np
 from natsort import natsorted
@@ -23,8 +22,6 @@ except Exception as err:
 
 import logging
 logger = logging.getLogger(__name__)
-
-warnings.filterwarnings("ignore")
 
 
 def main():
