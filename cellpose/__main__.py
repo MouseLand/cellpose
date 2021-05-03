@@ -7,7 +7,7 @@ from tqdm import tqdm
 from cellpose import utils, models, io
 
 try:
-    from cellpose import gui 
+    from cellpose.gui import gui 
     GUI_ENABLED = True 
 except ImportError as err:
     GUI_ERROR = err
