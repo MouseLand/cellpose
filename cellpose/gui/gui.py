@@ -435,8 +435,8 @@ class MainW(QtGui.QMainWindow):
         label = QtGui.QLabel('model: ')
         label.setStyleSheet(label_style)
         label.setFont(self.medfont)
-        label.setToolTip('there is a <em>cytoplasm</em> model and a <em>nuclei</em> model, choose what you want to segment')
-        self.ModelChoose.setToolTip('there is a <em>cytoplasm</em> model and a <em>nuclei</em> model, choose what you want to segment')
+        label.setToolTip('there is a <em>cyto</em> model, a new <em>cyto2</em> model from user submissions, and a <em>nuclei</em> model')
+        self.ModelChoose.setToolTip('there is a <em>cyto</em> model, a new <em>cyto2</em> model from user submissions, and a <em>nuclei</em> model')
         self.l0.addWidget(label, b, 0,1,1)
 
         b+=1
