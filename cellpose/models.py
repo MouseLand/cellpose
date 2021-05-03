@@ -938,11 +938,11 @@ class SizeModel():
             if diam_train[i]==0.0:
                 del train_data[i]
                 del train_labels[i]
-
-        for i in range(len(diam_test)):
-            if diam_test[i]==0.0:
-                del test_data[i]
-                del test_labels[i]
+        if run_test:
+            for i in range(len(diam_test)):
+                if diam_test[i]==0.0:
+                    del test_data[i]
+                    del test_labels[i]
 
         nimg = len(train_data)
         styles = np.zeros((n_epochs*nimg, 256), np.float32)
