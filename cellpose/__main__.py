@@ -195,7 +195,10 @@ def main():
                     io.save_masks(image, masks, flows, image_name, png=args.save_png, tif=args.save_tif)
             logger.info('>>>> completed in %0.3f sec'%(time.time()-tic))
         else:
-            if args.pretrained_model=='cyto' or args.pretrained_model=='nuclei':
+            if args.pretrained_model=='cyto' or args.pretrained_model=='nuclei' or args.pretrained_model=='cyto2':
+                if args.mxnet and args.pretrained_model=='cyto2':
+                    logger.warning('cyto2 model not available in mxnet, using cyto model')
+                    args.pretrained_model = 'cyto'
                 torch_str = ['torch', '']
                 cpmodel_path = os.fspath(model_dir.joinpath('%s%s_0'%(args.pretrained_model, torch_str[args.mxnet])))
                 if args.pretrained_model=='cyto':

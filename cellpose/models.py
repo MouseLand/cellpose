@@ -258,6 +258,7 @@ class Cellpose():
         else:
             if rescale is not None and (not isinstance(rescale, (list, np.ndarray)) or len(rescale)==1):
                 rescale = rescale * np.ones(nimg, np.float32)
+                diams = rescale / self.diam_mean
             if self.pretrained_size is not None and rescale is None and not do_3D:
                 tic = time.time()
                 diams, _ = self.sz.eval(x, channels=channels, channels_last=channels_last, invert=invert, batch_size=batch_size, 
@@ -296,6 +297,8 @@ class Cellpose():
         
         if nolist:
             masks, flows, styles, diams = masks[0], flows[0], styles[0], diams[0]
+        elif not isinstance(diams, (list, np.ndarray)):
+            diams = diams * np.ones(nimg, np.float32)
         
         return masks, flows, styles, diams
 
