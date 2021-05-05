@@ -1,5 +1,7 @@
 from PyQt5 import QtGui, QtCore, Qt, QtWidgets
-from . import io, models
+from . import io
+from .. import models
+from ..io import save_server
 
 def mainmenu(parent):
     main_menu = parent.menuBar()
@@ -45,7 +47,7 @@ def mainmenu(parent):
     parent.saveOutlines.setEnabled(False)
 
     parent.saveServer = QtGui.QAction("Send manually labelled data to server", parent)
-    parent.saveServer.triggered.connect(lambda: io.save_server(parent))
+    parent.saveServer.triggered.connect(lambda: save_server(parent))
     file_menu.addAction(parent.saveServer)
     parent.saveServer.setEnabled(False)
 

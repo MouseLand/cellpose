@@ -114,68 +114,11 @@ def check_mkl(istorch=True):
         core_logger.info('see https://pytorch.org/docs/stable/backends.html?highlight=mkl')
     return mkl_enabled
 
-
-def convert_images(x, channels, channels_last=False, do_3D=False, normalize=True, invert=False):
-    """ return list of images with channels last and normalized intensities """
-    if not isinstance(x,list) and not (x.ndim>3 and not do_3D):
-        nolist = True
-        x = [x]
-    else:
-        nolist = False
-    
-    nimg = len(x)
-    if do_3D:
-        for i in range(len(x)):
-            if x[i].ndim<3:
-                core_logger.critical('ERROR: cannot process 2D images in 3D mode')
-                raise ValueError('ERROR: cannot process 2D images in 3D mode') 
-            elif x[i].ndim<4:
-                x[i] = x[i][...,np.newaxis]
-            if not channels_last and x[i].shape[1]<4:
-                x[i] = x[i].transpose((0,2,3,1))
-            elif not channels_last and x[i].shape[0]<4:
-                x[i] = x[i].transpose((1,2,3,0))
-            core_logger.info('multi-stack tiff read in as having %d planes %d channels'%
-                    (x[i].shape[0], x[i].shape[-1]))
-
-    if channels is not None:
-        if len(channels)==2:
-            if not isinstance(channels[0], list):
-                channels = [channels for i in range(nimg)]
-        for i in range(len(x)):
-            if not channels_last and x[i].shape[0]<4:
-                x[i] = x[i].transpose(1,2,0)
-        x = [transforms.reshape(x[i], channels=channels[i]) for i in range(nimg)]
-        
-    elif do_3D:
-        for i in range(len(x)):
-            # code above put channels last
-            if x[i].shape[-1]>2:
-                core_logger.warning('WARNING: more than 2 channels given, use "channels" input for specifying channels - just using first two channels to run processing')
-                x[i] = x[i][...,:2]
-    else:
-        for i in range(len(x)):
-            if x[i].ndim>3:
-                core_logger.critical('ERROR: cannot process 4D images in 2D mode')
-                raise ValueError('ERROR: cannot process 4D images in 2D mode')
-            elif x[i].ndim==2:
-                x[i] = np.stack((x[i], np.zeros_like(x[i])), axis=2)
-            elif not channels_last and x[i].shape[0]<8:
-                x[i] = x[i].transpose((1,2,0))
-            if x[i].shape[-1]>2:
-                core_logger.warning('WARNING: more than 2 channels given, use "channels" input for specifying channels - just using first two channels to run processing')
-                x[i] = x[i][:,:,:2]
-
-    if normalize or invert:
-        x = [transforms.normalize_img(x[i], invert=invert) for i in range(nimg)]
-    return x, nolist
-
-
 class UnetModel():
     def __init__(self, gpu=False, pretrained_model=False,
                     diam_mean=30., net_avg=True, device=None,
                     residual_on=False, style_on=False, concatenation=True,
-                    nclasses = 3, torch=True):
+                    nclasses = 3, torch=True, nchan=2):
         self.unet = True
         if torch:
             if not TORCH_ENABLED:
@@ -186,7 +129,6 @@ class UnetModel():
             sdevice, gpu = assign_device(torch, gpu)
         self.device = device if device is not None else sdevice
         self.gpu = gpu if device is None else (self.device.type=='cuda')
-        self.gpu = gpu
         if torch and not self.gpu:
             self.mkldnn = check_mkl(self.torch)
         self.pretrained_model = pretrained_model
@@ -206,11 +148,11 @@ class UnetModel():
             core_logger.info(f'u-net net type: {self.net_type}')
         # create network
         self.nclasses = nclasses
-        nbase = [32,64,128,256]
+        self.nbase = [32,64,128,256]
+        self.nchan = nchan
         if self.torch:
-            nchan = 2
-            nbase = [nchan, 32, 64, 128, 256]
-            self.net = resnet_torch.CPnet(nbase, 
+            self.nbase = [nchan, 32, 64, 128, 256]
+            self.net = resnet_torch.CPnet(self.nbase, 
                                           self.nclasses, 
                                           3,
                                           residual_on=residual_on, 
@@ -218,7 +160,7 @@ class UnetModel():
                                           concatenation=concatenation,
                                           mkldnn=self.mkldnn).to(self.device)
         else:
-            self.net = resnet_style.CPnet(nbase, nout=self.nclasses,
+            self.net = resnet_style.CPnet(self.nbase, nout=self.nclasses,
                                         residual_on=residual_on, 
                                         style_on=style_on,
                                         concatenation=concatenation)
@@ -250,9 +192,11 @@ class UnetModel():
                 in green and nuclei in blue, input [2,3]. To segment one grayscale image and one
                 image with cells in green and nuclei in blue, input [[0,0], [2,3]].
 
-            channels_last: bool (optional, default False)
-                set to True if image given with channels as last dimension, otherwise channels 
-                dimension is attempted to be automatically determined
+            channel_axis: int (optional, default None)
+                if None, channels dimension is attempted to be automatically determined
+
+            z_axis: int (optional, default None)
+                if None, z dimension is attempted to be automatically determined
 
             invert: bool (optional, default False)
                 invert image pixel intensity before running network
@@ -301,7 +245,8 @@ class UnetModel():
                 style vector summarizing each image, also used to estimate size of objects in image
 
         """
-        x, nolist = convert_images(x, channels, channels_last, do_3D, normalize, invert)
+        x = [transforms.convert_image(xi, channels, channel_axis, z_axis, do_3D, 
+                                    normalize, invert, nchan=self.nchan) for xi in x]
         nimg = len(x)
         self.batch_size = batch_size
 
@@ -393,7 +338,7 @@ class UnetModel():
             self.net.eval()
             if self.mkldnn:
                 self.net = mkldnn_utils.to_mkldnn(self.net)
-        y, style, conv = self.net(X)
+        y, style = self.net(X)
         if self.mkldnn:
             self.net.to(torch_CPU)
         y = self._from_device(y)

@@ -11,7 +11,12 @@ import numpy as np
 import cv2
 from scipy.ndimage import gaussian_filter
 
-from . import utils, transforms, models, guiparts, plot, menus, io, dynamics
+from . import guiparts, menus, io
+from .. import models
+from ..utils import download_url_to_file, masks_to_outlines, normalize99
+from ..io import save_server
+from ..transforms import resize_image
+from ..plot import disk
 
 try:
     import matplotlib.pyplot as plt
@@ -117,9 +122,9 @@ def run(image=None):
         cp_dir = pathlib.Path.home().joinpath('.cellpose')
         cp_dir.mkdir(exist_ok=True)
         print('downloading logo')
-        utils.download_url_to_file('https://www.cellpose.org/static/images/cellpose_transparent.png', icon_path, progress=True)
+        download_url_to_file('https://www.cellpose.org/static/images/cellpose_transparent.png', icon_path, progress=True)
     if not guip_path.is_file():
-        utils.download_url_to_file('https://github.com/MouseLand/cellpose/raw/master/docs/_static/cellpose_gui.png', guip_path, progress=True)
+        download_url_to_file('https://github.com/MouseLand/cellpose/raw/master/docs/_static/cellpose_gui.png', guip_path, progress=True)
     icon_path = str(icon_path.resolve())
     app_icon = QtGui.QIcon()
     app_icon.addFile(icon_path, QtCore.QSize(16, 16))
@@ -350,7 +355,7 @@ class MainW(QtGui.QMainWindow):
         b+=1
         # send to server
         self.ServerButton = QtGui.QPushButton(' send manual seg. to server')
-        self.ServerButton.clicked.connect(lambda: io.save_server(self))
+        self.ServerButton.clicked.connect(lambda: save_server(self))
         self.l0.addWidget(self.ServerButton, b,0,1,2)
         self.ServerButton.setEnabled(False)
         self.ServerButton.setStyleSheet(self.styleInactive)
@@ -421,7 +426,7 @@ class MainW(QtGui.QMainWindow):
         # choose models
         self.ModelChoose = QtGui.QComboBox()
         self.model_dir = pathlib.Path.home().joinpath('.cellpose', 'models')
-        models = ['cyto', 'nuclei']
+        models = ['cyto', 'nuclei', 'cyto2']
         self.ModelChoose.addItems(models)
         self.ModelChoose.setFixedWidth(70)
         self.ModelChoose.setStyleSheet(self.dropdowns)
@@ -430,8 +435,8 @@ class MainW(QtGui.QMainWindow):
         label = QtGui.QLabel('model: ')
         label.setStyleSheet(label_style)
         label.setFont(self.medfont)
-        label.setToolTip('there is a <em>cytoplasm</em> model and a <em>nuclei</em> model, choose what you want to segment')
-        self.ModelChoose.setToolTip('there is a <em>cytoplasm</em> model and a <em>nuclei</em> model, choose what you want to segment')
+        label.setToolTip('there is a <em>cyto</em> model, a new <em>cyto2</em> model from user submissions, and a <em>nuclei</em> model')
+        self.ModelChoose.setToolTip('there is a <em>cyto</em> model, a new <em>cyto2</em> model from user submissions, and a <em>nuclei</em> model')
         self.l0.addWidget(label, b, 0,1,1)
 
         b+=1
@@ -1177,7 +1182,7 @@ class MainW(QtGui.QMainWindow):
                     mask[ar[ioverlap], ac[ioverlap]] = 0
                     ar, ac = ar[~ioverlap], ac[~ioverlap]
                 # compute outline of mask
-                outlines = utils.masks_to_outlines(mask)
+                outlines = masks_to_outlines(mask)
                 vr, vc = np.nonzero(outlines)
                 vr, vc = vr+ymin, vc+xmin
                 ar, ac = ar+ymin, ac+xmin
@@ -1205,7 +1210,7 @@ class MainW(QtGui.QMainWindow):
         self.pr = int(float(self.Diameter.text()))
         radii = np.zeros((self.Ly+self.pr,self.Lx), np.uint8)
         self.radii = np.zeros((self.Ly+self.pr,self.Lx,4), np.uint8)
-        yy,xx = plot.disk([self.Ly+self.pr/2-1, self.pr/2+1],
+        yy,xx = disk([self.Ly+self.pr/2-1, self.pr/2+1],
                             self.pr/2, self.Ly+self.pr, self.Lx)
         self.radii[yy,xx,0] = 255
         self.radii[yy,xx,-1] = 255#self.opacity * (radii>0)
@@ -1282,12 +1287,14 @@ class MainW(QtGui.QMainWindow):
             thresh = self.threshold
             print('computing masks with cell prob=%0.3f, flow error threshold=%0.3f'%
                     (self.cellprob, thresh))
-        maski = dynamics.get_masks(self.flows[3].copy(), iscell=(self.flows[4][-1]>self.cellprob),
-                                    flows=self.flows[4][:-1], threshold=thresh)
-        if self.NZ==1:
-            maski = utils.fill_holes_and_remove_small_masks(maski)
-        maski = transforms.resize_image(maski, self.cellpix.shape[-2], self.cellpix.shape[-1],
-                                        interpolation=cv2.INTER_NEAREST)
+
+        maski = self.model.cp._compute_masks(self.flows[4][:-1],
+                                             self.flows[4][-1],
+                                             p=self.flows[3].copy(),
+                                             cellprob_threshold=self.cellprob,
+                                             flow_threshold=thresh,
+                                             resize=self.cellpix.shape[-2:])[0]
+        
         self.masksOn = True
         self.outlinesOn = True
         self.MCheckBox.setChecked(True)
@@ -1333,13 +1340,13 @@ class MainW(QtGui.QMainWindow):
             #if not do_3D:
             #    masks = masks[0][np.newaxis,:,:]
             #    flows = flows[0]
-            self.flows[0] = flows[0].copy()
-            self.flows[1] = (np.clip(utils.normalize99(flows[2].copy()),0,1) * 255).astype(np.uint8)
+            self.flows[0] = flows[0]
+            self.flows[1] = (np.clip(normalize99(flows[2].copy()),0,1) * 255).astype(np.uint8)
             if not do_3D:
                 masks = masks[np.newaxis,...]
-                self.flows[0] = transforms.resize_image(self.flows[0], masks.shape[-2], masks.shape[-1],
+                self.flows[0] = resize_image(self.flows[0], masks.shape[-2], masks.shape[-1],
                                                         interpolation=cv2.INTER_NEAREST)
-                self.flows[1] = transforms.resize_image(self.flows[1], masks.shape[-2], masks.shape[-1])
+                self.flows[1] = resize_image(self.flows[1], masks.shape[-2], masks.shape[-1])
             if not do_3D:
                 self.flows[2] = np.zeros(masks.shape[1:], dtype=np.uint8)
                 self.flows = [self.flows[n][np.newaxis,...] for n in range(len(self.flows))]
@@ -1347,7 +1354,7 @@ class MainW(QtGui.QMainWindow):
                 self.flows[2] = (flows[1][0]/10 * 127 + 127).astype(np.uint8)
                 
             if len(flows)>2:
-                self.flows.append(flows[3])
+                self.flows.append(flows[3].squeeze())
                 self.flows.append(np.concatenate((flows[1], flows[2][np.newaxis,...]), axis=0))
                 
             print('%d cells found with cellpose net in %0.3f sec'%(len(np.unique(masks)[1:]), time.time()-tic))

@@ -45,16 +45,14 @@ def test_class_2D(data_dir, image_names):
 
 def test_cyto2_to_seg(data_dir, image_names):
     clear_output(data_dir, image_names)
-    image_names = ['rgb_2D.png', 'rgb_2D.tif']
+    image_names = ['rgb_2D.png', 'rgb_2D_tif.tif']
     file_names = [str(data_dir.joinpath('2D').joinpath(image_name)) for image_name in image_names]
     imgs = [io.imread(file_name) for file_name in file_names]
     model_type = 'cyto2'
-    chan = [2]
-    chan2 = [1]
     model = models.Cellpose(model_type=model_type)
-    channels = [chan[m],chan2[m]]
+    channels = [2,1]
     masks, flows, styles, diams = model.eval(imgs, diameter=30, channels=channels, net_avg=False)
-    io.masks_flows_to_seg(img, masks, flows, diams, )
+    io.masks_flows_to_seg(imgs, masks, flows, diams, file_names)
 
 def test_class_3D(data_dir, image_names):
     clear_output(data_dir, image_names)

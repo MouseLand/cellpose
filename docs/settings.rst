@@ -47,6 +47,15 @@ always set to an array of zeros. Therefore set the first channel as
 ``channels = [0,0]`` if you want to segment nuclei in grayscale or for single channel images, or 
 ``channels = [3,0]`` if you want to segment blue nuclei.
 
+Cytoplasm 2.0 model (`'cyto2'`)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The cytoplasm 2.0 model in cellpose is trained on two-channel images, where 
+the first channel is the channel to segment, and the second channel is 
+an optional nuclear channel, as the cytoplasm model.
+
+In addition to the training data in our dataset, it was 
+trained with user-submitted images.
 
 Diameter 
 ~~~~~~~~~~~~~~~~~~~~~~~~
@@ -142,6 +151,10 @@ the segmentation is failing. In those instances, you may want to turn off
 Cellpose will create masks in 2D on each XY slice and then stitch them across 
 slices if the IoU between the mask on the current slice and the next slice is 
 greater than or equal to the ``stitch_threshold``. 
+
+3D segmentation ignores the ``flow_threshold`` because we did not find that
+it helped to filter out false positives in our test 3D cell volume. Instead, 
+we found that setting ``min_size`` is a good way to remove false positives.
 
 
 
