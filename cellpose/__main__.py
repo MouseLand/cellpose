@@ -127,7 +127,7 @@ def main():
 
         if not args.train and not args.train_size:
             tic = time.time()
-            if not (args.pretrained_model=='cyto' or args.pretrained_model=='nuclei'):
+            if not (args.pretrained_model=='cyto' or args.pretrained_model=='nuclei' or args.pretrained_model=='cyto2'):
                 cpmodel_path = args.pretrained_model
                 if not os.path.exists(cpmodel_path):
                     logger.warning('model path does not exist, using cyto model')
@@ -154,7 +154,10 @@ def main():
             logger.info('>>>> running cellpose on %d images using chan_to_seg %s and chan (opt) %s'%
                             (nimg, cstr0[channels[0]], cstr1[channels[1]]))
                     
-            if args.pretrained_model=='cyto' or args.pretrained_model=='nuclei':
+            if args.pretrained_model=='cyto' or args.pretrained_model=='nuclei' or args.pretrained_model=='cyto2':
+                if args.mxnet and args.pretrained_model=='cyto2':
+                    logger.warning('cyto2 model not available in mxnet, using cyto model')
+                    args.pretrained_model = 'cyto'
                 model = models.Cellpose(gpu=gpu, device=device, model_type=args.pretrained_model, 
                                             torch=(not args.mxnet))
             else:

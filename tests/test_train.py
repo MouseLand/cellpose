@@ -2,6 +2,9 @@ from cellpose import io, models, metrics, plot
 from pathlib import Path
 from subprocess import check_output, STDOUT
 import os, shutil
+import os 
+
+os.environ["KMP_DUPLICATE_LIB_OK"]="TRUE"
 
 def test_class_train(data_dir, image_names):
     train_dir = str(data_dir.joinpath('2D').joinpath('train'))
