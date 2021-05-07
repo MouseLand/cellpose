@@ -138,16 +138,6 @@ def main():
                                              imf=imf,
                                              look_one_level_down=args.look_one_level_down)
             nimg = len(image_names)
-            if args.diameter==0:
-                if args.pretrained_model=='cyto' or args.pretrained_model=='nuclei':
-                    diameter = None
-                    logger.info('>>>> estimating diameter for each image')
-                else:
-                    logger.info('>>>> using user-specified model, no auto-diameter estimation available')
-                    diameter = model.diam_mean
-            else:
-                diameter = args.diameter
-                logger.info('>>>> using diameter %0.2f for all images'%diameter)
                 
             cstr0 = ['GRAY', 'RED', 'GREEN', 'BLUE']
             cstr1 = ['NONE', 'RED', 'GREEN', 'BLUE']
@@ -166,6 +156,17 @@ def main():
                 model = models.CellposeModel(gpu=gpu, device=device,
                                              pretrained_model=cpmodel_path,
                                              torch=(not args.mxnet))
+
+            if args.diameter==0:
+                if args.pretrained_model=='cyto' or args.pretrained_model=='nuclei' or args.pretrained_model=='cyto2':
+                    diameter = None
+                    logger.info('>>>> estimating diameter for each image')
+                else:
+                    logger.info('>>>> using user-specified model, no auto-diameter estimation available')
+                    diameter = model.diam_mean
+            else:
+                diameter = args.diameter
+                logger.info('>>>> using diameter %0.2f for all images'%diameter)
             
             tqdm_out = utils.TqdmToLogger(logger,level=logging.INFO)
             for image_name in tqdm(image_names, file=tqdm_out):
