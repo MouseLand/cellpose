@@ -211,7 +211,10 @@ def move_min_dim(img, force=False):
     """ move minimum dimension last as channels if < 10, or force==True """
     min_dim = min(img.shape)
     if min_dim < 10 or force:
-        channel_axis = (img.shape).index(min_dim)
+        if img.shape[-1]==min_dim:
+            channel_axis = -1
+        else:
+            channel_axis = (img.shape).index(min_dim)
         img = move_axis(img, m_axis=channel_axis, first=False)
     return img
 
@@ -335,8 +338,7 @@ def reshape(data, channels=[0,0], chan_first=False):
         data = np.concatenate((data, np.zeros_like(data)), axis=-1)
     else:
         if channels[0]==0:
-            data = data.mean(axis=-1)
-            data = np.expand_dims(data, axis=-1)
+            data = data.mean(axis=-1, keepdims=True)
             data = np.concatenate((data, np.zeros_like(data)), axis=-1)
         else:
             chanid = [channels[0]-1]

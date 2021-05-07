@@ -503,7 +503,6 @@ class CellposeModel(UnetModel):
                                          do_3D=do_3D, normalize=False, invert=False, nchan=self.nchan)
             if x.ndim < 4:
                 x = x[np.newaxis,...]
-
             self.batch_size = batch_size
             rescale = self.diam_mean / diameter if (rescale is None and (diameter is not None and diameter>0)) else rescale
             rescale = 1.0 if rescale is None else rescale
