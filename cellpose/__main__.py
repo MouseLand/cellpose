@@ -182,7 +182,7 @@ def main():
                                 augment=False,
                                 resample=args.resample,
                                 flow_threshold=args.flow_threshold,
-                                cellprob_threshold=args.cellprob_threshold,
+                                dist_threshold=args.dist_threshold,
                                 invert=args.invert,
                                 batch_size=args.batch_size,
                                 interp=(not args.no_interp),
