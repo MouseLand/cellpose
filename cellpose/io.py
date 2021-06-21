@@ -4,6 +4,7 @@ import numpy as np
 import cv2
 import tifffile
 import logging, pathlib, sys
+from pathlib import Path
 
 from . import utils, plot, transforms
 
@@ -78,6 +79,8 @@ def imsave(filename, arr):
     if ext== '.tif' or ext=='tiff':
         tifffile.imsave(filename, arr)
     else:
+        if len(arr.shape)>2:
+            arr = cv2.cvtColor(arr, cv2.COLOR_BGR2RGB) 
         cv2.imwrite(filename, arr)
 
 def get_image_files(folder, mask_filter, imf=None, look_one_level_down=False):
@@ -278,8 +281,10 @@ def save_to_png(images, masks, flows, file_names):
     """
     save_masks(images, masks, flows, file_names, png=True)
 
-def save_masks(images, masks, flows, file_names, 
-               png=True, tif=False, outlines=False):
+# Now saves flows, masks, etc. to separate folders.
+def save_masks(images, masks, flows, file_names, png=True, tif=False, channels=[0,0],
+               suffix='',save_flows=False, save_outlines=False, save_ncolor=False, 
+               dir_above=False, savedir=None, save_txt=False):
     """ save masks + nicely plotted segmentation image to png and/or tiff
 
     if png, masks[k] for images[k] are saved to file_names[k]+'_cp_masks.png'
@@ -304,17 +309,49 @@ def save_masks(images, masks, flows, file_names,
 
     file_names: (list of) str
         names of files of images
+        
+    savedir: str
+        absolute path where mask folder will be made
+    
+    save_flows, save_outlines, save_ncolor, save_txt: bool
+        Can choose which outputs/views to save.
+        ncolor is a 4 (or 5, if 4 takes too long) index version of the labels that
+        is way easier to visualize than having hundreds of unique colors that may
+        be similar and touch. Any color map can be applied to it (0,1,2,3,4,...).
     
     """
-    
+
     if isinstance(masks, list):
         for image, mask, flow, file_name in zip(images, masks, flows, file_names):
-            save_masks(image, mask, flow, file_name, png=png, tif=tif, outlines=outlines)
+            save_masks(image, mask, flow, file_name, png=png, tif=tif, suffix=suffix,dir_above=dir_above,
+                       save_flows=save_flows,save_outlines=save_outlines,save_ncolor=save_ncolor,
+                       savedir=savedir,save_txt=save_txt)
         return
     
     if masks.ndim > 2 and not tif:
         raise ValueError('cannot save 3D outputs as PNG, use tif option instead')
-    base = os.path.splitext(file_names)[0]
+#     base = os.path.splitext(file_names)[0]
+    
+    if savedir is None: 
+        if dir_above:
+            savedir = Path(file_names).parent.parent.absolute() #go up a level to save in its own folder
+        else:
+            savedir = Path(file_names).parent.absolute()
+    
+    if not os.path.isdir(savedir):
+        os.mkdir(savedir)
+            
+            
+    basename = os.path.splitext(os.path.basename(file_names))[0]
+    maskdir = os.path.join(savedir,'masks')
+    outlinedir = os.path.join(savedir,'outlines')
+    txtdir = os.path.join(savedir,'txt_outlines')
+    ncolordir = os.path.join(savedir,'ncolor_masks')
+    flowdir = os.path.join(savedir,'flows')
+    
+    if not os.path.isdir(maskdir):
+        os.mkdir(maskdir)
+        
     exts = []
     if masks.ndim > 2 or masks.max()>2**16-1:
         png = False
@@ -324,15 +361,17 @@ def save_masks(images, masks, flows, file_names,
     if tif:
         exts.append('.tif')
 
+
     # convert to uint16 if possible so can save as PNG if needed
     masks = masks.astype(np.uint16) if masks.max()<2**16-1 else masks.astype(np.uint32)
-    
+
     # save masks
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         for ext in exts:
-            imsave(base + '_cp_masks' + ext, masks)
-
+#             print(os.path.join(maskdir,basename + '_cp_masks' + suffix + ext))
+            imsave(os.path.join(maskdir,basename + '_cp_masks' + suffix + ext), masks)
+            
     if png and MATPLOTLIB and not min(images.shape) > 3:
         img = images.copy()
         if img.ndim<3:
@@ -343,12 +382,48 @@ def save_masks(images, masks, flows, file_names,
         fig = plt.figure(figsize=(12,3))
         # can save images (set save_dir=None if not)
         plot.show_segmentation(fig, img, masks, flows[0])
-        fig.savefig(base + '_cp_output.png', dpi=300)
+        fig.savefig(os.path.join(savedir,basename + '_cp_output' + suffix + '.png'), dpi=300)
         plt.close(fig)
 
-    if masks.ndim < 3 and outlines: 
-        mask_outlines = utils.outlines_list(masks)
-        outlines_to_text(base, mask_outlines)
+    # ImageJ txt outline files 
+    if masks.ndim < 3 and save_txt:
+        if not os.path.isdir(txtdir):
+            os.mkdir(txtdir)
+        outlines = utils.outlines_list(masks)
+        outlines_to_text(os.path.join(txtdir,basename), outlines)
+    
+    # RGB outline images
+    if masks.ndim < 3 and save_outlines: 
+        if not os.path.isdir(outlinedir):
+            os.mkdir(outlinedir)
+
+        outlines = utils.masks_to_outlines(masks)
+        outX, outY = np.nonzero(outlines)
+        img0 = images.copy()
+        if img0.shape[0] < 4:
+            img0 = np.transpose(img0, (1,2,0))
+        if img0.shape[-1] < 3 or img0.ndim < 3:
+            img0 = plot.image_to_rgb(img0, channels=channels)
+        else:
+            if img0.max()<=50.0:
+                img0 = np.uint8(np.clip(img0*255, 0, 1))
+        imgout= img0.copy()
+        imgout[outX, outY] = np.array([255,0,0]) #pure red 
+        imsave(os.path.join(outlinedir, basename + '_outlines' + suffix + '.png'),  imgout)
+    
+    # ncolor labels (ready for color map application)
+    if masks.ndim < 3 and save_ncolor:
+        if not os.path.isdir(ncolordir):
+            os.mkdir(ncolordir)
+        #convert masks to 4-color representation (0,1,2,3,4)
+        imsave(os.path.join(ncolordir, basename + '_cp_ncolor_masks' + suffix + '.png'),
+               utils.ncolorlabel(masks))
+    
+    # save RGB flow picture
+    if masks.ndim < 3 and save_flows:
+        if not os.path.isdir(flowdir):
+            os.mkdir(flowdir)    
+        imsave(os.path.join(flowdir, basename + '_flows' + suffix + '.png'), (flows[0]*(2**16 -1)).astype(np.uint16))
 
 def save_server(parent=None, filename=None):
     """ Uploads a *_seg.npy file to the bucket.

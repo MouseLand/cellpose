@@ -24,16 +24,15 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+# changed default diameter to 3.0, flow threshold to 0.0, nclasses to 4, no_npy defaults to store_false
 def main():
-    
     parser = argparse.ArgumentParser(description='cellpose parameters')
     parser.add_argument('--check_mkl', action='store_true', help='check if mkl working')
     parser.add_argument('--mkldnn', action='store_true', help='for mxnet, force MXNET_SUBGRAPH_BACKEND = "MKLDNN"')
     parser.add_argument('--train', action='store_true', help='train network using images in dir')
     parser.add_argument('--dir', required=False, 
                         default=[], type=str, help='folder containing data to run or train on')
-    parser.add_argument('--look_one_level_down', action='store_true', 
-                        help='')
+    parser.add_argument('--look_one_level_down', action='store_true', help='')
     parser.add_argument('--mxnet', action='store_true', help='use mxnet')
     parser.add_argument('--img_filter', required=False, 
                         default=[], type=str, help='end string for images to run on')
@@ -43,13 +42,14 @@ def main():
     parser.add_argument('--no_interp', action='store_true', help='do not interpolate when running dynamics (was default)')
     parser.add_argument('--do_3D', action='store_true',
                         help='process images as 3D stacks of images (nplanes x nchan x Ly x Lx')
-    # settings for running cellpose
+    
+    # settings for running cellpose; changed default nclasses to 4
     parser.add_argument('--pretrained_model', required=False, 
                         default='cyto', type=str, help='model to use')
     parser.add_argument('--unet', required=False, 
                         default=0, type=int, help='run standard unet instead of cellpose flow output')
     parser.add_argument('--nclasses', required=False, 
-                        default=3, type=int, help='if running unet, choose 2 or 3, otherwise not used')
+                        default=4, type=int, help='if running unet, choose 2 or 3, otherwise not used')
     parser.add_argument('--chan', required=False, 
                         default=0, type=int, help='channel to segment; 0: GRAY, 1: RED, 2: GREEN, 3: BLUE')
     parser.add_argument('--chan2', required=False, 
@@ -57,21 +57,14 @@ def main():
     parser.add_argument('--invert', required=False, action='store_true', help='invert grayscale channel')
     parser.add_argument('--all_channels', action='store_true', help='use all channels in image if using own model and images with special channels')
     parser.add_argument('--diameter', required=False, 
-                        default=30., type=float, help='cell diameter, if 0 cellpose will estimate for each image')
+                        default=3.0, type=float, help='cell diameter, if 0 cellpose will estimate for each image')
     parser.add_argument('--flow_threshold', required=False, 
-                        default=0.4, type=float, help='flow error threshold, 0 turns off this optional QC step')
-    parser.add_argument('--cellprob_threshold', required=False, 
-                        default=0.0, type=float, help='cell probability threshold, centered at 0.0')
-    parser.add_argument('--save_png', action='store_true', help='save masks as png')
-    parser.add_argument('--save_outlines', action='store_true', help='save outlines as text file for ImageJ')
-    parser.add_argument('--save_tif', action='store_true', help='save masks as tif')
-    parser.add_argument('--no_npy', action='store_true', help='suppress saving of npy')
-    parser.add_argument('--channel_axis', required=False, 
-                        default=None, type=int, help='axis of image which corresponds to image channels')
-    parser.add_argument('--z_axis', required=False, 
-                        default=None, type=int, help='axis of image which corresponds to Z dimension')
-    parser.add_argument('--exclude_on_edges', action='store_true', 
-                        help='discard masks which touch edges of image')
+                        default=0.0, type=float, help='flow error threshold, 0 turns off this optional QC step')
+    parser.add_argument('--dist_threshold', required=False, 
+                        default=-1.0, type=float, help='cell distance threshold')
+    parser.add_argument('--save_png', action='store_true', help='save masks as png and outlines as text file for ImageJ')
+    parser.add_argument('--save_tif', action='store_true', help='save masks as tif and outlines as text file for ImageJ')
+    parser.add_argument('--no_npy', action='store_false', help='suppress saving of npy')
 
     # settings for training
     parser.add_argument('--train_size', action='store_true', help='train size network at end of training')
@@ -91,7 +84,18 @@ def main():
                         default=1, type=int, help='use style vector')
     parser.add_argument('--concatenation', required=False, 
                         default=0, type=int, help='concatenate downsampled layers with upsampled layers (off by default which means they are added)')
+    
+    # Kevin's parser additions for conveneience, compatibility with SuperSegger file structure
+    parser.add_argument('--savedir', required=False, 
+                        default=None, type=str, help='folder to which segmentation results will be saved (defaults to input image directory)')
+    parser.add_argument('--dir_above', action='store_false', help='flag to save output in "masks","flows", etc. directories adjacent to the input image directory (default)')
+    parser.add_argument('--skel', action='store_false', help='flag to use "skeletonized" algorithm (default)')
+    parser.add_argument('--save_flows', action='store_true', help='whether or not to save RGB images of flows when masks are saved (disabled by default)')
+    parser.add_argument('--save_outlines', action='store_true', help='whether or not to save RGB outline images when masks are saved (disabled by default)')
+    parser.add_argument('--save_ncolor', action='store_true', help='whether or not to save masks remapped to use as few IDs as possible for visualization (disabled by default')
+    parser.add_argument('--save_txt', action='store_true', help='flag to enable txt outlines for ImageJ (disabled by default)')
 
+                        
     args = parser.parse_args()
 
     if args.check_mkl:
@@ -212,7 +216,7 @@ def main():
                     szmean = 17.
             else:
                 cpmodel_path = os.fspath(args.pretrained_model)
-                szmean = 30.
+                szmean = 3.
             
             test_dir = None if len(args.test_dir)==0 else args.test_dir
             output = io.load_train_test_data(args.dir, test_dir, imf, args.mask_filter, args.unet, args.look_one_level_down)

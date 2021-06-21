@@ -3,8 +3,28 @@ import numpy as np
 import cv2
 from scipy.ndimage import gaussian_filter
 import scipy
+import matplotlib
 
-from . import utils, io
+from . import utils, io, transforms
+
+# modified to use sinebow color
+def dx_to_circ(dP):
+    """ dP is 2 x Y x X => 'optic' flow representation """
+
+    mag = utils.rescale(np.abs(dP[0]+1j*dP[1]))
+    angles = np.arctan2(dP[1], dP[0])+np.pi
+    b=1
+    r = ((np.cos(angles)+b)/2)
+    g = ((np.cos(angles+2*np.pi/3)+b)/2)
+    b =((np.cos(angles+4*np.pi/3)+b)/2)
+    r = np.multiply(r,mag)
+    g = np.multiply(g,mag)    
+    b = np.multiply(b,mag)    
+    im = np.stack((r,g,b))
+    im = im.swapaxes(0,2)
+    im = im.swapaxes(0,1)
+    return im
+
 
 def show_segmentation(fig, img, maski, flowi, channels=[0,0], file_name=None):
     """ plot segmentation results (like on website)
@@ -48,12 +68,15 @@ def show_segmentation(fig, img, maski, flowi, channels=[0,0], file_name=None):
     ax.axis('off')
 
     outlines = utils.masks_to_outlines(maski)
-    overlay = mask_overlay(img0, maski)
+    cmap = matplotlib.cm.get_cmap('viridis')
+    colors = cmap(np.linspace(0,.9,5))
+    overlay = mask_overlay(img0, utils.ncolorlabel(maski),colors[:,:3])
 
     ax = fig.add_subplot(1,4,2)
     outX, outY = np.nonzero(outlines)
     imgout= img0.copy()
-    imgout[outX, outY] = np.array([255,75,75])
+    imgout[outX, outY] = np.array([255,0,0]) # pure red
+
     ax.imshow(imgout)
     #for o in outpix:
     #    ax.plot(o[:,0], o[:,1], color=[1,0,0], lw=1)
@@ -145,15 +168,16 @@ def mask_overlay(img, masks, colors=None):
         img = img.astype(np.float32).mean(axis=-1)
     else:
         img = img.astype(np.float32)
-    img = utils.normalize99(img)
+#     img = transforms.normalize99(img)
     img -= img.min()
     img /= img.max()
     HSV = np.zeros((img.shape[0], img.shape[1], 3), np.float32)
     HSV[:,:,2] = np.clip(img*1.5, 0, 1.0)
+    hues = np.linspace(0,1,5)
     for n in range(int(masks.max())):
         ipix = (masks==n+1).nonzero()
         if colors is None:
-            HSV[ipix[0],ipix[1],0] = np.random.rand()
+            HSV[ipix[0],ipix[1],0] = hues[n+1]
         else:
             HSV[ipix[0],ipix[1],0] = colors[n,0]
         HSV[ipix[0],ipix[1],1] = 1.0
@@ -172,7 +196,7 @@ def image_to_rgb(img0, channels=[0,0]):
         img = img.mean(axis=-1)[:,:,np.newaxis]
     for i in range(img.shape[-1]):
         if np.ptp(img[:,:,i])>0:
-            img[:,:,i] = utils.normalize99(img[:,:,i])
+            img[:,:,i] = transforms.normalize99(img[:,:,i])
             img[:,:,i] = np.clip(img[:,:,i], 0, 1)
     img *= 255
     img = np.uint8(img)

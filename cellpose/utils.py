@@ -8,6 +8,12 @@ from scipy.spatial import ConvexHull
 import numpy as np
 import colorsys
 import io
+import random
+
+from numba import njit 
+from skimage.morphology import remove_small_holes
+from scipy.ndimage.morphology import binary_dilation
+import edt 
 
 from . import metrics
 
@@ -356,15 +362,10 @@ def stitch3D(masks, stitch_threshold=0.25):
         masks[i+1] = istitch[masks[i+1]]
     return masks
 
+# new diameter function 
 def diameters(masks):
-    """ get median 'diameter' of masks """
-    _, counts = np.unique(np.int32(masks), return_counts=True)
-    counts = counts[1:]
-    md = np.median(counts**0.5)
-    if np.isnan(md):
-        md = 0
-    md /= (np.pi**0.5)/2
-    return md, counts**0.5
+    dt = edt.edt(np.int32(masks))
+    return 2.*(np.mean(dt[dt>0])*3/np.pi)**(1/3), None
 
 def radius_distribution(masks, bins):
     unique, counts = np.unique(masks, return_counts=True)
@@ -383,11 +384,6 @@ def size_distribution(masks):
     counts = np.unique(masks, return_counts=True)[1][1:]
     return np.percentile(counts, 25) / np.percentile(counts, 75)
 
-def normalize99(img):
-    X = img.copy()
-    X = (X - np.percentile(X, 1)) / (np.percentile(X, 99) - np.percentile(X, 1))
-    return X
-
 def process_cells(M0, npix=20):
     unq, ic = np.unique(M0, return_counts=True)
     for j in range(len(unq)):
@@ -395,7 +391,8 @@ def process_cells(M0, npix=20):
             M0[M0==unq[j]] = 0
     return M0
 
-
+# Edited slightly to only remove small holes(under min_size) to avoid filling in voids formed by cells touching themselves
+# (Masks show this, outlines somehow do not. Also need to find a way to split self-contact points).
 def fill_holes_and_remove_small_masks(masks, min_size=15):
     """ fill holes in masks (2D/3D) and discard masks smaller than min_size (2D)
     
@@ -421,7 +418,8 @@ def fill_holes_and_remove_small_masks(masks, min_size=15):
     
     """
     if masks.ndim > 3 or masks.ndim < 2:
-        raise ValueError('fill_holes_and_remove_small_masks takes 2D or 3D array, not %dD array'%masks.ndim)
+        raise ValueError('masks_to_outlines takes 2D or 3D array, not %dD array'%masks.ndim)
+    
     slices = find_objects(masks)
     j = 0
     for i,slc in enumerate(slices):
@@ -433,9 +431,154 @@ def fill_holes_and_remove_small_masks(masks, min_size=15):
             else:    
                 if msk.ndim==3:
                     for k in range(msk.shape[0]):
-                        msk[k] = binary_fill_holes(msk[k])
-                else:
-                    msk = binary_fill_holes(msk)
+                        padmsk = remove_small_holes(np.pad(msk[k],1,mode='constant'),min_size)
+                        msk[k] = padmsk[1:-1,1:-1]
+                else:                    
+                    padmsk = remove_small_holes(np.pad(msk,1,mode='constant'),min_size)
+                    msk = padmsk[1:-1,1:-1]
                 masks[slc][msk] = (j+1)
                 j+=1
     return masks
+
+
+
+#4-color algorthm based on https://forum.image.sc/t/relabel-with-4-colors-like-map/33564 
+def ncolorlabel(lab,n=4):
+    lab = lab.astype('int32') #Appears broken for uint16, so cast to int32
+    idx = connect(lab, 2)
+    idx = mapidx(idx)
+    colors = render_net(idx, n, 10)
+    lut = np.ones(lab.max()+1, dtype=np.uint8)
+    for i in colors: lut[i] = colors[i]
+    lut[0] = 0
+    return lut[lab]
+
+def neighbors(shape, conn=1):
+    dim = len(shape)
+    block = generate_binary_structure(dim, conn)
+    block[tuple([1]*dim)] = 0
+    idx = np.where(block>0)
+    idx = np.array(idx, dtype=np.uint8).T
+    idx = np.array(idx-[1]*dim)
+    acc = np.cumprod((1,)+shape[::-1][:-1])
+    return np.dot(idx, acc[::-1])
+
+@njit(fastmath=True)
+def search(img, nbs):
+    s, line = 0, img.ravel()
+    rst = np.zeros((len(line),2), img.dtype)
+    for i in range(len(line)):
+        if line[i]==0:continue
+        for d in nbs:
+            if line[i+d]==0: continue
+            if line[i]==line[i+d]: continue
+            rst[s,0] = line[i]
+            rst[s,1] = line[i+d]
+            s += 1
+    return rst[:s]
+                            
+def connect(img, conn=1):
+    buf = np.pad(img, 1, 'constant')
+    nbs = neighbors(buf.shape, conn)
+    rst = search(buf, nbs)
+    if len(rst)<2: return rst
+    rst.sort(axis=1)
+    key = (rst[:,0]<<16)
+    key += rst[:,1]
+    order = np.argsort(key)
+    key[:] = key[order]
+    diff = key[:-1]!=key[1:]
+    idx = np.where(diff)[0]+1
+    idx = np.hstack(([0], idx))
+    return rst[order][idx]
+
+def mapidx(idx):
+    dic = {}
+    for i in np.unique(idx): dic[i] = []
+    for i,j in idx:
+        dic[i].append(j)
+        dic[j].append(i)
+    return dic
+
+# create a connection mapping 
+def render_net(conmap, n=4, rand=12, shuffle=True, depth=0,max_depth=3):
+    thresh = 1e3
+    if depth<max_depth:
+        nodes = list(conmap.keys())
+        colors = dict(zip(nodes, [0]*len(nodes)))
+        counter = dict(zip(nodes, [0]*len(nodes)))
+        if shuffle: random.shuffle(nodes)
+        count = 0
+        while len(nodes)>0 and count <thresh:
+            count+=1
+            k = nodes.pop(0)
+            counter[k] += 1
+            hist = [1e4] + [0] * n
+            for p in conmap[k]:
+                hist[colors[p]] += 1
+            if min(hist)==0:
+                colors[k] = hist.index(min(hist))
+                counter[k] = 0
+                continue
+            hist[colors[k]] = 1e4
+            minc = hist.index(min(hist))
+            if counter[k]==rand:
+                counter[k] = 0
+                minc = random.randint(1,4)
+            colors[k] = minc
+            for p in conmap[k]:
+                if colors[p] == minc:
+                    nodes.append(p)
+        if count==thresh:
+            print(n,'-color algorthm failed,trying again with',n+1,'colors. Depth',depth)
+            colors = render_net(conmap,n+1,rand,shuffle,depth+1,max_depth)
+        return colors
+    else:
+        print('N-color algorthm exceeded max depth of',max_depth)
+        return None
+
+
+# Generate a color dictionary for use in visualizing N-colored labels.  
+def sinebow(N):
+    colordict = {0:[0,0,0,0]}
+    for j in range(N): 
+        a=1
+        angle = j*2*np.pi / (N)
+        r = ((np.cos(angle)+a)/2)
+        g = ((np.cos(angle+2*np.pi/3)+a)/2)
+        b =((np.cos(angle+4*np.pi/3)+a)/2)
+        colordict.update({j+1:[r,g,b,1]})
+    return colordict
+
+def rescale(T):
+    """Rescale array between 0 and 1"""
+    T = np.interp(T, (T[:].min(), T[:].max()), (0, 1))
+    return T
+
+# Kevin's version of remove_edge_masks, need to merge (this one is more flexible)
+def clean_boundary(labels,boundary_thickness=3,area_thresh=300):
+    """Delete boundary masks below a given size threshold. Default boundary thickness is 3px,
+    meaning masks that are 3 or fewer pixels from the boudnary will be candidates for removal. 
+    """
+    border_mask = np.zeros(labels.shape, dtype=bool)
+    border_mask = binary_dilation(border_mask, border_value=1, iterations=boundary_thickness)
+    clean_labels = np.copy(labels)
+    for cell_ID in np.unique(labels):
+        mask = labels==cell_ID 
+        area = np.count_nonzero(mask)
+        overlap = np.count_nonzero(np.logical_and(mask, border_mask))
+        if overlap > 0 and area<area_thresh: 
+            clean_labels[mask] = 0
+    return clean_labels
+
+def outline_view(img0,maski):
+    """
+    Generates a red outline overlay onto image. 
+    Assume img0 is already coverted to RGB.
+    """
+    outlines = masks_to_outlines(maski)
+    outX, outY = np.nonzero(outlines)
+    imgout= img0.copy()
+    imgout[outX, outY] = np.array([255,0,0]) #pure red
+    return imgout
+

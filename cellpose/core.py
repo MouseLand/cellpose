@@ -6,8 +6,8 @@ from urllib.parse import urlparse
 import tempfile
 from scipy.ndimage import median_filter
 import cv2
-
-from . import transforms, dynamics, utils, plot, metrics
+#from ranger21 import Ranger21 #see optimizers
+from . import transforms, dynamics, utils, plot, metrics, focal_loss, ranger, rangerlars
 
 try:
     from mxnet import gluon, nd
@@ -21,7 +21,8 @@ except:
 
 try:
     import torch
-    from torch import optim, nn
+    from torch import nn
+    import torch_optimizer as optim # for RADAM optimizer
     from torch.utils import mkldnn as mkldnn_utils
     from . import resnet_torch
     TORCH_ENABLED = True 
@@ -44,7 +45,8 @@ def parse_model_string(pretrained_model):
         nclasses = max(2, int(model_str[4]))
     elif len(model_str)>7 and model_str[:8]=='cellpose':
         core_logger.info(f'parsing model string {model_str} to get cellpose options')
-        nclasses = 3
+        nclasses = 4 # nesesssary for version with the extra dist class 
+        print('nclasses =',nclasses)
     else:
         return None
     ostrs = model_str.split('_')[2::2]
@@ -116,9 +118,9 @@ def check_mkl(istorch=True):
 
 class UnetModel():
     def __init__(self, gpu=False, pretrained_model=False,
-                    diam_mean=30., net_avg=True, device=None,
+                    diam_mean=3., net_avg=True, device=None,
                     residual_on=False, style_on=False, concatenation=True,
-                    nclasses = 3, torch=True, nchan=2):
+                    nclasses=4, torch=True, nchan=2):
         self.unet = True
         if torch:
             if not TORCH_ENABLED:
@@ -154,7 +156,7 @@ class UnetModel():
             self.nbase = [nchan, 32, 64, 128, 256]
             self.net = resnet_torch.CPnet(self.nbase, 
                                           self.nclasses, 
-                                          3,
+                                          sz=3,
                                           residual_on=residual_on, 
                                           style_on=style_on,
                                           concatenation=concatenation,
@@ -239,12 +241,12 @@ class UnetModel():
             flows: list of lists 2D arrays, or list of 3D arrays (if do_3D=True)
                 flows[k][0] = XY flow in HSV 0-255
                 flows[k][1] = flows at each pixel
-                flows[k][2] = the cell probability centered at 0.0
+                flows[k][2] = the cell distance transform
 
             styles: list of 1D arrays of length 64, or single 1D array (if do_3D=True)
                 style vector summarizing each image, also used to estimate size of objects in image
 
-        """
+        """        
         x = [transforms.convert_image(xi, channels, channel_axis, z_axis, do_3D, 
                                     normalize, invert, nchan=self.nchan) for xi in x]
         nimg = len(x)
@@ -331,6 +333,55 @@ class UnetModel():
             x = X.asnumpy()
         return x
 
+    def divergence(self,x):
+        sobely = [[-1, -2, -1], [0, 0, 0], [1, 2, 1]]
+        sobelx = [[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]]
+        depth = x.size()[1]
+        sobel_kernel_x = torch.tensor(sobelx, dtype=torch.float32).unsqueeze(0).expand(depth,1,3,3).to(self.device)
+        sobel_kernel_y = torch.tensor(sobely, dtype=torch.float32).unsqueeze(0).expand(depth,1,3,3).to(self.device)
+
+        dx = torch.nn.functional.conv2d(x, sobel_kernel_x, stride=1, padding=1, groups=x.size(1))
+        dy = torch.nn.functional.conv2d(x, sobel_kernel_y, stride=1, padding=1, groups=x.size(1))
+        div = dy[:,0,:,:]+dx[:,1,:,:]
+
+        div = torch.abs(div)+1
+        div = (div / torch.max(div)) + 1
+        return div
+
+    def derivatives(self,x):
+        sobely = [[-1, -2, -1], [0, 0, 0], [1, 2, 1]]
+        sobelx = [[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]]
+        depth = x.size()[1]
+        sobel_kernel_x = torch.tensor(sobelx, dtype=torch.float32).unsqueeze(0).expand(depth,1,3,3).to(self.device)
+        sobel_kernel_y = torch.tensor(sobely, dtype=torch.float32).unsqueeze(0).expand(depth,1,3,3).to(self.device)
+
+        dx = torch.nn.functional.conv2d(x, sobel_kernel_x, stride=1, padding=1, groups=x.size(1))
+        dy = torch.nn.functional.conv2d(x, sobel_kernel_y, stride=1, padding=1, groups=x.size(1))
+
+        return dy,dx
+
+    def curl(self,x):
+        sobely = [[-1, -2, -1], [0, 0, 0], [1, 2, 1]]
+        sobelx = [[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]]
+        depth = x.size()[1]
+        sobel_kernel_x = torch.tensor(sobelx, dtype=torch.float32).unsqueeze(0).expand(depth,1,3,3).to(self.device)
+        sobel_kernel_y = torch.tensor(sobely, dtype=torch.float32).unsqueeze(0).expand(depth,1,3,3).to(self.device)
+
+        dx = torch.nn.functional.conv2d(x, sobel_kernel_x, stride=1, padding=1, groups=x.size(1))
+        dy = torch.nn.functional.conv2d(x, sobel_kernel_y, stride=1, padding=1, groups=x.size(1))
+        c = dx[:,0:,:]-dy[:,1,:,:]
+        c = c - torch.min(c) 
+        c = c / torch.max(c)
+        return c
+    
+
+    def norm(self,x,n=0.25):
+        return torch.linalg.norm(x,dim=1)
+    
+    def squarenorm(self,x):
+        return torch.square(torch.linalg.norm(x,dim=1))
+
+
     def network(self, x, return_conv=False):
         """ convert imgs to torch/mxnet and run network model and return numpy """
         X = self._to_device(x)
@@ -405,6 +456,8 @@ class UnetModel():
                 if progress is not None:
                     progress.setValue(10 + 10*j)
             y = y / len(self.pretrained_model)
+            
+        torch.cuda.empty_cache() # release gpu memory cache, quite significant
         return y, style
 
     def _run_net(self, imgs, augment=False, tile=True, tile_overlap=0.1, bsize=224,
@@ -458,7 +511,7 @@ class UnetModel():
         # pad image for net so Ly and Lx are divisible by 4
         imgs, ysub, xsub = transforms.pad_image_ND(imgs)
         # slices from padding
-        slc = [slice(0, imgs.shape[n]+1) for n in range(imgs.ndim)]
+        slc = [slice(0, self.nclasses) for n in range(imgs.ndim)] # changed from imgs.shape[n]+1 for first slice size 
         slc[-3] = slice(0, self.nclasses + 32*return_conv + 1)
         slc[-2] = slice(ysub[0], ysub[-1]+1)
         slc[-1] = slice(xsub[0], xsub[-1]+1)
@@ -480,7 +533,6 @@ class UnetModel():
 
         # transpose so channels axis is last again
         y = np.transpose(y, detranspose)
-         
         return y, style
     
     def _run_tiled(self, imgi, augment=False, bsize=224, tile_overlap=0.1, return_conv=False):
@@ -790,18 +842,24 @@ class UnetModel():
 
     def _set_optimizer(self, learning_rate, momentum, weight_decay):
         if self.torch:
-            self.optimizer = optim.SGD(self.net.parameters(), lr=learning_rate,
-                            momentum=momentum, weight_decay=weight_decay)
+        # best optimizer I tested seemed to be RAdam, about 2x as fast as SGD and very stable.
+        # Ranger21 is in beta and might be better/faster, but more testing is needed.
+        # Ranger21 has a convenient current_lr field, whereas RAdam doesn't and I just set this field to the learning rate
+        
+            self.optimizer = optim.RAdam(self.net.parameters(), lr=learning_rate, betas=(0.9, 0.999), 
+                                         eps=1e-08, weight_decay=weight_decay)
+            self.optimizer.current_lr = learning_rate
+#             print('>>> Using RAdam optimizer')
+#             self.optimizer = optim.AdaBound(self.net.parameters(), lr=learning_rate, betas=(0.9, 0.999), 
+#                                 gamma=1e-3, eps=1e-08, final_lr=0.1, weight_decay=0)
+#             print('>>> Using AdaBound optimizer')
+#             self.optimizer = Ranger21(self.net.parameters(), lr=learning_rate, weight_decay=weight_decay, num_batches_per_epoch=self.batch_size, 
+#                                       num_epochs=self.n_epochs,num_warmup_iterations=10*self.batch_size, betas=(0.9, 0.999), eps=1e-08)
+#             print('>>> Using Ranger21 optimizer')
+            
         else:
             self.optimizer = gluon.Trainer(self.net.collect_params(), 'sgd',{'learning_rate': learning_rate,
                                 'momentum': momentum, 'wd': weight_decay})
-
-    def _set_learning_rate(self, lr):
-        if self.torch:
-            for param_group in self.optimizer.param_groups:
-                param_group['lr'] = lr
-        else:
-            self.optimizer.set_learning_rate(lr)
 
     def _set_criterion(self):
         if self.unet:
@@ -813,6 +871,12 @@ class UnetModel():
             if self.torch:
                 self.criterion  = nn.MSELoss(reduction='mean')
                 self.criterion2 = nn.BCEWithLogitsLoss(reduction='mean')
+                self.criterion6 = MaskedLoss()
+                self.criterion11 = DerivativeLoss()
+                self.criterion12 = WeightedLoss()
+                self.criterion14 = ArcCosDotLoss()
+                self.criterion15 = NormLoss()
+                self.criterion16 = DivergenceLoss()
             else:
                 self.criterion  = gluon.loss.L2Loss()
                 self.criterion2 = gluon.loss.SigmoidBinaryCrossEntropyLoss()
@@ -821,14 +885,14 @@ class UnetModel():
               test_data=None, test_labels=None,
               pretrained_model=None, save_path=None, save_every=100,
               learning_rate=0.2, n_epochs=500, momentum=0.9, weight_decay=0.00001, 
-              batch_size=8, rescale=True, netstr='cellpose'):
+              batch_size=8, rescale=False, netstr='cellpose'): #changed default rescale
         """ train function uses loss function self.loss_fn """
 
         d = datetime.datetime.now()
         self.learning_rate = learning_rate
         self.n_epochs = n_epochs
         self.batch_size = batch_size
-        
+        self.len_train = len(train_labels)
         self._set_optimizer(self.learning_rate, momentum, weight_decay)
         self._set_criterion()
         
@@ -855,15 +919,6 @@ class UnetModel():
         if test_data is not None:
             core_logger.info('>>>> ntest = %d'%len(test_data))
         core_logger.info(train_data[0].shape)
-
-        # set learning rate schedule    
-        LR = np.linspace(0, self.learning_rate, 10)
-        if self.n_epochs > 250:
-            LR = np.append(LR, self.learning_rate*np.ones(self.n_epochs-100))
-            for i in range(10):
-                LR = np.append(LR, LR[-1]/2 * np.ones(10))
-        else:
-            LR = np.append(LR, self.learning_rate*np.ones(max(0,self.n_epochs-10)))
         
         tic = time.time()
 
@@ -887,14 +942,16 @@ class UnetModel():
         for iepoch in range(self.n_epochs):
             np.random.seed(iepoch)
             rperm = np.random.permutation(nimg)
-            self._set_learning_rate(LR[iepoch])
-
+            
             for ibatch in range(0,nimg,batch_size):
                 inds = rperm[ibatch:ibatch+batch_size]
                 rsc = diam_train[inds] / self.diam_mean if rescale else np.ones(len(inds), np.float32)
+                
+                # now passing in the full train array, need the labels for distance transform
                 imgi, lbl, scale = transforms.random_rotate_and_resize(
-                                        [train_data[i] for i in inds], Y=[train_labels[i][1:] for i in inds],
-                                        rescale=rsc, scale_range=scale_range, unet=self.unet)
+                                        [train_data[i] for i in inds], Y=[train_labels[i] for i in inds],
+                                        rescale=rsc, scale_range=scale_range, unet=self.unet,inds=inds)
+                
                 if self.unet and lbl.shape[1]>1 and rescale:
                     lbl[:,1] /= diam_batch[:,np.newaxis,np.newaxis]**2
                 train_loss = self._train_step(imgi, lbl)
@@ -907,13 +964,15 @@ class UnetModel():
                     lavgt, nsum = 0., 0
                     np.random.seed(42)
                     rperm = np.arange(0, len(test_data), 1, int)
+                    print('rperm',rperm.shape,rperm)
                     for ibatch in range(0,len(test_data),batch_size):
                         inds = rperm[ibatch:ibatch+batch_size]
+                        print('inds')
                         rsc = diam_test[inds] / self.diam_mean if rescale else np.ones(len(inds), np.float32)
                         imgi, lbl, scale = transforms.random_rotate_and_resize(
                                             [test_data[i] for i in inds],
-                                            Y=[test_labels[i][1:] for i in inds],
-                                            scale_range=0., rescale=rsc, unet=self.unet)
+                                            Y=[test_labels[i] for i in inds],  # again pass the full array
+                                            scale_range=0., rescale=rsc, unet=self.unet, inds=inds) # pass in inds for debugging
                         if self.unet and lbl.shape[1]>1 and rescale:
                             lbl[:,1] *= scale[0]**2
 
@@ -922,12 +981,13 @@ class UnetModel():
                         nsum += len(imgi)
 
                     core_logger.info('Epoch %d, Time %4.1fs, Loss %2.4f, Loss Test %2.4f, LR %2.4f'%
-                            (iepoch, time.time()-tic, lavg, lavgt/nsum, LR[iepoch]))
+                            (iepoch, time.time()-tic, lavg, lavgt/nsum, self.optimizer.current_lr))
                 else:
                     core_logger.info('Epoch %d, Time %4.1fs, Loss %2.4f, LR %2.4f'%
-                            (iepoch, time.time()-tic, lavg, LR[iepoch]))
+                            (iepoch, time.time()-tic, lavg, self.optimizer.current_lr))
+                
                 lavg, nsum = 0, 0
-
+                            
             if save_path is not None:
                 if iepoch==self.n_epochs-1 or iepoch%save_every==1:
                     # save model at the end
@@ -941,3 +1001,92 @@ class UnetModel():
         self.net.mkldnn = self.mkldnn
 
         return file_name
+
+class DerivativeLoss(torch.nn.Module):
+    def __init__(self):
+        super().__init__()
+
+    def forward(self,y,Y,w,mask):
+        dx,dy = derivatives(y)
+        gx,gy = derivatives(Y)
+        d1 = (dx[mask]-gx[mask])/5.
+        d2 = (dy[mask]-gy[mask])/5.
+        L1 = torch.square(d1)
+        L2 = torch.square(d2)
+        return torch.mean((L1+L2)*w[mask])
+    
+class WeightedLoss(torch.nn.Module):
+    def __init__(self):
+        super().__init__()
+
+    def forward(self,y,Y,w):
+
+        diff = torch.multiply((y-Y)/5.,w)
+        return torch.mean(torch.square(diff))
+
+class MaskedLoss(torch.nn.Module):
+    def __init__(self):
+        super().__init__()
+
+    def forward(self,y,Y,mask):
+        diff = (y-Y)/5.
+        return torch.mean(torch.square(diff[mask]))
+        
+def derivatives(x):
+    sobely = [[-1, -2, -1], [0, 0, 0], [1, 2, 1]]
+    sobelx = [[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]]
+    depth = x.size()[1]
+    sobel_kernel_x = torch.tensor(sobelx, dtype=torch.float32).unsqueeze(0).expand(depth,1,3,3).to(torch.device('cuda'))
+    sobel_kernel_y = torch.tensor(sobely, dtype=torch.float32).unsqueeze(0).expand(depth,1,3,3).to(torch.device('cuda'))
+
+    dx = torch.nn.functional.conv2d(x, sobel_kernel_x, stride=1, padding=1, groups=x.size(1))
+    dy = torch.nn.functional.conv2d(x, sobel_kernel_y, stride=1, padding=1, groups=x.size(1))
+
+    return dy,dx 
+
+class ArcCosDotLoss(torch.nn.Module):
+    def __init__(self):
+        super().__init__()
+
+    def forward(self,x,y,w,mask):
+        eps = 1e-12
+        denom = torch.multiply(torch.linalg.norm(x,dim=1),torch.linalg.norm(y,dim=1))+eps
+        dot = (x[:,0,:,:]*y[:,0,:,:]+x[:,1,:,:]*y[:,1,:,:])
+        phasediff = torch.acos(torch.clip(dot/denom,-0.999999,0.999999))/3.141549
+        return torch.mean((torch.square(phasediff[mask]))*w[mask])
+    
+class NormLoss(torch.nn.Module):
+    def __init__(self):
+        super().__init__()
+
+    def forward(self,y,Y,mask):
+        ny = torch.linalg.norm(y,dim=1,keepdim=False)/5.
+        nY = torch.linalg.norm(Y,dim=1,keepdim=False)/5.
+        diff = (ny-nY)
+        return torch.mean(torch.square(diff[mask]))
+    
+class DivergenceLoss(torch.nn.Module):
+    def __init__(self):
+        super().__init__()
+
+    def forward(self,y,Y,mask=None):
+        divy = divergence(y)
+        divY = divergence(Y)
+        if mask is None:
+            mask = torch.abs(divY)>1
+        diff = (divY[mask] - divy[mask])/5.
+        return torch.mean(torch.square(diff))
+
+def divergence(x):
+    sobely = [[-1, -2, -1], [0, 0, 0], [1, 2, 1]]
+    sobelx = [[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]]
+    depth = x.size()[1]
+    sobel_kernel_x = torch.tensor(sobelx, dtype=torch.float32).unsqueeze(0).expand(depth,1,3,3).to(torch.device('cuda'))
+    sobel_kernel_y = torch.tensor(sobely, dtype=torch.float32).unsqueeze(0).expand(depth,1,3,3).to(torch.device('cuda'))
+
+    dx = torch.nn.functional.conv2d(x, sobel_kernel_x, stride=1, padding=1, groups=x.size(1))
+    dy = torch.nn.functional.conv2d(x, sobel_kernel_y, stride=1, padding=1, groups=x.size(1))
+    div = dy[:,0,:,:]+dx[:,1,:,:]
+    return div
+
+
