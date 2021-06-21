@@ -7,7 +7,7 @@ import tempfile
 from scipy.ndimage import median_filter
 import cv2
 #from ranger21 import Ranger21 #see optimizers
-from . import transforms, dynamics, utils, plot, metrics, focal_loss, ranger, rangerlars
+from . import transforms, dynamics, utils, plot, metrics
 
 try:
     from mxnet import gluon, nd
