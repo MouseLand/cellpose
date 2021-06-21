@@ -65,6 +65,12 @@ def main():
     parser.add_argument('--save_png', action='store_true', help='save masks as png and outlines as text file for ImageJ')
     parser.add_argument('--save_tif', action='store_true', help='save masks as tif and outlines as text file for ImageJ')
     parser.add_argument('--no_npy', action='store_false', help='suppress saving of npy')
+    parser.add_argument('--channel_axis', required=False, 
+                        default=None, type=int, help='axis of image which corresponds to image channels')
+    parser.add_argument('--z_axis', required=False, 
+                        default=None, type=int, help='axis of image which corresponds to Z dimension')
+    parser.add_argument('--exclude_on_edges', action='store_true', 
+                        help='discard masks which touch edges of image')
 
     # settings for training
     parser.add_argument('--train_size', action='store_true', help='train size network at end of training')
@@ -86,6 +92,7 @@ def main():
                         default=0, type=int, help='concatenate downsampled layers with upsampled layers (off by default which means they are added)')
     
     # Kevin's parser additions for conveneience, compatibility with SuperSegger file structure
+    # pre-existing save_flows and save_outlines grouped here for symmetry 
     parser.add_argument('--savedir', required=False, 
                         default=None, type=str, help='folder to which segmentation results will be saved (defaults to input image directory)')
     parser.add_argument('--dir_above', action='store_false', help='flag to save output in "masks","flows", etc. directories adjacent to the input image directory (default)')
