@@ -491,11 +491,19 @@ def steps2D_interp(p, dP, niter, use_gpu=False, device=None, skel=True, calc_tra
         return skelmask, tr
     else:
         dPt = np.zeros(p.shape, np.float32)
+        if calc_trace:
+            Ly = shape[0]
+            Lx = shape[1]
+            tr = np.zeros((niter,2,Ly,Lx))
         for t in range(niter):
             map_coordinates(dP, p[0], p[1], dPt)
-            p[0] = np.minimum(shape[0]-1, np.maximum(0, p[0] - dPt[0]))
-            p[1] = np.minimum(shape[1]-1, np.maximum(0, p[1] - dPt[1]))
-        return p
+            if skel:
+                dPt = dPt/(1+t) #this supression is key to the 'skeleton' method
+            for k in range(len(p)):
+                p[k] = np.minimum(shape[k]-1, np.maximum(0, p[k] + dPt[k]))
+                if calc_trace:
+                    tr[t] = p
+        return p, None 
 
 
 @njit('(float32[:,:,:,:],float32[:,:,:,:], int32[:,:], int32)', nogil=True)
@@ -534,9 +542,9 @@ def steps3D(p, dP, inds, niter):
             y = inds[j,1]
             x = inds[j,2]
             p0, p1, p2 = int(p[0,z,y,x]), int(p[1,z,y,x]), int(p[2,z,y,x])
-            p[0,z,y,x] = min(shape[0]-1, max(0, p[0,z,y,x] - dP[0,p0,p1,p2]))
-            p[1,z,y,x] = min(shape[1]-1, max(0, p[1,z,y,x] - dP[1,p0,p1,p2]))
-            p[2,z,y,x] = min(shape[2]-1, max(0, p[2,z,y,x] - dP[2,p0,p1,p2]))
+            p[0,z,y,x] = min(shape[0]-1, max(0, p[0,z,y,x] + dP[0,p0,p1,p2]))
+            p[1,z,y,x] = min(shape[1]-1, max(0, p[1,z,y,x] + dP[1,p0,p1,p2]))
+            p[2,z,y,x] = min(shape[2]-1, max(0, p[2,z,y,x] + dP[2,p0,p1,p2]))
     return p
 
 @njit('(float32[:,:,:], float32[:,:,:], int32[:,:], int32, boolean, boolean)', nogil=True)
@@ -583,14 +591,12 @@ def steps2D(p, dP, inds, niter, skel=True, calc_trace=False):
             dx = dP[1,p0,p1]
             if skel: # suppress each step 
                 dy, dx = dy/(t+1), dx/(t+1)
-            
-            p[0,y,x] = min(shape[0]-1, max(0, p[0,y,x] + dy))
-            p[1,y,x] = min(shape[1]-1, max(0, p[1,y,x] + dx))
-            
+            for k in range(p.shape[0]):
+                p[k,y,x] = min(shape[k]-1, max(0, p[k,y,x] + dy))
             if calc_trace:
                 tr[t] = p
                 
-    return p
+    return p, tr
 
 def follow_flows(dP, mask=None, niter=200, interp=True, use_gpu=True, device=None, skel=True, calc_trace=False):
     """ define pixels and run dynamics to recover masks in 2D
@@ -648,8 +654,7 @@ def follow_flows(dP, mask=None, niter=200, interp=True, use_gpu=True, device=Non
             return p, inds, None
         if not interp:
             print('warning: not interp')
-            p = steps2D(p, dP, inds, niter)
-            tr = None
+            p, tr = steps2D(p, dP, inds, niter,skel=skel,calc_trace=calc_trace)
         else:
             p[:,inds[:,0],inds[:,1]], tr = steps2D_interp(p[:,inds[:,0], inds[:,1]], 
                                                       dP, niter, use_gpu=use_gpu,
