@@ -301,7 +301,7 @@ class CellposeModel(UnetModel):
         recommended if you want to use a specific GPU (e.g. mx.gpu(4))
 
     """
-
+    print('Runing Kevin\'s github version')
     def __init__(self, gpu=False, pretrained_model=False, 
                     model_type=None, torch=True,
                     diam_mean=3., net_avg=True, device=None,
