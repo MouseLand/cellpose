@@ -204,11 +204,11 @@ def main():
                     masks = utils.remove_edge_masks(masks)
                 if not args.no_npy:
                     io.masks_flows_to_seg(image, masks, flows, diams, image_name, channels)
-                if args.save_png or args.save_tif or args.save_outlines:
-                    io.save_masks(image, masks, flows, image_name, 
-                                  png=args.save_png, 
-                                  tif=args.save_tif,
-                                  outlines=args.save_outlines)
+                if args.save_png or args.save_tif or args.save_flows or args.save_ncolor or args.save_txt:
+                    io.save_masks(image, masks, flows, image_name, png=args.save_png, tif=args.save_tif,
+                                  save_flows=args.save_flows,save_outlines=args.save_outlines,
+                                  save_ncolor=args.save_ncolor,dir_above=args.dir_above,savedir=args.savedir,
+                                  save_txt=args.save_txt)
             logger.info('>>>> completed in %0.3f sec'%(time.time()-tic))
         else:
             if args.pretrained_model=='cyto' or args.pretrained_model=='nuclei' or args.pretrained_model=='cyto2':
