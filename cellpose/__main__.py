@@ -95,8 +95,8 @@ def main():
     # pre-existing save_flows and save_outlines grouped here for symmetry 
     parser.add_argument('--savedir', required=False, 
                         default=None, type=str, help='folder to which segmentation results will be saved (defaults to input image directory)')
-    parser.add_argument('--dir_above', action='store_false', help='flag to save output in "masks","flows", etc. directories adjacent to the input image directory (default)')
-    parser.add_argument('--skel', action='store_false', help='flag to use "skeletonized" algorithm (default)')
+    parser.add_argument('--dir_above', action='store_true', help='save output folders adjacent to image folder instead of inside it (off by default)')
+    parser.add_argument('--not_skel', action='store_true', help='flag to disable "skeletonized" algorithm (disabled by default)')
     parser.add_argument('--save_flows', action='store_true', help='whether or not to save RGB images of flows when masks are saved (disabled by default)')
     parser.add_argument('--save_outlines', action='store_true', help='whether or not to save RGB outline images when masks are saved (disabled by default)')
     parser.add_argument('--save_ncolor', action='store_true', help='whether or not to save masks remapped to use as few IDs as possible for visualization (disabled by default')
@@ -104,7 +104,7 @@ def main():
 
                         
     args = parser.parse_args()
-
+    
     if args.check_mkl:
         mkl_enabled = models.check_mkl((not args.mxnet))
     else:
@@ -194,7 +194,8 @@ def main():
                                 batch_size=args.batch_size,
                                 interp=(not args.no_interp),
                                 channel_axis=args.channel_axis,
-                                z_axis=args.z_axis)
+                                z_axis=args.z_axis,
+                                skel=(not args.not_skel))
                 masks, flows = out[:2]
                 if len(out) > 3:
                     diams = out[-1]
@@ -223,7 +224,7 @@ def main():
                     szmean = 17.
             else:
                 cpmodel_path = os.fspath(args.pretrained_model)
-                szmean = 3.
+                szmean = 3. ########## CHECK THIS
             
             test_dir = None if len(args.test_dir)==0 else args.test_dir
             output = io.load_train_test_data(args.dir, test_dir, imf, args.mask_filter, args.unet, args.look_one_level_down)
@@ -283,7 +284,8 @@ def main():
                                             residual_on=args.residual_on,
                                             style_on=args.style_on,
                                             concatenation=args.concatenation,
-                                            nchan=nchan)
+                                            nchan=nchan,
+                                            skel=(not args.not_skel))
             
             # train segmentation model
             if args.train:
@@ -291,7 +293,7 @@ def main():
                                             test_data=test_images, test_labels=test_labels, test_files=image_names_test,
                                             learning_rate=args.learning_rate, channels=channels, 
                                             save_path=os.path.realpath(args.dir), rescale=rescale, n_epochs=args.n_epochs,
-                                            batch_size=args.batch_size)
+                                            batch_size=args.batch_size, skel=(not args.not_skel))
                 model.pretrained_model = cpmodel_path
                 logger.info('>>>> model trained and saved to %s'%cpmodel_path)
 

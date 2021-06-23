@@ -127,7 +127,7 @@ class Cellpose():
              invert=False, normalize=True, diameter=3., do_3D=False, anisotropy=None,
              net_avg=True, augment=False, tile=True, tile_overlap=0.1, resample=False, interp=True,
              flow_threshold=0.0, dist_threshold=0.0, min_size=15, stitch_threshold=0.0, 
-             rescale=None, progress=None):
+             rescale=None, progress=None, skel=True):
         """ run cellpose and get masks
 
         Parameters
@@ -270,7 +270,8 @@ class Cellpose():
                                             flow_threshold=flow_threshold, 
                                             dist_threshold=dist_threshold,
                                             min_size=min_size, 
-                                            stitch_threshold=stitch_threshold)
+                                            stitch_threshold=stitch_threshold,
+                                            skel=skel)
         models_logger.info('>>>> TOTAL TIME %0.2f sec'%(time.time()-tic0))
     
         return masks, flows, styles, diams
@@ -301,12 +302,12 @@ class CellposeModel(UnetModel):
         recommended if you want to use a specific GPU (e.g. mx.gpu(4))
 
     """
-    print('Runing Kevin\'s github version')
+    print('Running Kevin\'s github version')
     def __init__(self, gpu=False, pretrained_model=False, 
                     model_type=None, torch=True,
                     diam_mean=3., net_avg=True, device=None,
                     residual_on=True, style_on=True, concatenation=False,
-                    nchan=2,nclasses=4):
+                    nchan=2, nclasses=4, skel=True):
         if not torch:
             if not MXNET_ENABLED:
                 torch = True
@@ -316,7 +317,7 @@ class CellposeModel(UnetModel):
             pretrained_model = list(pretrained_model)
         elif isinstance(pretrained_model, str):
             pretrained_model = [pretrained_model]
-#         nclasses = 4 # 4 prediction maps (dY, dX, dist, and cell boundary)
+        
         self.nclasses = nclasses 
         incorrect_path = True
         
@@ -490,7 +491,10 @@ class CellposeModel(UnetModel):
                                                  compute_masks=compute_masks, 
                                                  min_size=min_size, 
                                                  stitch_threshold=stitch_threshold, 
-                                                 progress=progress)
+                                                 progress=progress,
+                                                 skel=skel,
+                                                 calc_trace=calc_trace, 
+                                                 verbose=verbose)
                 masks.append(maski)
                 flows.append(flowi)
                 styles.append(stylei)
@@ -522,12 +526,14 @@ class CellposeModel(UnetModel):
                                                           tile_overlap=tile_overlap,
                                                           dist_threshold=dist_threshold, 
                                                           flow_threshold=flow_threshold,
-                                                          interp=interp, 
+                                                          interp=interp,
                                                           min_size=min_size, 
                                                           do_3D=do_3D, 
                                                           anisotropy=anisotropy,
-                                                          stitch_threshold=stitch_threshold
-                                                         )
+                                                          stitch_threshold=stitch_threshold,
+                                                          skel=skel,
+                                                          calc_trace=calc_trace,
+                                                          verbose=verbose)
             flows = [plot.dx_to_circ(dP), dP, dist, p, bd]
             return masks, flows, styles
 
@@ -535,7 +541,8 @@ class CellposeModel(UnetModel):
                 rescale=1.0, net_avg=True, resample=False,
                 augment=False, tile=True, tile_overlap=0.1,
                 dist_threshold=0.0, flow_threshold=0.4, min_size=15,
-                interp=False, anisotropy=1.0, do_3D=False, stitch_threshold=0.0):
+                interp=False, anisotropy=1.0, do_3D=False, stitch_threshold=0.0,
+                skel=True, calc_trace=False, verbose=False):
         tic = time.time()
         shape = x.shape
         nimg = shape[0]
@@ -591,17 +598,19 @@ class CellposeModel(UnetModel):
             tic=time.time()
             niter = 200 if do_3D else (1 / rescale * 200)
             if do_3D:
-                masks, p = self._compute_masks(dP, dist, niter=niter, dist_threshold=dist_threshold, 
-                                            flow_threshold=flow_threshold, interp=interp, 
-                                            do_3D=do_3D, min_size=min_size, resize=None, skel=skel, verbose=verbose)
+                masks, p = self._compute_masks(dP, dist, niter=niter, dist_threshold=dist_threshold,
+                                               flow_threshold=flow_threshold, interp=interp,
+                                               do_3D=do_3D, min_size=min_size, resize=None, 
+                                               skel=skel, calc_trace=calc_trace, verbose=verbose)
             else:
                 masks = np.zeros((nimg, shape[1], shape[2]), np.uint16)
                 p = np.zeros(dP.shape, np.uint16)
                 resize = [shape[1], shape[2]] if not resample else None
                 for i in iterator:
-                    masks[i], p[:,i] = self._compute_masks(dP[:,i], dist[i], niter=niter, dist_threshold=dist_threshold, 
-                                                   flow_threshold=flow_threshold, interp=interp, 
-                                                   do_3D=do_3D, min_size=min_size, resize=resize)
+                    masks[i], p[:,i], tr = self._compute_masks(dP[:,i], dist[i], niter=niter, dist_threshold=dist_threshold,
+                                                               flow_threshold=flow_threshold, interp=interp,
+                                                               do_3D=do_3D, min_size=min_size, resize=resize, 
+                                                               skel=skel, calc_trace=calc_trace, verbose=verbose)
             
                 if stitch_threshold > 0 and nimg > 1:
                     models_logger.info('stitching %d masks using stitch_threshold=%0.3f to make 3D masks'%(nimg, stitch_threshold))
@@ -740,8 +749,7 @@ class CellposeModel(UnetModel):
             maski = transforms.resize_image(maski, resize[0], resize[1], 
                                             interpolation=cv2.INTER_NEAREST)
         
-        return maski, p
-        
+        return maski, p, tr
         
     def loss_fn(self, lbl, y):
         """ loss function between true labels lbl and prediction y """
@@ -988,7 +996,7 @@ class SizeModel():
                               batch_size=batch_size, 
                               net_avg=False,
                               compute_masks=False)[-1]
-                
+
         diam_style = self._size_estimation(np.array(styles))
         diam_style = self.diam_mean if (diam_style==0 or np.isnan(diam_style)) else diam_style
         masks = self.cp.eval(x, 
