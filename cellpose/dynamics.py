@@ -341,13 +341,13 @@ def masks_to_flows(masks, use_gpu=False, device=None, skel=True):
         Lz, Ly, Lx = masks.shape
         mu = np.zeros((3, Lz, Ly, Lx), np.float32)
         for z in range(Lz):
-            mu0 = masks_to_flows_device(masks[z], device=device)[0]
+            mu0 = masks_to_flows_device(masks[z], device=device, skel=skel)[0]
             mu[[1,2], z] += mu0
         for y in range(Ly):
-            mu0 = masks_to_flows_device(masks[:,y], device=device)[0]
+            mu0 = masks_to_flows_device(masks[:,y], device=device, skel=skel)[0]
             mu[[0,2], :, y] += mu0
         for x in range(Lx):
-            mu0 = masks_to_flows_device(masks[:,:,x], device=device)[0]
+            mu0 = masks_to_flows_device(masks[:,:,x], device=device, skel=skel)[0]
             mu[[0,1], :, :, x] += mu0
         return mu, None
     elif masks.ndim==2:
@@ -662,7 +662,7 @@ def follow_flows(dP, mask=None, niter=200, interp=True, use_gpu=True, device=Non
                                                       calc_trace=calc_trace)
     return p, inds, tr
 
-def remove_bad_flow_masks(masks, flows, threshold=0.4, use_gpu=False, device=None):
+def remove_bad_flow_masks(masks, flows, threshold=0.4, use_gpu=False, device=None, skel=True):
     """ remove masks which have inconsistent flows 
     
     Uses metrics.flow_error to compute flows from predicted masks 
@@ -691,12 +691,12 @@ def remove_bad_flow_masks(masks, flows, threshold=0.4, use_gpu=False, device=Non
         size [Ly x Lx] or [Lz x Ly x Lx]
     
     """
-    merrors, _ = metrics.flow_error(masks, flows, use_gpu, device)
+    merrors, _ = metrics.flow_error(masks, flows, use_gpu, device, skel)
     badi = 1+(merrors>threshold).nonzero()[0]
     masks[np.isin(masks, badi)] = 0
     return masks
 
-def get_masks(p, iscell=None, rpad=20, flows=None, threshold=0.4, use_gpu=False, device=None):
+def get_masks(p, iscell=None, rpad=20, flows=None, threshold=0.4, use_gpu=False, device=None, skel=True):
     """ create masks using pixel convergence after running dynamics
     
     Makes a histogram of final pixel locations p, initializes masks 
@@ -814,7 +814,7 @@ def get_masks(p, iscell=None, rpad=20, flows=None, threshold=0.4, use_gpu=False,
     M0 = np.reshape(M0, shape0)
 
     if M0.max()>0 and threshold is not None and threshold > 0 and flows is not None:
-        M0 = remove_bad_flow_masks(M0, flows, threshold=threshold, use_gpu=use_gpu, device=device)
+        M0 = remove_bad_flow_masks(M0, flows, threshold=threshold, use_gpu=use_gpu, device=device, skel=skel)
         _,M0 = np.unique(M0, return_inverse=True)
         M0 = np.reshape(M0, shape0).astype(np.int32)
 

@@ -643,7 +643,8 @@ class CellposeModel(UnetModel):
                 if verbose:
                     print('p given')
             maski = dynamics.get_masks(p, iscell=mask,
-                                        flows=dP, threshold=flow_threshold if not do_3D else None)
+                                       flows=dP, threshold=flow_threshold if not do_3D else None, 
+                                       skel=skel)
         else: # use new algorithm             
             if self.nclasses == 4:
                 d = 2.*(np.mean(dist[dist>=0])*3/np.pi)**(1/3)
@@ -741,7 +742,7 @@ class CellposeModel(UnetModel):
         
         # quality control
         if flow_threshold is not None and flow_threshold > 0 and dP is not None:
-            maski = dynamics.remove_bad_flow_masks(maski, dP, threshold=flow_threshold)
+            maski = dynamics.remove_bad_flow_masks(maski, dP, threshold=flow_threshold, skel=skel)
         maski = utils.fill_holes_and_remove_small_masks(maski, min_size=min_size)
         fastremap.renumber(maski,in_place=True) #convenient to guarantee non-skipped labels
         
