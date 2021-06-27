@@ -13,9 +13,9 @@ from scipy.ndimage import gaussian_filter
 
 from . import guiparts, menus, io
 from .. import models
-from ..utils import download_url_to_file, masks_to_outlines, normalize99
+from ..utils import download_url_to_file, masks_to_outlines
 from ..io import save_server
-from ..transforms import resize_image
+from ..transforms import resize_image, normalize99
 from ..plot import disk
 
 try:
