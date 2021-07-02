@@ -15,5 +15,9 @@ dependencies:
     - google-cloud-storage
     - tqdm
     - tifffile
+    - dask
+    - dask[array]
+    - dask[delayed]
+    - ClusterWrap
     
   

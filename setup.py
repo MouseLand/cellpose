@@ -4,7 +4,9 @@ from setuptools import setup
 install_deps = ['numpy', 'scipy', 'natsort',
                 'tifffile', 'tqdm', 'numba', 
                 'torch>=1.6',
-                'opencv-python-headless']
+                'opencv-python-headless',
+                'dask', 'dask[array]', 'dask[delayed]',
+                'ClusterWrap']
 
 try:
     import torch
