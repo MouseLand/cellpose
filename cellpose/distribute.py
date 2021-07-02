@@ -1,3 +1,5 @@
+import functools
+import operator
 import numpy as np
 import dask
 import dask.array as da
@@ -81,9 +83,6 @@ def distributed_eval(
         mask_d = delayed(mask) if mask is not None else None
 
         # distribute
-        # TODO: RESULT SHOULD BE WRITTEN TO ZARR
-        #    OR RETURN DASK ARRAY AND HAVE AN EXECUTE FUNCTION
-        #    WITH COMPUTE OR TO_ZARR OPTIONS
         segmentation = da.map_overlap(
             preprocess_and_segment, image_da,
             mask=mask_d,
@@ -92,10 +91,35 @@ def distributed_eval(
             boundary=0,
             trim=False,
             chunks=[x+2*overlap for x in blocksize],
-        ).compute()
+        )
+
+        # create container for and iterator over blocks
+        updated_blocks = np.empty(segmentation.numblocks, dtype=object)
+        block_iter = zip(
+            np.ndindex(*segmentation.numblocks),
+            map(functools.partial(operator.getitem, segmentation),
+                da.core.slices_from_chunks(segmentation.chunks))
+        )
+
+        # convert local labels to unique global labels
+        index, block = next(block_iter)
+        updated_blocks[index] = block
+        total = da.max(block)
+        for index, block in block_iter:
+            local_max = da.max(block)
+            block += da.where(block > 0, total, 0)
+            updated_blocks[index] = block
+            total += local_max
+
+        # put blocks back together as dask array
+        updated_blocks = da.block(updated_blocks.tolist())
 
         # TODO: STITCH!
 
+        # TODO: RESULT SHOULD BE WRITTEN TO ZARR
+        #    OR RETURN DASK ARRAY AND HAVE AN EXECUTE FUNCTION
+        #    WITH COMPUTE OR TO_ZARR OPTIONS
+
         # return result
-        return segmentation
+        return updated_blocks.compute()
         
