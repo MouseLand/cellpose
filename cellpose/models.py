@@ -590,8 +590,8 @@ class CellposeModel(UnetModel):
                                             flow_threshold=flow_threshold, interp=interp, 
                                             do_3D=do_3D, min_size=min_size, resize=None)
             else:
-                masks = np.zeros((nimg, shape[1], shape[2]), np.uint16)
-                p = np.zeros(dP.shape, np.uint16)
+                masks = np.zeros((nimg, shape[1], shape[2]), np.uint32)
+                p = np.zeros(dP.shape, np.uint32)
                 resize = [shape[1], shape[2]] if not resample else None
                 for i in iterator:
                     masks[i], p[:,i] = self._compute_masks(dP[:,i], cellprob[i], niter=niter, cellprob_threshold=cellprob_threshold, 
