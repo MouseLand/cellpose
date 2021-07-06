@@ -618,8 +618,7 @@ class CellposeModel(UnetModel):
             p = dynamics.follow_flows(-1 * dP * (cellprob > cellprob_threshold) / 5., 
                                         niter=niter, interp=interp, use_gpu=self.gpu)
         maski = dynamics.get_masks(p, iscell=(cellprob>cellprob_threshold),
-                                    flows=dP, threshold=flow_threshold if not do_3D else None,
-                                    use_gpu=self.gpu)
+                                    flows=dP, threshold=flow_threshold if not do_3D else None)
         maski = utils.fill_holes_and_remove_small_masks(maski, min_size=min_size)
         if resize is not None:
             maski = transforms.resize_image(maski, resize[0], resize[1], 
