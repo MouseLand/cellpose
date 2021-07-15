@@ -6,7 +6,7 @@ from urllib.parse import urlparse
 import tempfile
 from scipy.ndimage import median_filter
 import cv2
-#from ranger21 import Ranger21 #see optimizers
+# from ranger21 import Ranger21 #see optimizers
 from . import transforms, dynamics, utils, plot, metrics
 
 try:
@@ -23,6 +23,7 @@ try:
     import torch
     from torch import nn
     import torch_optimizer as optim # for RADAM optimizer
+#     from torch import optim # when using SGD
     from torch.utils import mkldnn as mkldnn_utils
     from . import resnet_torch
     TORCH_ENABLED = True 
@@ -46,7 +47,7 @@ def parse_model_string(pretrained_model):
     elif len(model_str)>7 and model_str[:8]=='cellpose':
         core_logger.info(f'parsing model string {model_str} to get cellpose options')
         nclasses = 4 # nesesssary for version with the extra dist class 
-        print('nclasses =',nclasses)
+#         print('nclasses =',nclasses)
     else:
         return None
     ostrs = model_str.split('_')[2::2]
@@ -333,53 +334,53 @@ class UnetModel():
             x = X.asnumpy()
         return x
 
-    def divergence(self,x):
-        sobely = [[-1, -2, -1], [0, 0, 0], [1, 2, 1]]
-        sobelx = [[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]]
-        depth = x.size()[1]
-        sobel_kernel_x = torch.tensor(sobelx, dtype=torch.float32).unsqueeze(0).expand(depth,1,3,3).to(self.device)
-        sobel_kernel_y = torch.tensor(sobely, dtype=torch.float32).unsqueeze(0).expand(depth,1,3,3).to(self.device)
+#     def divergence(self,x):
+#         sobely = [[-1, -2, -1], [0, 0, 0], [1, 2, 1]]
+#         sobelx = [[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]]
+#         depth = x.size()[1]
+#         sobel_kernel_x = torch.tensor(sobelx, dtype=torch.float32).unsqueeze(0).expand(depth,1,3,3).to(self.device)
+#         sobel_kernel_y = torch.tensor(sobely, dtype=torch.float32).unsqueeze(0).expand(depth,1,3,3).to(self.device)
 
-        dx = torch.nn.functional.conv2d(x, sobel_kernel_x, stride=1, padding=1, groups=x.size(1))
-        dy = torch.nn.functional.conv2d(x, sobel_kernel_y, stride=1, padding=1, groups=x.size(1))
-        div = dy[:,0,:,:]+dx[:,1,:,:]
+#         dx = torch.nn.functional.conv2d(x, sobel_kernel_x, stride=1, padding=1, groups=x.size(1))
+#         dy = torch.nn.functional.conv2d(x, sobel_kernel_y, stride=1, padding=1, groups=x.size(1))
+#         div = dy[:,0,:,:]+dx[:,1,:,:]
 
-        div = torch.abs(div)+1
-        div = (div / torch.max(div)) + 1
-        return div
+#         div = torch.abs(div)+1
+#         div = (div / torch.max(div)) + 1
+#         return div
 
-    def derivatives(self,x):
-        sobely = [[-1, -2, -1], [0, 0, 0], [1, 2, 1]]
-        sobelx = [[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]]
-        depth = x.size()[1]
-        sobel_kernel_x = torch.tensor(sobelx, dtype=torch.float32).unsqueeze(0).expand(depth,1,3,3).to(self.device)
-        sobel_kernel_y = torch.tensor(sobely, dtype=torch.float32).unsqueeze(0).expand(depth,1,3,3).to(self.device)
+#     def derivatives(self,x):
+#         sobely = [[-1, -2, -1], [0, 0, 0], [1, 2, 1]]
+#         sobelx = [[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]]
+#         depth = x.size()[1]
+#         sobel_kernel_x = torch.tensor(sobelx, dtype=torch.float32).unsqueeze(0).expand(depth,1,3,3).to(self.device)
+#         sobel_kernel_y = torch.tensor(sobely, dtype=torch.float32).unsqueeze(0).expand(depth,1,3,3).to(self.device)
 
-        dx = torch.nn.functional.conv2d(x, sobel_kernel_x, stride=1, padding=1, groups=x.size(1))
-        dy = torch.nn.functional.conv2d(x, sobel_kernel_y, stride=1, padding=1, groups=x.size(1))
+#         dx = torch.nn.functional.conv2d(x, sobel_kernel_x, stride=1, padding=1, groups=x.size(1))
+#         dy = torch.nn.functional.conv2d(x, sobel_kernel_y, stride=1, padding=1, groups=x.size(1))
 
-        return dy,dx
+#         return dy,dx
 
-    def curl(self,x):
-        sobely = [[-1, -2, -1], [0, 0, 0], [1, 2, 1]]
-        sobelx = [[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]]
-        depth = x.size()[1]
-        sobel_kernel_x = torch.tensor(sobelx, dtype=torch.float32).unsqueeze(0).expand(depth,1,3,3).to(self.device)
-        sobel_kernel_y = torch.tensor(sobely, dtype=torch.float32).unsqueeze(0).expand(depth,1,3,3).to(self.device)
+#     def curl(self,x):
+#         sobely = [[-1, -2, -1], [0, 0, 0], [1, 2, 1]]
+#         sobelx = [[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]]
+#         depth = x.size()[1]
+#         sobel_kernel_x = torch.tensor(sobelx, dtype=torch.float32).unsqueeze(0).expand(depth,1,3,3).to(self.device)
+#         sobel_kernel_y = torch.tensor(sobely, dtype=torch.float32).unsqueeze(0).expand(depth,1,3,3).to(self.device)
 
-        dx = torch.nn.functional.conv2d(x, sobel_kernel_x, stride=1, padding=1, groups=x.size(1))
-        dy = torch.nn.functional.conv2d(x, sobel_kernel_y, stride=1, padding=1, groups=x.size(1))
-        c = dx[:,0:,:]-dy[:,1,:,:]
-        c = c - torch.min(c) 
-        c = c / torch.max(c)
-        return c
+#         dx = torch.nn.functional.conv2d(x, sobel_kernel_x, stride=1, padding=1, groups=x.size(1))
+#         dy = torch.nn.functional.conv2d(x, sobel_kernel_y, stride=1, padding=1, groups=x.size(1))
+#         c = dx[:,0:,:]-dy[:,1,:,:]
+#         c = c - torch.min(c) 
+#         c = c / torch.max(c)
+#         return c
     
 
-    def norm(self,x,n=0.25):
-        return torch.linalg.norm(x,dim=1)
+#     def norm(self,x,n=0.25):
+#         return torch.linalg.norm(x,dim=1)
     
-    def squarenorm(self,x):
-        return torch.square(torch.linalg.norm(x,dim=1))
+#     def squarenorm(self,x):
+#         return torch.square(torch.linalg.norm(x,dim=1))
 
 
     def network(self, x, return_conv=False):
@@ -726,7 +727,7 @@ class UnetModel():
 
     def train(self, train_data, train_labels, train_files=None, 
               test_data=None, test_labels=None, test_files=None,
-              channels=None, normalize=True, pretrained_model=None, save_path=None, save_every=100,
+              channels=None, normalize=True, pretrained_model=None, save_path=None, save_every=50,
               learning_rate=0.2, n_epochs=500, momentum=0.9, weight_decay=0.00001, batch_size=8, rescale=False):
         """ train function uses 0-1 mask label and boundary pixels for training """
 
@@ -845,18 +846,19 @@ class UnetModel():
         # best optimizer I tested seemed to be RAdam, about 2x as fast as SGD and very stable.
         # Ranger21 is in beta and might be better/faster, but more testing is needed.
         # Ranger21 has a convenient current_lr field, whereas RAdam doesn't and I just set this field to the learning rate
-        
-            self.optimizer = optim.RAdam(self.net.parameters(), lr=learning_rate, betas=(0.9, 0.999), 
+#             self.optimizer = optim.SGD(self.net.parameters(), lr=learning_rate,
+#                             momentum=momentum, weight_decay=weight_decay)
+#             print('>>> Using SGD optimizer')
+            self.optimizer = optim.RAdam(self.net.parameters(), lr=learning_rate, betas=(0.95, 0.999), #changed to .95
                                          eps=1e-08, weight_decay=weight_decay)
-            self.optimizer.current_lr = learning_rate
-#             print('>>> Using RAdam optimizer')
+            print('>>> Using RAdam optimizer')
 #             self.optimizer = optim.AdaBound(self.net.parameters(), lr=learning_rate, betas=(0.9, 0.999), 
-#                                 gamma=1e-3, eps=1e-08, final_lr=0.1, weight_decay=0)
+#                                 gamma=1e-3, eps=1e-08, final_lr=0.15, weight_decay=weight_decay)
 #             print('>>> Using AdaBound optimizer')
 #             self.optimizer = Ranger21(self.net.parameters(), lr=learning_rate, weight_decay=weight_decay, num_batches_per_epoch=self.batch_size, 
-#                                       num_epochs=self.n_epochs,num_warmup_iterations=10*self.batch_size, betas=(0.9, 0.999), eps=1e-08)
+#                                       num_epochs=self.n_epochs,num_warmup_iterations=20*self.batch_size, betas=(0.9, 0.999), eps=1e-08)
 #             print('>>> Using Ranger21 optimizer')
-            
+            self.optimizer.current_lr = learning_rate
         else:
             self.optimizer = gluon.Trainer(self.net.collect_params(), 'sgd',{'learning_rate': learning_rate,
                                 'momentum': momentum, 'wd': weight_decay})
@@ -883,10 +885,10 @@ class UnetModel():
 
     def _train_net(self, train_data, train_labels, 
               test_data=None, test_labels=None,
-              pretrained_model=None, save_path=None, save_every=100,
+              pretrained_model=None, save_path=None, save_every=50, #changed to 50 for debugging
               learning_rate=0.2, n_epochs=500, momentum=0.9, weight_decay=0.00001, 
               batch_size=8, rescale=False, netstr='cellpose'): #changed default rescale
-        """ train function uses loss function self.loss_fn """
+        """ train function uses loss function self.loss_fn in models.py"""
 
         d = datetime.datetime.now()
         self.learning_rate = learning_rate
@@ -896,7 +898,9 @@ class UnetModel():
         self._set_optimizer(self.learning_rate, momentum, weight_decay)
         self._set_criterion()
         
-
+        print('DURING TRAINING train data/label shape>>>>>>>>>>>',train_data[0].shape,train_labels[0].shape)
+#         np.save('/home/kcutler/DataDrive/cellpose_debug/train_data.npy',train_data)
+#         np.save('/home/kcutler/DataDrive/cellpose_debug/train_labels.npy',train_labels)
         nimg = len(train_data)
 
         # compute average cell diameter
@@ -916,6 +920,7 @@ class UnetModel():
         core_logger.info('>>>> median diameter = %d'%self.diam_mean)
         core_logger.info('>>>> LR: %0.5f, batch_size: %d, weight_decay: %0.5f'%(self.learning_rate, self.batch_size, weight_decay))
         core_logger.info('>>>> ntrain = %d'%nimg)
+        core_logger.info('>>>> rescale is %d'%rescale)
         if test_data is not None:
             core_logger.info('>>>> ntest = %d'%len(test_data))
         core_logger.info(train_data[0].shape)
@@ -946,12 +951,14 @@ class UnetModel():
             for ibatch in range(0,nimg,batch_size):
                 inds = rperm[ibatch:ibatch+batch_size]
                 rsc = diam_train[inds] / self.diam_mean if rescale else np.ones(len(inds), np.float32)
-                
+#                 print(rsc)
                 # now passing in the full train array, need the labels for distance transform
                 imgi, lbl, scale = transforms.random_rotate_and_resize(
                                         [train_data[i] for i in inds], Y=[train_labels[i] for i in inds],
                                         rescale=rsc, scale_range=scale_range, unet=self.unet,inds=inds)
-                
+#                 print(imgi.shape,lbl.shape,scale)
+#                 np.save('/home/kcutler/DataDrive/cellpose_debug/imgi.npy',imgi)
+#                 np.save('/home/kcutler/DataDrive/cellpose_debug/lbl.npy',lbl)
                 if self.unet and lbl.shape[1]>1 and rescale:
                     lbl[:,1] /= diam_batch[:,np.newaxis,np.newaxis]**2
                 train_loss = self._train_step(imgi, lbl)
@@ -964,15 +971,12 @@ class UnetModel():
                     lavgt, nsum = 0., 0
                     np.random.seed(42)
                     rperm = np.arange(0, len(test_data), 1, int)
-                    print('rperm',rperm.shape,rperm)
                     for ibatch in range(0,len(test_data),batch_size):
                         inds = rperm[ibatch:ibatch+batch_size]
-                        print('inds')
                         rsc = diam_test[inds] / self.diam_mean if rescale else np.ones(len(inds), np.float32)
                         imgi, lbl, scale = transforms.random_rotate_and_resize(
-                                            [test_data[i] for i in inds],
-                                            Y=[test_labels[i] for i in inds],  # again pass the full array
-                                            scale_range=0., rescale=rsc, unet=self.unet, inds=inds) # pass in inds for debugging
+                                            [test_data[i] for i in inds], Y=[test_labels[i] for i in inds], 
+                                            scale_range=0., rescale=rsc, unet=self.unet, inds=inds) 
                         if self.unet and lbl.shape[1]>1 and rescale:
                             lbl[:,1] *= scale[0]**2
 
@@ -991,7 +995,7 @@ class UnetModel():
             if save_path is not None:
                 if iepoch==self.n_epochs-1 or iepoch%save_every==1:
                     # save model at the end
-                    file_name = '{}_{}_{}'.format(self.net_type, file_label, d.strftime("%Y_%m_%d_%H_%M_%S.%f"))
+                    file_name = '{}_{}_{}_{}'.format(self.net_type, file_label, d.strftime("%Y_%m_%d_%H_%M_%S.%f"),'epoch_'+str(iepoch)) #separate files as model progresses 
                     file_name = os.path.join(file_path, file_name)
                     ksave += 1
                     core_logger.info(f'saving network parameters to {file_name}')
@@ -1009,11 +1013,13 @@ class DerivativeLoss(torch.nn.Module):
     def forward(self,y,Y,w,mask):
         dx,dy = derivatives(y)
         gx,gy = derivatives(Y)
-        d1 = (dx[mask]-gx[mask])/5.
-        d2 = (dy[mask]-gy[mask])/5.
+        d1 = (dx-gx)/5.
+        d2 = (dy-gy)/5.
         L1 = torch.square(d1)
         L2 = torch.square(d2)
-        return torch.mean((L1+L2)*w[mask])
+        return torch.mean((L1[mask]+L2[mask])*w[mask])
+#         return torch.mean(torch.sum((L1+L2)*w,axis=(-2,-1))/torch.sum(mask,axis=(-2,-1)))
+    
     
 class WeightedLoss(torch.nn.Module):
     def __init__(self):
@@ -1021,8 +1027,8 @@ class WeightedLoss(torch.nn.Module):
 
     def forward(self,y,Y,w):
 
-        diff = torch.multiply((y-Y)/5.,w)
-        return torch.mean(torch.square(diff))
+        diff = (y-Y)/5.
+        return torch.mean(torch.square(diff)*w)
 
 class MaskedLoss(torch.nn.Module):
     def __init__(self):
@@ -1031,6 +1037,7 @@ class MaskedLoss(torch.nn.Module):
     def forward(self,y,Y,mask):
         diff = (y-Y)/5.
         return torch.mean(torch.square(diff[mask]))
+#         return torch.mean(torch.sum(torch.square(diff),axis=(-2,-1))/torch.sum(mask,axis=(-2,-1)))
         
 def derivatives(x):
     sobely = [[-1, -2, -1], [0, 0, 0], [1, 2, 1]]
@@ -1054,16 +1061,18 @@ class ArcCosDotLoss(torch.nn.Module):
         dot = (x[:,0,:,:]*y[:,0,:,:]+x[:,1,:,:]*y[:,1,:,:])
         phasediff = torch.acos(torch.clip(dot/denom,-0.999999,0.999999))/3.141549
         return torch.mean((torch.square(phasediff[mask]))*w[mask])
+#         return torch.mean(torch.sum(torch.square(phasediff)*w,axis=(-2,-1))/torch.sum(mask,axis=(-2,-1)))
     
 class NormLoss(torch.nn.Module):
     def __init__(self):
         super().__init__()
 
-    def forward(self,y,Y,mask):
+    def forward(self,y,Y,w,mask):
         ny = torch.linalg.norm(y,dim=1,keepdim=False)/5.
         nY = torch.linalg.norm(Y,dim=1,keepdim=False)/5.
         diff = (ny-nY)
-        return torch.mean(torch.square(diff[mask]))
+        return torch.mean(torch.square(diff[mask])*w[mask])
+#         return torch.mean(torch.sum(torch.square(diff)*w,axis=(-2,-1))/torch.sum(mask,axis=(-2,-1))) #mean of means, alterna
     
 class DivergenceLoss(torch.nn.Module):
     def __init__(self):
@@ -1074,8 +1083,9 @@ class DivergenceLoss(torch.nn.Module):
         divY = divergence(Y)
         if mask is None:
             mask = torch.abs(divY)>1
-        diff = (divY[mask] - divy[mask])/5.
-        return torch.mean(torch.square(diff))
+        diff = (divY - divy)/5.
+        return torch.mean(torch.square(diff[mask]))
+#         return torch.mean(torch.sum(torch.square(diff),axis=(-2,-1))/torch.sum(mask,axis=(-2,-1)))
 
 def divergence(x):
     sobely = [[-1, -2, -1], [0, 0, 0], [1, 2, 1]]
@@ -1089,4 +1099,6 @@ def divergence(x):
     div = dy[:,0,:,:]+dx[:,1,:,:]
     return div
 
-
+# averaging the mean across each 
+def mean_of_means(x):
+    return torch.mean(torch.mean(x, axis=(-2,-1)))

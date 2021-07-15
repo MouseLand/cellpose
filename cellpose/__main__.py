@@ -57,7 +57,7 @@ def main():
     parser.add_argument('--invert', required=False, action='store_true', help='invert grayscale channel')
     parser.add_argument('--all_channels', action='store_true', help='use all channels in image if using own model and images with special channels')
     parser.add_argument('--diameter', required=False, 
-                        default=3.0, type=float, help='cell diameter, if 0 cellpose will estimate for each image')
+                        default=30.0, type=float, help='cell diameter, if 0 cellpose will estimate for each image') ###################################################
     parser.add_argument('--flow_threshold', required=False, 
                         default=0.0, type=float, help='flow error threshold, 0 turns off this optional QC step')
     parser.add_argument('--dist_threshold', required=False, 
@@ -90,6 +90,8 @@ def main():
                         default=1, type=int, help='use style vector')
     parser.add_argument('--concatenation', required=False, 
                         default=0, type=int, help='concatenate downsampled layers with upsampled layers (off by default which means they are added)')
+    parser.add_argument('--save_every', required=False,
+                        default=100, type=int, help='number of epochs to skip between saves')
     
     # Kevin's parser additions for conveneience, compatibility with SuperSegger file structure
     # pre-existing save_flows and save_outlines grouped here for symmetry 
@@ -290,10 +292,11 @@ def main():
             # train segmentation model
             if args.train:
                 cpmodel_path = model.train(images, labels, train_files=image_names,
-                                            test_data=test_images, test_labels=test_labels, test_files=image_names_test,
-                                            learning_rate=args.learning_rate, channels=channels, 
-                                            save_path=os.path.realpath(args.dir), rescale=rescale, n_epochs=args.n_epochs,
-                                            batch_size=args.batch_size, skel=(not args.not_skel))
+                                           test_data=test_images, test_labels=test_labels, test_files=image_names_test,
+                                           learning_rate=args.learning_rate, channels=channels,
+                                           save_path=os.path.realpath(args.dir), save_every=args.save_every,
+                                           rescale=rescale,n_epochs=args.n_epochs,
+                                           batch_size=args.batch_size, skel=(not args.not_skel))
                 model.pretrained_model = cpmodel_path
                 logger.info('>>>> model trained and saved to %s'%cpmodel_path)
 

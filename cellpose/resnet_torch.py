@@ -175,7 +175,7 @@ class CPnet(nn.Module):
         self.make_style = make_style()
         self.output = batchconv(nbaseup[0], nout, 1)
         self.style_on = style_on
-        self.dropout = nn.Dropout(0.1)
+        self.dropout = nn.Dropout(0.1) ###########################################################
         
     def forward(self, data):
         if self.mkldnn:
@@ -189,6 +189,7 @@ class CPnet(nn.Module):
         if not self.style_on:
             style = style * 0
         T0 = self.upsample(style, T0, self.mkldnn)
+        T0 = self.dropout(T0) ####################################################################
         T0 = self.output(T0)
         if self.mkldnn:
             T0 = T0.to_dense()

@@ -133,6 +133,7 @@ def get_label_files(image_names, mask_filter, imf=None):
     else:
         flow_names = [label_names[n] + '_flows.tif' for n in range(nimg)]
     if not all([os.path.exists(flow) for flow in flow_names]):
+        print('Not all flows are present. Run flow generation again.')
         flow_names = None
     
     # check for masks

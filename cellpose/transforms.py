@@ -3,7 +3,7 @@ import warnings
 import cv2
 import edt
 from skimage.filters import gaussian
-from scipy.ndimage import median_filter
+from scipy.ndimage import median_filter, binary_dilation
 import fastremap
 
 import logging
@@ -191,10 +191,10 @@ def make_tiles(imgi, bsize=224, augment=False, tile_overlap=0.1):
 
 # needs to have a wider range to avoid weird effects with few cells in frame
 # also turns out previous fomulation can give negative numbers 
-def normalize99(img):
+def normalize99(img,lower=0.01,upper=99.99):
     """ normalize image so 0.0 is 0.01st percentile and 1.0 is 99.99th percentile """
     X = img.copy()
-    X = np.interp(X, (np.percentile(X, 0.01), np.percentile(X, 99.99)), (0, 1))
+    X = np.interp(X, (np.percentile(X, lower), np.percentile(X, upper)), (0, 1))
     return X
 
 def move_axis(img, m_axis=-1, first=True):
@@ -212,15 +212,18 @@ def move_axis(img, m_axis=-1, first=True):
     img = img.transpose(tuple(axes))
     return img
 
+# This was edited to fix a bug where single-channel images of shape (y,x) would be 
+# transposed to (x,y) if x<y, making the labels no longer correspond to the data. 
 def move_min_dim(img, force=False):
     """ move minimum dimension last as channels if < 10, or force==True """
-    min_dim = min(img.shape)
-    if min_dim < 10 or force:
-        if img.shape[-1]==min_dim:
-            channel_axis = -1
-        else:
-            channel_axis = (img.shape).index(min_dim)
-        img = move_axis(img, m_axis=channel_axis, first=False)
+    if len(img.shape) > 2: #only makese sense to do this if channel axis is already present 
+        min_dim = min(img.shape)
+        if min_dim < 10 or force:
+            if img.shape[-1]==min_dim:
+                channel_axis = -1
+            else:
+                channel_axis = (img.shape).index(min_dim)
+            img = move_axis(img, m_axis=channel_axis, first=False)
     return img
 
 def update_axis(m_axis, to_squeeze, ndim):
@@ -596,7 +599,7 @@ def pad_image_ND(img0, div=16, extra = 1):
 # I also allowed the probiability label to be interpolated instead of nearest, better accuracy and no need to 
 # preserve exact label masks anyway - but I preserved the nearest neigbor interp for the unet just in case... 
 def random_rotate_and_resize(X, Y=None, scale_range=1., xy = (224,224), 
-                             do_flip=True, rescale=None, unet=False, diam_mean=3.,inds=None):
+                             do_flip=True, rescale=None, unet=False, diam_mean=30.,inds=None):
     """ augmentation by random rotation and resizing
 
         X and Y are lists or arrays of length nimg, with dims channels x Ly x Lx (channels optional)
@@ -639,13 +642,15 @@ def random_rotate_and_resize(X, Y=None, scale_range=1., xy = (224,224),
             amount each image was resized by
 
     """    
+#     xy = np.array(xy) # have not been able to set up variable xy size yet
+#     xy[0] *= np.random.uniform(low=0.5,high=1.5)
+#     xy[1] *= np.random.uniform(low=0.5,high=1.5)
 
-    
+    dist_bg = 5 # background distance field is set to -dist_bg 
     scale_range = max(0, min(2, float(scale_range)))
-
     nimg = len(X)
     if X[0].ndim>2:
-        nchan = X[0].shape[0]
+        nchan = X[0].shape[0] 
     else:
         nchan = 1
     imgi  = np.zeros((nimg, nchan, xy[0], xy[1]), np.float32)
@@ -656,11 +661,11 @@ def random_rotate_and_resize(X, Y=None, scale_range=1., xy = (224,224),
     lbl = []
     if Y is not None:
         for n in range(nimg):
-            labels = Y[n]
+            labels = Y[n].copy()
             if labels.ndim<3:
                 labels = labels[np.newaxis,:,:]
             dist = labels[1]
-            dist[dist==0] = -5
+            dist[dist==0] = - dist_bg
             if labels.shape[0]<6:
                 bd = 5.*(labels[1]==1)
                 bd[bd==0] = -5.
@@ -671,7 +676,7 @@ def random_rotate_and_resize(X, Y=None, scale_range=1., xy = (224,224),
             Y[n] = labels
 
         if Y[0].ndim>2:
-            nt = Y[0].shape[0]
+            nt = Y[0].shape[0] +1 #(added one for weight array)
         else:
             nt = 1
         lbl = np.zeros((nimg, nt, xy[0], xy[1]), np.float32)
@@ -681,12 +686,9 @@ def random_rotate_and_resize(X, Y=None, scale_range=1., xy = (224,224),
         img = X[n].copy()
         if Y is not None:
             labels = Y[n].copy()
-            # choose better scaling to interpolate the parameter space 
-#             dt = labels[1].copy()
-#             dist = 2.*(np.mean(dt[dt>0])*3/np.pi)**(1/3)
-#             r = dist/diam_mean
-#             low = 1-0.25*r # if r is small, lower bound goes up
-#             high = 1+0.25/r # if r is small, upper bound goes up 
+            # We want the scale distibution to have a mean of 1
+            # There may be a better way to skew the distribution to
+            # interpolate the parameter space without skewing the mean 
             low = 0.75
             high = 1.25
             scale[n,:] = np.random.uniform(low=low,high=high,size=2)
@@ -696,7 +698,6 @@ def random_rotate_and_resize(X, Y=None, scale_range=1., xy = (224,224),
         Ly, Lx = img.shape[-2:]
         # generate random augmentation parameters
         gamma = np.random.uniform(low=0.75,high=1.25)
-        do_gamma = np.random.choice([0,1])
         flip = np.random.choice([0,1])
         theta = np.random.rand() * np.pi * 2
 
@@ -726,29 +727,32 @@ def random_rotate_and_resize(X, Y=None, scale_range=1., xy = (224,224),
                     labels[3] = -labels[3]
 
         method = cv2.INTER_LINEAR
-        mode = cv2.BORDER_REFLECT #NO EMPTY PATCHES
+        # the mode determines what happens with out of bounds regions. If we recompute the flow, we can
+        # reflect all the scalar quantities then take the derivative. If we just rotate the field, then
+        # the reflection messes uop the directions and we have to set the mode to pad with 0s. 
+        mode = cv2.BORDER_DEFAULT # Does reflection 
+        mode = 0
+            
+            
         for k in range(nchan):
-#             print('image range', np.min(img[k]),np.max(img[k]),np.mean(img[k]),(img[k]).dtype)
             I = cv2.warpAffine(img[k], M, (xy[1],xy[0]),borderMode=mode, flags=method)
-            if do_gamma: 
-                imgi[n,k] = I ** gamma
-            else:
-                imgi[n,k] = I
-        
+            imgi[n,k] = I ** gamma
+    
         label_method = cv2.INTER_NEAREST
         if Y is not None:
-            for k in [0,1,4,5,6]: # skip 2 and 3, re-compute flow later
+            for k in [0,1,2,3,4,5,6]: # skip 2 and 3, re-compute flow later
                 if not unet:
                     if k==0:
                         l = labels[k]
-                        lbl[n,k] = cv2.warpAffine(l, M, (xy[1],xy[0]), flags=label_method)
+                        lbl[n,k] = cv2.warpAffine(l, M, (xy[1],xy[0]), borderMode=mode, flags=label_method)
                         
-                        #check to make sure the region contains at least 30 cell pixels; if not, retry.
-                        # far from the most efficient implmentation, but does not appear to increase training time. 
-                        if np.sum(lbl[n,k]>0)<30:
+                        #check to make sure the region contains at least 10 cell pixels; if not, retry.
+                        # far from the most efficient implmentation, but does not appear to increase training time.
+                        if np.sum(lbl[n,k]>0)<10:
 #                             print('blank, trying again. Size was',xy,'Index is',inds[n])
                             return random_rotate_and_resize(X, Y=Y, scale_range=scale_range, xy=xy, 
-                                                            do_flip=do_flip, rescale=rescale, unet=unet, diam_mean=diam_mean, inds=inds)
+                                                            do_flip=do_flip, rescale=rescale, unet=unet, 
+                                                            diam_mean=diam_mean, inds=inds)
                     else:
                         lbl[n,k] = cv2.warpAffine(labels[k], M, (xy[1],xy[0]), borderMode=mode, flags=method)
                 else:
@@ -758,32 +762,50 @@ def random_rotate_and_resize(X, Y=None, scale_range=1., xy = (224,224),
                         lbl[n,k] = cv2.warpAffine(labels[k], M, (xy[1],xy[0]), flags=cv2.INTER_LINEAR)
             
             
-            # instead of rotating the flow field to point inwards again, we toss the original field and re-compute from the heat distribution
-            # this avoids a lot if interpolation artifacts
-            # also fix the scale of the distance transform (smoother interpolated one is better than recomputed, sensitive to edge artifacts)
+                        
+            # For a while I had the heat distribution carried through to re-compute the flow field, but it turns out that the interpolated field
+            # gives better segmentation results (when evaluated on the training dataset, at least) 
             if nt > 1 and not unet:
+                v1 = lbl[n,3].copy() # x component
+                v2 = lbl[n,2].copy() # y component 
+                dy = (-v1 * np.sin(-theta) + v2*np.cos(-theta))
+                dx = (v1 * np.cos(-theta) + v2*np.sin(-theta))
+                
                 mask = lbl[n,6]
                 l = lbl[n,0]
-                dt = edt.edt(l,parallel=8)
-                dist = (lbl[n,1]*np.max(dt)/np.max(lbl[n,1]))
-                dist[dist<=-5] = -5
+                dist = edt.edt(l,parallel=8)
+                lbl[n,5] = dist==1
+                
+                lbl[n,3] = 5.*dx*mask 
+                lbl[n,2] = 5.*dy*mask
+                
+                # taking the derivative again rather than interpolating it, avoids a lot of artifacts 
+                # at cnters and where cells meet, also allows for border reflections effortlessly 
+#                 heat = np.exp(lbl[n,4].copy()) 
+#                 mu = np.stack(np.gradient(heat,edge_order=1))
+#                 mag = (mu**2).sum(axis=0)**0.5
+#                 mu = np.divide(mu, mag, out=np.zeros_like(mu), where=np.logical_and(mag!=0,~np.isnan(mag)))
+
+                dist[dist<=0] = -dist_bg
                 lbl[n,1] = dist
-                lbl[n,5] = 1/(1+np.exp(-lbl[n,5])) 
-                heat = lbl[n,4].copy() # taking the derivative again rather than interpolating it avoids a lot of artifacts at cnters and where cells meet
-                mu = np.stack(np.gradient(heat,edge_order=1))
-                mag = (mu**2).sum(axis=0)**0.5
-                mu = np.divide(mu, mag, out=np.zeros_like(mu), where=np.logical_and(mag!=0,~np.isnan(mag)))
-                lbl[n,3] = 5.*mu[1]*mask # scale up to -5 to 5, also suppress edge artifacts with mask
-                lbl[n,2] = 5.*mu[0]*mask
+
+            
+                bg_edt = edt.edt(mask<0.5,black_border=True) #last arg gives weight to the border, which seems to always lose
+                cutoff = 9
+                lbl[n,7] = (gaussian(1-np.clip(bg_edt,0,cutoff)/cutoff,sigma=1)+0.5)
+
                 
-                
-    return imgi, lbl, np.mean(scale) #for size training, must output scalar size 
+#     print(imgi.shape,lbl.shape,scale)
+#     np.save('/home/kcutler/DataDrive/cellpose_debug/imgi.npy',imgi)
+#     np.save('/home/kcutler/DataDrive/cellpose_debug/lbl.npy',lbl)
+    return imgi, lbl, np.mean(scale) #for size training, must output scalar size (CHECK THAT)
 
 def normalize_field(dx,dy):
-        mag = np.abs(dx+1j*dy)
+        mag = np.abs(dx+1j*dy)+1e-3
         dx = np.divide(dx, mag, out=np.zeros_like(dx), where=np.logical_and(mag!=0,~np.isnan(mag)))
         dy = np.divide(dy, mag, out=np.zeros_like(dy), where=np.logical_and(mag!=0,~np.isnan(mag)))
         return dx, dy
+
 
 def _X2zoom(img, X2=1):
     """ zoom in image

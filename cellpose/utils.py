@@ -5,6 +5,7 @@ from urllib.parse import urlparse
 import cv2
 from scipy.ndimage import find_objects, gaussian_filter, generate_binary_structure, label, maximum_filter1d, binary_fill_holes
 from scipy.spatial import ConvexHull
+from scipy.stats import gmean
 import numpy as np
 import colorsys
 import io
@@ -362,10 +363,16 @@ def stitch3D(masks, stitch_threshold=0.25):
         masks[i+1] = istitch[masks[i+1]]
     return masks
 
-# new diameter function 
-def diameters(masks):
+# new diameter function; 
+def diameters(masks, dist_threshold=1):
     dt = edt.edt(np.int32(masks))
-    return 2.*(np.mean(dt[dt>0])*3/np.pi)**(1/3), None
+    dt_pos = np.abs(dt[dt>=dist_threshold])
+    return dist_to_diam(np.abs(dt_pos)), None
+
+# also used in models.py
+def dist_to_diam(dt_pos):
+    return 6*np.mean(dt_pos)
+#     return np.exp(3/2)*gmean(dt_pos[dt_pos>=gmean(dt_pos)])
 
 def radius_distribution(masks, bins):
     unique, counts = np.unique(masks, return_counts=True)
@@ -393,7 +400,7 @@ def process_cells(M0, npix=20):
 
 # Edited slightly to only remove small holes(under min_size) to avoid filling in voids formed by cells touching themselves
 # (Masks show this, outlines somehow do not. Also need to find a way to split self-contact points).
-def fill_holes_and_remove_small_masks(masks, min_size=15):
+def fill_holes_and_remove_small_masks(masks, min_size=15, hole_size=3):
     """ fill holes in masks (2D/3D) and discard masks smaller than min_size (2D)
     
     fill holes in each mask using scipy.ndimage.morphology.binary_fill_holes
@@ -417,6 +424,7 @@ def fill_holes_and_remove_small_masks(masks, min_size=15):
         size [Ly x Lx] or [Lz x Ly x Lx]
     
     """
+        
     if masks.ndim > 3 or masks.ndim < 2:
         raise ValueError('masks_to_outlines takes 2D or 3D array, not %dD array'%masks.ndim)
     
@@ -431,10 +439,10 @@ def fill_holes_and_remove_small_masks(masks, min_size=15):
             else:    
                 if msk.ndim==3:
                     for k in range(msk.shape[0]):
-                        padmsk = remove_small_holes(np.pad(msk[k],1,mode='constant'),min_size)
+                        padmsk = remove_small_holes(np.pad(msk[k],1,mode='constant'),hole_size)
                         msk[k] = padmsk[1:-1,1:-1]
                 else:                    
-                    padmsk = remove_small_holes(np.pad(msk,1,mode='constant'),min_size)
+                    padmsk = remove_small_holes(np.pad(msk,1,mode='constant'),hole_size)
                     msk = padmsk[1:-1,1:-1]
                 masks[slc][msk] = (j+1)
                 j+=1
