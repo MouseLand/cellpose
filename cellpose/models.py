@@ -310,7 +310,7 @@ class CellposeModel(UnetModel):
     print('Running Kevin\'s github version')
     def __init__(self, gpu=False, pretrained_model=False, 
                     model_type=None, torch=True,
-                    diam_mean=3., net_avg=True, device=None,
+                    diam_mean=30., net_avg=True, device=None,
                     residual_on=True, style_on=True, concatenation=False,
                     nchan=2, nclasses=4, skel=True):
         if not torch:
@@ -345,7 +345,7 @@ class CellposeModel(UnetModel):
             if pretrained_model:
                 params = parse_model_string(pretrained_model[0])
                 if params is not None:
-                    nclasses_deprecated, residual_on, style_on, concatenation = params #backwards compatibility requires this method of finding nclasses to be ignored
+                    residual_on, style_on, concatenation = params #no more nclasses here, as it was hard-coded at 3 
                 
         # initialize network
         super().__init__(gpu=gpu, pretrained_model=False,

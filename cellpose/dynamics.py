@@ -181,16 +181,13 @@ def masks_to_flows_gpu(masks, device=None, skel=True):
     isneighbor = neighbor_masks == neighbor_masks[0] # 0 corresponds to x,y
     
     slices = scipy.ndimage.find_objects(masks)
-    ext = np.array([[sr.stop - sr.start + 1, sc.stop - sc.start + 1] for sr, sc in slices])
-    n_iter = 2 * (ext.sum(axis=1)).max()
-#    n_iter = 10*np.int32(np.ptp(x)+np.ptp(y))
-    # run diffusion
+    n_iter = 10*np.int32(np.ptp(x)+np.ptp(y)) 
+    # run diffusion 
     mu, T = _extend_centers_gpu(neighbors, centers, isneighbor, Ly, Lx, 
                              n_iter=n_iter, device=device)
 
     # normalize
-    mag = (mu**2).sum(axis=0)**0.5
-    mu = np.divide(mu, mag, out=np.zeros_like(mu), where=np.logical_and(mag!=0,~np.isnan(mag)))
+    mu = transforms.normalize_field(mu)
 
     # put into original image
     mu0 = np.zeros((2, Ly0, Lx0))
@@ -281,18 +278,10 @@ def masks_to_flows_cpu(masks, device=None, skel=True):
             # finite difference approximation
             dy = np.empty(ly*lx, np.float64) 
             dx = np.empty(ly*lx, np.float64)
-  
             dy[y*lx + x] = T[(y+1)*lx + x] - T[(y-1)*lx + x]
             dx[y*lx + x] = T[y*lx + x+1] - T[y*lx + x-1]
- 
-            dy,dx = transforms.normalize_field(dy,dx)
-
-            Dy = np.copy(dy[y*lx + x])
-            Dx = np.copy(dx[y*lx + x])
-
-
-            mu[:, sr.start+y-1, sc.start+x-1] = np.stack((Dy,Dx))
-            mu_c[sr.start+y-1, sc.start+x-1] = heat[y*lx + x]
+            mu[:, sr.start+y-pad, sc.start+x-pad] =  transforms.normalize_field(np.stack((dy,dx)))[:,y*lx + x]
+            mu_c[sr.start+y-pad, sc.start+x-pad] = heat[y*lx + x]
             
     # pass heat back instead of zeros - not sure what mu_c was originally
     # intended for, but it is apparently not used for anything else
@@ -325,8 +314,6 @@ def masks_to_flows(masks, use_gpu=False, device=None, skel=True):
 
     """
     masks = masks.astype('int32')
-    pad = 15
-    masks = np.pad(masks,pad,mode='reflect')
     fastremap.renumber(masks,in_place=True); 
     if TORCH_ENABLED and use_gpu:
         if use_gpu and device is None:
@@ -351,6 +338,8 @@ def masks_to_flows(masks, use_gpu=False, device=None, skel=True):
             mu[[0,1], :, :, x] += mu0
         return mu, None
     elif masks.ndim==2:
+        pad = 15 # padding helps avoid edge artifacts from cut-off cells 
+        masks = np.pad(masks,pad,mode='reflect') 
         mu, T = masks_to_flows_device(masks, device=device, skel=skel)
 #         print(mu.shape)
         return mu[:,pad:-pad,pad:-pad], T[pad:-pad,pad:-pad]

@@ -57,7 +57,7 @@ def main():
     parser.add_argument('--invert', required=False, action='store_true', help='invert grayscale channel')
     parser.add_argument('--all_channels', action='store_true', help='use all channels in image if using own model and images with special channels')
     parser.add_argument('--diameter', required=False, 
-                        default=30.0, type=float, help='cell diameter, if 0 cellpose will estimate for each image') ###################################################
+                        default=30., type=float, help='cell diameter, if 0 cellpose will estimate for each image')
     parser.add_argument('--flow_threshold', required=False, 
                         default=0.0, type=float, help='flow error threshold, 0 turns off this optional QC step')
     parser.add_argument('--dist_threshold', required=False, 

@@ -595,9 +595,7 @@ def pad_image_ND(img0, div=16, extra = 1):
     xsub = np.arange(ypad1, ypad1+Lx)
     return I, ysub, xsub
 
-#Here is where I can insert more data augmentation. I've now added a random gamma to simulate different contrast.
-# I also allowed the probiability label to be interpolated instead of nearest, better accuracy and no need to 
-# preserve exact label masks anyway - but I preserved the nearest neigbor interp for the unet just in case... 
+
 def random_rotate_and_resize(X, Y=None, scale_range=1., xy = (224,224), 
                              do_flip=True, rescale=None, unet=False, diam_mean=30.,inds=None):
     """ augmentation by random rotation and resizing
@@ -780,7 +778,7 @@ def random_rotate_and_resize(X, Y=None, scale_range=1., xy = (224,224),
                 lbl[n,2] = 5.*dy*mask
                 
                 # taking the derivative again rather than interpolating it, avoids a lot of artifacts 
-                # at cnters and where cells meet, also allows for border reflections effortlessly 
+                # at centers and where cells meet, also allows for border reflections effortlessly 
 #                 heat = np.exp(lbl[n,4].copy()) 
 #                 mu = np.stack(np.gradient(heat,edge_order=1))
 #                 mag = (mu**2).sum(axis=0)**0.5
@@ -789,22 +787,17 @@ def random_rotate_and_resize(X, Y=None, scale_range=1., xy = (224,224),
                 dist[dist<=0] = -dist_bg
                 lbl[n,1] = dist
 
-            
                 bg_edt = edt.edt(mask<0.5,black_border=True) #last arg gives weight to the border, which seems to always lose
                 cutoff = 9
                 lbl[n,7] = (gaussian(1-np.clip(bg_edt,0,cutoff)/cutoff,sigma=1)+0.5)
 
-                
-#     print(imgi.shape,lbl.shape,scale)
-#     np.save('/home/kcutler/DataDrive/cellpose_debug/imgi.npy',imgi)
-#     np.save('/home/kcutler/DataDrive/cellpose_debug/lbl.npy',lbl)
-    return imgi, lbl, np.mean(scale) #for size training, must output scalar size (CHECK THAT)
+    return imgi, lbl, np.mean(scale) #for size training, must output scalar size (need to check this again)
 
-def normalize_field(dx,dy):
-        mag = np.abs(dx+1j*dy)+1e-3
-        dx = np.divide(dx, mag, out=np.zeros_like(dx), where=np.logical_and(mag!=0,~np.isnan(mag)))
-        dy = np.divide(dy, mag, out=np.zeros_like(dy), where=np.logical_and(mag!=0,~np.isnan(mag)))
-        return dx, dy
+
+def normalize_field(mu):
+        mag = np.nansum(mu**2,axis=0)**(0.5)
+        mu = np.divide(mu, mag, out=np.zeros_like(mu), where=np.logical_and(mag!=0,~np.isnan(mag)))
+        return mu
 
 
 def _X2zoom(img, X2=1):

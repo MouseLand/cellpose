@@ -6,7 +6,6 @@ from urllib.parse import urlparse
 import tempfile
 from scipy.ndimage import median_filter
 import cv2
-# from ranger21 import Ranger21 #see optimizers
 from . import transforms, dynamics, utils, plot, metrics
 
 try:
@@ -23,7 +22,6 @@ try:
     import torch
     from torch import nn
     import torch_optimizer as optim # for RADAM optimizer
-#     from torch import optim # when using SGD
     from torch.utils import mkldnn as mkldnn_utils
     from . import resnet_torch
     TORCH_ENABLED = True 
@@ -36,6 +34,8 @@ core_logger = logging.getLogger(__name__)
 core_logger.setLevel(logging.DEBUG)
 tqdm_out = utils.TqdmToLogger(core_logger, level=logging.INFO)
 
+# no longer returns nclasses, as it was hard-coded; now it is specified by the user
+# (maybe it should be incorportated into the model name in a future version)
 def parse_model_string(pretrained_model):
     if isinstance(pretrained_model, list):
         model_str = os.path.split(pretrained_model[0])[-1]
@@ -46,15 +46,13 @@ def parse_model_string(pretrained_model):
         nclasses = max(2, int(model_str[4]))
     elif len(model_str)>7 and model_str[:8]=='cellpose':
         core_logger.info(f'parsing model string {model_str} to get cellpose options')
-        nclasses = 4 # nesesssary for version with the extra dist class 
-#         print('nclasses =',nclasses)
     else:
         return None
     ostrs = model_str.split('_')[2::2]
     residual_on = ostrs[0]=='on'
     style_on = ostrs[1]=='on'
     concatenation = ostrs[2]=='on'
-    return nclasses, residual_on, style_on, concatenation
+    return residual_on, style_on, concatenation
 
 def use_gpu(gpu_number=0, istorch=True):
     """ check if gpu works """
@@ -242,7 +240,8 @@ class UnetModel():
             flows: list of lists 2D arrays, or list of 3D arrays (if do_3D=True)
                 flows[k][0] = XY flow in HSV 0-255
                 flows[k][1] = flows at each pixel
-                flows[k][2] = the cell distance transform
+                flows[k][2] = the cell distance field
+                flows[k][3] = the cell boundary
 
             styles: list of 1D arrays of length 64, or single 1D array (if do_3D=True)
                 style vector summarizing each image, also used to estimate size of objects in image
@@ -334,55 +333,6 @@ class UnetModel():
             x = X.asnumpy()
         return x
 
-#     def divergence(self,x):
-#         sobely = [[-1, -2, -1], [0, 0, 0], [1, 2, 1]]
-#         sobelx = [[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]]
-#         depth = x.size()[1]
-#         sobel_kernel_x = torch.tensor(sobelx, dtype=torch.float32).unsqueeze(0).expand(depth,1,3,3).to(self.device)
-#         sobel_kernel_y = torch.tensor(sobely, dtype=torch.float32).unsqueeze(0).expand(depth,1,3,3).to(self.device)
-
-#         dx = torch.nn.functional.conv2d(x, sobel_kernel_x, stride=1, padding=1, groups=x.size(1))
-#         dy = torch.nn.functional.conv2d(x, sobel_kernel_y, stride=1, padding=1, groups=x.size(1))
-#         div = dy[:,0,:,:]+dx[:,1,:,:]
-
-#         div = torch.abs(div)+1
-#         div = (div / torch.max(div)) + 1
-#         return div
-
-#     def derivatives(self,x):
-#         sobely = [[-1, -2, -1], [0, 0, 0], [1, 2, 1]]
-#         sobelx = [[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]]
-#         depth = x.size()[1]
-#         sobel_kernel_x = torch.tensor(sobelx, dtype=torch.float32).unsqueeze(0).expand(depth,1,3,3).to(self.device)
-#         sobel_kernel_y = torch.tensor(sobely, dtype=torch.float32).unsqueeze(0).expand(depth,1,3,3).to(self.device)
-
-#         dx = torch.nn.functional.conv2d(x, sobel_kernel_x, stride=1, padding=1, groups=x.size(1))
-#         dy = torch.nn.functional.conv2d(x, sobel_kernel_y, stride=1, padding=1, groups=x.size(1))
-
-#         return dy,dx
-
-#     def curl(self,x):
-#         sobely = [[-1, -2, -1], [0, 0, 0], [1, 2, 1]]
-#         sobelx = [[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]]
-#         depth = x.size()[1]
-#         sobel_kernel_x = torch.tensor(sobelx, dtype=torch.float32).unsqueeze(0).expand(depth,1,3,3).to(self.device)
-#         sobel_kernel_y = torch.tensor(sobely, dtype=torch.float32).unsqueeze(0).expand(depth,1,3,3).to(self.device)
-
-#         dx = torch.nn.functional.conv2d(x, sobel_kernel_x, stride=1, padding=1, groups=x.size(1))
-#         dy = torch.nn.functional.conv2d(x, sobel_kernel_y, stride=1, padding=1, groups=x.size(1))
-#         c = dx[:,0:,:]-dy[:,1,:,:]
-#         c = c - torch.min(c) 
-#         c = c / torch.max(c)
-#         return c
-    
-
-#     def norm(self,x,n=0.25):
-#         return torch.linalg.norm(x,dim=1)
-    
-#     def squarenorm(self,x):
-#         return torch.square(torch.linalg.norm(x,dim=1))
-
-
     def network(self, x, return_conv=False):
         """ convert imgs to torch/mxnet and run network model and return numpy """
         X = self._to_device(x)
@@ -458,7 +408,7 @@ class UnetModel():
                     progress.setValue(10 + 10*j)
             y = y / len(self.pretrained_model)
             
-        torch.cuda.empty_cache() # release gpu memory cache, quite significant
+        torch.cuda.empty_cache() # release gpu memory cache after running - pretty sure this is working but need better tests 
         return y, style
 
     def _run_net(self, imgs, augment=False, tile=True, tile_overlap=0.1, bsize=224,
@@ -846,9 +796,6 @@ class UnetModel():
         # best optimizer I tested seemed to be RAdam, about 2x as fast as SGD and very stable.
         # Ranger21 is in beta and might be better/faster, but more testing is needed.
         # Ranger21 has a convenient current_lr field, whereas RAdam doesn't and I just set this field to the learning rate
-#             self.optimizer = optim.SGD(self.net.parameters(), lr=learning_rate,
-#                             momentum=momentum, weight_decay=weight_decay)
-#             print('>>> Using SGD optimizer')
             self.optimizer = optim.RAdam(self.net.parameters(), lr=learning_rate, betas=(0.95, 0.999), #changed to .95
                                          eps=1e-08, weight_decay=weight_decay)
             print('>>> Using RAdam optimizer')
@@ -894,13 +841,9 @@ class UnetModel():
         self.learning_rate = learning_rate
         self.n_epochs = n_epochs
         self.batch_size = batch_size
-        self.len_train = len(train_labels)
         self._set_optimizer(self.learning_rate, momentum, weight_decay)
         self._set_criterion()
         
-        print('DURING TRAINING train data/label shape>>>>>>>>>>>',train_data[0].shape,train_labels[0].shape)
-#         np.save('/home/kcutler/DataDrive/cellpose_debug/train_data.npy',train_data)
-#         np.save('/home/kcutler/DataDrive/cellpose_debug/train_labels.npy',train_labels)
         nimg = len(train_data)
 
         # compute average cell diameter
@@ -951,14 +894,11 @@ class UnetModel():
             for ibatch in range(0,nimg,batch_size):
                 inds = rperm[ibatch:ibatch+batch_size]
                 rsc = diam_train[inds] / self.diam_mean if rescale else np.ones(len(inds), np.float32)
-#                 print(rsc)
-                # now passing in the full train array, need the labels for distance transform
+                # now passing in the full train array, need the labels for distance field
                 imgi, lbl, scale = transforms.random_rotate_and_resize(
                                         [train_data[i] for i in inds], Y=[train_labels[i] for i in inds],
                                         rescale=rsc, scale_range=scale_range, unet=self.unet,inds=inds)
-#                 print(imgi.shape,lbl.shape,scale)
-#                 np.save('/home/kcutler/DataDrive/cellpose_debug/imgi.npy',imgi)
-#                 np.save('/home/kcutler/DataDrive/cellpose_debug/lbl.npy',lbl)
+
                 if self.unet and lbl.shape[1]>1 and rescale:
                     lbl[:,1] /= diam_batch[:,np.newaxis,np.newaxis]**2
                 train_loss = self._train_step(imgi, lbl)
