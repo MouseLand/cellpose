@@ -24,7 +24,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-# changed default diameter to 3.0, flow threshold to 0.0, nclasses to 4, no_npy defaults to store_false
+# changed flow threshold to 0.0, nclasses to 4, no_npy defaults to store_false
 def main():
     parser = argparse.ArgumentParser(description='cellpose parameters')
     parser.add_argument('--check_mkl', action='store_true', help='check if mkl working')
@@ -226,7 +226,7 @@ def main():
                     szmean = 17.
             else:
                 cpmodel_path = os.fspath(args.pretrained_model)
-                szmean = 3. ########## CHECK THIS
+                szmean = 30.
             
             test_dir = None if len(args.test_dir)==0 else args.test_dir
             output = io.load_train_test_data(args.dir, test_dir, imf, args.mask_filter, args.unet, args.look_one_level_down)

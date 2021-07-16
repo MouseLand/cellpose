@@ -119,7 +119,7 @@ def check_mkl(istorch=True):
 
 class UnetModel():
     def __init__(self, gpu=False, pretrained_model=False,
-                    diam_mean=3., net_avg=True, device=None,
+                    diam_mean=30., net_avg=True, device=None,
                     residual_on=False, style_on=False, concatenation=True,
                     nclasses=4, torch=True, nchan=2):
         self.unet = True
