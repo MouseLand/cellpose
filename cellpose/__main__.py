@@ -23,6 +23,11 @@ except Exception as err:
 import logging
 logger = logging.getLogger(__name__)
 
+def confirm_prompt(question):
+    reply = None
+    while reply not in ("", "y", "n"):
+        reply = input(f"{question} (y/n): ").lower()
+    return (reply in ("", "y"))
 
 # changed flow threshold to 0.0, nclasses to 4, no_npy defaults to store_false
 def main():
@@ -43,7 +48,7 @@ def main():
     parser.add_argument('--do_3D', action='store_true',
                         help='process images as 3D stacks of images (nplanes x nchan x Ly x Lx')
     
-    # settings for running cellpose; changed default nclasses to 4
+    # settings for running cellpose; changed default nclasses to 4, flow_threshold to 0
     parser.add_argument('--pretrained_model', required=False, 
                         default='cyto', type=str, help='model to use')
     parser.add_argument('--unet', required=False, 
@@ -62,6 +67,8 @@ def main():
                         default=0.0, type=float, help='flow error threshold, 0 turns off this optional QC step')
     parser.add_argument('--dist_threshold', required=False, 
                         default=-1.0, type=float, help='cell distance threshold')
+    parser.add_argument('--diam_threshold', required=False, 
+                        default=12.0, type=float, help='cell diameter threshold for upscaling before mask rescontruction, default 12.')
     parser.add_argument('--save_png', action='store_true', help='save masks as png and outlines as text file for ImageJ')
     parser.add_argument('--save_tif', action='store_true', help='save masks as tif and outlines as text file for ImageJ')
     parser.add_argument('--no_npy', action='store_false', help='suppress saving of npy')
@@ -103,9 +110,12 @@ def main():
     parser.add_argument('--save_outlines', action='store_true', help='whether or not to save RGB outline images when masks are saved (disabled by default)')
     parser.add_argument('--save_ncolor', action='store_true', help='whether or not to save masks remapped to use as few IDs as possible for visualization (disabled by default')
     parser.add_argument('--save_txt', action='store_true', help='flag to enable txt outlines for ImageJ (disabled by default)')
+    parser.add_argument('--verbose', action='store_true', help='flag to output extra information (e.g. diameter metrics) for debugging and fine-tuning parameters')
+
 
                         
     args = parser.parse_args()
+    
     
     if args.check_mkl:
         mkl_enabled = models.check_mkl((not args.mxnet))
@@ -141,6 +151,15 @@ def main():
         model_dir = models.model_dir              
 
         if not args.train and not args.train_size:
+            # Might want to add a Y/N prompt as well for this for conveneience
+            saving_something = args.save_png or args.save_tif or args.save_flows or args.save_ncolor or args.save_txt
+            if not saving_something:
+                logger.info('>>>> Running without saving any output.')
+                confirm = confirm_prompt('Proceed Anyway?')
+                if not confirm:
+                    exit()
+                    
+            
             tic = time.time()
             if not (args.pretrained_model=='cyto' or args.pretrained_model=='nuclei' or args.pretrained_model=='cyto2'):
                 cpmodel_path = args.pretrained_model
@@ -156,6 +175,8 @@ def main():
                 
             cstr0 = ['GRAY', 'RED', 'GREEN', 'BLUE']
             cstr1 = ['NONE', 'RED', 'GREEN', 'BLUE']
+            
+
             logger.info('>>>> running cellpose on %d images using chan_to_seg %s and chan (opt) %s'%
                             (nimg, cstr0[channels[0]], cstr1[channels[1]]))
                     
@@ -183,6 +204,7 @@ def main():
                 diameter = args.diameter
                 logger.info('>>>> using diameter %0.2f for all images'%diameter)
             
+            
             tqdm_out = utils.TqdmToLogger(logger,level=logging.INFO)
             for image_name in tqdm(image_names, file=tqdm_out):
                 image = io.imread(image_name)
@@ -192,12 +214,14 @@ def main():
                                 resample=args.resample,
                                 flow_threshold=args.flow_threshold,
                                 dist_threshold=args.dist_threshold,
+                                diam_threshold=args.diam_threshold,
                                 invert=args.invert,
                                 batch_size=args.batch_size,
                                 interp=(not args.no_interp),
                                 channel_axis=args.channel_axis,
                                 z_axis=args.z_axis,
-                                skel=(not args.not_skel))
+                                skel=(not args.not_skel),
+                                verbose=args.verbose)
                 masks, flows = out[:2]
                 if len(out) > 3:
                     diams = out[-1]
@@ -207,7 +231,7 @@ def main():
                     masks = utils.remove_edge_masks(masks)
                 if not args.no_npy:
                     io.masks_flows_to_seg(image, masks, flows, diams, image_name, channels)
-                if args.save_png or args.save_tif or args.save_flows or args.save_ncolor or args.save_txt:
+                if saving_something:
                     io.save_masks(image, masks, flows, image_name, png=args.save_png, tif=args.save_tif,
                                   save_flows=args.save_flows,save_outlines=args.save_outlines,
                                   save_ncolor=args.save_ncolor,dir_above=args.dir_above,savedir=args.savedir,
@@ -318,3 +342,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+    

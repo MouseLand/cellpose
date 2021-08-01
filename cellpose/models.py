@@ -12,6 +12,7 @@ from scipy.ndimage.morphology import binary_dilation, binary_opening
 from skimage.morphology import diameter_opening
 
 
+
 import logging
 models_logger = logging.getLogger(__name__)
 models_logger.setLevel(logging.DEBUG)
@@ -124,12 +125,12 @@ class Cellpose():
                             cp_model=self.cp)
         self.sz.model_type = model_type
 
-    # modified to diameter 3.0, flow threshold 0.0
+    # needs to be updated to reflect all parameters in CellposeModel...
     def eval(self, x, batch_size=8, channels=None, channel_axis=None, z_axis=None,
              invert=False, normalize=True, diameter=30., do_3D=False, anisotropy=None,
              net_avg=True, augment=False, tile=True, tile_overlap=0.1, resample=False, interp=True,
-             flow_threshold=0.0, dist_threshold=0.0, min_size=15, stitch_threshold=0.0, 
-             rescale=None, progress=None, skel=True):
+             flow_threshold=0.0, dist_threshold=0.0, diam_threshold=12., min_size=15, stitch_threshold=0.0, 
+             rescale=None, progress=None, skel=True, verbose=False):
         """ run cellpose and get masks
 
         Parameters
@@ -226,8 +227,8 @@ class Cellpose():
         tic0 = time.time()
 
         estimate_size = True if (diameter is None or diameter==0) else False
-        estimate_size = False #OVEREWRITE
-        print('overwriting estimate size...')####################################################
+        estimate_size = False #OVERWRITE
+        print('overwriting estimate size...')#################################################### need to address this 
         if estimate_size and self.pretrained_size is not None and not do_3D and x[0].ndim < 4:
             tic = time.time()
             models_logger.info('~~~ ESTIMATING CELL DIAMETER(S) ~~~')
@@ -274,9 +275,11 @@ class Cellpose():
                                             interp=interp,
                                             flow_threshold=flow_threshold, 
                                             dist_threshold=dist_threshold,
+                                            diam_threshold=diam_threshold,
                                             min_size=min_size, 
                                             stitch_threshold=stitch_threshold,
-                                            skel=skel)
+                                            skel=skel,
+                                            verbose=verbose)
         models_logger.info('>>>> TOTAL TIME %0.2f sec'%(time.time()-tic0))
     
         return masks, flows, styles, diams
@@ -367,7 +370,7 @@ class CellposeModel(UnetModel):
              z_axis=None, normalize=True, invert=False, 
              rescale=None, diameter=None, do_3D=False, anisotropy=None, net_avg=True, 
              augment=False, tile=True, tile_overlap=0.1,
-             resample=False, interp=True, flow_threshold=0.4, dist_threshold=0.0, upscale_threshold=12.,
+             resample=False, interp=True, flow_threshold=0.4, dist_threshold=0.0, diam_threshold=12.,
              compute_masks=True, min_size=15, stitch_threshold=0.0, progress=None, skel=True, 
              calc_trace=False, verbose=False):
         """
@@ -494,7 +497,7 @@ class CellposeModel(UnetModel):
                                                  interp=interp, 
                                                  flow_threshold=flow_threshold, 
                                                  dist_threshold=dist_threshold, 
-                                                 upscale_threshold=upscale_threshold,
+                                                 diam_threshold=diam_threshold,
                                                  compute_masks=compute_masks, 
                                                  min_size=min_size, 
                                                  stitch_threshold=stitch_threshold, 
@@ -531,7 +534,7 @@ class CellposeModel(UnetModel):
                                                           tile=tile, 
                                                           tile_overlap=tile_overlap,
                                                           dist_threshold=dist_threshold, 
-                                                          upscale_threshold=upscale_threshold,
+                                                          diam_threshold=diam_threshold,
                                                           flow_threshold=flow_threshold,
                                                           interp=interp,
                                                           min_size=min_size, 
@@ -543,19 +546,21 @@ class CellposeModel(UnetModel):
                                                           verbose=verbose)
             flows = [plot.dx_to_circ(dP), dP, dist, p, bd]
             
-            torch.cuda.empty_cache() #attepmt to clear memory
+            torch.cuda.empty_cache() #attempt to clear memory
             return masks, flows, styles
 
     def _run_cp(self, x, compute_masks=True, normalize=True, invert=False,
                 rescale=1.0, net_avg=True, resample=False,
                 augment=False, tile=True, tile_overlap=0.1,
-                dist_threshold=0.0, upscale_threshold=13., flow_threshold=0.4, min_size=15,
+                dist_threshold=0.0, diam_threshold=13., flow_threshold=0.4, min_size=15,
                 interp=False, anisotropy=1.0, do_3D=False, stitch_threshold=0.0,
                 skel=True, calc_trace=False, verbose=False):
         tic = time.time()
         shape = x.shape
         nimg = shape[0]
-        # rescale image for flow computation
+#         print('shape is',shape,'rescale is',rescale, 'resample is',resample)
+        
+        
         if do_3D:
             img = np.asarray(x)
             if normalize or invert:
@@ -578,6 +583,7 @@ class CellposeModel(UnetModel):
                 dP = np.zeros((2, nimg, int(shape[1]*rescale), int(shape[2]*rescale)), np.float32)
                 dist = np.zeros((nimg, int(shape[1]*rescale), int(shape[2]*rescale)), np.float32)
                 bd = np.zeros_like(dist)
+                
             for i in iterator:
                 img = np.asarray(x[i])
                 if normalize or invert:
@@ -585,15 +591,13 @@ class CellposeModel(UnetModel):
                 if rescale != 1.0:
                     img = transforms.resize_image(img, rsz=rescale)
 
-                yf, style = self._run_nets(img, net_avg=net_avg, 
-                                        augment=augment, tile=tile,
-                                        tile_overlap=tile_overlap)
+                yf, style = self._run_nets(img, net_avg=net_avg,
+                                           augment=augment, tile=tile,
+                                           tile_overlap=tile_overlap)
                 if resample:
                     yf = transforms.resize_image(yf, shape[1], shape[2])
+
                 dist[i] = yf[:,:,2]
-#                 mu = np.stack(np.gradient(dist[i])) # playing around with adding to or replacing dP 
-#                 mag = (mu**2).sum(axis=0)**0.5
-#                 mu = np.divide(mu, mag, out=np.zeros_like(mu), where=np.logical_and(mag!=0,~np.isnan(mag)))
                 dP[:, i] = yf[:,:,:2].transpose((2,0,1)) 
                 if self.nclasses == 4:
                     bd[i] = yf[:,:,3]
@@ -607,19 +611,22 @@ class CellposeModel(UnetModel):
             tic=time.time()
             niter = 200 if do_3D else (1 / rescale * 200)
             if do_3D:
-                masks, p = self._compute_masks(dP, dist, bd, niter=niter, dist_threshold=dist_threshold,
-                                               upscale_threshold=upscale_threshold,flow_threshold=flow_threshold, 
+                masks,p,tr = self._compute_masks(dP, dist, bd, niter=niter, dist_threshold=dist_threshold,
+                                               diam_threshold=diam_threshold,flow_threshold=flow_threshold, 
                                                interp=interp, do_3D=do_3D, min_size=min_size, resize=None, 
                                                skel=skel, calc_trace=calc_trace, verbose=verbose)
             else:
                 masks = np.zeros((nimg, shape[1], shape[2]), np.uint16)
+                bd_vis = np.zeros_like(masks,np.float32)
+                dP_vis = np.zeros((dP.shape), np.uint16)
                 p = np.zeros(dP.shape, np.uint16)
+                tr = [[]]*nimg # trace may not work correctly with multiple images currently, still need to test it 
                 resize = [shape[1], shape[2]] if not resample else None
+#                 print('resize is',resize)
                 for i in iterator:
-                    masks[i], p[:,i], tr = self._compute_masks(dP[:,i], dist[i], bd[i], niter=niter, dist_threshold=dist_threshold,
-                                                               flow_threshold=flow_threshold, upscale_threshold=upscale_threshold, interp=interp,
-                                                               do_3D=do_3D, min_size=min_size, resize=resize, 
-                                                               skel=skel, calc_trace=calc_trace, verbose=verbose)
+                    masks[i], p[:,i], tr[i] = self._compute_masks(dP[:,i], dist[i], bd[i], niter=niter, dist_threshold=dist_threshold,
+                                                                                           flow_threshold=flow_threshold, diam_threshold=diam_threshold, interp=interp,
+                                                                                           resize=resize, skel=skel, calc_trace=calc_trace, verbose=verbose)
             
                 if stitch_threshold > 0 and nimg > 1:
                     models_logger.info('stitching %d masks using stitch_threshold=%0.3f to make 3D masks'%(nimg, stitch_threshold))
@@ -630,10 +637,10 @@ class CellposeModel(UnetModel):
                 models_logger.info('masks created in %2.2fs'%(flow_time))
         else:
             masks, p = np.zeros(0), np.zeros(0)
-
+            
         return masks.squeeze(), styles.squeeze(), dP.squeeze(), dist.squeeze(), p.squeeze(), bd.squeeze()
 
-    def _compute_masks(self, dP, dist, bd, p=None, niter=200, dist_threshold=0.0, upscale_threshold=12.,
+    def _compute_masks(self, dP, dist, bd, p=None, niter=200, dist_threshold=0.0, diam_threshold=12.,
                         flow_threshold=0.4, interp=True, do_3D=False, 
                         min_size=15, resize=None, skel=True, calc_trace=False, verbose=False):
         """ compute masks using dynamics from dP, dist, and boundary """
@@ -651,24 +658,27 @@ class CellposeModel(UnetModel):
                 inds,tr = [],[]
                 if verbose:
                     print('p given')
-            maski = dynamics.get_masks(p, iscell=mask,flows=dP, threshold=flow_threshold if not do_3D else None, 
-                                       skel=skel)
+            mask = dynamics.get_masks(p, iscell=mask,flows=dP, threshold=flow_threshold if not do_3D else None, skel=skel)
         else: # use new algorithm     
             if self.nclasses == 4:
-#                 dist = transforms.normalize_dist(dist,dist_threshold) #flawed, must adjust for places where gradient vanishes naturally 
                 dt = np.abs(dist[mask]) #abs needed if the threshold is negative
                 d = utils.dist_to_diam(dt)
                 if verbose:
-                    print('diameter metric is',d)
+                    print('number of mask pixels',np.sum(mask), 'image shape',mask.shape,'diameter metric is',d)
                 
-            else: #backwards compatibility, doesn't do anything for clusters of small cells
+            else: #backwards compatibility, doesn't help for *clusters* of thin/small cells
                 d,e = utils.diameters(mask)
 
-            dP = dP.copy() # need to copy as to not alter the original
+            # save unaltered versions for later 
+#             dist_orig = dist.copy()
+#             bd_orig = bd.copy()
+#             mask_orig = mask.copy()
+#             dP_orig = dP.copy()
+            dP = dP.copy()
             
             # RESCALING FOR SKELETON CONNECTIVITY - much faster than looping and trying to connect broken parts
-            # Default is 12 with a rescale of 4, that's jsut worked well for caulobacter 
-            if d <= upscale_threshold:
+            # Default is 12 with a rescale of 3, that's jsut worked well for caulobacter 
+            if d <= diam_threshold:
                 scale = 3
                 stitch_rescale = True
             else:
@@ -678,6 +688,7 @@ class CellposeModel(UnetModel):
             if stitch_rescale:
                 if verbose:
                     print('Rescaling image for flow calculation. Scale factor',scale)
+                
                 Ly = scale*Ly
                 Lx = scale*Lx
                 dist = cv2.resize(dist, (Lx, Ly), interpolation=cv2.INTER_LINEAR)
@@ -687,15 +698,6 @@ class CellposeModel(UnetModel):
                                cv2.resize(dP[1], (Lx, Ly), interpolation=cv2.INTER_LINEAR)))
 
             dP *= mask 
-#             bdP = -(np.stack((np.gradient(bd)))*mask)
-# #             bdP = (np.stack((np.gradient(dist)))*mask)
-#             bdP /= np.max(np.abs(bdP))
-# #             dx = dP[1].copy()+bdP[1]
-# #             dy = dP[0].copy()+bdP[0]
-#             dx = bdP[1]
-#             dy = bdP[0]
-#             dx2,dy2 = transforms.normalize_field(dx,dy)
-            
             dx = dP[1].copy()
             dy = dP[0].copy()
             mag = np.sqrt(dP[1,:,:]**2+dP[0,:,:]**2)
@@ -705,8 +707,6 @@ class CellposeModel(UnetModel):
             dy[mask] = np.divide(dy[mask], mag[mask], out=np.zeros_like(dy[mask]),
                                  where=np.logical_and(mag[mask]!=0,~np.isnan(mag[mask])))
             
-#             dx = (dx+dx2)
-#             dy = (dy+dy2)
             # compute the divergence
             Y, X = np.nonzero(mask)
             pad = 1
@@ -722,13 +722,11 @@ class CellposeModel(UnetModel):
             div.shape = (Ly,Lx)
             #add sigmoid on boundary output to help push pixels away - the final bit needed in some cases!
             # specifically, places where adjacent cell flows are too colinear and therefore had low divergence
-            mag = (div+1/(1+np.exp(-bd)))
-#             mag = 1/(1+np.exp(-bd))
-#             mag = div
+            mag = div+1/(1+np.exp(-bd))
             dP[0] = dy*mag
             dP[1] = dx*mag
 
-            niter = round(d) #number of steps shoudls cale in proportion to this size metric
+            niter = round(d) #number of steps should scale in proportion to this size metric
             p, inds, tr = dynamics.follow_flows(dP, mask, niter=niter, interp=interp, use_gpu=self.gpu,
                                                 device=self.device, skel=skel, calc_trace=calc_trace)
             
@@ -756,92 +754,86 @@ class CellposeModel(UnetModel):
             
             # just replacing the get_masks function here...
             LL = label(skelmask,connectivity=1) #Maybe make connectivity an option...
-            maski = np.zeros_like(LL)
+            mask = np.zeros_like(LL)
 
             for j in range(inds.shape[0]):
                 yy = inds[j,0]
                 xx = inds[j,1]
                 ry = labellist[j,0]
                 rx = labellist[j,1]
-                maski[yy,xx] = LL[ry,rx]
+                mask[yy,xx] = LL[ry,rx]
 
-
-            if stitch_rescale: # if the image was resized just for the stitching 
-                Ly = Ly//scale
-                Lx = Lx//scale
-                maski = cv2.resize(maski, (Lx, Ly), interpolation=cv2.INTER_NEAREST)
+            if stitch_rescale: # if the image was resized just for the stitching
+                #restore originals
+                mask = mask_orig
+                dist = dist_orig 
+                bd = bd_orig 
+                dP = dP_orig
+                
+                #uscale results 
+                Ly,Lx = mask.shape
                 pi = np.zeros([2,Ly,Lx])
                 for k in range(2):
                     pi[k] = cv2.resize(p[k], (Lx, Ly), interpolation=cv2.INTER_NEAREST)
-                p = pi            
+                p = pi       
         
         # quality control
         if flow_threshold is not None and flow_threshold > 0 and dP is not None:
-            maski = dynamics.remove_bad_flow_masks(maski, dP, threshold=flow_threshold, skel=skel)
-        maski = utils.fill_holes_and_remove_small_masks(maski, min_size=min_size)
-        fastremap.renumber(maski,in_place=True) #convenient to guarantee non-skipped labels
+            mask = dynamics.remove_bad_flow_masks(mask, dP, threshold=flow_threshold, skel=skel)
+        mask = utils.fill_holes_and_remove_small_masks(mask, min_size=min_size)
+        fastremap.renumber(mask,in_place=True) #convenient to guarantee non-skipped labels
         
         if resize is not None:
-            maski = transforms.resize_image(maski, resize[0], resize[1], 
+            if verbose:
+                print('resizing output with resize', resize)
+            mask = transforms.resize_image(mask, resize[0], resize[1],
                                             interpolation=cv2.INTER_NEAREST)
-        
-        return maski, p, tr
-        
+#             p = transforms.resize_image(p, resize[0], resize[1],
+#                                         interpolation=cv2.INTER_NEAREST)
+#             dist = cv2.resize(dist, (resize[1], resize[0]), interpolation=cv2.INTER_LINEAR)
+#             bd = cv2.resize(bd, (resize[1], resize[0]), interpolation=cv2.INTER_LINEAR)
+#             dP = np.stack((cv2.resize(dP[0], (resize[1], resize[0]), interpolation=cv2.INTER_LINEAR),
+#                            cv2.resize(dP[1], (resize[1], resize[0]), interpolation=cv2.INTER_LINEAR)))
+#         return mask, dist, bd, dP,  p, tr
+        return mask, p, tr
+
     def loss_fn(self, lbl, y):
         """ loss function between true labels lbl and prediction y """
         veci = self._to_device(lbl[:,2:4]) #scaled to 5 in augmentation 
         dist = lbl[:,1] # now distance transform replaces probability
         boundary =  lbl[:,5]
-#         logits = boundary.copy()*5.
-#         logits[logits==0] = -5
-#         cellmask = lbl[:,6]>0
         cellmask = dist>0
-#         cellmask = binary_dilation(lbl[:,6]>0, border_value=1, iterations=5)
         w =  self._to_device(lbl[:,7])  # new smooth, boundary-emphasized weight calculated with augmentations  
         dist = self._to_device(dist)
         boundary = self._to_device(boundary)
         cellmask = self._to_device(cellmask).bool()
-#         logits = self._to_device(logits)
         flow = y[:,:2] # 0,1
         dt = y[:,2]
         bd = y[:,3]
-#         cellmask = torch.logical_or(cellmask,(dt>torch.tensor([-4.75],device=self.device))) # focus on background only when bad predictions are made 
-#         cellmask3 = torch.ones_like(cellmask) # include everything 
 
         loss7 = 2.*self.criterion12(dt,dist,w)
 
         wt = torch.stack((w,w),dim=1)
-        ct = torch.stack((cellmask,cellmask),dim=1) #everywhere
-        loss1 = 10.*self.criterion12(flow,veci,wt) # WeightedLoss <<<final is with *5, had been 10 for a while 
+        ct = torch.stack((cellmask,cellmask),dim=1) 
+        loss1 = 10.*self.criterion12(flow,veci,wt) 
     
         loss2 = self.criterion14(flow,veci,w,cellmask) #ArcCosDotLoss
-        a = 10.#was 10, then 20, back to 10, then 1 (much better...?), then 2.5, then 2, now back to 10
-        loss3 = self.criterion11(flow,veci,wt,ct)/a # DerivativeLoss() 
+        a = 10.
+        loss3 = self.criterion11(flow,veci,wt,ct)/a # DerivativeLoss
         loss8 = self.criterion11(dt.unsqueeze(1),dist.unsqueeze(1),w.unsqueeze(1),cellmask.unsqueeze(1))/a  #older models had just plain cellmask
 
 #         loss4 = ((self.criterion2(bd,boundary)/2.) + (self.criterion2(bd[cellmask],boundary[cellmask])))#boundary loss 
         loss4 = 2.*self.criterion2(bd,boundary)
 
         loss5 = 2.*self.criterion15(flow,veci,w,cellmask) # loss on norm 
-#         loss6 = self.criterion16(flow,veci,cellmask)/5. # loss on divergence
+#         loss6 = self.criterion16(flow,veci,cellmask)/5. # loss on divergence, bad for normalized field, revisit on interp field?
         
 #         print(loss1.cpu().detach().numpy(),loss2.cpu().detach().numpy(),
 #               loss3.cpu().detach().numpy(),loss4.cpu().detach().numpy(),
-#               loss5.cpu().detach().numpy(),loss6.cpu().detach().numpy(),
+#               loss5.cpu().detach().numpy(),
 #               loss7.cpu().detach().numpy(),loss8.cpu().detach().numpy())
 
         loss = loss1 + loss2 + loss3 + loss4 + loss5 + loss7 + loss8
-#         loss = loss1 + loss2 + loss3 + loss4 + loss5 + loss6 + loss7 + loss8
-        
-
-#         loss =((self.criterion2(bd,boundary)/2.) + (self.criterion2(bd[cellmask],boundary[cellmask])))/2. + (self.criterion(flow,veci)+self.criterion(dt,dist))/5. + self.criterion15(flow,veci,w,cellmask)
-#         loss1= self.criterion2(bd,cellmask*1.)
-#         loss2 = self.criterion(flow,veci)/5
-#         loss3 = self.criterion(dt,dist)/15
-#         print(loss1.cpu().detach().numpy(),loss2.cpu().detach().numpy(),loss3.cpu().detach().numpy())  
-        # to normalize losses realtive to each other, can take mean
-        
-#         loss = (loss1+loss2+loss3)
         return loss        
 
 
@@ -911,11 +903,9 @@ class CellposeModel(UnetModel):
 
         """
         print('Training with rescale = ',rescale)
-        print('BEFORE RESHAPE train data/label shape>>>>>>>>>>>',train_data[0].shape,train_labels[0].shape)
         train_data, train_labels, test_data, test_labels, run_test = transforms.reshape_train_test(train_data, train_labels,
                                                                                                    test_data, test_labels,
                                                                                                    channels, normalize)
-        print('AFTER RESHAPE train data/label shape>>>>>>>>>>>',train_data[0].shape,train_labels[0].shape)
         # check if train_labels have flows
         train_flows = dynamics.labels_to_flows(train_labels, files=train_files, use_gpu=self.gpu, device=self.device, skel=skel)
         if run_test:

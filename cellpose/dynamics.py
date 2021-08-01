@@ -6,7 +6,6 @@ import tifffile
 from tqdm import trange
 from numba import njit, float32, int32, vectorize
 import edt
-import fastremap
 from skimage.morphology import binary_erosion
 
 import logging
@@ -60,13 +59,24 @@ def _extend_centers(T, y, x, ymed, xmed, Lx, niter, skel=True):
         amount of diffused particles at each pixel
 
     """
+    perim = np.count_nonzero(xmed)
+    area = np.count_nonzero(x)
+    value = (perim/area)**3
+    if skel:
+        niter = perim # no need to iterate longer 
+
+#     print('real niter is',niter)
     for t in range(niter):
         if skel:
-            T[ymed*Lx + xmed] += 1/9.**2
-            T[ymed*Lx + xmed] /= (1+T[ymed*Lx + xmed])
+            T[y*Lx + x] += value
+#             T[y*Lx + x] = 1/9. * (T[y*Lx + x] + T[(y-1)*Lx + x]   + T[(y+1)*Lx + x] +
+#                                                 T[y*Lx + x-1]     + T[y*Lx + x+1] +
+#                                                 T[(y-1)*Lx + x-1] + T[(y-1)*Lx + x+1] +
+#                                                 T[(y+1)*Lx + x-1] + T[(y+1)*Lx + x+1])
+            T[y*Lx + x] /= 1+T[y*Lx + x]
+
         else:
             T[ymed*Lx + xmed] += 1
-
         T[y*Lx + x] = 1/9. * (T[y*Lx + x] + T[(y-1)*Lx + x]   + T[(y+1)*Lx + x] +
                                             T[y*Lx + x-1]     + T[y*Lx + x+1] +
                                             T[(y-1)*Lx + x-1] + T[(y-1)*Lx + x+1] +
@@ -114,7 +124,7 @@ def _extend_centers_gpu(neighbors, centers, isneighbor, Ly, Lx, n_iter=200, devi
     return mu_torch, Tcpy.cpu().squeeze()
 
 
-def masks_to_flows_gpu(masks, device=None, skel=True):
+def masks_to_flows_gpu(masks, dists, device=None, skel=True):
     """ convert masks to flows using diffusion from center pixel
 
     Center of masks where diffusion starts is defined using COM
@@ -181,7 +191,9 @@ def masks_to_flows_gpu(masks, device=None, skel=True):
     isneighbor = neighbor_masks == neighbor_masks[0] # 0 corresponds to x,y
     
     slices = scipy.ndimage.find_objects(masks)
-    n_iter = 10*np.int32(np.ptp(x)+np.ptp(y)) 
+#     n_iter = 10*np.int32(np.ptp(x)+np.ptp(y)) 
+#     n_iter = 200
+    n_iter = [np.max(dists[si])**(3/2) for si in slices]
     # run diffusion 
     mu, T = _extend_centers_gpu(neighbors, centers, isneighbor, Ly, Lx, 
                              n_iter=n_iter, device=device)
@@ -196,7 +208,7 @@ def masks_to_flows_gpu(masks, device=None, skel=True):
     mu_c = T[pad:-pad,pad:-pad] # mu_c now heat
     return mu0, mu_c
 
-def masks_to_flows_cpu(masks, device=None, skel=True):
+def masks_to_flows_cpu(masks, dists, device=None, skel=True):
     """ convert masks to flows using diffusion from center pixel
 
     Center of masks where diffusion starts is defined to be the 
@@ -222,12 +234,10 @@ def masks_to_flows_cpu(masks, device=None, skel=True):
         in which it resides 
 
     """
-    
     # Get the dimensions of the mask, preallocate arrays to store flow values
     Ly, Lx = masks.shape
     mu = np.zeros((2, Ly, Lx), np.float64)
     mu_c = np.zeros((Ly, Lx), np.float64)
-    
     
     nmask = masks.max() # Assumes a 'proper' label mask, values 1,2,... 
     slices = scipy.ndimage.find_objects(masks) # partitions into 'slices' like regionprops
@@ -238,6 +248,9 @@ def masks_to_flows_cpu(masks, device=None, skel=True):
             
             sr,sc = si
             mask = np.pad((masks[sr, sc] == (i+1)),pad)
+            dist = np.pad(dists[si],pad)
+          
+
             # lx,ly the dimensions of the boundingbox
             ly, lx = sr.stop - sr.start + 2*pad, sc.stop - sc.start + 2*pad
             # x, y ordered list of componenets for the mask pixels
@@ -248,22 +261,26 @@ def masks_to_flows_cpu(masks, device=None, skel=True):
             y = y.astype(np.int32)  #no need to shift, as array already padded
             x = x.astype(np.int32)    
             
-            
-            # number of iterations defined by range of points in the mask
-            # _extend_centers handles actual diffusion
-            niter = 10*np.int32(np.ptp(x)+np.ptp(y))
-
             # T is a vector of length (ly+2*pad)*(lx+2*pad), not a grid
             # should double-check to make sure that the padding isn't having unforeseen consequences 
             # same number of points as a grid with  1px around the whole thing
             T = np.zeros(ly*lx, np.float64)
+            niter = 2*np.int32(np.ptp(x) + np.ptp(y))
 
             if (skel):
                 # skeletonization now is far less explicit now (no skeletonization computation per se)
                 # the skel flag effectively sets boundary conditions that produce a field extemely close
                 # to that of an explicitly defined skeleton, but even better than those ad-hoc methods.
                 # All pixels are used as heat sources.
-                T = _extend_centers(T, y, x, y, x, lx, niter, skel)
+#                 xmed = x
+#                 ymed = y
+                # number of iterations scales with size of the cell
+                ymed, xmed = np.nonzero(dist==1)
+                xmed = xmed.astype(np.int32)
+                ymed = ymed.astype(np.int32)
+            
+#                 print(xmed)
+#                 T = _extend_centers(T, y, x, y, x, lx, niter, skel)
             else:
                 # original boundary projection
                 ymed = np.mean(y)
@@ -271,7 +288,8 @@ def masks_to_flows_cpu(masks, device=None, skel=True):
                 imin = np.argmin((x-xmed)**2 + (y-ymed)**2) 
                 xmed = np.array([x[imin]],np.int32)
                 ymed = np.array([y[imin]],np.int32)
-                T = _extend_centers(T, y, x, ymed, xmed, lx, niter, skel) # centroid model
+            
+            T = _extend_centers(T, y, x, ymed, xmed, lx, niter, skel)
             
             heat = T.copy()
             T  = np.interp(T, (T[y*lx + x].min(), T[y*lx + x].max()), (0, 1))
@@ -313,8 +331,8 @@ def masks_to_flows(masks, use_gpu=False, device=None, skel=True):
         in which it resides 
 
     """
-    masks = masks.astype('int32')
-    fastremap.renumber(masks,in_place=True); 
+    masks = utils.format_labels(masks)
+    dists = edt.edt(masks)
     if TORCH_ENABLED and use_gpu:
         if use_gpu and device is None:
             device = torch_GPU
@@ -328,27 +346,28 @@ def masks_to_flows(masks, use_gpu=False, device=None, skel=True):
         Lz, Ly, Lx = masks.shape
         mu = np.zeros((3, Lz, Ly, Lx), np.float32)
         for z in range(Lz):
-            mu0 = masks_to_flows_device(masks[z], device=device, skel=skel)[0]
+            mu0 = masks_to_flows_device(masks[z], dists, device=device, skel=skel)[0]
             mu[[1,2], z] += mu0
         for y in range(Ly):
-            mu0 = masks_to_flows_device(masks[:,y], device=device, skel=skel)[0]
+            mu0 = masks_to_flows_device(masks[:,y], dists, device=device, skel=skel)[0]
             mu[[0,2], :, y] += mu0
         for x in range(Lx):
-            mu0 = masks_to_flows_device(masks[:,:,x], device=device, skel=skel)[0]
+            mu0 = masks_to_flows_device(masks[:,:,x], dists, device=device, skel=skel)[0]
             mu[[0,1], :, :, x] += mu0
         return mu, None
     elif masks.ndim==2:
         pad = 15 # padding helps avoid edge artifacts from cut-off cells 
-        masks = np.pad(masks,pad,mode='reflect') 
-        mu, T = masks_to_flows_device(masks, device=device, skel=skel)
-#         print(mu.shape)
-        return mu[:,pad:-pad,pad:-pad], T[pad:-pad,pad:-pad]
-#         return mu, T
+        masks_pad = np.pad(masks,pad,mode='reflect')
+        dists_pad = np.pad(dists,pad,mode='reflect')
+        mu, T = masks_to_flows_device(masks_pad, dists_pad, device=device, skel=skel)
+        return masks, dists, T[pad:-pad,pad:-pad], mu[:,pad:-pad,pad:-pad]
+
     else:
         raise ValueError('masks_to_flows only takes 2D or 3D arrays')
 
-# Could prune this down to only save labels, distance, and heat,as all the rest are either replaced in
-# the augmentation step or can quickly be computed beforehnad from these, no need to store them
+# It is possible that flows can be eliminated in place of the distance field. The current distance field may not be smooth 
+# enough, or maybe the network really does require the flow field prediction to work well. But in 3D, it will be a huge
+# advantage if the network could predict just the distance (and boudnary) classes and not 3 extra flow components. 
 def labels_to_flows(labels, files=None, use_gpu=False, device=None, skel=True):
     """ convert labels (list of masks or flows) to flows for training model 
 
@@ -375,17 +394,14 @@ def labels_to_flows(labels, files=None, use_gpu=False, device=None, skel=True):
         labels = [labels[n][np.newaxis,:,:] for n in range(nimg)]
 
     if labels[0].shape[0] == 1 or labels[0].ndim < 3:
-        dynamics_logger.info('NOTE: computing flows for labels (could be done before to save time)')
-        # compute flows        
-#         veci = [masks_to_flows(labels[n][0],use_gpu=use_gpu, device=device, skel=skel)[0] for n in trange(nimg)]
         
-        veci,heat = map(list,zip(*[masks_to_flows(labels[n][0],use_gpu=use_gpu, device=device, skel=skel) for n in trange(nimg)]))
-        # compute distance transform
-        dist = [edt.edt(labels[n][0],parallel=8)[np.newaxis,:,:] for n in trange(nimg)]
-#         for n in trange(nimg):
-#             dist[labels[n][0]>0] = -5 # background distance set to -5 in augmentations
+        dynamics_logger.info('NOTE: computing flows for labels (could be done before to save time)')
+        
+        # compute flows; labels are fixed in masks_to_flows, so they need to be passed back
+        labels, dist, heat, veci = map(list,zip(*[masks_to_flows(labels[n][0],use_gpu=use_gpu, device=device, skel=skel) for n in trange(nimg)]))
         # concatenate labels, distance transform, vector flows, heat (boundary and mask are computed in augmentations)
-        flows = [np.concatenate((labels[n][[0]], dist[n][[0]], veci[n], heat[n][np.newaxis,:,:]), axis=0).astype(np.float32)
+#         print(labels[0][[0]].shape,dist[0][[0]].shape,veci[0].shape)
+        flows = [np.concatenate((labels[n][np.newaxis,:,:], dist[n][np.newaxis,:,:], veci[n], heat[n][np.newaxis,:,:]), axis=0).astype(np.float32)
                     for n in range(nimg)]
         if files is not None:
             for flow, file in zip(flows, files):

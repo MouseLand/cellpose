@@ -20,6 +20,8 @@ except:
 
 try:
     import torch
+    from GPUtil import showUtilization as gpu_usage #for gpu memory debugging 
+    from numba import cuda
     from torch import nn
     import torch_optimizer as optim # for RADAM optimizer
     from torch.utils import mkldnn as mkldnn_utils
@@ -408,7 +410,6 @@ class UnetModel():
                     progress.setValue(10 + 10*j)
             y = y / len(self.pretrained_model)
             
-        torch.cuda.empty_cache() # release gpu memory cache after running - pretty sure this is working but need better tests 
         return y, style
 
     def _run_net(self, imgs, augment=False, tile=True, tile_overlap=0.1, bsize=224,
@@ -1042,3 +1043,20 @@ def divergence(x):
 # averaging the mean across each 
 def mean_of_means(x):
     return torch.mean(torch.mean(x, axis=(-2,-1)))
+
+# adapted from https://www.kaggle.com/getting-started/140636
+# too much... breaks cuda
+def free_gpu_cache(verbose=False):
+    if verbose:
+        print("Initial GPU Usage")
+        gpu_usage()                             
+
+    torch.cuda.empty_cache()
+
+    cuda.select_device(0)
+    cuda.close()
+    cuda.select_device(0)
+    
+    if verbose:
+        print("GPU Usage after emptying the cache")
+        gpu_usage()

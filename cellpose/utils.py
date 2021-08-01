@@ -10,9 +10,12 @@ import numpy as np
 import colorsys
 import io
 import random
+import fastremap
 
-from numba import njit 
+
+from numba import njit
 from skimage.morphology import remove_small_holes
+from skimage.segmentation import find_boundaries
 from scipy.ndimage.morphology import binary_dilation
 import edt 
 
@@ -452,7 +455,7 @@ def fill_holes_and_remove_small_masks(masks, min_size=15, hole_size=3):
 
 #4-color algorthm based on https://forum.image.sc/t/relabel-with-4-colors-like-map/33564 
 def ncolorlabel(lab,n=4):
-    lab = lab.astype('int32') #Appears broken for uint16, so cast to int32
+    lab = format_labels(lab) # needs to be in standard label form 
     idx = connect(lab, 2)
     idx = mapidx(idx)
     colors = render_net(idx, n, 10)
@@ -509,8 +512,8 @@ def mapidx(idx):
     return dic
 
 # create a connection mapping 
-def render_net(conmap, n=4, rand=12, shuffle=True, depth=0,max_depth=3):
-    thresh = 1e3
+def render_net(conmap, n=4, rand=12, shuffle=True, depth=0,max_depth=5):
+    thresh = 1e4
     if depth<max_depth:
         nodes = list(conmap.keys())
         colors = dict(zip(nodes, [0]*len(nodes)))
@@ -564,7 +567,7 @@ def rescale(T):
     return T
 
 # Kevin's version of remove_edge_masks, need to merge (this one is more flexible)
-def clean_boundary(labels,boundary_thickness=3,area_thresh=300):
+def clean_boundary(labels,boundary_thickness=3,area_thresh=30):
     """Delete boundary masks below a given size threshold. Default boundary thickness is 3px,
     meaning masks that are 3 or fewer pixels from the boudnary will be candidates for removal. 
     """
@@ -575,7 +578,7 @@ def clean_boundary(labels,boundary_thickness=3,area_thresh=300):
         mask = labels==cell_ID 
         area = np.count_nonzero(mask)
         overlap = np.count_nonzero(np.logical_and(mask, border_mask))
-        if overlap > 0 and area<area_thresh: 
+        if overlap > 0 and area<area_thresh and overlap/area >= 0.5: #only premove cells that are 50% or more edge px
             clean_labels[mask] = 0
     return clean_labels
 
@@ -584,9 +587,16 @@ def outline_view(img0,maski):
     Generates a red outline overlay onto image. 
     Assume img0 is already coverted to RGB.
     """
-    outlines = masks_to_outlines(maski)
+    outlines = find_boundaries(maski,mode='inner') #not using masks_to_outlines as that gives border 'outlines'
     outX, outY = np.nonzero(outlines)
     imgout= img0.copy()
     imgout[outX, outY] = np.array([255,0,0]) #pure red
     return imgout
 
+# put labels in standard form (background 0, max = # of cells)
+# consider adding a remapping to theis
+def format_labels(labels):
+    labels = labels.astype('int32') # no one is going to have more than 2^32 -1 cells in one frame
+    labels -= np.min(labels) # some people put -1 as background...
+    fastremap.renumber(labels,in_place=True) # convenient to have unit increments from 1 to N cells
+    return labels

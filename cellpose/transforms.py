@@ -597,7 +597,7 @@ def pad_image_ND(img0, div=16, extra = 1):
 
 
 def random_rotate_and_resize(X, Y=None, scale_range=1., xy = (224,224), 
-                             do_flip=True, rescale=None, unet=False, diam_mean=30.,inds=None):
+                             do_flip=True, rescale=None, unet=False, diam_mean=30.,inds=None,init=True):
     """ augmentation by random rotation and resizing
 
         X and Y are lists or arrays of length nimg, with dims channels x Ly x Lx (channels optional)
@@ -641,8 +641,14 @@ def random_rotate_and_resize(X, Y=None, scale_range=1., xy = (224,224),
 
     """    
 #     xy = np.array(xy) # have not been able to set up variable xy size yet
-#     xy[0] *= np.random.uniform(low=0.5,high=1.5)
-#     xy[1] *= np.random.uniform(low=0.5,high=1.5)
+#     if init:
+#         xy[0] = np.round(xy[0]*np.random.uniform(low=0.5,high=1.5))
+#         xy[1] = np.round(xy[1]*np.random.uniform(low=0.5,high=1.5))
+#     if init:
+#         xy = [np.round(xy[0]*np.random.uniform(low=0.5,high=1.5)).astype(int),
+#               np.round(xy[1]*np.random.uniform(low=0.5,high=1.5)).astype(int)]
+    numpx = xy[0]*xy[1]
+#     print('size',xy)
 
     dist_bg = 5 # background distance field is set to -dist_bg 
     scale_range = max(0, min(2, float(scale_range)))
@@ -738,7 +744,7 @@ def random_rotate_and_resize(X, Y=None, scale_range=1., xy = (224,224),
     
         label_method = cv2.INTER_NEAREST
         if Y is not None:
-            for k in [0,1,2,3,4,5,6]: # skip 2 and 3, re-compute flow later
+            for k in [0,1,2,3,4,5,6]: # was skipping 2 and 3, now not 
                 if not unet:
                     if k==0:
                         l = labels[k]
@@ -746,11 +752,14 @@ def random_rotate_and_resize(X, Y=None, scale_range=1., xy = (224,224),
                         
                         #check to make sure the region contains at least 10 cell pixels; if not, retry.
                         # far from the most efficient implmentation, but does not appear to increase training time.
-                        if np.sum(lbl[n,k]>0)<10:
-#                             print('blank, trying again. Size was',xy,'Index is',inds[n])
+                        cellpx = np.sum(lbl[n,0]>0)
+                        
+                        if cellpx<10 or cellpx==numpx :
+#                             print('cellpx is',cellpx,', trying again. Size was',xy,' pixel count', numpx,'Index is',inds[n])
                             return random_rotate_and_resize(X, Y=Y, scale_range=scale_range, xy=xy, 
                                                             do_flip=do_flip, rescale=rescale, unet=unet, 
-                                                            diam_mean=diam_mean, inds=inds)
+                                                            diam_mean=diam_mean, inds=inds, init=False)
+
                     else:
                         lbl[n,k] = cv2.warpAffine(labels[k], M, (xy[1],xy[0]), borderMode=mode, flags=method)
                 else:
@@ -774,7 +783,7 @@ def random_rotate_and_resize(X, Y=None, scale_range=1., xy = (224,224),
                 dist = edt.edt(l,parallel=8)
                 lbl[n,5] = dist==1
                 
-                lbl[n,3] = 5.*dx*mask 
+                lbl[n,3] = 5.*dx*mask # factor of 5 is applied here 
                 lbl[n,2] = 5.*dy*mask
                 
                 # taking the derivative again rather than interpolating it, avoids a lot of artifacts 
@@ -795,8 +804,13 @@ def random_rotate_and_resize(X, Y=None, scale_range=1., xy = (224,224),
 
 
 def normalize_field(mu):
-        mag = np.nansum(mu**2,axis=0)**(0.5)
+        mag = np.nansum(mu**2,axis=0)**(1/2)
+#         mag = np.linalg.norm(mu,axis=0)+1e-8
         mu = np.divide(mu, mag, out=np.zeros_like(mu), where=np.logical_and(mag!=0,~np.isnan(mag)))
+#         mag = np.nansum(mu**2,axis=0)
+#         mu = np.divide(mu**2, mag, out=np.zeros_like(mu), where=np.logical_and(mag!=0,~np.isnan(mag)))**0.5
+#         theta = np.arctan2(mu[0],mu[1])
+#         mu = np.stack((np.sin(theta),np.cos(theta)))
         return mu
 
 
