@@ -220,7 +220,7 @@ def _true_positive(iou, th):
         
     ------------
     How it works:
-        (1) Find munimum number of masks
+        (1) Find minimum number of masks
         (2) Define cost matrix; for a given threshold, each element is negative
             the higher the IoU is (perfect IoU is 1, worst is 0). The second term
             gets more negative with higher IoU, but less negative with greater

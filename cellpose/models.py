@@ -552,7 +552,7 @@ class CellposeModel(UnetModel):
     def _run_cp(self, x, compute_masks=True, normalize=True, invert=False,
                 rescale=1.0, net_avg=True, resample=False,
                 augment=False, tile=True, tile_overlap=0.1,
-                dist_threshold=0.0, diam_threshold=13., flow_threshold=0.4, min_size=15,
+                dist_threshold=0.0, diam_threshold=12., flow_threshold=0.4, min_size=15,
                 interp=False, anisotropy=1.0, do_3D=False, stitch_threshold=0.0,
                 skel=True, calc_trace=False, verbose=False):
         tic = time.time()
@@ -617,16 +617,19 @@ class CellposeModel(UnetModel):
                                                skel=skel, calc_trace=calc_trace, verbose=verbose)
             else:
                 masks = np.zeros((nimg, shape[1], shape[2]), np.uint16)
-                bd_vis = np.zeros_like(masks,np.float32)
-                dP_vis = np.zeros((dP.shape), np.uint16)
-                p = np.zeros(dP.shape, np.uint16)
+                p = np.zeros((2, nimg, shape[1], shape[2]) if not resample else dP.shape, np.uint16)
                 tr = [[]]*nimg # trace may not work correctly with multiple images currently, still need to test it 
                 resize = [shape[1], shape[2]] if not resample else None
 #                 print('resize is',resize)
                 for i in iterator:
-                    masks[i], p[:,i], tr[i] = self._compute_masks(dP[:,i], dist[i], bd[i], niter=niter, dist_threshold=dist_threshold,
-                                                                                           flow_threshold=flow_threshold, diam_threshold=diam_threshold, interp=interp,
-                                                                                           resize=resize, skel=skel, calc_trace=calc_trace, verbose=verbose)
+                    masks[i], p[:,i], tr[i] = self._compute_masks(dP[:,i], dist[i], bd[i], 
+                                                                  niter=niter, 
+                                                                  dist_threshold=dist_threshold,
+                                                                  flow_threshold=flow_threshold, 
+                                                                  diam_threshold=diam_threshold, 
+                                                                  interp=interp,resize=resize, 
+                                                                  skel=skel, calc_trace=calc_trace, 
+                                                                  verbose=verbose)
             
                 if stitch_threshold > 0 and nimg > 1:
                     models_logger.info('stitching %d masks using stitch_threshold=%0.3f to make 3D masks'%(nimg, stitch_threshold))
@@ -636,7 +639,7 @@ class CellposeModel(UnetModel):
             if nimg > 1:
                 models_logger.info('masks created in %2.2fs'%(flow_time))
         else:
-            masks, p = np.zeros(0), np.zeros(0)
+            masks, p = np.zeros(0), np.zeros(0) #need to check what is going on here...
             
         return masks.squeeze(), styles.squeeze(), dP.squeeze(), dist.squeeze(), p.squeeze(), bd.squeeze()
 
@@ -647,154 +650,160 @@ class CellposeModel(UnetModel):
         
 #         mask = dist>dist_threshold
         mask = filters.apply_hysteresis_threshold(dist, dist_threshold-1, dist_threshold) # good for thin features
-        Ly,Lx = mask.shape
-        if not skel: # use original algorthm 
-            if verbose:
-                print('using original algorithm')
-            if p is None:
-                p , inds, tr = dynamics.follow_flows(dP * mask / 5., mask=mask, niter=niter, interp=interp, 
-                                                     use_gpu=self.gpu, device=self.device, skel=skel, calc_trace=calc_trace)
-            else: 
-                inds,tr = [],[]
+        if np.any(mask): #mask at this point is a cell cluster binary map, not labels 
+            Ly,Lx = mask.shape
+            if not skel: # use original algorthm 
                 if verbose:
-                    print('p given')
-            mask = dynamics.get_masks(p, iscell=mask,flows=dP, threshold=flow_threshold if not do_3D else None, skel=skel)
-        else: # use new algorithm     
-            if self.nclasses == 4:
-                dt = np.abs(dist[mask]) #abs needed if the threshold is negative
-                d = utils.dist_to_diam(dt)
+                    print('using original algorithm')
+                if p is None:
+                    p , inds, tr = dynamics.follow_flows(dP * mask / 5., mask=mask, niter=niter, interp=interp, 
+                                                         use_gpu=self.gpu, device=self.device, skel=skel, calc_trace=calc_trace)
+                else: 
+                    inds,tr = [],[]
+                    if verbose:
+                        print('p given')
+                mask = dynamics.get_masks(p, iscell=mask,flows=dP, threshold=flow_threshold if not do_3D else None, skel=skel)
+            else: # use new algorithm     
+                if self.nclasses == 4:
+                    dt = np.abs(dist[mask]) #abs needed if the threshold is negative
+                    d = utils.dist_to_diam(dt)
+                    if verbose:
+                        print('number of mask pixels',np.sum(mask), 'image shape',mask.shape,'diameter metric is',d)
+
+                else: #backwards compatibility, doesn't help for *clusters* of thin/small cells
+                    d,e = utils.diameters(mask)
+
+                # save unaltered versions for later 
+                dP = dP.copy()
+
+                # RESCALING FOR SKELETON CONNECTIVITY - much faster than looping and trying to connect broken parts
+                # Default is 12 with a rescale of 3, that just worked well for caulobacter ; the rescale parameter likely would
+                # be more useful if users can specify it, or if I figure out a better way to detect small features... 
+                if d <= diam_threshold:
+                    scale = 3
+                    stitch_rescale = True
+                else:
+                    scale = 1
+                    stitch_rescale = False
+
+                if stitch_rescale:
+                    
+                    dist_orig = dist.copy()
+                    bd_orig = bd.copy()
+                    mask_orig = mask.copy()
+                    dP_orig = dP.copy()
+                    
+                    if verbose:
+                        print('Rescaling image for flow calculation. Scale factor',scale)
+
+                    Ly = scale*Ly
+                    Lx = scale*Lx
+                    dist = cv2.resize(dist, (Lx, Ly), interpolation=cv2.INTER_LINEAR)
+                    bd = cv2.resize(bd, (Lx, Ly), interpolation=cv2.INTER_LINEAR)
+                    mask = cv2.resize(mask.astype(int), (Lx, Ly), interpolation=cv2.INTER_NEAREST).astype(bool)
+                    dP = np.stack((cv2.resize(dP[0], (Lx, Ly), interpolation=cv2.INTER_LINEAR),
+                                   cv2.resize(dP[1], (Lx, Ly), interpolation=cv2.INTER_LINEAR)))
+
+                dP *= mask 
+                dx = dP[1].copy()
+                dy = dP[0].copy()
+                mag = np.sqrt(dP[1,:,:]**2+dP[0,:,:]**2)
+    #             # renormalize (i.e. only get directions from the network)
+                dx[mask] = np.divide(dx[mask], mag[mask], out=np.zeros_like(dx[mask]),
+                                     where=np.logical_and(mag[mask]!=0,~np.isnan(mag[mask])))
+                dy[mask] = np.divide(dy[mask], mag[mask], out=np.zeros_like(dy[mask]),
+                                     where=np.logical_and(mag[mask]!=0,~np.isnan(mag[mask])))
+
+                # compute the divergence
+                Y, X = np.nonzero(mask)
+                pad = 1
+                Tx = np.zeros((Ly+2*pad)*(Lx+2*pad), np.float64)
+                Tx[Y*Lx+X] = np.reshape(dx.copy(),Ly*Lx)[Y*Lx+X]
+                Ty = np.zeros((Ly+2*pad)*(Lx+2*pad), np.float64)
+                Ty[Y*Lx+X] = np.reshape(dy.copy(),Ly*Lx)[Y*Lx+X]
+
+                # Rescaling by the divergence
+                div = np.zeros(Ly*Lx, np.float64)
+                div[Y*Lx+X]=Ty[(Y+2)*Lx+X]+8*Ty[(Y+1)*Lx+X]-8*Ty[(Y-1)*Lx+X]-Ty[(Y-2)*Lx+X]+Tx[Y*Lx+X+2]+8*Tx[Y*Lx+X+1]-8*Tx[Y*Lx+X-1]-Tx[Y*Lx+X-2]
+                div = transforms.normalize99(div)
+                div.shape = (Ly,Lx)
+                #add sigmoid on boundary output to help push pixels away - the final bit needed in some cases!
+                # specifically, places where adjacent cell flows are too colinear and therefore had low divergence
+                mag = div+1/(1+np.exp(-bd))
+                dP[0] = dy*mag
+                dP[1] = dx*mag
+
+                niter = round(d) #number of steps should scale in proportion to this size metric
+                p, inds, tr = dynamics.follow_flows(dP, mask, niter=niter, interp=interp, use_gpu=self.gpu,
+                                                    device=self.device, skel=skel, calc_trace=calc_trace)
+
+                newinds = p[:,inds[:,0],inds[:,1]].swapaxes(0,1)
+                newinds = np.rint(newinds).astype(int)
+                skelmask = np.zeros_like(dist, dtype=bool)
+                skelmask[newinds[:,0],newinds[:,1]] = 1
+
+                #disconnect skeletons at the edge, 5 pixels in 
+                border_mask = np.zeros(skelmask.shape, dtype=bool)
+                border_px =  border_mask.copy()
+                border_mask = binary_dilation(border_mask, border_value=1, iterations=5)
+
+                border_px[border_mask] = skelmask[border_mask]
+                if self.nclasses == 4: #can use boundary to erase joined edge skelmasks 
+                    border_px[bd>-1] = 0
+                    if verbose:
+                        print('Using boundary output to split edge defects')
+                else: #otherwise do morphological opening to attempt splitting 
+                    border_px = binary_opening(border_px,border_value=0,iterations=3)
+
+                skelmask[border_mask] = border_px[border_mask]
+
+                labellist = newinds
+
+                # just replacing the get_masks function here...
+                LL = label(skelmask,connectivity=1) #Maybe make connectivity an option...
+                mask = np.zeros_like(LL)
+
+                for j in range(inds.shape[0]):
+                    yy = inds[j,0]
+                    xx = inds[j,1]
+                    ry = labellist[j,0]
+                    rx = labellist[j,1]
+                    mask[yy,xx] = LL[ry,rx]
+                    
+#                 mask = utils.fill_holes_and_remove_small_masks(mask, min_size=min_size,scale_factor=scale**2)
+#                 fastremap.renumber(mask,in_place=True) #convenient to guarantee non-skipped labels
+
+                if stitch_rescale: # if the image was resized just for the stitching
+                    #upscale results 
+                    Ly,Lx = mask.shape
+                    pi = np.zeros([2,Ly,Lx])
+                    for k in range(2):
+                        pi[k] = cv2.resize(p[k], (Lx, Ly), interpolation=cv2.INTER_NEAREST)
+                    p = pi       
+
+            # quality control
+            if flow_threshold is not None and flow_threshold > 0 and dP is not None:
+                mask = dynamics.remove_bad_flow_masks(mask, dP, threshold=flow_threshold, skel=skel)
+            
+            if resize is not None:
                 if verbose:
-                    print('number of mask pixels',np.sum(mask), 'image shape',mask.shape,'diameter metric is',d)
-                
-            else: #backwards compatibility, doesn't help for *clusters* of thin/small cells
-                d,e = utils.diameters(mask)
-
-            # save unaltered versions for later 
-#             dist_orig = dist.copy()
-#             bd_orig = bd.copy()
-#             mask_orig = mask.copy()
-#             dP_orig = dP.copy()
-            dP = dP.copy()
-            
-            # RESCALING FOR SKELETON CONNECTIVITY - much faster than looping and trying to connect broken parts
-            # Default is 12 with a rescale of 3, that's jsut worked well for caulobacter 
-            if d <= diam_threshold:
-                scale = 3
-                stitch_rescale = True
-            else:
-                scale = 1
-                stitch_rescale = False
-              
-            if stitch_rescale:
-                if verbose:
-                    print('Rescaling image for flow calculation. Scale factor',scale)
-                
-                Ly = scale*Ly
-                Lx = scale*Lx
-                dist = cv2.resize(dist, (Lx, Ly), interpolation=cv2.INTER_LINEAR)
-                bd = cv2.resize(bd, (Lx, Ly), interpolation=cv2.INTER_LINEAR)
-                mask = cv2.resize(mask.astype(int), (Lx, Ly), interpolation=cv2.INTER_NEAREST).astype(bool)
-                dP = np.stack((cv2.resize(dP[0], (Lx, Ly), interpolation=cv2.INTER_LINEAR),
-                               cv2.resize(dP[1], (Lx, Ly), interpolation=cv2.INTER_LINEAR)))
-
-            dP *= mask 
-            dx = dP[1].copy()
-            dy = dP[0].copy()
-            mag = np.sqrt(dP[1,:,:]**2+dP[0,:,:]**2)
-#             # renormalize (i.e. only get directions from the network)
-            dx[mask] = np.divide(dx[mask], mag[mask], out=np.zeros_like(dx[mask]),
-                                 where=np.logical_and(mag[mask]!=0,~np.isnan(mag[mask])))
-            dy[mask] = np.divide(dy[mask], mag[mask], out=np.zeros_like(dy[mask]),
-                                 where=np.logical_and(mag[mask]!=0,~np.isnan(mag[mask])))
-            
-            # compute the divergence
-            Y, X = np.nonzero(mask)
-            pad = 1
-            Tx = np.zeros((Ly+2*pad)*(Lx+2*pad), np.float64)
-            Tx[Y*Lx+X] = np.reshape(dx.copy(),Ly*Lx)[Y*Lx+X]
-            Ty = np.zeros((Ly+2*pad)*(Lx+2*pad), np.float64)
-            Ty[Y*Lx+X] = np.reshape(dy.copy(),Ly*Lx)[Y*Lx+X]
-
-            # Rescaling by the divergence
-            div = np.zeros(Ly*Lx, np.float64)
-            div[Y*Lx+X]=Ty[(Y+2)*Lx+X]+8*Ty[(Y+1)*Lx+X]-8*Ty[(Y-1)*Lx+X]-Ty[(Y-2)*Lx+X]+Tx[Y*Lx+X+2]+8*Tx[Y*Lx+X+1]-8*Tx[Y*Lx+X-1]-Tx[Y*Lx+X-2]
-            div = transforms.normalize99(div)
-            div.shape = (Ly,Lx)
-            #add sigmoid on boundary output to help push pixels away - the final bit needed in some cases!
-            # specifically, places where adjacent cell flows are too colinear and therefore had low divergence
-            mag = div+1/(1+np.exp(-bd))
-            dP[0] = dy*mag
-            dP[1] = dx*mag
-
-            niter = round(d) #number of steps should scale in proportion to this size metric
-            p, inds, tr = dynamics.follow_flows(dP, mask, niter=niter, interp=interp, use_gpu=self.gpu,
-                                                device=self.device, skel=skel, calc_trace=calc_trace)
-            
-            newinds = p[:,inds[:,0],inds[:,1]].swapaxes(0,1)
-            newinds = np.rint(newinds).astype(int)
-            skelmask = np.zeros_like(dist, dtype=bool)
-            skelmask[newinds[:,0],newinds[:,1]] = 1
-
-            #disconnect skeletons at the edge, 5 pixels in 
-            border_mask = np.zeros(skelmask.shape, dtype=bool)
-            border_px =  border_mask.copy()
-            border_mask = binary_dilation(border_mask, border_value=1, iterations=5)
-            
-            border_px[border_mask] = skelmask[border_mask]
-            if self.nclasses == 4: #can use boundary to erase joined edge skelmasks 
-                border_px[bd>-1] = 0
-                if verbose:
-                    print('Using boundary output to split edge defects')
-            else: #otherwise do morphological opening to attempt splitting 
-                border_px = binary_opening(border_px,border_value=0,iterations=3)
-
-            skelmask[border_mask] = border_px[border_mask]
-            
-            labellist = newinds
-            
-            # just replacing the get_masks function here...
-            LL = label(skelmask,connectivity=1) #Maybe make connectivity an option...
-            mask = np.zeros_like(LL)
-
-            for j in range(inds.shape[0]):
-                yy = inds[j,0]
-                xx = inds[j,1]
-                ry = labellist[j,0]
-                rx = labellist[j,1]
-                mask[yy,xx] = LL[ry,rx]
-
-            if stitch_rescale: # if the image was resized just for the stitching
-                #restore originals
-                mask = mask_orig
-                dist = dist_orig 
-                bd = bd_orig 
-                dP = dP_orig
-                
-                #uscale results 
+                    print('resizing output with resize', resize)
+                mask = transforms.resize_image(mask, resize[0], resize[1], interpolation=cv2.INTER_NEAREST)
                 Ly,Lx = mask.shape
                 pi = np.zeros([2,Ly,Lx])
                 for k in range(2):
                     pi[k] = cv2.resize(p[k], (Lx, Ly), interpolation=cv2.INTER_NEAREST)
                 p = pi       
-        
-        # quality control
-        if flow_threshold is not None and flow_threshold > 0 and dP is not None:
-            mask = dynamics.remove_bad_flow_masks(mask, dP, threshold=flow_threshold, skel=skel)
+        else: # nothing to compute, just make it compatible 
+            p = np.zeros([2,1,1])
+            tr = []
+            mask = np.zeros(resize)
+
+        # moving the cleanup to the end helps avoid some bugs arising from scaling...
+        # maybe better would be to rescale the min_size and hole_size parameters to do the
+        # cleanup at the prediction scale, or switch depending on which one is bigger... 
         mask = utils.fill_holes_and_remove_small_masks(mask, min_size=min_size)
         fastremap.renumber(mask,in_place=True) #convenient to guarantee non-skipped labels
-        
-        if resize is not None:
-            if verbose:
-                print('resizing output with resize', resize)
-            mask = transforms.resize_image(mask, resize[0], resize[1],
-                                            interpolation=cv2.INTER_NEAREST)
-#             p = transforms.resize_image(p, resize[0], resize[1],
-#                                         interpolation=cv2.INTER_NEAREST)
-#             dist = cv2.resize(dist, (resize[1], resize[0]), interpolation=cv2.INTER_LINEAR)
-#             bd = cv2.resize(bd, (resize[1], resize[0]), interpolation=cv2.INTER_LINEAR)
-#             dP = np.stack((cv2.resize(dP[0], (resize[1], resize[0]), interpolation=cv2.INTER_LINEAR),
-#                            cv2.resize(dP[1], (resize[1], resize[0]), interpolation=cv2.INTER_LINEAR)))
-#         return mask, dist, bd, dP,  p, tr
         return mask, p, tr
 
     def loss_fn(self, lbl, y):

@@ -7,6 +7,7 @@ from tqdm import trange
 from numba import njit, float32, int32, vectorize
 import edt
 from skimage.morphology import binary_erosion
+from skimage import measure
 
 import logging
 dynamics_logger = logging.getLogger(__name__)
@@ -24,8 +25,8 @@ try:
 except:
     TORCH_ENABLED = False
 
-@njit('(float64[:], int32[:], int32[:], int32[:], int32[:], int32, int32, boolean)', nogil=True)
-def _extend_centers(T, y, x, ymed, xmed, Lx, niter, skel=True):
+@njit('(float64[:], int32[:], int32[:], int32[:], int32[:], int32, int32, boolean,float64)', nogil=True)
+def _extend_centers(T, y, x, ymed, xmed, Lx, niter, skel=True, value=1):
     """ run diffusion from center of mask (ymed, xmed) on mask pixels (y, x)
 
     Parameters
@@ -59,24 +60,13 @@ def _extend_centers(T, y, x, ymed, xmed, Lx, niter, skel=True):
         amount of diffused particles at each pixel
 
     """
-    perim = np.count_nonzero(xmed)
-    area = np.count_nonzero(x)
-    value = (perim/area)**3
-    if skel:
-        niter = perim # no need to iterate longer 
-
-#     print('real niter is',niter)
     for t in range(niter):
         if skel:
             T[y*Lx + x] += value
-#             T[y*Lx + x] = 1/9. * (T[y*Lx + x] + T[(y-1)*Lx + x]   + T[(y+1)*Lx + x] +
-#                                                 T[y*Lx + x-1]     + T[y*Lx + x+1] +
-#                                                 T[(y-1)*Lx + x-1] + T[(y-1)*Lx + x+1] +
-#                                                 T[(y+1)*Lx + x-1] + T[(y+1)*Lx + x+1])
             T[y*Lx + x] /= 1+T[y*Lx + x]
 
         else:
-            T[ymed*Lx + xmed] += 1
+            T[ymed*Lx + xmed] += value
         T[y*Lx + x] = 1/9. * (T[y*Lx + x] + T[(y-1)*Lx + x]   + T[(y+1)*Lx + x] +
                                             T[y*Lx + x-1]     + T[y*Lx + x+1] +
                                             T[(y-1)*Lx + x-1] + T[(y-1)*Lx + x+1] +
@@ -87,7 +77,7 @@ def _extend_centers(T, y, x, ymed, xmed, Lx, niter, skel=True):
 tic=time.time()
 
 # edited slightly to fix a 'bleeding' issue with the gradient; now identical to CPU version
-def _extend_centers_gpu(neighbors, centers, isneighbor, Ly, Lx, n_iter=200, device=torch.device('cuda'),skel=True):
+def _extend_centers_gpu(neighbors, centers, isneighbor, Ly, Lx, n_iter=200, device=torch.device('cuda'),skel=True,masks=[]):
     """ runs diffusion on GPU to generate flows for training images or quality control
     
     neighbors is 9 x pixels in masks, 
@@ -99,13 +89,18 @@ def _extend_centers_gpu(neighbors, centers, isneighbor, Ly, Lx, n_iter=200, devi
         device = device
     nimg = neighbors.shape[0] // 9
     pt = torch.from_numpy(neighbors).to(device)
-    
     T = torch.zeros((nimg,Ly,Lx), dtype=torch.double, device=device)
     meds = torch.from_numpy(centers.astype(int)).to(device)
     isneigh = torch.from_numpy(isneighbor).to(device)
+    if skel:
+        props = measure.regionprops(masks)
+        value_img = torch.zeros((Ly,Lx)).to(device)
+        for p in props:
+            value_img[masks==p.label] = (p.perimeter/p.area)**3
+    
     for t in range(n_iter):
-        if skel: 
-            T[:, meds[:,0], meds[:,1]] += 1/9.**2
+        if skel:
+            T[:, meds[:,0], meds[:,1]] += value_img[meds[:,0], meds[:,1]]
             T[:, meds[:,0], meds[:,1]] /= (1+T[:, meds[:,0], meds[:,1]])
         else:
             T[:, meds[:,0], meds[:,1]] += 1
@@ -189,21 +184,20 @@ def masks_to_flows_gpu(masks, dists, device=None, skel=True):
     # get neighbor validator (not all neighbors are in same mask)
     neighbor_masks = masks_padded[neighbors[:,:,0], neighbors[:,:,1]] #extract list of label values, 
     isneighbor = neighbor_masks == neighbor_masks[0] # 0 corresponds to x,y
-    
-    slices = scipy.ndimage.find_objects(masks)
-#     n_iter = 10*np.int32(np.ptp(x)+np.ptp(y)) 
-#     n_iter = 200
-    n_iter = [np.max(dists[si])**(3/2) for si in slices]
+        
+    # set number of iterations 
+    n_iter = round(np.max(dists)**1.5)
+   
     # run diffusion 
-    mu, T = _extend_centers_gpu(neighbors, centers, isneighbor, Ly, Lx, 
-                             n_iter=n_iter, device=device)
+    mu, T = _extend_centers_gpu(neighbors, centers, isneighbor, Ly, Lx,
+                                n_iter=n_iter, device=device, masks=masks_padded)
 
     # normalize
     mu = transforms.normalize_field(mu)
 
     # put into original image
     mu0 = np.zeros((2, Ly0, Lx0))
-    mu0[:, y-1, x-1] = mu
+    mu0[:, y-1, x-1] = mu #GENERALIZE to PAD? #################
     
     mu_c = T[pad:-pad,pad:-pad] # mu_c now heat
     return mu0, mu_c
@@ -240,6 +234,7 @@ def masks_to_flows_cpu(masks, dists, device=None, skel=True):
     mu_c = np.zeros((Ly, Lx), np.float64)
     
     nmask = masks.max() # Assumes a 'proper' label mask, values 1,2,... 
+#     ncolor = utils.ncolorlabel(masks)
     slices = scipy.ndimage.find_objects(masks) # partitions into 'slices' like regionprops
     pad = 1
     #slice tuples contain the same info as boundingbox
@@ -247,10 +242,9 @@ def masks_to_flows_cpu(masks, dists, device=None, skel=True):
         if si is not None:
             
             sr,sc = si
-            mask = np.pad((masks[sr, sc] == (i+1)),pad)
+            mask = np.pad((masks[sr, sc] == i+1),pad)
             dist = np.pad(dists[si],pad)
           
-
             # lx,ly the dimensions of the boundingbox
             ly, lx = sr.stop - sr.start + 2*pad, sc.stop - sc.start + 2*pad
             # x, y ordered list of componenets for the mask pixels
@@ -265,22 +259,22 @@ def masks_to_flows_cpu(masks, dists, device=None, skel=True):
             # should double-check to make sure that the padding isn't having unforeseen consequences 
             # same number of points as a grid with  1px around the whole thing
             T = np.zeros(ly*lx, np.float64)
-            niter = 2*np.int32(np.ptp(x) + np.ptp(y))
-
+            
+            # This is what I found to be the lowest possible number of iterations to guarantee convergence
+            # I would like to explain why this works theoretically, it is emperically validated for now.
+            niter = round(np.max(dist)**1.5)
+            
             if (skel):
                 # skeletonization now is far less explicit now (no skeletonization computation per se)
                 # the skel flag effectively sets boundary conditions that produce a field extemely close
                 # to that of an explicitly defined skeleton, but even better than those ad-hoc methods.
-                # All pixels are used as heat sources.
-#                 xmed = x
-#                 ymed = y
-                # number of iterations scales with size of the cell
-                ymed, xmed = np.nonzero(dist==1)
-                xmed = xmed.astype(np.int32)
-                ymed = ymed.astype(np.int32)
-            
-#                 print(xmed)
-#                 T = _extend_centers(T, y, x, y, x, lx, niter, skel)
+                # This depends sensitively on both the number of iterrations (larger masks require more)
+                # and the value of heat added to each pixel. This is uniform across each mask and is 
+                # smaller than 1, but the exact value below is not theoretically motivated, just validated
+                # empirically on many examples and synthetic masks across several orders of magnitude in diameter. 
+                xmed = x
+                ymed = y
+                value = (measure.perimeter(mask)/np.count_nonzero(masks))**3
             else:
                 # original boundary projection
                 ymed = np.mean(y)
@@ -288,8 +282,9 @@ def masks_to_flows_cpu(masks, dists, device=None, skel=True):
                 imin = np.argmin((x-xmed)**2 + (y-ymed)**2) 
                 xmed = np.array([x[imin]],np.int32)
                 ymed = np.array([y[imin]],np.int32)
+                value = 1 
             
-            T = _extend_centers(T, y, x, ymed, xmed, lx, niter, skel)
+            T = _extend_centers(T, y, x, ymed, xmed, lx, niter, skel, value)
             
             heat = T.copy()
             T  = np.interp(T, (T[y*lx + x].min(), T[y*lx + x].max()), (0, 1))
@@ -298,6 +293,7 @@ def masks_to_flows_cpu(masks, dists, device=None, skel=True):
             dx = np.empty(ly*lx, np.float64)
             dy[y*lx + x] = T[(y+1)*lx + x] - T[(y-1)*lx + x]
             dx[y*lx + x] = T[y*lx + x+1] - T[y*lx + x-1]
+            
             mu[:, sr.start+y-pad, sc.start+x-pad] =  transforms.normalize_field(np.stack((dy,dx)))[:,y*lx + x]
             mu_c[sr.start+y-pad, sc.start+x-pad] = heat[y*lx + x]
             

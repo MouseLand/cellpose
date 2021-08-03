@@ -403,7 +403,7 @@ def process_cells(M0, npix=20):
 
 # Edited slightly to only remove small holes(under min_size) to avoid filling in voids formed by cells touching themselves
 # (Masks show this, outlines somehow do not. Also need to find a way to split self-contact points).
-def fill_holes_and_remove_small_masks(masks, min_size=15, hole_size=3):
+def fill_holes_and_remove_small_masks(masks, min_size=15, hole_size=3, scale_factor=1):
     """ fill holes in masks (2D/3D) and discard masks smaller than min_size (2D)
     
     fill holes in each mask using scipy.ndimage.morphology.binary_fill_holes
@@ -427,6 +427,8 @@ def fill_holes_and_remove_small_masks(masks, min_size=15, hole_size=3):
         size [Ly x Lx] or [Lz x Ly x Lx]
     
     """
+#     min_size *= scale_factor
+    hole_size *= scale_factor
         
     if masks.ndim > 3 or masks.ndim < 2:
         raise ValueError('masks_to_outlines takes 2D or 3D array, not %dD array'%masks.ndim)
@@ -439,13 +441,16 @@ def fill_holes_and_remove_small_masks(masks, min_size=15, hole_size=3):
             npix = msk.sum()
             if min_size > 0 and npix < min_size:
                 masks[slc][msk] = 0
-            else:    
+            else:   
+                hsz = np.count_nonzero(msk)*hole_size/100 #turned hole size into percentage
+                #eventually the boundary output should be used to properly exclude real holes vs label gaps 
+#                 print(hsz)
                 if msk.ndim==3:
                     for k in range(msk.shape[0]):
-                        padmsk = remove_small_holes(np.pad(msk[k],1,mode='constant'),hole_size)
+                        padmsk = remove_small_holes(np.pad(msk[k],1,mode='constant'),hsz)
                         msk[k] = padmsk[1:-1,1:-1]
                 else:                    
-                    padmsk = remove_small_holes(np.pad(msk,1,mode='constant'),hole_size)
+                    padmsk = remove_small_holes(np.pad(msk,1,mode='constant'),hsz)
                     msk = padmsk[1:-1,1:-1]
                 masks[slc][msk] = (j+1)
                 j+=1
