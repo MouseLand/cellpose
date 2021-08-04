@@ -54,7 +54,7 @@ def main():
     parser.add_argument('--unet', required=False, 
                         default=0, type=int, help='run standard unet instead of cellpose flow output')
     parser.add_argument('--nclasses', required=False, 
-                        default=4, type=int, help='if running unet, choose 2 or 3, otherwise not used')
+                        default=4, type=int, help='if running unet, choose 2 or 3; if running old Cellpose model, choose 3')
     parser.add_argument('--chan', required=False, 
                         default=0, type=int, help='channel to segment; 0: GRAY, 1: RED, 2: GREEN, 3: BLUE')
     parser.add_argument('--chan2', required=False, 
@@ -100,7 +100,7 @@ def main():
     parser.add_argument('--save_every', required=False,
                         default=100, type=int, help='number of epochs to skip between saves')
     
-    # Kevin's parser additions for conveneience, compatibility with SuperSegger file structure
+    # Kevin's parser additions for conveneience and compatibility with SuperSegger file structure
     # pre-existing save_flows and save_outlines grouped here for symmetry 
     parser.add_argument('--savedir', required=False, 
                         default=None, type=str, help='folder to which segmentation results will be saved (defaults to input image directory)')

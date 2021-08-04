@@ -599,7 +599,6 @@ def outline_view(img0,maski):
     return imgout
 
 # put labels in standard form (background 0, max = # of cells)
-# consider adding a remapping to theis
 def format_labels(labels):
     labels = labels.astype('int32') # no one is going to have more than 2^32 -1 cells in one frame
     labels -= np.min(labels) # some people put -1 as background...

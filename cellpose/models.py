@@ -125,7 +125,6 @@ class Cellpose():
                             cp_model=self.cp)
         self.sz.model_type = model_type
 
-    # needs to be updated to reflect all parameters in CellposeModel...
     def eval(self, x, batch_size=8, channels=None, channel_axis=None, z_axis=None,
              invert=False, normalize=True, diameter=30., do_3D=False, anisotropy=None,
              net_avg=True, augment=False, tile=True, tile_overlap=0.1, resample=False, interp=True,
@@ -227,8 +226,7 @@ class Cellpose():
         tic0 = time.time()
 
         estimate_size = True if (diameter is None or diameter==0) else False
-        estimate_size = False #OVERWRITE
-        print('overwriting estimate size...')#################################################### need to address this 
+        
         if estimate_size and self.pretrained_size is not None and not do_3D and x[0].ndim < 4:
             tic = time.time()
             models_logger.info('~~~ ESTIMATING CELL DIAMETER(S) ~~~')

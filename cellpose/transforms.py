@@ -648,7 +648,6 @@ def random_rotate_and_resize(X, Y=None, scale_range=1., xy = (224,224),
 #         xy = [np.round(xy[0]*np.random.uniform(low=0.5,high=1.5)).astype(int),
 #               np.round(xy[1]*np.random.uniform(low=0.5,high=1.5)).astype(int)]
     numpx = xy[0]*xy[1]
-#     print('size',xy)
 
     dist_bg = 5 # background distance field is set to -dist_bg 
     scale_range = max(0, min(2, float(scale_range)))
@@ -698,8 +697,10 @@ def random_rotate_and_resize(X, Y=None, scale_range=1., xy = (224,224),
             scale[n,:] = np.random.uniform(low=low,high=high,size=2)
             if rescale is not None:
                 scale[n,:] *= 1. / rescale[n]
-#             print('scale',scale[n],np.mean(scale[n]))
+        
+        # image dimensions are always the last two in the stack 
         Ly, Lx = img.shape[-2:]
+        
         # generate random augmentation parameters
         gamma = np.random.uniform(low=0.75,high=1.25)
         flip = np.random.choice([0,1])
@@ -733,10 +734,11 @@ def random_rotate_and_resize(X, Y=None, scale_range=1., xy = (224,224),
         method = cv2.INTER_LINEAR
         # the mode determines what happens with out of bounds regions. If we recompute the flow, we can
         # reflect all the scalar quantities then take the derivative. If we just rotate the field, then
-        # the reflection messes uop the directions and we have to set the mode to pad with 0s. 
-        mode = cv2.BORDER_DEFAULT # Does reflection 
-        mode = 0
-            
+        # the reflection messes up the directions. For now, we are returning to the default of padding
+        # with zeros. In the future, we may only predict a scalar field and can use reflection to fill
+        # the entire FoV with data - or we can work out how to properly extend the flow field. 
+#         mode = cv2.BORDER_DEFAULT # Does reflection 
+        mode = 0     
             
         for k in range(nchan):
             I = cv2.warpAffine(img[k], M, (xy[1],xy[0]),borderMode=mode, flags=method)
@@ -771,7 +773,8 @@ def random_rotate_and_resize(X, Y=None, scale_range=1., xy = (224,224),
             
                         
             # For a while I had the heat distribution carried through to re-compute the flow field, but it turns out that the interpolated field
-            # gives better segmentation results (when evaluated on the training dataset, at least) 
+            # gives better segmentation results. This may be because it reduces the importance of predictions right at skeletons and boundaries,
+            # where more atrifacts tend to occur. 
             if nt > 1 and not unet:
                 v1 = lbl[n,3].copy() # x component
                 v2 = lbl[n,2].copy() # y component 

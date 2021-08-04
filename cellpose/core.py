@@ -20,7 +20,7 @@ except:
 
 try:
     import torch
-    from GPUtil import showUtilization as gpu_usage #for gpu memory debugging 
+#     from GPUtil import showUtilization as gpu_usage #for gpu memory debugging 
     from numba import cuda
     from torch import nn
     import torch_optimizer as optim # for RADAM optimizer
@@ -1044,19 +1044,3 @@ def divergence(x):
 def mean_of_means(x):
     return torch.mean(torch.mean(x, axis=(-2,-1)))
 
-# adapted from https://www.kaggle.com/getting-started/140636
-# too much... breaks cuda
-def free_gpu_cache(verbose=False):
-    if verbose:
-        print("Initial GPU Usage")
-        gpu_usage()                             
-
-    torch.cuda.empty_cache()
-
-    cuda.select_device(0)
-    cuda.close()
-    cuda.select_device(0)
-    
-    if verbose:
-        print("GPU Usage after emptying the cache")
-        gpu_usage()
