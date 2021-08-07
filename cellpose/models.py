@@ -232,7 +232,7 @@ class Cellpose():
             tic = time.time()
             models_logger.info('~~~ ESTIMATING CELL DIAMETER(S) ~~~')
             diams, _ = self.sz.eval(x, channels=channels, channel_axis=channel_axis, invert=invert, batch_size=batch_size, 
-                                    augment=augment, tile=tile)
+                                    augment=augment, tile=tile, normalize=normalize)
             rescale = self.diam_mean / np.array(diams)
             diameter = None
             models_logger.info('estimated cell diameter(s) in %0.2f sec'%(time.time()-tic))
