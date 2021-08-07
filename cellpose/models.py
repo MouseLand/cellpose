@@ -257,6 +257,7 @@ class Cellpose():
         masks, flows, styles = self.cp.eval(x, 
                                             batch_size=batch_size, 
                                             invert=invert, 
+                                            normalize=normalize,
                                             diameter=diameter,
                                             rescale=rescale, 
                                             anisotropy=anisotropy, 
