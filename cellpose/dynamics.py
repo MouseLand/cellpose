@@ -386,7 +386,7 @@ def steps2D_interp(p, dP, niter, use_gpu=False, device=None):
         for k in range(2):
             im[:,k,:,:] /= (shape[1-k]-1) / 2.
         for t in range(niter):
-            dPt = torch.nn.functional.grid_sample(im, pt)
+            dPt = torch.nn.functional.grid_sample(im, pt, align_corners=False)
             for k in range(2):
                 pt[:,:,:,k] = torch.clamp(pt[:,:,:,k] - dPt[:,k,:,:], -1., 1.)
         pt = (pt+1)*0.5
