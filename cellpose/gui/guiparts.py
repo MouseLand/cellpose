@@ -1,4 +1,6 @@
 from PyQt5 import QtGui, QtCore, QtWidgets
+from PyQt5.QtGui import QPainter, QPixmap
+from PyQt5.QtWidgets import QApplication, QRadioButton, QWidget, QDialog, QButtonGroup, QSlider, QStyle, QStyleOptionSlider, QGridLayout, QPushButton, QLabel
 import pyqtgraph as pg
 from pyqtgraph import functions as fn
 from pyqtgraph import Point
@@ -7,7 +9,7 @@ import pathlib
 
 def make_quadrants(parent):
     """ make quadrant buttons """
-    parent.quadbtns = QtGui.QButtonGroup(parent)
+    parent.quadbtns = QButtonGroup(parent)
     for b in range(9):
         btn = QuadButton(b, ' '+str(b+1), parent)
         parent.quadbtns.addButton(btn, b)
@@ -16,7 +18,7 @@ def make_quadrants(parent):
         b += 1
     parent.quadbtns.setExclusive(True)
 
-class QuadButton(QtGui.QPushButton):
+class QuadButton(QPushButton):
     """ custom QPushButton class for quadrant plotting
         requires buttons to put into a QButtonGroup (parent.quadbtns)
          allows only 1 button to pressed at a time
@@ -104,29 +106,29 @@ def horizontal_slider_style():
             border-radius: 4px;
             }"""
 
-class ExampleGUI(QtGui.QDialog):
+class ExampleGUI(QDialog):
     def __init__(self, parent=None):
         super(ExampleGUI, self).__init__(parent)
         self.setGeometry(100,100,1300,900)
         self.setWindowTitle('GUI layout')
-        self.win = QtGui.QWidget(self)
-        layout = QtGui.QGridLayout()
+        self.win = QWidget(self)
+        layout = QGridLayout()
         self.win.setLayout(layout)
         guip_path = pathlib.Path.home().joinpath('.cellpose', 'cellpose_gui.png')
         guip_path = str(guip_path.resolve())
-        pixmap = QtGui.QPixmap(guip_path)
-        label = QtGui.QLabel(self)
+        pixmap = QPixmap(guip_path)
+        label = QLabel(self)
         label.setPixmap(pixmap)
         pixmap.scaled
         layout.addWidget(label, 0, 0, 1, 1)
 
-class HelpWindow(QtGui.QDialog):
+class HelpWindow(QDialog):
     def __init__(self, parent=None):
         super(HelpWindow, self).__init__(parent)
         self.setGeometry(100,100,700,800)
         self.setWindowTitle('cellpose help')
-        self.win = QtGui.QWidget(self)
-        layout = QtGui.QGridLayout()
+        self.win = QWidget(self)
+        layout = QGridLayout()
         self.win.setLayout(layout)
         
         text = ('''
@@ -225,20 +227,20 @@ class HelpWindow(QtGui.QDialog):
             <p class="has-line-data" data-line-start="44" data-line-end="45">CHAN TO SEG: this is the channel in which the cytoplasm or nuclei exist</p>
             <p class="has-line-data" data-line-start="46" data-line-end="47">CHAN2 (OPT): if <em>cytoplasm</em> model is chosen, then choose the nuclear channel for this option</p>
             ''')
-        label = QtGui.QLabel(text)
+        label = QLabel(text)
         label.setFont(QtGui.QFont("Arial", 8))
         label.setWordWrap(True)
         layout.addWidget(label, 0, 0, 1, 1)
         self.show()
 
-class TypeRadioButtons(QtGui.QButtonGroup):
+class TypeRadioButtons(QButtonGroup):
     def __init__(self, parent=None, row=0, col=0):
         super(TypeRadioButtons, self).__init__()
         parent.color = 0
         self.parent = parent
         self.bstr = self.parent.cell_types
         for b in range(len(self.bstr)):
-            button = QtGui.QRadioButton(self.bstr[b])
+            button = QRadioButton(self.bstr[b])
             button.setStyleSheet('color: rgb(190,190,190);')
             button.setFont(QtGui.QFont("Arial", 10))
             if b==0:
@@ -253,16 +255,16 @@ class TypeRadioButtons(QtGui.QButtonGroup):
        b = self.checkedId()
        self.parent.cell_type = b
 
-class RGBRadioButtons(QtGui.QButtonGroup):
+class RGBRadioButtons(QButtonGroup):
     def __init__(self, parent=None, row=0, col=0):
         super(RGBRadioButtons, self).__init__()
         parent.color = 0
         self.parent = parent
         self.bstr = ["image", "gradXY", "cellprob", "gradZ"]
-        #self.buttons = QtGui.QButtonGroup()
+        #self.buttons = QButtonGroup()
         self.dropdown = []
         for b in range(len(self.bstr)):
-            button = QtGui.QRadioButton(self.bstr[b])
+            button = QRadioButton(self.bstr[b])
             button.setStyleSheet('color: white;')
             button.setFont(QtGui.QFont("Arial", 10))
             if b==0:
@@ -359,7 +361,7 @@ class ImageDraw(pg.ImageItem):
     for controlling the levels and lookup table used to display the image.
     """
 
-    sigImageChanged = QtCore.Signal()
+    sigImageChanged = QtCore.pyqtSignal()
 
     def __init__(self, image=None, viewbox=None, parent=None, **kargs):
         super(ImageDraw, self).__init__()
@@ -534,7 +536,7 @@ class ImageDraw(pg.ImageItem):
         self.greenmask = np.concatenate((onmask,offmask,onmask,opamask), axis=-1)
 
 
-class RangeSlider(QtGui.QSlider):
+class RangeSlider(QSlider):
     """ A slider for ranges.
 
         This class provides a dual-slider for ranges, where there is a defined
@@ -553,39 +555,35 @@ class RangeSlider(QtGui.QSlider):
         self._low = self.minimum()
         self._high = self.maximum()
 
-        self.pressed_control = QtGui.QStyle.SC_None
-        self.hover_control = QtGui.QStyle.SC_None
+        self.pressed_control = QStyle.SC_None
+        self.hover_control = QStyle.SC_None
         self.click_offset = 0
 
         self.setOrientation(QtCore.Qt.Vertical)
-        self.setTickPosition(QtGui.QSlider.TicksRight)
-        #self.setStyleSheet(\
-        #        "QSlider::handle:vertical {\
-        #        background-color: cyan;\
-        #        border: 1px solid white;\
-        #        border-radius: 2px;\
-        #        border-color: white;\
-        #        height: 16px;\
-        #        width: 3px;\
-        #        margin: 8px 2; \
-        #        }")
+        self.setTickPosition(QSlider.TicksRight)
+        self.setStyleSheet(\
+                "QSlider::handle:horizontal {\
+                background-color: white;\
+                border: 1px solid #5c5c5c;\
+                border-radius: 0px;\
+                border-color: black;\
+                height: 8px;\
+                width: 6px;\
+                margin: -8px 2; \
+                }")
 
-        # set groove color
-        
-        self.opt = QtGui.QStyleOptionSlider()
-        self.opt.orientation=QtCore.Qt.Vertical
-        self.initStyleOption(self.opt)
+
+        #self.opt = QStyleOptionSlider()
+        #self.opt.orientation=QtCore.Qt.Vertical
+        #self.initStyleOption(self.opt)
         # 0 for the low, 1 for the high, -1 for both
         self.active_slider = 0
         self.parent = parent
-        self.show()
-
 
     def level_change(self):
         if self.parent is not None:
             if self.parent.loaded:
-                for z in range(self.parent.NZ):
-                    self.parent.saturation[z] = [self._low, self._high]
+                self.parent.ops_plot['saturation'] = [self._low, self._high]
                 self.parent.update_plot()
 
     def low(self):
@@ -604,47 +602,38 @@ class RangeSlider(QtGui.QSlider):
 
     def paintEvent(self, event):
         # based on http://qt.gitorious.org/qt/qt/blobs/master/src/gui/widgets/qslider.cpp
-        painter = QtGui.QPainter(self)
-        style = QtGui.QApplication.style()
+        painter = QPainter(self)
+        style = QApplication.style()
 
         for i, value in enumerate([self._low, self._high]):
-            opt = QtWidgets.QStyleOptionSlider()
+            opt = QStyleOptionSlider()
             self.initStyleOption(opt)
 
             # Only draw the groove for the first slider so it doesn't get drawn
             # on top of the existing ones every time
             if i == 0:
-                opt.subControls = QtWidgets.QStyle.SC_SliderGroove | QtWidgets.QStyle.SC_SliderHandle
+                opt.subControls = QStyle.SC_SliderHandle#QStyle.SC_SliderGroove | QStyle.SC_SliderHandle
             else:
-                opt.subControls = QtWidgets.QStyle.SC_SliderHandle
+                opt.subControls = QStyle.SC_SliderHandle
 
             if self.tickPosition() != self.NoTicks:
-                opt.subControls |= QtWidgets.QStyle.SC_SliderTickmarks
+                opt.subControls |= QStyle.SC_SliderTickmarks
 
             if self.pressed_control:
                 opt.activeSubControls = self.pressed_control
-                opt.state |= QtWidgets.QStyle.State_Sunken
+                opt.state |= QStyle.State_Sunken
             else:
                 opt.activeSubControls = self.hover_control
 
             opt.sliderPosition = value
             opt.sliderValue = value
+            style.drawComplexControl(QStyle.CC_Slider, opt, painter, self)
 
-            if i==0:
-                pen = QtGui.QPen()
-                pen.setBrush(QtGui.QColor('#2e4f37'))
-                pen.setCapStyle(QtCore.Qt.RoundCap)
-                pen.setWidth(3)
-                painter.setPen(pen)
-                painter.setBrush(QtGui.QColor('#2e4f37'))
-                x1,y1,x2,y2 = event.rect().getCoords()
-                painter.drawRect(event.rect())
-            style.drawComplexControl(QtWidgets.QStyle.CC_Slider, opt, painter, self)
-            
+
     def mousePressEvent(self, event):
         event.accept()
 
-        style = QtGui.QApplication.style()
+        style = QApplication.style()
         button = event.button()
         # In a normal slider control, when the user clicks on a point in the
         # slider's total range, but not on the slider part of the control the
@@ -652,7 +641,7 @@ class RangeSlider(QtGui.QSlider):
         # For this control, clicks which are not direct hits will slide both
         # slider parts
         if button:
-            opt = QtGui.QStyleOptionSlider()
+            opt = QStyleOptionSlider()
             self.initStyleOption(opt)
 
             self.active_slider = -1
@@ -671,7 +660,7 @@ class RangeSlider(QtGui.QSlider):
                     break
 
             if self.active_slider < 0:
-                self.pressed_control = QtGui.QStyle.SC_SliderHandle
+                self.pressed_control = QStyle.SC_SliderHandle
                 self.click_offset = self.__pixelPosToRangeValue(self.__pick(event.pos()))
                 self.triggerAction(self.SliderMove)
                 self.setRepeatAction(self.SliderNoAction)
@@ -679,13 +668,13 @@ class RangeSlider(QtGui.QSlider):
             event.ignore()
 
     def mouseMoveEvent(self, event):
-        if self.pressed_control != QtGui.QStyle.SC_SliderHandle:
+        if self.pressed_control != QStyle.SC_SliderHandle:
             event.ignore()
             return
 
         event.accept()
         new_pos = self.__pixelPosToRangeValue(self.__pick(event.pos()))
-        opt = QtGui.QStyleOptionSlider()
+        opt = QStyleOptionSlider()
         self.initStyleOption(opt)
 
         if self.active_slider < 0:
@@ -723,9 +712,9 @@ class RangeSlider(QtGui.QSlider):
 
 
     def __pixelPosToRangeValue(self, pos):
-        opt = QtGui.QStyleOptionSlider()
+        opt = QStyleOptionSlider()
         self.initStyleOption(opt)
-        style = QtGui.QApplication.style()
+        style = QApplication.style()
 
         gr = style.subControlRect(style.CC_Slider, opt, style.SC_SliderGroove, self)
         sr = style.subControlRect(style.CC_Slider, opt, style.SC_SliderHandle, self)

@@ -6,7 +6,7 @@ import os
 
 os.environ["KMP_DUPLICATE_LIB_OK"]="TRUE"
 
-def test_class_train(data_dir, image_names):
+def test_class_train(data_dir):
     train_dir = str(data_dir.joinpath('2D').joinpath('train'))
     model_dir = str(data_dir.joinpath('2D').joinpath('train').joinpath('models'))
     shutil.rmtree(model_dir, ignore_errors=True)
@@ -18,7 +18,7 @@ def test_class_train(data_dir, image_names):
                                channels=[2,1], save_path=train_dir, n_epochs=10)
     print('>>>> model trained and saved to %s'%cpmodel_path)
         
-def test_cli_train(data_dir, image_names):
+def test_cli_train(data_dir):
     train_dir = str(data_dir.joinpath('2D').joinpath('train'))
     model_dir = str(data_dir.joinpath('2D').joinpath('train').joinpath('models'))
     shutil.rmtree(model_dir, ignore_errors=True)
@@ -29,7 +29,7 @@ def test_cli_train(data_dir, image_names):
         print(e) 
         raise ValueError(e)
 
-def test_cli_train_pretrained(data_dir, image_names):
+def test_cli_train_pretrained(data_dir):
     train_dir = str(data_dir.joinpath('2D').joinpath('train'))
     model_dir = str(data_dir.joinpath('2D').joinpath('train').joinpath('models'))
     shutil.rmtree(model_dir, ignore_errors=True)
