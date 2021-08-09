@@ -89,7 +89,7 @@ Before installing the GPU version, remove the CPU version:
 pip uninstall torch
 ~~~
 
-Follow the instructions [here](https://pytorch.org/get-started/locally/) to determine what version to install. The Anaconda install is recommended along with CUDA version 10.2. For instance this command will install the 10.2 version on Linux and Windows (note the `torchvision` and `torchaudio` commands are removed because cellpose doesn't require them):
+Follow the instructions [here](https://pytorch.org/get-started/locally/) to determine what version to install. The Anaconda install is strongly recommended, and then choose the CUDA version that is supported by your GPU (newer GPUs may need newer CUDA versions > 10.2). For instance this command will install the 10.2 version on Linux and Windows (note the `torchvision` and `torchaudio` commands are removed because cellpose doesn't require them):
 
 ~~~
 conda install pytorch cudatoolkit=10.2 -c pytorch
