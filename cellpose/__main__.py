@@ -125,7 +125,6 @@ def main():
 
 
         device, gpu = models.assign_device((not args.mxnet), args.use_gpu)
-        model_dir = models.model_dir              
 
         if not args.train and not args.train_size:
             tic = time.time()
@@ -204,8 +203,7 @@ def main():
                 if args.mxnet and args.pretrained_model=='cyto2':
                     logger.warning('cyto2 model not available in mxnet, using cyto model')
                     args.pretrained_model = 'cyto'
-                torch_str = ['torch', '']
-                cpmodel_path = os.fspath(model_dir.joinpath('%s%s_0'%(args.pretrained_model, torch_str[args.mxnet])))
+                cpmodel_path = models.model_path(args.pretrained_model, 0, not args.mxnet)
                 if args.pretrained_model=='cyto':
                     szmean = 30.
                 else:

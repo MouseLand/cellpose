@@ -426,9 +426,7 @@ class MainW(QMainWindow):
         b+=1
         # choose models
         self.ModelChoose = QComboBox()
-        self.model_dir = pathlib.Path.home().joinpath('.cellpose', 'models')
-        models = ['cyto', 'nuclei', 'cyto2']
-        self.ModelChoose.addItems(models)
+        self.ModelChoose.addItems(['cyto', 'nuclei', 'cyto2'])
         self.ModelChoose.setFixedWidth(70)
         self.ModelChoose.setStyleSheet(self.dropdowns)
         self.ModelChoose.setFont(self.medfont)
