@@ -237,13 +237,7 @@ def convert_image(x, channels, channel_axis=None, z_axis=None,
                   do_3D=False, normalize=True, invert=False,
                   nchan=2):
     """ return image with z first, channels last and normalized intensities """
-    if len(channels)==1:
-        channels = channels[0]
-
-    if len(channels) < 2:
-        transforms_logger.critical('ERROR: two channels not specified')
-        raise ValueError('ERROR: two channels not specified') 
-
+        
     # squeeze image, and if channel_axis or z_axis given, transpose image
     if x.ndim > 3:
         to_squeeze = np.array([int(isq) for isq,s in enumerate(x.shape) if s==1])
@@ -254,15 +248,15 @@ def convert_image(x, channels, channel_axis=None, z_axis=None,
         x = x.squeeze()
 
     # put z axis first
-    if z_axis and x.ndim > 2:
+    if z_axis is not None and x.ndim > 2:
         x = move_axis(x, m_axis=z_axis, first=True)
         if channel_axis is not None:
             channel_axis += 1
         if x.ndim==3:
             x = x[...,np.newaxis]
-
+        
     # put channel axis last
-    if channel_axis and x.ndim > 2:
+    if channel_axis is not None and x.ndim > 2:
         x = move_axis(x, m_axis=channel_axis, first=False)
     elif x.ndim == 2:
         x = x[:,:,np.newaxis]
@@ -282,6 +276,10 @@ def convert_image(x, channels, channel_axis=None, z_axis=None,
                 (x.shape[0], x.shape[-1]))
 
     if channels is not None:
+        channels = channels[0] if len(channels)==1 else channels
+        if len(channels) < 2:
+            transforms_logger.critical('ERROR: two channels not specified')
+            raise ValueError('ERROR: two channels not specified') 
         x = reshape(x, channels=channels)
         
     else:

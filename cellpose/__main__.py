@@ -46,10 +46,8 @@ def main():
     # settings for running cellpose
     parser.add_argument('--pretrained_model', required=False, 
                         default='cyto', type=str, help='model to use')
-    parser.add_argument('--unet', required=False, 
-                        default=0, type=int, help='run standard unet instead of cellpose flow output')
-    parser.add_argument('--nclasses', required=False, 
-                        default=3, type=int, help='if running unet, choose 2 or 3, otherwise not used')
+    parser.add_argument('--model_dir', required=False, 
+                        default=None, type=str, help='directory with built-in models, default is $HOME/.cellpose/models/')
     parser.add_argument('--chan', required=False, 
                         default=0, type=int, help='channel to segment; 0: GRAY, 1: RED, 2: GREEN, 3: BLUE')
     parser.add_argument('--chan2', required=False, 
@@ -72,7 +70,11 @@ def main():
                         default=None, type=int, help='axis of image which corresponds to Z dimension')
     parser.add_argument('--exclude_on_edges', action='store_true', 
                         help='discard masks which touch edges of image')
-
+    parser.add_argument('--unet', required=False, 
+                        default=0, type=int, help='run standard unet instead of cellpose flow output')
+    parser.add_argument('--nclasses', required=False, 
+                        default=3, type=int, help='if running unet, choose 2 or 3, otherwise not used')
+    
     # settings for training
     parser.add_argument('--train_size', action='store_true', help='train size network at end of training')
     parser.add_argument('--mask_filter', required=False, 
@@ -125,7 +127,12 @@ def main():
 
 
         device, gpu = models.assign_device((not args.mxnet), args.use_gpu)
-        model_dir = models.model_dir              
+        if isinstance(args.model_dir, str) and os.path.exists(args.model_dir):
+            model_dir = args.model_dir 
+            logger.info(f'using built-in models in directory {model_dir}')
+        else:
+            model_dir = models.model_dir_builtin
+        
 
         if not args.train and not args.train_size:
             tic = time.time()
