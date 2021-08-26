@@ -12,7 +12,6 @@ import io
 import random
 import fastremap
 
-
 from numba import njit
 from skimage.morphology import remove_small_holes
 from skimage.segmentation import find_boundaries
@@ -367,10 +366,20 @@ def stitch3D(masks, stitch_threshold=0.25):
     return masks
 
 # new diameter function; 
-def diameters(masks, dist_threshold=1):
-    dt = edt.edt(np.int32(masks))
-    dt_pos = np.abs(dt[dt>=dist_threshold])
-    return dist_to_diam(np.abs(dt_pos)), None
+def diameters(masks, skel=False, dist_threshold=1):
+    if not skel: #original 'equivalent area circle' diameter
+        _, counts = np.unique(np.int32(masks), return_counts=True)
+        counts = counts[1:]
+        md = np.median(counts**0.5)
+        if np.isnan(md):
+            md = 0
+        md /= (np.pi**0.5)/2
+        return md, counts**0.5
+    else: #new distance-field-derived diameter (aggrees with cicle but more general)
+        dt = edt.edt(np.int32(masks))
+        dt_pos = np.abs(dt[dt>=dist_threshold])
+        return dist_to_diam(np.abs(dt_pos)), None
+        
 
 # also used in models.py
 def dist_to_diam(dt_pos):
@@ -427,6 +436,8 @@ def fill_holes_and_remove_small_masks(masks, min_size=15, hole_size=3, scale_fac
         size [Ly x Lx] or [Lz x Ly x Lx]
     
     """
+    masks = format_labels(masks)
+    
 #     min_size *= scale_factor
     hole_size *= scale_factor
         
@@ -459,11 +470,14 @@ def fill_holes_and_remove_small_masks(masks, min_size=15, hole_size=3, scale_fac
 
 
 #4-color algorthm based on https://forum.image.sc/t/relabel-with-4-colors-like-map/33564 
-def ncolorlabel(lab,n=4):
-    lab = format_labels(lab) # needs to be in standard label form 
-    idx = connect(lab, 2)
+def ncolorlabel(lab,n=4,conn=2):
+    # needs to be in standard label form
+    # but also needs to be in int32 data type ot work properly; the formatting automatically
+    # puts it into the smallest datatype to save space 
+    lab = format_labels(lab).astype(np.int32) 
+    idx = connect(lab, conn)
     idx = mapidx(idx)
-    colors = render_net(idx, n, 10)
+    colors = render_net(idx, n=n, rand=10)
     lut = np.ones(lab.max()+1, dtype=np.uint8)
     for i in colors: lut[i] = colors[i]
     lut[0] = 0
@@ -497,7 +511,8 @@ def connect(img, conn=1):
     buf = np.pad(img, 1, 'constant')
     nbs = neighbors(buf.shape, conn)
     rst = search(buf, nbs)
-    if len(rst)<2: return rst
+    if len(rst)<2:
+        return rst
     rst.sort(axis=1)
     key = (rst[:,0]<<16)
     key += rst[:,1]
@@ -517,7 +532,7 @@ def mapidx(idx):
     return dic
 
 # create a connection mapping 
-def render_net(conmap, n=4, rand=12, shuffle=True, depth=0,max_depth=5):
+def render_net(conmap, n=4, rand=12, shuffle=True, depth=0, max_depth=5):
     thresh = 1e4
     if depth<max_depth:
         nodes = list(conmap.keys())
@@ -525,7 +540,7 @@ def render_net(conmap, n=4, rand=12, shuffle=True, depth=0,max_depth=5):
         counter = dict(zip(nodes, [0]*len(nodes)))
         if shuffle: random.shuffle(nodes)
         count = 0
-        while len(nodes)>0 and count <thresh:
+        while len(nodes)>0 and count<thresh:
             count+=1
             k = nodes.pop(0)
             counter[k] += 1
@@ -593,14 +608,44 @@ def outline_view(img0,maski):
     Assume img0 is already coverted to RGB.
     """
     outlines = find_boundaries(maski,mode='inner') #not using masks_to_outlines as that gives border 'outlines'
-    outX, outY = np.nonzero(outlines)
-    imgout= img0.copy()
-    imgout[outX, outY] = np.array([255,0,0]) #pure red
+    outY, outX = np.nonzero(outlines)
+    imgout = img0.copy()
+    imgout[outY, outX] = np.array([255,0,0]) #pure red
     return imgout
 
-# put labels in standard form (background 0, max = # of cells)
-def format_labels(labels):
+# Should work for 3D too. Could put into usigned integer form at the end... 
+from skimage import measure
+def format_labels(labels, clean=False, min_area=9):
+    """
+    Puts labels into 'standard form', i.e. background=0 and cells 1,2,3,...,N-1,N.
+    Optional with clean flag: disconnect and disjoint masks and discard small masks beflow min_area. 
+    """
     labels = labels.astype('int32') # no one is going to have more than 2^32 -1 cells in one frame
     labels -= np.min(labels) # some people put -1 as background...
+    if clean:
+        inds = np.unique(labels)
+        for j in inds[inds>0]:
+            mask = labels==j
+            lbl = measure.label(mask)                       
+            regions = measure.regionprops(lbl)
+            regions.sort(key=lambda x: x.area, reverse=True)
+            if len(regions) > 1:
+                print('Warning - found mask with disjoint label.')
+                for rg in regions[1:]:
+                    if rg.area <= min_area:
+                        labels[rg.coords[:,0], rg.coords[:,1]] = 0
+                        print('secondary disjoint part smaller than min_area. Removing it.')
+                    else:
+                        print('secondary disjoint part bigger than min_area, relabeling. Area:',rg.area, 
+                              'Label value:',np.unique(labels[rg.coords[:,0], rg.coords[:,1]]))
+                        labels[rg.coords[:,0], rg.coords[:,1]] = np.max(labels)+1
+                        
+            rg0 = regions[0]
+            if rg0.area <= min_area:
+                labels[rg0.coords[:,0], rg0.coords[:,1]] = 0
+                print('Warning - found mask area less than', min_area)
+                print('Removing it.')
+        
     fastremap.renumber(labels,in_place=True) # convenient to have unit increments from 1 to N cells
+    labels = fastremap.refit(labels) # put into smaller data type if possible 
     return labels

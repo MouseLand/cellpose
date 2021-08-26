@@ -21,12 +21,11 @@ except:
 try:
     import torch
 #     from GPUtil import showUtilization as gpu_usage #for gpu memory debugging 
-    from numba import cuda
     from torch import nn
     import torch_optimizer as optim # for RADAM optimizer
     from torch.utils import mkldnn as mkldnn_utils
     from . import resnet_torch
-    TORCH_ENABLED = True 
+    TORCH_ENABLED = True
     torch_GPU = torch.device('cuda')
     torch_CPU = torch.device('cpu')
 except:
@@ -678,7 +677,7 @@ class UnetModel():
 
     def train(self, train_data, train_labels, train_files=None, 
               test_data=None, test_labels=None, test_files=None,
-              channels=None, normalize=True, pretrained_model=None, save_path=None, save_every=50,
+              channels=None, normalize=True, pretrained_model=None, save_path=None, save_every=50, save_each=False,
               learning_rate=0.2, n_epochs=500, momentum=0.9, weight_decay=0.00001, batch_size=8, rescale=False):
         """ train function uses 0-1 mask label and boundary pixels for training """
 
@@ -712,7 +711,7 @@ class UnetModel():
 
         model_path = self._train_net(train_data, train_classes, 
                                      test_data, test_classes,
-                                     pretrained_model, save_path, save_every,
+                                     pretrained_model, save_path, save_every, save_each,
                                      learning_rate, n_epochs, momentum, weight_decay, 
                                      batch_size, rescale)
 
@@ -831,13 +830,14 @@ class UnetModel():
                 self.criterion  = gluon.loss.L2Loss()
                 self.criterion2 = gluon.loss.SigmoidBinaryCrossEntropyLoss()
 
+    # Restored defaults. Need to make sure rescale is properly turned off and skel turned on when using CLI. 
     def _train_net(self, train_data, train_labels, 
               test_data=None, test_labels=None,
-              pretrained_model=None, save_path=None, save_every=50, #changed to 50 for debugging
+              pretrained_model=None, save_path=None, save_every=100, save_each=False,
               learning_rate=0.2, n_epochs=500, momentum=0.9, weight_decay=0.00001, 
-              batch_size=8, rescale=False, netstr='cellpose'): #changed default rescale
+              batch_size=8, rescale=True, netstr='cellpose'): 
         """ train function uses loss function self.loss_fn in models.py"""
-
+        
         d = datetime.datetime.now()
         self.learning_rate = learning_rate
         self.n_epochs = n_epochs
@@ -849,10 +849,10 @@ class UnetModel():
 
         # compute average cell diameter
         if rescale:
-            diam_train = np.array([utils.diameters(train_labels[k][0])[0] for k in range(len(train_labels))])
+            diam_train = np.array([utils.diameters(train_labels[k][0],skel=self.skel)[0] for k in range(len(train_labels))])
             diam_train[diam_train<5] = 5.
             if test_data is not None:
-                diam_test = np.array([utils.diameters(test_labels[k][0])[0] for k in range(len(test_labels))])
+                diam_test = np.array([utils.diameters(test_labels[k][0],skel=self.skel)[0] for k in range(len(test_labels))])
                 diam_test[diam_test<5] = 5.
             scale_range = 0.5
         else:
@@ -898,7 +898,7 @@ class UnetModel():
                 # now passing in the full train array, need the labels for distance field
                 imgi, lbl, scale = transforms.random_rotate_and_resize(
                                         [train_data[i] for i in inds], Y=[train_labels[i] for i in inds],
-                                        rescale=rsc, scale_range=scale_range, unet=self.unet,inds=inds)
+                                        rescale=rsc, scale_range=scale_range, unet=self.unet, inds=inds, skel=self.skel)
 
                 if self.unet and lbl.shape[1]>1 and rescale:
                     lbl[:,1] /= diam_batch[:,np.newaxis,np.newaxis]**2
@@ -917,7 +917,7 @@ class UnetModel():
                         rsc = diam_test[inds] / self.diam_mean if rescale else np.ones(len(inds), np.float32)
                         imgi, lbl, scale = transforms.random_rotate_and_resize(
                                             [test_data[i] for i in inds], Y=[test_labels[i] for i in inds], 
-                                            scale_range=0., rescale=rsc, unet=self.unet, inds=inds) 
+                                            scale_range=0., rescale=rsc, unet=self.unet, inds=inds, skel=self.skel) 
                         if self.unet and lbl.shape[1]>1 and rescale:
                             lbl[:,1] *= scale[0]**2
 
@@ -936,7 +936,12 @@ class UnetModel():
             if save_path is not None:
                 if iepoch==self.n_epochs-1 or iepoch%save_every==1:
                     # save model at the end
-                    file_name = '{}_{}_{}_{}'.format(self.net_type, file_label, d.strftime("%Y_%m_%d_%H_%M_%S.%f"),'epoch_'+str(iepoch)) #separate files as model progresses 
+                    if save_each: #separate files as model progresses 
+                        file_name = '{}_{}_{}_{}'.format(self.net_type, file_label, 
+                                                         d.strftime("%Y_%m_%d_%H_%M_%S.%f"),
+                                                         'epoch_'+str(iepoch)) 
+                    else:
+                        file_name = '{}_{}_{}'.format(self.net_type, file_label, d.strftime("%Y_%m_%d_%H_%M_%S.%f"))
                     file_name = os.path.join(file_path, file_name)
                     ksave += 1
                     core_logger.info(f'saving network parameters to {file_name}')

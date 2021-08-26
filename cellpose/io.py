@@ -51,6 +51,11 @@ def logger_setup():
 
     return logger, log_file
 
+# helper function to check for a path; if it doesn't exist, make it 
+def check_dir(path):
+    if not os.path.isdir(path):
+        os.mkdir(path)
+
 def outlines_to_text(base, outlines):
     with open(base + '_cp_outlines.txt', 'w') as f:
         for o in outlines:
@@ -285,7 +290,7 @@ def save_to_png(images, masks, flows, file_names):
 # Now saves flows, masks, etc. to separate folders.
 def save_masks(images, masks, flows, file_names, png=True, tif=False, channels=[0,0],
                suffix='',save_flows=False, save_outlines=False, save_ncolor=False, 
-               dir_above=False, savedir=None, save_txt=False):
+               dir_above=False, in_folders=False, savedir=None, save_txt=True):
     """ save masks + nicely plotted segmentation image to png and/or tiff
 
     if png, masks[k] for images[k] are saved to file_names[k]+'_cp_masks.png'
@@ -312,7 +317,7 @@ def save_masks(images, masks, flows, file_names, png=True, tif=False, channels=[
         names of files of images
         
     savedir: str
-        absolute path where mask folder will be made
+        absolute path where images will be saved. Default is none (saves to image directory)
     
     save_flows, save_outlines, save_ncolor, save_txt: bool
         Can choose which outputs/views to save.
@@ -326,7 +331,7 @@ def save_masks(images, masks, flows, file_names, png=True, tif=False, channels=[
         for image, mask, flow, file_name in zip(images, masks, flows, file_names):
             save_masks(image, mask, flow, file_name, png=png, tif=tif, suffix=suffix,dir_above=dir_above,
                        save_flows=save_flows,save_outlines=save_outlines,save_ncolor=save_ncolor,
-                       savedir=savedir,save_txt=save_txt)
+                       savedir=savedir,save_txt=save_txt,in_folders=in_folders)
         return
     
     if masks.ndim > 2 and not tif:
@@ -339,20 +344,24 @@ def save_masks(images, masks, flows, file_names, png=True, tif=False, channels=[
         else:
             savedir = Path(file_names).parent.absolute()
     
-    if not os.path.isdir(savedir):
-        os.mkdir(savedir)
-            
+    check_dir(savedir) 
             
     basename = os.path.splitext(os.path.basename(file_names))[0]
-    maskdir = os.path.join(savedir,'masks')
-    outlinedir = os.path.join(savedir,'outlines')
-    txtdir = os.path.join(savedir,'txt_outlines')
-    ncolordir = os.path.join(savedir,'ncolor_masks')
-    flowdir = os.path.join(savedir,'flows')
-    
-    if not os.path.isdir(maskdir):
-        os.mkdir(maskdir)
+    if in_folders:
+        maskdir = os.path.join(savedir,'masks')
+        outlinedir = os.path.join(savedir,'outlines')
+        txtdir = os.path.join(savedir,'txt_outlines')
+        ncolordir = os.path.join(savedir,'ncolor_masks')
+        flowdir = os.path.join(savedir,'flows')
+    else:
+        maskdir = savedir
+        outlinedir = savedir
+        txtdir = savedir
+        ncolordir = savedir
+        flowdir = savedir
         
+    check_dir(maskdir) 
+
     exts = []
     if masks.ndim > 2 or masks.max()>2**16-1:
         png = False
@@ -363,8 +372,8 @@ def save_masks(images, masks, flows, file_names, png=True, tif=False, channels=[
         exts.append('.tif')
 
 
-    # convert to uint16 if possible so can save as PNG if needed
-    masks = masks.astype(np.uint16) if masks.max()<2**16-1 else masks.astype(np.uint32)
+    # format_labels will also automatically use lowest bit depth possible 
+    masks = utils.format_labels(masks) 
 
     # save masks
     with warnings.catch_warnings():
@@ -381,23 +390,19 @@ def save_masks(images, masks, flows, file_names, png=True, tif=False, channels=[
             np.transpose(img, (1,2,0))
         
         fig = plt.figure(figsize=(12,3))
-        # can save images (set save_dir=None if not)
         plot.show_segmentation(fig, img, masks, flows[0])
         fig.savefig(os.path.join(savedir,basename + '_cp_output' + suffix + '.png'), dpi=300)
         plt.close(fig)
 
     # ImageJ txt outline files 
     if masks.ndim < 3 and save_txt:
-        if not os.path.isdir(txtdir):
-            os.mkdir(txtdir)
+        check_dir(txtdir)
         outlines = utils.outlines_list(masks)
         outlines_to_text(os.path.join(txtdir,basename), outlines)
     
     # RGB outline images
     if masks.ndim < 3 and save_outlines: 
-        if not os.path.isdir(outlinedir):
-            os.mkdir(outlinedir)
-
+        check_dir(outlinedir) 
         outlines = utils.masks_to_outlines(masks)
         outX, outY = np.nonzero(outlines)
         img0 = images.copy()
@@ -414,17 +419,15 @@ def save_masks(images, masks, flows, file_names, png=True, tif=False, channels=[
     
     # ncolor labels (ready for color map application)
     if masks.ndim < 3 and save_ncolor:
-        if not os.path.isdir(ncolordir):
-            os.mkdir(ncolordir)
-        #convert masks to 4-color representation (0,1,2,3,4)
+        check_dir(ncolordir)
+        #convert masks to minimal n-color reresentation 
         imsave(os.path.join(ncolordir, basename + '_cp_ncolor_masks' + suffix + '.png'),
                utils.ncolorlabel(masks))
     
     # save RGB flow picture
     if masks.ndim < 3 and save_flows:
-        if not os.path.isdir(flowdir):
-            os.mkdir(flowdir)    
-        imsave(os.path.join(flowdir, basename + '_flows' + suffix + '.png'), (flows[0]*(2**16 -1)).astype(np.uint16))
+        check_dir(flowdir)
+        imsave(os.path.join(flowdir, basename + '_flows' + suffix + '.png'), (flows[0]*(2**16 - 1)).astype(np.uint16))
 
 def save_server(parent=None, filename=None):
     """ Uploads a *_seg.npy file to the bucket.
@@ -473,3 +476,4 @@ def save_server(parent=None, filename=None):
                 source_file_name, destination_blob_name
             )
         )
+

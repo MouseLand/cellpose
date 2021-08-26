@@ -7,6 +7,7 @@ import os
 os.environ["KMP_DUPLICATE_LIB_OK"]="TRUE"
 
 def test_class_train(data_dir, image_names):
+    print(data_dir, image_names)
     train_dir = str(data_dir.joinpath('2D').joinpath('train'))
     model_dir = str(data_dir.joinpath('2D').joinpath('train').joinpath('models'))
     shutil.rmtree(model_dir, ignore_errors=True)
@@ -19,6 +20,7 @@ def test_class_train(data_dir, image_names):
     print('>>>> model trained and saved to %s'%cpmodel_path)
         
 def test_cli_train(data_dir, image_names):
+    print(data_dir, image_names)
     train_dir = str(data_dir.joinpath('2D').joinpath('train'))
     model_dir = str(data_dir.joinpath('2D').joinpath('train').joinpath('models'))
     shutil.rmtree(model_dir, ignore_errors=True)

@@ -232,7 +232,7 @@ def update_axis(m_axis, to_squeeze, ndim):
     if (to_squeeze==m_axis).sum() == 1:
         m_axis = None
     else:
-        inds = np.ones(ndim, np.bool)
+        inds = np.ones(ndim, bool)
         inds[to_squeeze] = False
         m_axis = np.nonzero(np.arange(0, ndim)[inds]==m_axis)[0]
         if len(m_axis) > 0:
@@ -275,7 +275,7 @@ def convert_image(x, channels, channel_axis=None, z_axis=None,
     elif x.ndim == 2:
         x = x[:,:,np.newaxis]
 
-    if do_3D :
+    if do_3D:
         if x.ndim < 3:
             transforms_logger.critical('ERROR: cannot process 2D images in 3D mode')
             raise ValueError('ERROR: cannot process 2D images in 3D mode') 
@@ -596,8 +596,9 @@ def pad_image_ND(img0, div=16, extra = 1):
     return I, ysub, xsub
 
 
-def random_rotate_and_resize(X, Y=None, scale_range=1., xy = (224,224), 
-                             do_flip=True, rescale=None, unet=False, diam_mean=30.,inds=None,init=True):
+def random_rotate_and_resize(X, Y=None, scale_range=1., gamma_range=0.5, xy = (224,224), 
+                             do_flip=True, rescale=None, unet=False,
+                             inds=None, depth=0, skel=False):
     """ augmentation by random rotation and resizing
 
         X and Y are lists or arrays of length nimg, with dims channels x Ly x Lx (channels optional)
@@ -639,27 +640,33 @@ def random_rotate_and_resize(X, Y=None, scale_range=1., xy = (224,224),
         scale: array, float
             amount each image was resized by
 
-    """    
-#     xy = np.array(xy) # have not been able to set up variable xy size yet
-#     if init:
-#         xy[0] = np.round(xy[0]*np.random.uniform(low=0.5,high=1.5))
-#         xy[1] = np.round(xy[1]*np.random.uniform(low=0.5,high=1.5))
-#     if init:
-#         xy = [np.round(xy[0]*np.random.uniform(low=0.5,high=1.5)).astype(int),
-#               np.round(xy[1]*np.random.uniform(low=0.5,high=1.5)).astype(int)]
+    """
+    if inds is None: # only relevant when debugging 
+        inds = np.arange(nimg)
+        
+    # backwards compatibility; completely 'stock', no gamma augmentation or any other extra frills. 
+    if not skel:
+        return original_random_rotate_and_resize(X, Y=[Y[i][1:] for i in inds], scale_range=scale_range, xy=xy,
+                                                 do_flip=do_flip, rescale=rescale, unet=unet)
+
+    if depth>5:
+        error_message = 'Recusion depth exceeded. Check that your images contain cells.'
+        transforms_logger.critical(error_message)
+        raise ValueError(error_message)
+        return
+
     numpx = xy[0]*xy[1]
 
     dist_bg = 5 # background distance field is set to -dist_bg 
-    scale_range = max(0, min(2, float(scale_range)))
+    scale_range = max(0, min(2, float(scale_range))) # limit overall range to [0,2] i.e. 1+-1 
     nimg = len(X)
+    
+    # While in other parts of Cellpose channels are put last by default, here we have chan x Ly x Lx 
     if X[0].ndim>2:
         nchan = X[0].shape[0] 
     else:
         nchan = 1
     imgi  = np.zeros((nimg, nchan, xy[0], xy[1]), np.float32)
-    
-    if inds is None: # again, just for debugging
-        inds = np.arange(nimg)
         
     lbl = []
     if Y is not None:
@@ -692,17 +699,18 @@ def random_rotate_and_resize(X, Y=None, scale_range=1., xy = (224,224),
             # We want the scale distibution to have a mean of 1
             # There may be a better way to skew the distribution to
             # interpolate the parameter space without skewing the mean 
-            low = 0.75
-            high = 1.25
-            scale[n,:] = np.random.uniform(low=low,high=high,size=2)
+            ds = scale_range/2
+            scale[n,:] = np.random.uniform(low=1-ds,high=1+ds,size=2)
             if rescale is not None:
                 scale[n,:] *= 1. / rescale[n]
+            
+
         
         # image dimensions are always the last two in the stack 
         Ly, Lx = img.shape[-2:]
         
         # generate random augmentation parameters
-        gamma = np.random.uniform(low=0.75,high=1.25)
+        dg = gamma_range/2 
         flip = np.random.choice([0,1])
         theta = np.random.rand() * np.pi * 2
 
@@ -742,6 +750,7 @@ def random_rotate_and_resize(X, Y=None, scale_range=1., xy = (224,224),
             
         for k in range(nchan):
             I = cv2.warpAffine(img[k], M, (xy[1],xy[0]),borderMode=mode, flags=method)
+            gamma = np.random.uniform(low=1-dg,high=1+dg) # allow different gamma per channel 
             imgi[n,k] = I ** gamma
     
         label_method = cv2.INTER_NEAREST
@@ -758,9 +767,8 @@ def random_rotate_and_resize(X, Y=None, scale_range=1., xy = (224,224),
                         
                         if cellpx<10 or cellpx==numpx :
 #                             print('cellpx is',cellpx,', trying again. Size was',xy,' pixel count', numpx,'Index is',inds[n])
-                            return random_rotate_and_resize(X, Y=Y, scale_range=scale_range, xy=xy, 
-                                                            do_flip=do_flip, rescale=rescale, unet=unet, 
-                                                            diam_mean=diam_mean, inds=inds, init=False)
+                            return random_rotate_and_resize(X, Y=Y, scale_range=scale_range, gamma_range=gamma_range, xy=xy, 
+                                                            do_flip=do_flip, rescale=rescale, unet=unet, inds=inds, depth=depth+1)
 
                     else:
                         lbl[n,k] = cv2.warpAffine(labels[k], M, (xy[1],xy[0]), borderMode=mode, flags=method)
@@ -807,7 +815,7 @@ def random_rotate_and_resize(X, Y=None, scale_range=1., xy = (224,224),
 
 
 def normalize_field(mu):
-        mag = np.nansum(mu**2,axis=0)**(1/2)
+        mag = np.sqrt(np.nansum(mu**2,axis=0))
 #         mag = np.linalg.norm(mu,axis=0)+1e-8
         mu = np.divide(mu, mag, out=np.zeros_like(mu), where=np.logical_and(mag!=0,~np.isnan(mag)))
 #         mag = np.nansum(mu**2,axis=0)
@@ -872,3 +880,106 @@ def _image_resizer(img, resize=512, to_uint8=False):
         img = cv2.resize(img, shape)
         img = img.astype(np.uint8)
     return img
+
+
+def original_random_rotate_and_resize(X, Y=None, scale_range=1., xy = (224,224),
+                                      do_flip=True, rescale=None, unet=False):
+    """ augmentation by random rotation and resizing
+        X and Y are lists or arrays of length nimg, with dims channels x Ly x Lx (channels optional)
+        Parameters
+        ----------
+        X: LIST of ND-arrays, float
+            list of image arrays of size [nchan x Ly x Lx] or [Ly x Lx]
+        Y: LIST of ND-arrays, float (optional, default None)
+            list of image labels of size [nlabels x Ly x Lx] or [Ly x Lx]. The 1st channel
+            of Y is always nearest-neighbor interpolated (assumed to be masks or 0-1 representation).
+            If Y.shape[0]==3 and not unet, then the labels are assumed to be [cell probability, Y flow, X flow]. 
+            If unet, second channel is dist_to_bound.
+        scale_range: float (optional, default 1.0)
+            Range of resizing of images for augmentation. Images are resized by
+            (1-scale_range/2) + scale_range * np.random.rand()
+        xy: tuple, int (optional, default (224,224))
+            size of transformed images to return
+        do_flip: bool (optional, default True)
+            whether or not to flip images horizontally
+        rescale: array, float (optional, default None)
+            how much to resize images by before performing augmentations
+        unet: bool (optional, default False)
+        Returns
+        -------
+        imgi: ND-array, float
+            transformed images in array [nimg x nchan x xy[0] x xy[1]]
+        lbl: ND-array, float
+            transformed labels in array [nimg x nchan x xy[0] x xy[1]]
+        scale: array, float
+            amount each image was resized by
+    """
+    scale_range = max(0, min(2, float(scale_range)))
+    nimg = len(X)
+    if X[0].ndim>2:
+        nchan = X[0].shape[0]
+    else:
+        nchan = 1
+    imgi  = np.zeros((nimg, nchan, xy[0], xy[1]), np.float32)
+
+    lbl = []
+    if Y is not None:
+        if Y[0].ndim>2:
+            nt = Y[0].shape[0]
+        else:
+            nt = 1
+        lbl = np.zeros((nimg, nt, xy[0], xy[1]), np.float32)
+
+    scale = np.zeros(nimg, np.float32)
+    for n in range(nimg):
+        Ly, Lx = X[n].shape[-2:]
+
+        # generate random augmentation parameters
+        flip = np.random.rand()>.5
+        theta = np.random.rand() * np.pi * 2
+        scale[n] = (1-scale_range/2) + scale_range * np.random.rand()
+        if rescale is not None:
+            scale[n] *= 1. / rescale[n]
+        dxy = np.maximum(0, np.array([Lx*scale[n]-xy[1],Ly*scale[n]-xy[0]]))
+        dxy = (np.random.rand(2,) - .5) * dxy
+
+        # create affine transform
+        cc = np.array([Lx/2, Ly/2])
+        cc1 = cc - np.array([Lx-xy[1], Ly-xy[0]])/2 + dxy
+        pts1 = np.float32([cc,cc + np.array([1,0]), cc + np.array([0,1])])
+        pts2 = np.float32([cc1,
+                cc1 + scale[n]*np.array([np.cos(theta), np.sin(theta)]),
+                cc1 + scale[n]*np.array([np.cos(np.pi/2+theta), np.sin(np.pi/2+theta)])])
+        M = cv2.getAffineTransform(pts1,pts2)
+
+        img = X[n].copy()
+        if Y is not None:
+            labels = Y[n].copy()
+            if labels.ndim<3:
+                labels = labels[np.newaxis,:,:]
+
+        if flip and do_flip:
+            img = img[..., ::-1]
+            if Y is not None:
+                labels = labels[..., ::-1]
+                if nt > 1 and not unet:
+                    labels[2] = -labels[2]
+
+        for k in range(nchan):
+            I = cv2.warpAffine(img[k], M, (xy[1],xy[0]), flags=cv2.INTER_LINEAR)
+            imgi[n,k] = I
+
+        if Y is not None:
+            for k in range(nt):
+                if k==0:
+                    lbl[n,k] = cv2.warpAffine(labels[k], M, (xy[1],xy[0]), flags=cv2.INTER_NEAREST)
+                else:
+                    lbl[n,k] = cv2.warpAffine(labels[k], M, (xy[1],xy[0]), flags=cv2.INTER_LINEAR)
+
+            if nt > 1 and not unet:
+                v1 = lbl[n,2].copy()
+                v2 = lbl[n,1].copy()
+                lbl[n,1] = (-v1 * np.sin(-theta) + v2*np.cos(-theta))
+                lbl[n,2] = (v1 * np.cos(-theta) + v2*np.sin(-theta))
+
+    return imgi, lbl, scale

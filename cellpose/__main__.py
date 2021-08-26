@@ -54,7 +54,7 @@ def main():
     parser.add_argument('--unet', required=False, 
                         default=0, type=int, help='run standard unet instead of cellpose flow output')
     parser.add_argument('--nclasses', required=False, 
-                        default=4, type=int, help='if running unet, choose 2 or 3; if running old Cellpose model, choose 3')
+                        default=3, type=int, help='if running unet, choose 2 or 3; if training skel, choose 4; standard Cellpose uses 3')
     parser.add_argument('--chan', required=False, 
                         default=0, type=int, help='channel to segment; 0: GRAY, 1: RED, 2: GREEN, 3: BLUE')
     parser.add_argument('--chan2', required=False, 
@@ -99,24 +99,53 @@ def main():
                         default=0, type=int, help='concatenate downsampled layers with upsampled layers (off by default which means they are added)')
     parser.add_argument('--save_every', required=False,
                         default=100, type=int, help='number of epochs to skip between saves')
+    parser.add_argument('--save_each', action='store_true', help='save the model under a different filename per --save_every epoch for later comparsion')
     
     # Kevin's parser additions for conveneience and compatibility with SuperSegger file structure
     # pre-existing save_flows and save_outlines grouped here for symmetry 
     parser.add_argument('--savedir', required=False, 
                         default=None, type=str, help='folder to which segmentation results will be saved (defaults to input image directory)')
     parser.add_argument('--dir_above', action='store_true', help='save output folders adjacent to image folder instead of inside it (off by default)')
-    parser.add_argument('--not_skel', action='store_true', help='flag to disable "skeletonized" algorithm (disabled by default)')
+    parser.add_argument('--in_folders', action='store_true', help='flag to save output in folders (off by default)')
+    parser.add_argument('--skel', action='store_true', help='flag to enable "skeletonized" algorithm (disabled by default)')
     parser.add_argument('--save_flows', action='store_true', help='whether or not to save RGB images of flows when masks are saved (disabled by default)')
     parser.add_argument('--save_outlines', action='store_true', help='whether or not to save RGB outline images when masks are saved (disabled by default)')
-    parser.add_argument('--save_ncolor', action='store_true', help='whether or not to save masks remapped to use as few IDs as possible for visualization (disabled by default')
+    parser.add_argument('--save_ncolor', action='store_true', help='whether or not to save minimal "n-color" masks (disabled by default')
     parser.add_argument('--save_txt', action='store_true', help='flag to enable txt outlines for ImageJ (disabled by default)')
     parser.add_argument('--verbose', action='store_true', help='flag to output extra information (e.g. diameter metrics) for debugging and fine-tuning parameters')
 
-
-                        
     args = parser.parse_args()
     
+    # skel changes not implemented for mxnet. Full parity for cpu/gpu in pytorch. 
+    if args.skel and args.mxnet:
+        logger.info('>>>> Skel only implemented in pytorch.')
+        confirm = confirm_prompt('Continue with skel set to false?')
+        if not confirm:
+            exit()
+        else:
+            logger.info('>>>> Skel set to false.')
+            args.skel = False
+
+    # For now, skel version is not compatible with 3D. WIP. 
+    if args.skel and args.do_3D:
+        logger.info('>>>> Skel not yet compatible with 3D segmentation.')
+        confirm = confirm_prompt('Continue with skel set to false?')
+        if not confirm:
+            exit()
+        else:
+            logger.info('>>>> Skel set to false.')
+            args.skel = False
     
+    # skel model needs 4 classes. Would prefer a more elegant way to automaticaly update the flow fields
+    # instead of users deleting them manually - a check on the number of channels, maybe, or just use
+    # the yes/no prompt to ask the user if they want their flow fields in the given directory to be deleted. 
+    # would also need the look_one_level_down optionally toggled...
+    if args.skel and args.train:
+        logger.info('>>>> Training skel model. Setting nclasses to 4.')
+        logger.info('>>>> Make sure your flow fields are deleted and re-computed.')
+        args.nclasses = 4
+    
+                
     if args.check_mkl:
         mkl_enabled = models.check_mkl((not args.mxnet))
     else:
@@ -220,7 +249,7 @@ def main():
                                 interp=(not args.no_interp),
                                 channel_axis=args.channel_axis,
                                 z_axis=args.z_axis,
-                                skel=(not args.not_skel),
+                                skel=args.skel,
                                 verbose=args.verbose)
                 masks, flows = out[:2]
                 if len(out) > 3:
@@ -235,7 +264,7 @@ def main():
                     io.save_masks(image, masks, flows, image_name, png=args.save_png, tif=args.save_tif,
                                   save_flows=args.save_flows,save_outlines=args.save_outlines,
                                   save_ncolor=args.save_ncolor,dir_above=args.dir_above,savedir=args.savedir,
-                                  save_txt=args.save_txt)
+                                  save_txt=args.save_txt,in_folders=args.in_folders)
             logger.info('>>>> completed in %0.3f sec'%(time.time()-tic))
         else:
             if args.pretrained_model=='cyto' or args.pretrained_model=='nuclei' or args.pretrained_model=='cyto2':
@@ -311,7 +340,7 @@ def main():
                                             style_on=args.style_on,
                                             concatenation=args.concatenation,
                                             nchan=nchan,
-                                            skel=(not args.not_skel))
+                                            skel=args.skel)
             
             # train segmentation model
             if args.train:
@@ -319,8 +348,9 @@ def main():
                                            test_data=test_images, test_labels=test_labels, test_files=image_names_test,
                                            learning_rate=args.learning_rate, channels=channels,
                                            save_path=os.path.realpath(args.dir), save_every=args.save_every,
+                                           save_each=args.save_each,
                                            rescale=rescale,n_epochs=args.n_epochs,
-                                           batch_size=args.batch_size, skel=(not args.not_skel))
+                                           batch_size=args.batch_size, skel=args.skel)
                 model.pretrained_model = cpmodel_path
                 logger.info('>>>> model trained and saved to %s'%cpmodel_path)
 

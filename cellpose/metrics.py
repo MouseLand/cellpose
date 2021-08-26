@@ -224,7 +224,7 @@ def _true_positive(iou, th):
         (2) Define cost matrix; for a given threshold, each element is negative
             the higher the IoU is (perfect IoU is 1, worst is 0). The second term
             gets more negative with higher IoU, but less negative with greater
-            n_min. 
+            n_min (but that's a constant...)
         (3) Solve the linear sum assignment problem. The costs array defines the cost
             of matching a true label with a predicted label, so the problem is to 
             find the set of pairings that minimizes this cost. The scipy.optimize

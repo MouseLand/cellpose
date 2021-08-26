@@ -6,7 +6,6 @@ import tifffile
 from tqdm import trange
 from numba import njit, float32, int32, vectorize
 import edt
-from skimage.morphology import binary_erosion
 from skimage import measure
 
 import logging
@@ -26,7 +25,7 @@ except:
     TORCH_ENABLED = False
 
 @njit('(float64[:], int32[:], int32[:], int32[:], int32[:], int32, int32, boolean,float64)', nogil=True)
-def _extend_centers(T, y, x, ymed, xmed, Lx, niter, skel=True, value=1):
+def _extend_centers(T, y, x, ymed, xmed, Lx, niter, skel=False, value=1):
     """ run diffusion from center of mask (ymed, xmed) on mask pixels (y, x)
 
     Parameters
@@ -67,17 +66,28 @@ def _extend_centers(T, y, x, ymed, xmed, Lx, niter, skel=True, value=1):
 
         else:
             T[ymed*Lx + xmed] += value
+            
         T[y*Lx + x] = 1/9. * (T[y*Lx + x] + T[(y-1)*Lx + x]   + T[(y+1)*Lx + x] +
                                             T[y*Lx + x-1]     + T[y*Lx + x+1] +
                                             T[(y-1)*Lx + x-1] + T[(y-1)*Lx + x+1] +
                                             T[(y+1)*Lx + x-1] + T[(y+1)*Lx + x+1])
+#     T[y*Lx + x] = 1
+#     for t in range(niter):
+#         if skel:
+#             T[y*Lx + x] =  1/4. *(T[(y-1)*Lx + x]  + T[(y+1)*Lx + x] + T[y*Lx + x-1] + T[y*Lx + x+1] + (T[y*Lx + x]+value))/(T[y*Lx + x]+value+1)
+#         else:
+#             T[ymed*Lx + xmed] += value
+#             T[y*Lx + x] = 1/9. * (T[y*Lx + x] + T[(y-1)*Lx + x]   + T[(y+1)*Lx + x] +
+#                                                 T[y*Lx + x-1]     + T[y*Lx + x+1] +
+#                                                 T[(y-1)*Lx + x-1] + T[(y-1)*Lx + x+1] +
+#                                                 T[(y+1)*Lx + x-1] + T[(y+1)*Lx + x+1])
     return T
 
 
 tic=time.time()
 
 # edited slightly to fix a 'bleeding' issue with the gradient; now identical to CPU version
-def _extend_centers_gpu(neighbors, centers, isneighbor, Ly, Lx, n_iter=200, device=torch.device('cuda'),skel=True,masks=[]):
+def _extend_centers_gpu(neighbors, centers, isneighbor, Ly, Lx, n_iter=200, device=torch.device('cuda'),skel=False,masks=[]):
     """ runs diffusion on GPU to generate flows for training images or quality control
     
     neighbors is 9 x pixels in masks, 
@@ -119,7 +129,7 @@ def _extend_centers_gpu(neighbors, centers, isneighbor, Ly, Lx, n_iter=200, devi
     return mu_torch, Tcpy.cpu().squeeze()
 
 
-def masks_to_flows_gpu(masks, dists, device=None, skel=True):
+def masks_to_flows_gpu(masks, dists, device=None, skel=False):
     """ convert masks to flows using diffusion from center pixel
 
     Center of masks where diffusion starts is defined using COM
@@ -185,8 +195,14 @@ def masks_to_flows_gpu(masks, dists, device=None, skel=True):
     neighbor_masks = masks_padded[neighbors[:,:,0], neighbors[:,:,1]] #extract list of label values, 
     isneighbor = neighbor_masks == neighbor_masks[0] # 0 corresponds to x,y
         
-    # set number of iterations 
-    n_iter = round(np.max(dists)**1.5)
+    # set number of iterations
+    if skel:
+        # skel version requires fewer
+        n_iter = round(np.max(dists)**1.5)
+    else:
+        slices = scipy.ndimage.find_objects(masks)
+        ext = np.array([[sr.stop - sr.start + 1, sc.stop - sc.start + 1] for sr, sc in slices])
+        n_iter = 2 * (ext.sum(axis=1)).max()
    
     # run diffusion 
     mu, T = _extend_centers_gpu(neighbors, centers, isneighbor, Ly, Lx,
@@ -197,12 +213,12 @@ def masks_to_flows_gpu(masks, dists, device=None, skel=True):
 
     # put into original image
     mu0 = np.zeros((2, Ly0, Lx0))
-    mu0[:, y-1, x-1] = mu #GENERALIZE to PAD? #################
+    mu0[:, y-pad, x-pad] = mu
     
     mu_c = T[pad:-pad,pad:-pad] # mu_c now heat
     return mu0, mu_c
 
-def masks_to_flows_cpu(masks, dists, device=None, skel=True):
+def masks_to_flows_cpu(masks, dists, device=None, skel=False):
     """ convert masks to flows using diffusion from center pixel
 
     Center of masks where diffusion starts is defined to be the 
@@ -260,9 +276,14 @@ def masks_to_flows_cpu(masks, dists, device=None, skel=True):
             # same number of points as a grid with  1px around the whole thing
             T = np.zeros(ly*lx, np.float64)
             
-            # This is what I found to be the lowest possible number of iterations to guarantee convergence
-            # I would like to explain why this works theoretically, it is emperically validated for now.
-            niter = round(np.max(dist)**1.5)
+            
+            if skel:
+                # This is what I found to be the lowest possible number of iterations to guarantee convergence,
+                # but only for the skel model. Too small for center-pixel heat to diffuse to the ends. 
+                # I would like to explain why this works theoretically, it is emperically validated for now.
+                niter = round(np.max(dist)**1.5)
+            else:
+                niter = 2*np.int32(np.ptp(x) + np.ptp(y))
             
             if (skel):
                 # skeletonization now is far less explicit now (no skeletonization computation per se)
@@ -301,7 +322,7 @@ def masks_to_flows_cpu(masks, dists, device=None, skel=True):
     # intended for, but it is apparently not used for anything else
     return mu, mu_c
 
-def masks_to_flows(masks, use_gpu=False, device=None, skel=True):
+def masks_to_flows(masks, use_gpu=False, device=None, skel=False):
     """ convert masks to flows using diffusion from center pixel
 
     Center of masks where diffusion starts is defined to be the 
@@ -364,7 +385,7 @@ def masks_to_flows(masks, use_gpu=False, device=None, skel=True):
 # It is possible that flows can be eliminated in place of the distance field. The current distance field may not be smooth 
 # enough, or maybe the network really does require the flow field prediction to work well. But in 3D, it will be a huge
 # advantage if the network could predict just the distance (and boudnary) classes and not 3 extra flow components. 
-def labels_to_flows(labels, files=None, use_gpu=False, device=None, skel=True):
+def labels_to_flows(labels, files=None, use_gpu=False, device=None, skel=False,redo_flows=False):
     """ convert labels (list of masks or flows) to flows for training model 
 
     if files is not None, flows are saved to files to be reused
@@ -384,12 +405,11 @@ def labels_to_flows(labels, files=None, use_gpu=False, device=None, skel=True):
         flows[k][3] is X flow, and flows[k][4] is heat distribution
 
     """
-
     nimg = len(labels)
     if labels[0].ndim < 3:
         labels = [labels[n][np.newaxis,:,:] for n in range(nimg)]
 
-    if labels[0].shape[0] == 1 or labels[0].ndim < 3:
+    if labels[0].shape[0] == 1 or labels[0].ndim < 3 or redo_flows: # flows need to be recomputer
         
         dynamics_logger.info('NOTE: computing flows for labels (could be done before to save time)')
         
@@ -397,7 +417,11 @@ def labels_to_flows(labels, files=None, use_gpu=False, device=None, skel=True):
         labels, dist, heat, veci = map(list,zip(*[masks_to_flows(labels[n][0],use_gpu=use_gpu, device=device, skel=skel) for n in trange(nimg)]))
         # concatenate labels, distance transform, vector flows, heat (boundary and mask are computed in augmentations)
 #         print(labels[0][[0]].shape,dist[0][[0]].shape,veci[0].shape)
-        flows = [np.concatenate((labels[n][np.newaxis,:,:], dist[n][np.newaxis,:,:], veci[n], heat[n][np.newaxis,:,:]), axis=0).astype(np.float32)
+        if skel:
+            flows = [np.concatenate((labels[n][np.newaxis,:,:], dist[n][np.newaxis,:,:], veci[n], heat[n][np.newaxis,:,:]), axis=0).astype(np.float32)
+                        for n in range(nimg)]
+        else:
+            flows = [np.concatenate((labels[n][np.newaxis,:,:], labels[n][np.newaxis,:,:]>0.5, veci[n]), axis=0).astype(np.float32)
                     for n in range(nimg)]
         if files is not None:
             for flow, file in zip(flows, files):
@@ -409,8 +433,8 @@ def labels_to_flows(labels, files=None, use_gpu=False, device=None, skel=True):
     return flows
 
 
-@njit(['(int16[:,:,:],float32[:], float32[:], float32[:,:])', 
-        '(float32[:,:,:],float32[:], float32[:], float32[:,:])'], cache=True)
+@njit(['(int16[:,:,:], float32[:], float32[:], float32[:,:])', 
+        '(float32[:,:,:], float32[:], float32[:], float32[:,:])'], cache=True)
 def map_coordinates(I, yc, xc, Y):
     """
     bilinear interpolation of image 'I' in-place with ycoordinates yc and xcoordinates xc to Y
@@ -444,7 +468,7 @@ def map_coordinates(I, yc, xc, Y):
                       np.float32(I[c, yf1, xf1]) * y * x )
 
 
-def steps2D_interp(p, dP, niter, use_gpu=False, device=None, skel=True, calc_trace=False):
+def steps2D_interp(p, dP, niter, use_gpu=False, device=None, skel=False, calc_trace=False):
     shape = dP.shape[1:]
 
     if use_gpu and TORCH_ENABLED:
@@ -476,7 +500,7 @@ def steps2D_interp(p, dP, niter, use_gpu=False, device=None, skel=True, calc_tra
             
             if calc_trace:
                 trace = torch.cat((trace,pt))
-            
+                
         #undo the normalization from before, reverse order of operations 
         pt = (pt+1)*0.5
         for k in range(2): 
@@ -488,23 +512,29 @@ def steps2D_interp(p, dP, niter, use_gpu=False, device=None, skel=True, calc_tra
         else:
             tr = None
         
-        skelmask =  pt[:,:,:,[1,0]].cpu().numpy().squeeze().T
-        return skelmask, tr
+        p =  pt[:,:,:,[1,0]].cpu().numpy().squeeze().T
+#         print('internal pshape',p.shape,p)
+        return p, tr
     else:
         dPt = np.zeros(p.shape, np.float32)
         if calc_trace:
             Ly = shape[0]
             Lx = shape[1]
             tr = np.zeros((niter,2,Ly,Lx))
+        else:
+            tr = None
+            
         for t in range(niter):
+#             print(dP.dtype, p[0].dtype, p[1].dtype, dPt.dtype)
+#             print(dP.shape, p[0].shape, p[1].shape, dPt.shape)
             map_coordinates(dP, p[0], p[1], dPt)
             if skel:
                 dPt = dPt/(1+t) #this supression is key to the 'skeleton' method
             for k in range(len(p)):
                 p[k] = np.minimum(shape[k]-1, np.maximum(0, p[k] + dPt[k]))
                 if calc_trace:
-                    tr[t] = p
-        return p, None 
+                    tr[t] = p.copy()
+        return p, tr
 
 
 @njit('(float32[:,:,:,:],float32[:,:,:,:], int32[:,:], int32)', nogil=True)
@@ -546,10 +576,10 @@ def steps3D(p, dP, inds, niter):
             p[0,z,y,x] = min(shape[0]-1, max(0, p[0,z,y,x] + dP[0,p0,p1,p2]))
             p[1,z,y,x] = min(shape[1]-1, max(0, p[1,z,y,x] + dP[1,p0,p1,p2]))
             p[2,z,y,x] = min(shape[2]-1, max(0, p[2,z,y,x] + dP[2,p0,p1,p2]))
-    return p
+    return p, None
 
 @njit('(float32[:,:,:], float32[:,:,:], int32[:,:], int32, boolean, boolean)', nogil=True)
-def steps2D(p, dP, inds, niter, skel=True, calc_trace=False):
+def steps2D(p, dP, inds, niter, skel=False, calc_trace=False):
     """ run dynamics of pixels to recover masks in 2D
     
     Euler integration of dynamics dP for niter steps
@@ -599,7 +629,7 @@ def steps2D(p, dP, inds, niter, skel=True, calc_trace=False):
                 
     return p, tr
 
-def follow_flows(dP, mask=None, niter=200, interp=True, use_gpu=True, device=None, skel=True, calc_trace=False):
+def follow_flows(dP, mask=None, niter=200, interp=True, use_gpu=True, device=None, skel=False, calc_trace=False):
     """ define pixels and run dynamics to recover masks in 2D
     
     Pixels are meshgrid. Only pixels with non-zero cell-probability
@@ -641,10 +671,13 @@ def follow_flows(dP, mask=None, niter=200, interp=True, use_gpu=True, device=Non
         # run dynamics on subset of pixels
         #inds = np.array(np.nonzero(dP[0]!=0)).astype(np.int32).T
         inds = np.array(np.nonzero(np.abs(dP[0])>1e-3)).astype(np.int32).T
-        p = steps3D(p, dP, inds, niter)
+        p, tr = steps3D(p, dP, inds, niter)
     else:
         p = np.meshgrid(np.arange(shape[0]), np.arange(shape[1]), indexing='ij')
-        p = np.array(p).astype(np.float32)
+        # not sure why, but I had changed this to float64 at some point... tests showed that map_coordinates expects float32
+        # possible issues elsewhere? 
+        p = np.array(p).astype(np.float32) 
+
         # run dynamics on subset of pixels
         if mask is None:
             mask = np.abs(dP[0])>1e-3
@@ -657,13 +690,18 @@ def follow_flows(dP, mask=None, niter=200, interp=True, use_gpu=True, device=Non
             print('warning: not interp')
             p, tr = steps2D(p, dP, inds, niter,skel=skel,calc_trace=calc_trace)
         else:
-            p[:,inds[:,0],inds[:,1]], tr = steps2D_interp(p[:,inds[:,0], inds[:,1]], 
+            p_interp, tr = steps2D_interp(p[:,inds[:,0], inds[:,1]], 
                                                       dP, niter, use_gpu=use_gpu,
                                                       device=device, skel=skel,
                                                       calc_trace=calc_trace)
-    return p, inds, tr
+            p[:,inds[:,0],inds[:,1]] = p_interp
+#             print('p_interp',p_interp.shape,p_interp)
+#             print('inds',inds.shape,inds)
+#             print('ptype',p.dtype,'p_interp type',p_interp.dtype)
+#             print('p',p.shape,p)
+    return p, inds, tr#, p_interp
 
-def remove_bad_flow_masks(masks, flows, threshold=0.4, use_gpu=False, device=None, skel=True):
+def remove_bad_flow_masks(masks, flows, threshold=0.4, use_gpu=False, device=None, skel=False):
     """ remove masks which have inconsistent flows 
     
     Uses metrics.flow_error to compute flows from predicted masks 
@@ -697,7 +735,7 @@ def remove_bad_flow_masks(masks, flows, threshold=0.4, use_gpu=False, device=Non
     masks[np.isin(masks, badi)] = 0
     return masks
 
-def get_masks(p, iscell=None, rpad=20, flows=None, threshold=0.4, use_gpu=False, device=None, skel=True):
+def get_masks(p, iscell=None, rpad=20, flows=None, threshold=0.4, use_gpu=False, device=None, skel=False):
     """ create masks using pixel convergence after running dynamics
     
     Makes a histogram of final pixel locations p, initializes masks 
