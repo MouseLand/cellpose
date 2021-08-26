@@ -9,54 +9,36 @@ import logging
 models_logger = logging.getLogger(__name__)
 models_logger.setLevel(logging.DEBUG)
 
+from . import transforms, dynamics, utils
+from .core import UnetModel, assign_device, MXNET_ENABLED, parse_model_string
 
-from . import transforms, dynamics, utils, plot, metrics, core
-from .core import UnetModel, assign_device, check_mkl, use_gpu, MXNET_ENABLED, parse_model_string
-
-urls = ['https://www.cellpose.org/models/cyto_0',
-        'https://www.cellpose.org/models/cyto_1',
-        'https://www.cellpose.org/models/cyto_2',
-        'https://www.cellpose.org/models/cyto_3',
-        'https://www.cellpose.org/models/size_cyto_0.npy',
-        'https://www.cellpose.org/models/cytotorch_0',
-        'https://www.cellpose.org/models/cytotorch_1',
-        'https://www.cellpose.org/models/cytotorch_2',
-        'https://www.cellpose.org/models/cytotorch_3',
-        'https://www.cellpose.org/models/size_cytotorch_0.npy',
-        'https://www.cellpose.org/models/cyto2torch_0',
-        'https://www.cellpose.org/models/cyto2torch_1',
-        'https://www.cellpose.org/models/cyto2torch_2',
-        'https://www.cellpose.org/models/cyto2torch_3',
-        'https://www.cellpose.org/models/size_cyto2torch_0.npy',
-        'https://www.cellpose.org/models/nuclei_0',
-        'https://www.cellpose.org/models/nuclei_1',
-        'https://www.cellpose.org/models/nuclei_2',
-        'https://www.cellpose.org/models/nuclei_3',
-        'https://www.cellpose.org/models/size_nuclei_0.npy',
-        'https://www.cellpose.org/models/nucleitorch_0',
-        'https://www.cellpose.org/models/nucleitorch_1',
-        'https://www.cellpose.org/models/nucleitorch_2',
-        'https://www.cellpose.org/models/nucleitorch_3',
-        'https://www.cellpose.org/models/size_nucleitorch_0.npy']
+_MODEL_URL = 'https://www.cellpose.org/models'
+_MODEL_DIR_ENV = os.environ.get("CELLPOSE_LOCAL_MODELS_PATH")
+_MODEL_DIR_DEFAULT = pathlib.Path.home().joinpath('.cellpose', 'models')
+MODEL_DIR = pathlib.Path(_MODEL_DIR_ENV) if _MODEL_DIR_ENV else _MODEL_DIR_DEFAULT
 
 
-def download_model_weights(urls=urls):
-    # cellpose directory
-    cp_dir = pathlib.Path.home().joinpath('.cellpose')
-    cp_dir.mkdir(exist_ok=True)
-    model_dir = cp_dir.joinpath('models')
-    model_dir.mkdir(exist_ok=True)
+def model_path(model_type, model_index, use_torch):
+    torch_str = 'torch' if use_torch else ''
+    basename = '%s%s_%d' % (model_type, torch_str, model_index)
+    return cache_model_path(basename)
 
-    for url in urls:
-        parts = urlparse(url)
-        filename = os.path.basename(parts.path)
-        cached_file = os.path.join(model_dir, filename)
-        if not os.path.exists(cached_file):
-            models_logger.info('Downloading: "{}" to {}\n'.format(url, cached_file))
-            utils.download_url_to_file(url, cached_file, progress=True)
 
-download_model_weights()
-model_dir_builtin = pathlib.Path.home().joinpath('.cellpose', 'models')
+def size_model_path(model_type, use_torch):
+    torch_str = 'torch' if use_torch else ''
+    basename = 'size_%s%s_0.npy' % (model_type, torch_str)
+    return cache_model_path(basename)
+
+
+def cache_model_path(basename):
+    MODEL_DIR.mkdir(parents=True, exist_ok=True)
+    url = f'{_MODEL_URL}/{basename}'
+    cached_file = os.fspath(MODEL_DIR.joinpath(basename)) 
+    if not os.path.exists(cached_file):
+        models_logger.info('Downloading: "{}" to {}\n'.format(url, cached_file))
+        utils.download_url_to_file(url, cached_file, progress=True)
+    return cached_file
+
 
 def dx_to_circ(dP):
     """ dP is 2 x Y x X => 'optic' flow representation """
@@ -95,18 +77,13 @@ class Cellpose():
     torch: bool (optional, default False)
         run model using torch if available
 
-    model_dir: str (optional, default None)
-        overwrite the built in model directory where cellpose looks for models
-
     """
-    def __init__(self, gpu=False, model_type='cyto', net_avg=True, device=None, torch=True,
-                    model_dir=None):
+    def __init__(self, gpu=False, model_type='cyto', net_avg=True, device=None, torch=True):
         super(Cellpose, self).__init__()
         if not torch:
             if not MXNET_ENABLED:
                 torch = True
         self.torch = torch
-        torch_str = ['','torch'][self.torch]
         
         # assign device (GPU or CPU)
         sdevice, gpu = assign_device(self.torch, gpu)
@@ -115,11 +92,9 @@ class Cellpose():
         model_type = 'cyto' if model_type is None else model_type
         if model_type=='cyto2' and not self.torch:
             model_type='cyto'
-        self.model_dir = model_dir if model_dir is not None else model_dir_builtin
-        if isinstance(self.model_dir, str):
-            self.model_dir = pathlib.Path(self.model_dir)
-        self.pretrained_model = [os.fspath(self.model_dir.joinpath('%s%s_%d'%(model_type,torch_str,j))) for j in range(4)]
-        self.pretrained_size = os.fspath(self.model_dir.joinpath('size_%s%s_0.npy'%(model_type,torch_str)))
+        
+        self.pretrained_model = [model_path(model_type, j, torch) for j in range(4)]
+        self.pretrained_size = size_model_path(model_type, torch)
         self.diam_mean = 30. if model_type!='nuclei' else 17.
         
         if not net_avg:
@@ -315,30 +290,24 @@ class CellposeModel(UnetModel):
         where model is saved (mx.gpu() or mx.cpu()), overrides gpu input,
         recommended if you want to use a specific GPU (e.g. mx.gpu(4))
 
-    model_dir: str (optional, default None)
-        overwrite the built in model directory where cellpose looks for models
-
     """
 
     def __init__(self, gpu=False, pretrained_model=False, 
                     model_type=None, net_avg=True, torch=True,
-                    diam_mean=30., device=None, model_dir=None,
+                    diam_mean=30., device=None,
                     residual_on=True, style_on=True, concatenation=False,
                     nchan=2):
         if not torch:
             if not MXNET_ENABLED:
                 torch = True
         self.torch = torch
-        self.model_dir = model_dir if model_dir is not None else model_dir_builtin
-        if isinstance(self.model_dir, str):
-            self.model_dir = pathlib.Path(self.model_dir)
+        
         if isinstance(pretrained_model, np.ndarray):
             pretrained_model = list(pretrained_model)
         elif isinstance(pretrained_model, str):
             pretrained_model = [pretrained_model]
         nclasses = 3 # 3 prediction maps (dY, dX and cellprob)
         self.nclasses = nclasses 
-        incorrect_path = True
         
         if model_type is not None or (pretrained_model and not os.path.exists(pretrained_model[0])):
             pretrained_model_string = model_type 
@@ -349,10 +318,8 @@ class CellposeModel(UnetModel):
                 models_logger.warning('pretrained model has incorrect path')
             models_logger.info(f'>>{pretrained_model_string}<< model set to be used')
             diam_mean = 30. if pretrained_model_string=='cyto' else 17.
-            torch_str = ['','torch'][self.torch]
-            pretrained_model = [os.fspath(self.model_dir.joinpath(
-                                            '%s%s_%d'%(pretrained_model_string, torch_str,j))) 
-                                            for j in range(4)] 
+            
+            pretrained_model = [model_path(pretrained_model_string, j, torch) for j in range(4)]
             pretrained_model = pretrained_model[0] if not net_avg else pretrained_model 
             residual_on, style_on, concatenation = True, True, False
         else:

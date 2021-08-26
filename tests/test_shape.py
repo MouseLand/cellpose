@@ -18,6 +18,13 @@ def test_shape_3D():
                                     net_avg=False, channel_axis=None, z_axis=3)
     assert masks.shape==(5,224,224)
 
+def test_shape_stitch():
+    img = np.zeros((5,224,224))
+    model = models.Cellpose(model_type='cyto')
+    masks, flows, _, _ = model.eval(img, diameter=30, channels=[0,0], 
+                                    net_avg=False, stitch_threshold=0.9)
+    assert masks.shape==(5,224,224)
+
 def test_shape_2D_2chan():
     img = np.zeros((224,3,224))
     model = models.Cellpose(model_type='cyto')
