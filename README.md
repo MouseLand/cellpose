@@ -81,9 +81,40 @@ python -m pip install cellpose[gui]
 
 If you have **issues** with installation, see the [docs](https://cellpose.readthedocs.io/en/latest/installation.html) for more details, and then if the suggestions fail, open an issue.
 
+### GPU version (CUDA) on Windows or Linux
+
+If you plan on running many images, you may want to install a GPU version of *torch* (if it isn't already installed).
+
+Before installing the GPU version, remove the CPU version:
+~~~
+pip uninstall torch
+~~~
+
+Follow the instructions [here](https://pytorch.org/get-started/locally/) to determine what version to install. The Anaconda install is strongly recommended, and then choose the CUDA version that is supported by your GPU (newer GPUs may need newer CUDA versions > 10.2). For instance this command will install the 10.2 version on Linux and Windows (note the `torchvision` and `torchaudio` commands are removed because cellpose doesn't require them):
+
+~~~
+conda install pytorch cudatoolkit=10.2 -c pytorch
+~~~~
+
+For the GPU version of mxnet, you will need to install the cuda toolkit first if you haven't already (on Windows it may be necessary to install via anaconda as below):
+
+~~~
+conda install -c anaconda cudatoolkit
+~~~
+
+When upgrading GPU Cellpose in the future, you will want to ignore dependencies (to ensure that the pip version of torch does not install):
+~~~
+pip install --no-deps cellpose --upgrade
+~~~
+
 ### Installation of github version
 
-Follow steps from above to install the dependencies. In the github repository, run `pip install -e .` and the github version will be installed. If you want to go back to the pip version of cellpose, then say `pip install cellpose`.
+Follow steps from above to install the dependencies. Then run 
+~~~
+pip install git+https://www.github.com/mouseland/cellpose.git
+~~~
+
+If you want edit ability to the code, in the github repository folder, run `pip install -e .`. If you want to go back to the pip version of cellpose, then say `pip install cellpose`.
 
 ## Running cellpose
 
