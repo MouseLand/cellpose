@@ -41,13 +41,11 @@ def main():
     parser.add_argument('--fast_mode', action='store_true', help="make code run faster by turning off 4 network averaging")
     parser.add_argument('--resample', action='store_true', help="run dynamics on full image (slower for images with large diameters)")
     parser.add_argument('--no_interp', action='store_true', help='do not interpolate when running dynamics (was default)')
+    # settings for running cellpose
     parser.add_argument('--do_3D', action='store_true',
                         help='process images as 3D stacks of images (nplanes x nchan x Ly x Lx')
-    # settings for running cellpose
     parser.add_argument('--pretrained_model', required=False, 
                         default='cyto', type=str, help='model to use')
-    parser.add_argument('--model_dir', required=False, 
-                        default=None, type=str, help='directory with built-in models, default is $HOME/.cellpose/models/')
     parser.add_argument('--chan', required=False, 
                         default=0, type=int, help='channel to segment; 0: GRAY, 1: RED, 2: GREEN, 3: BLUE')
     parser.add_argument('--chan2', required=False, 
@@ -56,6 +54,9 @@ def main():
     parser.add_argument('--all_channels', action='store_true', help='use all channels in image if using own model and images with special channels')
     parser.add_argument('--diameter', required=False, 
                         default=30., type=float, help='cell diameter, if 0 cellpose will estimate for each image')
+    parser.add_argument('--stitch_threshold', required=False,
+                        default=0.0, type=float,
+                        help='compute masks in 2D then stitch together masks with IoU>0.9 across planes')
     parser.add_argument('--flow_threshold', required=False, 
                         default=0.4, type=float, help='flow error threshold, 0 turns off this optional QC step')
     parser.add_argument('--cellprob_threshold', required=False, 
@@ -127,12 +128,6 @@ def main():
 
 
         device, gpu = models.assign_device((not args.mxnet), args.use_gpu)
-        if isinstance(args.model_dir, str) and os.path.exists(args.model_dir):
-            model_dir = args.model_dir 
-            logger.info(f'using built-in models in directory {model_dir}')
-        else:
-            model_dir = models.model_dir_builtin
-        
 
         if not args.train and not args.train_size:
             tic = time.time()
@@ -162,7 +157,7 @@ def main():
             else:
                 if args.all_channels:
                     channels = None  
-                model = models.CellposeModel(gpu=gpu, device=device,
+                model = models.CellposeModel(gpu=gpu, device=device, 
                                              pretrained_model=cpmodel_path,
                                              torch=(not args.mxnet))
 
@@ -211,8 +206,7 @@ def main():
                 if args.mxnet and args.pretrained_model=='cyto2':
                     logger.warning('cyto2 model not available in mxnet, using cyto model')
                     args.pretrained_model = 'cyto'
-                torch_str = ['torch', '']
-                cpmodel_path = os.fspath(model_dir.joinpath('%s%s_0'%(args.pretrained_model, torch_str[args.mxnet])))
+                cpmodel_path = models.model_path(args.pretrained_model, 0, not args.mxnet)
                 if args.pretrained_model=='cyto':
                     szmean = 30.
                 else:

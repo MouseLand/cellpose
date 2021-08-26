@@ -3,6 +3,33 @@ Installation
 
 For basic install instructions, look up the main github readme. 
 
+Built-in model directory
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+By default, the pretrained cellpose models are downloaded to ``$HOME/.cellpose/models/``.
+This path on linux would look like ``/home/USERNAME/.cellpose/``, and on Windows, 
+``C:/Users/USERNAME/.cellpose/models/``. These models are downloaded the first time you 
+try to use them, either on the command line, in the GUI or in a notebook.
+
+If you'd like to download the models to a different directory, 
+and are using the command line or the GUI, before you run ``python -m cellpose ...``, 
+you will need to always set the environment variable ``CELLPOSE_LOCAL_MODELS_PATH`` 
+(thanks Chris Roat for implementing this!).
+
+To set the environment variable in the command line/Anaconda prompt on windows run the following command modified for your path:
+``set CELLPOSE_LOCAL_MODELS_PATH=C:/PATH_FOR_MODELS/``. To set the environment variable in the command line on 
+linux, run ``export CELLPOSE_LOCAL_MODELS_PATH=/PATH_FOR_MODELS/``.
+
+To set this environment variable when running cellpose in a jupyter notebook, run 
+this code at the beginning of your notebook before you import cellpose:
+
+::
+   
+   import os 
+   os.environ["CELLPOSE_LOCAL_MODELS_PATH"] = "/PATH_FOR_MODELS/"
+
+
+
 Common issues
 ~~~~~~~~~~~~~~~~~~~~~~~
 
