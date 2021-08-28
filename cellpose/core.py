@@ -31,7 +31,6 @@ except:
     TORCH_ENABLED = False
 
 core_logger = logging.getLogger(__name__)
-core_logger.setLevel(logging.DEBUG)
 tqdm_out = utils.TqdmToLogger(core_logger, level=logging.INFO)
 
 def parse_model_string(pretrained_model):

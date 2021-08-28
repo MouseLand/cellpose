@@ -8,7 +8,6 @@ from numba import njit, float32, int32, vectorize
 
 import logging
 dynamics_logger = logging.getLogger(__name__)
-dynamics_logger.setLevel(logging.DEBUG)
 
 from . import utils, metrics
 

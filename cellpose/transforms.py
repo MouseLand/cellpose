@@ -4,7 +4,6 @@ import cv2
 
 import logging
 transforms_logger = logging.getLogger(__name__)
-transforms_logger.setLevel(logging.DEBUG)
 
 
 def _taper_mask(ly=224, lx=224, sig=7.5):
