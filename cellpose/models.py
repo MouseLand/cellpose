@@ -9,54 +9,36 @@ import logging
 models_logger = logging.getLogger(__name__)
 models_logger.setLevel(logging.DEBUG)
 
+from . import transforms, dynamics, utils
+from .core import UnetModel, assign_device, MXNET_ENABLED, parse_model_string
 
-from . import transforms, dynamics, utils, plot, metrics, core
-from .core import UnetModel, assign_device, check_mkl, use_gpu, MXNET_ENABLED, parse_model_string
-
-urls = ['https://www.cellpose.org/models/cyto_0',
-        'https://www.cellpose.org/models/cyto_1',
-        'https://www.cellpose.org/models/cyto_2',
-        'https://www.cellpose.org/models/cyto_3',
-        'https://www.cellpose.org/models/size_cyto_0.npy',
-        'https://www.cellpose.org/models/cytotorch_0',
-        'https://www.cellpose.org/models/cytotorch_1',
-        'https://www.cellpose.org/models/cytotorch_2',
-        'https://www.cellpose.org/models/cytotorch_3',
-        'https://www.cellpose.org/models/size_cytotorch_0.npy',
-        'https://www.cellpose.org/models/cyto2torch_0',
-        'https://www.cellpose.org/models/cyto2torch_1',
-        'https://www.cellpose.org/models/cyto2torch_2',
-        'https://www.cellpose.org/models/cyto2torch_3',
-        'https://www.cellpose.org/models/size_cyto2torch_0.npy',
-        'https://www.cellpose.org/models/nuclei_0',
-        'https://www.cellpose.org/models/nuclei_1',
-        'https://www.cellpose.org/models/nuclei_2',
-        'https://www.cellpose.org/models/nuclei_3',
-        'https://www.cellpose.org/models/size_nuclei_0.npy',
-        'https://www.cellpose.org/models/nucleitorch_0',
-        'https://www.cellpose.org/models/nucleitorch_1',
-        'https://www.cellpose.org/models/nucleitorch_2',
-        'https://www.cellpose.org/models/nucleitorch_3',
-        'https://www.cellpose.org/models/size_nucleitorch_0.npy']
+_MODEL_URL = 'https://www.cellpose.org/models'
+_MODEL_DIR_ENV = os.environ.get("CELLPOSE_LOCAL_MODELS_PATH")
+_MODEL_DIR_DEFAULT = pathlib.Path.home().joinpath('.cellpose', 'models')
+MODEL_DIR = pathlib.Path(_MODEL_DIR_ENV) if _MODEL_DIR_ENV else _MODEL_DIR_DEFAULT
 
 
-def download_model_weights(urls=urls):
-    # cellpose directory
-    cp_dir = pathlib.Path.home().joinpath('.cellpose')
-    cp_dir.mkdir(exist_ok=True)
-    model_dir = cp_dir.joinpath('models')
-    model_dir.mkdir(exist_ok=True)
+def model_path(model_type, model_index, use_torch):
+    torch_str = 'torch' if use_torch else ''
+    basename = '%s%s_%d' % (model_type, torch_str, model_index)
+    return cache_model_path(basename)
 
-    for url in urls:
-        parts = urlparse(url)
-        filename = os.path.basename(parts.path)
-        cached_file = os.path.join(model_dir, filename)
-        if not os.path.exists(cached_file):
-            models_logger.info('Downloading: "{}" to {}\n'.format(url, cached_file))
-            utils.download_url_to_file(url, cached_file, progress=True)
 
-download_model_weights()
-model_dir = pathlib.Path.home().joinpath('.cellpose', 'models')
+def size_model_path(model_type, use_torch):
+    torch_str = 'torch' if use_torch else ''
+    basename = 'size_%s%s_0.npy' % (model_type, torch_str)
+    return cache_model_path(basename)
+
+
+def cache_model_path(basename):
+    MODEL_DIR.mkdir(parents=True, exist_ok=True)
+    url = f'{_MODEL_URL}/{basename}'
+    cached_file = os.fspath(MODEL_DIR.joinpath(basename)) 
+    if not os.path.exists(cached_file):
+        models_logger.info('Downloading: "{}" to {}\n'.format(url, cached_file))
+        utils.download_url_to_file(url, cached_file, progress=True)
+    return cached_file
+
 
 def dx_to_circ(dP):
     """ dP is 2 x Y x X => 'optic' flow representation """
@@ -92,7 +74,7 @@ class Cellpose():
         where model is saved (e.g. mx.gpu() or mx.cpu()), overrides gpu input,
         recommended if you want to use a specific GPU (e.g. mx.gpu(4) or torch.cuda.device(4))
 
-    torch: bool (optional, default False)
+    torch: bool (optional, default True)
         run model using torch if available
 
     """
@@ -102,7 +84,6 @@ class Cellpose():
             if not MXNET_ENABLED:
                 torch = True
         self.torch = torch
-        torch_str = ['','torch'][self.torch]
         
         # assign device (GPU or CPU)
         sdevice, gpu = assign_device(self.torch, gpu)
@@ -111,8 +92,9 @@ class Cellpose():
         model_type = 'cyto' if model_type is None else model_type
         if model_type=='cyto2' and not self.torch:
             model_type='cyto'
-        self.pretrained_model = [os.fspath(model_dir.joinpath('%s%s_%d'%(model_type,torch_str,j))) for j in range(4)]
-        self.pretrained_size = os.fspath(model_dir.joinpath('size_%s%s_0.npy'%(model_type,torch_str)))
+        
+        self.pretrained_model = [model_path(model_type, j, torch) for j in range(4)]
+        self.pretrained_size = size_model_path(model_type, torch)
         self.diam_mean = 30. if model_type!='nuclei' else 17.
         
         if not net_avg:
@@ -226,13 +208,14 @@ class Cellpose():
 
         """
         tic0 = time.time()
+        channels = [0,0] if channels is None else channels
 
         estimate_size = True if (diameter is None or diameter==0) else False
         if estimate_size and self.pretrained_size is not None and not do_3D and x[0].ndim < 4:
             tic = time.time()
             models_logger.info('~~~ ESTIMATING CELL DIAMETER(S) ~~~')
             diams, _ = self.sz.eval(x, channels=channels, channel_axis=channel_axis, invert=invert, batch_size=batch_size, 
-                                    augment=augment, tile=tile)
+                                    augment=augment, tile=tile, normalize=normalize)
             rescale = self.diam_mean / np.array(diams)
             diameter = None
             models_logger.info('estimated cell diameter(s) in %0.2f sec'%(time.time()-tic))
@@ -257,6 +240,7 @@ class Cellpose():
         masks, flows, styles = self.cp.eval(x, 
                                             batch_size=batch_size, 
                                             invert=invert, 
+                                            normalize=normalize,
                                             diameter=diameter,
                                             rescale=rescale, 
                                             anisotropy=anisotropy, 
@@ -297,6 +281,9 @@ class CellposeModel(UnetModel):
     net_avg: bool (optional, default True)
         loads the 4 built-in networks and averages them if True, loads one network if False
 
+    torch: bool (optional, default True)
+        use torch nn rather than mxnet
+
     diam_mean: float (optional, default 27.)
         mean 'diameter', 27. is built in value for 'cyto' model
 
@@ -307,8 +294,8 @@ class CellposeModel(UnetModel):
     """
 
     def __init__(self, gpu=False, pretrained_model=False, 
-                    model_type=None, torch=True,
-                    diam_mean=30., net_avg=True, device=None,
+                    model_type=None, net_avg=True, torch=True,
+                    diam_mean=30., device=None,
                     residual_on=True, style_on=True, concatenation=False,
                     nchan=2):
         if not torch:
@@ -322,7 +309,6 @@ class CellposeModel(UnetModel):
             pretrained_model = [pretrained_model]
         nclasses = 3 # 3 prediction maps (dY, dX and cellprob)
         self.nclasses = nclasses 
-        incorrect_path = True
         
         if model_type is not None or (pretrained_model and not os.path.exists(pretrained_model[0])):
             pretrained_model_string = model_type 
@@ -333,10 +319,8 @@ class CellposeModel(UnetModel):
                 models_logger.warning('pretrained model has incorrect path')
             models_logger.info(f'>>{pretrained_model_string}<< model set to be used')
             diam_mean = 30. if pretrained_model_string=='cyto' else 17.
-            torch_str = ['','torch'][self.torch]
-            pretrained_model = [os.fspath(model_dir.joinpath(
-                                            '%s%s_%d'%(pretrained_model_string, torch_str,j))) 
-                                            for j in range(4)] 
+            
+            pretrained_model = [model_path(pretrained_model_string, j, torch) for j in range(4)]
             pretrained_model = pretrained_model[0] if not net_avg else pretrained_model 
             residual_on, style_on, concatenation = True, True, False
         else:
@@ -462,6 +446,7 @@ class CellposeModel(UnetModel):
                 style vector summarizing each image, also used to estimate size of objects in image
 
         """
+        
         if isinstance(x, list) or x.squeeze().ndim==5:
             masks, styles, flows = [], [], []
             tqdm_out = utils.TqdmToLogger(models_logger, level=logging.INFO)
@@ -500,7 +485,7 @@ class CellposeModel(UnetModel):
         
         else:
             x = transforms.convert_image(x, channels, channel_axis=channel_axis, z_axis=z_axis,
-                                         do_3D=do_3D, normalize=False, invert=False, nchan=self.nchan)
+                                         do_3D=(do_3D or stitch_threshold>0), normalize=False, invert=False, nchan=self.nchan)
             if x.ndim < 4:
                 x = x[np.newaxis,...]
             self.batch_size = batch_size
@@ -590,8 +575,8 @@ class CellposeModel(UnetModel):
                                             flow_threshold=flow_threshold, interp=interp, 
                                             do_3D=do_3D, min_size=min_size, resize=None)
             else:
-                masks = np.zeros((nimg, shape[1], shape[2]), np.uint32)
-                p = np.zeros(dP.shape, np.uint32)
+                masks = np.zeros((nimg, shape[1], shape[2]), np.uint16)
+                p = np.zeros(dP.shape, np.uint16)
                 resize = [shape[1], shape[2]] if not resample else None
                 for i in iterator:
                     masks[i], p[:,i] = self._compute_masks(dP[:,i], cellprob[i], niter=niter, cellprob_threshold=cellprob_threshold, 
@@ -599,7 +584,7 @@ class CellposeModel(UnetModel):
                                                    do_3D=do_3D, min_size=min_size, resize=resize)
             
                 if stitch_threshold > 0 and nimg > 1:
-                    models_logger.info('stitching %d masks using stitch_threshold=%0.3f to make 3D masks'%(nimg, stitch_threshold))
+                    models_logger.info(f'stitching {nimg} planes using stitch_threshold={stitch_threshold:0.3f} to make 3D masks')
                     masks = utils.stitch3D(masks, stitch_threshold=stitch_threshold)
             
             flow_time = time.time() - tic

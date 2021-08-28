@@ -9,7 +9,7 @@ from .. import utils, plot, transforms
 from ..io import imread, imsave, outlines_to_text
 
 try:
-    from PyQt5 import QtGui, QtCore, Qt, QtWidgets
+    from PyQt5.QtWidgets import QFileDialog
     GUI = True
 except:
     GUI = False
@@ -23,7 +23,7 @@ except:
 def _load_image(parent, filename=None):
     """ load image with filename; if None, open QFileDialog """
     if filename is None:
-        name = QtGui.QFileDialog.getOpenFileName(
+        name = QFileDialog.getOpenFileName(
             parent, "Load image"
             )
         filename = name[0]
@@ -131,7 +131,7 @@ def _initialize_images(parent, image, resize, X2):
 def _load_seg(parent, filename=None, image=None, image_file=None):
     """ load *_seg.npy with filename; if None, open QFileDialog """
     if filename is None:
-        name = QtGui.QFileDialog.getOpenFileName(
+        name = QFileDialog.getOpenFileName(
             parent, "Load labelled data", filter="*.npy"
             )
         filename = name[0]
@@ -276,7 +276,7 @@ def _load_seg(parent, filename=None, image=None, image_file=None):
 def _load_masks(parent, filename=None):
     """ load zeros-based masks (0=no cell, 1=cell 1, ...) """
     if filename is None:
-        name = QtGui.QFileDialog.getOpenFileName(
+        name = QFileDialog.getOpenFileName(
             parent, "Load masks (PNG or TIFF)"
             )
         filename = name[0]

@@ -55,27 +55,28 @@ Linux, Windows and Mac OS are supported for running the code. For running the gr
 
 ## Local installation
 
-This process should take less than 5 minutes.
-
-1. Install an [Anaconda](https://www.anaconda.com/download/) distribution of Python -- Choose **Python 3.7** and your operating system. Note you might need to use an anaconda prompt if you did not add anaconda to the path. 
-2. Download the [`environment.yml`](https://github.com/MouseLand/cellpose/blob/master/environment.yml?raw=true) file from the repository. You can do this by cloning the repository, or copy-pasting the text from the file into a text document on your local computer.
-3. Open an anaconda prompt / command prompt with `conda` for **python 3** in the path
-4. Change directories to where the `environment.yml` is and run `conda env create -f environment.yml`
-5. To activate this new environment, run `conda activate cellpose`
-6. You should see `(cellpose)` on the left side of the terminal line. Now run `python -m cellpose` and you're all set.
-
-To upgrade cellpose (package [here](https://pypi.org/project/cellpose/)), run the following in the environment:
-~~~~
-pip install cellpose --upgrade
-~~~~
-
 If you have an older `cellpose` environment you can remove it with `conda env remove -n cellpose` before creating a new one.
 
-Note you will always have to run **conda activate cellpose** before you run cellpose. If you want to run jupyter notebooks in this environment, then also `conda install jupyter` and `pip install matplotlib`.
+If you are using a GPU, make sure its drivers and the cuda libraries are correctly installed.
+
+1. Install an [Anaconda](https://www.anaconda.com/download/) distribution of Python -- Choose **Python 3.8** and your operating system. Note you might need to use an anaconda prompt if you did not add anaconda to the path.
+2. Open an anaconda prompt / command prompt with `conda` for **python 3** in the path
+3. Create a new environment with `conda create --name cellpose python=3.8`.
+4. To activate this new environment, run `conda activate cellpose`
+5. To install cellpose, use `python -m pip install cellpose`.  
+
+To upgrade cellpose (package [here](https://pypi.org/project/cellpose/)), run the following in the environment:
+
+~~~sh
+python -m pip install cellpose --upgrade
+~~~
+
+Note you will always have to run `conda activate cellpose` before you run cellpose. If you want to run jupyter notebooks in this environment, then also `conda install jupyter` and `python -m pip install matplotlib`.
 
 If you're feeling adventurous you can also try to install cellpose from your base environment using the command
-~~~~
-pip install cellpose[gui]
+
+~~~~sh
+python -m pip install cellpose[gui]
 ~~~~
 
 If you have **issues** with installation, see the [docs](https://cellpose.readthedocs.io/en/latest/installation.html) for more details, and then if the suggestions fail, open an issue.
@@ -89,7 +90,7 @@ Before installing the GPU version, remove the CPU version:
 pip uninstall torch
 ~~~
 
-Follow the instructions [here](https://pytorch.org/get-started/locally/) to determine what version to install. The Anaconda install is recommended along with CUDA version 10.2. For instance this command will install the 10.2 version on Linux and Windows (note the `torchvision` and `torchaudio` commands are removed because cellpose doesn't require them):
+Follow the instructions [here](https://pytorch.org/get-started/locally/) to determine what version to install. The Anaconda install is strongly recommended, and then choose the CUDA version that is supported by your GPU (newer GPUs may need newer CUDA versions > 10.2). For instance this command will install the 10.2 version on Linux and Windows (note the `torchvision` and `torchaudio` commands are removed because cellpose doesn't require them):
 
 ~~~
 conda install pytorch cudatoolkit=10.2 -c pytorch
@@ -108,7 +109,12 @@ pip install --no-deps cellpose --upgrade
 
 ### Installation of github version
 
-Follow steps from above to install the dependencies. In the github repository, run `pip install -e .` and the github version will be installed. If you want to go back to the pip version of cellpose, then say `pip install cellpose`.
+Follow steps from above to install the dependencies. Then run 
+~~~
+pip install git+https://www.github.com/mouseland/cellpose.git
+~~~
+
+If you want edit ability to the code, in the github repository folder, run `pip install -e .`. If you want to go back to the pip version of cellpose, then say `pip install cellpose`.
 
 ## Running cellpose
 
