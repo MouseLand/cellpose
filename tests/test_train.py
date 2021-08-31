@@ -2,12 +2,11 @@ from cellpose import io, models, metrics, plot
 from pathlib import Path
 from subprocess import check_output, STDOUT
 import os, shutil
-import os 
+from glob import glob
 
 os.environ["KMP_DUPLICATE_LIB_OK"]="TRUE"
 
-def test_class_train(data_dir, image_names):
-    print(data_dir, image_names)
+def test_class_train(data_dir):
     train_dir = str(data_dir.joinpath('2D').joinpath('train'))
     model_dir = str(data_dir.joinpath('2D').joinpath('train').joinpath('models'))
     shutil.rmtree(model_dir, ignore_errors=True)
@@ -19,8 +18,7 @@ def test_class_train(data_dir, image_names):
                                channels=[2,1], save_path=train_dir, n_epochs=10)
     print('>>>> model trained and saved to %s'%cpmodel_path)
         
-def test_cli_train(data_dir, image_names):
-    print(data_dir, image_names)
+def test_cli_train(data_dir):
     train_dir = str(data_dir.joinpath('2D').joinpath('train'))
     model_dir = str(data_dir.joinpath('2D').joinpath('train').joinpath('models'))
     shutil.rmtree(model_dir, ignore_errors=True)
@@ -31,7 +29,21 @@ def test_cli_train(data_dir, image_names):
         print(e) 
         raise ValueError(e)
 
-def test_cli_train_pretrained(data_dir, image_names):
+    model_dir = data_dir.joinpath('2D').joinpath('train').joinpath('models')
+    print(model_dir)
+    pretrained_models = model_dir.glob('*')
+    pretrained_models = [os.fspath(pmodel.absolute()) for pmodel in pretrained_models]
+    print(pretrained_models)
+    pretrained_model = [pmodel for pmodel in pretrained_models if pmodel[-9:]!='_size.npy'][0]
+    print(pretrained_model)
+    cmd = 'python -m cellpose --dir %s --pretrained_model %s --chan 2 --chan2 1 --diameter 17'%(train_dir, pretrained_model)
+    try:
+        cmd_stdout = check_output(cmd, stderr=STDOUT, shell=True).decode()
+    except Exception as e:
+        print(e) 
+        raise ValueError(e)
+
+def test_cli_train_pretrained(data_dir):
     train_dir = str(data_dir.joinpath('2D').joinpath('train'))
     model_dir = str(data_dir.joinpath('2D').joinpath('train').joinpath('models'))
     shutil.rmtree(model_dir, ignore_errors=True)

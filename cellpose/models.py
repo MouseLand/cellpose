@@ -18,54 +18,32 @@ import logging
 models_logger = logging.getLogger(__name__)
 models_logger.setLevel(logging.DEBUG)
 
+from . import transforms, dynamics, utils, plot
+from .core import UnetModel, assign_device, MXNET_ENABLED, parse_model_string
 
-from . import transforms, dynamics, utils, plot, metrics, core
-from .core import UnetModel, assign_device, check_mkl, use_gpu, MXNET_ENABLED, parse_model_string
+_MODEL_URL = 'https://www.cellpose.org/models'
+_MODEL_DIR_ENV = os.environ.get("CELLPOSE_LOCAL_MODELS_PATH")
+_MODEL_DIR_DEFAULT = pathlib.Path.home().joinpath('.cellpose', 'models')
+MODEL_DIR = pathlib.Path(_MODEL_DIR_ENV) if _MODEL_DIR_ENV else _MODEL_DIR_DEFAULT
 
-urls = ['https://www.cellpose.org/models/cyto_0',
-        'https://www.cellpose.org/models/cyto_1',
-        'https://www.cellpose.org/models/cyto_2',
-        'https://www.cellpose.org/models/cyto_3',
-        'https://www.cellpose.org/models/size_cyto_0.npy',
-        'https://www.cellpose.org/models/cytotorch_0',
-        'https://www.cellpose.org/models/cytotorch_1',
-        'https://www.cellpose.org/models/cytotorch_2',
-        'https://www.cellpose.org/models/cytotorch_3',
-        'https://www.cellpose.org/models/size_cytotorch_0.npy',
-        'https://www.cellpose.org/models/cyto2torch_0',
-        'https://www.cellpose.org/models/cyto2torch_1',
-        'https://www.cellpose.org/models/cyto2torch_2',
-        'https://www.cellpose.org/models/cyto2torch_3',
-        'https://www.cellpose.org/models/size_cyto2torch_0.npy',
-        'https://www.cellpose.org/models/nuclei_0',
-        'https://www.cellpose.org/models/nuclei_1',
-        'https://www.cellpose.org/models/nuclei_2',
-        'https://www.cellpose.org/models/nuclei_3',
-        'https://www.cellpose.org/models/size_nuclei_0.npy',
-        'https://www.cellpose.org/models/nucleitorch_0',
-        'https://www.cellpose.org/models/nucleitorch_1',
-        'https://www.cellpose.org/models/nucleitorch_2',
-        'https://www.cellpose.org/models/nucleitorch_3',
-        'https://www.cellpose.org/models/size_nucleitorch_0.npy']
+def model_path(model_type, model_index, use_torch):
+    torch_str = 'torch' if use_torch else ''
+    basename = '%s%s_%d' % (model_type, torch_str, model_index)
+    return cache_model_path(basename)
 
+def size_model_path(model_type, use_torch):
+    torch_str = 'torch' if use_torch else ''
+    basename = 'size_%s%s_0.npy' % (model_type, torch_str)
+    return cache_model_path(basename)
 
-def download_model_weights(urls=urls):
-    # cellpose directory
-    cp_dir = pathlib.Path.home().joinpath('.cellpose')
-    cp_dir.mkdir(exist_ok=True)
-    model_dir = cp_dir.joinpath('models')
-    model_dir.mkdir(exist_ok=True)
-
-    for url in urls:
-        parts = urlparse(url)
-        filename = os.path.basename(parts.path)
-        cached_file = os.path.join(model_dir, filename)
-        if not os.path.exists(cached_file):
-            models_logger.info('Downloading: "{}" to {}\n'.format(url, cached_file))
-            utils.download_url_to_file(url, cached_file, progress=True)
-
-download_model_weights()
-model_dir = pathlib.Path.home().joinpath('.cellpose', 'models')
+def cache_model_path(basename):
+    MODEL_DIR.mkdir(parents=True, exist_ok=True)
+    url = f'{_MODEL_URL}/{basename}'
+    cached_file = os.fspath(MODEL_DIR.joinpath(basename)) 
+    if not os.path.exists(cached_file):
+        models_logger.info('Downloading: "{}" to {}\n'.format(url, cached_file))
+        utils.download_url_to_file(url, cached_file, progress=True)
+    return cached_file
 
 class Cellpose():
     """ main model which combines SizeModel and CellposeModel
@@ -87,16 +65,18 @@ class Cellpose():
         recommended if you want to use a specific GPU (e.g. mx.gpu(4) or torch.cuda.device(4))
 
     torch: bool (optional, default False)
-        run model using torch if available
+        use torch nn rather than mxnet
+        
+    model_dir: str (optional, default None)
+        overwrite the built in model directory where cellpose looks for models
 
     """
-    def __init__(self, gpu=False, model_type='cyto', net_avg=True, device=None, torch=True):
+    def __init__(self, gpu=False, model_type='cyto', net_avg=True, device=None, torch=True, model_dir=None):
         super(Cellpose, self).__init__()
         if not torch:
             if not MXNET_ENABLED:
                 torch = True
         self.torch = torch
-        torch_str = ['','torch'][self.torch]
         
         # assign device (GPU or CPU)
         sdevice, gpu = assign_device(self.torch, gpu)
@@ -105,14 +85,10 @@ class Cellpose():
         model_type = 'cyto' if model_type is None else model_type
         if model_type=='cyto2' and not self.torch:
             model_type='cyto'
-        self.pretrained_model = [os.fspath(model_dir.joinpath('%s%s_%d'%(model_type,torch_str,j))) for j in range(4)]
-        self.pretrained_size = os.fspath(model_dir.joinpath('size_%s%s_0.npy'%(model_type,torch_str)))
-        if model_type=='cyto':
-            self.diam_mean = 30.
-        elif model_type=='nuclei':
-            self.diam_mean = 17.
-        else:
-            self.diam_mean = 30. 
+        
+        self.pretrained_model = [model_path(model_type, j, torch) for j in range(4)]
+        self.pretrained_size = size_model_path(model_type, torch)
+        self.diam_mean = 30. if model_type!='nuclei' else 17.
         
         if not net_avg:
             self.pretrained_model = self.pretrained_model[0]
@@ -225,6 +201,7 @@ class Cellpose():
 
         """        
         tic0 = time.time()
+        channels = [0,0] if channels is None else channels # why not just make this a default in the function header?
 
         estimate_size = True if (diameter is None or diameter==0) else False
         
@@ -232,7 +209,7 @@ class Cellpose():
             tic = time.time()
             models_logger.info('~~~ ESTIMATING CELL DIAMETER(S) ~~~')
             diams, _ = self.sz.eval(x, channels=channels, channel_axis=channel_axis, invert=invert, batch_size=batch_size, 
-                                    augment=augment, tile=tile)
+                                    augment=augment, tile=tile,normalize=normalize)
             rescale = self.diam_mean / np.array(diams)
             diameter = None
             models_logger.info('estimated cell diameter(s) in %0.2f sec'%(time.time()-tic))
@@ -257,6 +234,7 @@ class Cellpose():
         masks, flows, styles = self.cp.eval(x, 
                                             batch_size=batch_size, 
                                             invert=invert, 
+                                            normalize=normalize,
                                             diameter=diameter,
                                             rescale=rescale, 
                                             anisotropy=anisotropy, 
@@ -290,44 +268,51 @@ class CellposeModel(UnetModel):
 
     gpu: bool (optional, default False)
         whether or not to save model to GPU, will check if GPU available
-
+        
     pretrained_model: str or list of strings (optional, default False)
         path to pretrained cellpose model(s), if None or False, no model loaded
-
+        
     model_type: str (optional, default None)
         'cyto'=cytoplasm model; 'nuclei'=nucleus model; if None, pretrained_model used
         
     net_avg: bool (optional, default True)
         loads the 4 built-in networks and averages them if True, loads one network if False
-
+        
+    torch: bool (optional, default True)
+        use torch nn rather than mxnet
+        
     diam_mean: float (optional, default 27.)
         mean 'diameter', 27. is built in value for 'cyto' model
-
+        
     device: mxnet device (optional, default None)
         where model is saved (mx.gpu() or mx.cpu()), overrides gpu input,
         recommended if you want to use a specific GPU (e.g. mx.gpu(4))
+        
+    model_dir: str (optional, default None)
+        overwrite the built in model directory where cellpose looks for models
+    
+    skel: use skeletonized flow field model (optional, default False)
 
     """
-    print('Running Kevin\'s github version') #NEED TO TAKE THIS OUT
+    print('Running Kevin\'s github version') #(take out for final version)
     
     # still need to put the skel model trained on cellpose data into the right folder with the right name with the size model 
     def __init__(self, gpu=False, pretrained_model=False, 
                     model_type=None, torch=True,
-                    diam_mean=30., net_avg=True, device=None,
+                    diam_mean=30., net_avg=True, device=None, model_dir=None,
                     residual_on=True, style_on=True, concatenation=False,
                     nchan=2, nclasses=3, skel=False):
         if not torch:
             if not MXNET_ENABLED:
                 torch = True
         self.torch = torch
-        self.skel = skel
         if isinstance(pretrained_model, np.ndarray):
             pretrained_model = list(pretrained_model)
         elif isinstance(pretrained_model, str):
             pretrained_model = [pretrained_model]
-        
+            
+        self.skel = skel        
         self.nclasses = nclasses 
-        incorrect_path = True
         
         if model_type is not None or (pretrained_model and not os.path.exists(pretrained_model[0])):
             pretrained_model_string = model_type 
@@ -340,11 +325,10 @@ class CellposeModel(UnetModel):
             if (pretrained_model and not os.path.exists(pretrained_model[0])):
                 models_logger.warning('pretrained model has incorrect path')
             models_logger.info(f'>>{pretrained_model_string}<< model set to be used')
-            diam_mean = 30. if pretrained_model_string!='nuclei'  else 17. # cyto2 still usues 17, right? 
-            torch_str = ['','torch'][self.torch]
-            pretrained_model = [os.fspath(model_dir.joinpath(
-                                            '%s%s_%d'%(pretrained_model_string, torch_str,j))) 
-                                            for j in range(4)] 
+            
+            diam_mean = 30. if pretrained_model_string!='nuclei'  else 17. # cyto2 still uses 17, right? 
+            
+            pretrained_model = [model_path(pretrained_model_string, j, torch) for j in range(4)]
             pretrained_model = pretrained_model[0] if not net_avg else pretrained_model 
             residual_on, style_on, concatenation = True, True, False
         else:
@@ -474,6 +458,7 @@ class CellposeModel(UnetModel):
                 style vector summarizing each image, also used to estimate size of objects in image
 
         """
+        
         if isinstance(x, list) or x.squeeze().ndim==5:
             masks, styles, flows = [], [], []
             tqdm_out = utils.TqdmToLogger(models_logger, level=logging.INFO)
@@ -517,12 +502,13 @@ class CellposeModel(UnetModel):
         
         else:
             x = transforms.convert_image(x, channels, channel_axis=channel_axis, z_axis=z_axis,
-                                         do_3D=do_3D, normalize=False, invert=False, nchan=self.nchan)
+                                         do_3D=(do_3D or stitch_threshold>0), normalize=False, invert=False, nchan=self.nchan)
             if x.ndim < 4:
                 x = x[np.newaxis,...]
             self.batch_size = batch_size
             rescale = self.diam_mean / diameter if (rescale is None and (diameter is not None and diameter>0)) else rescale
             rescale = 1.0 if rescale is None else rescale
+            
             if isinstance(self.pretrained_model, list) and not net_avg:
                 self.net.load_model(self.pretrained_model[0], cpu=(not self.gpu))
                 if not self.torch:
@@ -623,13 +609,15 @@ class CellposeModel(UnetModel):
                                                    interp=interp, cluster=cluster, do_3D=do_3D, min_size=min_size,
                                                    resize=None, skel=skel, calc_trace=calc_trace, verbose=verbose)
             else:
+                print('AAAAA',dP.shape,resample)
                 masks = np.zeros((nimg, shape[1], shape[2]), np.uint16)
                 p = np.zeros((2, nimg, shape[1], shape[2]) if not resample else dP.shape, np.uint16)
+#                 p = np.zeros(dP.shape, np.uint16)
+
                 tr = [[]]*nimg # trace may not work correctly with multiple images currently, still need to test it 
                 resize = [shape[1], shape[2]] if not resample else None
-#                 print('resize is',resize)
                 for i in iterator:
-                    masks[i], p[:,i], tr[i] = self._compute_masks(dP[:,i], dist[i], bd[i], 
+                    masks[i], p[:,i], tr[i] = self._compute_masks(dP[:,i], dist[i], bd[i], #pi mismatch 
                                                                   niter=niter, 
                                                                   dist_threshold=dist_threshold,
                                                                   flow_threshold=flow_threshold, 
@@ -640,14 +628,14 @@ class CellposeModel(UnetModel):
                                                                   verbose=verbose)
             
                 if stitch_threshold > 0 and nimg > 1:
-                    models_logger.info('stitching %d masks using stitch_threshold=%0.3f to make 3D masks'%(nimg, stitch_threshold))
+                    models_logger.info(f'stitching {nimg} planes using stitch_threshold={stitch_threshold:0.3f} to make 3D masks')
                     masks = utils.stitch3D(masks, stitch_threshold=stitch_threshold)
             
             flow_time = time.time() - tic
             if nimg > 1:
                 models_logger.info('masks created in %2.2fs'%(flow_time))
         else:
-            masks, p = np.zeros(0), np.zeros(0) #need to check what is going on here...
+            masks, p = np.zeros(0), np.zeros(0) #pass back zeros if not compute_masks
             
         return masks.squeeze(), styles.squeeze(), dP.squeeze(), dist.squeeze(), p.squeeze(), bd.squeeze()
 
@@ -659,21 +647,36 @@ class CellposeModel(UnetModel):
             mask = filters.apply_hysteresis_threshold(dist, dist_threshold-1, dist_threshold) # good for thin features
         else:
             mask = dist > dist_threshold # analog to original iscell=(cellprob>cellprob_threshold)
-            
+        
+        print('VVVVVV',dP.shape,flow_threshold)
+        
         if np.any(mask): #mask at this point is a cell cluster binary map, not labels 
-            Ly,Lx = mask.shape
             if not skel: # use original algorthm 
                 if verbose:
                     print('using original mask reconstruction algorithm')
                 if p is None:
+                    file = '/home/kcutler/DataDrive/cellpose_debug/dP_kevin.npy'
+                    if not os.path.exists(file):
+                        np.save(file,dP)
                     p , inds, tr = dynamics.follow_flows(dP * mask / 5., mask=mask, niter=niter, interp=interp, 
                                                          use_gpu=self.gpu, device=self.device, skel=skel, calc_trace=calc_trace)
+                    file = '/home/kcutler/DataDrive/cellpose_debug/p_kevin.npy'
+                    if not os.path.exists(file):
+                        np.save(file,p)
+
+                    print('ff_output',np.ptp(p),np.std(p),np.ptp(dP),np.std(dP),np.count_nonzero(mask))
                 else: 
                     inds,tr = [],[]
                     if verbose:
                         print('p given')
-                mask = dynamics.get_masks(p, iscell=mask,flows=dP, threshold=flow_threshold if not do_3D else None, skel=skel)
-            else: # use new algorithm     
+                mask = dynamics.get_masks(p, iscell=mask,flows=dP, threshold=flow_threshold if not do_3D else None, 
+                                          use_gpu=self.gpu)
+                print('heremask',np.unique(mask),np.count_nonzero(mask))
+#                 file = '/home/kcutler/DataDrive/cellpose_debug/mask_kevin.npy'
+#                 if not os.path.exists(file):
+#                     np.save(file,mask)
+            else: # use new algorithm
+                Ly,Lx = mask.shape
                 if self.nclasses == 4:
                     dt = np.abs(dist[mask]) #abs needed if the threshold is negative
                     d = utils.dist_to_diam(dt)
@@ -1048,8 +1051,10 @@ class SizeModel():
                               compute_masks=False)[-1]
 
         diam_style = self._size_estimation(np.array(styles))
-#         print('diam_style',diam_style)
         diam_style = self.diam_mean if (diam_style==0 or np.isnan(diam_style)) else diam_style
+        
+        # gets fucked up here... so masks likely different
+        print('CCCCCCC',channels,channel_axis,normalize,invert,augment,tile)
         masks = self.cp.eval(x, 
                              channels=channels, 
                              channel_axis=channel_axis, 
@@ -1059,20 +1064,26 @@ class SizeModel():
                              tile=tile,
                              batch_size=batch_size, 
                              net_avg=False,
+                             rescale=(self.diam_mean / diam_style), 
 #                              rescale =  self.diam_mean / diam_style if self.diam_mean>0 else 1, 
-                             rescale = None,
+#                              rescale = None, 
                              diameter=None,
-                             interp=interp,
-                             skel=skel,
-                             flow_threshold=0)[0]
+#                              interp=interp,
+                             interp=False,
+#                              flow_threshold=0,
+                             skel=skel)[0]
+        print('MMMMMM',np.unique(masks),np.count_nonzero(masks),masks.shape)
+        print('HHHHHH',self.pretrained_size,self.cp)
         # allow backwards compatibility to older scale metric
-        diam = utils.diameters(masks,skel=skel)[0] 
+        diam = utils.diameters(masks,skel=skel)[0]
+        print('DDDDDDD',diam,self.diam_mean)
         if hasattr(self, 'model_type') and (self.model_type=='nuclei' or self.model_type=='cyto') and not self.torch and not skel:
             diam_style /= (np.pi**0.5)/2
             diam = self.diam_mean / ((np.pi**0.5)/2) if (diam==0 or np.isnan(diam)) else diam
+            print('INHERE')
         else:
             diam = self.diam_mean if (diam==0 or np.isnan(diam)) else diam
-            
+        print('BbBBBBB',diam, diam_style)
         return diam, diam_style
 
     def _size_estimation(self, style):

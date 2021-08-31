@@ -37,6 +37,7 @@ def test_class_2D(data_dir, image_names):
         model = models.Cellpose(model_type=model_type)
         masks, flows, _, _ = model.eval(img, diameter=0, channels=[chan[m],chan2[m]], net_avg=False)
         io.imsave(str(data_dir.joinpath('2D').joinpath('rgb_2D_cp_masks.png')), masks)
+        io.imsave('/home/kcutler/DataDrive/cellpose_debug/rgb_2D_cp_masks.png', masks)
         compare_masks(data_dir, [image_name], '2D', model_type)
         clear_output(data_dir, image_names)
         if MATPLOTLIB:
@@ -125,7 +126,8 @@ def compare_masks(data_dir, image_names, runtype, model_type):
                 print('checking output %s'%output_test)
                 masks_test = io.imread(output_test)
                 masks_true = io.imread(output_true)
-
+                print('masks',np.unique(masks_test),np.unique(masks_true),output_test,output_true)
+                
                 ap = metrics.average_precision(masks_true, masks_test)[0]
                 print('average precision of [%0.3f %0.3f %0.3f]'%(ap[0],ap[1],ap[2]))
                 ap_precision = np.allclose(ap, np.ones(3), rtol=r_tol, atol=a_tol)
@@ -133,6 +135,7 @@ def compare_masks(data_dir, image_names, runtype, model_type):
                 matching_pix = np.logical_and(masks_test>0, masks_true>0).mean()
                 all_pix = (masks_test>0).mean()
                 pix_precision = np.allclose(all_pix, matching_pix, rtol=r_tol, atol=a_tol)
+                print('hello',all([ap_precision, pix_precision]),ap_precision, pix_precision)
                 assert all([ap_precision, pix_precision])
             else:
                 print('ERROR: no output file of name %s found'%output_test)

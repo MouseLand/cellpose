@@ -29,57 +29,76 @@ def confirm_prompt(question):
         reply = input(f"{question} (y/n): ").lower()
     return (reply in ("", "y"))
 
-# changed flow threshold to 0.0, nclasses to 4, no_npy defaults to store_false
+# settings re-grouped a bit 
 def main():
     parser = argparse.ArgumentParser(description='cellpose parameters')
+    
+    # settings for CPU vs GPU
+    parser.add_argument('--use_gpu', action='store_true', help='use gpu if mxnet with cuda installed')
     parser.add_argument('--check_mkl', action='store_true', help='check if mkl working')
     parser.add_argument('--mkldnn', action='store_true', help='for mxnet, force MXNET_SUBGRAPH_BACKEND = "MKLDNN"')
-    parser.add_argument('--train', action='store_true', help='train network using images in dir')
+        
+    # settings for locating and formatting images
     parser.add_argument('--dir', required=False, 
                         default=[], type=str, help='folder containing data to run or train on')
     parser.add_argument('--look_one_level_down', action='store_true', help='')
     parser.add_argument('--mxnet', action='store_true', help='use mxnet')
     parser.add_argument('--img_filter', required=False, 
                         default=[], type=str, help='end string for images to run on')
-    parser.add_argument('--use_gpu', action='store_true', help='use gpu if mxnet with cuda installed')
-    parser.add_argument('--fast_mode', action='store_true', help="make code run faster by turning off 4 network averaging")
-    parser.add_argument('--resample', action='store_true', help="run dynamics on full image (slower for images with large diameters)")
-    parser.add_argument('--no_interp', action='store_true', help='do not interpolate when running dynamics (was default)')
-    parser.add_argument('--do_3D', action='store_true',
-                        help='process images as 3D stacks of images (nplanes x nchan x Ly x Lx')
-    
-    # settings for running cellpose; changed default nclasses to 4, flow_threshold to 0
-    parser.add_argument('--pretrained_model', required=False, 
-                        default='cyto', type=str, help='model to use')
-    parser.add_argument('--unet', required=False, 
-                        default=0, type=int, help='run standard unet instead of cellpose flow output')
-    parser.add_argument('--nclasses', required=False, 
-                        default=3, type=int, help='if running unet, choose 2 or 3; if training skel, choose 4; standard Cellpose uses 3')
-    parser.add_argument('--chan', required=False, 
+    parser.add_argument('--channel_axis', required=False, 
+                        default=None, type=int, help='axis of image which corresponds to image channels')
+    parser.add_argument('--z_axis', required=False, 
+                        default=None, type=int, help='axis of image which corresponds to Z dimension')
+    parser.add_argument('--chan', required=False,
                         default=0, type=int, help='channel to segment; 0: GRAY, 1: RED, 2: GREEN, 3: BLUE')
     parser.add_argument('--chan2', required=False, 
                         default=0, type=int, help='nuclear channel (if cyto, optional); 0: NONE, 1: RED, 2: GREEN, 3: BLUE')
     parser.add_argument('--invert', required=False, action='store_true', help='invert grayscale channel')
     parser.add_argument('--all_channels', action='store_true', help='use all channels in image if using own model and images with special channels')
-    parser.add_argument('--diameter', required=False, 
-                        default=30., type=float, help='cell diameter, if 0 cellpose will estimate for each image')
+    
+    # model settings 
+    parser.add_argument('--model_dir', required=False,
+                        default=None, type=str, help='directory with built-in models, default is $HOME/.cellpose/models/')
+    parser.add_argument('--unet', required=False,
+                        default=0, type=int, help='run standard unet instead of cellpose flow output')
+    parser.add_argument('--nclasses', required=False,
+                        default=3, type=int, 
+                        help='if running unet, choose 2 or 3; if training skel, choose 4; standard Cellpose uses 3')
+
+    # settings cellpose algorithm 
+    parser.add_argument('--skel', action='store_true', help='flag to enable "skeletonized" algorithm (disabled by default)')
+    parser.add_argument('--fast_mode', action='store_true', help="make code run faster by turning off 4 network averaging")
+    parser.add_argument('--resample', action='store_true', help="run dynamics on full image (slower for images with large diameters)")
+    parser.add_argument('--no_interp', action='store_true', help='do not interpolate when running dynamics (was default)')
+    parser.add_argument('--do_3D', action='store_true', help='process images as 3D stacks of images (nplanes x nchan x Ly x Lx')
+    parser.add_argument('--pretrained_model', required=False, default='cyto', type=str, help='model to use')
+    parser.add_argument('--diameter', required=False, default=30., type=float, 
+                        help='cell diameter, if 0 cellpose will estimate for each image')
+    parser.add_argument('--stitch_threshold', required=False, default=0.0, type=float,
+                        help='compute masks in 2D then stitch together masks with IoU>0.9 across planes')
     parser.add_argument('--flow_threshold', required=False, 
                         default=0.0, type=float, help='flow error threshold, 0 turns off this optional QC step')
     parser.add_argument('--dist_threshold', required=False, 
                         default=-1.0, type=float, help='cell distance threshold')
-    parser.add_argument('--diam_threshold', required=False, 
-                        default=12.0, type=float, help='cell diameter threshold for upscaling before mask rescontruction, default 12.')
+    parser.add_argument('--diam_threshold', required=False, default=12.0, type=float, 
+                        help='cell diameter threshold for upscaling before mask rescontruction, default 12.')
+    parser.add_argument('--exclude_on_edges', action='store_true', help='discard masks which touch edges of image')
+    
+    # settings for output
     parser.add_argument('--save_png', action='store_true', help='save masks as png and outlines as text file for ImageJ')
     parser.add_argument('--save_tif', action='store_true', help='save masks as tif and outlines as text file for ImageJ')
     parser.add_argument('--no_npy', action='store_false', help='suppress saving of npy')
-    parser.add_argument('--channel_axis', required=False, 
-                        default=None, type=int, help='axis of image which corresponds to image channels')
-    parser.add_argument('--z_axis', required=False, 
-                        default=None, type=int, help='axis of image which corresponds to Z dimension')
-    parser.add_argument('--exclude_on_edges', action='store_true', 
-                        help='discard masks which touch edges of image')
+    parser.add_argument('--savedir', required=False, 
+                        default=None, type=str, help='folder to which segmentation results will be saved (defaults to input image directory)')
+    parser.add_argument('--dir_above', action='store_true', help='save output folders adjacent to image folder instead of inside it (off by default)')
+    parser.add_argument('--in_folders', action='store_true', help='flag to save output in folders (off by default)')
+    parser.add_argument('--save_flows', action='store_true', help='whether or not to save RGB images of flows when masks are saved (disabled by default)')
+    parser.add_argument('--save_outlines', action='store_true', help='whether or not to save RGB outline images when masks are saved (disabled by default)')
+    parser.add_argument('--save_ncolor', action='store_true', help='whether or not to save minimal "n-color" masks (disabled by default')
+    parser.add_argument('--save_txt', action='store_true', help='flag to enable txt outlines for ImageJ (disabled by default)')
 
     # settings for training
+    parser.add_argument('--train', action='store_true', help='train network using images in dir')
     parser.add_argument('--train_size', action='store_true', help='train size network at end of training')
     parser.add_argument('--mask_filter', required=False, 
                         default='_masks', type=str, help='end string for masks to run on')
@@ -101,18 +120,9 @@ def main():
                         default=100, type=int, help='number of epochs to skip between saves')
     parser.add_argument('--save_each', action='store_true', help='save the model under a different filename per --save_every epoch for later comparsion')
     
-    # Kevin's parser additions for conveneience and compatibility with SuperSegger file structure
-    # pre-existing save_flows and save_outlines grouped here for symmetry 
-    parser.add_argument('--savedir', required=False, 
-                        default=None, type=str, help='folder to which segmentation results will be saved (defaults to input image directory)')
-    parser.add_argument('--dir_above', action='store_true', help='save output folders adjacent to image folder instead of inside it (off by default)')
-    parser.add_argument('--in_folders', action='store_true', help='flag to save output in folders (off by default)')
-    parser.add_argument('--skel', action='store_true', help='flag to enable "skeletonized" algorithm (disabled by default)')
-    parser.add_argument('--save_flows', action='store_true', help='whether or not to save RGB images of flows when masks are saved (disabled by default)')
-    parser.add_argument('--save_outlines', action='store_true', help='whether or not to save RGB outline images when masks are saved (disabled by default)')
-    parser.add_argument('--save_ncolor', action='store_true', help='whether or not to save minimal "n-color" masks (disabled by default')
-    parser.add_argument('--save_txt', action='store_true', help='flag to enable txt outlines for ImageJ (disabled by default)')
+    # misc settings
     parser.add_argument('--verbose', action='store_true', help='flag to output extra information (e.g. diameter metrics) for debugging and fine-tuning parameters')
+
 
     args = parser.parse_args()
     
@@ -177,7 +187,11 @@ def main():
 
 
         device, gpu = models.assign_device((not args.mxnet), args.use_gpu)
-        model_dir = models.model_dir              
+        if isinstance(args.model_dir, str) and os.path.exists(args.model_dir):
+            model_dir = args.model_dir 
+            logger.info(f'using built-in models in directory {model_dir}')
+        else:
+            model_dir = models.model_dir_builtin         
 
         if not args.train and not args.train_size:
             # Might want to add a Y/N prompt as well for this for conveneience

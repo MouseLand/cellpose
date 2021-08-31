@@ -462,7 +462,8 @@ class UnetModel():
         # pad image for net so Ly and Lx are divisible by 4
         imgs, ysub, xsub = transforms.pad_image_ND(imgs)
         # slices from padding
-        slc = [slice(0, self.nclasses) for n in range(imgs.ndim)] # changed from imgs.shape[n]+1 for first slice size 
+#         slc = [slice(0, self.nclasses) for n in range(imgs.ndim)] # changed from imgs.shape[n]+1 for first slice size 
+        slc = [slice(0, imgs.shape[n]+1) for n in range(imgs.ndim)]
         slc[-3] = slice(0, self.nclasses + 32*return_conv + 1)
         slc[-2] = slice(ysub[0], ysub[-1]+1)
         slc[-1] = slice(xsub[0], xsub[-1]+1)
@@ -647,6 +648,7 @@ class UnetModel():
         pm = [(0,1,2,3), (1,0,2,3), (2,0,1,3)]
         ipm = [(3,0,1,2), (3,1,0,2), (3,1,2,0)]
         yf = np.zeros((3, self.nclasses, imgs.shape[0], imgs.shape[1], imgs.shape[2]), np.float32)
+        print('>>>',yf.shape)
         for p in range(3 - 2*self.unet):
             xsl = imgs.copy().transpose(pm[p])
             # rescale image for flow computation
@@ -656,7 +658,9 @@ class UnetModel():
             core_logger.info('running %s: %d planes of size (%d, %d)'%(sstr[p], shape[0], shape[1], shape[2]))
             y, style = self._run_nets(xsl, net_avg=net_avg, augment=augment, tile=tile, 
                                       bsize=bsize, tile_overlap=tile_overlap)
+            print('toto',y.shape,shape[1], shape[2])
             y = transforms.resize_image(y, shape[1], shape[2])    
+            print('dfgdfgdfg',y.shape,y.transpose(ipm[p]).shape,p)
             yf[p] = y.transpose(ipm[p])
             if progress is not None:
                 progress.setValue(25+15*p)

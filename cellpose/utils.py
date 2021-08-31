@@ -355,17 +355,18 @@ def stitch3D(masks, stitch_threshold=0.25):
     mmax = masks[0].max()
     for i in range(len(masks)-1):
         iou = metrics._intersection_over_union(masks[i+1], masks[i])[1:,1:]
-        iou[iou < stitch_threshold] = 0.0
-        iou[iou < iou.max(axis=0)] = 0.0
-        istitch = iou.argmax(axis=1) + 1
-        ino = np.nonzero(iou.max(axis=1)==0.0)[0]
-        istitch[ino] = np.arange(mmax+1, mmax+len(ino)+1, 1, int)
-        mmax += len(ino)
-        istitch = np.append(np.array(0), istitch)
-        masks[i+1] = istitch[masks[i+1]]
+        if iou.size > 0:
+            iou[iou < stitch_threshold] = 0.0
+            iou[iou < iou.max(axis=0)] = 0.0
+            istitch = iou.argmax(axis=1) + 1
+            ino = np.nonzero(iou.max(axis=1)==0.0)[0]
+            istitch[ino] = np.arange(mmax+1, mmax+len(ino)+1, 1, int)
+            mmax += len(ino)
+            istitch = np.append(np.array(0), istitch)
+            masks[i+1] = istitch[masks[i+1]]
     return masks
 
-# new diameter function; 
+# merged deiameter functions
 def diameters(masks, skel=False, dist_threshold=1):
     if not skel: #original 'equivalent area circle' diameter
         _, counts = np.unique(np.int32(masks), return_counts=True)
@@ -379,7 +380,6 @@ def diameters(masks, skel=False, dist_threshold=1):
         dt = edt.edt(np.int32(masks))
         dt_pos = np.abs(dt[dt>=dist_threshold])
         return dist_to_diam(np.abs(dt_pos)), None
-        
 
 # also used in models.py
 def dist_to_diam(dt_pos):

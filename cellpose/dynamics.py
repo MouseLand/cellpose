@@ -59,18 +59,37 @@ def _extend_centers(T, y, x, ymed, xmed, Lx, niter, skel=False, value=1):
         amount of diffused particles at each pixel
 
     """
+#     for t in range(niter):
+#         if skel:
+#             T[y*Lx + x] += value
+#             T[y*Lx + x] /= 1+T[y*Lx + x]
+
+#         else:
+#             T[ymed*Lx + xmed] += value
+            
+#         T[y*Lx + x] = 1/9. * (T[y*Lx + x] + T[(y-1)*Lx + x]   + T[(y+1)*Lx + x] +
+#                                             T[y*Lx + x-1]     + T[y*Lx + x+1] +
+#                                             T[(y-1)*Lx + x-1] + T[(y-1)*Lx + x+1] +
+#                                             T[(y+1)*Lx + x-1] + T[(y+1)*Lx + x+1])
+    print('loop',niter,value)
+
+#     niter = niter**.7
+#     value = value**2
+#     print(niter,value)
     for t in range(niter):
         if skel:
-            T[y*Lx + x] += value
-            T[y*Lx + x] /= 1+T[y*Lx + x]
-
+#             T[y*Lx + x] = (1/5)*(1/(1+T[y*Lx + x]+value)) * (T[(y-1)*Lx + x] + T[(y+1)*Lx + x] + T[y*Lx + x-1] + T[y*Lx + x+1] + T[y*Lx + x] + 5*value) 
+#             T[y*Lx + x] = (1/10)*( -4 - 5*value + np.sqrt(5*value*(28+5*value)+4*(4+5*(T[(y-1)*Lx + x] + T[(y+1)*Lx + x] + T[y*Lx + x-1] + T[y*Lx + x+1])) ))
+#             T[y*Lx + x] = (1/2)*( -4 - value + np.sqrt(value*(12+value)+4*(4+(T[(y-1)*Lx + x] + T[(y+1)*Lx + x] + T[y*Lx + x-1] + T[y*Lx + x+1] )) ))
+            T[y*Lx + x] = (1/6)*(-10-3*value+np.sqrt(100+96*value+9*(value**2)+6*(T[(y-1)*Lx + x-1]+T[(y+1)*Lx + x+1]+T[(y+1)*Lx + x-1]+T[(y-1)*Lx + x+1])
+                                                     +24*(T[y*Lx + x-1]+T[y*Lx + x+1]+T[(y-1)*Lx + x]+T[(y+1)*Lx + x])))
         else:
             T[ymed*Lx + xmed] += value
-            
-        T[y*Lx + x] = 1/9. * (T[y*Lx + x] + T[(y-1)*Lx + x]   + T[(y+1)*Lx + x] +
-                                            T[y*Lx + x-1]     + T[y*Lx + x+1] +
-                                            T[(y-1)*Lx + x-1] + T[(y-1)*Lx + x+1] +
-                                            T[(y+1)*Lx + x-1] + T[(y+1)*Lx + x+1])
+#             T[y*Lx + x] += value
+            T[y*Lx + x] = 1/9. * (T[y*Lx + x] + T[(y-1)*Lx + x]   + T[(y+1)*Lx + x] +
+                                                T[y*Lx + x-1]     + T[y*Lx + x+1] +
+                                                T[(y-1)*Lx + x-1] + T[(y-1)*Lx + x+1] +
+                                                T[(y+1)*Lx + x-1] + T[(y+1)*Lx + x+1])
 #     T[y*Lx + x] = 1
 #     for t in range(niter):
 #         if skel:
@@ -81,6 +100,9 @@ def _extend_centers(T, y, x, ymed, xmed, Lx, niter, skel=False, value=1):
 #                                                 T[y*Lx + x-1]     + T[y*Lx + x+1] +
 #                                                 T[(y-1)*Lx + x-1] + T[(y-1)*Lx + x+1] +
 #                                                 T[(y+1)*Lx + x-1] + T[(y+1)*Lx + x+1])
+
+
+    
     return T
 
 
@@ -280,16 +302,16 @@ def masks_to_flows_cpu(masks, dists, device=None, skel=False):
             if skel:
                 # This is what I found to be the lowest possible number of iterations to guarantee convergence,
                 # but only for the skel model. Too small for center-pixel heat to diffuse to the ends. 
-                # I would like to explain why this works theoretically, it is emperically validated for now.
+                # I would like to explain why this works theoretically; it is emperically validated for now.
                 niter = round(np.max(dist)**1.5)
             else:
                 niter = 2*np.int32(np.ptp(x) + np.ptp(y))
             
             if (skel):
-                # skeletonization now is far less explicit now (no skeletonization computation per se)
-                # the skel flag effectively sets boundary conditions that produce a field extemely close
-                # to that of an explicitly defined skeleton, but even better than those ad-hoc methods.
-                # This depends sensitively on both the number of iterrations (larger masks require more)
+                # skeletonization now is far less explicit now (no skeleton heat source)
+                # the skel flag solves a PDE that produce a field extemely close
+                # to that with an explicitly defined skeleton, but even better than those ad-hoc methods.
+                # This depends sensitively on both the number of iterations (larger masks require more)
                 # and the value of heat added to each pixel. This is uniform across each mask and is 
                 # smaller than 1, but the exact value below is not theoretically motivated, just validated
                 # empirically on many examples and synthetic masks across several orders of magnitude in diameter. 
@@ -373,11 +395,15 @@ def masks_to_flows(masks, use_gpu=False, device=None, skel=False):
             mu[[0,1], :, :, x] += mu0
         return mu, None
     elif masks.ndim==2:
-        pad = 15 # padding helps avoid edge artifacts from cut-off cells 
-        masks_pad = np.pad(masks,pad,mode='reflect')
-        dists_pad = np.pad(dists,pad,mode='reflect')
-        mu, T = masks_to_flows_device(masks_pad, dists_pad, device=device, skel=skel)
-        return masks, dists, T[pad:-pad,pad:-pad], mu[:,pad:-pad,pad:-pad]
+        if skel: # padding helps avoid edge artifacts from cut-off cells 
+            pad = 15 
+            masks_pad = np.pad(masks,pad,mode='reflect')
+            dists_pad = np.pad(dists,pad,mode='reflect')
+            mu, T = masks_to_flows_device(masks_pad, dists_pad, device=device, skel=skel)
+            return masks, dists, T[pad:-pad,pad:-pad], mu[:,pad:-pad,pad:-pad]
+        else: # reflection not a good idea for centroid model 
+            mu, T = masks_to_flows_device(masks, dists=dists, device=device, skel=skel)
+            return masks, dists, T, mu
 
     else:
         raise ValueError('masks_to_flows only takes 2D or 3D arrays')
@@ -470,7 +496,7 @@ def map_coordinates(I, yc, xc, Y):
 
 def steps2D_interp(p, dP, niter, use_gpu=False, device=None, skel=False, calc_trace=False):
     shape = dP.shape[1:]
-
+    print('gpuuuuuu',use_gpu, TORCH_ENABLED)
     if use_gpu and TORCH_ENABLED:
         if device is None:
             device = torch_GPU
@@ -517,6 +543,7 @@ def steps2D_interp(p, dP, niter, use_gpu=False, device=None, skel=False, calc_tr
         return p, tr
     else:
         dPt = np.zeros(p.shape, np.float32)
+        
         if calc_trace:
             Ly = shape[0]
             Lx = shape[1]
@@ -525,8 +552,6 @@ def steps2D_interp(p, dP, niter, use_gpu=False, device=None, skel=False, calc_tr
             tr = None
             
         for t in range(niter):
-#             print(dP.dtype, p[0].dtype, p[1].dtype, dPt.dtype)
-#             print(dP.shape, p[0].shape, p[1].shape, dPt.shape)
             map_coordinates(dP, p[0], p[1], dPt)
             if skel:
                 dPt = dPt/(1+t) #this supression is key to the 'skeleton' method
@@ -612,18 +637,17 @@ def steps2D(p, dP, inds, niter, skel=False, calc_trace=False):
         Lx = shape[1]
         tr = np.zeros((niter,2,Ly,Lx))
     for t in range(niter):
-        #pi = p.astype(np.int32)
         for j in range(inds.shape[0]):
             # starting coordinates
             y = inds[j,0]
             x = inds[j,1]
             p0, p1 = int(p[0,y,x]), int(p[1,y,x])
-            dy = dP[0,p0,p1]
-            dx = dP[1,p0,p1]
             if skel: # suppress each step 
-                dy, dx = dy/(t+1), dx/(t+1)
+                step = dP[:,p0,p1]/(t+1)
+            else:
+                step = dP[:,p0,p1]
             for k in range(p.shape[0]):
-                p[k,y,x] = min(shape[k]-1, max(0, p[k,y,x] + dy))
+                p[k,y,x] = min(shape[k]-1, max(0, p[k,y,x] + step[k]))
             if calc_trace:
                 tr[t] = p
                 
@@ -681,7 +705,17 @@ def follow_flows(dP, mask=None, niter=200, interp=True, use_gpu=True, device=Non
         # run dynamics on subset of pixels
         if mask is None:
             mask = np.abs(dP[0])>1e-3
-        inds = np.array(np.nonzero(np.logical_or(mask,np.abs(dP[0])>1e-3))).astype(np.int32).T
+        
+        if skel:
+            inds = np.array(np.nonzero(np.logical_or(mask,np.abs(dP[0])>1e-3))).astype(np.int32).T
+        else:
+            inds = np.array(np.nonzero(np.abs(dP[0])>1e-3)).astype(np.int32).T
+        
+        print('inds',inds.shape)
+        file = '/home/kcutler/DataDrive/cellpose_debug/inds_kevin.npy'
+        if not os.path.exists(file):
+            np.save(file,inds)     
+        print('dfgdfgggsdgsdm',interp,skel)
         
         if inds.ndim < 2 or inds.shape[0] < 5:
             dynamics_logger.warning('WARNING: no mask pixels found')
@@ -695,10 +729,7 @@ def follow_flows(dP, mask=None, niter=200, interp=True, use_gpu=True, device=Non
                                                       device=device, skel=skel,
                                                       calc_trace=calc_trace)
             p[:,inds[:,0],inds[:,1]] = p_interp
-#             print('p_interp',p_interp.shape,p_interp)
-#             print('inds',inds.shape,inds)
-#             print('ptype',p.dtype,'p_interp type',p_interp.dtype)
-#             print('p',p.shape,p)
+            
     return p, inds, tr#, p_interp
 
 def remove_bad_flow_masks(masks, flows, threshold=0.4, use_gpu=False, device=None, skel=False):
@@ -735,7 +766,7 @@ def remove_bad_flow_masks(masks, flows, threshold=0.4, use_gpu=False, device=Non
     masks[np.isin(masks, badi)] = 0
     return masks
 
-def get_masks(p, iscell=None, rpad=20, flows=None, threshold=0.4, use_gpu=False, device=None, skel=False):
+def get_masks(p, iscell=None, rpad=20, flows=None, threshold=0.4, use_gpu=False, device=None):
     """ create masks using pixel convergence after running dynamics
     
     Makes a histogram of final pixel locations p, initializes masks 
@@ -789,12 +820,12 @@ def get_masks(p, iscell=None, rpad=20, flows=None, threshold=0.4, use_gpu=False,
                      indexing='ij')
         for i in range(dims):
             p[i, ~iscell] = inds[i][~iscell]
-
+    
     for i in range(dims):
         pflows.append(p[i].flatten().astype('int32'))
         edges.append(np.arange(-.5-rpad, shape0[i]+.5+rpad, 1))
 
-    h,_ = np.histogramdd(tuple(pflows), bins=edges)
+    h,_ = np.lib.histogramdd(pflows, bins=edges)
     hmax = h.copy()
     for i in range(dims):
         hmax = maximum_filter1d(hmax, 5, axis=i)
@@ -804,7 +835,6 @@ def get_masks(p, iscell=None, rpad=20, flows=None, threshold=0.4, use_gpu=False,
     isort = np.argsort(Nmax)[::-1]
     for s in seeds:
         s = s[isort]
-
     pix = list(np.array(seeds).T)
 
     shape = h.shape
@@ -843,6 +873,8 @@ def get_masks(p, iscell=None, rpad=20, flows=None, threshold=0.4, use_gpu=False,
     for i in range(dims):
         pflows[i] = pflows[i] + rpad
     M0 = M[tuple(pflows)]
+    
+    print('heyyyy0',np.unique(M0),np.count_nonzero(M0))
 
     # remove big masks
     _,counts = np.unique(M0, return_counts=True)
@@ -851,10 +883,14 @@ def get_masks(p, iscell=None, rpad=20, flows=None, threshold=0.4, use_gpu=False,
         M0[M0==i] = 0
     _,M0 = np.unique(M0, return_inverse=True)
     M0 = np.reshape(M0, shape0)
+    print('heyyyy1',np.unique(M0),np.count_nonzero(M0))
 
+    print('uhhhhh',M0.max(),threshold,use_gpu,device)
     if M0.max()>0 and threshold is not None and threshold > 0 and flows is not None:
-        M0 = remove_bad_flow_masks(M0, flows, threshold=threshold, use_gpu=use_gpu, device=device, skel=skel)
+        M0 = remove_bad_flow_masks(M0, flows, threshold=threshold, use_gpu=use_gpu, device=device)
+        print('heyyyy2',np.unique(M0),np.count_nonzero(M0))
         _,M0 = np.unique(M0, return_inverse=True)
         M0 = np.reshape(M0, shape0).astype(np.int32)
+        print('heyyyy3',np.unique(M0),np.count_nonzero(M0))
 
     return M0
