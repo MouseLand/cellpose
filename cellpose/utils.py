@@ -201,7 +201,7 @@ def masks_to_outlines(masks):
     """
     if masks.ndim > 3 or masks.ndim < 2:
         raise ValueError('masks_to_outlines takes 2D or 3D array, not %dD array'%masks.ndim)
-    outlines = np.zeros(masks.shape, np.bool)
+    outlines = np.zeros(masks.shape, bool)
     
     if masks.ndim==3:
         for i in range(masks.shape[0]):
@@ -436,14 +436,39 @@ def fill_holes_and_remove_small_masks(masks, min_size=15, hole_size=3, scale_fac
         size [Ly x Lx] or [Lz x Ly x Lx]
     
     """
-    masks = format_labels(masks)
+    masks = format_labels(masks) # not sure how this works with 3D... tests pass though
     
-#     min_size *= scale_factor
-    hole_size *= scale_factor
+    # my slightly altered version below does not work well with 3D (vs test GT) so I need to test
+    # to see if mine is actually better in general or needs to be toggled; for now, commenting out 
+# #     min_size *= scale_factor
+#     hole_size *= scale_factor
         
-    if masks.ndim > 3 or masks.ndim < 2:
-        raise ValueError('masks_to_outlines takes 2D or 3D array, not %dD array'%masks.ndim)
+#     if masks.ndim > 3 or masks.ndim < 2:
+#         raise ValueError('masks_to_outlines takes 2D or 3D array, not %dD array'%masks.ndim)
     
+#     slices = find_objects(masks)
+#     j = 0
+#     for i,slc in enumerate(slices):
+#         if slc is not None:
+#             msk = masks[slc] == (i+1)
+#             npix = msk.sum()
+#             if min_size > 0 and npix < min_size:
+#                 masks[slc][msk] = 0
+#             else:   
+#                 hsz = np.count_nonzero(msk)*hole_size/100 #turn hole size into percentage
+#                 #eventually the boundary output should be used to properly exclude real holes vs label gaps 
+#                 if msk.ndim==3:
+#                     for k in range(msk.shape[0]):
+#                         padmsk = remove_small_holes(np.pad(msk[k],1,mode='constant'),hsz)
+#                         msk[k] = padmsk[1:-1,1:-1]
+#                 else:                    
+#                     padmsk = remove_small_holes(np.pad(msk,1,mode='constant'),hsz)
+#                     msk = padmsk[1:-1,1:-1]
+#                 masks[slc][msk] = (j+1)
+#                 j+=1
+#     return masks
+    if masks.ndim > 3 or masks.ndim < 2:
+        raise ValueError('fill_holes_and_remove_small_masks takes 2D or 3D array, not %dD array'%masks.ndim)
     slices = find_objects(masks)
     j = 0
     for i,slc in enumerate(slices):
@@ -452,17 +477,12 @@ def fill_holes_and_remove_small_masks(masks, min_size=15, hole_size=3, scale_fac
             npix = msk.sum()
             if min_size > 0 and npix < min_size:
                 masks[slc][msk] = 0
-            else:   
-                hsz = np.count_nonzero(msk)*hole_size/100 #turned hole size into percentage
-                #eventually the boundary output should be used to properly exclude real holes vs label gaps 
-#                 print(hsz)
+            else:    
                 if msk.ndim==3:
                     for k in range(msk.shape[0]):
-                        padmsk = remove_small_holes(np.pad(msk[k],1,mode='constant'),hsz)
-                        msk[k] = padmsk[1:-1,1:-1]
-                else:                    
-                    padmsk = remove_small_holes(np.pad(msk,1,mode='constant'),hsz)
-                    msk = padmsk[1:-1,1:-1]
+                        msk[k] = binary_fill_holes(msk[k])
+                else:
+                    msk = binary_fill_holes(msk)
                 masks[slc][msk] = (j+1)
                 j+=1
     return masks
@@ -605,7 +625,7 @@ def clean_boundary(labels,boundary_thickness=3,area_thresh=30):
 def outline_view(img0,maski):
     """
     Generates a red outline overlay onto image. 
-    Assume img0 is already coverted to RGB.
+    Assume img0 is already coverted to 8-bit RGB.
     """
     outlines = find_boundaries(maski,mode='inner') #not using masks_to_outlines as that gives border 'outlines'
     outY, outX = np.nonzero(outlines)
@@ -614,13 +634,15 @@ def outline_view(img0,maski):
     return imgout
 
 # Should work for 3D too. Could put into usigned integer form at the end... 
+# Also could use some parallelization 
 from skimage import measure
 def format_labels(labels, clean=False, min_area=9):
     """
     Puts labels into 'standard form', i.e. background=0 and cells 1,2,3,...,N-1,N.
-    Optional with clean flag: disconnect and disjoint masks and discard small masks beflow min_area. 
+    Optional clean flag: disconnect and disjoint masks and discard small masks beflow min_area. 
+    min_area default is 9px. 
     """
-    labels = labels.astype('int32') # no one is going to have more than 2^32 -1 cells in one frame
+    labels = labels.astype('int32') # no one is going to have more than 2^32 -1 cells in one frame, right?
     labels -= np.min(labels) # some people put -1 as background...
     if clean:
         inds = np.unique(labels)

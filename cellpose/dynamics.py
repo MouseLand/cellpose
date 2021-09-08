@@ -59,41 +59,31 @@ def _extend_centers(T, y, x, ymed, xmed, Lx, niter, skel=False, value=1):
         amount of diffused particles at each pixel
 
     """
-#     for t in range(niter):
-#         if skel:
-#             T[y*Lx + x] += value
-#             T[y*Lx + x] /= 1+T[y*Lx + x]
-
-#         else:
-#             T[ymed*Lx + xmed] += value
-            
-#         T[y*Lx + x] = 1/9. * (T[y*Lx + x] + T[(y-1)*Lx + x]   + T[(y+1)*Lx + x] +
-#                                             T[y*Lx + x-1]     + T[y*Lx + x+1] +
-#                                             T[(y-1)*Lx + x-1] + T[(y-1)*Lx + x+1] +
-#                                             T[(y+1)*Lx + x-1] + T[(y+1)*Lx + x+1])
-    print('loop',niter,value)
-
-#     niter = niter**.7
-#     value = value**2
-#     print(niter,value)
     for t in range(niter):
         if skel:
-#             T[y*Lx + x] = (1/5)*(1/(1+T[y*Lx + x]+value)) * (T[(y-1)*Lx + x] + T[(y+1)*Lx + x] + T[y*Lx + x-1] + T[y*Lx + x+1] + T[y*Lx + x] + 5*value) 
-#             T[y*Lx + x] = (1/10)*( -4 - 5*value + np.sqrt(5*value*(28+5*value)+4*(4+5*(T[(y-1)*Lx + x] + T[(y+1)*Lx + x] + T[y*Lx + x-1] + T[y*Lx + x+1])) ))
-#             T[y*Lx + x] = (1/2)*( -4 - value + np.sqrt(value*(12+value)+4*(4+(T[(y-1)*Lx + x] + T[(y+1)*Lx + x] + T[y*Lx + x-1] + T[y*Lx + x+1] )) ))
-            T[y*Lx + x] = (1/6)*(-10-3*value+np.sqrt(100+96*value+9*(value**2)+6*(T[(y-1)*Lx + x-1]+T[(y+1)*Lx + x+1]+T[(y+1)*Lx + x-1]+T[(y-1)*Lx + x+1])
-                                                     +24*(T[y*Lx + x-1]+T[y*Lx + x+1]+T[(y-1)*Lx + x]+T[(y+1)*Lx + x])))
+            T[y*Lx + x] += value
+            T[y*Lx + x] /= 1+T[y*Lx + x]
+
         else:
             T[ymed*Lx + xmed] += value
-#             T[y*Lx + x] += value
-            T[y*Lx + x] = 1/9. * (T[y*Lx + x] + T[(y-1)*Lx + x]   + T[(y+1)*Lx + x] +
-                                                T[y*Lx + x-1]     + T[y*Lx + x+1] +
-                                                T[(y-1)*Lx + x-1] + T[(y-1)*Lx + x+1] +
-                                                T[(y+1)*Lx + x-1] + T[(y+1)*Lx + x+1])
-#     T[y*Lx + x] = 1
+            
+        T[y*Lx + x] = 1/9. * (T[y*Lx + x] + T[(y-1)*Lx + x]   + T[(y+1)*Lx + x] +
+                                            T[y*Lx + x-1]     + T[y*Lx + x+1] +
+                                            T[(y-1)*Lx + x-1] + T[(y-1)*Lx + x+1] +
+                                            T[(y+1)*Lx + x-1] + T[(y+1)*Lx + x+1])
+
+
+# ongoing experimentation to figure out what PDE my algorthm actually corresponds to
+# #     niter = niter**.7
+# #     value = value**2
+# #     print(niter,value)
 #     for t in range(niter):
 #         if skel:
-#             T[y*Lx + x] =  1/4. *(T[(y-1)*Lx + x]  + T[(y+1)*Lx + x] + T[y*Lx + x-1] + T[y*Lx + x+1] + (T[y*Lx + x]+value))/(T[y*Lx + x]+value+1)
+# #             T[y*Lx + x] = (1/5)*(1/(1+T[y*Lx + x]+value)) * (T[(y-1)*Lx + x] + T[(y+1)*Lx + x] + T[y*Lx + x-1] + T[y*Lx + x+1] + T[y*Lx + x] + 5*value) 
+# #             T[y*Lx + x] = (1/10)*( -4 - 5*value + np.sqrt(5*value*(28+5*value)+4*(4+5*(T[(y-1)*Lx + x] + T[(y+1)*Lx + x] + T[y*Lx + x-1] + T[y*Lx + x+1])) ))
+# #             T[y*Lx + x] = (1/2)*( -4 - value + np.sqrt(value*(12+value)+4*(4+(T[(y-1)*Lx + x] + T[(y+1)*Lx + x] + T[y*Lx + x-1] + T[y*Lx + x+1] )) ))
+#             T[y*Lx + x] = (1/6)*(-10-3*value+np.sqrt(100+96*value+9*(value**2)+6*(T[(y-1)*Lx + x-1]+T[(y+1)*Lx + x+1]+T[(y+1)*Lx + x-1]+T[(y-1)*Lx + x+1])
+#                                                      +24*(T[y*Lx + x-1]+T[y*Lx + x+1]+T[(y-1)*Lx + x]+T[(y+1)*Lx + x])))
 #         else:
 #             T[ymed*Lx + xmed] += value
 #             T[y*Lx + x] = 1/9. * (T[y*Lx + x] + T[(y-1)*Lx + x]   + T[(y+1)*Lx + x] +
@@ -101,10 +91,7 @@ def _extend_centers(T, y, x, ymed, xmed, Lx, niter, skel=False, value=1):
 #                                                 T[(y-1)*Lx + x-1] + T[(y-1)*Lx + x+1] +
 #                                                 T[(y+1)*Lx + x-1] + T[(y+1)*Lx + x+1])
 
-
-    
     return T
-
 
 tic=time.time()
 
@@ -271,10 +258,9 @@ def masks_to_flows_cpu(masks, dists, device=None, skel=False):
     mu = np.zeros((2, Ly, Lx), np.float64)
     mu_c = np.zeros((Ly, Lx), np.float64)
     
-    nmask = masks.max() # Assumes a 'proper' label mask, values 1,2,... 
-#     ncolor = utils.ncolorlabel(masks)
-    slices = scipy.ndimage.find_objects(masks) # partitions into 'slices' like regionprops
-    pad = 1
+    nmask = masks.max()
+    slices = scipy.ndimage.find_objects(masks) 
+    pad = 100
     #slice tuples contain the same info as boundingbox
     for i,si in enumerate(slices):
         if si is not None:
@@ -317,11 +303,11 @@ def masks_to_flows_cpu(masks, dists, device=None, skel=False):
                 # empirically on many examples and synthetic masks across several orders of magnitude in diameter. 
                 xmed = x
                 ymed = y
-                value = (measure.perimeter(mask)/np.count_nonzero(masks))**3
+                value = (measure.perimeter(mask)/np.count_nonzero(mask))**3
             else:
                 # original boundary projection
-                ymed = np.mean(y)
-                xmed = np.mean(x)
+                ymed = np.median(y)
+                xmed = np.median(x)
                 imin = np.argmin((x-xmed)**2 + (y-ymed)**2) 
                 xmed = np.array([x[imin]],np.int32)
                 ymed = np.array([y[imin]],np.int32)
@@ -331,15 +317,15 @@ def masks_to_flows_cpu(masks, dists, device=None, skel=False):
             
             heat = T.copy()
             T  = np.interp(T, (T[y*lx + x].min(), T[y*lx + x].max()), (0, 1))
-            # finite difference approximation
-            dy = np.empty(ly*lx, np.float64) 
-            dx = np.empty(ly*lx, np.float64)
-            dy[y*lx + x] = T[(y+1)*lx + x] - T[(y-1)*lx + x]
-            dx[y*lx + x] = T[y*lx + x+1] - T[y*lx + x-1]
             
-            mu[:, sr.start+y-pad, sc.start+x-pad] =  transforms.normalize_field(np.stack((dy,dx)))[:,y*lx + x]
+            # central difference approximation to first derivative
+            dy = T[(y+1)*lx + x] - T[(y-1)*lx + x]
+            dx = T[y*lx + x+1] - T[y*lx + x-1]
+            
+            mu[:, sr.start+y-pad, sc.start+x-pad] = np.stack((dy,dx))
             mu_c[sr.start+y-pad, sc.start+x-pad] = heat[y*lx + x]
-            
+    
+    mu =  transforms.normalize_field(mu,True)
     # pass heat back instead of zeros - not sure what mu_c was originally
     # intended for, but it is apparently not used for anything else
     return mu, mu_c
@@ -393,7 +379,7 @@ def masks_to_flows(masks, use_gpu=False, device=None, skel=False):
         for x in range(Lx):
             mu0 = masks_to_flows_device(masks[:,:,x], dists, device=device, skel=skel)[0]
             mu[[0,1], :, :, x] += mu0
-        return mu, None
+        return masks, dists, None, mu #consistency with below
     elif masks.ndim==2:
         if skel: # padding helps avoid edge artifacts from cut-off cells 
             pad = 15 
@@ -442,7 +428,6 @@ def labels_to_flows(labels, files=None, use_gpu=False, device=None, skel=False,r
         # compute flows; labels are fixed in masks_to_flows, so they need to be passed back
         labels, dist, heat, veci = map(list,zip(*[masks_to_flows(labels[n][0],use_gpu=use_gpu, device=device, skel=skel) for n in trange(nimg)]))
         # concatenate labels, distance transform, vector flows, heat (boundary and mask are computed in augmentations)
-#         print(labels[0][[0]].shape,dist[0][[0]].shape,veci[0].shape)
         if skel:
             flows = [np.concatenate((labels[n][np.newaxis,:,:], dist[n][np.newaxis,:,:], veci[n], heat[n][np.newaxis,:,:]), axis=0).astype(np.float32)
                         for n in range(nimg)]
@@ -496,7 +481,6 @@ def map_coordinates(I, yc, xc, Y):
 
 def steps2D_interp(p, dP, niter, use_gpu=False, device=None, skel=False, calc_trace=False):
     shape = dP.shape[1:]
-    print('gpuuuuuu',use_gpu, TORCH_ENABLED)
     if use_gpu and TORCH_ENABLED:
         if device is None:
             device = torch_GPU
@@ -539,7 +523,6 @@ def steps2D_interp(p, dP, niter, use_gpu=False, device=None, skel=False, calc_tr
             tr = None
         
         p =  pt[:,:,:,[1,0]].cpu().numpy().squeeze().T
-#         print('internal pshape',p.shape,p)
         return p, tr
     else:
         dPt = np.zeros(p.shape, np.float32)
@@ -711,12 +694,6 @@ def follow_flows(dP, mask=None, niter=200, interp=True, use_gpu=True, device=Non
         else:
             inds = np.array(np.nonzero(np.abs(dP[0])>1e-3)).astype(np.int32).T
         
-        print('inds',inds.shape)
-        file = '/home/kcutler/DataDrive/cellpose_debug/inds_kevin.npy'
-        if not os.path.exists(file):
-            np.save(file,inds)     
-        print('dfgdfgggsdgsdm',interp,skel)
-        
         if inds.ndim < 2 or inds.shape[0] < 5:
             dynamics_logger.warning('WARNING: no mask pixels found')
             return p, inds, None
@@ -874,8 +851,6 @@ def get_masks(p, iscell=None, rpad=20, flows=None, threshold=0.4, use_gpu=False,
         pflows[i] = pflows[i] + rpad
     M0 = M[tuple(pflows)]
     
-    print('heyyyy0',np.unique(M0),np.count_nonzero(M0))
-
     # remove big masks
     _,counts = np.unique(M0, return_counts=True)
     big = np.prod(shape0) * 0.4
@@ -883,14 +858,10 @@ def get_masks(p, iscell=None, rpad=20, flows=None, threshold=0.4, use_gpu=False,
         M0[M0==i] = 0
     _,M0 = np.unique(M0, return_inverse=True)
     M0 = np.reshape(M0, shape0)
-    print('heyyyy1',np.unique(M0),np.count_nonzero(M0))
 
-    print('uhhhhh',M0.max(),threshold,use_gpu,device)
     if M0.max()>0 and threshold is not None and threshold > 0 and flows is not None:
         M0 = remove_bad_flow_masks(M0, flows, threshold=threshold, use_gpu=use_gpu, device=device)
-        print('heyyyy2',np.unique(M0),np.count_nonzero(M0))
         _,M0 = np.unique(M0, return_inverse=True)
         M0 = np.reshape(M0, shape0).astype(np.int32)
-        print('heyyyy3',np.unique(M0),np.count_nonzero(M0))
 
     return M0

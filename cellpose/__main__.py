@@ -29,7 +29,7 @@ def confirm_prompt(question):
         reply = input(f"{question} (y/n): ").lower()
     return (reply in ("", "y"))
 
-# settings re-grouped a bit 
+# settings re-grouped a bit
 def main():
     parser = argparse.ArgumentParser(description='cellpose parameters')
     
@@ -57,15 +57,15 @@ def main():
     parser.add_argument('--all_channels', action='store_true', help='use all channels in image if using own model and images with special channels')
     
     # model settings 
-    parser.add_argument('--model_dir', required=False,
-                        default=None, type=str, help='directory with built-in models, default is $HOME/.cellpose/models/')
+#     parser.add_argument('--model_dir', required=False,
+#                         default=None, type=str, help='directory with built-in models, default is $HOME/.cellpose/models/')
     parser.add_argument('--unet', required=False,
                         default=0, type=int, help='run standard unet instead of cellpose flow output')
     parser.add_argument('--nclasses', required=False,
                         default=3, type=int, 
                         help='if running unet, choose 2 or 3; if training skel, choose 4; standard Cellpose uses 3')
 
-    # settings cellpose algorithm 
+    # cellpose algorithm settings
     parser.add_argument('--skel', action='store_true', help='flag to enable "skeletonized" algorithm (disabled by default)')
     parser.add_argument('--fast_mode', action='store_true', help="make code run faster by turning off 4 network averaging")
     parser.add_argument('--resample', action='store_true', help="run dynamics on full image (slower for images with large diameters)")
@@ -77,14 +77,14 @@ def main():
     parser.add_argument('--stitch_threshold', required=False, default=0.0, type=float,
                         help='compute masks in 2D then stitch together masks with IoU>0.9 across planes')
     parser.add_argument('--flow_threshold', required=False, 
-                        default=0.0, type=float, help='flow error threshold, 0 turns off this optional QC step')
+                        default=0.4, type=float, help='flow error threshold, 0 turns off this optional QC step')
     parser.add_argument('--dist_threshold', required=False, 
-                        default=-1.0, type=float, help='cell distance threshold')
+                        default=0, type=float, help='cell distance threshold')
     parser.add_argument('--diam_threshold', required=False, default=12.0, type=float, 
                         help='cell diameter threshold for upscaling before mask rescontruction, default 12.')
     parser.add_argument('--exclude_on_edges', action='store_true', help='discard masks which touch edges of image')
     
-    # settings for output
+    # output settings
     parser.add_argument('--save_png', action='store_true', help='save masks as png and outlines as text file for ImageJ')
     parser.add_argument('--save_tif', action='store_true', help='save masks as tif and outlines as text file for ImageJ')
     parser.add_argument('--no_npy', action='store_false', help='suppress saving of npy')
@@ -97,7 +97,7 @@ def main():
     parser.add_argument('--save_ncolor', action='store_true', help='whether or not to save minimal "n-color" masks (disabled by default')
     parser.add_argument('--save_txt', action='store_true', help='flag to enable txt outlines for ImageJ (disabled by default)')
 
-    # settings for training
+    # training settings
     parser.add_argument('--train', action='store_true', help='train network using images in dir')
     parser.add_argument('--train_size', action='store_true', help='train size network at end of training')
     parser.add_argument('--mask_filter', required=False, 
@@ -122,6 +122,8 @@ def main():
     
     # misc settings
     parser.add_argument('--verbose', action='store_true', help='flag to output extra information (e.g. diameter metrics) for debugging and fine-tuning parameters')
+    parser.add_argument('--testing', action='store_true', help='flag to suppress CLI user confirmation for saving output; for test scripts')
+
 
 
     args = parser.parse_args()
@@ -186,23 +188,19 @@ def main():
             imf = None
 
 
-        device, gpu = models.assign_device((not args.mxnet), args.use_gpu)
-        if isinstance(args.model_dir, str) and os.path.exists(args.model_dir):
-            model_dir = args.model_dir 
-            logger.info(f'using built-in models in directory {model_dir}')
-        else:
-            model_dir = models.model_dir_builtin         
-
-        if not args.train and not args.train_size:
-            # Might want to add a Y/N prompt as well for this for conveneience
+        # Check with user
+        if not (args.train or args.train_size):
             saving_something = args.save_png or args.save_tif or args.save_flows or args.save_ncolor or args.save_txt
-            if not saving_something:
+            if not (saving_something or args.testing): 
                 logger.info('>>>> Running without saving any output.')
                 confirm = confirm_prompt('Proceed Anyway?')
                 if not confirm:
                     exit()
                     
-            
+                    
+        device, gpu = models.assign_device((not args.mxnet), args.use_gpu)
+
+        if not args.train and not args.train_size:
             tic = time.time()
             if not (args.pretrained_model=='cyto' or args.pretrained_model=='nuclei' or args.pretrained_model=='cyto2'):
                 cpmodel_path = args.pretrained_model
@@ -218,8 +216,6 @@ def main():
                 
             cstr0 = ['GRAY', 'RED', 'GREEN', 'BLUE']
             cstr1 = ['NONE', 'RED', 'GREEN', 'BLUE']
-            
-
             logger.info('>>>> running cellpose on %d images using chan_to_seg %s and chan (opt) %s'%
                             (nimg, cstr0[channels[0]], cstr1[channels[1]]))
                     
@@ -232,7 +228,7 @@ def main():
             else:
                 if args.all_channels:
                     channels = None  
-                model = models.CellposeModel(gpu=gpu, device=device,
+                model = models.CellposeModel(gpu=gpu, device=device, 
                                              pretrained_model=cpmodel_path,
                                              torch=(not args.mxnet))
 
@@ -285,8 +281,7 @@ def main():
                 if args.mxnet and args.pretrained_model=='cyto2':
                     logger.warning('cyto2 model not available in mxnet, using cyto model')
                     args.pretrained_model = 'cyto'
-                torch_str = ['torch', '']
-                cpmodel_path = os.fspath(model_dir.joinpath('%s%s_0'%(args.pretrained_model, torch_str[args.mxnet])))
+                cpmodel_path = models.model_path(args.pretrained_model, 0, not args.mxnet)
                 if args.pretrained_model=='cyto':
                     szmean = 30.
                 else:

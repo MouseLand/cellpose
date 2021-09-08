@@ -37,7 +37,7 @@ def test_class_2D(data_dir, image_names):
         model = models.Cellpose(model_type=model_type)
         masks, flows, _, _ = model.eval(img, diameter=0, channels=[chan[m],chan2[m]], net_avg=False)
         io.imsave(str(data_dir.joinpath('2D').joinpath('rgb_2D_cp_masks.png')), masks)
-        io.imsave('/home/kcutler/DataDrive/cellpose_debug/rgb_2D_cp_masks.png', masks)
+#         io.imsave('/home/kcutler/DataDrive/cellpose_debug/rgb_2D_cp_masks.png', masks)
         compare_masks(data_dir, [image_name], '2D', model_type)
         clear_output(data_dir, image_names)
         if MATPLOTLIB:
@@ -65,6 +65,7 @@ def test_class_3D(data_dir, image_names):
         model = models.Cellpose(model_type='nuclei')
         masks = model.eval(img, do_3D=True, diameter=25, channels=[chan[m],chan2[m]], net_avg=False)[0]
         io.imsave(str(data_dir.joinpath('3D').joinpath('rgb_3D_cp_masks.tif')), masks)
+        io.imsave('/home/kcutler/DataDrive/cellpose_debug/rgb_3D_cp_masks.tif', masks)
         compare_masks(data_dir, ['rgb_3D.tif'], '3D', model_type)
         clear_output(data_dir, image_names)
         
@@ -135,7 +136,6 @@ def compare_masks(data_dir, image_names, runtype, model_type):
                 matching_pix = np.logical_and(masks_test>0, masks_true>0).mean()
                 all_pix = (masks_test>0).mean()
                 pix_precision = np.allclose(all_pix, matching_pix, rtol=r_tol, atol=a_tol)
-                print('hello',all([ap_precision, pix_precision]),ap_precision, pix_precision)
                 assert all([ap_precision, pix_precision])
             else:
                 print('ERROR: no output file of name %s found'%output_test)

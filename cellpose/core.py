@@ -519,7 +519,8 @@ class UnetModel():
             1D array summarizing the style of the image, averaged over tiles
 
         """
-
+        print('>>>>> RUNNING TILED')
+        
         if imgi.ndim==4:
             batch_size = self.batch_size 
             Lz, nchan = imgi.shape[:2]
@@ -648,7 +649,6 @@ class UnetModel():
         pm = [(0,1,2,3), (1,0,2,3), (2,0,1,3)]
         ipm = [(3,0,1,2), (3,1,0,2), (3,1,2,0)]
         yf = np.zeros((3, self.nclasses, imgs.shape[0], imgs.shape[1], imgs.shape[2]), np.float32)
-        print('>>>',yf.shape)
         for p in range(3 - 2*self.unet):
             xsl = imgs.copy().transpose(pm[p])
             # rescale image for flow computation
@@ -664,6 +664,7 @@ class UnetModel():
             yf[p] = y.transpose(ipm[p])
             if progress is not None:
                 progress.setValue(25+15*p)
+        print('kkkkkk',[[np.ptp(yf[j,i]) for i in range(self.nclasses)] for j in range(3)])
         return yf, style
 
     def loss_fn(self, lbl, y):

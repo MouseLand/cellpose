@@ -191,11 +191,17 @@ def make_tiles(imgi, bsize=224, augment=False, tile_overlap=0.1):
 
 # needs to have a wider range to avoid weird effects with few cells in frame
 # also turns out previous fomulation can give negative numbers 
-def normalize99(img,lower=0.01,upper=99.99):
+def normalize99(img,lower=0.01,upper=99.99,skel=False):
     """ normalize image so 0.0 is 0.01st percentile and 1.0 is 99.99th percentile """
     X = img.copy()
-    X = np.interp(X, (np.percentile(X, lower), np.percentile(X, upper)), (0, 1))
+    if skel:
+        X = np.interp(X, (np.percentile(X, lower), np.percentile(X, upper)), (0, 1))
+    else:
+        x01 = np.percentile(X, 1)
+        x99 = np.percentile(X, 99)
+        X = (X - x01) / (x99 - x01)
     return X
+
 
 def move_axis(img, m_axis=-1, first=True):
     """ move axis m_axis to first or last position """
@@ -764,7 +770,6 @@ def random_rotate_and_resize(X, Y=None, scale_range=1., gamma_range=0.5, xy = (2
                         cellpx = np.sum(lbl[n,0]>0)
                         
                         if cellpx<10 or cellpx==numpx :
-#                             print('cellpx is',cellpx,', trying again. Size was',xy,' pixel count', numpx,'Index is',inds[n])
                             return random_rotate_and_resize(X, Y=Y, scale_range=scale_range, gamma_range=gamma_range, xy=xy, 
                                                             do_flip=do_flip, rescale=rescale, unet=unet, inds=inds, depth=depth+1)
 
@@ -812,15 +817,14 @@ def random_rotate_and_resize(X, Y=None, scale_range=1., gamma_range=0.5, xy = (2
     return imgi, lbl, np.mean(scale) #for size training, must output scalar size (need to check this again)
 
 
-def normalize_field(mu):
+# I have the skel flag here just in case, but it actually does not affect the tests
+def normalize_field(mu,skel=True):
+    if skel:
         mag = np.sqrt(np.nansum(mu**2,axis=0))
-#         mag = np.linalg.norm(mu,axis=0)+1e-8
         mu = np.divide(mu, mag, out=np.zeros_like(mu), where=np.logical_and(mag!=0,~np.isnan(mag)))
-#         mag = np.nansum(mu**2,axis=0)
-#         mu = np.divide(mu**2, mag, out=np.zeros_like(mu), where=np.logical_and(mag!=0,~np.isnan(mag)))**0.5
-#         theta = np.arctan2(mu[0],mu[1])
-#         mu = np.stack((np.sin(theta),np.cos(theta)))
-        return mu
+    else:
+        mu /= (1e-20 + (mu**2).sum(axis=0)**0.5)
+    return mu
 
 
 def _X2zoom(img, X2=1):

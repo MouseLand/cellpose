@@ -262,7 +262,7 @@ def masks_flows_to_seg(images, masks, flows, diams, file_names, channels=None):
                         'masks': masks.astype(np.uint16) if outlines.max()<2**16-1 else masks.astype(np.uint32),
                         'chan_choose': channels,
                         'img': images,
-                        'ismanual': np.zeros(masks.max(), np.bool),
+                        'ismanual': np.zeros(masks.max(), bool),
                         'filename': file_names,
                         'flows': flowi,
                         'est_diam': diams})
@@ -274,7 +274,7 @@ def masks_flows_to_seg(images, masks, flows, diams, file_names, channels=None):
                         'outlines': outlines.astype(np.uint16) if outlines.max()<2**16-1 else outlines.astype(np.uint32),
                      'masks': masks.astype(np.uint16) if masks.max()<2**16-1 else masks.astype(np.uint32),
                      'chan_choose': channels,
-                     'ismanual': np.zeros(masks.max(), np.bool),
+                     'ismanual': np.zeros(masks.max(), bool),
                      'filename': file_names,
                      'flows': flowi,
                      'est_diam': diams})    
@@ -371,7 +371,6 @@ def save_masks(images, masks, flows, file_names, png=True, tif=False, channels=[
     if tif:
         exts.append('.tif')
 
-
     # format_labels will also automatically use lowest bit depth possible 
     masks = utils.format_labels(masks) 
 
@@ -379,7 +378,6 @@ def save_masks(images, masks, flows, file_names, png=True, tif=False, channels=[
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         for ext in exts:
-#             print(os.path.join(maskdir,basename + '_cp_masks' + suffix + ext))
             imsave(os.path.join(maskdir,basename + '_cp_masks' + suffix + ext), masks)
             
     if png and MATPLOTLIB and not min(images.shape) > 3:

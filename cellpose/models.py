@@ -71,7 +71,7 @@ class Cellpose():
         overwrite the built in model directory where cellpose looks for models
 
     """
-    def __init__(self, gpu=False, model_type='cyto', net_avg=True, device=None, torch=True, model_dir=None):
+    def __init__(self, gpu=False, model_type='cyto', net_avg=True, device=None, torch=True, model_dir=None, skel=False):
         super(Cellpose, self).__init__()
         if not torch:
             if not MXNET_ENABLED:
@@ -86,6 +86,8 @@ class Cellpose():
         if model_type=='cyto2' and not self.torch:
             model_type='cyto'
         
+        self.skel = skel        
+        
         self.pretrained_model = [model_path(model_type, j, torch) for j in range(4)]
         self.pretrained_size = size_model_path(model_type, torch)
         self.diam_mean = 30. if model_type!='nuclei' else 17.
@@ -95,7 +97,7 @@ class Cellpose():
 
         self.cp = CellposeModel(device=self.device, gpu=self.gpu,
                                 pretrained_model=self.pretrained_model,
-                                diam_mean=self.diam_mean, torch=self.torch)
+                                diam_mean=self.diam_mean, torch=self.torch, skel=self.skel)
         self.cp.model_type = model_type
 
         self.sz = SizeModel(device=self.device, pretrained_size=self.pretrained_size,
@@ -105,7 +107,7 @@ class Cellpose():
     def eval(self, x, batch_size=8, channels=None, channel_axis=None, z_axis=None,
              invert=False, normalize=True, diameter=30., do_3D=False, anisotropy=None,
              net_avg=True, augment=False, tile=True, tile_overlap=0.1, resample=False, interp=True, cluster=False,
-             flow_threshold=0.0, dist_threshold=0.0, diam_threshold=12., min_size=15, stitch_threshold=0.0, 
+             flow_threshold=0.4, dist_threshold=0.0, diam_threshold=12., min_size=15, stitch_threshold=0.0, 
              rescale=None, progress=None, skel=False, verbose=False):
         """ run cellpose and get masks
 
@@ -609,7 +611,6 @@ class CellposeModel(UnetModel):
                                                    interp=interp, cluster=cluster, do_3D=do_3D, min_size=min_size,
                                                    resize=None, skel=skel, calc_trace=calc_trace, verbose=verbose)
             else:
-                print('AAAAA',dP.shape,resample)
                 masks = np.zeros((nimg, shape[1], shape[2]), np.uint16)
                 p = np.zeros((2, nimg, shape[1], shape[2]) if not resample else dP.shape, np.uint16)
 #                 p = np.zeros(dP.shape, np.uint16)
@@ -647,34 +648,22 @@ class CellposeModel(UnetModel):
             mask = filters.apply_hysteresis_threshold(dist, dist_threshold-1, dist_threshold) # good for thin features
         else:
             mask = dist > dist_threshold # analog to original iscell=(cellprob>cellprob_threshold)
-        
-        print('VVVVVV',dP.shape,flow_threshold)
-        
+                
         if np.any(mask): #mask at this point is a cell cluster binary map, not labels 
             if not skel: # use original algorthm 
                 if verbose:
                     print('using original mask reconstruction algorithm')
                 if p is None:
-                    file = '/home/kcutler/DataDrive/cellpose_debug/dP_kevin.npy'
-                    if not os.path.exists(file):
-                        np.save(file,dP)
                     p , inds, tr = dynamics.follow_flows(dP * mask / 5., mask=mask, niter=niter, interp=interp, 
                                                          use_gpu=self.gpu, device=self.device, skel=skel, calc_trace=calc_trace)
-                    file = '/home/kcutler/DataDrive/cellpose_debug/p_kevin.npy'
-                    if not os.path.exists(file):
-                        np.save(file,p)
 
-                    print('ff_output',np.ptp(p),np.std(p),np.ptp(dP),np.std(dP),np.count_nonzero(mask))
                 else: 
                     inds,tr = [],[]
                     if verbose:
                         print('p given')
                 mask = dynamics.get_masks(p, iscell=mask,flows=dP, threshold=flow_threshold if not do_3D else None, 
                                           use_gpu=self.gpu)
-                print('heremask',np.unique(mask),np.count_nonzero(mask))
-#                 file = '/home/kcutler/DataDrive/cellpose_debug/mask_kevin.npy'
-#                 if not os.path.exists(file):
-#                     np.save(file,mask)
+
             else: # use new algorithm
                 Ly,Lx = mask.shape
                 if self.nclasses == 4:
@@ -768,10 +757,10 @@ class CellposeModel(UnetModel):
                     LL = label(skelmask,connectivity=1) 
                     mask[inds[:,0],inds[:,1]] = LL[newinds[:,0],newinds[:,1]]
 
-            # quality control
-            if flow_threshold is not None and flow_threshold > 0 and dP is not None:
-                mask = dynamics.remove_bad_flow_masks(mask, dP, threshold=flow_threshold, skel=skel)
-            
+            # quality control - this got removed in recent version of cellpose??? or did I add it? 
+#             if flow_threshold is not None and flow_threshold > 0 and dP is not None:
+#                 mask = dynamics.remove_bad_flow_masks(mask, dP, threshold=flow_threshold, skel=skel)
+
             if resize is not None:
                 if verbose:
                     print('resizing output with resize', resize)
@@ -781,7 +770,8 @@ class CellposeModel(UnetModel):
                 for k in range(2):
                     pi[k] = cv2.resize(p[k], (Lx, Ly), interpolation=cv2.INTER_NEAREST)
                 p = pi       
-        else: # nothing to compute, just make it compatible 
+        else: # nothing to compute, just make it compatible
+            print('No cell pixels found.')
             p = np.zeros([2,1,1])
             tr = []
             mask = np.zeros(resize)
@@ -942,6 +932,10 @@ class SizeModel():
 
         pretrained_size: str
             path to pretrained size model
+            
+        skel: bool
+            whether or not to use distance-based size metrics
+            corresponding to 'skel' model 
 
     """
     def __init__(self, cp_model, device=None, pretrained_size=None, **kwargs):
@@ -1053,8 +1047,6 @@ class SizeModel():
         diam_style = self._size_estimation(np.array(styles))
         diam_style = self.diam_mean if (diam_style==0 or np.isnan(diam_style)) else diam_style
         
-        # gets fucked up here... so masks likely different
-        print('CCCCCCC',channels,channel_axis,normalize,invert,augment,tile)
         masks = self.cp.eval(x, 
                              channels=channels, 
                              channel_axis=channel_axis, 
@@ -1072,18 +1064,14 @@ class SizeModel():
                              interp=False,
 #                              flow_threshold=0,
                              skel=skel)[0]
-        print('MMMMMM',np.unique(masks),np.count_nonzero(masks),masks.shape)
-        print('HHHHHH',self.pretrained_size,self.cp)
+        
         # allow backwards compatibility to older scale metric
         diam = utils.diameters(masks,skel=skel)[0]
-        print('DDDDDDD',diam,self.diam_mean)
         if hasattr(self, 'model_type') and (self.model_type=='nuclei' or self.model_type=='cyto') and not self.torch and not skel:
             diam_style /= (np.pi**0.5)/2
             diam = self.diam_mean / ((np.pi**0.5)/2) if (diam==0 or np.isnan(diam)) else diam
-            print('INHERE')
         else:
             diam = self.diam_mean if (diam==0 or np.isnan(diam)) else diam
-        print('BbBBBBB',diam, diam_style)
         return diam, diam_style
 
     def _size_estimation(self, style):
@@ -1146,12 +1134,10 @@ class SizeModel():
         else:
             cp_model_path = self.cp.pretrained_model
         
-#         print('skel is',skel)
         diam_train = np.array([utils.diameters(lbl,skel=skel)[0] for lbl in train_labels])
         if run_test: 
             diam_test = np.array([utils.diameters(lbl,skel=skel)[0] for lbl in test_labels])
         
-#         print('diam_train',diam_train)
         # remove images with no masks
         for i in range(len(diam_train)):
             if diam_train[i]==0.0:
