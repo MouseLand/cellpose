@@ -195,6 +195,7 @@ def normalize99(img,lower=0.01,upper=99.99,skel=False):
     """ normalize image so 0.0 is 0.01st percentile and 1.0 is 99.99th percentile """
     X = img.copy()
     if skel:
+        print('running kevin version of normalize99')
         X = np.interp(X, (np.percentile(X, lower), np.percentile(X, upper)), (0, 1))
     else:
         x01 = np.percentile(X, 1)
@@ -249,7 +250,7 @@ def update_axis(m_axis, to_squeeze, ndim):
 
 def convert_image(x, channels, channel_axis=None, z_axis=None,
                   do_3D=False, normalize=True, invert=False,
-                  nchan=2):
+                  nchan=2, skel=False):
     """ return image with z first, channels last and normalized intensities """
         
     # squeeze image, and if channel_axis or z_axis given, transpose image
@@ -312,7 +313,7 @@ def convert_image(x, channels, channel_axis=None, z_axis=None,
                                 axis=-1)
             
     if normalize or invert:
-        x = normalize_img(x, invert=invert)
+        x = normalize_img(x, invert=invert, skel=skel)
         
     return x
 
@@ -372,7 +373,7 @@ def reshape(data, channels=[0,0], chan_first=False):
             data = np.transpose(data, (2,0,1))
     return data
 
-def normalize_img(img, axis=-1, invert=False):
+def normalize_img(img, axis=-1, invert=False, skel=False):
     """ normalize each channel of the image so that so that 0.0=1st percentile
     and 1.0=99th percentile of image intensities
 
@@ -401,13 +402,13 @@ def normalize_img(img, axis=-1, invert=False):
     img = np.moveaxis(img, axis, 0)
     for k in range(img.shape[0]):
         if np.ptp(img[k]) > 0.0:
-            img[k] = normalize99(img[k])
+            img[k] = normalize99(img[k],skel=skel)
             if invert:
                 img[k] = -1*img[k] + 1   
     img = np.moveaxis(img, 0, axis)
     return img
 
-def reshape_train_test(train_data, train_labels, test_data, test_labels, channels, normalize):
+def reshape_train_test(train_data, train_labels, test_data, test_labels, channels, normalize, skel=False):
     """ check sizes and reshape train and test data for training """
     nimg = len(train_data)
     # check that arrays are correct size
@@ -435,7 +436,7 @@ def reshape_train_test(train_data, train_labels, test_data, test_labels, channel
 
     # make data correct shape and normalize it so that 0 and 1 are 1st and 99th percentile of data
     train_data, test_data, run_test = reshape_and_normalize_data(train_data, test_data=test_data, 
-                                                                 channels=channels, normalize=normalize)
+                                                                 channels=channels, normalize=normalize, skel=skel)
 
     if train_data is None:
         error_message = 'training data do not all have the same number of channels'
@@ -449,7 +450,7 @@ def reshape_train_test(train_data, train_labels, test_data, test_labels, channel
 
     return train_data, train_labels, test_data, test_labels, run_test
 
-def reshape_and_normalize_data(train_data, test_data=None, channels=None, normalize=True):
+def reshape_and_normalize_data(train_data, test_data=None, channels=None, normalize=True, skel=False):
     """ inputs converted to correct shapes for *training* and rescaled so that 0.0=1st percentile
     and 1.0=99th percentile of image intensities in each channel
 
@@ -498,7 +499,7 @@ def reshape_and_normalize_data(train_data, test_data=None, channels=None, normal
             if data[i].ndim < 3:
                 data[i] = data[i][np.newaxis,:,:]
             if normalize:
-                data[i] = normalize_img(data[i], axis=0)
+                data[i] = normalize_img(data[i], axis=0, skel=skel)
         nchan = [data[i].shape[0] for i in range(nimg)]
         transforms_logger.info('%s channels = %d'%(['train', 'test'][test], nchan[0]))
     run_test = True

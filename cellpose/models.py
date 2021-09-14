@@ -504,7 +504,7 @@ class CellposeModel(UnetModel):
         
         else:
             x = transforms.convert_image(x, channels, channel_axis=channel_axis, z_axis=z_axis,
-                                         do_3D=(do_3D or stitch_threshold>0), normalize=False, invert=False, nchan=self.nchan)
+                                         do_3D=(do_3D or stitch_threshold>0), normalize=False, invert=False, nchan=self.nchan, skel=skel)
             if x.ndim < 4:
                 x = x[np.newaxis,...]
             self.batch_size = batch_size
@@ -556,7 +556,7 @@ class CellposeModel(UnetModel):
         if do_3D:
             img = np.asarray(x)
             if normalize or invert:
-                img = transforms.normalize_img(img, invert=invert)
+                img = transforms.normalize_img(img, invert=invert, skel=skel)
             yf, styles = self._run_3D(img, rsz=rescale, anisotropy=anisotropy, 
                                       net_avg=net_avg, augment=augment, tile=tile,
                                       tile_overlap=tile_overlap)
@@ -582,7 +582,7 @@ class CellposeModel(UnetModel):
             for i in iterator:
                 img = np.asarray(x[i])
                 if normalize or invert:
-                    img = transforms.normalize_img(img, invert=invert)
+                    img = transforms.normalize_img(img, invert=invert, skel=skel)
                 if rescale != 1.0:
                     img = transforms.resize_image(img, rsz=rescale)
 
@@ -714,7 +714,7 @@ class CellposeModel(UnetModel):
                 div = np.zeros(Ly*Lx, np.float64)
                 div[Y*Lx+X]=(Ty[(Y+2)*Lx+X]+8*Ty[(Y+1)*Lx+X]-8*Ty[(Y-1)*Lx+X]-Ty[(Y-2)*Lx+X]+
                              Tx[Y*Lx+X+2]+8*Tx[Y*Lx+X+1]-8*Tx[Y*Lx+X-1]-Tx[Y*Lx+X-2])
-                div = transforms.normalize99(div)
+                div = transforms.normalize99(div,skel=True)
                 div.shape = (Ly,Lx)
                 #add sigmoid on boundary output to help push pixels away - the final bit needed in some cases!
                 # specifically, places where adjacent cell flows are too colinear and therefore had low divergence
@@ -901,7 +901,7 @@ class CellposeModel(UnetModel):
         print('Training with rescale = ',rescale)
         train_data, train_labels, test_data, test_labels, run_test = transforms.reshape_train_test(train_data, train_labels,
                                                                                                    test_data, test_labels,
-                                                                                                   channels, normalize)
+                                                                                                   channels, normalize, skel)
         # check if train_labels have flows
         train_flows = dynamics.labels_to_flows(train_labels, files=train_files, use_gpu=self.gpu, device=self.device, skel=skel)
         if run_test:
@@ -1125,7 +1125,7 @@ class SizeModel():
         self.cp.batch_size = batch_size
         train_data, train_labels, test_data, test_labels, run_test = transforms.reshape_train_test(train_data, train_labels,
                                                                                                    test_data, test_labels,
-                                                                                                   channels, normalize)
+                                                                                                   channels, normalize, skel)
         if isinstance(self.cp.pretrained_model, list):
             cp_model_path = self.cp.pretrained_model[0]
             self.cp.net.load_model(cp_model_path, cpu=(not self.cp.gpu))
