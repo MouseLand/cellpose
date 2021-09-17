@@ -8,6 +8,19 @@ install_deps = ['numpy>1.20.0', 'scipy', 'natsort',
                 'opencv-python-headless',
                 'edt','scikit-image','fastremap','torch_optimizer']
 
+gui_deps = [
+        'pyqtgraph==0.11.0rc0', 
+        'pyqt5', 
+        'pyqt5.sip',
+        'google-cloud-storage'
+        ]
+
+docs_deps = [
+        'sphinx>=3.0',
+        'sphinxcontrib-apidoc',
+        'sphinx_rtd_theme',
+      ]
+
 try:
     import torch
     a = torch.ones(2, 3)
@@ -40,17 +53,8 @@ setup(
       'pytest'
     ],
     extras_require = {
-      'docs': [
-        'sphinx>=3.0',
-        'sphinxcontrib-apidoc',
-        'sphinx_rtd_theme',
-      ],
-      'gui': [
-        'pyqtgraph==0.11.0rc0', 
-        'pyqt5', 
-        'pyqt5.sip',
-        'google-cloud-storage'
-        ]
+      'docs': docs_deps,
+      'gui': gui_deps
     },
     include_package_data=True,
     classifiers=(
