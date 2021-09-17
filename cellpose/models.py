@@ -9,8 +9,12 @@ import cv2
 import torch
 import fastremap
 from scipy.ndimage.morphology import binary_dilation, binary_opening
-from skimage.morphology import diameter_opening
-from sklearn.cluster import DBSCAN
+#from skimage.morphology import diameter_opening
+try:
+    from sklearn.cluster import DBSCAN
+    SKLEARN_ENABLED = True 
+except:
+    SKLEARN_ENABLED = False
 
 
 
@@ -726,7 +730,7 @@ class CellposeModel(UnetModel):
                 mask = np.zeros((p.shape[1],p.shape[2]))
 
                 # the eps parameter needs to be adjustable... maybe a function of the distance
-                if cluster:
+                if cluster and SKLEARN_ENABLED:
                     db = DBSCAN(eps=eps, min_samples=3,n_jobs=8).fit(newinds)
                     labels = db.labels_
                     mask[inds[:,0],inds[:,1]] = labels+1
