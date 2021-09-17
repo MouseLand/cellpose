@@ -238,7 +238,7 @@ def _load_seg(parent, filename=None, image=None, image_file=None):
     else:
         parent.clear_all()
 
-    parent.ismanual = np.zeros(parent.ncells, np.bool)
+    parent.ismanual = np.zeros(parent.ncells, bool)
     if 'ismanual' in dat:
         if len(dat['ismanual']) == parent.ncells:
             parent.ismanual = dat['ismanual']
@@ -335,7 +335,7 @@ def _masks_to_gui(parent, masks, outlines=None):
     parent.draw_masks()
     if parent.ncells>0:
         parent.toggle_mask_ops()
-    parent.ismanual = np.zeros(parent.ncells, np.bool)
+    parent.ismanual = np.zeros(parent.ncells, bool)
     parent.zdraw = list(-1*np.ones(parent.ncells, np.int16))
     parent.update_plot()
 
