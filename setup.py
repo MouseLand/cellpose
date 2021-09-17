@@ -1,10 +1,12 @@
 import setuptools
 from setuptools import setup
 
-install_deps = ['numpy', 'scipy', 'natsort',
+install_deps = ['numpy>1.20.0', 'scipy', 'natsort',
                 'tifffile', 'tqdm', 'numba', 
                 'torch>=1.6',
-                'opencv-python-headless']
+                'pytorch_optimizer',
+                'opencv-python-headless',
+                'edt','scikit-image','fastremap','torch_optimizer']
 
 try:
     import torch
