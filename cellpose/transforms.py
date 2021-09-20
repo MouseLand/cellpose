@@ -710,7 +710,6 @@ def random_rotate_and_resize(X, Y=None, scale_range=1., gamma_range=0.5, xy = (2
                 scale[n,:] *= 1. / rescale[n]
             
 
-        
         # image dimensions are always the last two in the stack 
         Ly, Lx = img.shape[-2:]
         
@@ -819,10 +818,11 @@ def random_rotate_and_resize(X, Y=None, scale_range=1., gamma_range=0.5, xy = (2
 
 
 # I have the skel flag here just in case, but it actually does not affect the tests
-def normalize_field(mu,skel=True):
+def normalize_field(mu,skel=False):
     if skel:
-        mag = np.sqrt(np.nansum(mu**2,axis=0))
-        mu = np.divide(mu, mag, out=np.zeros_like(mu), where=np.logical_and(mag!=0,~np.isnan(mag)))
+        mag = np.sqrt(np.nansum(mu**2,axis=0))      
+#         mu = np.divide(mu, mag, out=np.zeros_like(mu), where=np.logical_and(mag!=0,~np.isnan(mag)))
+        # idea: only 
     else:
         mu /= (1e-20 + (mu**2).sum(axis=0)**0.5)
     return mu

@@ -211,7 +211,7 @@ class Cellpose():
             tic = time.time()
             models_logger.info('~~~ ESTIMATING CELL DIAMETER(S) ~~~')
             diams, _ = self.sz.eval(x, channels=channels, channel_axis=channel_axis, invert=invert, batch_size=batch_size, 
-                                    augment=augment, tile=tile,normalize=normalize)
+                                    augment=augment, tile=tile, normalize=normalize)
             rescale = self.diam_mean / np.array(diams)
             diameter = None
             models_logger.info('estimated cell diameter(s) in %0.2f sec'%(time.time()-tic))
@@ -251,6 +251,7 @@ class Cellpose():
                                             tile_overlap=tile_overlap,
                                             resample=resample,
                                             interp=interp,
+                                            cluster=cluster,
                                             flow_threshold=flow_threshold, 
                                             dist_threshold=dist_threshold,
                                             diam_threshold=diam_threshold,
@@ -321,14 +322,14 @@ class CellposeModel(UnetModel):
             if (pretrained_model_string !='cyto' 
                 and pretrained_model_string !='nuclei' 
                 and pretrained_model_string != 'cyto2'
-                and pretrained_model_string !='skel') or pretrained_model_string is None:
+                and pretrained_model_string !='skel') or pretrained_model_string is None: # plan to have a built-in skel model
                 pretrained_model_string = 'cyto'
             pretrained_model = None 
             if (pretrained_model and not os.path.exists(pretrained_model[0])):
                 models_logger.warning('pretrained model has incorrect path')
             models_logger.info(f'>>{pretrained_model_string}<< model set to be used')
             
-            diam_mean = 30. if pretrained_model_string!='nuclei'  else 17. # cyto2 still uses 17, right? 
+            diam_mean = 30. if pretrained_model_string!='nuclei' else 17. # cyto2 still uses 17, right? 
             
             pretrained_model = [model_path(pretrained_model_string, j, torch) for j in range(4)]
             pretrained_model = pretrained_model[0] if not net_avg else pretrained_model 
@@ -345,6 +346,7 @@ class CellposeModel(UnetModel):
                          diam_mean=diam_mean, net_avg=net_avg, device=device,
                          residual_on=residual_on, style_on=style_on, concatenation=concatenation,
                          nclasses=nclasses, torch=torch, nchan=nchan)
+
         self.unet = False
         self.pretrained_model = pretrained_model
         if self.pretrained_model and len(self.pretrained_model)==1:
@@ -460,6 +462,9 @@ class CellposeModel(UnetModel):
                 style vector summarizing each image, also used to estimate size of objects in image
 
         """
+        if verbose:
+            print('Evaluating with skel',skel,', cluster', cluster,', flow_threshold', flow_threshold)
+        
         
         if isinstance(x, list) or x.squeeze().ndim==5:
             masks, styles, flows = [], [], []

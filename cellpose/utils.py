@@ -671,3 +671,10 @@ def format_labels(labels, clean=False, min_area=9):
     fastremap.renumber(labels,in_place=True) # convenient to have unit increments from 1 to N cells
     labels = fastremap.refit(labels) # put into smaller data type if possible 
     return labels
+
+# By testing for convergence across a range of superellipses, I found that the following
+# ratio guarantees convergence. The edt() package gives a quick (but rough) distance field,
+# and it allows us to find a least upper bound for the number of iterations needed for our
+# smooth distance field computation. 
+def get_niter(dists):
+    return np.ceil(np.max(dists)*1.16).astype(int)+1
