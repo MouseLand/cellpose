@@ -642,8 +642,16 @@ def format_labels(labels, clean=False, min_area=9):
     Optional clean flag: disconnect and disjoint masks and discard small masks beflow min_area. 
     min_area default is 9px. 
     """
-    labels = labels.astype('int32') # no one is going to have more than 2^32 -1 cells in one frame, right?
-    labels -= np.min(labels) # some people put -1 as background...
+    
+    # Labels are stored as a part of a float array in Cellpose, so it must be cast back here.
+    # some people also use -1 as background, so we must cast to the signed integar class. We
+    # can safely assume no 2D or 3D image will have more than 2^31 cells. Finally, cv2 does not
+    # play well with unsigned integers (saves to default uint8), so we cast to uint32. 
+    labels = labels.astype('int32') 
+    labels -= np.min(labels) 
+    labels = labels.astype('uint32') 
+    
+    # optional cleanup 
     if clean:
         inds = np.unique(labels)
         for j in inds[inds>0]:

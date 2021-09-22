@@ -195,7 +195,6 @@ def normalize99(img,lower=0.01,upper=99.99,skel=False):
     """ normalize image so 0.0 is 0.01st percentile and 1.0 is 99.99th percentile """
     X = img.copy()
     if skel:
-        print('running kevin version of normalize99')
         X = np.interp(X, (np.percentile(X, lower), np.percentile(X, upper)), (0, 1))
     else:
         x01 = np.percentile(X, 1)
@@ -646,31 +645,25 @@ def random_rotate_and_resize(X, Y=None, scale_range=1., gamma_range=0.5, xy = (2
             amount each image was resized by
 
     """
+    nimg = len(X)
+    dist_bg = 5 # background distance field is set to -dist_bg 
+    scale_range = max(0, min(2, float(scale_range))) # limit overall range to [0,2] i.e. 1+-1 
+    
     if inds is None: # only relevant when debugging 
         inds = np.arange(nimg)
-        
+    
+#     print('yoyo',skel,inds,nimg)
     # backwards compatibility; completely 'stock', no gamma augmentation or any other extra frills. 
     if not skel:
         return original_random_rotate_and_resize(X, Y=[Y[i][1:] for i in inds], scale_range=scale_range, xy=xy,
                                                  do_flip=do_flip, rescale=rescale, unet=unet)
 
-    if depth>5:
-        error_message = 'Recusion depth exceeded. Check that your images contain cells.'
-        transforms_logger.critical(error_message)
-        raise ValueError(error_message)
-        return
 
-    numpx = xy[0]*xy[1]
-
-    dist_bg = 5 # background distance field is set to -dist_bg 
-    scale_range = max(0, min(2, float(scale_range))) # limit overall range to [0,2] i.e. 1+-1 
-    nimg = len(X)
-    
     # While in other parts of Cellpose channels are put last by default, here we have chan x Ly x Lx 
     if X[0].ndim>2:
         nchan = X[0].shape[0] 
     else:
-        nchan = 1
+        nchan = 1 
     imgi  = np.zeros((nimg, nchan, xy[0], xy[1]), np.float32)
         
     lbl = []
@@ -699,132 +692,159 @@ def random_rotate_and_resize(X, Y=None, scale_range=1., gamma_range=0.5, xy = (2
     scale = np.zeros((nimg,2), np.float32)
     for n in range(nimg):
         img = X[n].copy()
-        if Y is not None:
-            labels = Y[n].copy()
-            # We want the scale distibution to have a mean of 1
-            # There may be a better way to skew the distribution to
-            # interpolate the parameter space without skewing the mean 
-            ds = scale_range/2
-            scale[n,:] = np.random.uniform(low=1-ds,high=1+ds,size=2)
-            if rescale is not None:
-                scale[n,:] *= 1. / rescale[n]
-            
-
-        # image dimensions are always the last two in the stack 
-        Ly, Lx = img.shape[-2:]
+        # use recursive function here to pass back single image that was cropped appropriately 
+        imgi[n], lbl[n], scale[n] = random_crop_warp(img, Y[n], nt, xy, nchan, scale[n], rescale[n], scale_range, gamma_range, do_flip, inds[n], dist_bg)
         
-        # generate random augmentation parameters
-        dg = gamma_range/2 
-        flip = np.random.choice([0,1])
-        theta = np.random.rand() * np.pi * 2
-
-        # random translation, take the difference between the scaled dimensions and the crop dimensions
-        dxy = np.maximum(0, np.array([Lx*scale[n,1]-xy[1],Ly*scale[n,0]-xy[0]]))
-        # multiplies by a pair of random numbers from -.5 to .5 (different for each dimension) 
-        dxy = (np.random.rand(2,) - .5) * dxy 
-
-        # create affine transform
-        cc = np.array([Lx/2, Ly/2])
-        # xy are the sizes of the cropped image, so this is the center coordinates minus half the difference
-        cc1 = cc - np.array([Lx-xy[1], Ly-xy[0]])/2 + dxy
-        # unit vectors from the center
-        pts1 = np.float32([cc,cc + np.array([1,0]), cc + np.array([0,1])])
-        # transformed unit vectors
-        pts2 = np.float32([cc1,
-                cc1 + scale[n]*np.array([np.cos(theta), np.sin(theta)]),
-                cc1 + scale[n]*np.array([np.cos(np.pi/2+theta), np.sin(np.pi/2+theta)])])
-        M = cv2.getAffineTransform(pts1,pts2)
-
-        
-        if flip and do_flip:
-            img = img[..., ::-1]
-            if Y is not None:
-                labels = labels[..., ::-1]
-                if nt > 1 and not unet:
-                    labels[3] = -labels[3]
-
-        method = cv2.INTER_LINEAR
-        # the mode determines what happens with out of bounds regions. If we recompute the flow, we can
-        # reflect all the scalar quantities then take the derivative. If we just rotate the field, then
-        # the reflection messes up the directions. For now, we are returning to the default of padding
-        # with zeros. In the future, we may only predict a scalar field and can use reflection to fill
-        # the entire FoV with data - or we can work out how to properly extend the flow field. 
-#         mode = cv2.BORDER_DEFAULT # Does reflection 
-        mode = 0     
-            
-        for k in range(nchan):
-            I = cv2.warpAffine(img[k], M, (xy[1],xy[0]),borderMode=mode, flags=method)
-            gamma = np.random.uniform(low=1-dg,high=1+dg) # allow different gamma per channel 
-            imgi[n,k] = I ** gamma
-    
-        label_method = cv2.INTER_NEAREST
-        if Y is not None:
-            for k in [0,1,2,3,4,5,6]: # was skipping 2 and 3, now not 
-                if not unet:
-                    if k==0:
-                        l = labels[k]
-                        lbl[n,k] = cv2.warpAffine(l, M, (xy[1],xy[0]), borderMode=mode, flags=label_method)
-                        
-                        #check to make sure the region contains at least 10 cell pixels; if not, retry.
-                        # far from the most efficient implmentation, but does not appear to increase training time.
-                        cellpx = np.sum(lbl[n,0]>0)
-                        
-                        if cellpx<10 or cellpx==numpx :
-                            return random_rotate_and_resize(X, Y=Y, scale_range=scale_range, gamma_range=gamma_range, xy=xy, 
-                                                            do_flip=do_flip, rescale=rescale, unet=unet, inds=inds, depth=depth+1)
-
-                    else:
-                        lbl[n,k] = cv2.warpAffine(labels[k], M, (xy[1],xy[0]), borderMode=mode, flags=method)
-                else:
-                    if k==0:
-                        lbl[n,k] = cv2.warpAffine(labels[k], M, (xy[1],xy[0]), flags=cv2.INTER_NEAREST)
-                    else:
-                        lbl[n,k] = cv2.warpAffine(labels[k], M, (xy[1],xy[0]), flags=cv2.INTER_LINEAR)
-            
-            
-                        
-            # For a while I had the heat distribution carried through to re-compute the flow field, but it turns out that the interpolated field
-            # gives better segmentation results. This may be because it reduces the importance of predictions right at skeletons and boundaries,
-            # where more atrifacts tend to occur. 
-            if nt > 1 and not unet:
-                v1 = lbl[n,3].copy() # x component
-                v2 = lbl[n,2].copy() # y component 
-                dy = (-v1 * np.sin(-theta) + v2*np.cos(-theta))
-                dx = (v1 * np.cos(-theta) + v2*np.sin(-theta))
-                
-                mask = lbl[n,6]
-                l = lbl[n,0]
-                dist = edt.edt(l,parallel=8)
-                lbl[n,5] = dist==1
-                
-                lbl[n,3] = 5.*dx*mask # factor of 5 is applied here 
-                lbl[n,2] = 5.*dy*mask
-                
-                # taking the derivative again rather than interpolating it, avoids a lot of artifacts 
-                # at centers and where cells meet, also allows for border reflections effortlessly 
-#                 heat = np.exp(lbl[n,4].copy()) 
-#                 mu = np.stack(np.gradient(heat,edge_order=1))
-#                 mag = (mu**2).sum(axis=0)**0.5
-#                 mu = np.divide(mu, mag, out=np.zeros_like(mu), where=np.logical_and(mag!=0,~np.isnan(mag)))
-
-                dist[dist<=0] = -dist_bg
-                lbl[n,1] = dist
-
-                bg_edt = edt.edt(mask<0.5,black_border=True) #last arg gives weight to the border, which seems to always lose
-                cutoff = 9
-                lbl[n,7] = (gaussian(1-np.clip(bg_edt,0,cutoff)/cutoff,sigma=1)+0.5)
-
     return imgi, lbl, np.mean(scale) #for size training, must output scalar size (need to check this again)
 
+# no unet, no need for backwards compatibility with skel 
+def random_crop_warp(img, Y, nt, xy, nchan, scale, rescale, scale_range, gamma_range, do_flip, ind, dist_bg, depth=0):
+    
+    if depth>5:
+        error_message = 'Recusion depth exceeded. Check that your images contain cells. Failed indices are: '+str(ind)
+        transforms_logger.critical(error_message)
+        raise ValueError(error_message)
+        return
+    
+    do_old = True # Recomputing flow will never work because labels are jagged...
+    lbl = np.zeros((nt, xy[0], xy[1]), np.float32)
+    numpx = xy[0]*xy[1]
+    
+    if Y is not None:
+        labels = Y.copy()
+        # We want the scale distibution to have a mean of 1
+        # There may be a better way to skew the distribution to
+        # interpolate the parameter space without skewing the mean 
+        ds = scale_range/2
+        if do_old:
+            scale = np.random.uniform(low=1-ds,high=1+ds,size=2) #anisotropic
+        else:
+            scale = [np.random.uniform(low=1-ds,high=1+ds,size=1)]*2 # isotropic
+        if rescale is not None:
+            scale *= 1. / rescale
+
+    # image dimensions are always the last two in the stack (again, convention here is different)
+    Ly, Lx = img.shape[-2:]
+
+    # generate random augmentation parameters
+    dg = gamma_range/2 
+    flip = np.random.choice([0,1])
+
+    if do_old:
+        theta = np.random.rand() * np.pi * 2
+    else:
+        theta = np.random.choice([0, np.pi/4, np.pi/2, 3*np.pi/4]) 
+
+    # random translation, take the difference between the scaled dimensions and the crop dimensions
+    dxy = np.maximum(0, np.array([Lx*scale[1]-xy[1],Ly*scale[0]-xy[0]]))
+    # multiplies by a pair of random numbers from -.5 to .5 (different for each dimension) 
+    dxy = (np.random.rand(2,) - .5) * dxy 
+
+    # create affine transform
+    cc = np.array([Lx/2, Ly/2])
+    # xy are the sizes of the cropped image, so this is the center coordinates minus half the difference
+    cc1 = cc - np.array([Lx-xy[1], Ly-xy[0]])/2 + dxy
+    # unit vectors from the center
+    pts1 = np.float32([cc,cc + np.array([1,0]), cc + np.array([0,1])])
+    # transformed unit vectors
+    pts2 = np.float32([cc1,
+            cc1 + scale*np.array([np.cos(theta), np.sin(theta)]),
+            cc1 + scale*np.array([np.cos(np.pi/2+theta), np.sin(np.pi/2+theta)])])
+    M = cv2.getAffineTransform(pts1,pts2)
+
+    if flip and do_flip:
+        img = img[..., ::-1]
+        if Y is not None:
+            labels = labels[..., ::-1]
+            if nt > 1:
+                labels[3] = -labels[3]
+
+    method = cv2.INTER_LINEAR
+    # the mode determines what happens with out of bounds regions. If we recompute the flow, we can
+    # reflect all the scalar quantities then take the derivative. If we just rotate the field, then
+    # the reflection messes up the directions. For now, we are returning to the default of padding
+    # with zeros. In the future, we may only predict a scalar field and can use reflection to fill
+    # the entire FoV with data - or we can work out how to properly extend the flow field. 
+    if do_old:
+        mode = 0
+    else:
+        mode = cv2.BORDER_DEFAULT # Does reflection 
+        
+    label_method = cv2.INTER_NEAREST
+    if Y is not None:
+        for k in [0,1,2,3,4,5,6]: # was skipping 2 and 3, now not 
+            
+            if k==0:
+                l = labels[k]
+                lbl[k] = cv2.warpAffine(l, M, (xy[1],xy[0]), borderMode=mode, flags=label_method)
+
+                #check to make sure the region contains at least 10 cell pixels; if not, retry.
+                # far from the most efficient implmentation, but does not appear to increase training time.
+                cellpx = np.sum(lbl[0]>0)
+
+                if cellpx<10 or cellpx==numpx:
+                    # here is where I should not pass back into full function; separate out into the crop/warp for the individual iamge
+#                         return random_rotate_and_resize(X, Y=Y, scale_range=scale_range, gamma_range=gamma_range, xy=xy, 
+#                                                         do_flip=do_flip, rescale=rescale, unet=unet, inds=inds, depth=depth+1, skel=skel)
+                    return random_crop_warp(img, Y, nt, xy, nchan, scale, rescale, scale_range, gamma_range, do_flip, ind, dist_bg, depth=depth+1)
+
+            else:
+                lbl[k] = cv2.warpAffine(labels[k], M, (xy[1],xy[0]), borderMode=mode, flags=method)
+
+
+        imgi  = np.zeros((nchan, xy[0], xy[1]), np.float32)
+        for k in range(nchan):
+            I = cv2.warpAffine(img[k], M, (xy[1],xy[0]),borderMode=mode, flags=method)
+            gamma = np.random.uniform(low=1-dg,high=1+dg) # allow different gamma per channel
+            imgi[k] = I ** gamma            
+                    
+        # For a while I had the heat distribution carried through to re-compute the flow field, but it turns out that the interpolated field
+        # gives better segmentation results. This may be because it reduces the importance of predictions right at skeletons and boundaries,
+        # where more atrifacts tend to occur. 
+        if nt > 1:
+            
+            mask = lbl[6]
+            l = lbl[0].astype(int)
+#                 smooth_dist = lbl[n,4].copy()
+
+            dist = edt.edt(l,parallel=8)
+            lbl[5] = dist==1 # boundary 
+
+            if do_old:
+                v1 = lbl[3].copy() # x component
+                v2 = lbl[2].copy() # y component 
+                dy = (-v1 * np.sin(-theta) + v2*np.cos(-theta))
+                dx = (v1 * np.cos(-theta) + v2*np.sin(-theta))
+
+                lbl[3] = 5.*dx*mask # factor of 5 is applied here to rescale flow components to [-5,5] range 
+                lbl[2] = 5.*dy*mask
+
+                dist[dist<=0] = -dist_bg
+                lbl[1] = dist
+            else:
+                _, _, smooth_dist, mu = dynamics.masks_to_flows_gpu(l,dists=dist,skel=skel) #would want to replace this with a dedicated dist-only function
+                lbl[3] = 5.*mu[1]
+                lbl[2] = 5.*mu[0]
+
+                smooth_dist[smooth_dist<=0] = -dist_bg
+                lbl[1] = smooth_dist
+
+            bg_edt = edt.edt(mask<0.5,black_border=True) #last arg gives weight to the border, which seems to always lose
+            cutoff = 9
+            lbl[7] = (gaussian(1-np.clip(bg_edt,0,cutoff)/cutoff,sigma=1)+0.5)
+    return imgi, lbl, scale
 
 # I have the skel flag here just in case, but it actually does not affect the tests
 def normalize_field(mu,skel=False):
-    if skel:
-        mag = np.sqrt(np.nansum(mu**2,axis=0))      
-#         mu = np.divide(mu, mag, out=np.zeros_like(mu), where=np.logical_and(mag!=0,~np.isnan(mag)))
-        # idea: only 
-    else:
+    if not skel:
         mu /= (1e-20 + (mu**2).sum(axis=0)**0.5)
+    else:   
+        mag = np.sqrt(np.nansum(mu**2,axis=0))
+        m = mag>0
+#         print('Mag stats',np.min(mag[m]),np.max(mag[m]),np.median(mag[m]),np.mean(mag[m]))
+        mu = np.divide(mu, mag, out=np.zeros_like(mu), where=np.logical_and(mag!=0,~np.isnan(mag)))
+        # idea: percent-wise cutoff to only boost nonzero pixels 
+        
     return mu
 
 
@@ -986,3 +1006,4 @@ def original_random_rotate_and_resize(X, Y=None, scale_range=1., xy = (224,224),
                 lbl[n,2] = (v1 * np.cos(-theta) + v2*np.sin(-theta))
 
     return imgi, lbl, scale
+

@@ -129,7 +129,7 @@ def _extend_centers_gpu(neighbors, centers, isneighbor, Ly, Lx, n_iter=200, devi
     Tcpy = T.clone()
     idx = [1,7,3,5] 
     mask = isneigh[idx]
-    print('mask',mask.shape,'T', T.shape, 'isneigh',isneigh.shape,'pt',pt.shape,'Tneigh',Tneigh.shape)
+#     print('mask',mask.shape,'T', T.shape, 'isneigh',isneigh.shape,'pt',pt.shape,'Tneigh',Tneigh.shape)
     grads = T[:, pt[idx,:,0], pt[idx,:,1]]*mask # prevent bleedover
     dy = (grads[:,1] - grads[:,0]) / 2
     dx = (grads[:,3] - grads[:,2]) / 2
@@ -220,7 +220,6 @@ def masks_to_flows_gpu(masks, dists, device=None, skel=False):
                                 n_iter=n_iter, device=device, masks=masks_padded, skel=skel)
 
     # normalize
-#     if not skel: 
     mu = transforms.normalize_field(mu,skel)
 
     # put into original image
@@ -287,7 +286,6 @@ def masks_to_flows_cpu(masks, dists, device=None, skel=False):
             # same number of points as a grid with  1px around the whole thing
             T = np.zeros(ly*lx, np.float64)
             
-            
             if skel:
                 # This is what I found to be the lowest possible number of iterations to guarantee convergence,
                 # but only for the skel model. Too small for center-pixel heat to diffuse to the ends. 
@@ -308,25 +306,23 @@ def masks_to_flows_cpu(masks, dists, device=None, skel=False):
                 ymed = np.array([y[imin]],np.int32)
             
             T = _extend_centers(T, y, x, ymed, xmed, lx, niter, skel)
-            
-            heat = T.copy()
-            T  = np.interp(T, (T[y*lx + x].min(), T[y*lx + x].max()), (0, 1))
+            if not skel: 
+                 T[(y+1)*lx + x+1] = np.log(1.+T[(y+1)*lx + x+1])
             
             # central difference approximation to first derivative
             dy = (T[(y+1)*lx + x] - T[(y-1)*lx + x]) / 2
             dx = (T[y*lx + x+1] - T[y*lx + x-1]) / 2
             
             mu[:, sr.start+y-pad, sc.start+x-pad] = np.stack((dy,dx))
-            mu_c[sr.start+y-pad, sc.start+x-pad] = heat[y*lx + x]
+            mu_c[sr.start+y-pad, sc.start+x-pad] = T[y*lx + x]
     
-#     if not skel:
     mu = transforms.normalize_field(mu,skel)
-        
+
     # pass heat back instead of zeros - not sure what mu_c was originally
     # intended for, but it is apparently not used for anything else
     return mu, mu_c
 
-def masks_to_flows(masks, use_gpu=False, device=None, skel=False):
+def masks_to_flows(masks, dists=None, use_gpu=False, device=None, skel=False):
     """ convert masks to flows using diffusion from center pixel
 
     Center of masks where diffusion starts is defined to be the 
@@ -352,8 +348,11 @@ def masks_to_flows(masks, use_gpu=False, device=None, skel=False):
         in which it resides 
 
     """
-    masks = utils.format_labels(masks)
-    dists = edt.edt(masks)
+   
+    if dists is None:
+        masks = utils.format_labels(masks)
+        dists = edt.edt(masks)
+        
     if TORCH_ENABLED and use_gpu:
         if use_gpu and device is None:
             device = torch_GPU
@@ -417,7 +416,7 @@ def labels_to_flows(labels, files=None, use_gpu=False, device=None, skel=False,r
     if labels[0].ndim < 3:
         labels = [labels[n][np.newaxis,:,:] for n in range(nimg)]
 
-    if labels[0].shape[0] == 1 or labels[0].ndim < 3 or redo_flows: # flows need to be recomputer
+    if labels[0].shape[0] == 1 or labels[0].ndim < 3 or redo_flows: # flows need to be recomputed
         
         dynamics_logger.info('NOTE: computing flows for labels (could be done before to save time)')
         

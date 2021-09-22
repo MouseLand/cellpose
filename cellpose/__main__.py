@@ -57,8 +57,7 @@ def main():
     parser.add_argument('--all_channels', action='store_true', help='use all channels in image if using own model and images with special channels')
     
     # model settings 
-#     parser.add_argument('--model_dir', required=False,
-#                         default=None, type=str, help='directory with built-in models, default is $HOME/.cellpose/models/')
+    parser.add_argument('--pretrained_model', required=False, default='cyto', type=str, help='model to use')
     parser.add_argument('--unet', required=False,
                         default=0, type=int, help='run standard unet instead of cellpose flow output')
     parser.add_argument('--nclasses', required=False,
@@ -72,7 +71,6 @@ def main():
     parser.add_argument('--resample', action='store_true', help="run dynamics on full image (slower for images with large diameters)")
     parser.add_argument('--no_interp', action='store_true', help='do not interpolate when running dynamics (was default)')
     parser.add_argument('--do_3D', action='store_true', help='process images as 3D stacks of images (nplanes x nchan x Ly x Lx')
-    parser.add_argument('--pretrained_model', required=False, default='cyto', type=str, help='model to use')
     parser.add_argument('--diameter', required=False, default=30., type=float, 
                         help='cell diameter, if 0 cellpose will estimate for each image')
     parser.add_argument('--stitch_threshold', required=False, default=0.0, type=float,
@@ -335,7 +333,6 @@ def main():
                 logger.info('>>>> during training rescaling images to fixed diameter of %0.1f pixels'%args.diameter)
                 
             # initialize model
-            print('allo',args.unet,args.nclasses)
             if args.unet:
                 model = core.UnetModel(device=device,
                                         pretrained_model=cpmodel_path, 

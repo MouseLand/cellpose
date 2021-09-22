@@ -85,7 +85,7 @@ def imsave(filename, arr):
         tifffile.imsave(filename, arr)
     else:
         if len(arr.shape)>2:
-            arr = cv2.cvtColor(arr, cv2.COLOR_BGR2RGB) 
+            arr = cv2.cvtColor(arr, cv2.COLOR_BGR2RGB)
         cv2.imwrite(filename, arr)
 
 def get_image_files(folder, mask_filter, imf=None, look_one_level_down=False):
@@ -371,7 +371,7 @@ def save_masks(images, masks, flows, file_names, png=True, tif=False, channels=[
     if tif:
         exts.append('.tif')
 
-    # format_labels will also automatically use lowest bit depth possible 
+    # format_labels will also automatically use lowest bit depth possible
     masks = utils.format_labels(masks) 
 
     # save masks
