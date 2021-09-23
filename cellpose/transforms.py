@@ -646,6 +646,8 @@ def random_rotate_and_resize(X, Y=None, scale_range=1., gamma_range=0.5, xy = (2
             amount each image was resized by
 
     """
+    nimg = len(X)
+
     if inds is None: # only relevant when debugging 
         inds = np.arange(nimg)
         
@@ -664,7 +666,6 @@ def random_rotate_and_resize(X, Y=None, scale_range=1., gamma_range=0.5, xy = (2
 
     dist_bg = 5 # background distance field is set to -dist_bg 
     scale_range = max(0, min(2, float(scale_range))) # limit overall range to [0,2] i.e. 1+-1 
-    nimg = len(X)
     
     # While in other parts of Cellpose channels are put last by default, here we have chan x Ly x Lx 
     if X[0].ndim>2:
