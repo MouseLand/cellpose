@@ -41,30 +41,30 @@ def main():
         
     # settings for locating and formatting images
     input_img_args = parser.add_argument_group("input images arguments")
-    input_img_args.add_argument('--dir', required=False,
+    input_img_args.add_argument('--dir',
                         default=[], type=str, help='folder containing data to run or train on.')
     input_img_args.add_argument('--look_one_level_down', action='store_true', help='')
     input_img_args.add_argument('--mxnet', action='store_true', help='use mxnet')
-    input_img_args.add_argument('--img_filter', required=False,
+    input_img_args.add_argument('--img_filter',
                         default=[], type=str, help='end string for images to run on')
-    input_img_args.add_argument('--channel_axis', required=False,
+    input_img_args.add_argument('--channel_axis',
                         default=None, type=int, help='axis of image which corresponds to image channels')
-    input_img_args.add_argument('--z_axis', required=False,
+    input_img_args.add_argument('--z_axis',
                         default=None, type=int, help='axis of image which corresponds to Z dimension')
-    input_img_args.add_argument('--chan', required=False,
+    input_img_args.add_argument('--chan',
                         default=0, type=int, help='channel to segment; 0: GRAY, 1: RED, 2: GREEN, 3: BLUE. Default: %(deafault)s')
-    input_img_args.add_argument('--chan2', required=False,
+    input_img_args.add_argument('--chan2',
                         default=0, type=int, help='nuclear channel (if cyto, optional); 0: NONE, 1: RED, 2: GREEN, 3: BLUE. Default: %(deafault)s')
-    input_img_args.add_argument('--invert', required=False, action='store_true', help='invert grayscale channel')
+    input_img_args.add_argument('--invert', action='store_true', help='invert grayscale channel')
     input_img_args.add_argument('--all_channels', action='store_true', help='use all channels in image if using own model and images with special channels')
     
     # model settings 
 #     parser.add_argument('--model_dir', required=False,
 #                         default=None, type=str, help='directory with built-in models, default is $HOME/.cellpose/models/')
     model_args = parser.add_argument_group("model arguments")
-    model_args.add_argument('--unet', required=False,
+    model_args.add_argument('--unet',
                         default=0, type=int, help='run standard unet instead of cellpose flow output')
-    model_args.add_argument('--nclasses', required=False,
+    model_args.add_argument('--nclasses',
                         default=3, type=int, 
                         help='if running unet, choose 2 or 3; if training skel, choose 4. Default: %(deafault)s')
 
@@ -75,16 +75,16 @@ def main():
     algorithm_args.add_argument('--resample', action='store_true', help="run dynamics on full image (slower for images with large diameters)")
     algorithm_args.add_argument('--no_interp', action='store_true', help='do not interpolate when running dynamics (was default)')
     algorithm_args.add_argument('--do_3D', action='store_true', help='process images as 3D stacks of images (nplanes x nchan x Ly x Lx')
-    algorithm_args.add_argument('--pretrained_model', required=False, default='cyto', type=str, help='model to use. Default: %(deafault)s')
-    algorithm_args.add_argument('--diameter', required=False, default=30., type=float,
+    algorithm_args.add_argument('--pretrained_model', default='cyto', type=str, help='model to use. Default: %(deafault)s')
+    algorithm_args.add_argument('--diameter', default=30., type=float,
                         help='cell diameter, if 0 cellpose will estimate for each image. Default: %(deafault)s')
-    algorithm_args.add_argument('--stitch_threshold', required=False, default=0.0, type=float,
+    algorithm_args.add_argument('--stitch_threshold', default=0.0, type=float,
                         help='compute masks in 2D then stitch together masks with IoU>0.9 across planes')
-    algorithm_args.add_argument('--flow_threshold', required=False,
+    algorithm_args.add_argument('--flow_threshold',
                         default=0.4, type=float, help='flow error threshold, 0 turns off this optional QC step. Default: %(deafault)s')
-    algorithm_args.add_argument('--dist_threshold', required=False,
+    algorithm_args.add_argument('--dist_threshold',
                         default=0, type=float, help='cell distance threshold')
-    algorithm_args.add_argument('--diam_threshold', required=False, default=12.0, type=float,
+    algorithm_args.add_argument('--diam_threshold', default=12.0, type=float,
                         help='cell diameter threshold for upscaling before mask rescontruction. Default: %(deafault)s')
     algorithm_args.add_argument('--exclude_on_edges', action='store_true', help='discard masks which touch edges of image')
     
@@ -93,7 +93,7 @@ def main():
     output_args.add_argument('--save_png', action='store_true', help='save masks as png and outlines as text file for ImageJ')
     output_args.add_argument('--save_tif', action='store_true', help='save masks as tif and outlines as text file for ImageJ')
     output_args.add_argument('--no_npy', action='store_false', help='suppress saving of npy')
-    output_args.add_argument('--savedir', required=False,
+    output_args.add_argument('--savedir',
                         default=None, type=str, help='folder to which segmentation results will be saved (defaults to input image directory)')
     output_args.add_argument('--dir_above', action='store_true', help='save output folders adjacent to image folder instead of inside it (off by default)')
     output_args.add_argument('--in_folders', action='store_true', help='flag to save output in folders (off by default)')
@@ -106,23 +106,23 @@ def main():
     training_args = parser.add_argument_group("training arguments")
     training_args.add_argument('--train', action='store_true', help='train network using images in dir')
     training_args.add_argument('--train_size', action='store_true', help='train size network at end of training')
-    training_args.add_argument('--mask_filter', required=False,
+    training_args.add_argument('--mask_filter',
                         default='_masks', type=str, help='end string for masks to run on. Default: %(deafault)s')
-    training_args.add_argument('--test_dir', required=False,
+    training_args.add_argument('--test_dir',
                         default=[], type=str, help='folder containing test data (optional)')
-    training_args.add_argument('--learning_rate', required=False,
+    training_args.add_argument('--learning_rate',
                         default=0.2, type=float, help='learning rate. Default: %(deafault)s')
-    training_args.add_argument('--n_epochs', required=False,
+    training_args.add_argument('--n_epochs',
                         default=500, type=int, help='number of epochs. Default: %(deafault)s')
-    training_args.add_argument('--batch_size', required=False,
+    training_args.add_argument('--batch_size',
                         default=8, type=int, help='batch size. Default: %(deafault)s')
-    training_args.add_argument('--residual_on', required=False,
+    training_args.add_argument('--residual_on',
                         default=1, type=int, help='use residual connections')
-    training_args.add_argument('--style_on', required=False,
+    training_args.add_argument('--style_on',
                         default=1, type=int, help='use style vector')
-    training_args.add_argument('--concatenation', required=False,
+    training_args.add_argument('--concatenation',
                         default=0, type=int, help='concatenate downsampled layers with upsampled layers (off by default which means they are added)')
-    training_args.add_argument('--save_every', required=False,
+    training_args.add_argument('--save_every',
                         default=100, type=int, help='number of epochs to skip between saves. Default: %(deafault)s')
     training_args.add_argument('--save_each', action='store_true', help='save the model under a different filename per --save_every epoch for later comparsion')
     
