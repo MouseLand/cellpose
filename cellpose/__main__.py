@@ -52,9 +52,9 @@ def main():
     input_img_args.add_argument('--z_axis',
                         default=None, type=int, help='axis of image which corresponds to Z dimension')
     input_img_args.add_argument('--chan',
-                        default=0, type=int, help='channel to segment; 0: GRAY, 1: RED, 2: GREEN, 3: BLUE. Default: %(deafault)s')
+                        default=0, type=int, help='channel to segment; 0: GRAY, 1: RED, 2: GREEN, 3: BLUE. Default: %(default)s')
     input_img_args.add_argument('--chan2',
-                        default=0, type=int, help='nuclear channel (if cyto, optional); 0: NONE, 1: RED, 2: GREEN, 3: BLUE. Default: %(deafault)s')
+                        default=0, type=int, help='nuclear channel (if cyto, optional); 0: NONE, 1: RED, 2: GREEN, 3: BLUE. Default: %(default)s')
     input_img_args.add_argument('--invert', action='store_true', help='invert grayscale channel')
     input_img_args.add_argument('--all_channels', action='store_true', help='use all channels in image if using own model and images with special channels')
     
@@ -66,7 +66,7 @@ def main():
                         default=0, type=int, help='run standard unet instead of cellpose flow output')
     model_args.add_argument('--nclasses',
                         default=3, type=int, 
-                        help='if running unet, choose 2 or 3; if training skel, choose 4. Default: %(deafault)s')
+                        help='if running unet, choose 2 or 3; if training skel, choose 4. Default: %(default)s')
 
     # cellpose algorithm settings
     algorithm_args = parser.add_argument_group("algorithm arguments")
@@ -75,17 +75,17 @@ def main():
     algorithm_args.add_argument('--resample', action='store_true', help="run dynamics on full image (slower for images with large diameters)")
     algorithm_args.add_argument('--no_interp', action='store_true', help='do not interpolate when running dynamics (was default)')
     algorithm_args.add_argument('--do_3D', action='store_true', help='process images as 3D stacks of images (nplanes x nchan x Ly x Lx')
-    algorithm_args.add_argument('--pretrained_model', default='cyto', type=str, help='model to use. Default: %(deafault)s')
+    algorithm_args.add_argument('--pretrained_model', default='cyto', type=str, help='model to use. Default: %(default)s')
     algorithm_args.add_argument('--diameter', default=30., type=float,
-                        help='cell diameter, if 0 cellpose will estimate for each image. Default: %(deafault)s')
+                        help='cell diameter, if 0 cellpose will estimate for each image. Default: %(default)s')
     algorithm_args.add_argument('--stitch_threshold', default=0.0, type=float,
                         help='compute masks in 2D then stitch together masks with IoU>0.9 across planes')
     algorithm_args.add_argument('--flow_threshold',
-                        default=0.4, type=float, help='flow error threshold, 0 turns off this optional QC step. Default: %(deafault)s')
+                        default=0.4, type=float, help='flow error threshold, 0 turns off this optional QC step. Default: %(default)s')
     algorithm_args.add_argument('--dist_threshold',
                         default=0, type=float, help='cell distance threshold')
     algorithm_args.add_argument('--diam_threshold', default=12.0, type=float,
-                        help='cell diameter threshold for upscaling before mask rescontruction. Default: %(deafault)s')
+                        help='cell diameter threshold for upscaling before mask rescontruction. Default: %(default)s')
     algorithm_args.add_argument('--exclude_on_edges', action='store_true', help='discard masks which touch edges of image')
     
     # output settings
@@ -107,15 +107,15 @@ def main():
     training_args.add_argument('--train', action='store_true', help='train network using images in dir')
     training_args.add_argument('--train_size', action='store_true', help='train size network at end of training')
     training_args.add_argument('--mask_filter',
-                        default='_masks', type=str, help='end string for masks to run on. Default: %(deafault)s')
+                        default='_masks', type=str, help='end string for masks to run on. Default: %(default)s')
     training_args.add_argument('--test_dir',
                         default=[], type=str, help='folder containing test data (optional)')
     training_args.add_argument('--learning_rate',
-                        default=0.2, type=float, help='learning rate. Default: %(deafault)s')
+                        default=0.2, type=float, help='learning rate. Default: %(default)s')
     training_args.add_argument('--n_epochs',
-                        default=500, type=int, help='number of epochs. Default: %(deafault)s')
+                        default=500, type=int, help='number of epochs. Default: %(default)s')
     training_args.add_argument('--batch_size',
-                        default=8, type=int, help='batch size. Default: %(deafault)s')
+                        default=8, type=int, help='batch size. Default: %(default)s')
     training_args.add_argument('--residual_on',
                         default=1, type=int, help='use residual connections')
     training_args.add_argument('--style_on',
@@ -123,7 +123,7 @@ def main():
     training_args.add_argument('--concatenation',
                         default=0, type=int, help='concatenate downsampled layers with upsampled layers (off by default which means they are added)')
     training_args.add_argument('--save_every',
-                        default=100, type=int, help='number of epochs to skip between saves. Default: %(deafault)s')
+                        default=100, type=int, help='number of epochs to skip between saves. Default: %(default)s')
     training_args.add_argument('--save_each', action='store_true', help='save the model under a different filename per --save_every epoch for later comparsion')
     
     # misc settings
