@@ -802,7 +802,7 @@ class UnetModel():
         # Ranger21 has a convenient current_lr field, whereas RAdam doesn't and I just set this field to the learning rate
             self.optimizer = optim.RAdam(self.net.parameters(), lr=learning_rate, betas=(0.95, 0.999), #changed to .95
                                          eps=1e-08, weight_decay=weight_decay)
-            print('>>> Using RAdam optimizer')
+            core_logger.info('>>>> Using RAdam optimizer')
 #             self.optimizer = optim.AdaBound(self.net.parameters(), lr=learning_rate, betas=(0.9, 0.999), 
 #                                 gamma=1e-3, eps=1e-08, final_lr=0.15, weight_decay=weight_decay)
 #             print('>>> Using AdaBound optimizer')
