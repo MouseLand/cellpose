@@ -211,9 +211,7 @@ def masks_to_flows_gpu(masks, dists, device=None, skel=False):
         n_iter = round(np.max(dists)**1.5)
     else:
         slices = scipy.ndimage.find_objects(masks)
-        print(f'slices = {slices}')
         ext = np.array([[sr.stop - sr.start + 1, sc.stop - sc.start + 1] for sr, sc in slices])
-        print(f'ext = {ext}')
         if len(ext) > 0:
             n_iter = 2 * (ext.sum(axis=1)).max()
         else:
