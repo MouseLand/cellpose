@@ -653,6 +653,8 @@ def random_rotate_and_resize(X, Y=None, scale_range=1., gamma_range=0.5, xy = (2
         
     # backwards compatibility; completely 'stock', no gamma augmentation or any other extra frills. 
     if not skel:
+        if Y is not None:
+            Y = [y[1:] for y in Y]
         return original_random_rotate_and_resize(X, Y, scale_range=scale_range, xy=xy,
                                                  do_flip=do_flip, rescale=rescale, unet=unet)
 
