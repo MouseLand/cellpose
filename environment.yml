@@ -1,11 +1,16 @@
 name: cellpose
+channels:
+  - pytorch
+  - defaults
 dependencies:
-  - python==3.8.5
+  - python==3.7
+  - cudatoolkit=10.2
+  - pytorch
+  - numpy>=1.20.0
   - pip
   - pip:
     - PyQt5
     - PyQt5.sip
-    - numpy>=1.20.0
     - numba>=0.43.1
     - scipy
     - torch>=1.6
@@ -15,6 +20,6 @@ dependencies:
     - google-cloud-storage
     - tqdm
     - tifffile
-    - cellpose
+    - git+https://github.com/MouseLand/cellpose.git
     
   
