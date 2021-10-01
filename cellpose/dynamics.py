@@ -189,14 +189,15 @@ def masks_to_flows_gpu(masks, dists, device=None, skel=False):
         centers = np.array(scipy.ndimage.center_of_mass(masks_padded, labels=masks_padded, 
                                                         index=np.arange(1, masks_padded.max()+1))).astype(int)
         # (check mask center inside mask)
-        valid = masks_padded[centers[:,0], centers[:,1]] == np.arange(1, masks_padded.max()+1)
-        for i in np.nonzero(~valid)[0]:
-            yi,xi = np.nonzero(masks_padded==(i+1))
-            ymed = np.median(yi)
-            xmed = np.median(xi)
-            imin = np.argmin((xi-xmed)**2 + (yi-ymed)**2)
-            centers[i,0] = yi[imin]
-            centers[i,1] = xi[imin] 
+        if len(centers) > 0:
+            valid = masks_padded[centers[:,0], centers[:,1]] == np.arange(1, masks_padded.max()+1)
+            for i in np.nonzero(~valid)[0]:
+                yi,xi = np.nonzero(masks_padded==(i+1))
+                ymed = np.median(yi)
+                xmed = np.median(xi)
+                imin = np.argmin((xi-xmed)**2 + (yi-ymed)**2)
+                centers[i,0] = yi[imin]
+                centers[i,1] = xi[imin] 
     else: # do 'skeletonized' algorithm (see cpu flow code for more details)
         centers = np.stack((y,x),axis=1)
     
@@ -210,8 +211,13 @@ def masks_to_flows_gpu(masks, dists, device=None, skel=False):
         n_iter = round(np.max(dists)**1.5)
     else:
         slices = scipy.ndimage.find_objects(masks)
+        print(f'slices = {slices}')
         ext = np.array([[sr.stop - sr.start + 1, sc.stop - sc.start + 1] for sr, sc in slices])
-        n_iter = 2 * (ext.sum(axis=1)).max()
+        print(f'ext = {ext}')
+        if len(ext) > 0:
+            n_iter = 2 * (ext.sum(axis=1)).max()
+        else:
+            n_iter = 0
    
     # run diffusion 
     mu, T = _extend_centers_gpu(neighbors, centers, isneighbor, Ly, Lx,
