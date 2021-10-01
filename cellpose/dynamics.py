@@ -499,7 +499,8 @@ def steps2D_interp(p, dP, niter, use_gpu=False, device=None, skel=False, calc_tr
             # align_corners default is False, just added to suppress warning
             dPt = torch.nn.functional.grid_sample(im, pt, align_corners=False)
             if skel:
-                dPt = dPt/(1+t) #this supression is key to the 'skeleton' method
+#                 dPt = dPt/(1+np.log(1+t)) #this supression is key to the 'skeleton' method
+                dPt = dPt/(1+t) 
             for k in range(2): #clamp the final pixel locations
                 pt[:,:,:,k] = torch.clamp(pt[:,:,:,k] + dPt[:,k,:,:], -1., 1.)
             
@@ -665,7 +666,7 @@ def follow_flows(dP, mask=None, niter=200, interp=True, use_gpu=True, device=Non
 
     """
     shape = np.array(dP.shape[1:]).astype(np.int32)
-    niter = np.int32(niter)
+    niter = np.uint32(niter)
     if len(shape)>2:
         p = np.meshgrid(np.arange(shape[0]), np.arange(shape[1]),
                 np.arange(shape[2]), indexing='ij')
@@ -860,3 +861,61 @@ def get_masks(p, iscell=None, rpad=20, flows=None, threshold=0.4, use_gpu=False,
         M0 = np.reshape(M0, shape0).astype(np.int32)
 
     return M0
+
+
+def smooth_distance(masks, dists=None, device=None, skel=False):
+    if device is None:
+        device = torch.device('cuda')
+    if dists is None:
+        dists = edt.edt(masks)
+        
+    pad = 1
+    
+    Ly0,Lx0 = masks.shape
+    Ly, Lx = Ly0+2*pad, Lx0+2*pad
+
+    masks_padded = np.pad(masks,pad)
+    
+    # get mask pixel neighbors
+    y, x = np.nonzero(masks_padded)
+
+    neighborsY = np.stack((y-1, y-1, y-1, 
+                           y  , y  , y  ,
+                           y+1, y+1, y+1), axis=0)
+    neighborsX = np.stack((x-1, x  , x+1, 
+                           x-1, x  , x+1, 
+                           x-1, x  , x+1), axis=0)
+    
+    neighbors = np.stack((neighborsY, neighborsX), axis=-1)
+    
+    centers = np.stack((y,x),axis=1)
+    
+    # get neighbor validator (not all neighbors are in same mask)
+    neighbor_masks = masks_padded[neighbors[:,:,0], neighbors[:,:,1]] #extract list of label values, 
+    isneighbor = neighbor_masks == neighbor_masks[4] # 4 corresponds to x,y now
+        
+    # set number of iterations
+    n_iter = utils.get_niter(dists)
+        
+    nimg = neighbors.shape[0] // 9
+    pt = torch.from_numpy(neighbors).to(device)
+    T = torch.zeros((nimg,Ly,Lx), dtype=torch.double, device=device)
+    meds = torch.from_numpy(centers.astype(int)).to(device)
+    isneigh = torch.from_numpy(isneighbor).to(device)
+
+    for t in range(n_iter):
+        # zero out the non-neighbor elements so that they do not participate in min
+        Tneigh = T[:, pt[:,:,0], pt[:,:,1]] 
+        Tneigh *= isneigh
+
+        # using flattened index for the lattice points, just like gradient below
+        minx = torch.minimum(Tneigh[:,3,:],Tneigh[:,5,:]) 
+        mina = torch.minimum(Tneigh[:,2,:],Tneigh[:,6,:])
+        miny = torch.minimum(Tneigh[:,1,:],Tneigh[:,7,:])
+        minb = torch.minimum(Tneigh[:,0,:],Tneigh[:,8,:])
+
+        A = torch.where(torch.abs(mina-minb) >= 2, torch.minimum(mina,minb) + np.sqrt(2), (1./2)*(mina+minb+torch.sqrt(4-(mina-minb)**2)))
+        B = torch.where(torch.abs(miny-minx) >= np.sqrt(2), torch.minimum(miny,minx) + 1, (1./2)*(miny+minx+torch.sqrt(2-(miny-minx)**2)))
+        T[:, pt[4,:,0], pt[4,:,1]] = torch.sqrt(A*B)
+
+    return T.cpu().squeeze().numpy()[pad:-pad,pad:-pad]

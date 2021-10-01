@@ -14,7 +14,6 @@ import fastremap
 
 from numba import njit
 from skimage.morphology import remove_small_holes
-from skimage.segmentation import find_boundaries
 from scipy.ndimage.morphology import binary_dilation
 import edt 
 
@@ -622,16 +621,6 @@ def clean_boundary(labels,boundary_thickness=3,area_thresh=30):
             clean_labels[mask] = 0
     return clean_labels
 
-def outline_view(img0,maski):
-    """
-    Generates a red outline overlay onto image. 
-    Assume img0 is already coverted to 8-bit RGB.
-    """
-    outlines = find_boundaries(maski,mode='inner') #not using masks_to_outlines as that gives border 'outlines'
-    outY, outX = np.nonzero(outlines)
-    imgout = img0.copy()
-    imgout[outY, outX] = np.array([255,0,0]) #pure red
-    return imgout
 
 # Should work for 3D too. Could put into usigned integer form at the end... 
 # Also could use some parallelization 

@@ -4,6 +4,9 @@ import cv2
 from scipy.ndimage import gaussian_filter
 import scipy
 import matplotlib
+from skimage import color
+from skimage.segmentation import find_boundaries
+
 
 from . import utils, io, transforms
 
@@ -26,7 +29,7 @@ def dx_to_circ(dP):
     return im
 
 
-def show_segmentation(fig, img, maski, flowi, channels=[0,0], file_name=None):
+def show_segmentation(fig, img, maski, flowi, channels=[0,0], file_name=None, skel=False, seg_norm=False):
     """ plot segmentation results (like on website)
     
     Can save each panel of figure with file_name option. Use channels option if
@@ -56,10 +59,11 @@ def show_segmentation(fig, img, maski, flowi, channels=[0,0], file_name=None):
     """
     ax = fig.add_subplot(1,4,1)
     img0 = img.copy()
+
     if img0.shape[0] < 4:
         img0 = np.transpose(img0, (1,2,0))
     if img0.shape[-1] < 3 or img0.ndim < 3:
-        img0 = image_to_rgb(img0, channels=channels)
+        img0 = image_to_rgb(img0, channels=channels, skel=skel)
     else:
         if img0.max()<=50.0:
             img0 = np.uint8(np.clip(img0*255, 0, 1))
@@ -68,9 +72,22 @@ def show_segmentation(fig, img, maski, flowi, channels=[0,0], file_name=None):
     ax.axis('off')
 
     outlines = utils.masks_to_outlines(maski)
-    cmap = matplotlib.cm.get_cmap('viridis')
-    colors = cmap(np.linspace(0,.9,5))
-    overlay = mask_overlay(img0, utils.ncolorlabel(maski),colors[:,:3])
+    c = utils.sinebow(5)
+    colors = np.array(list(c.values()))[1:] 
+    
+    # Image normalization to improve cell visibility under labels
+    if seg_norm:
+        fg = 1/9
+        p = transforms.normalize99(img0,skel=skel)
+        img1 = p**(np.log(fg)/np.log(np.mean(p[maski>0])))
+    else:
+        img1 = img0
+    
+    # the mask_overlay function changes colors (preserves only hue I think). The label2rgb function from
+    # skimage.color works really well. 
+    overlay = color.label2rgb(utils.ncolorlabel(maski),img1,colors,bg_label=0,alpha=1/3)
+    overlay = np.uint8(np.clip(overlay, 0, 1)*255)
+    overlay[maski==0] = img1[maski==0] #restore original level to background regions
 
     ax = fig.add_subplot(1,4,2)
     outX, outY = np.nonzero(outlines)
@@ -78,8 +95,6 @@ def show_segmentation(fig, img, maski, flowi, channels=[0,0], file_name=None):
     imgout[outX, outY] = np.array([255,0,0]) # pure red
 
     ax.imshow(imgout)
-    #for o in outpix:
-    #    ax.plot(o[:,0], o[:,1], color=[1,0,0], lw=1)
     ax.set_title('predicted outlines')
     ax.axis('off')
 
@@ -137,7 +152,7 @@ def mask_rgb(masks, colors=None):
     RGB = (utils.hsv_to_rgb(HSV) * 255).astype(np.uint8)
     return RGB
 
-def mask_overlay(img, masks, colors=None):
+def mask_overlay(img, masks, colors=None, skel=False):
     """ overlay masks on image (set image to grayscale)
 
     Parameters
@@ -168,11 +183,10 @@ def mask_overlay(img, masks, colors=None):
         img = img.astype(np.float32).mean(axis=-1)
     else:
         img = img.astype(np.float32)
-#     img = transforms.normalize99(img)
-    img -= img.min()
-    img /= img.max()
+    
+    
     HSV = np.zeros((img.shape[0], img.shape[1], 3), np.float32)
-    HSV[:,:,2] = np.clip(img*1.5, 0, 1.0)
+    HSV[:,:,2] = img
     hues = np.linspace(0,1,5)
     for n in range(int(masks.max())):
         ipix = (masks==n+1).nonzero()
@@ -184,7 +198,7 @@ def mask_overlay(img, masks, colors=None):
     RGB = (utils.hsv_to_rgb(HSV) * 255).astype(np.uint8)
     return RGB
 
-def image_to_rgb(img0, channels=[0,0]):
+def image_to_rgb(img0, channels=[0,0], skel=False):
     """ image is 2 x Ly x Lx or Ly x Lx x 2 - change to RGB Ly x Lx x 3 """
     img = img0.copy()
     img = img.astype(np.float32)
@@ -196,7 +210,7 @@ def image_to_rgb(img0, channels=[0,0]):
         img = img.mean(axis=-1)[:,:,np.newaxis]
     for i in range(img.shape[-1]):
         if np.ptp(img[:,:,i])>0:
-            img[:,:,i] = transforms.normalize99(img[:,:,i])
+            img[:,:,i] = transforms.normalize99(img[:,:,i],skel=skel)
             img[:,:,i] = np.clip(img[:,:,i], 0, 1)
     img *= 255
     img = np.uint8(img)
@@ -229,3 +243,20 @@ def disk(med, r, Ly, Lx):
     y = yy[inds].flatten()
     x = xx[inds].flatten()
     return y,x
+
+def outline_view(img0,maski,color=[255,0,0], mode='inner'):
+    """
+    Generates a red outline overlay onto image. 
+    """
+    img0 = utils.rescale(img0)
+    if len(img0.shape)<3:
+#         img0 = image_to_rgb(img0) broken, transposing some images...
+        img0 = np.stack([img0]*3,axis=-1)
+    
+    outlines = find_boundaries(maski,mode=mode) #not using masks_to_outlines as that gives border 'outlines'
+    outY, outX = np.nonzero(outlines)
+    imgout = img0.copy()
+#     imgout[outY, outX] = np.array([255,0,0]) #pure red
+    imgout[outY, outX] = np.array(color)
+
+    return imgout

@@ -290,7 +290,7 @@ def save_to_png(images, masks, flows, file_names):
 # Now saves flows, masks, etc. to separate folders.
 def save_masks(images, masks, flows, file_names, png=True, tif=False, channels=[0,0],
                suffix='',save_flows=False, save_outlines=False, save_ncolor=False, 
-               dir_above=False, in_folders=False, savedir=None, save_txt=True):
+               dir_above=False, in_folders=False, savedir=None, save_txt=True, skel=True):
     """ save masks + nicely plotted segmentation image to png and/or tiff
 
     if png, masks[k] for images[k] are saved to file_names[k]+'_cp_masks.png'
@@ -331,7 +331,7 @@ def save_masks(images, masks, flows, file_names, png=True, tif=False, channels=[
         for image, mask, flow, file_name in zip(images, masks, flows, file_names):
             save_masks(image, mask, flow, file_name, png=png, tif=tif, suffix=suffix,dir_above=dir_above,
                        save_flows=save_flows,save_outlines=save_outlines,save_ncolor=save_ncolor,
-                       savedir=savedir,save_txt=save_txt,in_folders=in_folders)
+                       savedir=savedir,save_txt=save_txt,in_folders=in_folders, skel=skel)
         return
     
     if masks.ndim > 2 and not tif:
@@ -388,7 +388,7 @@ def save_masks(images, masks, flows, file_names, png=True, tif=False, channels=[
             np.transpose(img, (1,2,0))
         
         fig = plt.figure(figsize=(12,3))
-        plot.show_segmentation(fig, img, masks, flows[0])
+        plot.show_segmentation(fig, img, masks, flows[0], skel=skel)
         fig.savefig(os.path.join(savedir,basename + '_cp_output' + suffix + '.png'), dpi=300)
         plt.close(fig)
 
@@ -403,7 +403,7 @@ def save_masks(images, masks, flows, file_names, png=True, tif=False, channels=[
         check_dir(outlinedir) 
         outlines = utils.masks_to_outlines(masks)
         outX, outY = np.nonzero(outlines)
-        img0 = images.copy()
+        img0 = transforms.normalize99(images,skel=skel)
         if img0.shape[0] < 4:
             img0 = np.transpose(img0, (1,2,0))
         if img0.shape[-1] < 3 or img0.ndim < 3:
