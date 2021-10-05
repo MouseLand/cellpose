@@ -11,21 +11,20 @@ from skimage.segmentation import find_boundaries
 from . import utils, io, transforms
 
 # modified to use sinebow color
-def dx_to_circ(dP):
+def dx_to_circ(dP,bg_color=[0,0,0,1]):
     """ dP is 2 x Y x X => 'optic' flow representation """
-
-    mag = utils.rescale(np.abs(dP[0]+1j*dP[1]))
+    dP = np.array(dP)
+    mag = transforms.normalize99(np.sqrt(np.sum(dP**2,axis=0)),skel=1)
     angles = np.arctan2(dP[1], dP[0])+np.pi
-    b=1
-    r = ((np.cos(angles)+b)/2)
-    g = ((np.cos(angles+2*np.pi/3)+b)/2)
-    b =((np.cos(angles+4*np.pi/3)+b)/2)
+    a = 2
+    r = ((np.cos(angles)+1)/a)
+    g = ((np.cos(angles+2*np.pi/3)+1)/a)
+    b =((np.cos(angles+4*np.pi/3)+1)/a)
     r = np.multiply(r,mag)
     g = np.multiply(g,mag)    
     b = np.multiply(b,mag)    
-    im = np.stack((r,g,b))
-    im = im.swapaxes(0,2)
-    im = im.swapaxes(0,1)
+    im = np.stack((r,g,b,mag),axis=-1)
+    im[mag==0] = bg_color
     return im
 
 
@@ -244,11 +243,11 @@ def disk(med, r, Ly, Lx):
     x = xx[inds].flatten()
     return y,x
 
-def outline_view(img0,maski,color=[255,0,0], mode='inner'):
+def outline_view(img0,maski,color=[1,0,0], mode='inner'):
     """
     Generates a red outline overlay onto image. 
     """
-    img0 = utils.rescale(img0)
+#     img0 = utils.rescale(img0)
     if len(img0.shape)<3:
 #         img0 = image_to_rgb(img0) broken, transposing some images...
         img0 = np.stack([img0]*3,axis=-1)

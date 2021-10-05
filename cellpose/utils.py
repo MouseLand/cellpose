@@ -589,14 +589,13 @@ def render_net(conmap, n=4, rand=12, shuffle=True, depth=0, max_depth=5):
 
 
 # Generate a color dictionary for use in visualizing N-colored labels.  
-def sinebow(N):
-    colordict = {0:[0,0,0,0]}
+def sinebow(N,bg_color=[0,0,0,0]):
+    colordict = {0:bg_color}
     for j in range(N): 
-        a=1
         angle = j*2*np.pi / (N)
-        r = ((np.cos(angle)+a)/2)
-        g = ((np.cos(angle+2*np.pi/3)+a)/2)
-        b =((np.cos(angle+4*np.pi/3)+a)/2)
+        r = ((np.cos(angle)+1)/2)
+        g = ((np.cos(angle+2*np.pi/3)+1)/2)
+        b = ((np.cos(angle+4*np.pi/3)+1)/2)
         colordict.update({j+1:[r,g,b,1]})
     return colordict
 

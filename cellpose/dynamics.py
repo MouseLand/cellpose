@@ -129,7 +129,6 @@ def _extend_centers_gpu(neighbors, centers, isneighbor, Ly, Lx, n_iter=200, devi
     Tcpy = T.clone()
     idx = [1,7,3,5] 
     mask = isneigh[idx]
-#     print('mask',mask.shape,'T', T.shape, 'isneigh',isneigh.shape,'pt',pt.shape,'Tneigh',Tneigh.shape)
     grads = T[:, pt[idx,:,0], pt[idx,:,1]]*mask # prevent bleedover
     dy = (grads[:,1] - grads[:,0]) / 2
     dx = (grads[:,3] - grads[:,2]) / 2
@@ -269,7 +268,6 @@ def masks_to_flows_cpu(masks, dists, device=None, skel=False):
             
             sr,sc = si
             mask = np.pad((masks[sr, sc] == i+1),pad)
-            dist = np.pad(dists[si],pad)
           
             # lx,ly the dimensions of the boundingbox
             ly, lx = sr.stop - sr.start + 2*pad, sc.stop - sc.start + 2*pad
@@ -496,6 +494,8 @@ def steps2D_interp(p, dP, niter, use_gpu=False, device=None, skel=False, calc_tr
         
         #here is where the stepping happens
         for t in range(niter):
+            if calc_trace:
+                trace = torch.cat((trace,pt))
             # align_corners default is False, just added to suppress warning
             dPt = torch.nn.functional.grid_sample(im, pt, align_corners=False)
             if skel:
@@ -504,14 +504,17 @@ def steps2D_interp(p, dP, niter, use_gpu=False, device=None, skel=False, calc_tr
             for k in range(2): #clamp the final pixel locations
                 pt[:,:,:,k] = torch.clamp(pt[:,:,:,k] + dPt[:,k,:,:], -1., 1.)
             
-            if calc_trace:
-                trace = torch.cat((trace,pt))
-                
+
         #undo the normalization from before, reverse order of operations 
         pt = (pt+1)*0.5
         for k in range(2): 
             pt[:,:,:,k] *= shape[k]
-        
+            
+        if calc_trace:
+            trace = (trace+1)*0.5
+            for k in range(2): 
+                trace[:,:,:,k] *= shape[k]
+                
         #pass back to cpu
         if calc_trace:
             tr =  trace[:,:,:,[1,0]].cpu().numpy().squeeze().T
@@ -522,22 +525,19 @@ def steps2D_interp(p, dP, niter, use_gpu=False, device=None, skel=False, calc_tr
         return p, tr
     else:
         dPt = np.zeros(p.shape, np.float32)
-        
         if calc_trace:
-            Ly = shape[0]
-            Lx = shape[1]
-            tr = np.zeros((niter,2,Ly,Lx))
+            tr = np.zeros((p.shape[0],p.shape[1],niter))
         else:
             tr = None
             
         for t in range(niter):
-            map_coordinates(dP, p[0], p[1], dPt)
+            if calc_trace:
+                tr[:,:,t] = p.copy()
+            map_coordinates(dP.astype(np.float32), p[0], p[1], dPt)
             if skel:
                 dPt = dPt/(1+t) #this supression is key to the 'skeleton' method
             for k in range(len(p)):
                 p[k] = np.minimum(shape[k]-1, np.maximum(0, p[k] + dPt[k]))
-                if calc_trace:
-                    tr[t] = p.copy()
         return p, tr
 
 
@@ -617,6 +617,8 @@ def steps2D(p, dP, inds, niter, skel=False, calc_trace=False):
         tr = np.zeros((niter,2,Ly,Lx))
     for t in range(niter):
         for j in range(inds.shape[0]):
+            if calc_trace:
+                tr[t] = p.copy()
             # starting coordinates
             y = inds[j,0]
             x = inds[j,1]
@@ -627,12 +629,9 @@ def steps2D(p, dP, inds, niter, skel=False, calc_trace=False):
                 step = dP[:,p0,p1]
             for k in range(p.shape[0]):
                 p[k,y,x] = min(shape[k]-1, max(0, p[k,y,x] + step[k]))
-            if calc_trace:
-                tr[t] = p
-                
     return p, tr
 
-def follow_flows(dP, mask=None, niter=200, interp=True, use_gpu=True, device=None, skel=False, calc_trace=False):
+def follow_flows(dP, mask=None, inds=None, niter=200, interp=True, use_gpu=True, device=None, skel=False, calc_trace=False):
     """ define pixels and run dynamics to recover masks in 2D
     
     Pixels are meshgrid. Only pixels with non-zero cell-probability
@@ -685,22 +684,24 @@ def follow_flows(dP, mask=None, niter=200, interp=True, use_gpu=True, device=Non
         if mask is None:
             mask = np.abs(dP[0])>1e-3
         
-        if skel:
-            inds = np.array(np.nonzero(np.logical_or(mask,np.abs(dP[0])>1e-3))).astype(np.int32).T
-        else:
-            inds = np.array(np.nonzero(np.abs(dP[0])>1e-3)).astype(np.int32).T
+        if inds is None:
+            if skel:
+                inds = np.array(np.nonzero(np.logical_or(mask,np.abs(dP[0])>1e-3))).astype(np.int32).T
+            else:
+                inds = np.array(np.nonzero(np.abs(dP[0])>1e-3)).astype(np.int32).T
         
         if inds.ndim < 2 or inds.shape[0] < 5:
             dynamics_logger.warning('WARNING: no mask pixels found')
             return p, inds, None
         if not interp:
-            print('warning: not interp')
-            p, tr = steps2D(p, dP, inds, niter,skel=skel,calc_trace=calc_trace)
+            dynamics_logger.warning('WARNING: not interp')
+            p, tr = steps2D(p, dP.astype(np.float32), inds, niter,skel=skel,calc_trace=calc_trace)
+            p = p[:,inds[:,0], inds[:,1]]
+            tr = tr[:,:,inds[:,0], inds[:,1]].transpose((1,2,0))
         else:
-            p_interp, tr = steps2D_interp(p[:,inds[:,0], inds[:,1]], 
-                                                      dP, niter, use_gpu=use_gpu,
-                                                      device=device, skel=skel,
-                                                      calc_trace=calc_trace)
+            p_interp, tr = steps2D_interp(p[:,inds[:,0], inds[:,1]], dP, niter, use_gpu=use_gpu,
+                                          device=device, skel=skel, calc_trace=calc_trace)
+            
             p[:,inds[:,0],inds[:,1]] = p_interp
             
     return p, inds, tr #, p_interp
