@@ -893,7 +893,8 @@ class CellposeModel(UnetModel):
                 if False it will try to train the model to be scale-invariant (works worse)
 
         """
-        models_logger.info('Training with rescale = ',rescale)
+        if rescale:
+            models_logger.info(f'Training with rescale = {rescale:.2f}')
         train_data, train_labels, test_data, test_labels, run_test = transforms.reshape_train_test(train_data, train_labels,
                                                                                                    test_data, test_labels,
                                                                                                    channels, normalize, skel)
