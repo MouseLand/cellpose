@@ -57,8 +57,7 @@ def main():
     parser.add_argument('--all_channels', action='store_true', help='use all channels in image if using own model and images with special channels')
     
     # model settings 
-#     parser.add_argument('--model_dir', required=False,
-#                         default=None, type=str, help='directory with built-in models, default is $HOME/.cellpose/models/')
+    parser.add_argument('--pretrained_model', required=False, default='cyto', type=str, help='model to use')
     parser.add_argument('--unet', required=False,
                         default=0, type=int, help='run standard unet instead of cellpose flow output')
     parser.add_argument('--nclasses', required=False,
@@ -66,12 +65,12 @@ def main():
                         help='if running unet, choose 2 or 3; if training skel, choose 4; standard Cellpose uses 3')
 
     # cellpose algorithm settings
-    parser.add_argument('--skel', action='store_true', help='flag to enable "skeletonized" algorithm (disabled by default)')
+    parser.add_argument('--skel', action='store_true', help='"skeletonized" algorithm (disabled by default)')
+    parser.add_argument('--cluster', action='store_true', help='DBSCAN clustering. Reduces oversegmentation of thin features (disabled by default).')
     parser.add_argument('--fast_mode', action='store_true', help="make code run faster by turning off 4 network averaging")
     parser.add_argument('--resample', action='store_true', help="run dynamics on full image (slower for images with large diameters)")
     parser.add_argument('--no_interp', action='store_true', help='do not interpolate when running dynamics (was default)')
     parser.add_argument('--do_3D', action='store_true', help='process images as 3D stacks of images (nplanes x nchan x Ly x Lx')
-    parser.add_argument('--pretrained_model', required=False, default='cyto', type=str, help='model to use')
     parser.add_argument('--diameter', required=False, default=30., type=float, 
                         help='cell diameter, if 0 cellpose will estimate for each image')
     parser.add_argument('--stitch_threshold', required=False, default=0.0, type=float,
@@ -218,19 +217,21 @@ def main():
             cstr1 = ['NONE', 'RED', 'GREEN', 'BLUE']
             logger.info('>>>> running cellpose on %d images using chan_to_seg %s and chan (opt) %s'%
                             (nimg, cstr0[channels[0]], cstr1[channels[1]]))
+            logger.info('>>>> skel is %d, cluster is %d'%(args.skel,args.cluster))
                     
             if args.pretrained_model=='cyto' or args.pretrained_model=='nuclei' or args.pretrained_model=='cyto2':
                 if args.mxnet and args.pretrained_model=='cyto2':
                     logger.warning('cyto2 model not available in mxnet, using cyto model')
                     args.pretrained_model = 'cyto'
                 model = models.Cellpose(gpu=gpu, device=device, model_type=args.pretrained_model, 
-                                            torch=(not args.mxnet))
+                                            torch=(not args.mxnet),skel=args.skel)
             else:
                 if args.all_channels:
                     channels = None  
                 model = models.CellposeModel(gpu=gpu, device=device, 
                                              pretrained_model=cpmodel_path,
-                                             torch=(not args.mxnet))
+                                             torch=(not args.mxnet),
+                                             nclasses=args.nclasses,skel=args.skel)
 
             if args.diameter==0:
                 if args.pretrained_model=='cyto' or args.pretrained_model=='nuclei' or args.pretrained_model=='cyto2':
@@ -257,6 +258,7 @@ def main():
                                 invert=args.invert,
                                 batch_size=args.batch_size,
                                 interp=(not args.no_interp),
+                                cluster=args.cluster,
                                 channel_axis=args.channel_axis,
                                 z_axis=args.z_axis,
                                 skel=args.skel,
@@ -348,6 +350,7 @@ def main():
                                             residual_on=args.residual_on,
                                             style_on=args.style_on,
                                             concatenation=args.concatenation,
+                                            nclasses=args.nclasses,
                                             nchan=nchan,
                                             skel=args.skel)
             

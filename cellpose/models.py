@@ -17,7 +17,6 @@ except:
     SKLEARN_ENABLED = False
 
 
-
 import logging
 models_logger = logging.getLogger(__name__)
 models_logger.setLevel(logging.DEBUG)
@@ -212,7 +211,7 @@ class Cellpose():
             tic = time.time()
             models_logger.info('~~~ ESTIMATING CELL DIAMETER(S) ~~~')
             diams, _ = self.sz.eval(x, channels=channels, channel_axis=channel_axis, invert=invert, batch_size=batch_size, 
-                                    augment=augment, tile=tile,normalize=normalize)
+                                    augment=augment, tile=tile, normalize=normalize)
             rescale = self.diam_mean / np.array(diams)
             diameter = None
             models_logger.info('estimated cell diameter(s) in %0.2f sec'%(time.time()-tic))
@@ -252,6 +251,7 @@ class Cellpose():
                                             tile_overlap=tile_overlap,
                                             resample=resample,
                                             interp=interp,
+                                            cluster=cluster,
                                             flow_threshold=flow_threshold, 
                                             dist_threshold=dist_threshold,
                                             diam_threshold=diam_threshold,
@@ -321,14 +321,14 @@ class CellposeModel(UnetModel):
             if (pretrained_model_string !='cyto' 
                 and pretrained_model_string !='nuclei' 
                 and pretrained_model_string != 'cyto2'
-                and pretrained_model_string !='skel') or pretrained_model_string is None:
+                and pretrained_model_string !='skel') or pretrained_model_string is None: # plan to have a built-in skel model
                 pretrained_model_string = 'cyto'
             pretrained_model = None 
             if (pretrained_model and not os.path.exists(pretrained_model[0])):
                 models_logger.warning('pretrained model has incorrect path')
             models_logger.info(f'>>{pretrained_model_string}<< model set to be used')
             
-            diam_mean = 30. if pretrained_model_string!='nuclei'  else 17. # cyto2 still uses 17, right? 
+            diam_mean = 30. if pretrained_model_string!='nuclei' else 17. # cyto2 still uses 17, right? 
             
             pretrained_model = [model_path(pretrained_model_string, j, torch) for j in range(4)]
             pretrained_model = pretrained_model[0] if not net_avg else pretrained_model 
@@ -345,6 +345,7 @@ class CellposeModel(UnetModel):
                          diam_mean=diam_mean, net_avg=net_avg, device=device,
                          residual_on=residual_on, style_on=style_on, concatenation=concatenation,
                          nclasses=nclasses, torch=torch, nchan=nchan)
+
         self.unet = False
         self.pretrained_model = pretrained_model
         if self.pretrained_model and len(self.pretrained_model)==1:
@@ -460,6 +461,9 @@ class CellposeModel(UnetModel):
                 style vector summarizing each image, also used to estimate size of objects in image
 
         """
+        if verbose:
+            models_logger.info('Evaluating with skel %d, cluster %d, flow_threshold %f'%(skel,cluster,flow_threshold))
+        
         
         if isinstance(x, list) or x.squeeze().ndim==5:
             masks, styles, flows = [], [], []
@@ -648,11 +652,11 @@ class CellposeModel(UnetModel):
             mask = filters.apply_hysteresis_threshold(dist, dist_threshold-1, dist_threshold) # good for thin features
         else:
             mask = dist > dist_threshold # analog to original iscell=(cellprob>cellprob_threshold)
-                
+        
         if np.any(mask): #mask at this point is a cell cluster binary map, not labels 
             if not skel: # use original algorthm 
                 if verbose:
-                    print('using original mask reconstruction algorithm')
+                    models_logger.info('using original mask reconstruction algorithm')
                 if p is None:
                     p , inds, tr = dynamics.follow_flows(dP * mask / 5., mask=mask, niter=niter, interp=interp, 
                                                          use_gpu=self.gpu, device=self.device, skel=skel, calc_trace=calc_trace)
@@ -660,7 +664,8 @@ class CellposeModel(UnetModel):
                 else: 
                     inds,tr = [],[]
                     if verbose:
-                        print('p given')
+                        models_logger.info('p given')
+                print(p.shape, mask.shape)
                 mask = dynamics.get_masks(p, iscell=mask,flows=dP, threshold=flow_threshold if not do_3D else None, 
                                           use_gpu=self.gpu)
 
@@ -669,10 +674,7 @@ class CellposeModel(UnetModel):
                 if self.nclasses == 4:
                     dt = np.abs(dist[mask]) #abs needed if the threshold is negative
                     d = utils.dist_to_diam(dt)
-                    eps = np.std(dt)**0.5
-                    if verbose:
-                        print('number of mask pixels',np.sum(mask), 'image shape',mask.shape,
-                              'diameter metric is',d,'eps',eps)
+                    eps = 1+1/3
 
                 else: #backwards compatibility, doesn't help for *clusters* of thin/small cells
                     d,e = utils.diameters(mask,skel)
@@ -690,25 +692,18 @@ class CellposeModel(UnetModel):
                 if d <= diam_threshold:
                     cluster = True
                     if verbose:
-                        print('Turning on subpixel clustering for label continuity.')
+                        models_logger.info('Turning on subpixel clustering for label continuity.')
 
                 dP *= mask 
-                dx = dP[1].copy()
-                dy = dP[0].copy()
-                mag = np.sqrt(dP[1,:,:]**2+dP[0,:,:]**2)
-    #             # renormalize (i.e. only get directions from the network)
-                dx[mask] = np.divide(dx[mask], mag[mask], out=np.zeros_like(dx[mask]),
-                                     where=np.logical_and(mag[mask]!=0,~np.isnan(mag[mask])))
-                dy[mask] = np.divide(dy[mask], mag[mask], out=np.zeros_like(dy[mask]),
-                                     where=np.logical_and(mag[mask]!=0,~np.isnan(mag[mask])))
+                dP = transforms.normalize_field(dP,skel=True)
 
                 # compute the divergence
                 Y, X = np.nonzero(mask)
                 pad = 1
                 Tx = np.zeros((Ly+2*pad)*(Lx+2*pad), np.float64)
-                Tx[Y*Lx+X] = np.reshape(dx.copy(),Ly*Lx)[Y*Lx+X]
+                Tx[Y*Lx+X] = np.reshape(dP[1].copy(),Ly*Lx)[Y*Lx+X]
                 Ty = np.zeros((Ly+2*pad)*(Lx+2*pad), np.float64)
-                Ty[Y*Lx+X] = np.reshape(dy.copy(),Ly*Lx)[Y*Lx+X]
+                Ty[Y*Lx+X] = np.reshape(dP[0].copy(),Ly*Lx)[Y*Lx+X]
 
                 # Rescaling by the divergence
                 div = np.zeros(Ly*Lx, np.float64)
@@ -719,9 +714,7 @@ class CellposeModel(UnetModel):
                 #add sigmoid on boundary output to help push pixels away - the final bit needed in some cases!
                 # specifically, places where adjacent cell flows are too colinear and therefore had low divergence
 #                 mag = div+1/(1+np.exp(-bd))
-                mag = div
-                dP[0] = dy*mag
-                dP[1] = dx*mag
+                dP *= div
 
                 p, inds, tr = dynamics.follow_flows(dP, mask, interp=interp, use_gpu=self.gpu,
                                                     device=self.device, skel=skel, calc_trace=calc_trace)
@@ -730,7 +723,9 @@ class CellposeModel(UnetModel):
                 mask = np.zeros((p.shape[1],p.shape[2]))
 
                 # the eps parameter needs to be adjustable... maybe a function of the distance
-                if cluster and SKLEARN_ENABLED:
+                if cluster:
+                    if verbose:
+                        models_logger.info('Doing DBSCAN clustering with eps=%f'%eps)
                     db = DBSCAN(eps=eps, min_samples=3,n_jobs=8).fit(newinds)
                     labels = db.labels_
                     mask[inds[:,0],inds[:,1]] = labels+1
@@ -748,7 +743,7 @@ class CellposeModel(UnetModel):
                     if self.nclasses == 4: #can use boundary to erase joined edge skelmasks 
                         border_px[bd>-1] = 0
                         if verbose:
-                            print('Using boundary output to split edge defects')
+                            models_logger.info('Using boundary output to split edge defects')
                     else: #otherwise do morphological opening to attempt splitting 
                         border_px = binary_opening(border_px,border_value=0,iterations=3)
 
@@ -763,7 +758,7 @@ class CellposeModel(UnetModel):
 
             if resize is not None:
                 if verbose:
-                    print('resizing output with resize', resize)
+                    models_logger.info(f'resizing output with resize = {resize}')
                 mask = transforms.resize_image(mask, resize[0], resize[1], interpolation=cv2.INTER_NEAREST)
                 Ly,Lx = mask.shape
                 pi = np.zeros([2,Ly,Lx])
@@ -771,7 +766,7 @@ class CellposeModel(UnetModel):
                     pi[k] = cv2.resize(p[k], (Lx, Ly), interpolation=cv2.INTER_NEAREST)
                 p = pi       
         else: # nothing to compute, just make it compatible
-            print('No cell pixels found.')
+            models_logger.info('No cell pixels found.')
             p = np.zeros([2,1,1])
             tr = []
             mask = np.zeros(resize)
@@ -807,11 +802,11 @@ class CellposeModel(UnetModel):
             dt = y[:,2]
             bd = y[:,3]
 
-            loss7 = 2.*self.criterion12(dt,dist,w)
+            loss7 = 2.*self.criterion12(dt,dist,w) #weighted MSE 
 
             wt = torch.stack((w,w),dim=1)
             ct = torch.stack((cellmask,cellmask),dim=1) 
-            loss1 = 10.*self.criterion12(flow,veci,wt) 
+            loss1 = 10.*self.criterion12(flow,veci,wt)  #weighted MSE 
 
             loss2 = self.criterion14(flow,veci,w,cellmask) #ArcCosDotLoss
             a = 10.
@@ -898,7 +893,8 @@ class CellposeModel(UnetModel):
                 if False it will try to train the model to be scale-invariant (works worse)
 
         """
-        print('Training with rescale = ',rescale)
+        if rescale:
+            models_logger.info(f'Training with rescale = {rescale:.2f}')
         train_data, train_labels, test_data, test_labels, run_test = transforms.reshape_train_test(train_data, train_labels,
                                                                                                    test_data, test_labels,
                                                                                                    channels, normalize, skel)
