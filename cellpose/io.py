@@ -5,6 +5,7 @@ import cv2
 import tifffile
 import logging, pathlib, sys
 from pathlib import Path
+import skimage
 
 from . import utils, plot, transforms
 
@@ -87,6 +88,7 @@ def imsave(filename, arr):
         if len(arr.shape)>2:
             arr = cv2.cvtColor(arr, cv2.COLOR_BGR2RGB)
         cv2.imwrite(filename, arr)
+#         skimage.io.imsave(filename, arr.astype()) #cv2 doesn't handle transparency
 
 def get_image_files(folder, mask_filter, imf=None, look_one_level_down=False):
     """ find all images in a folder and if look_one_level_down all subfolders """
@@ -425,8 +427,10 @@ def save_masks(images, masks, flows, file_names, png=True, tif=False, channels=[
     # save RGB flow picture
     if masks.ndim < 3 and save_flows:
         check_dir(flowdir)
-        imsave(os.path.join(flowdir, basename + '_flows' + suffix + '.png'), (flows[0]*(2**16 - 1)).astype(np.uint16))
-
+        imsave(os.path.join(flowdir, basename + '_flows' + suffix + '.tif'), (flows[0]*(2**16 - 1)).astype(np.uint16))
+        #save full flow data
+        imsave(os.path.join(flowdir, basename + '_dP' + suffix + '.tif'), flows[1]) 
+    
 def save_server(parent=None, filename=None):
     """ Uploads a *_seg.npy file to the bucket.
     
