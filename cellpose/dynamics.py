@@ -13,7 +13,6 @@ import edt
 from skimage import measure
 import fastremap
 import cv2
-from sklearn.cluster import DBSCAN
 
 import logging
 dynamics_logger = logging.getLogger(__name__)
@@ -30,6 +29,12 @@ try:
     torch_CPU = torch.device('cpu')
 except:
     TORCH_ENABLED = False
+
+try:
+    from sklearn.cluster import DBSCAN
+    SKLEARN_ENABLED = True 
+except:
+    SKLEARN_ENABLED = False
 
 @njit('(float64[:], int32[:], int32[:], int32[:], int32[:], int32, int32, boolean)', nogil=True)
 def _extend_centers(T, y, x, ymed, xmed, Lx, niter, skel=False):
@@ -1001,7 +1006,7 @@ def compute_masks(dP, dist, bd=None, p=None, inds=None, niter=200, dist_threshol
             mask = np.zeros((p.shape[1],p.shape[2]))
 
             # the eps parameter needs to be adjustable... maybe a function of the distance
-            if cluster:
+            if cluster and SKLEARN_ENABLED:
                 if verbose:
                     dynamics_logger.info('Doing DBSCAN clustering with eps=%f'%eps)
                 db = DBSCAN(eps=eps, min_samples=3,n_jobs=8).fit(newinds)
