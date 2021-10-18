@@ -551,13 +551,14 @@ def mapidx(idx):
     return dic
 
 # create a connection mapping 
-def render_net(conmap, n=4, rand=12, shuffle=True, depth=0, max_depth=5):
+def render_net(conmap, n=4, rand=12, depth=0, max_depth=5):
     thresh = 1e4
     if depth<max_depth:
         nodes = list(conmap.keys())
+        np.random.seed(depth+1)
+        np.random.shuffle(nodes)
         colors = dict(zip(nodes, [0]*len(nodes)))
         counter = dict(zip(nodes, [0]*len(nodes)))
-        if shuffle: random.shuffle(nodes)
         count = 0
         while len(nodes)>0 and count<thresh:
             count+=1
@@ -574,14 +575,15 @@ def render_net(conmap, n=4, rand=12, shuffle=True, depth=0, max_depth=5):
             minc = hist.index(min(hist))
             if counter[k]==rand:
                 counter[k] = 0
-                minc = random.randint(1,4)
+                np.random.seed(count)
+                minc = np.random.randint(1,4)
             colors[k] = minc
             for p in conmap[k]:
                 if colors[p] == minc:
                     nodes.append(p)
         if count==thresh:
             print(n,'-color algorthm failed,trying again with',n+1,'colors. Depth',depth)
-            colors = render_net(conmap,n+1,rand,shuffle,depth+1,max_depth)
+            colors = render_net(conmap,n+1,rand,depth+1,max_depth)
         return colors
     else:
         print('N-color algorthm exceeded max depth of',max_depth)
@@ -674,3 +676,4 @@ def format_labels(labels, clean=False, min_area=9):
 # smooth distance field computation. 
 def get_niter(dists):
     return np.ceil(np.max(dists)*1.16).astype(int)+1
+
