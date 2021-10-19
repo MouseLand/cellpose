@@ -54,11 +54,8 @@ class Cellpose():
         where model is saved (e.g. mx.gpu() or mx.cpu()), overrides gpu input,
         recommended if you want to use a specific GPU (e.g. mx.gpu(4) or torch.cuda.device(4))
 
-    torch: bool (optional, default False)
-        use torch nn rather than mxnet
-        
-    model_dir: str (optional, default None)
-        overwrite the built in model directory where cellpose looks for models
+    torch: bool (optional, default True)
+        run model using torch if available
 
     """
     def __init__(self, gpu=False, model_type='cyto', net_avg=True, device=None, torch=True, model_dir=None, skel=False):
@@ -287,12 +284,11 @@ class CellposeModel(UnetModel):
     skel: use skeletonized flow field model (optional, default False)
 
     """
-    print('Running Kevin\'s github version') #(take out for final version)
     
     # still need to put the skel model trained on cellpose data into the right folder with the right name with the size model 
     def __init__(self, gpu=False, pretrained_model=False, 
-                    model_type=None, torch=True,
-                    diam_mean=30., net_avg=True, device=None, model_dir=None,
+                    model_type=None, net_avg=True, torch=True,
+                    diam_mean=30., device=None,
                     residual_on=True, style_on=True, concatenation=False,
                     nchan=2, nclasses=3, skel=False):
         if not torch:
@@ -756,7 +752,8 @@ class CellposeModel(UnetModel):
                 if False it will try to train the model to be scale-invariant (works worse)
 
         """
-        models_logger.info('Training with rescale = ',rescale)
+        if rescale:
+            models_logger.info(f'Training with rescale = {rescale:.2f}')
         train_data, train_labels, test_data, test_labels, run_test = transforms.reshape_train_test(train_data, train_labels,
                                                                                                    test_data, test_labels,
                                                                                                    channels, normalize, skel)

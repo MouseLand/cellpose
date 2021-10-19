@@ -13,7 +13,6 @@ import edt
 from skimage import measure
 import fastremap
 import cv2
-from sklearn.cluster import DBSCAN
 
 import logging
 dynamics_logger = logging.getLogger(__name__)
@@ -30,6 +29,12 @@ try:
     torch_CPU = torch.device('cpu')
 except:
     TORCH_ENABLED = False
+
+try:
+    from sklearn.cluster import DBSCAN
+    SKLEARN_ENABLED = True 
+except:
+    SKLEARN_ENABLED = False
 
 @njit('(float64[:], int32[:], int32[:], int32[:], int32[:], int32, int32, boolean)', nogil=True)
 def _extend_centers(T, y, x, ymed, xmed, Lx, niter, skel=False):
@@ -700,14 +705,14 @@ def follow_flows(dP, mask=None, inds=None, niter=200, interp=True, use_gpu=True,
         if not interp:
             dynamics_logger.warning('WARNING: not interp')
             p, tr = steps2D(p, dP.astype(np.float32), inds, niter,skel=skel,calc_trace=calc_trace)
-            p = p[:,inds[:,0], inds[:,1]]
-            tr = tr[:,:,inds[:,0], inds[:,1]].transpose((1,2,0))
+            #p = p[:,inds[:,0], inds[:,1]]
+            #tr = tr[:,:,inds[:,0], inds[:,1]].transpose((1,2,0))
         else:
             p_interp, tr = steps2D_interp(p[:,inds[:,0], inds[:,1]], dP, niter, use_gpu=use_gpu,
                                           device=device, skel=skel, calc_trace=calc_trace)
             
             p[:,inds[:,0],inds[:,1]] = p_interp
-            
+    #print(p.shape)     
     return p, inds, tr #, p_interp
 
 def remove_bad_flow_masks(masks, flows, threshold=0.4, use_gpu=False, device=None, skel=False):
@@ -784,7 +789,6 @@ def get_masks(p, iscell=None, rpad=20, flows=None, threshold=0.4, use_gpu=False,
         size [Ly x Lx] or [Lz x Ly x Lx]
     
     """
-    
     pflows = []
     edges = []
     shape0 = p.shape[1:]
@@ -1002,7 +1006,7 @@ def compute_masks(dP, dist, bd=None, p=None, inds=None, niter=200, dist_threshol
             mask = np.zeros((p.shape[1],p.shape[2]))
 
             # the eps parameter needs to be adjustable... maybe a function of the distance
-            if cluster:
+            if cluster and SKLEARN_ENABLED:
                 if verbose:
                     dynamics_logger.info('Doing DBSCAN clustering with eps=%f'%eps)
                 db = DBSCAN(eps=eps, min_samples=3,n_jobs=8).fit(newinds)

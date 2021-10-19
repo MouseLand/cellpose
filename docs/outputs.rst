@@ -82,7 +82,7 @@ Or use the function below if running in a notebook
     # image_name is file name of image 
     # masks is numpy array of masks for image
     base = os.path.splitext(image_name)[0]
-    outlines = plot.outlines_list(masks)
+    outlines = utils.outlines_list(masks)
     io.outlines_to_text(base, outlines)
     
 To load this ``_cp_outlines.txt`` file into ImageJ, use the python script 

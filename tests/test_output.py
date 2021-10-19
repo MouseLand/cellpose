@@ -65,7 +65,6 @@ def test_class_3D(data_dir, image_names):
         model = models.Cellpose(model_type='nuclei')
         masks = model.eval(img, do_3D=True, diameter=25, channels=[chan[m],chan2[m]], net_avg=False)[0]
         io.imsave(str(data_dir.joinpath('3D').joinpath('rgb_3D_cp_masks.tif')), masks)
-        io.imsave('/home/kcutler/DataDrive/cellpose_debug/rgb_3D_cp_masks.tif', masks)
         compare_masks(data_dir, ['rgb_3D.tif'], '3D', model_type)
         clear_output(data_dir, image_names)
         
