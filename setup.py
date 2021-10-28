@@ -21,6 +21,11 @@ docs_deps = [
         'sphinx_rtd_theme',
       ]
 
+distributed_deps = [
+        'scikit-learn',
+        'dask_image',
+]
+
 try:
     import torch
     a = torch.ones(2, 3)
@@ -54,7 +59,8 @@ setup(
     ],
     extras_require = {
       'docs': docs_deps,
-      'gui': gui_deps
+      'gui': gui_deps,
+      'distributed': distributed_deps,
     },
     include_package_data=True,
     classifiers=(
