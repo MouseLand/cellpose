@@ -171,7 +171,6 @@ def segment_chunk(
     logger.info("Evaluating model")
     segments, _, _, _ = model.eval(
         chunk,
-        batch_size=4,
         channels=channels,
         z_axis=0,
         channel_axis=3,
