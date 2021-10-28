@@ -22,8 +22,9 @@ docs_deps = [
       ]
 
 distributed_deps = [
-        'scikit-learn',
+        'dask',
         'dask_image',
+        'scikit-learn',
 ]
 
 try:
