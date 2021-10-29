@@ -110,6 +110,8 @@ def average_precision(masks_true, masks_pred, threshold=[0.5, 0.75, 0.9]):
     fn  = np.zeros((len(masks_true), len(threshold)), np.float32)
     n_true = np.array(list(map(np.max, masks_true)))
     n_pred = np.array(list(map(np.max, masks_pred)))
+#     if len(n_pred) < 1:
+#         n_pred = [0]
     for n in range(len(masks_true)):
         #_,mt = np.reshape(np.unique(masks_true[n], return_index=True), masks_pred[n].shape)
         if n_pred[n] > 0:
@@ -118,7 +120,7 @@ def average_precision(masks_true, masks_pred, threshold=[0.5, 0.75, 0.9]):
                 tp[n,k] = _true_positive(iou, th)
         fp[n] = n_pred[n] - tp[n]
         fn[n] = n_true[n] - tp[n]
-        ap[n] = tp[n] / (tp[n] + fp[n] + fn[n])
+        ap[n] = tp[n] / (tp[n] + fp[n] + fn[n]) # this is the jaccard index, not precision, right? 
         
     if not_list:
         ap, tp, fp, fn = ap[0], tp[0], fp[0], fn[0]
