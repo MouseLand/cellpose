@@ -1,5 +1,9 @@
 import time, os
 from scipy.ndimage.filters import maximum_filter1d
+from skimage import filters
+from scipy.ndimage.morphology import binary_dilation, binary_opening
+from skimage.measure import label, regionprops
+import torch
 import scipy.ndimage
 import numpy as np
 import tifffile
@@ -7,6 +11,8 @@ from tqdm import trange
 from numba import njit, float32, int32, vectorize
 import edt
 from skimage import measure
+import fastremap
+import cv2
 
 import logging
 dynamics_logger = logging.getLogger(__name__)
@@ -23,6 +29,12 @@ try:
     torch_CPU = torch.device('cpu')
 except:
     TORCH_ENABLED = False
+
+try:
+    from sklearn.cluster import DBSCAN
+    SKLEARN_ENABLED = True 
+except:
+    SKLEARN_ENABLED = False
 
 @njit('(float64[:], int32[:], int32[:], int32[:], int32[:], int32, int32, boolean)', nogil=True)
 def _extend_centers(T, y, x, ymed, xmed, Lx, niter, skel=False):
@@ -681,14 +693,11 @@ def follow_flows(dP, mask=None, inds=None, niter=200, interp=True, use_gpu=True,
         p = np.meshgrid(np.arange(shape[0]), np.arange(shape[1]), indexing='ij')
         # not sure why, but I had changed this to float64 at some point... tests showed that map_coordinates expects float32
         # possible issues elsewhere? 
-        p = np.array(p).astype(np.float32) 
+        p = np.array(p).astype(np.float32)
 
-        # run dynamics on subset of pixels
-        if mask is None:
-            mask = np.abs(dP[0])>1e-3
-        
+        # added inds for debugging while preserving backwards compatibility 
         if inds is None:
-            if skel:
+            if skel and (mask is not None):
                 inds = np.array(np.nonzero(np.logical_or(mask,np.abs(dP[0])>1e-3))).astype(np.int32).T
             else:
                 inds = np.array(np.nonzero(np.abs(dP[0])>1e-3)).astype(np.int32).T
@@ -922,3 +931,135 @@ def smooth_distance(masks, dists=None, device=None, skel=False):
         T[:, pt[4,:,0], pt[4,:,1]] = torch.sqrt(A*B)
 
     return T.cpu().squeeze().numpy()[pad:-pad,pad:-pad]
+
+
+def compute_masks(dP, dist, bd=None, p=None, inds=None, niter=200, dist_threshold=0.0, diam_threshold=12.,
+                   flow_threshold=0.4, interp=True, cluster=False, do_3D=False, 
+                   min_size=15, resize=None, skel=False, calc_trace=False, verbose=False,
+                   use_gpu=False,device=None,nclasses=3):
+    """ compute masks using dynamics from dP, dist, and boundary """
+    if skel or (inds is not None):
+        mask = filters.apply_hysteresis_threshold(dist, dist_threshold-1, dist_threshold) # good for thin features
+    else:
+        mask = dist > dist_threshold # analog to original iscell=(cellprob>cellprob_threshold)
+
+    if np.any(mask): #mask at this point is a cell cluster binary map, not labels 
+        if not skel: # use original algorthm 
+            if verbose:
+                dynamics_logger.info('using original mask reconstruction algorithm')
+            if p is None:
+                p , inds, tr = follow_flows(dP * mask / 5., mask=mask, inds=inds, niter=niter, interp=interp, 
+                                            use_gpu=use_gpu, device=device, skel=skel, calc_trace=calc_trace)
+            else: 
+                inds,tr = [],[]
+                if verbose:
+                    dynamics_logger.info('p given')
+            mask = get_masks(p, iscell=mask,flows=dP, threshold=flow_threshold if not do_3D else None, use_gpu=use_gpu)
+
+        else: # use new algorithm
+            Ly,Lx = mask.shape
+            if nclasses == 4:
+                dt = np.abs(dist[mask]) #abs needed if the threshold is negative
+                d = utils.dist_to_diam(dt)
+                eps = 1+1/3
+
+            else: #backwards compatibility, doesn't help for *clusters* of thin/small cells
+                d,e = utils.diameters(mask,skel)
+                eps = np.sqrt(2)
+
+            # save unaltered versions for later 
+            dP = dP.copy()
+
+            # The mean diameter can inform whether or not the cells are too small to form contiguous blobs.
+            # My first solution was to upscale everything before Euler integration to give pixels 'room' to
+            # stay together. My new solution is much better: use a clustering algorithm on the sub-pixel coordinates
+            # to assign labels. It works just as well and is faster because it doesn't require increasing the 
+            # number of points or taking time to upscale/downscale the data. Users can toggle cluster on manually or
+            # by setting the diameter threshold higher than the average diameter of the cells. 
+            if d <= diam_threshold:
+                cluster = True
+                if verbose:
+                    dynamics_logger.info('Turning on subpixel clustering for label continuity.')
+
+            dP *= mask 
+            dP = transforms.normalize_field(dP,skel=True)
+
+            # compute the divergence
+            Y, X = np.nonzero(mask)
+            pad = 1
+            Tx = np.zeros((Ly+2*pad)*(Lx+2*pad), np.float64)
+            Tx[Y*Lx+X] = np.reshape(dP[1].copy(),Ly*Lx)[Y*Lx+X]
+            Ty = np.zeros((Ly+2*pad)*(Lx+2*pad), np.float64)
+            Ty[Y*Lx+X] = np.reshape(dP[0].copy(),Ly*Lx)[Y*Lx+X]
+
+            # Rescaling by the divergence
+            div = np.zeros(Ly*Lx, np.float64)
+            div[Y*Lx+X]=(Ty[(Y+2)*Lx+X]+8*Ty[(Y+1)*Lx+X]-8*Ty[(Y-1)*Lx+X]-Ty[(Y-2)*Lx+X]+
+                         Tx[Y*Lx+X+2]+8*Tx[Y*Lx+X+1]-8*Tx[Y*Lx+X-1]-Tx[Y*Lx+X-2])
+            div = transforms.normalize99(div,skel=True)
+            div.shape = (Ly,Lx)
+            #add sigmoid on boundary output to help push pixels away - the final bit needed in some cases!
+            # specifically, places where adjacent cell flows are too colinear and therefore had low divergence
+#                 mag = div+1/(1+np.exp(-bd))
+            dP *= div
+
+            p, inds, tr = follow_flows(dP, mask, inds, interp=interp, use_gpu=use_gpu, device=device, skel=skel, calc_trace=calc_trace)
+
+            newinds = p[:,inds[:,0],inds[:,1]].swapaxes(0,1)
+            mask = np.zeros((p.shape[1],p.shape[2]))
+
+            # the eps parameter needs to be adjustable... maybe a function of the distance
+            if cluster and SKLEARN_ENABLED:
+                if verbose:
+                    dynamics_logger.info('Doing DBSCAN clustering with eps=%f'%eps)
+                db = DBSCAN(eps=eps, min_samples=3,n_jobs=8).fit(newinds)
+                labels = db.labels_
+                mask[inds[:,0],inds[:,1]] = labels+1
+            else:
+                newinds = np.rint(newinds).astype(int)
+                skelmask = np.zeros_like(dist, dtype=bool)
+                skelmask[newinds[:,0],newinds[:,1]] = 1
+
+                #disconnect skeletons at the edge, 5 pixels in 
+                border_mask = np.zeros(skelmask.shape, dtype=bool)
+                border_px =  border_mask.copy()
+                border_mask = binary_dilation(border_mask, border_value=1, iterations=5)
+
+                border_px[border_mask] = skelmask[border_mask]
+                if nclasses == 4: #can use boundary to erase joined edge skelmasks 
+                    border_px[bd>-1] = 0
+                    if verbose:
+                        dynamics_logger.info('Using boundary output to split edge defects')
+                else: #otherwise do morphological opening to attempt splitting 
+                    border_px = binary_opening(border_px,border_value=0,iterations=3)
+
+                skelmask[border_mask] = border_px[border_mask]
+
+                LL = label(skelmask,connectivity=1) 
+                mask[inds[:,0],inds[:,1]] = LL[newinds[:,0],newinds[:,1]]
+
+        # quality control - this got removed in recent version of cellpose??? or did I add it? 
+#             if flow_threshold is not None and flow_threshold > 0 and dP is not None:
+#                 mask = dynamics.remove_bad_flow_masks(mask, dP, threshold=flow_threshold, skel=skel)
+
+        if resize is not None:
+            if verbose:
+                dynamics_logger.info(f'resizing output with resize = {resize}')
+            mask = transforms.resize_image(mask, resize[0], resize[1], interpolation=cv2.INTER_NEAREST)
+            Ly,Lx = mask.shape
+            pi = np.zeros([2,Ly,Lx])
+            for k in range(2):
+                pi[k] = cv2.resize(p[k], (Lx, Ly), interpolation=cv2.INTER_NEAREST)
+            p = pi       
+    else: # nothing to compute, just make it compatible
+        dynamics_logger.info('No cell pixels found.')
+        p = np.zeros([2,1,1])
+        tr = []
+        mask = np.zeros(resize)
+
+    # moving the cleanup to the end helps avoid some bugs arising from scaling...
+    # maybe better would be to rescale the min_size and hole_size parameters to do the
+    # cleanup at the prediction scale, or switch depending on which one is bigger... 
+    mask = utils.fill_holes_and_remove_small_masks(mask, min_size=min_size)
+    fastremap.renumber(mask,in_place=True) #convenient to guarantee non-skipped labels
+    return mask, p, tr
