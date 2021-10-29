@@ -14,7 +14,6 @@ import fastremap
 
 from numba import njit
 from skimage.morphology import remove_small_holes
-from skimage.segmentation import find_boundaries
 from scipy.ndimage.morphology import binary_dilation
 import edt 
 
@@ -552,13 +551,14 @@ def mapidx(idx):
     return dic
 
 # create a connection mapping 
-def render_net(conmap, n=4, rand=12, shuffle=True, depth=0, max_depth=5):
+def render_net(conmap, n=4, rand=12, depth=0, max_depth=5):
     thresh = 1e4
     if depth<max_depth:
         nodes = list(conmap.keys())
+        np.random.seed(depth+1)
+        np.random.shuffle(nodes)
         colors = dict(zip(nodes, [0]*len(nodes)))
         counter = dict(zip(nodes, [0]*len(nodes)))
-        if shuffle: random.shuffle(nodes)
         count = 0
         while len(nodes)>0 and count<thresh:
             count+=1
@@ -575,14 +575,15 @@ def render_net(conmap, n=4, rand=12, shuffle=True, depth=0, max_depth=5):
             minc = hist.index(min(hist))
             if counter[k]==rand:
                 counter[k] = 0
-                minc = random.randint(1,4)
+                np.random.seed(count)
+                minc = np.random.randint(1,4)
             colors[k] = minc
             for p in conmap[k]:
                 if colors[p] == minc:
                     nodes.append(p)
         if count==thresh:
             print(n,'-color algorthm failed,trying again with',n+1,'colors. Depth',depth)
-            colors = render_net(conmap,n+1,rand,shuffle,depth+1,max_depth)
+            colors = render_net(conmap,n+1,rand,depth+1,max_depth)
         return colors
     else:
         print('N-color algorthm exceeded max depth of',max_depth)
@@ -590,14 +591,13 @@ def render_net(conmap, n=4, rand=12, shuffle=True, depth=0, max_depth=5):
 
 
 # Generate a color dictionary for use in visualizing N-colored labels.  
-def sinebow(N):
-    colordict = {0:[0,0,0,0]}
+def sinebow(N,bg_color=[0,0,0,0]):
+    colordict = {0:bg_color}
     for j in range(N): 
-        a=1
         angle = j*2*np.pi / (N)
-        r = ((np.cos(angle)+a)/2)
-        g = ((np.cos(angle+2*np.pi/3)+a)/2)
-        b =((np.cos(angle+4*np.pi/3)+a)/2)
+        r = ((np.cos(angle)+1)/2)
+        g = ((np.cos(angle+2*np.pi/3)+1)/2)
+        b = ((np.cos(angle+4*np.pi/3)+1)/2)
         colordict.update({j+1:[r,g,b,1]})
     return colordict
 
@@ -622,16 +622,6 @@ def clean_boundary(labels,boundary_thickness=3,area_thresh=30):
             clean_labels[mask] = 0
     return clean_labels
 
-def outline_view(img0,maski):
-    """
-    Generates a red outline overlay onto image. 
-    Assume img0 is already coverted to 8-bit RGB.
-    """
-    outlines = find_boundaries(maski,mode='inner') #not using masks_to_outlines as that gives border 'outlines'
-    outY, outX = np.nonzero(outlines)
-    imgout = img0.copy()
-    imgout[outY, outX] = np.array([255,0,0]) #pure red
-    return imgout
 
 # Should work for 3D too. Could put into usigned integer form at the end... 
 # Also could use some parallelization 
@@ -642,8 +632,16 @@ def format_labels(labels, clean=False, min_area=9):
     Optional clean flag: disconnect and disjoint masks and discard small masks beflow min_area. 
     min_area default is 9px. 
     """
-    labels = labels.astype('int32') # no one is going to have more than 2^32 -1 cells in one frame, right?
-    labels -= np.min(labels) # some people put -1 as background...
+    
+    # Labels are stored as a part of a float array in Cellpose, so it must be cast back here.
+    # some people also use -1 as background, so we must cast to the signed integar class. We
+    # can safely assume no 2D or 3D image will have more than 2^31 cells. Finally, cv2 does not
+    # play well with unsigned integers (saves to default uint8), so we cast to uint32. 
+    labels = labels.astype('int32') 
+    labels -= np.min(labels) 
+    labels = labels.astype('uint32') 
+    
+    # optional cleanup 
     if clean:
         inds = np.unique(labels)
         for j in inds[inds>0]:
@@ -671,3 +669,11 @@ def format_labels(labels, clean=False, min_area=9):
     fastremap.renumber(labels,in_place=True) # convenient to have unit increments from 1 to N cells
     labels = fastremap.refit(labels) # put into smaller data type if possible 
     return labels
+
+# By testing for convergence across a range of superellipses, I found that the following
+# ratio guarantees convergence. The edt() package gives a quick (but rough) distance field,
+# and it allows us to find a least upper bound for the number of iterations needed for our
+# smooth distance field computation. 
+def get_niter(dists):
+    return np.ceil(np.max(dists)*1.16).astype(int)+1
+
