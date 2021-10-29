@@ -671,6 +671,7 @@ def random_rotate_and_resize(X, Y=None, scale_range=1., gamma_range=0.5, xy = (2
     imgi  = np.zeros((nimg, nchan, xy[0], xy[1]), np.float32)
         
     lbl = []
+    scale = np.zeros((nimg,2), np.float32)
     if Y is not None:
         for n in range(nimg):
             labels = Y[n].copy()
@@ -693,13 +694,12 @@ def random_rotate_and_resize(X, Y=None, scale_range=1., gamma_range=0.5, xy = (2
             nt = 1
         lbl = np.zeros((nimg, nt, xy[0], xy[1]), np.float32)
 
-    scale = np.zeros((nimg,2), np.float32)
-    for n in range(nimg):
-        img = X[n].copy()
-        # use recursive function here to pass back single image that was cropped appropriately 
-        imgi[n], lbl[n], scale[n] = random_crop_warp(img, Y[n], nt, xy, nchan, scale[n], 
-                                                     rescale[n] if rescale is not None else None, 
-                                                     scale_range, gamma_range, do_flip, inds[n], dist_bg)
+        for n in range(nimg):
+            img = X[n].copy()
+            # use recursive function here to pass back single image that was cropped appropriately 
+            imgi[n], lbl[n], scale[n] = random_crop_warp(img, Y[n], nt, xy, nchan, scale[n], 
+                                                        rescale[n] if rescale is not None else None, 
+                                                        scale_range, gamma_range, do_flip, inds[n], dist_bg)
         
     return imgi, lbl, np.mean(scale) #for size training, must output scalar size (need to check this again)
 
