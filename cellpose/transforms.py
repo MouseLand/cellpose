@@ -191,12 +191,11 @@ def make_tiles(imgi, bsize=224, augment=False, tile_overlap=0.1):
     return IMG, ysub, xsub, Ly, Lx
 
 # needs to have a wider range to avoid weird effects with few cells in frame
-# also turns out previous fomulation can give negative numbers 
-def normalize99(img,lower=0.01,upper=99.99,skel=False):
+# also turns out previous formulation can give negative numbers, messes up log operations etc. 
+def normalize99(img,lower=0.01,upper=99.99,omni=False):
     """ normalize image so 0.0 is 0.01st percentile and 1.0 is 99.99th percentile """
     X = img.copy()
-#     print('nromalize99',skel)
-    if skel:
+    if omni:
         X = np.interp(X, (np.percentile(X, lower), np.percentile(X, upper)), (0, 1))
     else:
         x01 = np.percentile(X, 1)
@@ -251,7 +250,7 @@ def update_axis(m_axis, to_squeeze, ndim):
 
 def convert_image(x, channels, channel_axis=None, z_axis=None,
                   do_3D=False, normalize=True, invert=False,
-                  nchan=2, skel=False):
+                  nchan=2, omni=False):
     """ return image with z first, channels last and normalized intensities """
         
     # squeeze image, and if channel_axis or z_axis given, transpose image
@@ -314,7 +313,7 @@ def convert_image(x, channels, channel_axis=None, z_axis=None,
                                 axis=-1)
             
     if normalize or invert:
-        x = normalize_img(x, invert=invert, skel=skel)
+        x = normalize_img(x, invert=invert, omni=omni)
         
     return x
 
@@ -374,7 +373,7 @@ def reshape(data, channels=[0,0], chan_first=False):
             data = np.transpose(data, (2,0,1))
     return data
 
-def normalize_img(img, axis=-1, invert=False, skel=False):
+def normalize_img(img, axis=-1, invert=False, omni=False):
     """ normalize each channel of the image so that so that 0.0=1st percentile
     and 1.0=99th percentile of image intensities
 
@@ -403,13 +402,13 @@ def normalize_img(img, axis=-1, invert=False, skel=False):
     img = np.moveaxis(img, axis, 0)
     for k in range(img.shape[0]):
         if np.ptp(img[k]) > 0.0:
-            img[k] = normalize99(img[k],skel=skel)
+            img[k] = normalize99(img[k],omni=omni)
             if invert:
                 img[k] = -1*img[k] + 1   
     img = np.moveaxis(img, 0, axis)
     return img
 
-def reshape_train_test(train_data, train_labels, test_data, test_labels, channels, normalize, skel=False):
+def reshape_train_test(train_data, train_labels, test_data, test_labels, channels, normalize, omni=False):
     """ check sizes and reshape train and test data for training """
     nimg = len(train_data)
     # check that arrays are correct size
@@ -437,7 +436,7 @@ def reshape_train_test(train_data, train_labels, test_data, test_labels, channel
 
     # make data correct shape and normalize it so that 0 and 1 are 1st and 99th percentile of data
     train_data, test_data, run_test = reshape_and_normalize_data(train_data, test_data=test_data, 
-                                                                 channels=channels, normalize=normalize, skel=skel)
+                                                                 channels=channels, normalize=normalize, omni=omni)
 
     if train_data is None:
         error_message = 'training data do not all have the same number of channels'
@@ -451,7 +450,7 @@ def reshape_train_test(train_data, train_labels, test_data, test_labels, channel
 
     return train_data, train_labels, test_data, test_labels, run_test
 
-def reshape_and_normalize_data(train_data, test_data=None, channels=None, normalize=True, skel=False):
+def reshape_and_normalize_data(train_data, test_data=None, channels=None, normalize=True, omni=False):
     """ inputs converted to correct shapes for *training* and rescaled so that 0.0=1st percentile
     and 1.0=99th percentile of image intensities in each channel
 
@@ -500,7 +499,7 @@ def reshape_and_normalize_data(train_data, test_data=None, channels=None, normal
             if data[i].ndim < 3:
                 data[i] = data[i][np.newaxis,:,:]
             if normalize:
-                data[i] = normalize_img(data[i], axis=0, skel=skel)
+                data[i] = normalize_img(data[i], axis=0, omni=omni)
         nchan = [data[i].shape[0] for i in range(nimg)]
         transforms_logger.info('%s channels = %d'%(['train', 'test'][test], nchan[0]))
     run_test = True
@@ -604,7 +603,7 @@ def pad_image_ND(img0, div=16, extra = 1):
 
 def random_rotate_and_resize(X, Y=None, scale_range=1., gamma_range=0.5, xy = (224,224), 
                              do_flip=True, rescale=None, unet=False,
-                             inds=None, depth=0, skel=False):
+                             inds=None, depth=0, omni=False):
     """ augmentation by random rotation and resizing
 
         X and Y are lists or arrays of length nimg, with dims channels x Ly x Lx (channels optional)
@@ -657,7 +656,7 @@ def random_rotate_and_resize(X, Y=None, scale_range=1., gamma_range=0.5, xy = (2
     # backwards compatibility; completely 'stock', no gamma augmentation or any other extra frills. 
     # [Y[i][1:] for i in inds] is necessary because the original transform function does not use masks (entry 0). 
     # This used to be done in the original function call. 
-    if not skel:
+    if not omni:
         return original_random_rotate_and_resize(X, Y=[Y[i][1:] for i in inds], scale_range=scale_range, xy=xy,
                                                  do_flip=do_flip, rescale=rescale, unet=unet)
 
@@ -803,7 +802,7 @@ def random_crop_warp(img, Y, nt, xy, nchan, scale, rescale, scale_range, gamma_r
             # percentile clipping augmentation 
             dp = 10
             dpct = np.random.triangular(left=0, mode=0, right=dp, size=2) # weighted toward 0
-            imgi[k] = normalize99(imgi[k],upper=100-dpct[0],lower=dpct[1],skel=True)
+            imgi[k] = normalize99(imgi[k],upper=100-dpct[0],lower=dpct[1],omni=True)
             
             # noise augmentation 
             imgi[k] = random_noise(imgi[k], mode="poisson")
@@ -831,7 +830,7 @@ def random_crop_warp(img, Y, nt, xy, nchan, scale, rescale, scale_range, gamma_r
 #                 dist[dist<=0] = -dist_bg
 #                 lbl[1] = dist
             else:
-#                 _, _, smooth_dist, mu = dynamics.masks_to_flows_gpu(l,dists=dist,skel=skel) #would want to replace this with a dedicated dist-only function
+#                 _, _, smooth_dist, mu = dynamics.masks_to_flows_gpu(l,dists=dist,omni=omni) #would want to replace this with a dedicated dist-only function
                 lbl[3] = 5.*mu[1]
                 lbl[2] = 5.*mu[0]
 
@@ -851,9 +850,9 @@ def random_crop_warp(img, Y, nt, xy, nchan, scale, rescale, scale_range, gamma_r
                 lbl[3] = -lbl[3]
     return imgi, lbl, scale
 
-# I have the skel flag here just in case, but it actually does not affect the tests
-def normalize_field(mu,skel=False):
-    if not skel:
+# I have the omni flag here just in case, but it actually does not affect the tests
+def normalize_field(mu,omni=False):
+    if not omni:
         mu /= (1e-20 + (mu**2).sum(axis=0)**0.5)
     else:   
         mag = np.sqrt(np.nansum(mu**2,axis=0))

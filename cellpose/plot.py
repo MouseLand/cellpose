@@ -14,7 +14,7 @@ from . import utils, io, transforms
 def dx_to_circ(dP,transparency=False):
     """ dP is 2 x Y x X => 'optic' flow representation """
     dP = np.array(dP)
-    mag = transforms.normalize99(np.sqrt(np.sum(dP**2,axis=0)),skel=1)
+    mag = transforms.normalize99(np.sqrt(np.sum(dP**2,axis=0)),omni=1)
     angles = np.arctan2(dP[1], dP[0])+np.pi
     a = 2
     r = ((np.cos(angles)+1)/a)
@@ -27,7 +27,7 @@ def dx_to_circ(dP,transparency=False):
     return im
 
 
-def show_segmentation(fig, img, maski, flowi, channels=[0,0], file_name=None, skel=False, seg_norm=False):
+def show_segmentation(fig, img, maski, flowi, channels=[0,0], file_name=None, omni=False, seg_norm=False):
     """ plot segmentation results (like on website)
     
     Can save each panel of figure with file_name option. Use channels option if
@@ -61,7 +61,7 @@ def show_segmentation(fig, img, maski, flowi, channels=[0,0], file_name=None, sk
     if img0.shape[0] < 4:
         img0 = np.transpose(img0, (1,2,0))
     if img0.shape[-1] < 3 or img0.ndim < 3:
-        img0 = image_to_rgb(img0, channels=channels, skel=skel)
+        img0 = image_to_rgb(img0, channels=channels, omni=omni)
     else:
         if img0.max()<=50.0:
             img0 = np.uint8(np.clip(img0*255, 0, 1))
@@ -76,7 +76,7 @@ def show_segmentation(fig, img, maski, flowi, channels=[0,0], file_name=None, sk
     # Image normalization to improve cell visibility under labels
     if seg_norm:
         fg = 1/9
-        p = transforms.normalize99(img0,skel=skel)
+        p = transforms.normalize99(img0,omni=omni)
         img1 = p**(np.log(fg)/np.log(np.mean(p[maski>0])))
     else:
         img1 = img0
@@ -150,7 +150,7 @@ def mask_rgb(masks, colors=None):
     RGB = (utils.hsv_to_rgb(HSV) * 255).astype(np.uint8)
     return RGB
 
-def mask_overlay(img, masks, colors=None, skel=False):
+def mask_overlay(img, masks, colors=None, omni=False):
     """ overlay masks on image (set image to grayscale)
 
     Parameters
@@ -196,7 +196,7 @@ def mask_overlay(img, masks, colors=None, skel=False):
     RGB = (utils.hsv_to_rgb(HSV) * 255).astype(np.uint8)
     return RGB
 
-def image_to_rgb(img0, channels=[0,0], skel=False):
+def image_to_rgb(img0, channels=[0,0], omni=False):
     """ image is 2 x Ly x Lx or Ly x Lx x 2 - change to RGB Ly x Lx x 3 """
     img = img0.copy()
     img = img.astype(np.float32)
@@ -208,7 +208,7 @@ def image_to_rgb(img0, channels=[0,0], skel=False):
         img = img.mean(axis=-1)[:,:,np.newaxis]
     for i in range(img.shape[-1]):
         if np.ptp(img[:,:,i])>0:
-            img[:,:,i] = transforms.normalize99(img[:,:,i],skel=skel)
+            img[:,:,i] = transforms.normalize99(img[:,:,i],omni=omni)
             img[:,:,i] = np.clip(img[:,:,i], 0, 1)
     img *= 255
     img = np.uint8(img)

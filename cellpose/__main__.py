@@ -62,10 +62,10 @@ def main():
                         default=0, type=int, help='run standard unet instead of cellpose flow output')
     parser.add_argument('--nclasses', required=False,
                         default=3, type=int, 
-                        help='if running unet, choose 2 or 3; if training skel, choose 4; standard Cellpose uses 3')
+                        help='if running unet, choose 2 or 3; if training omni, choose 4; standard Cellpose uses 3')
 
     # cellpose algorithm settings
-    parser.add_argument('--skel', action='store_true', help='"skeletonized" algorithm (disabled by default)')
+    parser.add_argument('--omni', action='store_true', help='Omnipose algorithm (disabled by default)')
     parser.add_argument('--cluster', action='store_true', help='DBSCAN clustering. Reduces oversegmentation of thin features (disabled by default).')
     parser.add_argument('--fast_mode', action='store_true', help="make code run faster by turning off 4 network averaging")
     parser.add_argument('--resample', action='store_true', help="run dynamics on full image (slower for images with large diameters)")
@@ -127,32 +127,32 @@ def main():
 
     args = parser.parse_args()
     
-    # skel changes not implemented for mxnet. Full parity for cpu/gpu in pytorch. 
-    if args.skel and args.mxnet:
-        logger.info('>>>> Skel only implemented in pytorch.')
-        confirm = confirm_prompt('Continue with skel set to false?')
+    # omni changes not implemented for mxnet. Full parity for cpu/gpu in pytorch. 
+    if args.omni and args.mxnet:
+        logger.info('>>>> omni only implemented in pytorch.')
+        confirm = confirm_prompt('Continue with omni set to false?')
         if not confirm:
             exit()
         else:
-            logger.info('>>>> Skel set to false.')
-            args.skel = False
+            logger.info('>>>> omni set to false.')
+            args.omni = False
 
-    # For now, skel version is not compatible with 3D. WIP. 
-    if args.skel and args.do_3D:
-        logger.info('>>>> Skel not yet compatible with 3D segmentation.')
-        confirm = confirm_prompt('Continue with skel set to false?')
+    # For now, omni version is not compatible with 3D. WIP. 
+    if args.omni and args.do_3D:
+        logger.info('>>>> omni not yet compatible with 3D segmentation.')
+        confirm = confirm_prompt('Continue with omni set to false?')
         if not confirm:
             exit()
         else:
-            logger.info('>>>> Skel set to false.')
-            args.skel = False
+            logger.info('>>>> omni set to false.')
+            args.omni = False
     
-    # skel model needs 4 classes. Would prefer a more elegant way to automaticaly update the flow fields
+    # omni model needs 4 classes. Would prefer a more elegant way to automaticaly update the flow fields
     # instead of users deleting them manually - a check on the number of channels, maybe, or just use
     # the yes/no prompt to ask the user if they want their flow fields in the given directory to be deleted. 
     # would also need the look_one_level_down optionally toggled...
-    if args.skel and args.train:
-        logger.info('>>>> Training skel model. Setting nclasses to 4.')
+    if args.omni and args.train:
+        logger.info('>>>> Training omni model. Setting nclasses to 4.')
         logger.info('>>>> Make sure your flow fields are deleted and re-computed.')
         args.nclasses = 4
     
@@ -217,21 +217,21 @@ def main():
             cstr1 = ['NONE', 'RED', 'GREEN', 'BLUE']
             logger.info('>>>> running cellpose on %d images using chan_to_seg %s and chan (opt) %s'%
                             (nimg, cstr0[channels[0]], cstr1[channels[1]]))
-            logger.info('>>>> skel is %d, cluster is %d'%(args.skel,args.cluster))
+            logger.info('>>>> omni is %d, cluster is %d'%(args.omni,args.cluster))
                     
             if args.pretrained_model=='cyto' or args.pretrained_model=='nuclei' or args.pretrained_model=='cyto2':
                 if args.mxnet and args.pretrained_model=='cyto2':
                     logger.warning('cyto2 model not available in mxnet, using cyto model')
                     args.pretrained_model = 'cyto'
                 model = models.Cellpose(gpu=gpu, device=device, model_type=args.pretrained_model, 
-                                            torch=(not args.mxnet),skel=args.skel)
+                                            torch=(not args.mxnet),omni=args.omni)
             else:
                 if args.all_channels:
                     channels = None  
                 model = models.CellposeModel(gpu=gpu, device=device, 
                                              pretrained_model=cpmodel_path,
                                              torch=(not args.mxnet),
-                                             nclasses=args.nclasses,skel=args.skel)
+                                             nclasses=args.nclasses,omni=args.omni)
 
             if args.diameter==0:
                 if args.pretrained_model=='cyto' or args.pretrained_model=='nuclei' or args.pretrained_model=='cyto2':
@@ -261,7 +261,7 @@ def main():
                                 cluster=args.cluster,
                                 channel_axis=args.channel_axis,
                                 z_axis=args.z_axis,
-                                skel=args.skel,
+                                omni=args.omni,
                                 verbose=args.verbose)
                 masks, flows = out[:2]
                 if len(out) > 3:
@@ -352,7 +352,7 @@ def main():
                                             concatenation=args.concatenation,
                                             nclasses=args.nclasses,
                                             nchan=nchan,
-                                            skel=args.skel)
+                                            omni=args.omni)
             
             # train segmentation model
             if args.train:
@@ -362,7 +362,7 @@ def main():
                                            save_path=os.path.realpath(args.dir), save_every=args.save_every,
                                            save_each=args.save_each,
                                            rescale=rescale,n_epochs=args.n_epochs,
-                                           batch_size=args.batch_size, skel=args.skel)
+                                           batch_size=args.batch_size, omni=args.omni)
                 model.pretrained_model = cpmodel_path
                 logger.info('>>>> model trained and saved to %s'%cpmodel_path)
 
