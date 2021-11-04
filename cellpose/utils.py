@@ -366,8 +366,8 @@ def stitch3D(masks, stitch_threshold=0.25):
     return masks
 
 # merged deiameter functions
-def diameters(masks, skel=False, dist_threshold=1):
-    if not skel: #original 'equivalent area circle' diameter
+def diameters(masks, omni=False, dist_threshold=1):
+    if not omni: #original 'equivalent area circle' diameter
         _, counts = np.unique(np.int32(masks), return_counts=True)
         counts = counts[1:]
         md = np.median(counts**0.5)

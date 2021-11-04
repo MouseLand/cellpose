@@ -58,7 +58,7 @@ class Cellpose():
         run model using torch if available
 
     """
-    def __init__(self, gpu=False, model_type='cyto', net_avg=True, device=None, torch=True, model_dir=None, skel=False):
+    def __init__(self, gpu=False, model_type='cyto', net_avg=True, device=None, torch=True, model_dir=None, omni=False):
         super(Cellpose, self).__init__()
         if not torch:
             if not MXNET_ENABLED:
@@ -73,7 +73,7 @@ class Cellpose():
         if model_type=='cyto2' and not self.torch:
             model_type='cyto'
         
-        self.skel = skel        
+        self.omni = omni        
         
         self.pretrained_model = [model_path(model_type, j, torch) for j in range(4)]
         self.pretrained_size = size_model_path(model_type, torch)
@@ -84,7 +84,7 @@ class Cellpose():
 
         self.cp = CellposeModel(device=self.device, gpu=self.gpu,
                                 pretrained_model=self.pretrained_model,
-                                diam_mean=self.diam_mean, torch=self.torch, skel=self.skel)
+                                diam_mean=self.diam_mean, torch=self.torch, omni=self.omni)
         self.cp.model_type = model_type
 
         self.sz = SizeModel(device=self.device, pretrained_size=self.pretrained_size,
@@ -95,7 +95,7 @@ class Cellpose():
              invert=False, normalize=True, diameter=30., do_3D=False, anisotropy=None,
              net_avg=True, augment=False, tile=True, tile_overlap=0.1, resample=False, interp=True, cluster=False,
              flow_threshold=0.4, dist_threshold=0.0, diam_threshold=12., min_size=15, stitch_threshold=0.0, 
-             rescale=None, progress=None, skel=False, verbose=False):
+             rescale=None, progress=None, omni=False, verbose=False):
         """ run cellpose and get masks
 
         Parameters
@@ -244,7 +244,7 @@ class Cellpose():
                                             diam_threshold=diam_threshold,
                                             min_size=min_size, 
                                             stitch_threshold=stitch_threshold,
-                                            skel=skel,
+                                            omni=omni,
                                             verbose=verbose)
         models_logger.info('>>>> TOTAL TIME %0.2f sec'%(time.time()-tic0))
     
@@ -281,16 +281,16 @@ class CellposeModel(UnetModel):
     model_dir: str (optional, default None)
         overwrite the built in model directory where cellpose looks for models
     
-    skel: use skeletonized flow field model (optional, default False)
+    omni: use omnipose flow field model (optional, default False)
 
     """
     
-    # still need to put the skel model trained on cellpose data into the right folder with the right name with the size model 
+    # still need to put the omni model trained on cellpose data into the right folder with the right name with the size model 
     def __init__(self, gpu=False, pretrained_model=False, 
                     model_type=None, net_avg=True, torch=True,
                     diam_mean=30., device=None,
                     residual_on=True, style_on=True, concatenation=False,
-                    nchan=2, nclasses=3, skel=False):
+                    nchan=2, nclasses=3, omni=False):
         if not torch:
             if not MXNET_ENABLED:
                 torch = True
@@ -300,7 +300,7 @@ class CellposeModel(UnetModel):
         elif isinstance(pretrained_model, str):
             pretrained_model = [pretrained_model]
             
-        self.skel = skel        
+        self.omni = omni        
         self.nclasses = nclasses 
         
         if model_type is not None or (pretrained_model and not os.path.exists(pretrained_model[0])):
@@ -308,7 +308,7 @@ class CellposeModel(UnetModel):
             if (pretrained_model_string !='cyto' 
                 and pretrained_model_string !='nuclei' 
                 and pretrained_model_string != 'cyto2'
-                and pretrained_model_string !='skel') or pretrained_model_string is None: # plan to have a built-in skel model
+                and pretrained_model_string !='omni') or pretrained_model_string is None: # plan to have a built-in omni model
                 pretrained_model_string = 'cyto'
             pretrained_model = None 
             if (pretrained_model and not os.path.exists(pretrained_model[0])):
@@ -348,7 +348,7 @@ class CellposeModel(UnetModel):
              augment=False, tile=True, tile_overlap=0.1,
              resample=False, interp=True, cluster=False,
              flow_threshold=0.4, dist_threshold=0.0, diam_threshold=12.,
-             compute_masks=True, min_size=15, stitch_threshold=0.0, progress=None, skel=False, 
+             compute_masks=True, min_size=15, stitch_threshold=0.0, progress=None, omni=False, 
              calc_trace=False, verbose=False):
         """
             segment list of images x, or 4D array - Z x nchan x Y x X
@@ -449,7 +449,7 @@ class CellposeModel(UnetModel):
 
         """
         if verbose:
-            models_logger.info('Evaluating with skel %d, cluster %d, flow_threshold %f'%(skel,cluster,flow_threshold))
+            models_logger.info('Evaluating with omni %d, cluster %d, flow_threshold %f'%(omni,cluster,flow_threshold))
         
         
         if isinstance(x, list) or x.squeeze().ndim==5:
@@ -485,7 +485,7 @@ class CellposeModel(UnetModel):
                                                  min_size=min_size, 
                                                  stitch_threshold=stitch_threshold, 
                                                  progress=progress,
-                                                 skel=skel,
+                                                 omni=omni,
                                                  calc_trace=calc_trace, 
                                                  verbose=verbose)
                 masks.append(maski)
@@ -495,7 +495,7 @@ class CellposeModel(UnetModel):
         
         else:
             x = transforms.convert_image(x, channels, channel_axis=channel_axis, z_axis=z_axis,
-                                         do_3D=(do_3D or stitch_threshold>0), normalize=False, invert=False, nchan=self.nchan, skel=skel)
+                                         do_3D=(do_3D or stitch_threshold>0), normalize=False, invert=False, nchan=self.nchan, omni=omni)
             if x.ndim < 4:
                 x = x[np.newaxis,...]
             self.batch_size = batch_size
@@ -526,7 +526,7 @@ class CellposeModel(UnetModel):
                                                           do_3D=do_3D, 
                                                           anisotropy=anisotropy,
                                                           stitch_threshold=stitch_threshold,
-                                                          skel=skel,
+                                                          omni=omni,
                                                           calc_trace=calc_trace,
                                                           verbose=verbose)
             flows = [plot.dx_to_circ(dP), dP, dist, p, bd, tr]
@@ -539,7 +539,7 @@ class CellposeModel(UnetModel):
                 augment=False, tile=True, tile_overlap=0.1,
                 dist_threshold=0.0, diam_threshold=12., flow_threshold=0.4, min_size=15,
                 interp=False, cluster=False, anisotropy=1.0, do_3D=False, stitch_threshold=0.0,
-                skel=False, calc_trace=False, verbose=False):
+                omni=False, calc_trace=False, verbose=False):
         tic = time.time()
         shape = x.shape
         nimg = shape[0]        
@@ -547,7 +547,7 @@ class CellposeModel(UnetModel):
         if do_3D:
             img = np.asarray(x)
             if normalize or invert:
-                img = transforms.normalize_img(img, invert=invert, skel=skel)
+                img = transforms.normalize_img(img, invert=invert, omni=omni)
             yf, styles = self._run_3D(img, rsz=rescale, anisotropy=anisotropy, 
                                       net_avg=net_avg, augment=augment, tile=tile,
                                       tile_overlap=tile_overlap)
@@ -574,7 +574,7 @@ class CellposeModel(UnetModel):
             for i in iterator:
                 img = np.asarray(x[i])
                 if normalize or invert:
-                    img = transforms.normalize_img(img, invert=invert, skel=skel)
+                    img = transforms.normalize_img(img, invert=invert, omni=omni)
                 if rescale != 1.0:
                     img = transforms.resize_image(img, rsz=rescale)
 
@@ -601,7 +601,7 @@ class CellposeModel(UnetModel):
                 masks, p, tr = dynamics.compute_masks(dP, dist, bd, niter=niter, dist_threshold=dist_threshold,
                                                       diam_threshold=diam_threshold,flow_threshold=flow_threshold,
                                                       interp=interp, cluster=cluster, do_3D=do_3D, min_size=min_size,
-                                                      resize=None, skel=skel, calc_trace=calc_trace, verbose=verbose,
+                                                      resize=None, omni=omni, calc_trace=calc_trace, verbose=verbose,
                                                       use_gpu=self.gpu, device=self.device, nclasses=self.nclasses)
             else:
                 masks = np.zeros((nimg, shape[1], shape[2]), np.uint16)
@@ -618,7 +618,7 @@ class CellposeModel(UnetModel):
                                                                      diam_threshold=diam_threshold, 
                                                                      interp=interp, cluster=cluster,
                                                                      resize=resize, 
-                                                                     skel=skel, calc_trace=calc_trace, 
+                                                                     omni=omni, calc_trace=calc_trace, 
                                                                      verbose=verbose,
                                                                      use_gpu=self.gpu, 
                                                                      device=self.device, 
@@ -639,7 +639,7 @@ class CellposeModel(UnetModel):
         
     def loss_fn(self, lbl, y):
         """ loss function between true labels lbl and prediction y """
-        if not self.skel: # original loss function 
+        if not self.omni: # original loss function 
             veci = 5. * self._to_device(lbl[:,1:])
             lbl  = self._to_device(lbl[:,0]>.5)
             loss = self.criterion(y[:,:2] , veci) 
@@ -648,7 +648,7 @@ class CellposeModel(UnetModel):
             loss2 = self.criterion2(y[:,2] , lbl)
             loss = loss + loss2
         
-        else: #loss function for skeletonized field 
+        else: #loss function for omnipose field 
             veci = self._to_device(lbl[:,2:4]) #scaled to 5 in augmentation 
             dist = lbl[:,1] # now distance transform replaces probability
             boundary =  lbl[:,5]
@@ -660,30 +660,21 @@ class CellposeModel(UnetModel):
             flow = y[:,:2] # 0,1
             dt = y[:,2]
             bd = y[:,3]
-
-            loss7 = 2.*self.criterion12(dt,dist,w) #weighted MSE 
+            a = 10.
+         
 
             wt = torch.stack((w,w),dim=1)
             ct = torch.stack((cellmask,cellmask),dim=1) 
+            
             loss1 = 10.*self.criterion12(flow,veci,wt)  #weighted MSE 
-
             loss2 = self.criterion14(flow,veci,w,cellmask) #ArcCosDotLoss
-            a = 10.
             loss3 = self.criterion11(flow,veci,wt,ct)/a # DerivativeLoss
-            loss8 = self.criterion11(dt.unsqueeze(1),dist.unsqueeze(1),w.unsqueeze(1),cellmask.unsqueeze(1))/a  #older models had just plain cellmask
-
-    #         loss4 = ((self.criterion2(bd,boundary)/2.) + (self.criterion2(bd[cellmask],boundary[cellmask])))#boundary loss 
             loss4 = 2.*self.criterion2(bd,boundary)
-
             loss5 = 2.*self.criterion15(flow,veci,w,cellmask) # loss on norm 
-    #         loss6 = self.criterion16(flow,veci,cellmask)/5. # loss on divergence, bad for normalized field, revisit on interp field?
+            loss6 = 2.*self.criterion12(dt,dist,w) #weighted MSE 
+            loss7 = self.criterion11(dt.unsqueeze(1),dist.unsqueeze(1),w.unsqueeze(1),cellmask.unsqueeze(1))/a  
 
-    #         print(loss1.cpu().detach().numpy(),loss2.cpu().detach().numpy(),
-    #               loss3.cpu().detach().numpy(),loss4.cpu().detach().numpy(),
-    #               loss5.cpu().detach().numpy(),
-    #               loss7.cpu().detach().numpy(),loss8.cpu().detach().numpy())
-
-            loss = loss1 + loss2 + loss3 + loss4 + loss5 + loss7 + loss8
+            loss = loss1 + loss2 + loss3 + loss4 + loss5 + loss6 + loss7
         return loss        
 
 
@@ -692,7 +683,7 @@ class CellposeModel(UnetModel):
               channels=None, normalize=True, pretrained_model=None, 
               save_path=None, save_every=100, save_each=False,
               learning_rate=0.2, n_epochs=500, momentum=0.9, 
-              weight_decay=0.00001, batch_size=8, rescale=False, skel=False):
+              weight_decay=0.00001, batch_size=8, rescale=False, omni=False):
 
         """ train network with images train_data 
         
@@ -756,9 +747,9 @@ class CellposeModel(UnetModel):
             models_logger.info(f'Training with rescale = {rescale:.2f}')
         train_data, train_labels, test_data, test_labels, run_test = transforms.reshape_train_test(train_data, train_labels,
                                                                                                    test_data, test_labels,
-                                                                                                   channels, normalize, skel)
+                                                                                                   channels, normalize, omni)
         # check if train_labels have flows
-        train_flows = dynamics.labels_to_flows(train_labels, files=train_files, use_gpu=self.gpu, device=self.device, skel=skel)
+        train_flows = dynamics.labels_to_flows(train_labels, files=train_files, use_gpu=self.gpu, device=self.device, omni=omni)
         if run_test:
             test_flows = dynamics.labels_to_flows(test_labels, files=test_files)
         else:
@@ -788,9 +779,9 @@ class SizeModel():
         pretrained_size: str
             path to pretrained size model
             
-        skel: bool
+        omni: bool
             whether or not to use distance-based size metrics
-            corresponding to 'skel' model 
+            corresponding to 'omni' model 
 
     """
     def __init__(self, cp_model, device=None, pretrained_size=None, **kwargs):
@@ -811,7 +802,7 @@ class SizeModel():
         
     def eval(self, x, channels=None, channel_axis=None, 
              normalize=True, invert=False, augment=False, tile=True,
-             batch_size=8, progress=None, interp=True, skel=False):
+             batch_size=8, progress=None, interp=True, omni=False):
         """ use images x to produce style or use style input to predict size of objects in image
 
             Object size estimation is done in two steps:
@@ -878,7 +869,7 @@ class SizeModel():
                                              tile=tile,
                                              batch_size=batch_size,
                                              progress=progress,
-                                             skel=skel)
+                                             omni=omni)
                 diams.append(diam)
                 diams_style.append(diam_style)
 
@@ -918,11 +909,11 @@ class SizeModel():
 #                              interp=interp,
                              interp=False,
 #                              flow_threshold=0,
-                             skel=skel)[0]
+                             omni=omni)[0]
         
         # allow backwards compatibility to older scale metric
-        diam = utils.diameters(masks,skel=skel)[0]
-        if hasattr(self, 'model_type') and (self.model_type=='nuclei' or self.model_type=='cyto') and not self.torch and not skel:
+        diam = utils.diameters(masks,omni=omni)[0]
+        if hasattr(self, 'model_type') and (self.model_type=='nuclei' or self.model_type=='cyto') and not self.torch and not omni:
             diam_style /= (np.pi**0.5)/2
             diam = self.diam_mean / ((np.pi**0.5)/2) if (diam==0 or np.isnan(diam)) else diam
         else:
@@ -946,7 +937,7 @@ class SizeModel():
               channels=None, normalize=True, 
               learning_rate=0.2, n_epochs=10, 
               l2_regularization=1.0, batch_size=8,
-              skel=False):
+              omni=False):
         """ train size model with images train_data to estimate linear model from styles to diameters
         
             Parameters
@@ -980,7 +971,7 @@ class SizeModel():
         self.cp.batch_size = batch_size
         train_data, train_labels, test_data, test_labels, run_test = transforms.reshape_train_test(train_data, train_labels,
                                                                                                    test_data, test_labels,
-                                                                                                   channels, normalize, skel)
+                                                                                                   channels, normalize, omni)
         if isinstance(self.cp.pretrained_model, list):
             cp_model_path = self.cp.pretrained_model[0]
             self.cp.net.load_model(cp_model_path, cpu=(not self.cp.gpu))
@@ -989,9 +980,9 @@ class SizeModel():
         else:
             cp_model_path = self.cp.pretrained_model
         
-        diam_train = np.array([utils.diameters(lbl,skel=skel)[0] for lbl in train_labels])
+        diam_train = np.array([utils.diameters(lbl,omni=omni)[0] for lbl in train_labels])
         if run_test: 
-            diam_test = np.array([utils.diameters(lbl,skel=skel)[0] for lbl in test_labels])
+            diam_test = np.array([utils.diameters(lbl,omni=omni)[0] for lbl in test_labels])
         
         # remove images with no masks
         for i in range(len(diam_train)):
