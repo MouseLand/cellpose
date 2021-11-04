@@ -11,7 +11,7 @@ from skimage.segmentation import find_boundaries
 from . import utils, io, transforms
 
 # modified to use sinebow color
-def dx_to_circ(dP,transparency=False):
+def dx_to_circ(dP,transparency=True):
     """ dP is 2 x Y x X => 'optic' flow representation """
     dP = np.array(dP)
     mag = transforms.normalize99(np.sqrt(np.sum(dP**2,axis=0)),omni=1)
