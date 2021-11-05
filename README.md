@@ -1,4 +1,5 @@
-# Cellpose <img src="cellpose/logo/logo.png" width="250" title="cellpose" alt="cellpose" align="right" vspace = "50">
+# Cellpose / Omnipose <img src="omnipose/logo.png" width="135" title="omnipose" alt="omnipose" align="top" vspace = "3">
+<img src="cellpose/logo/logo.png" width="250" title="cellpose" alt="cellpose" align="right" vspace = "50">
 
 [![Documentation Status](https://readthedocs.org/projects/cellpose/badge/?version=latest)](https://cellpose.readthedocs.io/en/latest/?badge=latest)
 [![Build Status](https://travis-ci.org/MouseLand/cellpose.svg?branch=master)](https://travis-ci.org/MouseLand/cellpose)
@@ -16,9 +17,15 @@
 
 A generalist algorithm for cell and nucleus segmentation. 
 
-This code was written by Carsen Stringer and Marius Pachitariu. To learn about Cellpose, read the [paper](https://t.co/kBMXmPp3Yn?amp=1) or watch the [talk](https://t.co/JChCsTD0SK?amp=1). For support, please open an [issue](https://github.com/MouseLand/cellpose/issues). 
+Cellpose was written by Carsen Stringer and Marius Pachitariu. To learn about Cellpose, read the [paper](https://t.co/kBMXmPp3Yn?amp=1) or watch the [talk](https://t.co/JChCsTD0SK?amp=1). For support, please open an [issue](https://github.com/MouseLand/cellpose/issues). 
 
-If you want to improve Cellpose for yourself and for everyone else, please consider contributing manual segmentations for a few of your images via the built-in GUI interface (see instructions below). 
+Omnipose was written by Kevin Cutler ([@kevinjohncutler](https://github.com/kevinjohncutler)). To learn about Omnipose, read the [paper](http://biorxiv.org/content/early/2021/11/04/2021.11.03.467199). 
+
+If you want to improve Cellpose/Omnipose for yourself and for everyone else, please consider contributing manual segmentations for a few of your images via the built-in GUI interface (see instructions below). 
+
+### UPDATE v1.0 (Nov 2021)
+
+
 
 ### UPDATE v0.6 (Dec 2020)
 

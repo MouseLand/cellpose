@@ -2,7 +2,7 @@
 
 <img src="logo.png" width="200" title="omnipose" alt="omnipose" align="center" vspace = "0">
 
-The code developed for and associated with Omnipose is licensed under the
+The code associated with Omnipose (all code in omni.py and in if omni branches)is licensed under the
 [Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License][cc-by-nc-sa].
 
 [![CC BY-NC-SA 4.0][cc-by-nc-sa-image]][cc-by-nc-sa]
