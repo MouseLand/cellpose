@@ -16,7 +16,7 @@ dynamics_logger = logging.getLogger(__name__)
 dynamics_logger.setLevel(logging.DEBUG)
 
 from . import utils, metrics, transforms
-from omnipose import omni as omnipose
+from omnipose import omnipose
 
 try:
     import torch
@@ -860,13 +860,13 @@ def compute_masks(dP, dist, bd=None, p=None, inds=None, niter=200, dist_threshol
         
         #preprocess flows
         if omni:
-            dP = omnipose.div_rescale(dP,mask)
+            dP_ = omnipose.div_rescale(dP,mask)
         else:
-            dP = dP * mask / 5.
+            dP_ = dP * mask / 5.
         
         # follow flows
         if p is None:
-                p , inds, tr = follow_flows(dP, mask=mask, inds=inds, niter=niter, interp=interp, 
+                p , inds, tr = follow_flows(dP_, mask=mask, inds=inds, niter=niter, interp=interp, 
                                             use_gpu=use_gpu, device=device, omni=omni, calc_trace=calc_trace)
         else: 
             inds,tr = [],[]
@@ -876,14 +876,9 @@ def compute_masks(dP, dist, bd=None, p=None, inds=None, niter=200, dist_threshol
         #calculate masks
         if omni:
             mask = omnipose.get_masks(p,bd,dist,mask,inds,nclasses,cluster=cluster,
-                          diam_threshold=diam_threshold,verbose=verbose) 
+                                      diam_threshold=diam_threshold,verbose=verbose) 
         else:
-            mask = get_masks(p, iscell=mask,flows=dP, threshold=flow_threshold if not do_3D else None, use_gpu=use_gpu)
-
-
-        # quality control - this got removed in recent version of cellpose??? or did I add it? 
-#             if flow_threshold is not None and flow_threshold > 0 and dP is not None:
-#                 mask = dynamics.remove_bad_flow_masks(mask, dP, threshold=flow_threshold, omni=omni)
+            mask = get_masks(p, iscell=mask, flows=dP, threshold=flow_threshold if not do_3D else None, use_gpu=use_gpu)
 
         if resize is not None:
             if verbose:

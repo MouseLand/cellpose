@@ -130,7 +130,6 @@ def main():
     if args.omni:
         logger.info('>>>> Omnipose is free for non-commercial use under the AGPL. For commercial licenses, contact uwcomotion@uw.edu.')
     
-    
     # omni changes not implemented for mxnet. Full parity for cpu/gpu in pytorch. 
     if args.omni and args.mxnet:
         logger.info('>>>> omni only implemented in pytorch.')

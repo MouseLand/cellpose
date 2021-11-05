@@ -11,7 +11,7 @@ models_logger.setLevel(logging.DEBUG)
 from . import transforms, dynamics, utils, plot
 from .core import UnetModel, assign_device, MXNET_ENABLED, parse_model_string
 
-from omnipose import omni as omnipose
+from omnipose import omnipose
 
 _MODEL_URL = 'https://www.cellpose.org/models'
 _MODEL_DIR_ENV = os.environ.get("CELLPOSE_LOCAL_MODELS_PATH")
