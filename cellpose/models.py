@@ -11,7 +11,7 @@ models_logger.setLevel(logging.DEBUG)
 from . import transforms, dynamics, utils, plot
 from .core import UnetModel, assign_device, MXNET_ENABLED, parse_model_string
 
-from 
+from omnipose import omni as omnipose
 
 _MODEL_URL = 'https://www.cellpose.org/models'
 _MODEL_DIR_ENV = os.environ.get("CELLPOSE_LOCAL_MODELS_PATH")
@@ -643,7 +643,7 @@ class CellposeModel(UnetModel):
         """ loss function between true labels lbl and prediction y """
         if self.omni:
              #loss function for omnipose field 
-            loss = omni_loss(self, lbl, y)
+            loss = omnipose.loss(self, lbl, y)
         else: # original loss function 
             veci = 5. * self._to_device(lbl[:,1:])
             lbl  = self._to_device(lbl[:,0]>.5)

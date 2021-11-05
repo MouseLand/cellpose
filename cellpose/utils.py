@@ -376,14 +376,8 @@ def diameters(masks, omni=False, dist_threshold=1):
         md /= (np.pi**0.5)/2
         return md, counts**0.5
     else: #new distance-field-derived diameter (aggrees with cicle but more general)
-        dt = edt.edt(np.int32(masks))
-        dt_pos = np.abs(dt[dt>=dist_threshold])
-        return dist_to_diam(np.abs(dt_pos)), None
+        return omnipose.diameters(masks), None
 
-# also used in models.py
-def dist_to_diam(dt_pos):
-    return 6*np.mean(dt_pos)
-#     return np.exp(3/2)*gmean(dt_pos[dt_pos>=gmean(dt_pos)])
 
 def radius_distribution(masks, bins):
     unique, counts = np.unique(masks, return_counts=True)
@@ -670,10 +664,5 @@ def format_labels(labels, clean=False, min_area=9):
     labels = fastremap.refit(labels) # put into smaller data type if possible 
     return labels
 
-# By testing for convergence across a range of superellipses, I found that the following
-# ratio guarantees convergence. The edt() package gives a quick (but rough) distance field,
-# and it allows us to find a least upper bound for the number of iterations needed for our
-# smooth distance field computation. 
-def get_niter(dists):
-    return np.ceil(np.max(dists)*1.16).astype(int)+1
+
 
