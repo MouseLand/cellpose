@@ -1,7 +1,4 @@
-# <p>  <b>Cellpose / </b> <img src="omnipose/logo.png" height="33" title="omnipose" alt="omnipose"  align="absmiddle"  >  
-  </p>
-
-
+# <p>  <b>Cellpose / </b> <img src="omnipose/logo.png" height="33" title="omnipose" alt="omnipose" align="absmiddle" /> </p>
 <img src="cellpose/logo/logo.png" width="250" title="cellpose" alt="cellpose" align="right" vspace = "50">
 
 [![Documentation Status](https://readthedocs.org/projects/cellpose/badge/?version=latest)](https://cellpose.readthedocs.io/en/latest/?badge=latest)
