@@ -40,9 +40,9 @@ def dist_to_diam(dt_pos):
     return 6*np.mean(dt_pos)
 #     return np.exp(3/2)*gmean(dt_pos[dt_pos>=gmean(dt_pos)])
 
-def diameters(masks):
+def diameters(masks,dist_threshold=0):
     dt = edt.edt(np.int32(masks))
-    dt_pos = np.abs(dt[dt>=dist_threshold])
+    dt_pos = np.abs(dt[dt>dist_threshold])
     return dist_to_diam(np.abs(dt_pos))
 
 def normalize_field(mu):
@@ -178,7 +178,7 @@ def get_masks(p,bd,dist,mask,inds,nclasses=4,cluster=False,diam_threshold=12.,ve
         eps = 1+1/3
 
     else: #backwards compatibility, doesn't help for *clusters* of thin/small cells
-        d,e = diameters(mask)
+        d = diameters(mask)
         eps = np.sqrt(2)
 
     # The mean diameter can inform whether or not the cells are too small to form contiguous blobs.
