@@ -1,5 +1,5 @@
-# <p>  <b>Cellpose | </b> <img src="omnipose/logo.png" height="33" title="omnipose" alt="omnipose" align="absmiddle" /> </p>
-<img src="cellpose/logo/logo.png" width="250" title="cellpose" alt="cellpose" align="right" vspace = "50">
+# <p>  <b>Cellpose | </b> <img src="https://raw.githubusercontent.com/kevinjohncutler/cellpose/master/omnipose/logo.png?raw=True" height="33" title="omnipose" alt="omnipose" align="absmiddle" /> </p>
+<img src="https://raw.githubusercontent.com/kevinjohncutler/cellpose/master/cellpose/logo/logo.png?raw=True" width="250" title="cellpose" alt="cellpose" align="right" vspace = "50">
 
 [![Documentation Status](https://readthedocs.org/projects/cellpose/badge/?version=latest)](https://cellpose.readthedocs.io/en/latest/?badge=latest)
 [![Build Status](https://travis-ci.org/MouseLand/cellpose.svg?branch=master)](https://travis-ci.org/MouseLand/cellpose)
@@ -25,7 +25,7 @@ If you want to improve Cellpose/Omnipose for yourself and for everyone else, ple
 
 ### UPDATE v1.0 (Nov 2021)
 
-Omnipose is now officially available and supported as part of Cellpose. Use the 'omni' flag and models to take advantage of it for long cells! (E.g., filamentous bacteria). Many additonal options are available and we will be updating the documentation shortly. 
+Omnipose is now officially available and supported as part of Cellpose. Use the 'omni' flag and models to take advantage of it for long cells! (<i>E.g.</i>, filamentous bacteria). Many additonal options are available and we will be updating the documentation shortly. 
 
 ### UPDATE v0.6 (Dec 2020)
 
