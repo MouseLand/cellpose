@@ -1,4 +1,4 @@
-# Cellpose <img src="cellpose/logo/logo.png" width="250" title="cellpose" alt="cellpose" align="right" vspace = "50">
+# Cellpose <img src="https://github.com/MouseLand/cellpose/blob/master/cellpose/logo/logo.png?raw=True" width="250" title="cellpose" alt="cellpose" align="right" vspace = "50">
 
 [![Documentation Status](https://readthedocs.org/projects/cellpose/badge/?version=latest)](https://cellpose.readthedocs.io/en/latest/?badge=latest)
 [![Build Status](https://travis-ci.org/MouseLand/cellpose.svg?branch=master)](https://travis-ci.org/MouseLand/cellpose)
