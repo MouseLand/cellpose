@@ -127,39 +127,7 @@ def main():
 
     args = parser.parse_args()
     
-    if args.omni:
-        logger.info('>>>> Omnipose is free for non-commercial use under the AGPL. For commercial licenses, contact uwcomotion@uw.edu.')
-    
-    # omni changes not implemented for mxnet. Full parity for cpu/gpu in pytorch. 
-    if args.omni and args.mxnet:
-        logger.info('>>>> omni only implemented in pytorch.')
-        confirm = confirm_prompt('Continue with omni set to false?')
-        if not confirm:
-            exit()
-        else:
-            logger.info('>>>> omni set to false.')
-            args.omni = False
-
-    # For now, omni version is not compatible with 3D. WIP. 
-    if args.omni and args.do_3D:
-        logger.info('>>>> omni not yet compatible with 3D segmentation.')
-        confirm = confirm_prompt('Continue with omni set to false?')
-        if not confirm:
-            exit()
-        else:
-            logger.info('>>>> omni set to false.')
-            args.omni = False
-    
-    # omni model needs 4 classes. Would prefer a more elegant way to automaticaly update the flow fields
-    # instead of users deleting them manually - a check on the number of channels, maybe, or just use
-    # the yes/no prompt to ask the user if they want their flow fields in the given directory to be deleted. 
-    # would also need the look_one_level_down optionally toggled...
-    if args.omni and args.train:
-        logger.info('>>>> Training omni model. Setting nclasses to 4.')
-        logger.info('>>>> Make sure your flow fields are deleted and re-computed.')
-        args.nclasses = 4
-    
-                
+    # handle mxnet option 
     if args.check_mkl:
         mkl_enabled = models.check_mkl((not args.mxnet))
     else:
@@ -190,7 +158,7 @@ def main():
             imf = None
 
 
-        # Check with user
+        # Check with user if they REALLY mean to run without saving anything 
         if not (args.train or args.train_size):
             saving_something = args.save_png or args.save_tif or args.save_flows or args.save_ncolor or args.save_txt
             if not (saving_something or args.testing): 
@@ -202,10 +170,18 @@ def main():
                     
         device, gpu = models.assign_device((not args.mxnet), args.use_gpu)
 
+        #define available model names, right now we have three broad categories 
+        model_names = ['cyto','nuclei','bact','cyto2','bact_omni','cyto2_omni']
+        builtin_model = np.any([args.pretrained_model==s for s in model_names])
+        cytoplasmic = 'cyto' in args.pretrained_model
+        nuclear = 'nuclei' in args.pretrained_model
+        bacterial = 'bact' in args.pretrained_model
+        
         if not args.train and not args.train_size:
             tic = time.time()
-            if not (args.pretrained_model=='cyto' or args.pretrained_model=='nuclei' or args.pretrained_model=='cyto2'):
+            if not builtin_model:
                 cpmodel_path = args.pretrained_model
+                print('fghfghhfgh',cpmodel_path)
                 if not os.path.exists(cpmodel_path):
                     logger.warning('model path does not exist, using cyto model')
                     args.pretrained_model = 'cyto'
@@ -221,8 +197,10 @@ def main():
             logger.info('>>>> running cellpose on %d images using chan_to_seg %s and chan (opt) %s'%
                             (nimg, cstr0[channels[0]], cstr1[channels[1]]))
             logger.info('>>>> omni is %d, cluster is %d'%(args.omni,args.cluster))
-                    
-            if args.pretrained_model=='cyto' or args.pretrained_model=='nuclei' or args.pretrained_model=='cyto2':
+            
+            
+            # handle built-in model exceptions; bacterial ones get no size model 
+            if builtin_model and not bacterial:
                 if args.mxnet and args.pretrained_model=='cyto2':
                     logger.warning('cyto2 model not available in mxnet, using cyto model')
                     args.pretrained_model = 'cyto'
@@ -235,9 +213,46 @@ def main():
                                              pretrained_model=cpmodel_path,
                                              torch=(not args.mxnet),
                                              nclasses=args.nclasses,omni=args.omni)
+            
+            # handle omnipose exceptions
+            if 'omni' in args.pretrained_model:
+                args.omni = True
+            
+            if args.omni:
+                logger.info('>>>> Omnipose is free for non-commercial use under the AGPL. For commercial licenses, contact uwcomotion@uw.edu.')
+    
+            # omni changes not implemented for mxnet. Full parity for cpu/gpu in pytorch. 
+            if args.omni and args.mxnet:
+                logger.info('>>>> omni only implemented in pytorch.')
+                confirm = confirm_prompt('Continue with omni set to false?')
+                if not confirm:
+                    exit()
+                else:
+                    logger.info('>>>> omni set to false.')
+                    args.omni = False
 
+            # For now, omni version is not compatible with 3D. WIP. 
+            if args.omni and args.do_3D:
+                logger.info('>>>> omni not yet compatible with 3D segmentation.')
+                confirm = confirm_prompt('Continue with omni set to false?')
+                if not confirm:
+                    exit()
+                else:
+                    logger.info('>>>> omni set to false.')
+                    args.omni = False
+
+            # omni model needs 4 classes. Would prefer a more elegant way to automaticaly update the flow fields
+            # instead of users deleting them manually - a check on the number of channels, maybe, or just use
+            # the yes/no prompt to ask the user if they want their flow fields in the given directory to be deleted. 
+            # would also need the look_one_level_down optionally toggled...
+            if args.omni and args.train:
+                logger.info('>>>> Training omni model. Setting nclasses to 4.')
+                logger.info('>>>> Make sure your flow fields are deleted and re-computed.')
+                args.nclasses = 4
+            
+            # handle diameters
             if args.diameter==0:
-                if args.pretrained_model=='cyto' or args.pretrained_model=='nuclei' or args.pretrained_model=='cyto2':
+                if builtin_model:
                     diameter = None
                     logger.info('>>>> estimating diameter for each image')
                 else:
@@ -282,15 +297,17 @@ def main():
                                   save_txt=args.save_txt,in_folders=args.in_folders)
             logger.info('>>>> completed in %0.3f sec'%(time.time()-tic))
         else:
-            if args.pretrained_model=='cyto' or args.pretrained_model=='nuclei' or args.pretrained_model=='cyto2':
+            if builtin_model:
                 if args.mxnet and args.pretrained_model=='cyto2':
                     logger.warning('cyto2 model not available in mxnet, using cyto model')
                     args.pretrained_model = 'cyto'
                 cpmodel_path = models.model_path(args.pretrained_model, 0, not args.mxnet)
-                if args.pretrained_model=='cyto':
+                if cytoplasmic:
                     szmean = 30.
-                else:
+                elif nuclear:
                     szmean = 17.
+                elif bacterial:
+                    szmean = 0. #bacterial models are not rescaled 
             else:
                 cpmodel_path = os.fspath(args.pretrained_model)
                 szmean = 30.

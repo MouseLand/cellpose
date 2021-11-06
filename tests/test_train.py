@@ -21,10 +21,10 @@ def test_class_train(data_dir):
     print('>>>> model trained and saved to %s'%cpmodel_path)
         
 def test_cli_train(data_dir):
-    import sys
-    path_root = Path(__file__).parents[1]
-    sys.path.append(str(path_root))
-    print(Path(__file__).parents[0],Path(__file__).parents[1],Path(__file__).parents[2])
+    # import sys
+    # path_root = Path(__file__).parents[1]
+    # sys.path.append(str(path_root))
+    # print(Path(__file__).parents[0],Path(__file__).parents[1],Path(__file__).parents[2])
     train_dir = str(data_dir.joinpath('2D').joinpath('train'))
     model_dir = str(data_dir.joinpath('2D').joinpath('train').joinpath('models'))
     shutil.rmtree(model_dir, ignore_errors=True)

@@ -9,6 +9,7 @@ from skimage.segmentation import find_boundaries
 
 
 from . import utils, io, transforms
+from omnipose.utils import ncolorlabel, sinebow
 
 # modified to use sinebow color
 def dx_to_circ(dP,transparency=True):
@@ -70,7 +71,7 @@ def show_segmentation(fig, img, maski, flowi, channels=[0,0], file_name=None, om
     ax.axis('off')
 
     outlines = utils.masks_to_outlines(maski)
-    c = utils.sinebow(5)
+    c = sinebow(5)
     colors = np.array(list(c.values()))[1:] 
     
     # Image normalization to improve cell visibility under labels
@@ -83,7 +84,7 @@ def show_segmentation(fig, img, maski, flowi, channels=[0,0], file_name=None, om
     
     # the mask_overlay function changes colors (preserves only hue I think). The label2rgb function from
     # skimage.color works really well. 
-    overlay = color.label2rgb(utils.ncolorlabel(maski),img1,colors,bg_label=0,alpha=1/3)
+    overlay = color.label2rgb(ncolorlabel(maski),img1,colors,bg_label=0,alpha=1/3)
     overlay = np.uint8(np.clip(overlay, 0, 1)*255)
     overlay[maski==0] = img1[maski==0] #restore original level to background regions
 

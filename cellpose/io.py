@@ -8,6 +8,7 @@ from pathlib import Path
 import skimage
 
 from . import utils, plot, transforms
+from omnipose import omnipose
 
 try:
     from PyQt5 import QtGui, QtCore, Qt, QtWidgets
@@ -422,7 +423,7 @@ def save_masks(images, masks, flows, file_names, png=True, tif=False, channels=[
         check_dir(ncolordir)
         #convert masks to minimal n-color reresentation 
         imsave(os.path.join(ncolordir, basename + '_cp_ncolor_masks' + suffix + '.png'),
-               utils.ncolorlabel(masks))
+               omnipose.utils.ncolorlabel(masks))
     
     # save RGB flow picture
     if masks.ndim < 3 and save_flows:
