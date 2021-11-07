@@ -298,7 +298,6 @@ def random_rotate_and_resize(X, Y=None, scale_range=1., gamma_range=0.5, xy = (2
     nimg = len(X)
     imgi  = np.zeros((nimg, nchan, xy[0], xy[1]), np.float32)
         
-    lbl = []
     if Y is not None:
         for n in range(nimg):
             labels = Y[n].copy()
@@ -319,22 +318,26 @@ def random_rotate_and_resize(X, Y=None, scale_range=1., gamma_range=0.5, xy = (2
             nt = Y[0].shape[0] +1 #(added one for weight array)
         else:
             nt = 1
-        lbl = np.zeros((nimg, nt, xy[0], xy[1]), np.float32)
+    else:
+        nt = 1
+    lbl = np.zeros((nimg, nt, xy[0], xy[1]), np.float32)
+    
 
     scale = np.zeros((nimg,2), np.float32)
     for n in range(nimg):
         img = X[n].copy()
+        y = None if Y is None else Y[n]
         # use recursive function here to pass back single image that was cropped appropriately 
-        imgi[n], lbl[n], scale[n] = random_crop_warp(img, Y[n], nt, xy, nchan, scale[n], 
-                                                     rescale[n] if rescale is not None else None, 
-                                                     scale_range, gamma_range, do_flip, inds[n], dist_bg)
+        imgi[n], lbl[n], scale[n] = random_crop_warp(img, y, nt, xy, nchan, scale[n], 
+                                                     rescale is None if rescale is None else rescale[n], 
+                                                     scale_range, gamma_range, do_flip, 
+                                                     inds is None if inds is None else inds[n], dist_bg)
         
     return imgi, lbl, np.mean(scale) #for size training, must output scalar size (need to check this again)
 
 # This function allows a more efficient implementation for recursively checking that the random crop includes cell pixels.
 # Now it is rerun on a per-image basis if a crop fails to capture .1 percent cell pixels (minimum). 
 def random_crop_warp(img, Y, nt, xy, nchan, scale, rescale, scale_range, gamma_range, do_flip, ind, dist_bg, depth=0):
-    
     if depth>20:
         error_message = 'Sparse or over-dense image detected. Problematic index is: '+str(ind)
         omnipose_logger.critical(error_message)
@@ -349,7 +352,6 @@ def random_crop_warp(img, Y, nt, xy, nchan, scale, rescale, scale_range, gamma_r
     do_old = True # Recomputing flow will never work because labels are jagged...
     lbl = np.zeros((nt, xy[0], xy[1]), np.float32)
     numpx = xy[0]*xy[1]
-    
     if Y is not None:
         labels = Y.copy()
         # We want the scale distibution to have a mean of 1
@@ -405,6 +407,26 @@ def random_crop_warp(img, Y, nt, xy, nchan, scale, rescale, scale_range, gamma_r
         mode = cv2.BORDER_DEFAULT # Does reflection 
         
     label_method = cv2.INTER_NEAREST
+    
+    imgi  = np.zeros((nchan, xy[0], xy[1]), np.float32)
+    for k in range(nchan):
+        I = cv2.warpAffine(img[k], M, (xy[1],xy[0]),borderMode=mode, flags=method)
+        
+        # gamma agumentation 
+        gamma = np.random.uniform(low=1-dg,high=1+dg) 
+        imgi[k] = I ** gamma
+        
+        # percentile clipping augmentation 
+        dp = 10
+        dpct = np.random.triangular(left=0, mode=0, right=dp, size=2) # weighted toward 0
+        imgi[k] = normalize99(imgi[k],upper=100-dpct[0],lower=dpct[1])
+        
+        # noise augmentation 
+        if SKIMAGE_ENABLED:
+            imgi[k] = random_noise(imgi[k], mode="poisson")
+        else:
+            imgi[k] = np.random.poisson(imgi[k])
+
     if Y is not None:
         for k in [0,1,2,3,4,5,6]: # was skipping 2 and 3, now not 
             
@@ -420,26 +442,6 @@ def random_crop_warp(img, Y, nt, xy, nchan, scale, rescale, scale_range, gamma_r
 
             else:
                 lbl[k] = cv2.warpAffine(labels[k], M, (xy[1],xy[0]), borderMode=mode, flags=method)
-        
-
-        imgi  = np.zeros((nchan, xy[0], xy[1]), np.float32)
-        for k in range(nchan):
-            I = cv2.warpAffine(img[k], M, (xy[1],xy[0]),borderMode=mode, flags=method)
-            
-            # gamma agumentation 
-            gamma = np.random.uniform(low=1-dg,high=1+dg) 
-            imgi[k] = I ** gamma
-            
-            # percentile clipping augmentation 
-            dp = 10
-            dpct = np.random.triangular(left=0, mode=0, right=dp, size=2) # weighted toward 0
-            imgi[k] = normalize99(imgi[k],upper=100-dpct[0],lower=dpct[1])
-            
-            # noise augmentation 
-            if SKIMAGE_ENABLED:
-                imgi[k] = random_noise(imgi[k], mode="poisson")
-            else:
-                imgi[k] = np.random.poisson(imgi[k])
         
         if nt > 1:
             
@@ -474,6 +476,8 @@ def random_crop_warp(img, Y, nt, xy, nchan, scale, rescale, scale_range, gamma_r
             bg_edt = edt.edt(mask<0.5,black_border=True) #last arg gives weight to the border, which seems to always lose
             cutoff = 9
             lbl[7] = (gaussian(1-np.clip(bg_edt,0,cutoff)/cutoff, 1)+0.5)
+    else:
+        lbl = np.zeros((nt,imgi.shape[-2], imgi.shape[-1]))
     
     # Moved to the end because it conflicted with the recursion. Also, flipping the crop is ultimately equivalent and slightly faster. 
     if flip and do_flip:
