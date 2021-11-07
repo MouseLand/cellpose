@@ -33,6 +33,7 @@ try:
 except:
     SERVER_UPLOAD = False
 
+#Define possible models; can we make a master list in another file to use in models and main? 
 MODEL_NAMES = ['cyto', 'nuclei', 'cyto2', 'cyto2_omni', 'bact_omni']
     
 class QHLine(QFrame):
@@ -1251,8 +1252,9 @@ class MainW(QMainWindow):
         # compute percentiles from stack
         self.saturation = []
         for n in range(len(self.stack)):
-            self.saturation.append([np.percentile(self.stack[n].astype(np.float32),1),
-                                    np.percentile(self.stack[n].astype(np.float32),99)])
+            # changed to use omnipose convention 
+            self.saturation.append([np.percentile(self.stack[n].astype(np.float32),0.01),
+                                    np.percentile(self.stack[n].astype(np.float32),99.99)])
 
     def chanchoose(self, image):
         if image.ndim > 2:
@@ -1328,12 +1330,21 @@ class MainW(QMainWindow):
             channels = self.get_channels()
             self.diameter = float(self.Diameter.text())
             try:
+                omni = 'omni' in self.current_model
+                bacterial = 'bact' in self.current_model
+                if omni:
+                    self.NetAvg.setCurrentIndex(2) #one run net
+                if bacterial:
+                    self.diameter = 0.
+                    
                 net_avg = self.NetAvg.currentIndex()<2
                 resample = self.NetAvg.currentIndex()==1
+                # print(data.shape,channels,self.diameter,resample,do_3D,net_avg)
+                print('net_avg',net_avg)
                 masks, flows, _, _ = self.model.eval(data, channels=channels,
                                                     diameter=self.diameter, invert=self.invert.isChecked(),
                                                     net_avg=net_avg, augment=False, resample=resample,
-                                                    do_3D=do_3D, progress=self.progress)
+                                                    do_3D=do_3D, progress=self.progress, omni=omni)
             except Exception as e:
                 print('NET ERROR: %s'%e)
                 self.progress.setValue(0)
@@ -1345,7 +1356,7 @@ class MainW(QMainWindow):
             #    masks = masks[0][np.newaxis,:,:]
             #    flows = flows[0]
             self.flows[0] = flows[0]
-            self.flows[1] = (np.clip(normalize99(flows[2].copy()),0,1) * 255).astype(np.uint8)
+            self.flows[1] = (normalize99(flows[2].copy(),omni=True) * 255).astype(np.uint8)
             if not do_3D:
                 masks = masks[np.newaxis,...]
                 self.flows[0] = resize_image(self.flows[0], masks.shape[-2], masks.shape[-1],

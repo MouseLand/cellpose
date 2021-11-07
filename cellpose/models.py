@@ -80,8 +80,11 @@ class Cellpose():
                 
         self.omni = omni or 'omni' in model_type       
         
-        self.pretrained_model = [model_path(model_type, j, torch) for j in range(4)]
-        self.pretrained_size = size_model_path(model_type, torch)
+        # for now, omni models cannot do net_avg 
+        if self.omni:
+            net_avg = False
+        model_range = range(4) if net_avg else range(1)
+        self.pretrained_model = [model_path(model_type, j, torch) for j in model_range]
         
         self.diam_mean = 30. #default for any cyto model 
         nuclear = 'nuclei' in model_type
@@ -98,10 +101,15 @@ class Cellpose():
                                 pretrained_model=self.pretrained_model,
                                 diam_mean=self.diam_mean, torch=self.torch, omni=self.omni)
         self.cp.model_type = model_type
-
-        self.sz = SizeModel(device=self.device, pretrained_size=self.pretrained_size,
-                            cp_model=self.cp)
-        self.sz.model_type = model_type
+        
+        # size model not used for bacterial model
+        if not bacterial:
+            self.pretrained_size = size_model_path(model_type, torch)
+            self.sz = SizeModel(device=self.device, pretrained_size=self.pretrained_size,
+                                cp_model=self.cp)
+            self.sz.model_type = model_type
+        else:
+            self.pretrained_size = None
 
     def eval(self, x, batch_size=8, channels=None, channel_axis=None, z_axis=None,
              invert=False, normalize=True, diameter=30., do_3D=False, anisotropy=None,
