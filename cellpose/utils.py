@@ -425,7 +425,7 @@ def fill_holes_and_remove_small_masks(masks, min_size=15, hole_size=3, scale_fac
         size [Ly x Lx] or [Lz x Ly x Lx]
     
     """
-    masks = format_labels(masks) # not sure how this works with 3D... tests pass though
+    masks = format_labels(masks, min_area=min_size) # not sure how this works with 3D... tests pass though
     
     # my slightly altered version below does not work well with 3D (vs test GT) so I need to test
     # to see if mine is actually better in general or needs to be toggled; for now, commenting out 
