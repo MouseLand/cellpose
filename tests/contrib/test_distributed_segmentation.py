@@ -12,9 +12,11 @@ from cellpose.contrib import distributed_segmentation
 
 TESTDATA = pathlib.Path(__file__).parent / "testdata"
 
-def test_segment_nucleus():
+def test_segment_nucleus(data_dir):
     """Tests segmentation on dask array."""
-    image = tifffile.imread(TESTDATA / "segment_80x224x448_input.tiff")
+    tiff_input = data_dir.joinpath('3D').joinpath("segment_80x224x448_input.tiff")
+    tiff_expected = data_dir.joinpath('3D').joinpath("segment_80x224x448_expected.tiff")
+    image = tifffile.imread(tiff_input) #TESTDATA / "segment_80x224x448_input.tiff")
     image = image[..., None]
     image = da.from_array(image).rechunk({2: 224})
 
@@ -31,7 +33,7 @@ def test_segment_nucleus():
     with dask.config.set(scheduler="synchronous"):
         actual = actual.compute()
 
-    expected = tifffile.imread(TESTDATA / "segment_80x224x448_expected.tiff")
+    expected = tifffile.imread(tiff_expected)#TESTDATA / "segment_80x224x448_expected.tiff")
     assert_eq(actual, expected)
 
 

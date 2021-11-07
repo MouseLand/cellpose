@@ -68,7 +68,7 @@ setup(
       'omni': omni_deps,
       'docs': docs_deps,
       'gui': gui_deps,
-      'all': gui_deps + omni_deps
+      'all': gui_deps + omni_deps,
       'distributed': distributed_deps,
     },
     include_package_data=True,

@@ -6,7 +6,8 @@ from pathlib import Path
 
 @pytest.fixture()
 def image_names():
-    image_names = ['gray_2D.png', 'rgb_2D.png', 'rgb_2D_tif.tif', 'gray_3D.tif', 'rgb_3D.tif']
+    image_names = ['gray_2D.png', 'rgb_2D.png', 'rgb_2D_tif.tif', 'gray_3D.tif', 'rgb_3D.tif',
+                    'segment_80x224x448_input.tiff', 'segment_80x224x448_expected.tiff']
     return image_names
 
 @pytest.fixture()
@@ -36,17 +37,19 @@ def data_dir(image_names):
             train_dir = data_dir_2D.joinpath('train')
             train_dir.mkdir(exist_ok=True)
             shutil.copyfile(cached_file, train_dir.joinpath(image_name))
-        name = os.path.splitext(cached_file)[0]
-        mask_file = name + '_cp_masks' + ext
-        if os.path.exists(mask_file):
-            os.remove(mask_file)
-        cached_mask_files = [name + '_cyto_masks' + ext, name + '_nuclei_masks' + ext]
-        for c,cached_mask_file in enumerate(cached_mask_files):
-            url = 'http://www.cellpose.org/static/data/' + os.path.split(cached_mask_file)[-1]
-            if not os.path.exists(cached_mask_file):
-                print(cached_mask_file)
-                utils.download_url_to_file(url, cached_mask_file, progress=True)
-            if i<2 and c==0:
-                shutil.copyfile(cached_mask_file, 
-                    train_dir.joinpath(os.path.splitext(image_name)[0] + '_cyto_masks' + ext))       
+
+        if i<5:
+            name = os.path.splitext(cached_file)[0]
+            mask_file = name + '_cp_masks' + ext
+            if os.path.exists(mask_file):
+                os.remove(mask_file)
+            cached_mask_files = [name + '_cyto_masks' + ext, name + '_nuclei_masks' + ext]
+            for c,cached_mask_file in enumerate(cached_mask_files):
+                url = 'http://www.cellpose.org/static/data/' + os.path.split(cached_mask_file)[-1]
+                if not os.path.exists(cached_mask_file):
+                    print(cached_mask_file)
+                    utils.download_url_to_file(url, cached_mask_file, progress=True)
+                if i<2 and c==0:
+                    shutil.copyfile(cached_mask_file, 
+                        train_dir.joinpath(os.path.splitext(image_name)[0] + '_cyto_masks' + ext))       
     return data_dir
