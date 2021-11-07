@@ -1,17 +1,25 @@
 import os
 import numpy as np
+from cellpose.dynamics import SKIMAGE_ENABLED
 import cv2
+from omnipose.omnipose import SKLEARN_ENABLED
 from scipy.ndimage import gaussian_filter
 import scipy
 import matplotlib
-from skimage import color
-from skimage.segmentation import find_boundaries
+
+try:
+    from skimage import color
+    from skimage.segmentation import find_boundaries
+    SKIMAGE_ENABLED = True 
+except:
+    SKIMAGE_ENABLED = False
 
 
 from . import utils, io, transforms
+from omnipose.utils import ncolorlabel, sinebow
 
 # modified to use sinebow color
-def dx_to_circ(dP,transparency=False):
+def dx_to_circ(dP,transparency=True):
     """ dP is 2 x Y x X => 'optic' flow representation """
     dP = np.array(dP)
     mag = transforms.normalize99(np.sqrt(np.sum(dP**2,axis=0)),omni=1)
@@ -70,7 +78,7 @@ def show_segmentation(fig, img, maski, flowi, channels=[0,0], file_name=None, om
     ax.axis('off')
 
     outlines = utils.masks_to_outlines(maski)
-    c = utils.sinebow(5)
+    c = sinebow(5)
     colors = np.array(list(c.values()))[1:] 
     
     # Image normalization to improve cell visibility under labels
@@ -83,9 +91,12 @@ def show_segmentation(fig, img, maski, flowi, channels=[0,0], file_name=None, om
     
     # the mask_overlay function changes colors (preserves only hue I think). The label2rgb function from
     # skimage.color works really well. 
-    overlay = color.label2rgb(utils.ncolorlabel(maski),img1,colors,bg_label=0,alpha=1/3)
-    overlay = np.uint8(np.clip(overlay, 0, 1)*255)
-    overlay[maski==0] = img1[maski==0] #restore original level to background regions
+    if SKIMAGE_ENABLED:
+        overlay = color.label2rgb(ncolorlabel(maski),img1,colors,bg_label=0,alpha=1/3)
+        overlay = np.uint8(np.clip(overlay, 0, 1)*255)
+        overlay[maski==0] = img1[maski==0] #restore original level to background regions
+    else:
+        overlay = mask_overlay(img0, maski)
 
     ax = fig.add_subplot(1,4,2)
     outX, outY = np.nonzero(outlines)
@@ -185,11 +196,11 @@ def mask_overlay(img, masks, colors=None, omni=False):
     
     HSV = np.zeros((img.shape[0], img.shape[1], 3), np.float32)
     HSV[:,:,2] = img
-    hues = np.linspace(0,1,5)
+    hues = np.linspace(0, 1, masks.max()+1)
     for n in range(int(masks.max())):
         ipix = (masks==n+1).nonzero()
         if colors is None:
-            HSV[ipix[0],ipix[1],0] = hues[n+1]
+            HSV[ipix[0],ipix[1],0] = hues[n]
         else:
             HSV[ipix[0],ipix[1],0] = colors[n,0]
         HSV[ipix[0],ipix[1],1] = 1.0
@@ -251,7 +262,10 @@ def outline_view(img0,maski,color=[1,0,0], mode='inner'):
 #         img0 = image_to_rgb(img0) broken, transposing some images...
         img0 = np.stack([img0]*3,axis=-1)
     
-    outlines = find_boundaries(maski,mode=mode) #not using masks_to_outlines as that gives border 'outlines'
+    if SKIMAGE_ENABLED:
+        outlines = find_boundaries(maski,mode=mode) #not using masks_to_outlines as that gives border 'outlines'
+    else:
+        outlines = utils.masks_to_outlines(maski,mode=mode) #not using masks_to_outlines as that gives border 'outlines'
     outY, outX = np.nonzero(outlines)
     imgout = img0.copy()
 #     imgout[outY, outX] = np.array([255,0,0]) #pure red

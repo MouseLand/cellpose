@@ -1,8 +1,5 @@
 import time, os
 from scipy.ndimage.filters import maximum_filter1d
-from skimage import filters
-from scipy.ndimage.morphology import binary_dilation, binary_opening
-from skimage.measure import label, regionprops
 import torch
 import scipy.ndimage
 import numpy as np
@@ -10,7 +7,6 @@ import tifffile
 from tqdm import trange
 from numba import njit, float32, int32, vectorize
 import edt
-from skimage import measure
 import fastremap
 import cv2
 
@@ -19,6 +15,8 @@ dynamics_logger = logging.getLogger(__name__)
 dynamics_logger.setLevel(logging.DEBUG)
 
 from . import utils, metrics, transforms
+
+from omnipose import omnipose
 
 try:
     import torch
@@ -31,10 +29,11 @@ except:
     TORCH_ENABLED = False
 
 try:
-    from sklearn.cluster import DBSCAN
-    SKLEARN_ENABLED = True 
+    from skimage import filters
+    SKIMAGE_ENABLED = True
 except:
-    SKLEARN_ENABLED = False
+    SKIMAGE_ENABLED = False
+
 
 @njit('(float64[:], int32[:], int32[:], int32[:], int32[:], int32, int32, boolean)', nogil=True)
 def _extend_centers(T, y, x, ymed, xmed, Lx, niter, omni=False):
@@ -73,15 +72,8 @@ def _extend_centers(T, y, x, ymed, xmed, Lx, niter, omni=False):
     """
     for t in range(niter):
         if omni:
-            # solve Eikonal equation 
-            minx = np.minimum(T[y*Lx + x-1],T[y*Lx + x+1])
-            miny = np.minimum(T[(y-1)*Lx + x],T[(y+1)*Lx + x],)
-            mina = np.minimum(T[(y-1)*Lx + x-1],T[(y+1)*Lx + x+1])
-            minb = np.minimum(T[(y-1)*Lx + x+1],T[(y+1)*Lx + x-1])
-            A = np.where(np.abs(mina-minb) >= 2, np.minimum(mina,minb)+np.sqrt(2), (1./2)*(mina+minb+np.sqrt(4-(mina-minb)**2)))
-            B = np.where(np.abs(miny-minx) >= np.sqrt(2), np.minimum(miny,minx)+1, (1./2)*(miny+minx+np.sqrt(2-(miny-minx)**2)))
-            T[y*Lx + x] = np.sqrt(A*B)
-
+            # solve eikonal equation 
+            T[y*Lx + x] = omnipose.eikonal_update_cpu(T, y, x, Lx)
         else:
             # solve heat equation 
             T[ymed*Lx + xmed] += 1
@@ -114,20 +106,7 @@ def _extend_centers_gpu(neighbors, centers, isneighbor, Ly, Lx, n_iter=200, devi
 
     for t in range(n_iter):
         if omni:
-            # zero out the non-neighbor elements so that they do not participate in min
-            Tneigh = T[:, pt[:,:,0], pt[:,:,1]] 
-            Tneigh *= isneigh
-
-            # using flattened index for the lattice points, just like gradient below
-            minx = torch.minimum(Tneigh[:,3,:],Tneigh[:,5,:]) 
-            mina = torch.minimum(Tneigh[:,2,:],Tneigh[:,6,:])
-            miny = torch.minimum(Tneigh[:,1,:],Tneigh[:,7,:])
-            minb = torch.minimum(Tneigh[:,0,:],Tneigh[:,8,:])
-            
-            A = torch.where(torch.abs(mina-minb) >= 2, torch.minimum(mina,minb) + np.sqrt(2), (1./2)*(mina+minb+torch.sqrt(4-(mina-minb)**2)))
-            B = torch.where(torch.abs(miny-minx) >= np.sqrt(2), torch.minimum(miny,minx) + 1, (1./2)*(miny+minx+torch.sqrt(2-(miny-minx)**2)))
-            T[:, pt[4,:,0], pt[4,:,1]] = torch.sqrt(A*B)
-
+            T[:, pt[4,:,0], pt[4,:,1]] = omnipose.eikonal_update_gpu(T,pt,isneigh)
         else:
             T[:, meds[:,0], meds[:,1]] += 1
             Tneigh = T[:, pt[:,:,0], pt[:,:,1]] # T is square, but Tneigh is nimg x 9 x <number of points in mask>
@@ -196,7 +175,6 @@ def masks_to_flows_gpu(masks, dists, device=None, omni=False):
     neighbors = np.stack((neighborsY, neighborsX), axis=-1)
     
     if not omni: # do original centroid projection algrorithm
-        
         # get mask centers
         centers = np.array(scipy.ndimage.center_of_mass(masks_padded, labels=masks_padded, 
                                                         index=np.arange(1, masks_padded.max()+1))).astype(int)
@@ -210,7 +188,7 @@ def masks_to_flows_gpu(masks, dists, device=None, omni=False):
             centers[i,0] = yi[imin]
             centers[i,1] = xi[imin] 
             
-    else: # do omnipose lgorithm (see cpu flow code for more details)
+    else: # do omnipose algorithm (see cpu flow code for more details)
         centers = np.stack((y,x),axis=1)
     
     # get neighbor validator (not all neighbors are in same mask)
@@ -220,7 +198,7 @@ def masks_to_flows_gpu(masks, dists, device=None, omni=False):
     # set number of iterations
     if omni:
         # omniversion requires fewer
-        n_iter = utils.get_niter(dists)
+        n_iter = omnipose.get_niter(dists)
     else:
         slices = scipy.ndimage.find_objects(masks)
         ext = np.array([[sr.stop - sr.start + 1, sc.stop - sc.start + 1] for sr, sc in slices])
@@ -300,7 +278,7 @@ def masks_to_flows_cpu(masks, dists, device=None, omni=False):
                 # This is what I found to be the lowest possible number of iterations to guarantee convergence,
                 # but only for the omni model. Too small for center-pixel heat to diffuse to the ends. 
                 # I would like to explain why this works theoretically; it is emperically validated for now.
-                niter = utils.get_niter(dists)
+                niter = omnipose.get_niter(dists)
             else:
                 niter = 2*np.int32(np.ptp(x) + np.ptp(y))
             
@@ -511,7 +489,8 @@ def steps2D_interp(p, dP, niter, use_gpu=False, device=None, omni=False, calc_tr
             # align_corners default is False, just added to suppress warning
             dPt = torch.nn.functional.grid_sample(im, pt, align_corners=False)
             if omni:
-                dPt = dPt/(1+t) #this supression is key to the omnipose method
+                dPt /= omnipose.step_factor(t)
+            
             for k in range(2): #clamp the final pixel locations
                 pt[:,:,:,k] = torch.clamp(pt[:,:,:,k] + dPt[:,k,:,:], -1., 1.)
             
@@ -546,7 +525,7 @@ def steps2D_interp(p, dP, niter, use_gpu=False, device=None, omni=False, calc_tr
                 tr[:,:,t] = p.copy()
             map_coordinates(dP.astype(np.float32), p[0], p[1], dPt)
             if omni:
-                dPt = dPt/(1+t) #this supression is key to the omnipose method
+                dPt /= omnipose.step_factor(t)
             for k in range(len(p)):
                 p[k] = np.minimum(shape[k]-1, np.maximum(0, p[k] + dPt[k]))
         return p, tr
@@ -634,10 +613,9 @@ def steps2D(p, dP, inds, niter, omni=False, calc_trace=False):
             y = inds[j,0]
             x = inds[j,1]
             p0, p1 = int(p[0,y,x]), int(p[1,y,x])
-            if omni: # suppress each step 
-                step = dP[:,p0,p1]/(t+1)
-            else:
-                step = dP[:,p0,p1]
+            step = dP[:,p0,p1]
+            if omni:
+                step /= omnipose.step_factor(t)
             for k in range(p.shape[0]):
                 p[k,y,x] = min(shape[k]-1, max(0, p[k,y,x] + step[k]))
     return p, tr
@@ -711,8 +689,7 @@ def follow_flows(dP, mask=None, inds=None, niter=200, interp=True, use_gpu=True,
                                           device=device, omni=omni, calc_trace=calc_trace)
             
             p[:,inds[:,0],inds[:,1]] = p_interp
-    #print(p.shape)     
-    return p, inds, tr #, p_interp
+    return p, inds, tr
 
 def remove_bad_flow_masks(masks, flows, threshold=0.4, use_gpu=False, device=None, omni=False):
     """ remove masks which have inconsistent flows 
@@ -870,173 +847,45 @@ def get_masks(p, iscell=None, rpad=20, flows=None, threshold=0.4, use_gpu=False,
 
     return M0
 
-
-def smooth_distance(masks, dists=None, device=None, omni=False):
-    if device is None:
-        device = torch.device('cuda')
-    if dists is None:
-        dists = edt.edt(masks)
-        
-    pad = 1
-    
-    Ly0,Lx0 = masks.shape
-    Ly, Lx = Ly0+2*pad, Lx0+2*pad
-
-    masks_padded = np.pad(masks,pad)
-    
-    # get mask pixel neighbors
-    y, x = np.nonzero(masks_padded)
-
-    neighborsY = np.stack((y-1, y-1, y-1, 
-                           y  , y  , y  ,
-                           y+1, y+1, y+1), axis=0)
-    neighborsX = np.stack((x-1, x  , x+1, 
-                           x-1, x  , x+1, 
-                           x-1, x  , x+1), axis=0)
-    
-    neighbors = np.stack((neighborsY, neighborsX), axis=-1)
-    
-    centers = np.stack((y,x),axis=1)
-    
-    # get neighbor validator (not all neighbors are in same mask)
-    neighbor_masks = masks_padded[neighbors[:,:,0], neighbors[:,:,1]] #extract list of label values, 
-    isneighbor = neighbor_masks == neighbor_masks[4] # 4 corresponds to x,y now
-        
-    # set number of iterations
-    n_iter = utils.get_niter(dists)
-        
-    nimg = neighbors.shape[0] // 9
-    pt = torch.from_numpy(neighbors).to(device)
-    T = torch.zeros((nimg,Ly,Lx), dtype=torch.double, device=device)
-    meds = torch.from_numpy(centers.astype(int)).to(device)
-    isneigh = torch.from_numpy(isneighbor).to(device)
-
-    for t in range(n_iter):
-        # zero out the non-neighbor elements so that they do not participate in min
-        Tneigh = T[:, pt[:,:,0], pt[:,:,1]] 
-        Tneigh *= isneigh
-
-        # using flattened index for the lattice points, just like gradient below
-        minx = torch.minimum(Tneigh[:,3,:],Tneigh[:,5,:]) 
-        mina = torch.minimum(Tneigh[:,2,:],Tneigh[:,6,:])
-        miny = torch.minimum(Tneigh[:,1,:],Tneigh[:,7,:])
-        minb = torch.minimum(Tneigh[:,0,:],Tneigh[:,8,:])
-
-        A = torch.where(torch.abs(mina-minb) >= 2, torch.minimum(mina,minb) + np.sqrt(2), (1./2)*(mina+minb+torch.sqrt(4-(mina-minb)**2)))
-        B = torch.where(torch.abs(miny-minx) >= np.sqrt(2), torch.minimum(miny,minx) + 1, (1./2)*(miny+minx+torch.sqrt(2-(miny-minx)**2)))
-        T[:, pt[4,:,0], pt[4,:,1]] = torch.sqrt(A*B)
-
-    return T.cpu().squeeze().numpy()[pad:-pad,pad:-pad]
-
-
 def compute_masks(dP, dist, bd=None, p=None, inds=None, niter=200, dist_threshold=0.0, diam_threshold=12.,
                    flow_threshold=0.4, interp=True, cluster=False, do_3D=False, 
                    min_size=15, resize=None, omni=False, calc_trace=False, verbose=False,
                    use_gpu=False,device=None,nclasses=3):
     """ compute masks using dynamics from dP, dist, and boundary """
-    if omni or (inds is not None):
+    if verbose:
+         dynamics_logger.info('dist_threshold is %f',dist_threshold)
+    
+    if (omni or (inds is not None)) and SKIMAGE_ENABLED:
+        if verbose:
+            dynamics_logger.info('Using hysteresis threshold.')
         mask = filters.apply_hysteresis_threshold(dist, dist_threshold-1, dist_threshold) # good for thin features
     else:
         mask = dist > dist_threshold # analog to original iscell=(cellprob>cellprob_threshold)
 
     if np.any(mask): #mask at this point is a cell cluster binary map, not labels 
-        if not omni: # use original algorthm 
-            if verbose:
-                dynamics_logger.info('using original mask reconstruction algorithm')
-            if p is None:
-                p , inds, tr = follow_flows(dP * mask / 5., mask=mask, inds=inds, niter=niter, interp=interp, 
+        
+        #preprocess flows
+        if omni:
+            dP_ = omnipose.div_rescale(dP,mask)
+        else:
+            dP_ = dP * mask / 5.
+        
+        # follow flows
+        if p is None:
+                p , inds, tr = follow_flows(dP_, mask=mask, inds=inds, niter=niter, interp=interp, 
                                             use_gpu=use_gpu, device=device, omni=omni, calc_trace=calc_trace)
-            else: 
-                inds,tr = [],[]
-                if verbose:
-                    dynamics_logger.info('p given')
-            mask = get_masks(p, iscell=mask,flows=dP, threshold=flow_threshold if not do_3D else None, use_gpu=use_gpu)
-
-        else: # use new algorithm
-            Ly,Lx = mask.shape
-            if nclasses == 4:
-                dt = np.abs(dist[mask]) #abs needed if the threshold is negative
-                d = utils.dist_to_diam(dt)
-                eps = 1+1/3
-
-            else: #backwards compatibility, doesn't help for *clusters* of thin/small cells
-                d,e = utils.diameters(mask,omni)
-                eps = np.sqrt(2)
-
-            # save unaltered versions for later 
-            dP = dP.copy()
-
-            # The mean diameter can inform whether or not the cells are too small to form contiguous blobs.
-            # My first solution was to upscale everything before Euler integration to give pixels 'room' to
-            # stay together. My new solution is much better: use a clustering algorithm on the sub-pixel coordinates
-            # to assign labels. It works just as well and is faster because it doesn't require increasing the 
-            # number of points or taking time to upscale/downscale the data. Users can toggle cluster on manually or
-            # by setting the diameter threshold higher than the average diameter of the cells. 
-            if d <= diam_threshold:
-                cluster = True
-                if verbose:
-                    dynamics_logger.info('Turning on subpixel clustering for label continuity.')
-
-            dP *= mask 
-            dP = transforms.normalize_field(dP,omni=True)
-
-            # compute the divergence
-            Y, X = np.nonzero(mask)
-            pad = 1
-            Tx = np.zeros((Ly+2*pad)*(Lx+2*pad), np.float64)
-            Tx[Y*Lx+X] = np.reshape(dP[1].copy(),Ly*Lx)[Y*Lx+X]
-            Ty = np.zeros((Ly+2*pad)*(Lx+2*pad), np.float64)
-            Ty[Y*Lx+X] = np.reshape(dP[0].copy(),Ly*Lx)[Y*Lx+X]
-
-            # Rescaling by the divergence
-            div = np.zeros(Ly*Lx, np.float64)
-            div[Y*Lx+X]=(Ty[(Y+2)*Lx+X]+8*Ty[(Y+1)*Lx+X]-8*Ty[(Y-1)*Lx+X]-Ty[(Y-2)*Lx+X]+
-                         Tx[Y*Lx+X+2]+8*Tx[Y*Lx+X+1]-8*Tx[Y*Lx+X-1]-Tx[Y*Lx+X-2])
-            div = transforms.normalize99(div,omni=True)
-            div.shape = (Ly,Lx)
-            #add sigmoid on boundary output to help push pixels away - the final bit needed in some cases!
-            # specifically, places where adjacent cell flows are too colinear and therefore had low divergence
-#                 mag = div+1/(1+np.exp(-bd))
-            dP *= div
-
-            p, inds, tr = follow_flows(dP, mask, inds, interp=interp, use_gpu=use_gpu, device=device, omni=omni, calc_trace=calc_trace)
-
-            newinds = p[:,inds[:,0],inds[:,1]].swapaxes(0,1)
-            mask = np.zeros((p.shape[1],p.shape[2]))
-
-            # the eps parameter needs to be adjustable... maybe a function of the distance
-            if cluster and SKLEARN_ENABLED:
-                if verbose:
-                    dynamics_logger.info('Doing DBSCAN clustering with eps=%f'%eps)
-                db = DBSCAN(eps=eps, min_samples=3,n_jobs=8).fit(newinds)
-                labels = db.labels_
-                mask[inds[:,0],inds[:,1]] = labels+1
-            else:
-                newinds = np.rint(newinds).astype(int)
-                skelmask = np.zeros_like(dist, dtype=bool)
-                skelmask[newinds[:,0],newinds[:,1]] = 1
-
-                #disconnect skeletons at the edge, 5 pixels in 
-                border_mask = np.zeros(skelmask.shape, dtype=bool)
-                border_px =  border_mask.copy()
-                border_mask = binary_dilation(border_mask, border_value=1, iterations=5)
-
-                border_px[border_mask] = skelmask[border_mask]
-                if nclasses == 4: #can use boundary to erase joined edge skelmasks 
-                    border_px[bd>-1] = 0
-                    if verbose:
-                        dynamics_logger.info('Using boundary output to split edge defects')
-                else: #otherwise do morphological opening to attempt splitting 
-                    border_px = binary_opening(border_px,border_value=0,iterations=3)
-
-                skelmask[border_mask] = border_px[border_mask]
-
-                LL = label(skelmask,connectivity=1) 
-                mask[inds[:,0],inds[:,1]] = LL[newinds[:,0],newinds[:,1]]
-
-        # quality control - this got removed in recent version of cellpose??? or did I add it? 
-#             if flow_threshold is not None and flow_threshold > 0 and dP is not None:
-#                 mask = dynamics.remove_bad_flow_masks(mask, dP, threshold=flow_threshold, omni=omni)
+        else: 
+            tr = []
+            inds = np.stack(np.nonzero(mask)).T
+            if verbose:
+                dynamics_logger.info('p given')
+        
+        #calculate masks
+        if omni:
+            mask = omnipose.get_masks(p,bd,dist,mask,inds,nclasses,cluster=cluster,
+                                      diam_threshold=diam_threshold,verbose=verbose) 
+        else:
+            mask = get_masks(p, iscell=mask, flows=dP, threshold=flow_threshold if not do_3D else None, use_gpu=use_gpu)
 
         if resize is not None:
             if verbose:

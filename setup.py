@@ -1,12 +1,12 @@
 import setuptools
 from setuptools import setup
 
-install_deps = ['numpy>1.20.0', 'scipy', 'natsort',
+install_deps = ['numpy>=1.20.0', 'scipy', 'natsort',
                 'tifffile', 'tqdm', 'numba', 
                 'torch>=1.6',
                 'torch_optimizer',
                 'opencv-python-headless',
-                'edt','scikit-image','fastremap','torch_optimizer']
+                'edt','fastremap','torch_optimizer']
 
 gui_deps = [
         'pyqtgraph==0.11.0rc0', 
@@ -21,6 +21,8 @@ docs_deps = [
         'sphinx_rtd_theme',
       ]
 
+omni_deps = ['scikit-image', 'scikit-learn']
+
 try:
     import torch
     a = torch.ones(2, 3)
@@ -32,7 +34,8 @@ except:
 
 with open("README.md", "r") as fh:
     long_description = fh.read()
-
+    
+    
 setup(
     name="cellpose",
     license="BSD",
@@ -53,8 +56,10 @@ setup(
       'pytest'
     ],
     extras_require = {
+      'omni': omni_deps,
       'docs': docs_deps,
-      'gui': gui_deps
+      'gui': gui_deps,
+      'all': gui_deps + omni_deps
     },
     include_package_data=True,
     classifiers=(
