@@ -54,6 +54,8 @@ def download_url_to_file(url, dst, progress=True):
             Default: True
     """
     file_size = None
+    import ssl
+    ssl._create_default_https_context = ssl._create_unverified_context
     u = urlopen(url)
     meta = u.info()
     if hasattr(meta, 'getheaders'):
