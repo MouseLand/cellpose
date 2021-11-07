@@ -2,9 +2,6 @@ import numpy as np
 import warnings
 import cv2
 import edt
-from skimage.filters import gaussian
-from skimage.util import random_noise
-from scipy.ndimage import median_filter, binary_dilation
 import fastremap
 
 import logging
@@ -12,6 +9,7 @@ transforms_logger = logging.getLogger(__name__)
 transforms_logger.setLevel(logging.DEBUG)
 
 from . import dynamics, utils
+from omnipose import omnipose
 
 def _taper_mask(ly=224, lx=224, sig=7.5):
     bsize = max(224, max(ly, lx))
@@ -192,12 +190,12 @@ def make_tiles(imgi, bsize=224, augment=False, tile_overlap=0.1):
 
 # needs to have a wider range to avoid weird effects with few cells in frame
 # also turns out previous formulation can give negative numbers, messes up log operations etc. 
-def normalize99(img,lower=0.01,upper=99.99,omni=False):
+def normalize99(Y,lower=0.01,upper=99.99,omni=False):
     """ normalize image so 0.0 is 0.01st percentile and 1.0 is 99.99th percentile """
-    X = img.copy()
     if omni:
-        X = np.interp(X, (np.percentile(X, lower), np.percentile(X, upper)), (0, 1))
+        X = omnipose.normalize99(Y)
     else:
+        X = Y.copy()
         x01 = np.percentile(X, 1)
         x99 = np.percentile(X, 99)
         X = (X - x01) / (x99 - x01)
@@ -622,6 +620,9 @@ def random_rotate_and_resize(X, Y=None, scale_range=1., gamma_range=0.5, xy = (2
         scale_range: float (optional, default 1.0)
             Range of resizing of images for augmentation. Images are resized by
             (1-scale_range/2) + scale_range * np.random.rand()
+        
+        gamma_range: float (optional, default 0.5)
+           Images are gamma-adjusted im**gamma for gamma in (1-gamma_range,1+gamma_range) 
 
         xy: tuple, int (optional, default (224,224))
             size of transformed images to return
@@ -646,221 +647,29 @@ def random_rotate_and_resize(X, Y=None, scale_range=1., gamma_range=0.5, xy = (2
             amount each image was resized by
 
     """
-    nimg = len(X)
-    dist_bg = 5 # background distance field is set to -dist_bg 
     scale_range = max(0, min(2, float(scale_range))) # limit overall range to [0,2] i.e. 1+-1 
     
     if inds is None: # only relevant when debugging 
+        nimg = len(X)
         inds = np.arange(nimg)
     
-    # backwards compatibility; completely 'stock', no gamma augmentation or any other extra frills. 
-    # [Y[i][1:] for i in inds] is necessary because the original transform function does not use masks (entry 0). 
-    # This used to be done in the original function call. 
-    if not omni:
+    if omni:
+        return omnipose.random_rotate_and_resize(X, Y=Y, scale_range=scale_range, gamma_range=gamma_range, 
+                                                 xy=xy, do_flip=do_flip, rescale=rescale, inds=inds)
+    else:
+        # backwards compatibility; completely 'stock', no gamma augmentation or any other extra frills. 
+        # [Y[i][1:] for i in inds] is necessary because the original transform function does not use masks (entry 0). 
+        # This used to be done in the original function call. 
         return original_random_rotate_and_resize(X, Y=[Y[i][1:] for i in inds], scale_range=scale_range, xy=xy,
                                                  do_flip=do_flip, rescale=rescale, unet=unet)
 
-    # While in other parts of Cellpose channels are put last by default, here we have chan x Ly x Lx 
-    if X[0].ndim>2:
-        nchan = X[0].shape[0] 
-    else:
-        nchan = 1 
-    imgi  = np.zeros((nimg, nchan, xy[0], xy[1]), np.float32)
-        
-    lbl = []
-    if Y is not None:
-        for n in range(nimg):
-            labels = Y[n].copy()
-            if labels.ndim<3:
-                labels = labels[np.newaxis,:,:]
-            dist = labels[1]
-            dist[dist==0] = - dist_bg
-            if labels.shape[0]<6:
-                bd = 5.*(labels[1]==1)
-                bd[bd==0] = -5.
-                labels = np.concatenate((labels, bd[np.newaxis,:]))# add a boundary layer
-            if labels.shape[0]<7:
-                mask = labels[0]>0
-                labels = np.concatenate((labels, mask[np.newaxis,:])) # add a mask layer
-            Y[n] = labels
-
-        if Y[0].ndim>2:
-            nt = Y[0].shape[0] +1 #(added one for weight array)
-        else:
-            nt = 1
-        lbl = np.zeros((nimg, nt, xy[0], xy[1]), np.float32)
-
-    scale = np.zeros((nimg,2), np.float32)
-    for n in range(nimg):
-        img = X[n].copy()
-        # use recursive function here to pass back single image that was cropped appropriately 
-        imgi[n], lbl[n], scale[n] = random_crop_warp(img, Y[n], nt, xy, nchan, scale[n], 
-                                                     rescale[n] if rescale is not None else None, 
-                                                     scale_range, gamma_range, do_flip, inds[n], dist_bg)
-        
-    return imgi, lbl, np.mean(scale) #for size training, must output scalar size (need to check this again)
-
-# This function allows a more efficient implementation for recursively checking that the random crop includes cell pixels.
-# Now it is rerun on a per-image basis if a crop fails to capture .1 percent cell pixels (minimum). 
-def random_crop_warp(img, Y, nt, xy, nchan, scale, rescale, scale_range, gamma_range, do_flip, ind, dist_bg, depth=0):
-    
-    if depth>20:
-        error_message = 'Sparse or over-dense image detected. Problematic index is: '+str(ind)
-        transforms_logger.critical(error_message)
-        raise ValueError(error_message)
-    
-    if depth>100:
-        error_message = 'Recusion depth exceeded. Check that your images contain cells and background within a typical crop. Failed index is: '+str(ind)
-        transforms_logger.critical(error_message)
-        raise ValueError(error_message)
-        return
-    
-    do_old = True # Recomputing flow will never work because labels are jagged...
-    lbl = np.zeros((nt, xy[0], xy[1]), np.float32)
-    numpx = xy[0]*xy[1]
-    
-    if Y is not None:
-        labels = Y.copy()
-        # We want the scale distibution to have a mean of 1
-        # There may be a better way to skew the distribution to
-        # interpolate the parameter space without skewing the mean 
-        ds = scale_range/2
-        if do_old:
-            scale = np.random.uniform(low=1-ds,high=1+ds,size=2) #anisotropic
-        else:
-            scale = [np.random.uniform(low=1-ds,high=1+ds,size=1)]*2 # isotropic
-        if rescale is not None:
-            scale *= 1. / rescale
-
-    # image dimensions are always the last two in the stack (again, convention here is different)
-    Ly, Lx = img.shape[-2:]
-
-    # generate random augmentation parameters
-    dg = gamma_range/2 
-    flip = np.random.choice([0,1])
-
-    if do_old:
-        theta = np.random.rand() * np.pi * 2
-    else:
-        theta = np.random.choice([0, np.pi/4, np.pi/2, 3*np.pi/4]) 
-
-    # random translation, take the difference between the scaled dimensions and the crop dimensions
-    dxy = np.maximum(0, np.array([Lx*scale[1]-xy[1],Ly*scale[0]-xy[0]]))
-    # multiplies by a pair of random numbers from -.5 to .5 (different for each dimension) 
-    dxy = (np.random.rand(2,) - .5) * dxy 
-
-    # create affine transform
-    cc = np.array([Lx/2, Ly/2])
-    # xy are the sizes of the cropped image, so this is the center coordinates minus half the difference
-    cc1 = cc - np.array([Lx-xy[1], Ly-xy[0]])/2 + dxy
-    # unit vectors from the center
-    pts1 = np.float32([cc,cc + np.array([1,0]), cc + np.array([0,1])])
-    # transformed unit vectors
-    pts2 = np.float32([cc1,
-            cc1 + scale*np.array([np.cos(theta), np.sin(theta)]),
-            cc1 + scale*np.array([np.cos(np.pi/2+theta), np.sin(np.pi/2+theta)])])
-    M = cv2.getAffineTransform(pts1,pts2)
-
-
-    method = cv2.INTER_LINEAR
-    # the mode determines what happens with out of bounds regions. If we recompute the flow, we can
-    # reflect all the scalar quantities then take the derivative. If we just rotate the field, then
-    # the reflection messes up the directions. For now, we are returning to the default of padding
-    # with zeros. In the future, we may only predict a scalar field and can use reflection to fill
-    # the entire FoV with data - or we can work out how to properly extend the flow field. 
-    if do_old:
-        mode = 0
-    else:
-        mode = cv2.BORDER_DEFAULT # Does reflection 
-        
-    label_method = cv2.INTER_NEAREST
-    if Y is not None:
-        for k in [0,1,2,3,4,5,6]: # was skipping 2 and 3, now not 
-            
-            if k==0:
-                l = labels[k]
-                lbl[k] = cv2.warpAffine(l, M, (xy[1],xy[0]), borderMode=mode, flags=label_method)
-
-                # check to make sure the region contains at enough cell pixels; if not, retry
-                cellpx = np.sum(lbl[0]>0)
-                cutoff = (numpx/1000) # .1 percent of pixels must be cells
-                if cellpx<cutoff or cellpx==numpx:
-                    return random_crop_warp(img, Y, nt, xy, nchan, scale, rescale, scale_range, gamma_range, do_flip, ind, dist_bg, depth=depth+1)
-
-            else:
-                lbl[k] = cv2.warpAffine(labels[k], M, (xy[1],xy[0]), borderMode=mode, flags=method)
-        
-
-        imgi  = np.zeros((nchan, xy[0], xy[1]), np.float32)
-        for k in range(nchan):
-            I = cv2.warpAffine(img[k], M, (xy[1],xy[0]),borderMode=mode, flags=method)
-            
-            # gamma agumentation 
-            gamma = np.random.uniform(low=1-dg,high=1+dg) 
-            imgi[k] = I ** gamma
-            
-            # percentile clipping augmentation 
-            dp = 10
-            dpct = np.random.triangular(left=0, mode=0, right=dp, size=2) # weighted toward 0
-            imgi[k] = normalize99(imgi[k],upper=100-dpct[0],lower=dpct[1],omni=True)
-            
-            # noise augmentation 
-            imgi[k] = random_noise(imgi[k], mode="poisson")
-        
-        if nt > 1:
-            
-            mask = lbl[6]
-            l = lbl[0].astype(int)
-#                 smooth_dist = lbl[n,4].copy()
-            dist = edt.edt(l,parallel=8) # raplace with smooth dist function 
-            lbl[5] = dist==1 # boundary 
-
-            if do_old:
-                v1 = lbl[3].copy() # x component
-                v2 = lbl[2].copy() # y component 
-                dy = (-v1 * np.sin(-theta) + v2*np.cos(-theta))
-                dx = (v1 * np.cos(-theta) + v2*np.sin(-theta))
-
-                lbl[3] = 5.*dx*mask # factor of 5 is applied here to rescale flow components to [-5,5] range 
-                lbl[2] = 5.*dy*mask
-                
-                smooth_dist = dynamics.smooth_distance(l,dist)
-                smooth_dist[dist<=0] = -dist_bg
-                lbl[1] = smooth_dist
-#                 dist[dist<=0] = -dist_bg
-#                 lbl[1] = dist
-            else:
-#                 _, _, smooth_dist, mu = dynamics.masks_to_flows_gpu(l,dists=dist,omni=omni) #would want to replace this with a dedicated dist-only function
-                lbl[3] = 5.*mu[1]
-                lbl[2] = 5.*mu[0]
-
-                smooth_dist[smooth_dist<=0] = -dist_bg
-                lbl[1] = smooth_dist
-
-            bg_edt = edt.edt(mask<0.5,black_border=True) #last arg gives weight to the border, which seems to always lose
-            cutoff = 9
-            lbl[7] = (gaussian(1-np.clip(bg_edt,0,cutoff)/cutoff,sigma=1)+0.5)
-    
-    # Moved to the end because it conflicted with the recursion. Also, flipping the crop is ultimately equivalent and slightly faster. 
-    if flip and do_flip:
-        imgi = imgi[..., ::-1]
-        if Y is not None:
-            lbl = lbl[..., ::-1]
-            if nt > 1:
-                lbl[3] = -lbl[3]
-    return imgi, lbl, scale
 
 # I have the omni flag here just in case, but it actually does not affect the tests
 def normalize_field(mu,omni=False):
     if not omni:
         mu /= (1e-20 + (mu**2).sum(axis=0)**0.5)
     else:   
-        mag = np.sqrt(np.nansum(mu**2,axis=0))
-        m = mag>0
-#         print('Mag stats',np.min(mag[m]),np.max(mag[m]),np.median(mag[m]),np.mean(mag[m]))
-        mu = np.divide(mu, mag, out=np.zeros_like(mu), where=np.logical_and(mag!=0,~np.isnan(mag)))
-        # idea: percent-wise cutoff to only boost nonzero pixels 
-        
+        mu = omnipose.normalize_field(mu) 
     return mu
 
 

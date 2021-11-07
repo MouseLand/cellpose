@@ -4,7 +4,6 @@ import numpy as np
 from tqdm import trange, tqdm
 from urllib.parse import urlparse
 import tempfile
-from scipy.ndimage import median_filter
 import cv2
 from . import transforms, dynamics, utils, plot, metrics
 
@@ -35,8 +34,7 @@ core_logger = logging.getLogger(__name__)
 core_logger.setLevel(logging.DEBUG)
 tqdm_out = utils.TqdmToLogger(core_logger, level=logging.INFO)
 
-# no longer returns nclasses, as it was hard-coded; now it is specified by the user
-# (maybe it should be incorportated into the model name in a future version)
+# nclasses now specified by user or by model type in models.py
 def parse_model_string(pretrained_model):
     if isinstance(pretrained_model, list):
         model_str = os.path.split(pretrained_model[0])[-1]

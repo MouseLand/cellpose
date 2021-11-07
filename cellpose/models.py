@@ -11,10 +11,13 @@ models_logger.setLevel(logging.DEBUG)
 from . import transforms, dynamics, utils, plot
 from .core import UnetModel, assign_device, MXNET_ENABLED, parse_model_string
 
+from omnipose import omnipose
+
 _MODEL_URL = 'https://www.cellpose.org/models'
 _MODEL_DIR_ENV = os.environ.get("CELLPOSE_LOCAL_MODELS_PATH")
 _MODEL_DIR_DEFAULT = pathlib.Path.home().joinpath('.cellpose', 'models')
 MODEL_DIR = pathlib.Path(_MODEL_DIR_ENV) if _MODEL_DIR_ENV else _MODEL_DIR_DEFAULT
+MODEL_NAMES = ['cyto','nuclei','bact','cyto2','bact_omni','cyto2_omni']
 
 def model_path(model_type, model_index, use_torch):
     torch_str = 'torch' if use_torch else ''
@@ -69,15 +72,27 @@ class Cellpose():
         sdevice, gpu = assign_device(self.torch, gpu)
         self.device = device if device is not None else sdevice
         self.gpu = gpu
+        
+        # set defaults and catch if cyto2 is being used without torch 
         model_type = 'cyto' if model_type is None else model_type
         if model_type=='cyto2' and not self.torch:
             model_type='cyto'
+                
+        self.omni = omni or 'omni' in model_type       
         
-        self.omni = omni        
+        # for now, omni models cannot do net_avg 
+        if self.omni:
+            net_avg = False
+        model_range = range(4) if net_avg else range(1)
+        self.pretrained_model = [model_path(model_type, j, torch) for j in model_range]
         
-        self.pretrained_model = [model_path(model_type, j, torch) for j in range(4)]
-        self.pretrained_size = size_model_path(model_type, torch)
-        self.diam_mean = 30. if model_type!='nuclei' else 17.
+        self.diam_mean = 30. #default for any cyto model 
+        nuclear = 'nuclei' in model_type
+        bacterial = 'bact' in model_type
+        if nuclear:
+            self.diam_mean = 17. 
+        elif bacterial:
+            self.diam_mean = 0.
         
         if not net_avg:
             self.pretrained_model = self.pretrained_model[0]
@@ -86,10 +101,15 @@ class Cellpose():
                                 pretrained_model=self.pretrained_model,
                                 diam_mean=self.diam_mean, torch=self.torch, omni=self.omni)
         self.cp.model_type = model_type
-
-        self.sz = SizeModel(device=self.device, pretrained_size=self.pretrained_size,
-                            cp_model=self.cp)
-        self.sz.model_type = model_type
+        
+        # size model not used for bacterial model
+        if not bacterial:
+            self.pretrained_size = size_model_path(model_type, torch)
+            self.sz = SizeModel(device=self.device, pretrained_size=self.pretrained_size,
+                                cp_model=self.cp)
+            self.sz.model_type = model_type
+        else:
+            self.pretrained_size = None
 
     def eval(self, x, batch_size=8, channels=None, channel_axis=None, z_axis=None,
              invert=False, normalize=True, diameter=30., do_3D=False, anisotropy=None,
@@ -281,7 +301,7 @@ class CellposeModel(UnetModel):
     model_dir: str (optional, default None)
         overwrite the built in model directory where cellpose looks for models
     
-    omni: use omnipose flow field model (optional, default False)
+    omni: use omnipose model (optional, default False)
 
     """
     
@@ -299,48 +319,65 @@ class CellposeModel(UnetModel):
             pretrained_model = list(pretrained_model)
         elif isinstance(pretrained_model, str):
             pretrained_model = [pretrained_model]
-            
-        self.omni = omni        
+    
+        # initialize according to arguments 
+        # these are overwritten if a model requires it (bact_omni the most rectrictive)
+        self.omni = omni
         self.nclasses = nclasses 
+        self.diam_mean = diam_mean
         
         if model_type is not None or (pretrained_model and not os.path.exists(pretrained_model[0])):
             pretrained_model_string = model_type 
-            if (pretrained_model_string !='cyto' 
-                and pretrained_model_string !='nuclei' 
-                and pretrained_model_string != 'cyto2'
-                and pretrained_model_string !='omni') or pretrained_model_string is None: # plan to have a built-in omni model
+            if ~np.any([pretrained_model_string == s for s in MODEL_NAMES]): #also covers None case
                 pretrained_model_string = 'cyto'
-            pretrained_model = None 
             if (pretrained_model and not os.path.exists(pretrained_model[0])):
                 models_logger.warning('pretrained model has incorrect path')
             models_logger.info(f'>>{pretrained_model_string}<< model set to be used')
             
-            diam_mean = 30. if pretrained_model_string!='nuclei' else 17. # cyto2 still uses 17, right? 
+            nuclear = 'nuclei' in pretrained_model_string
+            bacterial = 'bact' in pretrained_model_string
             
-            pretrained_model = [model_path(pretrained_model_string, j, torch) for j in range(4)]
-            pretrained_model = pretrained_model[0] if not net_avg else pretrained_model 
+            if nuclear:
+                self.diam_mean = 17. 
+            elif bacterial:
+                self.diam_mean = 0.
+
+            # set omni flag to true if the name contains it
+            self.omni = 'omni' in pretrained_model_string
+            
+            #changed to only look for multiple files if net_avg is selected
+            model_range = range(4) if net_avg else range(1)
+            pretrained_model = [model_path(pretrained_model_string, j, torch) for j in model_range]
             residual_on, style_on, concatenation = True, True, False
         else:
             if pretrained_model:
-                params = parse_model_string(pretrained_model[0])
+                pretrained_model_string = pretrained_model[0]
+                params = parse_model_string(pretrained_model_string)
                 if params is not None:
-                    residual_on, style_on, concatenation = params #no more nclasses here, as it was hard-coded at 3, now defaults to 3... 
-                    # need to include it it the model name or extract it from the model itseld
-                
+                    residual_on, style_on, concatenation = params 
+                self.omni = 'omni' in pretrained_model_string
+        # must have four classes for omnipose models
+        # Note that omni can still be used independently for evaluation to 'mix and match'
+        #would be better just to read from the model 
+        if self.omni:
+            self.nclasses = 4       
+
         # initialize network
         super().__init__(gpu=gpu, pretrained_model=False,
-                         diam_mean=diam_mean, net_avg=net_avg, device=device,
+                         diam_mean=self.diam_mean, net_avg=net_avg, device=device,
                          residual_on=residual_on, style_on=style_on, concatenation=concatenation,
-                         nclasses=nclasses, torch=torch, nchan=nchan)
+                         nclasses=self.nclasses, torch=self.torch, nchan=nchan)
 
         self.unet = False
         self.pretrained_model = pretrained_model
         if self.pretrained_model and len(self.pretrained_model)==1:
             self.net.load_model(self.pretrained_model[0], cpu=(not self.gpu))
         ostr = ['off', 'on']
-        self.net_type = 'cellpose_residual_{}_style_{}_concatenation_{}'.format(ostr[residual_on],
-                                                                                ostr[style_on],
-                                                                                ostr[concatenation])
+        omnistr = ['','_omni'] #toggle by containing omni phrase 
+        self.net_type = 'cellpose_residual_{}_style_{}_concatenation_{}{}'.format(ostr[residual_on],
+                                                                                   ostr[style_on],
+                                                                                   ostr[concatenation],
+                                                                                   omnistr[omni]) 
     
     def eval(self, x, batch_size=8, channels=None, channel_axis=None, 
              z_axis=None, normalize=True, invert=False, 
@@ -639,7 +676,10 @@ class CellposeModel(UnetModel):
         
     def loss_fn(self, lbl, y):
         """ loss function between true labels lbl and prediction y """
-        if not self.omni: # original loss function 
+        if self.omni:
+             #loss function for omnipose field 
+            loss = omnipose.loss(self, lbl, y)
+        else: # original loss function 
             veci = 5. * self._to_device(lbl[:,1:])
             lbl  = self._to_device(lbl[:,0]>.5)
             loss = self.criterion(y[:,:2] , veci) 
@@ -647,34 +687,6 @@ class CellposeModel(UnetModel):
                 loss /= 2.
             loss2 = self.criterion2(y[:,2] , lbl)
             loss = loss + loss2
-        
-        else: #loss function for omnipose field 
-            veci = self._to_device(lbl[:,2:4]) #scaled to 5 in augmentation 
-            dist = lbl[:,1] # now distance transform replaces probability
-            boundary =  lbl[:,5]
-            cellmask = dist>0
-            w =  self._to_device(lbl[:,7])  # new smooth, boundary-emphasized weight calculated with augmentations  
-            dist = self._to_device(dist)
-            boundary = self._to_device(boundary)
-            cellmask = self._to_device(cellmask).bool()
-            flow = y[:,:2] # 0,1
-            dt = y[:,2]
-            bd = y[:,3]
-            a = 10.
-         
-
-            wt = torch.stack((w,w),dim=1)
-            ct = torch.stack((cellmask,cellmask),dim=1) 
-            
-            loss1 = 10.*self.criterion12(flow,veci,wt)  #weighted MSE 
-            loss2 = self.criterion14(flow,veci,w,cellmask) #ArcCosDotLoss
-            loss3 = self.criterion11(flow,veci,wt,ct)/a # DerivativeLoss
-            loss4 = 2.*self.criterion2(bd,boundary)
-            loss5 = 2.*self.criterion15(flow,veci,w,cellmask) # loss on norm 
-            loss6 = 2.*self.criterion12(dt,dist,w) #weighted MSE 
-            loss7 = self.criterion11(dt.unsqueeze(1),dist.unsqueeze(1),w.unsqueeze(1),cellmask.unsqueeze(1))/a  
-
-            loss = loss1 + loss2 + loss3 + loss4 + loss5 + loss6 + loss7
         return loss        
 
 
