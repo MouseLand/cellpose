@@ -13,10 +13,10 @@ import cv2
 from scipy.ndimage import gaussian_filter
 
 from . import guiparts, menus, io
-from .. import models
-from ..utils import download_url_to_file, masks_to_outlines, normalize99
+from .. import models, core
+from ..utils import download_url_to_file, masks_to_outlines
 from ..io import save_server
-from ..transforms import resize_image
+from ..transforms import resize_image, normalize99 #fixed import
 from ..plot import disk
 
 try:
@@ -33,6 +33,8 @@ try:
 except:
     SERVER_UPLOAD = False
 
+MODEL_NAMES = ['cyto', 'nuclei', 'cyto2', 'cyto2_omni', 'bact_omni']
+    
 class QHLine(QFrame):
     def __init__(self):
         super(QHLine, self).__init__()
@@ -137,7 +139,7 @@ def run(image=None):
     app.setWindowIcon(app_icon)
     os.environ['MXNET_CUDNN_AUTOTUNE_DEFAULT'] = '0'
 
-    models.download_model_weights()
+    # models.download_model_weights() # does not exist
     MainW(image=image)
     ret = app.exec_()
     sys.exit(ret)
@@ -426,7 +428,7 @@ class MainW(QMainWindow):
         b+=1
         # choose models
         self.ModelChoose = QComboBox()
-        self.ModelChoose.addItems(['cyto', 'nuclei', 'cyto2'])
+        self.ModelChoose.addItems(MODEL_NAMES) #added omnipose model names
         self.ModelChoose.setFixedWidth(70)
         self.ModelChoose.setStyleSheet(self.dropdowns)
         self.ModelChoose.setFont(self.medfont)
@@ -434,8 +436,11 @@ class MainW(QMainWindow):
         label = QLabel('model: ')
         label.setStyleSheet(label_style)
         label.setFont(self.medfont)
-        label.setToolTip('there is a <em>cyto</em> model, a new <em>cyto2</em> model from user submissions, and a <em>nuclei</em> model')
-        self.ModelChoose.setToolTip('there is a <em>cyto</em> model, a new <em>cyto2</em> model from user submissions, and a <em>nuclei</em> model')
+        #update tooltip string 
+        tipstr = 'there is a <em>cyto</em> model, a new <em>cyto2</em> model from user submissions, a <em>nuclei</em> model, \
+                  and two omnipose models: <em>bact_omni</em> and <em>cyto2_omni</em>'
+        label.setToolTip(tipstr)
+        self.ModelChoose.setToolTip(tipstr)
         self.l0.addWidget(label, b, 0,1,1)
 
         b+=1
@@ -659,11 +664,11 @@ class MainW(QMainWindow):
         self.torch = torch
         self.useGPU.setChecked(False)
         self.useGPU.setEnabled(False)    
-        if self.torch and models.use_gpu(istorch=True):
+        if self.torch and core.use_gpu(istorch=True):
             self.useGPU.setEnabled(True)
             self.useGPU.setChecked(True)
         elif models.MXNET_ENABLED:
-            if models.use_gpu(istorch=False):
+            if core.use_gpu(istorch=False):
                 print('>>> will run model on GPU in mxnet <<<')
                 self.torch = False
                 self.useGPU.setEnabled(True)
