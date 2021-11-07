@@ -682,8 +682,7 @@ def follow_flows(dP, mask=None, inds=None, niter=200, interp=True, use_gpu=True,
                                           device=device, omni=omni, calc_trace=calc_trace)
             
             p[:,inds[:,0],inds[:,1]] = p_interp
-    #print(p.shape)     
-    return p, inds, tr #, p_interp
+    return p, inds, tr
 
 def remove_bad_flow_masks(masks, flows, threshold=0.4, use_gpu=False, device=None, omni=False):
     """ remove masks which have inconsistent flows 
@@ -869,7 +868,8 @@ def compute_masks(dP, dist, bd=None, p=None, inds=None, niter=200, dist_threshol
                 p , inds, tr = follow_flows(dP_, mask=mask, inds=inds, niter=niter, interp=interp, 
                                             use_gpu=use_gpu, device=device, omni=omni, calc_trace=calc_trace)
         else: 
-            inds,tr = [],[]
+            tr = []
+            inds = np.stack(np.nonzero(mask)).T
             if verbose:
                 dynamics_logger.info('p given')
         

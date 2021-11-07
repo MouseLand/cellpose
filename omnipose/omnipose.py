@@ -194,10 +194,10 @@ def get_masks(p,bd,dist,mask,inds,nclasses=4,cluster=False,diam_threshold=12.,ve
         cluster = True
         if verbose:
             omnipose_logger.info('Turning on subpixel clustering for label continuity.')
-
+    y,x = np.nonzero(mask)
     newinds = p[:,inds[:,0],inds[:,1]].swapaxes(0,1)
     mask = np.zeros((p.shape[1],p.shape[2]))
-
+    
     # the eps parameter needs to be adjustable... maybe a function of the distance
     if cluster and SKLEARN_ENABLED:
         if verbose:

@@ -13,7 +13,7 @@ import cv2
 from scipy.ndimage import gaussian_filter
 
 from . import guiparts, menus, io
-from .. import models, core
+from .. import models, core, dynamics
 from ..utils import download_url_to_file, masks_to_outlines
 from ..io import save_server
 from ..transforms import resize_image, normalize99 #fixed import
@@ -491,7 +491,7 @@ class MainW(QMainWindow):
 
         b+=1
         label = QLabel('model match threshold:')
-        label.setToolTip('threshold on gradient match to accept a mask (set lower to get more cells)')
+        label.setToolTip('threshold on flow match to accept a mask (set lower to get more cells)')
         label.setStyleSheet(label_style)
         label.setFont(self.medfont)
         self.l0.addWidget(label, b, 0,1,2)
@@ -509,11 +509,12 @@ class MainW(QMainWindow):
         self.threshslider.setEnabled(False)
         
         b+=1
-        label = QLabel('cell prob threshold:')
+        label = QLabel('cell threshold:')
+        label.setToolTip('threshold on scalar output field to seed cell masks \
+                        (set lower to include more pixels)')
         label.setStyleSheet(label_style)
         label.setFont(self.medfont)
         self.l0.addWidget(label, b, 0,1,2)
-        label.setToolTip('cell probability threshold (set lower to get more cells)')
         
         b+=1
         self.probslider = QSlider()
@@ -1294,12 +1295,13 @@ class MainW(QMainWindow):
             print('computing masks with cell prob=%0.3f, flow error threshold=%0.3f'%
                     (self.cellprob, thresh))
 
-        maski = self.model.cp._compute_masks(self.flows[4][:-1],
-                                             self.flows[4][-1],
-                                             p=self.flows[3].copy(),
-                                             cellprob_threshold=self.cellprob,
-                                             flow_threshold=thresh,
-                                             resize=self.cellpix.shape[-2:])[0]
+        maski = dynamics.compute_masks(self.flows[4][:-1], 
+                                       self.flows[4][-1],
+                                       p=self.flows[3].copy(),
+                                       dist_threshold=self.cellprob,
+                                       flow_threshold=thresh,
+                                       resize=self.cellpix.shape[-2:],
+                                       omni=self.omni)[0]
         
         self.masksOn = True
         self.outlinesOn = True
@@ -1330,9 +1332,9 @@ class MainW(QMainWindow):
             channels = self.get_channels()
             self.diameter = float(self.Diameter.text())
             try:
-                omni = 'omni' in self.current_model
+                self.omni = 'omni' in self.current_model
                 bacterial = 'bact' in self.current_model
-                if omni:
+                if self.omni:
                     self.NetAvg.setCurrentIndex(2) #one run net
                 if bacterial:
                     self.diameter = 0.
@@ -1344,7 +1346,7 @@ class MainW(QMainWindow):
                 masks, flows, _, _ = self.model.eval(data, channels=channels,
                                                     diameter=self.diameter, invert=self.invert.isChecked(),
                                                     net_avg=net_avg, augment=False, resample=resample,
-                                                    do_3D=do_3D, progress=self.progress, omni=omni)
+                                                    do_3D=do_3D, progress=self.progress, omni=self.omni)
             except Exception as e:
                 print('NET ERROR: %s'%e)
                 self.progress.setValue(0)
