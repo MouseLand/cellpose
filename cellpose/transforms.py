@@ -660,7 +660,9 @@ def random_rotate_and_resize(X, Y=None, scale_range=1., gamma_range=0.5, xy = (2
         # backwards compatibility; completely 'stock', no gamma augmentation or any other extra frills. 
         # [Y[i][1:] for i in inds] is necessary because the original transform function does not use masks (entry 0). 
         # This used to be done in the original function call. 
-        return original_random_rotate_and_resize(X, Y=[Y[i][1:] for i in inds], scale_range=scale_range, xy=xy,
+        if Y is not None:
+            Y = [y[1:] for y in Y]
+        return original_random_rotate_and_resize(X, Y=Y, scale_range=scale_range, xy=xy,
                                                  do_flip=do_flip, rescale=rescale, unet=unet)
 
 
@@ -831,4 +833,3 @@ def original_random_rotate_and_resize(X, Y=None, scale_range=1., xy = (224,224),
                 lbl[n,2] = (v1 * np.cos(-theta) + v2*np.sin(-theta))
 
     return imgi, lbl, scale
-
