@@ -5,7 +5,13 @@ import cv2
 from omnipose.omnipose import SKLEARN_ENABLED
 from scipy.ndimage import gaussian_filter
 import scipy
-import matplotlib
+
+try:
+    import matplotlib
+    MATPLOTLIB_ENABLED = True 
+except:
+    MATPLOTLIB_ENABLED = False
+
 
 try:
     from skimage import color
@@ -63,6 +69,8 @@ def show_segmentation(fig, img, maski, flowi, channels=[0,0], file_name=None, om
         file name of image, if file_name is not None, figure panels are saved
 
     """
+    if not MATPLOTLIB_ENABLED:
+        raise ImportError("matplotlib not installed, install with 'pip install matplotlib'")
     ax = fig.add_subplot(1,4,1)
     img0 = img.copy()
 
