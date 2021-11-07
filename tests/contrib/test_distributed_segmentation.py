@@ -14,11 +14,11 @@ TESTDATA = pathlib.Path(__file__).parent / "testdata"
 
 def test_segment_nucleus(data_dir):
     """Tests segmentation on dask array."""
-    tiff_input = data_dir.joinpath('3D').joinpath("segment_80x224x448_input.tiff")
-    tiff_expected = data_dir.joinpath('3D').joinpath("segment_80x224x448_expected.tiff")
+    tiff_input = data_dir.joinpath('distributed').joinpath("segment_80x224x448_input.tiff")
+    tiff_expected = data_dir.joinpath('distributed').joinpath("segment_80x224x448_expected.tiff")
     image = tifffile.imread(tiff_input) #TESTDATA / "segment_80x224x448_input.tiff")
     image = image[..., None]
-    image = da.from_array(image).rechunk({2: 224})
+    image = da.from_array(image).rechunk({2: 128})
 
     actual = distributed_segmentation.segment(
         image,

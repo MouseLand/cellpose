@@ -20,12 +20,17 @@ def data_dir(image_names):
     data_dir_2D.mkdir(exist_ok=True)
     data_dir_3D = data_dir.joinpath('3D')
     data_dir_3D.mkdir(exist_ok=True)
+    data_dir_distributed = data_dir.joinpath('distributed')
+    data_dir_distributed.mkdir(exist_ok=True)
 
     for i,image_name in enumerate(image_names):
         url = 'http://www.cellpose.org/static/data/' + image_name
-        if '2D' in image_name:
+        if i<3:
             cached_file = str(data_dir_2D.joinpath(image_name))
             ext = '.png'
+        elif i<5:
+            cached_file = str(data_dir_3D.joinpath(image_name))
+            ext = '.tif'
         else:
             cached_file = str(data_dir_3D.joinpath(image_name))
             ext = '.tif'
