@@ -1,18 +1,22 @@
 import time, os
 from scipy.ndimage.filters import maximum_filter1d
+import torch
 import scipy.ndimage
 import numpy as np
 import tifffile
 from tqdm import trange
 from numba import njit, float32, int32, vectorize
 import edt
-from skimage import measure
+import fastremap
+import cv2
 
 import logging
 dynamics_logger = logging.getLogger(__name__)
 dynamics_logger.setLevel(logging.DEBUG)
 
 from . import utils, metrics, transforms
+
+from omnipose import omnipose
 
 try:
     import torch
@@ -24,8 +28,15 @@ try:
 except:
     TORCH_ENABLED = False
 
-@njit('(float64[:], int32[:], int32[:], int32[:], int32[:], int32, int32, boolean,float64)', nogil=True)
-def _extend_centers(T, y, x, ymed, xmed, Lx, niter, skel=False, value=1):
+try:
+    from skimage import filters
+    SKIMAGE_ENABLED = True
+except:
+    SKIMAGE_ENABLED = False
+
+
+@njit('(float64[:], int32[:], int32[:], int32[:], int32[:], int32, int32, boolean)', nogil=True)
+def _extend_centers(T, y, x, ymed, xmed, Lx, niter, omni=False):
     """ run diffusion from center of mask (ymed, xmed) on mask pixels (y, x)
 
     Parameters
@@ -60,85 +71,64 @@ def _extend_centers(T, y, x, ymed, xmed, Lx, niter, skel=False, value=1):
 
     """
     for t in range(niter):
-        if skel:
-            T[y*Lx + x] += value
-            T[y*Lx + x] /= 1+T[y*Lx + x]
-
+        if omni:
+            # solve eikonal equation 
+            T[y*Lx + x] = omnipose.eikonal_update_cpu(T, y, x, Lx)
         else:
-            T[ymed*Lx + xmed] += value
-            
-        T[y*Lx + x] = 1/9. * (T[y*Lx + x] + T[(y-1)*Lx + x]   + T[(y+1)*Lx + x] +
-                                            T[y*Lx + x-1]     + T[y*Lx + x+1] +
-                                            T[(y-1)*Lx + x-1] + T[(y-1)*Lx + x+1] +
-                                            T[(y+1)*Lx + x-1] + T[(y+1)*Lx + x+1])
-
-
-# ongoing experimentation to figure out what PDE my algorthm actually corresponds to
-# #     niter = niter**.7
-# #     value = value**2
-# #     print(niter,value)
-#     for t in range(niter):
-#         if skel:
-# #             T[y*Lx + x] = (1/5)*(1/(1+T[y*Lx + x]+value)) * (T[(y-1)*Lx + x] + T[(y+1)*Lx + x] + T[y*Lx + x-1] + T[y*Lx + x+1] + T[y*Lx + x] + 5*value) 
-# #             T[y*Lx + x] = (1/10)*( -4 - 5*value + np.sqrt(5*value*(28+5*value)+4*(4+5*(T[(y-1)*Lx + x] + T[(y+1)*Lx + x] + T[y*Lx + x-1] + T[y*Lx + x+1])) ))
-# #             T[y*Lx + x] = (1/2)*( -4 - value + np.sqrt(value*(12+value)+4*(4+(T[(y-1)*Lx + x] + T[(y+1)*Lx + x] + T[y*Lx + x-1] + T[y*Lx + x+1] )) ))
-#             T[y*Lx + x] = (1/6)*(-10-3*value+np.sqrt(100+96*value+9*(value**2)+6*(T[(y-1)*Lx + x-1]+T[(y+1)*Lx + x+1]+T[(y+1)*Lx + x-1]+T[(y-1)*Lx + x+1])
-#                                                      +24*(T[y*Lx + x-1]+T[y*Lx + x+1]+T[(y-1)*Lx + x]+T[(y+1)*Lx + x])))
-#         else:
-#             T[ymed*Lx + xmed] += value
-#             T[y*Lx + x] = 1/9. * (T[y*Lx + x] + T[(y-1)*Lx + x]   + T[(y+1)*Lx + x] +
-#                                                 T[y*Lx + x-1]     + T[y*Lx + x+1] +
-#                                                 T[(y-1)*Lx + x-1] + T[(y-1)*Lx + x+1] +
-#                                                 T[(y+1)*Lx + x-1] + T[(y+1)*Lx + x+1])
+            # solve heat equation 
+            T[ymed*Lx + xmed] += 1
+            T[y*Lx + x] = 1/9. * (T[y*Lx + x] + T[(y-1)*Lx + x]   + T[(y+1)*Lx + x] +
+                                                T[y*Lx + x-1]     + T[y*Lx + x+1] +
+                                                T[(y-1)*Lx + x-1] + T[(y-1)*Lx + x+1] +
+                                                T[(y+1)*Lx + x-1] + T[(y+1)*Lx + x+1])
 
     return T
 
 tic=time.time()
 
 # edited slightly to fix a 'bleeding' issue with the gradient; now identical to CPU version
-def _extend_centers_gpu(neighbors, centers, isneighbor, Ly, Lx, n_iter=200, device=torch.device('cuda'),skel=False,masks=[]):
+def _extend_centers_gpu(neighbors, centers, isneighbor, Ly, Lx, n_iter=200, device=torch.device('cuda'),omni=False,masks=[]):
     """ runs diffusion on GPU to generate flows for training images or quality control
     
-    neighbors is 9 x pixels in masks, 
-    centers are mask centers (or any distribution of heat, as in the generalized algorithm)
+    neighbors is 9 x <pixels in masks>, 
+    centers are mask centers (or generalized source coordinates)
     isneighbor is valid neighbor boolean 9 x pixels
     
     """
-    if device is not None:
-        device = device
+    if device is not None: #what's the point of this?
+        device = device 
+        
     nimg = neighbors.shape[0] // 9
     pt = torch.from_numpy(neighbors).to(device)
     T = torch.zeros((nimg,Ly,Lx), dtype=torch.double, device=device)
     meds = torch.from_numpy(centers.astype(int)).to(device)
     isneigh = torch.from_numpy(isneighbor).to(device)
-    if skel:
-        props = measure.regionprops(masks)
-        value_img = torch.zeros((Ly,Lx)).to(device)
-        for p in props:
-            value_img[masks==p.label] = (p.perimeter/p.area)**3
-    
+
     for t in range(n_iter):
-        if skel:
-            T[:, meds[:,0], meds[:,1]] += value_img[meds[:,0], meds[:,1]]
-            T[:, meds[:,0], meds[:,1]] /= (1+T[:, meds[:,0], meds[:,1]])
+        if omni:
+            T[:, pt[4,:,0], pt[4,:,1]] = omnipose.eikonal_update_gpu(T,pt,isneigh)
         else:
             T[:, meds[:,0], meds[:,1]] += 1
-        Tneigh = T[:, pt[:,:,0], pt[:,:,1]] 
-        Tneigh *= isneigh
-        T[:, pt[0,:,0], pt[0,:,1]] = Tneigh.mean(axis=1)
-
+            Tneigh = T[:, pt[:,:,0], pt[:,:,1]] # T is square, but Tneigh is nimg x 9 x <number of points in mask>
+            Tneigh *= isneigh # isneigh is 9 x <number of points in mask>, zeros out any elements that do not belong in convolution
+            T[:, pt[4,:,0], pt[4,:,1]] = Tneigh.mean(axis=1) # mean along the 9-element column does the box convolution 
+    
+    # forgot to put this back in... not caught in tests; need to check cpu version too 
+    if not omni:
+        T = torch.log(1.+ T)
+    
     Tcpy = T.clone()
-    idx = [2,1,4,3]
+    idx = [1,7,3,5] 
     mask = isneigh[idx]
     grads = T[:, pt[idx,:,0], pt[idx,:,1]]*mask # prevent bleedover
-    dy = (grads[:,0] - grads[:,1])
-    dx = (grads[:,2] - grads[:,3])
+    dy = (grads[:,1] - grads[:,0]) / 2
+    dx = (grads[:,3] - grads[:,2]) / 2
     mu_torch = np.stack((dy.cpu().squeeze(), dx.cpu().squeeze()), axis=-2)
 
     return mu_torch, Tcpy.cpu().squeeze()
 
 
-def masks_to_flows_gpu(masks, dists, device=None, skel=False):
+def masks_to_flows_gpu(masks, dists, device=None, omni=False):
     """ convert masks to flows using diffusion from center pixel
 
     Center of masks where diffusion starts is defined using COM
@@ -174,17 +164,17 @@ def masks_to_flows_gpu(masks, dists, device=None, skel=False):
     
     # get mask pixel neighbors
     y, x = np.nonzero(masks_padded)
-    
-    neighborsY = np.stack((y, y-1, y+1, 
-                           y, y, y-1, 
-                           y-1, y+1, y+1), axis=0)
-    neighborsX = np.stack((x, x, x, 
-                           x-1, x+1, x-1, 
-                           x+1, x-1, x+1), axis=0)
+
+    neighborsY = np.stack((y-1, y-1, y-1, 
+                           y  , y  , y  ,
+                           y+1, y+1, y+1), axis=0)
+    neighborsX = np.stack((x-1, x  , x+1, 
+                           x-1, x  , x+1, 
+                           x-1, x  , x+1), axis=0)
     
     neighbors = np.stack((neighborsY, neighborsX), axis=-1)
     
-    if not skel: # do original centroid projection algrorithm
+    if not omni: # do original centroid projection algrorithm
         # get mask centers
         centers = np.array(scipy.ndimage.center_of_mass(masks_padded, labels=masks_padded, 
                                                         index=np.arange(1, masks_padded.max()+1))).astype(int)
@@ -197,17 +187,18 @@ def masks_to_flows_gpu(masks, dists, device=None, skel=False):
             imin = np.argmin((xi-xmed)**2 + (yi-ymed)**2)
             centers[i,0] = yi[imin]
             centers[i,1] = xi[imin] 
-    else: # do 'skeletonized' algorithm (see cpu flow code for more details)
+            
+    else: # do omnipose algorithm (see cpu flow code for more details)
         centers = np.stack((y,x),axis=1)
     
     # get neighbor validator (not all neighbors are in same mask)
     neighbor_masks = masks_padded[neighbors[:,:,0], neighbors[:,:,1]] #extract list of label values, 
-    isneighbor = neighbor_masks == neighbor_masks[0] # 0 corresponds to x,y
+    isneighbor = neighbor_masks == neighbor_masks[4] # 4 corresponds to x,y now
         
     # set number of iterations
-    if skel:
-        # skel version requires fewer
-        n_iter = round(np.max(dists)**1.5)
+    if omni:
+        # omniversion requires fewer
+        n_iter = omnipose.get_niter(dists)
     else:
         slices = scipy.ndimage.find_objects(masks)
         ext = np.array([[sr.stop - sr.start + 1, sc.stop - sc.start + 1] for sr, sc in slices])
@@ -215,10 +206,10 @@ def masks_to_flows_gpu(masks, dists, device=None, skel=False):
    
     # run diffusion 
     mu, T = _extend_centers_gpu(neighbors, centers, isneighbor, Ly, Lx,
-                                n_iter=n_iter, device=device, masks=masks_padded)
+                                n_iter=n_iter, device=device, masks=masks_padded, omni=omni)
 
     # normalize
-    mu = transforms.normalize_field(mu)
+    mu = transforms.normalize_field(mu,omni)
 
     # put into original image
     mu0 = np.zeros((2, Ly0, Lx0))
@@ -227,7 +218,7 @@ def masks_to_flows_gpu(masks, dists, device=None, skel=False):
     mu_c = T[pad:-pad,pad:-pad] # mu_c now heat
     return mu0, mu_c
 
-def masks_to_flows_cpu(masks, dists, device=None, skel=False):
+def masks_to_flows_cpu(masks, dists, device=None, omni=False):
     """ convert masks to flows using diffusion from center pixel
 
     Center of masks where diffusion starts is defined to be the 
@@ -260,14 +251,13 @@ def masks_to_flows_cpu(masks, dists, device=None, skel=False):
     
     nmask = masks.max()
     slices = scipy.ndimage.find_objects(masks) 
-    pad = 100
+    pad = 1
     #slice tuples contain the same info as boundingbox
     for i,si in enumerate(slices):
         if si is not None:
             
             sr,sc = si
             mask = np.pad((masks[sr, sc] == i+1),pad)
-            dist = np.pad(dists[si],pad)
           
             # lx,ly the dimensions of the boundingbox
             ly, lx = sr.stop - sr.start + 2*pad, sc.stop - sc.start + 2*pad
@@ -284,26 +274,17 @@ def masks_to_flows_cpu(masks, dists, device=None, skel=False):
             # same number of points as a grid with  1px around the whole thing
             T = np.zeros(ly*lx, np.float64)
             
-            
-            if skel:
+            if omni:
                 # This is what I found to be the lowest possible number of iterations to guarantee convergence,
-                # but only for the skel model. Too small for center-pixel heat to diffuse to the ends. 
+                # but only for the omni model. Too small for center-pixel heat to diffuse to the ends. 
                 # I would like to explain why this works theoretically; it is emperically validated for now.
-                niter = round(np.max(dist)**1.5)
+                niter = omnipose.get_niter(dists)
             else:
                 niter = 2*np.int32(np.ptp(x) + np.ptp(y))
             
-            if (skel):
-                # skeletonization now is far less explicit now (no skeleton heat source)
-                # the skel flag solves a PDE that produce a field extemely close
-                # to that with an explicitly defined skeleton, but even better than those ad-hoc methods.
-                # This depends sensitively on both the number of iterations (larger masks require more)
-                # and the value of heat added to each pixel. This is uniform across each mask and is 
-                # smaller than 1, but the exact value below is not theoretically motivated, just validated
-                # empirically on many examples and synthetic masks across several orders of magnitude in diameter. 
+            if omni:
                 xmed = x
                 ymed = y
-                value = (measure.perimeter(mask)/np.count_nonzero(mask))**3
             else:
                 # original boundary projection
                 ymed = np.median(y)
@@ -311,26 +292,25 @@ def masks_to_flows_cpu(masks, dists, device=None, skel=False):
                 imin = np.argmin((x-xmed)**2 + (y-ymed)**2) 
                 xmed = np.array([x[imin]],np.int32)
                 ymed = np.array([y[imin]],np.int32)
-                value = 1 
             
-            T = _extend_centers(T, y, x, ymed, xmed, lx, niter, skel, value)
-            
-            heat = T.copy()
-            T  = np.interp(T, (T[y*lx + x].min(), T[y*lx + x].max()), (0, 1))
+            T = _extend_centers(T, y, x, ymed, xmed, lx, niter, omni)
+            if not omni: 
+                 T[(y+1)*lx + x+1] = np.log(1.+T[(y+1)*lx + x+1])
             
             # central difference approximation to first derivative
-            dy = T[(y+1)*lx + x] - T[(y-1)*lx + x]
-            dx = T[y*lx + x+1] - T[y*lx + x-1]
+            dy = (T[(y+1)*lx + x] - T[(y-1)*lx + x]) / 2
+            dx = (T[y*lx + x+1] - T[y*lx + x-1]) / 2
             
             mu[:, sr.start+y-pad, sc.start+x-pad] = np.stack((dy,dx))
-            mu_c[sr.start+y-pad, sc.start+x-pad] = heat[y*lx + x]
+            mu_c[sr.start+y-pad, sc.start+x-pad] = T[y*lx + x]
     
-    mu =  transforms.normalize_field(mu,True)
+    mu = transforms.normalize_field(mu,omni)
+
     # pass heat back instead of zeros - not sure what mu_c was originally
     # intended for, but it is apparently not used for anything else
     return mu, mu_c
 
-def masks_to_flows(masks, use_gpu=False, device=None, skel=False):
+def masks_to_flows(masks, dists=None, use_gpu=False, device=None, omni=False):
     """ convert masks to flows using diffusion from center pixel
 
     Center of masks where diffusion starts is defined to be the 
@@ -356,8 +336,11 @@ def masks_to_flows(masks, use_gpu=False, device=None, skel=False):
         in which it resides 
 
     """
-    masks = utils.format_labels(masks)
-    dists = edt.edt(masks)
+   
+    if dists is None:
+        masks = utils.format_labels(masks)
+        dists = edt.edt(masks)
+        
     if TORCH_ENABLED and use_gpu:
         if use_gpu and device is None:
             device = torch_GPU
@@ -371,24 +354,24 @@ def masks_to_flows(masks, use_gpu=False, device=None, skel=False):
         Lz, Ly, Lx = masks.shape
         mu = np.zeros((3, Lz, Ly, Lx), np.float32)
         for z in range(Lz):
-            mu0 = masks_to_flows_device(masks[z], dists, device=device, skel=skel)[0]
+            mu0 = masks_to_flows_device(masks[z], dists, device=device, omni=omni)[0]
             mu[[1,2], z] += mu0
         for y in range(Ly):
-            mu0 = masks_to_flows_device(masks[:,y], dists, device=device, skel=skel)[0]
+            mu0 = masks_to_flows_device(masks[:,y], dists, device=device, omni=omni)[0]
             mu[[0,2], :, y] += mu0
         for x in range(Lx):
-            mu0 = masks_to_flows_device(masks[:,:,x], dists, device=device, skel=skel)[0]
+            mu0 = masks_to_flows_device(masks[:,:,x], dists, device=device, omni=omni)[0]
             mu[[0,1], :, :, x] += mu0
         return masks, dists, None, mu #consistency with below
     elif masks.ndim==2:
-        if skel: # padding helps avoid edge artifacts from cut-off cells 
+        if omni: # padding helps avoid edge artifacts from cut-off cells 
             pad = 15 
             masks_pad = np.pad(masks,pad,mode='reflect')
             dists_pad = np.pad(dists,pad,mode='reflect')
-            mu, T = masks_to_flows_device(masks_pad, dists_pad, device=device, skel=skel)
+            mu, T = masks_to_flows_device(masks_pad, dists_pad, device=device, omni=omni)
             return masks, dists, T[pad:-pad,pad:-pad], mu[:,pad:-pad,pad:-pad]
         else: # reflection not a good idea for centroid model 
-            mu, T = masks_to_flows_device(masks, dists=dists, device=device, skel=skel)
+            mu, T = masks_to_flows_device(masks, dists=dists, device=device, omni=omni)
             return masks, dists, T, mu
 
     else:
@@ -397,7 +380,7 @@ def masks_to_flows(masks, use_gpu=False, device=None, skel=False):
 # It is possible that flows can be eliminated in place of the distance field. The current distance field may not be smooth 
 # enough, or maybe the network really does require the flow field prediction to work well. But in 3D, it will be a huge
 # advantage if the network could predict just the distance (and boudnary) classes and not 3 extra flow components. 
-def labels_to_flows(labels, files=None, use_gpu=False, device=None, skel=False,redo_flows=False):
+def labels_to_flows(labels, files=None, use_gpu=False, device=None, omni=False,redo_flows=False):
     """ convert labels (list of masks or flows) to flows for training model 
 
     if files is not None, flows are saved to files to be reused
@@ -421,14 +404,14 @@ def labels_to_flows(labels, files=None, use_gpu=False, device=None, skel=False,r
     if labels[0].ndim < 3:
         labels = [labels[n][np.newaxis,:,:] for n in range(nimg)]
 
-    if labels[0].shape[0] == 1 or labels[0].ndim < 3 or redo_flows: # flows need to be recomputer
+    if labels[0].shape[0] == 1 or labels[0].ndim < 3 or redo_flows: # flows need to be recomputed
         
         dynamics_logger.info('NOTE: computing flows for labels (could be done before to save time)')
         
         # compute flows; labels are fixed in masks_to_flows, so they need to be passed back
-        labels, dist, heat, veci = map(list,zip(*[masks_to_flows(labels[n][0],use_gpu=use_gpu, device=device, skel=skel) for n in trange(nimg)]))
+        labels, dist, heat, veci = map(list,zip(*[masks_to_flows(labels[n][0],use_gpu=use_gpu, device=device, omni=omni) for n in trange(nimg)]))
         # concatenate labels, distance transform, vector flows, heat (boundary and mask are computed in augmentations)
-        if skel:
+        if omni:
             flows = [np.concatenate((labels[n][np.newaxis,:,:], dist[n][np.newaxis,:,:], veci[n], heat[n][np.newaxis,:,:]), axis=0).astype(np.float32)
                         for n in range(nimg)]
         else:
@@ -479,7 +462,7 @@ def map_coordinates(I, yc, xc, Y):
                       np.float32(I[c, yf1, xf1]) * y * x )
 
 
-def steps2D_interp(p, dP, niter, use_gpu=False, device=None, skel=False, calc_trace=False):
+def steps2D_interp(p, dP, niter, use_gpu=False, device=None, omni=False, calc_trace=False):
     shape = dP.shape[1:]
     if use_gpu and TORCH_ENABLED:
         if device is None:
@@ -501,21 +484,27 @@ def steps2D_interp(p, dP, niter, use_gpu=False, device=None, skel=False, calc_tr
         
         #here is where the stepping happens
         for t in range(niter):
+            if calc_trace:
+                trace = torch.cat((trace,pt))
             # align_corners default is False, just added to suppress warning
             dPt = torch.nn.functional.grid_sample(im, pt, align_corners=False)
-            if skel:
-                dPt = dPt/(1+t) #this supression is key to the 'skeleton' method
+            if omni:
+                dPt /= omnipose.step_factor(t)
+            
             for k in range(2): #clamp the final pixel locations
                 pt[:,:,:,k] = torch.clamp(pt[:,:,:,k] + dPt[:,k,:,:], -1., 1.)
             
-            if calc_trace:
-                trace = torch.cat((trace,pt))
-                
+
         #undo the normalization from before, reverse order of operations 
         pt = (pt+1)*0.5
         for k in range(2): 
             pt[:,:,:,k] *= shape[k]
-        
+            
+        if calc_trace:
+            trace = (trace+1)*0.5
+            for k in range(2): 
+                trace[:,:,:,k] *= shape[k]
+                
         #pass back to cpu
         if calc_trace:
             tr =  trace[:,:,:,[1,0]].cpu().numpy().squeeze().T
@@ -526,22 +515,19 @@ def steps2D_interp(p, dP, niter, use_gpu=False, device=None, skel=False, calc_tr
         return p, tr
     else:
         dPt = np.zeros(p.shape, np.float32)
-        
         if calc_trace:
-            Ly = shape[0]
-            Lx = shape[1]
-            tr = np.zeros((niter,2,Ly,Lx))
+            tr = np.zeros((p.shape[0],p.shape[1],niter))
         else:
             tr = None
             
         for t in range(niter):
-            map_coordinates(dP, p[0], p[1], dPt)
-            if skel:
-                dPt = dPt/(1+t) #this supression is key to the 'skeleton' method
+            if calc_trace:
+                tr[:,:,t] = p.copy()
+            map_coordinates(dP.astype(np.float32), p[0], p[1], dPt)
+            if omni:
+                dPt /= omnipose.step_factor(t)
             for k in range(len(p)):
                 p[k] = np.minimum(shape[k]-1, np.maximum(0, p[k] + dPt[k]))
-                if calc_trace:
-                    tr[t] = p.copy()
         return p, tr
 
 
@@ -587,7 +573,7 @@ def steps3D(p, dP, inds, niter):
     return p, None
 
 @njit('(float32[:,:,:], float32[:,:,:], int32[:,:], int32, boolean, boolean)', nogil=True)
-def steps2D(p, dP, inds, niter, skel=False, calc_trace=False):
+def steps2D(p, dP, inds, niter, omni=False, calc_trace=False):
     """ run dynamics of pixels to recover masks in 2D
     
     Euler integration of dynamics dP for niter steps
@@ -621,22 +607,20 @@ def steps2D(p, dP, inds, niter, skel=False, calc_trace=False):
         tr = np.zeros((niter,2,Ly,Lx))
     for t in range(niter):
         for j in range(inds.shape[0]):
+            if calc_trace:
+                tr[t] = p.copy()
             # starting coordinates
             y = inds[j,0]
             x = inds[j,1]
             p0, p1 = int(p[0,y,x]), int(p[1,y,x])
-            if skel: # suppress each step 
-                step = dP[:,p0,p1]/(t+1)
-            else:
-                step = dP[:,p0,p1]
+            step = dP[:,p0,p1]
+            if omni:
+                step /= omnipose.step_factor(t)
             for k in range(p.shape[0]):
                 p[k,y,x] = min(shape[k]-1, max(0, p[k,y,x] + step[k]))
-            if calc_trace:
-                tr[t] = p
-                
     return p, tr
 
-def follow_flows(dP, mask=None, niter=200, interp=True, use_gpu=True, device=None, skel=False, calc_trace=False):
+def follow_flows(dP, mask=None, inds=None, niter=200, interp=True, use_gpu=True, device=None, omni=False, calc_trace=False):
     """ define pixels and run dynamics to recover masks in 2D
     
     Pixels are meshgrid. Only pixels with non-zero cell-probability
@@ -670,7 +654,7 @@ def follow_flows(dP, mask=None, niter=200, interp=True, use_gpu=True, device=Non
 
     """
     shape = np.array(dP.shape[1:]).astype(np.int32)
-    niter = np.int32(niter)
+    niter = np.uint32(niter)
     if len(shape)>2:
         p = np.meshgrid(np.arange(shape[0]), np.arange(shape[1]),
                 np.arange(shape[2]), indexing='ij')
@@ -683,33 +667,31 @@ def follow_flows(dP, mask=None, niter=200, interp=True, use_gpu=True, device=Non
         p = np.meshgrid(np.arange(shape[0]), np.arange(shape[1]), indexing='ij')
         # not sure why, but I had changed this to float64 at some point... tests showed that map_coordinates expects float32
         # possible issues elsewhere? 
-        p = np.array(p).astype(np.float32) 
+        p = np.array(p).astype(np.float32)
 
-        # run dynamics on subset of pixels
-        if mask is None:
-            mask = np.abs(dP[0])>1e-3
-        
-        if skel:
-            inds = np.array(np.nonzero(np.logical_or(mask,np.abs(dP[0])>1e-3))).astype(np.int32).T
-        else:
-            inds = np.array(np.nonzero(np.abs(dP[0])>1e-3)).astype(np.int32).T
+        # added inds for debugging while preserving backwards compatibility 
+        if inds is None:
+            if omni and (mask is not None):
+                inds = np.array(np.nonzero(np.logical_or(mask,np.abs(dP[0])>1e-3))).astype(np.int32).T
+            else:
+                inds = np.array(np.nonzero(np.abs(dP[0])>1e-3)).astype(np.int32).T
         
         if inds.ndim < 2 or inds.shape[0] < 5:
             dynamics_logger.warning('WARNING: no mask pixels found')
             return p, inds, None
         if not interp:
-            print('warning: not interp')
-            p, tr = steps2D(p, dP, inds, niter,skel=skel,calc_trace=calc_trace)
+            dynamics_logger.warning('WARNING: not interp')
+            p, tr = steps2D(p, dP.astype(np.float32), inds, niter,omni=omni,calc_trace=calc_trace)
+            #p = p[:,inds[:,0], inds[:,1]]
+            #tr = tr[:,:,inds[:,0], inds[:,1]].transpose((1,2,0))
         else:
-            p_interp, tr = steps2D_interp(p[:,inds[:,0], inds[:,1]], 
-                                                      dP, niter, use_gpu=use_gpu,
-                                                      device=device, skel=skel,
-                                                      calc_trace=calc_trace)
-            p[:,inds[:,0],inds[:,1]] = p_interp
+            p_interp, tr = steps2D_interp(p[:,inds[:,0], inds[:,1]], dP, niter, use_gpu=use_gpu,
+                                          device=device, omni=omni, calc_trace=calc_trace)
             
-    return p, inds, tr#, p_interp
+            p[:,inds[:,0],inds[:,1]] = p_interp
+    return p, inds, tr
 
-def remove_bad_flow_masks(masks, flows, threshold=0.4, use_gpu=False, device=None, skel=False):
+def remove_bad_flow_masks(masks, flows, threshold=0.4, use_gpu=False, device=None, omni=False):
     """ remove masks which have inconsistent flows 
     
     Uses metrics.flow_error to compute flows from predicted masks 
@@ -738,7 +720,7 @@ def remove_bad_flow_masks(masks, flows, threshold=0.4, use_gpu=False, device=Non
         size [Ly x Lx] or [Lz x Ly x Lx]
     
     """
-    merrors, _ = metrics.flow_error(masks, flows, use_gpu, device, skel)
+    merrors, _ = metrics.flow_error(masks, flows, use_gpu, device, omni)
     badi = 1+(merrors>threshold).nonzero()[0]
     masks[np.isin(masks, badi)] = 0
     return masks
@@ -783,7 +765,6 @@ def get_masks(p, iscell=None, rpad=20, flows=None, threshold=0.4, use_gpu=False,
         size [Ly x Lx] or [Lz x Ly x Lx]
     
     """
-    
     pflows = []
     edges = []
     shape0 = p.shape[1:]
@@ -865,3 +846,65 @@ def get_masks(p, iscell=None, rpad=20, flows=None, threshold=0.4, use_gpu=False,
         M0 = np.reshape(M0, shape0).astype(np.int32)
 
     return M0
+
+def compute_masks(dP, dist, bd=None, p=None, inds=None, niter=200, dist_threshold=0.0, diam_threshold=12.,
+                   flow_threshold=0.4, interp=True, cluster=False, do_3D=False, 
+                   min_size=15, resize=None, omni=False, calc_trace=False, verbose=False,
+                   use_gpu=False,device=None,nclasses=3):
+    """ compute masks using dynamics from dP, dist, and boundary """
+    if verbose:
+         dynamics_logger.info('dist_threshold is %f',dist_threshold)
+    
+    if (omni or (inds is not None)) and SKIMAGE_ENABLED:
+        if verbose:
+            dynamics_logger.info('Using hysteresis threshold.')
+        mask = filters.apply_hysteresis_threshold(dist, dist_threshold-1, dist_threshold) # good for thin features
+    else:
+        mask = dist > dist_threshold # analog to original iscell=(cellprob>cellprob_threshold)
+
+    if np.any(mask): #mask at this point is a cell cluster binary map, not labels 
+        
+        #preprocess flows
+        if omni:
+            dP_ = omnipose.div_rescale(dP,mask)
+        else:
+            dP_ = dP * mask / 5.
+        
+        # follow flows
+        if p is None:
+            p , inds, tr = follow_flows(dP_, mask=mask, inds=inds, niter=niter, interp=interp, 
+                                            use_gpu=use_gpu, device=device, omni=omni, calc_trace=calc_trace)
+        else: 
+            tr = []
+            inds = np.stack(np.nonzero(mask)).T
+            if verbose:
+                dynamics_logger.info('p given')
+        
+        #calculate masks
+        if omni:
+            mask = omnipose.get_masks(p,bd,dist,mask,inds,nclasses,cluster=cluster,
+                                      diam_threshold=diam_threshold,verbose=verbose) 
+        else:
+            mask = get_masks(p, iscell=mask, flows=dP, threshold=flow_threshold if not do_3D else None, use_gpu=use_gpu)
+
+        if resize is not None:
+            if verbose:
+                dynamics_logger.info(f'resizing output with resize = {resize}')
+            mask = transforms.resize_image(mask, resize[0], resize[1], interpolation=cv2.INTER_NEAREST)
+            Ly,Lx = mask.shape
+            pi = np.zeros([2,Ly,Lx])
+            for k in range(2):
+                pi[k] = cv2.resize(p[k], (Lx, Ly), interpolation=cv2.INTER_NEAREST)
+            p = pi       
+    else: # nothing to compute, just make it compatible
+        dynamics_logger.info('No cell pixels found.')
+        p = np.zeros([2,1,1])
+        tr = []
+        mask = np.zeros(resize)
+
+    # moving the cleanup to the end helps avoid some bugs arising from scaling...
+    # maybe better would be to rescale the min_size and hole_size parameters to do the
+    # cleanup at the prediction scale, or switch depending on which one is bigger... 
+    mask = utils.fill_holes_and_remove_small_masks(mask, min_size=min_size)
+    fastremap.renumber(mask,in_place=True) #convenient to guarantee non-skipped labels
+    return mask, p, tr

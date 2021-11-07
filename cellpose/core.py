@@ -4,7 +4,6 @@ import numpy as np
 from tqdm import trange, tqdm
 from urllib.parse import urlparse
 import tempfile
-from scipy.ndimage import median_filter
 import cv2
 from . import transforms, dynamics, utils, plot, metrics
 
@@ -35,8 +34,7 @@ core_logger = logging.getLogger(__name__)
 core_logger.setLevel(logging.DEBUG)
 tqdm_out = utils.TqdmToLogger(core_logger, level=logging.INFO)
 
-# no longer returns nclasses, as it was hard-coded; now it is specified by the user
-# (maybe it should be incorportated into the model name in a future version)
+# nclasses now specified by user or by model type in models.py
 def parse_model_string(pretrained_model):
     if isinstance(pretrained_model, list):
         model_str = os.path.split(pretrained_model[0])[-1]
@@ -519,7 +517,6 @@ class UnetModel():
             1D array summarizing the style of the image, averaged over tiles
 
         """
-        
         if imgi.ndim==4:
             batch_size = self.batch_size 
             Lz, nchan = imgi.shape[:2]
@@ -657,13 +654,10 @@ class UnetModel():
             core_logger.info('running %s: %d planes of size (%d, %d)'%(sstr[p], shape[0], shape[1], shape[2]))
             y, style = self._run_nets(xsl, net_avg=net_avg, augment=augment, tile=tile, 
                                       bsize=bsize, tile_overlap=tile_overlap)
-            print('toto',y.shape,shape[1], shape[2])
             y = transforms.resize_image(y, shape[1], shape[2])    
-            print('dfgdfgdfg',y.shape,y.transpose(ipm[p]).shape,p)
             yf[p] = y.transpose(ipm[p])
             if progress is not None:
                 progress.setValue(25+15*p)
-        print('kkkkkk',[[np.ptp(yf[j,i]) for i in range(self.nclasses)] for j in range(3)])
         return yf, style
 
     def loss_fn(self, lbl, y):
@@ -802,7 +796,7 @@ class UnetModel():
         # Ranger21 has a convenient current_lr field, whereas RAdam doesn't and I just set this field to the learning rate
             self.optimizer = optim.RAdam(self.net.parameters(), lr=learning_rate, betas=(0.95, 0.999), #changed to .95
                                          eps=1e-08, weight_decay=weight_decay)
-            print('>>> Using RAdam optimizer')
+            core_logger.info('>>> Using RAdam optimizer')
 #             self.optimizer = optim.AdaBound(self.net.parameters(), lr=learning_rate, betas=(0.9, 0.999), 
 #                                 gamma=1e-3, eps=1e-08, final_lr=0.15, weight_decay=weight_decay)
 #             print('>>> Using AdaBound optimizer')
@@ -834,7 +828,7 @@ class UnetModel():
                 self.criterion  = gluon.loss.L2Loss()
                 self.criterion2 = gluon.loss.SigmoidBinaryCrossEntropyLoss()
 
-    # Restored defaults. Need to make sure rescale is properly turned off and skel turned on when using CLI. 
+    # Restored defaults. Need to make sure rescale is properly turned off and omni turned on when using CLI. 
     def _train_net(self, train_data, train_labels, 
               test_data=None, test_labels=None,
               pretrained_model=None, save_path=None, save_every=100, save_each=False,
@@ -853,10 +847,10 @@ class UnetModel():
 
         # compute average cell diameter
         if rescale:
-            diam_train = np.array([utils.diameters(train_labels[k][0],skel=self.skel)[0] for k in range(len(train_labels))])
+            diam_train = np.array([utils.diameters(train_labels[k][0],omni=self.omni)[0] for k in range(len(train_labels))])
             diam_train[diam_train<5] = 5.
             if test_data is not None:
-                diam_test = np.array([utils.diameters(test_labels[k][0],skel=self.skel)[0] for k in range(len(test_labels))])
+                diam_test = np.array([utils.diameters(test_labels[k][0],omni=self.omni)[0] for k in range(len(test_labels))])
                 diam_test[diam_test<5] = 5.
             scale_range = 0.5
         else:
@@ -902,7 +896,7 @@ class UnetModel():
                 # now passing in the full train array, need the labels for distance field
                 imgi, lbl, scale = transforms.random_rotate_and_resize(
                                         [train_data[i] for i in inds], Y=[train_labels[i] for i in inds],
-                                        rescale=rsc, scale_range=scale_range, unet=self.unet, inds=inds, skel=self.skel)
+                                        rescale=rsc, scale_range=scale_range, unet=self.unet, inds=inds, omni=self.omni)
 
                 if self.unet and lbl.shape[1]>1 and rescale:
                     lbl[:,1] /= diam_batch[:,np.newaxis,np.newaxis]**2
@@ -921,7 +915,7 @@ class UnetModel():
                         rsc = diam_test[inds] / self.diam_mean if rescale else np.ones(len(inds), np.float32)
                         imgi, lbl, scale = transforms.random_rotate_and_resize(
                                             [test_data[i] for i in inds], Y=[test_labels[i] for i in inds], 
-                                            scale_range=0., rescale=rsc, unet=self.unet, inds=inds, skel=self.skel) 
+                                            scale_range=0., rescale=rsc, unet=self.unet, inds=inds, omni=self.omni) 
                         if self.unet and lbl.shape[1]>1 and rescale:
                             lbl[:,1] *= scale[0]**2
 

@@ -38,7 +38,6 @@ def _load_image(parent, filename=None):
         return
     try:
         image = imread(filename)
-        image.shape
         parent.loaded = True
     except:
         print('images not compatible')
@@ -81,9 +80,7 @@ def _initialize_images(parent, image, resize, X2):
 
         if image.shape[-1] < 3:
             shape = image.shape
-            image = np.concatenate((image,
-                                       np.zeros((shape[0], shape[1], 3-shape[2]),
-                                        dtype=type(image[0,0,0]))), axis=-1)
+            image = np.concatenate((image,np.zeros((shape[0], shape[1], 3-shape[2]),dtype=type(image[0,0,0]))), axis=-1)
             if 3-shape[2]>1:
                 parent.onechan=True
             image = image[np.newaxis,...]
@@ -92,7 +89,7 @@ def _initialize_images(parent, image, resize, X2):
             image = image[np.newaxis,...]
     else:
         image = image[np.newaxis,...]
-
+    
     parent.stack = image
     parent.NZ = len(parent.stack)
     parent.scroll.setMaximum(parent.NZ-1)
@@ -115,7 +112,7 @@ def _initialize_images(parent, image, resize, X2):
         if X2!=0:
             img = transforms._X2zoom(img, X2=X2)
         parent.stack[k] = img
-
+    
     parent.imask=0
     print(parent.NZ, parent.stack[0].shape)
     parent.Ly, parent.Lx = img.shape[0], img.shape[1]

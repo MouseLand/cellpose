@@ -40,7 +40,7 @@ def main():
     hardware_args.add_argument('--mkldnn', action='store_true', help='for mxnet, force MXNET_SUBGRAPH_BACKEND = "MKLDNN"')
         
     # settings for locating and formatting images
-    input_img_args = parser.add_argument_group("input images arguments")
+    input_img_args = parser.add_argument_group("input image arguments")
     input_img_args.add_argument('--dir',
                         default=[], type=str, help='folder containing data to run or train on.')
     input_img_args.add_argument('--look_one_level_down', action='store_true', help='')
@@ -59,34 +59,32 @@ def main():
     input_img_args.add_argument('--all_channels', action='store_true', help='use all channels in image if using own model and images with special channels')
     
     # model settings 
-#     parser.add_argument('--model_dir', required=False,
-#                         default=None, type=str, help='directory with built-in models, default is $HOME/.cellpose/models/')
     model_args = parser.add_argument_group("model arguments")
-    model_args.add_argument('--unet',
-                        default=0, type=int, help='run standard unet instead of cellpose flow output')
-    model_args.add_argument('--nclasses',
-                        default=3, type=int, 
-                        help='if running unet, choose 2 or 3; if training skel, choose 4. Default: %(default)s')
+    parser.add_argument('--pretrained_model', required=False, default='cyto', type=str, help='model to use')
+    parser.add_argument('--unet', required=False, default=0, type=int, help='run standard unet instead of cellpose flow output')
+    model_args.add_argument('--nclasses',default=3, type=int, help='if running unet, choose 2 or 3; if training omni, choose 4; standard Cellpose uses 3')
 
-    # cellpose algorithm settings
+
+    # algorithm settings
     algorithm_args = parser.add_argument_group("algorithm arguments")
-    algorithm_args.add_argument('--skel', action='store_true', help='flag to enable "skeletonized" algorithm (disabled by default)')
-    algorithm_args.add_argument('--fast_mode', action='store_true', help="make code run faster by turning off 4 network averaging")
-    algorithm_args.add_argument('--resample', action='store_true', help="run dynamics on full image (slower for images with large diameters)")
-    algorithm_args.add_argument('--no_interp', action='store_true', help='do not interpolate when running dynamics (was default)')
-    algorithm_args.add_argument('--do_3D', action='store_true', help='process images as 3D stacks of images (nplanes x nchan x Ly x Lx')
-    algorithm_args.add_argument('--pretrained_model', default='cyto', type=str, help='model to use. Default: %(default)s')
-    algorithm_args.add_argument('--diameter', default=30., type=float,
-                        help='cell diameter, if 0 cellpose will estimate for each image. Default: %(default)s')
-    algorithm_args.add_argument('--stitch_threshold', default=0.0, type=float,
-                        help='compute masks in 2D then stitch together masks with IoU>0.9 across planes')
-    algorithm_args.add_argument('--flow_threshold',
-                        default=0.4, type=float, help='flow error threshold, 0 turns off this optional QC step. Default: %(default)s')
-    algorithm_args.add_argument('--dist_threshold',
-                        default=0, type=float, help='cell distance threshold')
-    algorithm_args.add_argument('--diam_threshold', default=12.0, type=float,
-                        help='cell diameter threshold for upscaling before mask rescontruction. Default: %(default)s')
-    algorithm_args.add_argument('--exclude_on_edges', action='store_true', help='discard masks which touch edges of image')
+    parser.add_argument('--omni', action='store_true', help='Omnipose algorithm (disabled by default)')
+    parser.add_argument('--cluster', action='store_true', help='DBSCAN clustering. Reduces oversegmentation of thin features (disabled by default).')
+    parser.add_argument('--fast_mode', action='store_true', help="make code run faster by turning off 4 network averaging")
+    parser.add_argument('--resample', action='store_true', help="run dynamics on full image (slower for images with large diameters)")
+    parser.add_argument('--no_interp', action='store_true', help='do not interpolate when running dynamics (was default)')
+    parser.add_argument('--do_3D', action='store_true', help='process images as 3D stacks of images (nplanes x nchan x Ly x Lx')
+    parser.add_argument('--diameter', required=False, default=30., type=float, 
+                        help='cell diameter, if 0 cellpose will estimate for each image')
+    parser.add_argument('--stitch_threshold', required=False, default=0.0, type=float, help='compute masks in 2D then stitch together masks with IoU>0.9 across planes')
+    
+    algorithm_args.add_argument('--flow_threshold', default=0.4, type=float, help='flow error threshold, 0 turns off this optional QC step. Default: %(default)s')
+    algorithm_args.add_argument('--dist_threshold', default=0, type=float, help='cell distance threshold') #NAME CHANGE, SPLIT INTO DEIST AND PROB?
+    
+    parser.add_argument('--anisotropy', required=False, default=1.0, type=float,
+                        help='anisotropy of volume in 3D')
+    parser.add_argument('--diam_threshold', required=False, default=12.0, type=float, 
+                        help='cell diameter threshold for upscaling before mask rescontruction, default 12.')
+    parser.add_argument('--exclude_on_edges', action='store_true', help='discard masks which touch edges of image')
     
     # output settings
     output_args = parser.add_argument_group("output arguments")
@@ -134,36 +132,7 @@ def main():
 
     args = parser.parse_args()
     
-    # skel changes not implemented for mxnet. Full parity for cpu/gpu in pytorch. 
-    if args.skel and args.mxnet:
-        logger.info('>>>> Skel only implemented in pytorch.')
-        confirm = confirm_prompt('Continue with skel set to false?')
-        if not confirm:
-            exit()
-        else:
-            logger.info('>>>> Skel set to false.')
-            args.skel = False
-
-    # For now, skel version is not compatible with 3D. WIP. 
-    if args.skel and args.do_3D:
-        logger.info('>>>> Skel not yet compatible with 3D segmentation.')
-        confirm = confirm_prompt('Continue with skel set to false?')
-        if not confirm:
-            exit()
-        else:
-            logger.info('>>>> Skel set to false.')
-            args.skel = False
-    
-    # skel model needs 4 classes. Would prefer a more elegant way to automaticaly update the flow fields
-    # instead of users deleting them manually - a check on the number of channels, maybe, or just use
-    # the yes/no prompt to ask the user if they want their flow fields in the given directory to be deleted. 
-    # would also need the look_one_level_down optionally toggled...
-    if args.skel and args.train:
-        logger.info('>>>> Training skel model. Setting nclasses to 4.')
-        logger.info('>>>> Make sure your flow fields are deleted and re-computed.')
-        args.nclasses = 4
-    
-                
+    # handle mxnet option 
     if args.check_mkl:
         mkl_enabled = models.check_mkl((not args.mxnet))
     else:
@@ -194,7 +163,7 @@ def main():
             imf = None
 
 
-        # Check with user
+        # Check with user if they REALLY mean to run without saving anything 
         if not (args.train or args.train_size):
             saving_something = args.save_png or args.save_tif or args.save_flows or args.save_ncolor or args.save_txt
             if not (saving_something or args.testing): 
@@ -206,10 +175,18 @@ def main():
                     
         device, gpu = models.assign_device((not args.mxnet), args.use_gpu)
 
+        #define available model names, right now we have three broad categories 
+        model_names = ['cyto','nuclei','bact','cyto2','bact_omni','cyto2_omni']
+        builtin_model = np.any([args.pretrained_model==s for s in model_names])
+        cytoplasmic = 'cyto' in args.pretrained_model
+        nuclear = 'nuclei' in args.pretrained_model
+        bacterial = 'bact' in args.pretrained_model
+        
         if not args.train and not args.train_size:
             tic = time.time()
-            if not (args.pretrained_model=='cyto' or args.pretrained_model=='nuclei' or args.pretrained_model=='cyto2'):
+            if not builtin_model:
                 cpmodel_path = args.pretrained_model
+                print('fghfghhfgh',cpmodel_path)
                 if not os.path.exists(cpmodel_path):
                     logger.warning('model path does not exist, using cyto model')
                     args.pretrained_model = 'cyto'
@@ -224,22 +201,63 @@ def main():
             cstr1 = ['NONE', 'RED', 'GREEN', 'BLUE']
             logger.info('>>>> running cellpose on %d images using chan_to_seg %s and chan (opt) %s'%
                             (nimg, cstr0[channels[0]], cstr1[channels[1]]))
-                    
-            if args.pretrained_model=='cyto' or args.pretrained_model=='nuclei' or args.pretrained_model=='cyto2':
+            logger.info('>>>> omni is %d, cluster is %d'%(args.omni,args.cluster))
+            
+            
+            # handle built-in model exceptions; bacterial ones get no size model 
+            if builtin_model and not bacterial:
                 if args.mxnet and args.pretrained_model=='cyto2':
                     logger.warning('cyto2 model not available in mxnet, using cyto model')
                     args.pretrained_model = 'cyto'
                 model = models.Cellpose(gpu=gpu, device=device, model_type=args.pretrained_model, 
-                                            torch=(not args.mxnet))
+                                            torch=(not args.mxnet),omni=args.omni)
             else:
                 if args.all_channels:
                     channels = None  
                 model = models.CellposeModel(gpu=gpu, device=device, 
                                              pretrained_model=cpmodel_path,
-                                             torch=(not args.mxnet))
+                                             torch=(not args.mxnet),
+                                             nclasses=args.nclasses,omni=args.omni)
+            
+            # handle omnipose exceptions
+            if 'omni' in args.pretrained_model:
+                args.omni = True
+            
+            if args.omni:
+                logger.info('>>>> Omnipose is free for non-commercial use under the AGPL. For commercial licenses, contact uwcomotion@uw.edu.')
+    
+            # omni changes not implemented for mxnet. Full parity for cpu/gpu in pytorch. 
+            if args.omni and args.mxnet:
+                logger.info('>>>> omni only implemented in pytorch.')
+                confirm = confirm_prompt('Continue with omni set to false?')
+                if not confirm:
+                    exit()
+                else:
+                    logger.info('>>>> omni set to false.')
+                    args.omni = False
 
+            # For now, omni version is not compatible with 3D. WIP. 
+            if args.omni and args.do_3D:
+                logger.info('>>>> omni not yet compatible with 3D segmentation.')
+                confirm = confirm_prompt('Continue with omni set to false?')
+                if not confirm:
+                    exit()
+                else:
+                    logger.info('>>>> omni set to false.')
+                    args.omni = False
+
+            # omni model needs 4 classes. Would prefer a more elegant way to automaticaly update the flow fields
+            # instead of users deleting them manually - a check on the number of channels, maybe, or just use
+            # the yes/no prompt to ask the user if they want their flow fields in the given directory to be deleted. 
+            # would also need the look_one_level_down optionally toggled...
+            if args.omni and args.train:
+                logger.info('>>>> Training omni model. Setting nclasses to 4.')
+                logger.info('>>>> Make sure your flow fields are deleted and re-computed.')
+                args.nclasses = 4
+            
+            # handle diameters
             if args.diameter==0:
-                if args.pretrained_model=='cyto' or args.pretrained_model=='nuclei' or args.pretrained_model=='cyto2':
+                if builtin_model:
                     diameter = None
                     logger.info('>>>> estimating diameter for each image')
                 else:
@@ -263,9 +281,11 @@ def main():
                                 invert=args.invert,
                                 batch_size=args.batch_size,
                                 interp=(not args.no_interp),
+                                cluster=args.cluster,
                                 channel_axis=args.channel_axis,
                                 z_axis=args.z_axis,
-                                skel=args.skel,
+                                omni=args.omni,
+                                anisotropy=args.anisotropy,
                                 verbose=args.verbose)
                 masks, flows = out[:2]
                 if len(out) > 3:
@@ -283,15 +303,17 @@ def main():
                                   save_txt=args.save_txt,in_folders=args.in_folders)
             logger.info('>>>> completed in %0.3f sec'%(time.time()-tic))
         else:
-            if args.pretrained_model=='cyto' or args.pretrained_model=='nuclei' or args.pretrained_model=='cyto2':
+            if builtin_model:
                 if args.mxnet and args.pretrained_model=='cyto2':
                     logger.warning('cyto2 model not available in mxnet, using cyto model')
                     args.pretrained_model = 'cyto'
                 cpmodel_path = models.model_path(args.pretrained_model, 0, not args.mxnet)
-                if args.pretrained_model=='cyto':
+                if cytoplasmic:
                     szmean = 30.
-                else:
+                elif nuclear:
                     szmean = 17.
+                elif bacterial:
+                    szmean = 0. #bacterial models are not rescaled 
             else:
                 cpmodel_path = os.fspath(args.pretrained_model)
                 szmean = 30.
@@ -354,8 +376,9 @@ def main():
                                             residual_on=args.residual_on,
                                             style_on=args.style_on,
                                             concatenation=args.concatenation,
+                                            nclasses=args.nclasses,
                                             nchan=nchan,
-                                            skel=args.skel)
+                                            omni=args.omni)
             
             # train segmentation model
             if args.train:
@@ -365,7 +388,7 @@ def main():
                                            save_path=os.path.realpath(args.dir), save_every=args.save_every,
                                            save_each=args.save_each,
                                            rescale=rescale,n_epochs=args.n_epochs,
-                                           batch_size=args.batch_size, skel=args.skel)
+                                           batch_size=args.batch_size, omni=args.omni)
                 model.pretrained_model = cpmodel_path
                 logger.info('>>>> model trained and saved to %s'%cpmodel_path)
 
