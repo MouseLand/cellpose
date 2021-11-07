@@ -21,7 +21,16 @@ docs_deps = [
         'sphinx_rtd_theme',
       ]
 
-omni_deps = ['scikit-image', 'scikit-learn']
+omni_deps = [
+        'scikit-image', 
+        'scikit-learn'
+        ]
+
+distributed_deps = [
+        'dask',
+        'dask_image',
+        'scikit-learn',
+]
 
 try:
     import torch
@@ -60,6 +69,7 @@ setup(
       'docs': docs_deps,
       'gui': gui_deps,
       'all': gui_deps + omni_deps
+      'distributed': distributed_deps,
     },
     include_package_data=True,
     classifiers=(
