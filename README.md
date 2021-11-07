@@ -25,7 +25,7 @@ If you want to improve Cellpose/Omnipose for yourself and for everyone else, ple
 
 ### UPDATE v0.7 (Nov 2021)
 
-Omnipose is now officially available and supported as part of Cellpose. Use the 'omni' flag and models to take advantage of it for long cells! (<i>E.g.</i>, filamentous bacteria). Many additonal options are available and we will be updating the documentation shortly. 
+Omnipose is now officially available and supported as part of Cellpose. Use the 'omni' flag and models to take advantage of it for long cells! (<i>E.g.</i>, filamentous bacteria.) Many additonal options are available and we will be updating the documentation shortly. 
 
 ### UPDATE v0.6 (Dec 2020)
 
