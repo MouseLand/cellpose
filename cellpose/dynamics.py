@@ -872,7 +872,7 @@ def compute_masks(dP, dist, bd=None, p=None, inds=None, niter=200, dist_threshol
         
         # follow flows
         if p is None:
-                p , inds, tr = follow_flows(dP_, mask=mask, inds=inds, niter=niter, interp=interp, 
+            p , inds, tr = follow_flows(dP_, mask=mask, inds=inds, niter=niter, interp=interp, 
                                             use_gpu=use_gpu, device=device, omni=omni, calc_trace=calc_trace)
         else: 
             tr = []

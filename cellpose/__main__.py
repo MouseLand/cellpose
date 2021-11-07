@@ -79,6 +79,8 @@ def main():
                         default=0.4, type=float, help='flow error threshold, 0 turns off this optional QC step')
     parser.add_argument('--dist_threshold', required=False, 
                         default=0, type=float, help='cell distance threshold')
+    parser.add_argument('--anisotropy', required=False, default=1.0, type=float,
+                        help='anisotropy of volume in 3D')
     parser.add_argument('--diam_threshold', required=False, default=12.0, type=float, 
                         help='cell diameter threshold for upscaling before mask rescontruction, default 12.')
     parser.add_argument('--exclude_on_edges', action='store_true', help='discard masks which touch edges of image')
@@ -280,6 +282,7 @@ def main():
                                 channel_axis=args.channel_axis,
                                 z_axis=args.z_axis,
                                 omni=args.omni,
+                                anisotropy=args.anisotropy,
                                 verbose=args.verbose)
                 masks, flows = out[:2]
                 if len(out) > 3:
