@@ -498,7 +498,7 @@ class CellposeModel(UnetModel):
                 maski, stylei, flowi = self.eval(x[i], 
                                                  batch_size=batch_size, 
                                                  channels=channels[i] if (len(channels)==len(x) and 
-                                                                          (isinstance(channels[i], list) and isinstance(channels[i], np.ndarray)) and 
+                                                                          (isinstance(channels[i], list) or isinstance(channels[i], np.ndarray)) and
                                                                           len(channels[i])==2) else channels, 
                                                  channel_axis=channel_axis, 
                                                  z_axis=z_axis, 
@@ -872,7 +872,7 @@ class SizeModel():
             for i in iterator:
                 diam, diam_style = self.eval(x[i], 
                                              channels=channels[i] if (len(channels)==len(x) and 
-                                                                     (isinstance(channels[i], list) and isinstance(channels[i], np.ndarray)) and 
+                                                                     (isinstance(channels[i], list) or isinstance(channels[i], np.ndarray)) and
                                                                      len(channels[i])==2) else channels,
                                              channel_axis=channel_axis, 
                                              normalize=normalize, 
