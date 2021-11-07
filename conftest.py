@@ -32,7 +32,7 @@ def data_dir(image_names):
             cached_file = str(data_dir_3D.joinpath(image_name))
             ext = '.tif'
         else:
-            cached_file = str(data_dir_3D.joinpath(image_name))
+            cached_file = str(data_dir_distributed.joinpath(image_name))
             ext = '.tif'
         if not os.path.exists(cached_file):
             utils.download_url_to_file(url, cached_file)
