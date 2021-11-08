@@ -510,7 +510,7 @@ class MainW(QMainWindow):
         self.threshslider.setEnabled(False)
         
         b+=1
-        label = QLabel('cell threshold:')
+        label = QLabel('mask threshold:')
         label.setToolTip('threshold on scalar output field to seed cell masks \
                         (set lower to include more pixels)')
         label.setStyleSheet(label_style)
@@ -1299,7 +1299,7 @@ class MainW(QMainWindow):
         maski = dynamics.compute_masks(self.flows[4][:-1], 
                                        self.flows[4][-1],
                                        p=self.flows[3].copy(),
-                                       dist_threshold=self.cellprob,
+                                       mask_threshold=self.cellprob,
                                        flow_threshold=thresh,
                                        resize=self.cellpix.shape[-2:],
                                        omni=self.omni)[0]

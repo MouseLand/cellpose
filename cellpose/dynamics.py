@@ -847,20 +847,20 @@ def get_masks(p, iscell=None, rpad=20, flows=None, threshold=0.4, use_gpu=False,
 
     return M0
 
-def compute_masks(dP, dist, bd=None, p=None, inds=None, niter=200, dist_threshold=0.0, diam_threshold=12.,
+def compute_masks(dP, dist, bd=None, p=None, inds=None, niter=200, mask_threshold=0.0, diam_threshold=12.,
                    flow_threshold=0.4, interp=True, cluster=False, do_3D=False, 
                    min_size=15, resize=None, omni=False, calc_trace=False, verbose=False,
                    use_gpu=False,device=None,nclasses=3):
     """ compute masks using dynamics from dP, dist, and boundary """
     if verbose:
-         dynamics_logger.info('dist_threshold is %f',dist_threshold)
+         dynamics_logger.info('mask_threshold is %f',mask_threshold)
     
     if (omni or (inds is not None)) and SKIMAGE_ENABLED:
         if verbose:
             dynamics_logger.info('Using hysteresis threshold.')
-        mask = filters.apply_hysteresis_threshold(dist, dist_threshold-1, dist_threshold) # good for thin features
+        mask = filters.apply_hysteresis_threshold(dist, mask_threshold-1, mask_threshold) # good for thin features
     else:
-        mask = dist > dist_threshold # analog to original iscell=(cellprob>cellprob_threshold)
+        mask = dist > mask_threshold # analog to original iscell=(cellprob>cellprob_threshold)
 
     if np.any(mask): #mask at this point is a cell cluster binary map, not labels 
         

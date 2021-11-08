@@ -37,6 +37,11 @@ def cache_model_path(basename):
         utils.download_url_to_file(url, cached_file, progress=True)
     return cached_file
 
+def deprecation_warning_cellprob_dist_threshold(cellprob_threshold, dist_threshold):
+    models_logger.warning('cellprob_threshold and dist_threshold are being deprecated in a future release, use mask_threshold instead')
+    return cellprob_threshold if cellprob_threshold is not None else dist_threshold
+
+
 class Cellpose():
     """ main model which combines SizeModel and CellposeModel
 
@@ -113,7 +118,8 @@ class Cellpose():
     def eval(self, x, batch_size=8, channels=None, channel_axis=None, z_axis=None,
              invert=False, normalize=True, diameter=30., do_3D=False, anisotropy=None,
              net_avg=True, augment=False, tile=True, tile_overlap=0.1, resample=False, interp=True, cluster=False,
-             flow_threshold=0.4, dist_threshold=0.0, diam_threshold=12., min_size=15, stitch_threshold=0.0, 
+             flow_threshold=0.4, mask_threshold=0.0, cellprob_threshold=None, dist_threshold=None,
+             diam_threshold=12., min_size=15, stitch_threshold=0.0, 
              rescale=None, progress=None, omni=False, verbose=False):
         """ run cellpose and get masks
 
@@ -177,8 +183,14 @@ class Cellpose():
         flow_threshold: float (optional, default 0.4)
             flow error threshold (all cells with errors below threshold are kept) (not used for 3D)
 
-        dist_threshold: float (optional, default 0.0)
-            cell probability threshold (all pixels with prob above threshold kept for masks)
+        mask_threshold: float (optional, default 0.0)
+            all pixels with value above threshold kept for masks, decrease to find more and larger masks
+        
+        dist_threshold: float (optional, default None) DEPRECATED
+            use mask_threshold instead
+
+        cellprob_threshold: float (optional, default None) DEPRECATED
+            use mask_threshold instead
 
         min_size: int (optional, default 15)
                 minimum number of pixels per mask, can turn off with -1
@@ -208,6 +220,10 @@ class Cellpose():
         diams: list of diameters, or float (if do_3D=True)
 
         """        
+
+        if cellprob_threshold is not None or dist_threshold is not None:
+            mask_threshold = deprecation_warning_cellprob_dist_threshold(cellprob_threshold, dist_threshold)
+
         tic0 = time.time()
         channels = [0,0] if channels is None else channels # why not just make this a default in the function header?
 
@@ -259,7 +275,7 @@ class Cellpose():
                                             interp=interp,
                                             cluster=cluster,
                                             flow_threshold=flow_threshold, 
-                                            dist_threshold=dist_threshold,
+                                            mask_threshold=mask_threshold,
                                             diam_threshold=diam_threshold,
                                             min_size=min_size, 
                                             stitch_threshold=stitch_threshold,
@@ -383,7 +399,8 @@ class CellposeModel(UnetModel):
              rescale=None, diameter=None, do_3D=False, anisotropy=None, net_avg=True, 
              augment=False, tile=True, tile_overlap=0.1,
              resample=False, interp=True, cluster=False,
-             flow_threshold=0.4, dist_threshold=0.0, diam_threshold=12.,
+             flow_threshold=0.4, mask_threshold=0.0, diam_threshold=12.,
+             cellprob_threshold=None, dist_threshold=None,
              compute_masks=True, min_size=15, stitch_threshold=0.0, progress=None, omni=False, 
              calc_trace=False, verbose=False):
         """
@@ -453,9 +470,14 @@ class CellposeModel(UnetModel):
             flow_threshold: float (optional, default 0.4)
                 flow error threshold (all cells with errors below threshold are kept) (not used for 3D)
 
-            dist_threshold: float (optional, default 0.0)
-                cell distance field threshold (all pixels with dist above threshold kept for masks)
-                (used to be cell probability for older models)
+            mask_threshold: float (optional, default 0.0)
+                all pixels with value above threshold kept for masks, decrease to find more and larger masks
+
+            dist_threshold: float (optional, default None) DEPRECATED
+                use mask_threshold instead
+
+            cellprob_threshold: float (optional, default None) DEPRECATED
+                use mask_threshold instead
 
             compute_masks: bool (optional, default True)
                 Whether or not to compute dynamics and return masks.
@@ -487,6 +509,8 @@ class CellposeModel(UnetModel):
         if verbose:
             models_logger.info('Evaluating with omni %d, cluster %d, flow_threshold %f'%(omni,cluster,flow_threshold))
         
+        if cellprob_threshold is not None or dist_threshold is not None:
+            mask_threshold = deprecation_warning_cellprob_dist_threshold(cellprob_threshold, dist_threshold)
         
         if isinstance(x, list) or x.squeeze().ndim==5:
             masks, styles, flows = [], [], []
@@ -515,7 +539,7 @@ class CellposeModel(UnetModel):
                                                  interp=interp,
                                                  cluster=cluster,
                                                  flow_threshold=flow_threshold, 
-                                                 dist_threshold=dist_threshold, 
+                                                 mask_threshold=mask_threshold, 
                                                  diam_threshold=diam_threshold,
                                                  compute_masks=compute_masks, 
                                                  min_size=min_size, 
@@ -553,7 +577,7 @@ class CellposeModel(UnetModel):
                                                           augment=augment, 
                                                           tile=tile, 
                                                           tile_overlap=tile_overlap,
-                                                          dist_threshold=dist_threshold, 
+                                                          mask_threshold=mask_threshold, 
                                                           diam_threshold=diam_threshold,
                                                           flow_threshold=flow_threshold,
                                                           interp=interp,
@@ -573,7 +597,7 @@ class CellposeModel(UnetModel):
     def _run_cp(self, x, compute_masks=True, normalize=True, invert=False,
                 rescale=1.0, net_avg=True, resample=False,
                 augment=False, tile=True, tile_overlap=0.1,
-                dist_threshold=0.0, diam_threshold=12., flow_threshold=0.4, min_size=15,
+                mask_threshold=0.0, diam_threshold=12., flow_threshold=0.4, min_size=15,
                 interp=False, cluster=False, anisotropy=1.0, do_3D=False, stitch_threshold=0.0,
                 omni=False, calc_trace=False, verbose=False):
         tic = time.time()
@@ -634,7 +658,7 @@ class CellposeModel(UnetModel):
             tic=time.time()
             niter = 200 if do_3D else (1 / rescale * 200)
             if do_3D:
-                masks, p, tr = dynamics.compute_masks(dP, dist, bd, niter=niter, dist_threshold=dist_threshold,
+                masks, p, tr = dynamics.compute_masks(dP, dist, bd, niter=niter, mask_threshold=mask_threshold,
                                                       diam_threshold=diam_threshold,flow_threshold=flow_threshold,
                                                       interp=interp, cluster=cluster, do_3D=do_3D, min_size=min_size,
                                                       resize=None, omni=omni, calc_trace=calc_trace, verbose=verbose,
@@ -649,7 +673,7 @@ class CellposeModel(UnetModel):
                 for i in iterator:
                     masks[i], p[:,i], tr[i] = dynamics.compute_masks(dP[:,i], dist[i], bd[i], 
                                                                      niter=niter, 
-                                                                     dist_threshold=dist_threshold,
+                                                                     mask_threshold=mask_threshold,
                                                                      flow_threshold=flow_threshold, 
                                                                      diam_threshold=diam_threshold, 
                                                                      interp=interp, cluster=cluster,

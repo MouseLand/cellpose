@@ -78,7 +78,7 @@ def main():
     parser.add_argument('--stitch_threshold', required=False, default=0.0, type=float, help='compute masks in 2D then stitch together masks with IoU>0.9 across planes')
     
     algorithm_args.add_argument('--flow_threshold', default=0.4, type=float, help='flow error threshold, 0 turns off this optional QC step. Default: %(default)s')
-    algorithm_args.add_argument('--dist_threshold', default=0, type=float, help='cell distance threshold') #NAME CHANGE, SPLIT INTO DEIST AND PROB?
+    algorithm_args.add_argument('--mask_threshold', default=0, type=float, help='mask threshold, default is 0, decrease to find more and larger masks')
     
     parser.add_argument('--anisotropy', required=False, default=1.0, type=float,
                         help='anisotropy of volume in 3D')
@@ -276,7 +276,7 @@ def main():
                                 augment=False,
                                 resample=args.resample,
                                 flow_threshold=args.flow_threshold,
-                                dist_threshold=args.dist_threshold,
+                                mask_threshold=args.mask_threshold,
                                 diam_threshold=args.diam_threshold,
                                 invert=args.invert,
                                 batch_size=args.batch_size,

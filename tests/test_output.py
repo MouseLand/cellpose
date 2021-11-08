@@ -36,7 +36,7 @@ def test_class_2D(data_dir, image_names):
     chan2 = [0]
     for m,model_type in enumerate(model_types):
         model = models.Cellpose(model_type=model_type)
-        masks, flows, _, _ = model.eval(img, diameter=0, channels=[chan[m],chan2[m]], net_avg=False)
+        masks, flows, _, _ = model.eval(img, diameter=0, mask_threshold=0, channels=[chan[m],chan2[m]], net_avg=False)
         io.imsave(str(data_dir.joinpath('2D').joinpath('rgb_2D_cp_masks.png')), masks)
 #         io.imsave('/home/kcutler/DataDrive/cellpose_debug/rgb_2D_cp_masks.png', masks)
         compare_masks(data_dir, [image_name], '2D', model_type)
@@ -91,7 +91,7 @@ def test_cli_3D(data_dir, image_names):
     chan = [2]
     chan2 = [1]
     for m,model_type in enumerate(model_types):
-        cmd = 'python -m cellpose --dir %s --do_3D --pretrained_model %s --fast_mode --chan %d --chan2 %d --diameter 25 --save_tif'%(str(data_dir.joinpath('3D')), model_type, chan[m], chan2[m])
+        cmd = 'python -m cellpose --dir %s --do_3D --pretrained_model %s --fast_mode --mask_threshold 0 --chan %d --chan2 %d --diameter 25 --save_tif'%(str(data_dir.joinpath('3D')), model_type, chan[m], chan2[m])
         try:
             cmd_stdout = check_output(cmd, stderr=STDOUT, shell=True).decode()
         except Exception as e:
