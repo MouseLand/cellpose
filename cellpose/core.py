@@ -128,7 +128,12 @@ class UnetModel():
         if device is None:
             sdevice, gpu = assign_device(torch, gpu)
         self.device = device if device is not None else sdevice
-        self.gpu = gpu if device is None else (self.device.type=='cuda')
+        if device is not None:
+            if torch:
+                device_gpu = self.device.type=='cuda'
+            else:
+                device_gpu = self.device.device_type=='gpu'
+        self.gpu = gpu if device is None else device_gpu
         if torch and not self.gpu:
             self.mkldnn = check_mkl(self.torch)
         self.pretrained_model = pretrained_model
