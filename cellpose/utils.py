@@ -13,6 +13,12 @@ import io
 from . import metrics
 from omnipose.utils import format_labels
 
+try:
+    from skimage.morphology import remove_small_holes
+    SKIMAGE_ENABLED = True
+except:
+    SKIMAGE_ENABLED = False
+
 class TqdmToLogger(io.StringIO):
     """
         Output stream for TQDM which will output to logger module instead of
@@ -429,37 +435,11 @@ def fill_holes_and_remove_small_masks(masks, min_size=15, hole_size=3, scale_fac
     if masks.ndim==2:
         masks = format_labels(masks, min_area=min_size) # not sure how this works with 3D... tests pass though
     
-    # my slightly altered version below does not work well with 3D (vs test GT) so I need to test
-    # to see if mine is actually better in general or needs to be toggled; for now, commenting out 
-# #     min_size *= scale_factor
-#     hole_size *= scale_factor
+    hole_size *= scale_factor
         
-#     if masks.ndim > 3 or masks.ndim < 2:
-#         raise ValueError('masks_to_outlines takes 2D or 3D array, not %dD array'%masks.ndim)
-    
-#     slices = find_objects(masks)
-#     j = 0
-#     for i,slc in enumerate(slices):
-#         if slc is not None:
-#             msk = masks[slc] == (i+1)
-#             npix = msk.sum()
-#             if min_size > 0 and npix < min_size:
-#                 masks[slc][msk] = 0
-#             else:   
-#                 hsz = np.count_nonzero(msk)*hole_size/100 #turn hole size into percentage
-#                 #eventually the boundary output should be used to properly exclude real holes vs label gaps 
-#                 if msk.ndim==3:
-#                     for k in range(msk.shape[0]):
-#                         padmsk = remove_small_holes(np.pad(msk[k],1,mode='constant'),hsz)
-#                         msk[k] = padmsk[1:-1,1:-1]
-#                 else:                    
-#                     padmsk = remove_small_holes(np.pad(msk,1,mode='constant'),hsz)
-#                     msk = padmsk[1:-1,1:-1]
-#                 masks[slc][msk] = (j+1)
-#                 j+=1
-#     return masks
     if masks.ndim > 3 or masks.ndim < 2:
-        raise ValueError('fill_holes_and_remove_small_masks takes 2D or 3D array, not %dD array'%masks.ndim)
+        raise ValueError('masks_to_outlines takes 2D or 3D array, not %dD array'%masks.ndim)
+    
     slices = find_objects(masks)
     j = 0
     for i,slc in enumerate(slices):
@@ -468,14 +448,47 @@ def fill_holes_and_remove_small_masks(masks, min_size=15, hole_size=3, scale_fac
             npix = msk.sum()
             if min_size > 0 and npix < min_size:
                 masks[slc][msk] = 0
-            else:    
+            else:   
+                hsz = np.count_nonzero(msk)*hole_size/100 #turn hole size into percentage
+                #eventually the boundary output should be used to properly exclude real holes vs label gaps 
                 if msk.ndim==3:
                     for k in range(msk.shape[0]):
+                        # Omnipose version (breaks 3D tests)
+                        # padmsk = remove_small_holes(np.pad(msk[k],1,mode='constant'),hsz)
+                        # msk[k] = padmsk[1:-1,1:-1]
+                        
+                        #Cellpose version
                         msk[k] = binary_fill_holes(msk[k])
-                else:
-                    msk = binary_fill_holes(msk)
+
+                else:          
+                    if SKIMAGE_ENABLED: # Omnipose version (passes 2D tests)
+                        padmsk = remove_small_holes(np.pad(msk,1,mode='constant'),hsz)
+                        msk = padmsk[1:-1,1:-1]
+                    else: #Cellpose version
+                        msk = binary_fill_holes(msk)
                 masks[slc][msk] = (j+1)
                 j+=1
     return masks
+
+
+    # if masks.ndim > 3 or masks.ndim < 2:
+    #     raise ValueError('fill_holes_and_remove_small_masks takes 2D or 3D array, not %dD array'%masks.ndim)
+    # slices = find_objects(masks)
+    # j = 0
+    # for i,slc in enumerate(slices):
+    #     if slc is not None:
+    #         msk = masks[slc] == (i+1)
+    #         npix = msk.sum()
+    #         if min_size > 0 and npix < min_size:
+    #             masks[slc][msk] = 0
+    #         else:    
+    #             if msk.ndim==3:
+    #                 for k in range(msk.shape[0]):
+    #                     msk[k] = binary_fill_holes(msk[k])
+    #             else:
+    #                 msk = binary_fill_holes(msk)
+    #             masks[slc][msk] = (j+1)
+    #             j+=1
+    # return masks
 
 
