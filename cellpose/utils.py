@@ -11,7 +11,7 @@ import colorsys
 import io
 
 from . import metrics
-from omnipose.utils import format_labels
+from .omnipose.utils import format_labels
 
 try:
     from skimage.morphology import remove_small_holes

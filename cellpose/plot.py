@@ -1,8 +1,6 @@
 import os
 import numpy as np
-from cellpose.dynamics import SKIMAGE_ENABLED
 import cv2
-from omnipose.omnipose import SKLEARN_ENABLED
 from scipy.ndimage import gaussian_filter
 import scipy
 
@@ -22,7 +20,7 @@ except:
 
 
 from . import utils, io, transforms
-from omnipose.utils import ncolorlabel, sinebow
+from .omnipose.utils import ncolorlabel, sinebow
 
 # modified to use sinebow color
 def dx_to_circ(dP,transparency=True):

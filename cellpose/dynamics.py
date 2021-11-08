@@ -16,7 +16,7 @@ dynamics_logger.setLevel(logging.DEBUG)
 
 from . import utils, metrics, transforms
 
-from omnipose import omnipose
+from .omnipose import omnipose
 
 try:
     import torch
