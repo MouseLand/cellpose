@@ -348,14 +348,15 @@ class MainW(QMainWindow):
 
         b+=1
         # turn off outlines
-        self.outlinesOn = True
+        self.outlinesOn = False # turn off by default
         self.OCheckBox = QCheckBox('outlines on [Z]')
         self.OCheckBox.setStyleSheet(self.checkstyle)
         self.OCheckBox.setFont(self.medfont)
-        self.OCheckBox.setChecked(True)
-        self.OCheckBox.toggled.connect(self.toggle_masks)
         self.l0.addWidget(self.OCheckBox, b,0,1,2)
-
+        
+        self.OCheckBox.setChecked(False)
+        self.OCheckBox.toggled.connect(self.toggle_masks) 
+        
         b+=1
         # send to server
         self.ServerButton = QPushButton(' send manual seg. to server')
@@ -1304,9 +1305,9 @@ class MainW(QMainWindow):
                                        omni=self.omni)[0]
         
         self.masksOn = True
-        self.outlinesOn = True
         self.MCheckBox.setChecked(True)
-        self.OCheckBox.setChecked(True)
+        # self.outlinesOn = True #should not turn outlines back on by default; masks make sense though 
+        # self.OCheckBox.setChecked(True)
         if maski.ndim<3:
             maski = maski[np.newaxis,...]
         print('%d cells found'%(len(np.unique(maski)[1:])))
@@ -1378,9 +1379,9 @@ class MainW(QMainWindow):
             self.progress.setValue(80)
             z=0
             self.masksOn = True
-            self.outlinesOn = True
             self.MCheckBox.setChecked(True)
-            self.OCheckBox.setChecked(True)
+            # self.outlinesOn = True #again, this option should persist and not get toggled by another GUI action 
+            # self.OCheckBox.setChecked(True)
 
             io._masks_to_gui(self, masks, outlines=None)
             self.progress.setValue(100)

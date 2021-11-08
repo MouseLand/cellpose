@@ -7,6 +7,7 @@ import logging
 
 from .. import utils, plot, transforms
 from ..io import imread, imsave, outlines_to_text
+import omnipose
 
 try:
     from PyQt5.QtWidgets import QFileDialog
@@ -20,6 +21,10 @@ try:
 except:
     MATPLOTLIB = False
 
+NCOLOR = False 
+# WIP to make GUI use N-color masks. Tricky thing is that only the display should be 
+# reduced to N colors; selection and editing should act on unique labels. 
+    
 def _load_image(parent, filename=None):
     """ load image with filename; if None, open QFileDialog """
     if filename is None:
@@ -307,13 +312,17 @@ def _masks_to_gui(parent, masks, outlines=None):
     """ masks loaded into GUI """
     # get unique values
     shape = masks.shape
-    _, masks = np.unique(masks, return_inverse=True)
-    masks = np.reshape(masks, shape)
-    masks = masks.astype(np.uint16) if masks.max()<2**16-1 else masks.astype(np.uint32)
+    
+    if NCOLOR:
+        masks = omnipose.utils.ncolorlabel(masks) 
+    else:
+        _, masks = np.unique(masks, return_inverse=True)
+        masks = np.reshape(masks, shape)
+        masks = masks.astype(np.uint16) if masks.max()<2**16-1 else masks.astype(np.uint32)
     parent.cellpix = masks
 
     # get outlines
-    if outlines is None:
+    if outlines is None: # parent.outlinesOn
         parent.outpix = np.zeros_like(masks)
         for z in range(parent.NZ):
             outlines = utils.masks_to_outlines(masks[z])
@@ -327,9 +336,16 @@ def _masks_to_gui(parent, masks, outlines=None):
         parent.outpix = np.reshape(parent.outpix, shape)
 
     parent.ncells = parent.cellpix.max()
-    colors = parent.colormap[np.random.randint(0,1000,size=parent.ncells), :3]
+    np.random.seed(42) #try to make a bit more stable 
+    
+    if NCOLOR:
+        colors = parent.colormap[np.linspace(0,255,parent.ncells).astype(int), :3]
+    else:
+        colors = parent.colormap[np.random.randint(0,1000,size=parent.ncells), :3]
+
     parent.cellcolors = list(np.concatenate((np.array([[255,255,255]]), colors), axis=0).astype(np.uint8))
     parent.draw_masks()
+    parent.redraw_masks(masks=parent.masksOn, outlines=parent.outlinesOn) # add to obey outline/mask setting upon recomputing 
     if parent.ncells>0:
         parent.toggle_mask_ops()
     parent.ismanual = np.zeros(parent.ncells, bool)
