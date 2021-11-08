@@ -70,7 +70,8 @@ If you are using a GPU, make sure its drivers and the cuda libraries are correct
 2. Open an anaconda prompt / command prompt with `conda` for **python 3** in the path
 3. Create a new environment with `conda create --name cellpose python=3.8`.
 4. To activate this new environment, run `conda activate cellpose`
-5. To install cellpose, use `python -m pip install cellpose`.  
+5. To install the minimal version of cellpose, run `python -m pip install cellpose`.  
+6. To install cellpose, omnipose and the GUI, run `python -m pip install cellpose[all]`. If you're on a zsh server, you may need to use ' ' around the cellpose[all] call: `python -m pip install 'cellpose[all]'.
 
 To upgrade cellpose (package [here](https://pypi.org/project/cellpose/)), run the following in the environment:
 
@@ -80,13 +81,16 @@ python -m pip install cellpose --upgrade
 
 Note you will always have to run `conda activate cellpose` before you run cellpose. If you want to run jupyter notebooks in this environment, then also `conda install jupyter` and `python -m pip install matplotlib`.
 
-If you're feeling adventurous you can also try to install cellpose from your base environment using the command
+You can also try to install cellpose, omnipose and the GUI dependencies from your base environment using the command
 
 ~~~~sh
 python -m pip install cellpose[all]
 ~~~~
 
-If you have **issues** with installation, see the [docs](https://cellpose.readthedocs.io/en/latest/installation.html) for more details, and then if the suggestions fail, open an issue.
+
+If you have **issues** with installation, see the [docs](https://cellpose.readthedocs.io/en/latest/installation.html) for more details. You can also use the cellpose environment file included in the repository and create a cellpose environment with `conda env create -f environment.yml` which may solve certain dependency issues.
+
+If these suggestions fail, open an issue.
 
 ### GPU version (CUDA) on Windows or Linux
 
