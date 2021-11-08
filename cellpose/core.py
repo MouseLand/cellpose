@@ -858,13 +858,13 @@ class UnetModel():
                 diam_test = np.array([utils.diameters(test_labels[k][0],omni=self.omni)[0] for k in range(len(test_labels))])
                 diam_test[diam_test<5] = 5.
             scale_range = 0.5
+            core_logger.info('>>>> median diameter set to = %d'%self.diam_mean)
         else:
             scale_range = 1.0
 
         nchan = train_data[0].shape[0]
         core_logger.info('>>>> training network with %d channel input <<<<'%nchan)
         core_logger.info('>>>> saving every %d epochs'%save_every)
-        core_logger.info('>>>> median diameter = %d'%self.diam_mean)
         core_logger.info('>>>> LR: %0.5f, batch_size: %d, weight_decay: %0.5f'%(self.learning_rate, self.batch_size, weight_decay))
         core_logger.info('>>>> ntrain = %d'%nimg)
         core_logger.info('>>>> rescale is %d'%rescale)
