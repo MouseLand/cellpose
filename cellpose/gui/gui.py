@@ -1357,7 +1357,7 @@ class MainW(QMainWindow):
             #if not do_3D:
             #    masks = masks[0][np.newaxis,:,:]
             #    flows = flows[0]
-            self.flows[0] = flows[0]
+            self.flows[0] = (normalize99(flows[0].copy(),omni=True) * 255).astype(np.uint8) 
             self.flows[1] = (normalize99(flows[2].copy(),omni=True) * 255).astype(np.uint8)
             if not do_3D:
                 masks = masks[np.newaxis,...]
