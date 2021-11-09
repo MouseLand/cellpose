@@ -589,7 +589,8 @@ class CellposeModel(UnetModel):
                                                           omni=omni,
                                                           calc_trace=calc_trace,
                                                           verbose=verbose)
-            flows = [plot.dx_to_circ(dP), dP, dist, p, bd, tr]
+
+            flows = [plot.dx_to_circ(dP,transparency=True,mask=1-1/(1+np.exp(dist))), dP, dist, p, bd, tr]
             
             torch.cuda.empty_cache() #attempt to clear memory
             return masks, flows, styles

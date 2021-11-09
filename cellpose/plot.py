@@ -23,8 +23,23 @@ from . import utils, io, transforms
 from .omnipose.utils import ncolorlabel, sinebow
 
 # modified to use sinebow color
-def dx_to_circ(dP,transparency=True):
-    """ dP is 2 x Y x X => 'optic' flow representation """
+def dx_to_circ(dP,transparency=True,mask=None):
+    """ dP is 2 x Y x X => 'optic' flow representation 
+    
+    Parameters
+    -------------
+    
+    dP: 2xLyxLx array
+        Flow field components [dy,dx]
+        
+    transparency: bool, default False
+        magnitude of flow controls opacity, not lightness (clear background)
+        
+    mask: 2D array 
+        Multiplies each RGB component to suppress noise
+    
+    """
+    
     dP = np.array(dP)
     mag = transforms.normalize99(np.sqrt(np.sum(dP**2,axis=0)),omni=1)
     angles = np.arctan2(dP[1], dP[0])+np.pi
@@ -32,14 +47,20 @@ def dx_to_circ(dP,transparency=True):
     r = ((np.cos(angles)+1)/a)
     g = ((np.cos(angles+2*np.pi/3)+1)/a)
     b =((np.cos(angles+4*np.pi/3)+1)/a)
+    
     if transparency:
         im = np.stack((r,g,b,mag),axis=-1)
     else:
         im = np.stack((r*mag,g*mag,b*mag),axis=-1)
+        
+    if mask is not None and transparency:
+        # im = im*np.stack([mask]*im.shape[-1],axis=-1)
+        im[:,:,-1] *= mask
+        
     return im
 
 
-def show_segmentation(fig, img, maski, flowi, channels=[0,0], file_name=None, omni=False, seg_norm=False):
+def show_segmentation(fig, img, maski, flowi, channels=[0,0], file_name=None, omni=False, seg_norm=False, bg_color=None):
     """ plot segmentation results (like on website)
     
     Can save each panel of figure with file_name option. Use channels option if
@@ -65,6 +86,16 @@ def show_segmentation(fig, img, maski, flowi, channels=[0,0], file_name=None, om
 
     file_name: str (optional, default None)
         file name of image, if file_name is not None, figure panels are saved
+        
+    omni: bool (optional, default False)
+        use omni version of normalize99, image_to_rgb
+        
+    seg_norm: bool (optional, default False)
+        improve cell visibility under labels
+        
+    bg_color: float (Optional, default none)
+        background color to draw behind flow (visible if flow transparency is on)
+        
 
     """
     if not MATPLOTLIB_ENABLED:
@@ -119,6 +150,9 @@ def show_segmentation(fig, img, maski, flowi, channels=[0,0], file_name=None, om
     ax.axis('off')
 
     ax = fig.add_subplot(1,4,4)
+    if bg_color is not None:
+        ax.imshow(np.ones_like(flowi)*bg_color)
+    
     ax.imshow(flowi)
     ax.set_title('predicted cell pose')
     ax.axis('off')
