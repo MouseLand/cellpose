@@ -203,21 +203,28 @@ def main():
             logger.info('>>>> running cellpose on %d images using chan_to_seg %s and chan (opt) %s'%
                             (nimg, cstr0[channels[0]], cstr1[channels[1]]))
             logger.info('>>>> omni is %d, cluster is %d'%(args.omni,args.cluster))
-            
-            
+             
             # handle built-in model exceptions; bacterial ones get no size model 
-            if builtin_model and not bacterial:
-                if args.mxnet and args.pretrained_model=='cyto2':
-                    logger.warning('cyto2 model not available in mxnet, using cyto model')
-                    args.pretrained_model = 'cyto'
-                model = models.Cellpose(gpu=gpu, device=device, model_type=args.pretrained_model, 
-                                            torch=(not args.mxnet),omni=args.omni)
+            if builtin_model:
+                if args.mxnet:
+                    if args.pretrained_model=='cyto2':
+                        logger.warning('cyto2 model not available in mxnet, using cyto model')
+                        args.pretrained_model = 'cyto'
+                    if bacterial:
+                        logger.warning('bacterial models not available in mxnet, using pytorch')
+                        args.mxnet = False
+                if not bacterial:                
+                    model = models.Cellpose(gpu=gpu, device=device, model_type=args.pretrained_model, 
+                                                torch=(not args.mxnet),omni=args.omni)
+                else:
+                    cpmodel_path = models.model_path(args.pretrained_model, 0, True)
+                    model = models.CellposeModel(gpu=gpu, device=device, 
+                                                 pretrained_model=cpmodel_path,
+                                                 torch=True,
+                                                 nclasses=args.nclasses,omni=args.omni)
             else:
                 if args.all_channels:
                     channels = None  
-                if args.mxnet:
-                    logger.warning('bacterial models not available in mxnet, using pytorch')
-                cpmodel_path = models.model_path(args.pretrained_model, 0, True)
                 model = models.CellposeModel(gpu=gpu, device=device, 
                                              pretrained_model=cpmodel_path,
                                              torch=True,
