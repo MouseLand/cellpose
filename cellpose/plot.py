@@ -53,8 +53,7 @@ def dx_to_circ(dP,transparency=True,mask=None):
     else:
         im = np.stack((r*mag,g*mag,b*mag),axis=-1)
         
-    if mask is not None and transparency:
-        # im = im*np.stack([mask]*im.shape[-1],axis=-1)
+    if mask is not None and transparency and dP.shape[0]<3:
         im[:,:,-1] *= mask
         
     return im
