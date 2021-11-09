@@ -35,7 +35,7 @@ Dynamics are computed using bilinear interpolation by default instead of nearest
 
 ### Run cellpose without local python installation
 
-You can quickly try out Cellpose on the [website](http://www.cellpose.org) first (some features disabled). 
+You can quickly try out Cellpose on the [website](https://www.cellpose.org) first (some features disabled). 
 
 You can also run Cellpose in google colab with a GPU: 
 * a code-based notebook: [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/MouseLand/cellpose/blob/master/notebooks/run_cellpose_GPU.ipynb)
@@ -126,6 +126,10 @@ pip install git+https://www.github.com/mouseland/cellpose.git
 ~~~
 
 If you want edit ability to the code, in the github repository folder, run `pip install -e .`. If you want to go back to the pip version of cellpose, then say `pip install cellpose`.
+
+### Download of pretrained models
+
+The models will be downloaded automatically from the [website](https://www.cellpose.org) when you first run a pretrained model in cellpose. If you are having issues with the downloads, you can download them from this [google drive zip file](https://drive.google.com/file/d/1mK8aJDg0jv6s9Vc_5HntpUPmC--p2fE0/view?usp=sharing), unzip the file and put the models in your home directory under the path .cellpose/models/, e.g. on Windows this would be C:/Users/YOUR_USERNAME/.cellpose/models/ or on Linux this would be /home/YOUR_USERNAME/.cellpose/models/, so /home/YOUR_USERNAME/.cellpose/models/cyto_0 is the full path to one model for example.
 
 ## Running cellpose
 

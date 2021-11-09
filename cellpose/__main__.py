@@ -186,10 +186,11 @@ def main():
             tic = time.time()
             if not builtin_model:
                 cpmodel_path = args.pretrained_model
-                print('fghfghhfgh',cpmodel_path)
                 if not os.path.exists(cpmodel_path):
                     logger.warning('model path does not exist, using cyto model')
                     args.pretrained_model = 'cyto'
+                else:
+                    logger.info(f'>>> running model {cpmodel_path}')
 
             image_names = io.get_image_files(args.dir, 
                                              args.mask_filter, 
@@ -214,9 +215,12 @@ def main():
             else:
                 if args.all_channels:
                     channels = None  
+                if args.mxnet:
+                    logger.warning('bacterial models not available in mxnet, using pytorch')
+                cpmodel_path = models.model_path(args.pretrained_model, 0, True)
                 model = models.CellposeModel(gpu=gpu, device=device, 
                                              pretrained_model=cpmodel_path,
-                                             torch=(not args.mxnet),
+                                             torch=True,
                                              nclasses=args.nclasses,omni=args.omni)
             
             # handle omnipose exceptions
