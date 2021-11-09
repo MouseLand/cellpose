@@ -7,7 +7,7 @@ import logging
 
 from .. import utils, plot, transforms
 from ..io import imread, imsave, outlines_to_text
-import omnipose
+import cellpose.omnipose
 
 try:
     from PyQt5.QtWidgets import QFileDialog
