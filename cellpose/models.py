@@ -120,7 +120,7 @@ class Cellpose():
              net_avg=True, augment=False, tile=True, tile_overlap=0.1, resample=False, interp=True, cluster=False,
              flow_threshold=0.4, mask_threshold=0.0, cellprob_threshold=None, dist_threshold=None,
              diam_threshold=12., min_size=15, stitch_threshold=0.0, 
-             rescale=None, progress=None, omni=False, verbose=False):
+             rescale=None, progress=None, omni=False, verbose=False, transparency=False):
         """ run cellpose and get masks
 
         Parameters
@@ -280,7 +280,8 @@ class Cellpose():
                                             min_size=min_size, 
                                             stitch_threshold=stitch_threshold,
                                             omni=omni,
-                                            verbose=verbose)
+                                            verbose=verbose,
+                                            transparency=transparency)
         models_logger.info('>>>> TOTAL TIME %0.2f sec'%(time.time()-tic0))
     
         return masks, flows, styles, diams
@@ -402,7 +403,7 @@ class CellposeModel(UnetModel):
              flow_threshold=0.4, mask_threshold=0.0, diam_threshold=12.,
              cellprob_threshold=None, dist_threshold=None,
              compute_masks=True, min_size=15, stitch_threshold=0.0, progress=None, omni=False, 
-             calc_trace=False, verbose=False):
+             calc_trace=False, verbose=False, transparency=False):
         """
             segment list of images x, or 4D array - Z x nchan x Y x X
 
@@ -590,7 +591,7 @@ class CellposeModel(UnetModel):
                                                           calc_trace=calc_trace,
                                                           verbose=verbose)
 
-            flows = [plot.dx_to_circ(dP,transparency=True,mask=1-1/(1+np.exp(dist))), dP, dist, p, bd, tr]
+            flows = [plot.dx_to_circ(dP,transparency=transparency,mask=1-1/(1+np.exp(dist))), dP, dist, p, bd, tr]
             
             torch.cuda.empty_cache() #attempt to clear memory
             return masks, flows, styles
