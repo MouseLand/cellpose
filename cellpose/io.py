@@ -376,7 +376,7 @@ def save_masks(images, masks, flows, file_names, png=True, tif=False, channels=[
         exts.append('.tif')
 
     # format_labels will also automatically use lowest bit depth possible
-    masks = utils.format_labels(masks) 
+    masks = omnipose.utils.format_labels(masks) 
 
     # save masks
     with warnings.catch_warnings():
