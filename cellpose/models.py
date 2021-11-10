@@ -203,6 +203,21 @@ class Cellpose():
 
         progress: pyqt progress bar (optional, default None)
             to return progress bar status to GUI
+            
+        omni: bool (optional, default False)
+            use omnipose mask recontruction features
+
+        calc_trace: bool (optional, default False)
+            calculate pixel traces and return as part of the flow
+
+        verbose: bool (optional, default False)
+            turn on additional output to logs for debugging 
+
+        verbose: bool (optional, default False)
+            turn on additional output to logs for debugging
+
+        transparency: bool (optional, default False)
+            modulate flow opacity by magnitude instead of brightness (can use flows on any color background) 
 
         Returns
         -------
@@ -212,7 +227,10 @@ class Cellpose():
         flows: list of lists 2D arrays, or list of 3D arrays (if do_3D=True)
             flows[k][0] = XY flow in HSV 0-255
             flows[k][1] = flows at each pixel
-            flows[k][2] = the cell distance trasnform
+            flows[k][2] = scalar cell probability (Cellpose) or distance transform (Omnipose)
+            flows[k][3] = boundary output (nonempty for Omnipose)
+            flows[k][4] = final pixel locations after Euler integration 
+            flows[k][5] = pixel traces (nonempty for calc_trace=True)
 
         styles: list of 1D arrays of length 256, or single 1D array (if do_3D=True)
             style vector summarizing each image, also used to estimate size of objects in image
@@ -492,6 +510,21 @@ class CellposeModel(UnetModel):
 
             progress: pyqt progress bar (optional, default None)
                 to return progress bar status to GUI
+                
+            omni: bool (optional, default False)
+                use omnipose mask recontruction features
+            
+            calc_trace: bool (optional, default False)
+                calculate pixel traces and return as part of the flow
+                
+            verbose: bool (optional, default False)
+                turn on additional output to logs for debugging 
+                
+            verbose: bool (optional, default False)
+                turn on additional output to logs for debugging
+            
+            transparency: bool (optional, default False)
+                modulate flow opacity by magnitude instead of brightness (can use flows on any color background) 
 
             Returns
             -------
@@ -501,7 +534,10 @@ class CellposeModel(UnetModel):
             flows: list of lists 2D arrays, or list of 3D arrays (if do_3D=True)
                 flows[k][0] = XY flow in HSV 0-255
                 flows[k][1] = flows at each pixel
-                flows[k][2] = the cell distance trasnform 
+                flows[k][2] = scalar cell probability (Cellpose) or distance transform (Omnipose)
+                flows[k][3] = boundary output (nonempty for Omnipose)
+                flows[k][4] = final pixel locations after Euler integration 
+                flows[k][5] = pixel traces (nonempty for calc_trace=True)
 
             styles: list of 1D arrays of length 64, or single 1D array (if do_3D=True)
                 style vector summarizing each image, also used to estimate size of objects in image
@@ -548,7 +584,8 @@ class CellposeModel(UnetModel):
                                                  progress=progress,
                                                  omni=omni,
                                                  calc_trace=calc_trace, 
-                                                 verbose=verbose)
+                                                 verbose=verbose,
+                                                 transparency=transparency)
                 masks.append(maski)
                 flows.append(flowi)
                 styles.append(stylei)
@@ -568,7 +605,7 @@ class CellposeModel(UnetModel):
                 if not self.torch:
                     self.net.collect_params().grad_req = 'null'
 
-            masks, styles, dP, dist, p, bd, tr = self._run_cp(x, 
+            masks, styles, dP, dist, bd, p, tr = self._run_cp(x, 
                                                           compute_masks=compute_masks,
                                                           normalize=normalize,
                                                           invert=invert,
@@ -591,7 +628,7 @@ class CellposeModel(UnetModel):
                                                           calc_trace=calc_trace,
                                                           verbose=verbose)
 
-            flows = [plot.dx_to_circ(dP,transparency=transparency,mask=1-1/(1+np.exp(dist))), dP, dist, p, bd, tr]
+            flows = [plot.dx_to_circ(dP,transparency=transparency,mask=1-1/(1+np.exp(dist))), dP, dist, bd, p, tr]
             
             torch.cuda.empty_cache() #attempt to clear memory
             return masks, flows, styles
@@ -696,7 +733,7 @@ class CellposeModel(UnetModel):
         else:
             masks, p , tr = np.zeros(0), np.zeros(0), np.zeros(0) #pass back zeros if not compute_masks
             
-        return masks.squeeze(), styles.squeeze(), dP.squeeze(), dist.squeeze(), p.squeeze(), bd.squeeze(), tr
+        return masks.squeeze(), styles.squeeze(), dP.squeeze(), dist.squeeze(), bd.squeeze(), p.squeeze(), tr
 
         
     def loss_fn(self, lbl, y):
