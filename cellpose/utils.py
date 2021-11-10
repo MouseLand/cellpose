@@ -11,7 +11,8 @@ import colorsys
 import io
 
 from . import metrics
-from .omnipose.utils import format_labels
+# from .omnipose.utils import 
+import cellpose.omnipose as omnipose
 
 try:
     from skimage.morphology import remove_small_holes
@@ -378,7 +379,7 @@ def diameters(masks, omni=False, dist_threshold=1):
         md /= (np.pi**0.5)/2
         return md, counts**0.5
     else: #new distance-field-derived diameter (aggrees with cicle but more general)
-        return omnipose.diameters(masks), None
+        return omnipose.core.diameters(masks), None
 
 
 def radius_distribution(masks, bins):
@@ -433,7 +434,7 @@ def fill_holes_and_remove_small_masks(masks, min_size=15, hole_size=3, scale_fac
     """
 
     if masks.ndim==2:
-        masks = format_labels(masks, min_area=min_size) # not sure how this works with 3D... tests pass though
+        masks = omnipose.utils.format_labels(masks, min_area=min_size) # not sure how this works with 3D... tests pass though
     
     hole_size *= scale_factor
         

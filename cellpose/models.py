@@ -1,4 +1,5 @@
 import os, sys, time, shutil, tempfile, datetime, pathlib, subprocess
+from pathlib import Path
 import numpy as np
 from tqdm import trange, tqdm
 from urllib.parse import urlparse
@@ -10,7 +11,9 @@ models_logger.setLevel(logging.DEBUG)
 
 from . import transforms, dynamics, utils, plot
 from .core import UnetModel, assign_device, check_mkl, MXNET_ENABLED, parse_model_string
-from .omnipose import omnipose
+# from .omnipose import omnipose
+import cellpose.omnipose as omnipose
+
 
 _MODEL_URL = 'https://www.cellpose.org/models'
 _MODEL_DIR_ENV = os.environ.get("CELLPOSE_LOCAL_MODELS_PATH")
@@ -377,7 +380,7 @@ class CellposeModel(UnetModel):
                 self.diam_mean = 0.
 
             # set omni flag to true if the name contains it
-            self.omni = 'omni' in pretrained_model_string
+            self.omni = 'omni' in os.path.splitext(Path(pretrained_model_string).name)[0]
             
             #changed to only look for multiple files if net_avg is selected
             model_range = range(4) if net_avg else range(1)
@@ -389,7 +392,7 @@ class CellposeModel(UnetModel):
                 params = parse_model_string(pretrained_model_string)
                 if params is not None:
                     residual_on, style_on, concatenation = params 
-                self.omni = 'omni' in pretrained_model_string
+                self.omni = 'omni' in os.path.splitext(Path(pretrained_model_string).name)[0]
         # must have four classes for omnipose models
         # Note that omni can still be used independently for evaluation to 'mix and match'
         #would be better just to read from the model 
@@ -740,7 +743,7 @@ class CellposeModel(UnetModel):
         """ loss function between true labels lbl and prediction y """
         if self.omni:
              #loss function for omnipose field 
-            loss = omnipose.loss(self, lbl, y)
+            loss = omnipose.core.loss(self, lbl, y)
         else: # original loss function 
             veci = 5. * self._to_device(lbl[:,1:])
             lbl  = self._to_device(lbl[:,0]>.5)

@@ -1,5 +1,5 @@
 import numpy as np
-from cellpose.dynamics import SKIMAGE_ENABLED
+# from cellpose.dynamics import SKIMAGE_ENABLED #circular import error 
 from numba import njit
 from scipy.ndimage.morphology import binary_dilation
 from scipy.ndimage import generate_binary_structure, label
@@ -13,7 +13,18 @@ try:
 except:
     SKIMAGE_ENABLED = False
 
+def normalize_field(mu):
+    mag = np.sqrt(np.nansum(mu**2,axis=0))
+    m = mag>0
+    mu = np.divide(mu, mag, out=np.zeros_like(mu), where=np.logical_and(mag!=0,~np.isnan(mag)))        
+    return mu
 
+def normalize99(Y,lower=0.01,upper=99.99):
+    """ normalize image so 0.0 is 0.01st percentile and 1.0 is 99.99th percentile """
+    X = Y.copy()
+    return np.interp(X, (np.percentile(X, lower), np.percentile(X, upper)), (0, 1))
+
+    
 #4-color algorthm based on https://forum.image.sc/t/relabel-with-4-colors-like-map/33564 
 def ncolorlabel(lab,n=4,conn=2):
     # needs to be in standard label form

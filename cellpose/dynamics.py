@@ -15,8 +15,9 @@ dynamics_logger = logging.getLogger(__name__)
 dynamics_logger.setLevel(logging.DEBUG)
 
 from . import utils, metrics, transforms
+import cellpose.omnipose as omnipose
+from cellpose.omnipose.core import eikonal_update_cpu,step_factor # njit requires direct function access or something like that 
 
-from .omnipose import omnipose
 
 try:
     import torch
@@ -73,7 +74,7 @@ def _extend_centers(T, y, x, ymed, xmed, Lx, niter, omni=False):
     for t in range(niter):
         if omni:
             # solve eikonal equation 
-            T[y*Lx + x] = omnipose.eikonal_update_cpu(T, y, x, Lx)
+            T[y*Lx + x] = eikonal_update_cpu(T, y, x, Lx)
         else:
             # solve heat equation 
             T[ymed*Lx + xmed] += 1
@@ -106,7 +107,7 @@ def _extend_centers_gpu(neighbors, centers, isneighbor, Ly, Lx, n_iter=200, devi
 
     for t in range(n_iter):
         if omni:
-            T[:, pt[4,:,0], pt[4,:,1]] = omnipose.eikonal_update_gpu(T,pt,isneigh)
+            T[:, pt[4,:,0], pt[4,:,1]] = omnipose.core.eikonal_update_gpu(T,pt,isneigh)
         else:
             T[:, meds[:,0], meds[:,1]] += 1
             Tneigh = T[:, pt[:,:,0], pt[:,:,1]] # T is square, but Tneigh is nimg x 9 x <number of points in mask>
@@ -198,7 +199,7 @@ def masks_to_flows_gpu(masks, dists, device=None, omni=False):
     # set number of iterations
     if omni:
         # omniversion requires fewer
-        n_iter = omnipose.get_niter(dists)
+        n_iter = omnipose.core.get_niter(dists)
     else:
         slices = scipy.ndimage.find_objects(masks)
         ext = np.array([[sr.stop - sr.start + 1, sc.stop - sc.start + 1] for sr, sc in slices])
@@ -278,7 +279,7 @@ def masks_to_flows_cpu(masks, dists, device=None, omni=False):
                 # This is what I found to be the lowest possible number of iterations to guarantee convergence,
                 # but only for the omni model. Too small for center-pixel heat to diffuse to the ends. 
                 # I would like to explain why this works theoretically; it is emperically validated for now.
-                niter = omnipose.get_niter(dists)
+                niter = omnipose.core.get_niter(dists)
             else:
                 niter = 2*np.int32(np.ptp(x) + np.ptp(y))
             
@@ -338,7 +339,7 @@ def masks_to_flows(masks, dists=None, use_gpu=False, device=None, omni=False):
     """
    
     if dists is None:
-        masks = utils.format_labels(masks)
+        masks = omnipose.utils.format_labels(masks)
         dists = edt.edt(masks)
         
     if TORCH_ENABLED and use_gpu:
@@ -489,7 +490,7 @@ def steps2D_interp(p, dP, niter, use_gpu=False, device=None, omni=False, calc_tr
             # align_corners default is False, just added to suppress warning
             dPt = torch.nn.functional.grid_sample(im, pt, align_corners=False)
             if omni:
-                dPt /= omnipose.step_factor(t)
+                dPt /= step_factor(t)
             
             for k in range(2): #clamp the final pixel locations
                 pt[:,:,:,k] = torch.clamp(pt[:,:,:,k] + dPt[:,k,:,:], -1., 1.)
@@ -525,7 +526,7 @@ def steps2D_interp(p, dP, niter, use_gpu=False, device=None, omni=False, calc_tr
                 tr[:,:,t] = p.copy()
             map_coordinates(dP.astype(np.float32), p[0], p[1], dPt)
             if omni:
-                dPt /= omnipose.step_factor(t)
+                dPt /= step_factor(t)
             for k in range(len(p)):
                 p[k] = np.minimum(shape[k]-1, np.maximum(0, p[k] + dPt[k]))
         return p, tr
@@ -615,7 +616,7 @@ def steps2D(p, dP, inds, niter, omni=False, calc_trace=False):
             p0, p1 = int(p[0,y,x]), int(p[1,y,x])
             step = dP[:,p0,p1]
             if omni:
-                step /= omnipose.step_factor(t)
+                step /= step_factor(t)
             for k in range(p.shape[0]):
                 p[k,y,x] = min(shape[k]-1, max(0, p[k,y,x] + step[k]))
     return p, tr
@@ -866,7 +867,7 @@ def compute_masks(dP, dist, bd=None, p=None, inds=None, niter=200, mask_threshol
         
         #preprocess flows
         if omni:
-            dP_ = omnipose.div_rescale(dP,mask)
+            dP_ = omnipose.core.div_rescale(dP,mask)
         else:
             dP_ = dP * mask / 5.
         
@@ -882,7 +883,7 @@ def compute_masks(dP, dist, bd=None, p=None, inds=None, niter=200, mask_threshol
         
         #calculate masks
         if omni:
-            mask = omnipose.get_masks(p,bd,dist,mask,inds,nclasses,cluster=cluster,
+            mask = omnipose.core.get_masks(p,bd,dist,mask,inds,nclasses,cluster=cluster,
                                       diam_threshold=diam_threshold,verbose=verbose) 
         else:
             mask = get_masks(p, iscell=mask, flows=dP, threshold=flow_threshold if not do_3D else None, use_gpu=use_gpu)

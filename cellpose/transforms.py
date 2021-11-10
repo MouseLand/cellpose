@@ -9,7 +9,7 @@ transforms_logger = logging.getLogger(__name__)
 transforms_logger.setLevel(logging.DEBUG)
 
 from . import dynamics, utils
-from .omnipose import omnipose
+import cellpose.omnipose as omnipose
 
 def _taper_mask(ly=224, lx=224, sig=7.5):
     bsize = max(224, max(ly, lx))
@@ -193,7 +193,7 @@ def make_tiles(imgi, bsize=224, augment=False, tile_overlap=0.1):
 def normalize99(Y,lower=0.01,upper=99.99,omni=False):
     """ normalize image so 0.0 is 0.01st percentile and 1.0 is 99.99th percentile """
     if omni:
-        X = omnipose.normalize99(Y)
+        X = omnipose.utils.normalize99(Y)
     else:
         X = Y.copy()
         x01 = np.percentile(X, 1)
@@ -654,7 +654,7 @@ def random_rotate_and_resize(X, Y=None, scale_range=1., gamma_range=0.5, xy = (2
         inds = np.arange(nimg)
     
     if omni:
-        return omnipose.random_rotate_and_resize(X, Y=Y, scale_range=scale_range, gamma_range=gamma_range, 
+        return omnipose.core.random_rotate_and_resize(X, Y=Y, scale_range=scale_range, gamma_range=gamma_range, 
                                                  xy=xy, do_flip=do_flip, rescale=rescale, inds=inds)
     else:
         # backwards compatibility; completely 'stock', no gamma augmentation or any other extra frills. 
@@ -671,7 +671,7 @@ def normalize_field(mu,omni=False):
     if not omni:
         mu /= (1e-20 + (mu**2).sum(axis=0)**0.5)
     else:   
-        mu = omnipose.normalize_field(mu) 
+        mu = omnipose.core.normalize_field(mu) 
     return mu
 
 

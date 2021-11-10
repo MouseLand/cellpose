@@ -7,7 +7,9 @@ import logging, pathlib, sys
 from pathlib import Path
 
 from . import utils, plot, transforms
-from .omnipose import omnipose
+# from .omnipose import omnipose
+import cellpose.omnipose as omnipose
+
 
 try:
     from PyQt5 import QtGui, QtCore, Qt, QtWidgets
