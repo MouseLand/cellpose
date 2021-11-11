@@ -1,7 +1,7 @@
 import numpy as np
 # from cellpose.dynamics import SKIMAGE_ENABLED #circular import error 
 from numba import njit
-from scipy.ndimage.morphology import binary_dilation
+from scipy.ndimage.morphology import binary_dilation, binary_erosion
 from scipy.ndimage import generate_binary_structure, label
 import edt 
 import random
@@ -24,6 +24,10 @@ def normalize99(Y,lower=0.01,upper=99.99):
     X = Y.copy()
     return np.interp(X, (np.percentile(X, lower), np.percentile(X, upper)), (0, 1))
 
+def normalize_image(im,mask,bg=0.5):
+    """ Normalize image by rescaling fro 0 to 1 and then adjusting gamma to bring average background to bg."""
+    im = rescale(im)
+    return im**(np.log(bg)/np.log(np.mean(im[binary_erosion(mask==0)])))
     
 #4-color algorthm based on https://forum.image.sc/t/relabel-with-4-colors-like-map/33564 
 def ncolorlabel(lab,n=4,conn=2):
