@@ -23,4 +23,4 @@ The flow field points towards the skeleton of the cell, and we built a new mask 
 Omnipose as a fourth ouput class (as opposed to three in Cellpose). This extra output is a boundary probability field, which we found helped the network to make better predictions at cell boundaries. It is also useful in mask recontruction. 
 
 ### Licensing
-See `LICENSE.txt` for details. This license does not affect any users using Cellpose/Omnipose for noncommerical applications. 
+See `LICENSE` for details. This license does not affect any users using Cellpose/Omnipose for noncommerical applications. 
