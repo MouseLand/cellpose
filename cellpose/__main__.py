@@ -29,6 +29,9 @@ def confirm_prompt(question):
         reply = input(f"{question} (y/n): ").lower()
     return (reply in ("", "y"))
 
+def install(package):
+    subprocess.check_call([sys.executable, "-m", "pip", "install", package])
+    
 # settings re-grouped a bit
 def main():
     parser = argparse.ArgumentParser(description='cellpose parameters')
@@ -188,7 +191,15 @@ def main():
         
         if args.omni:
             logger.info('>>>> Omnipose enabled. See https://raw.githubusercontent.com/MouseLand/cellpose/master/cellpose/omnipose/license.txt for licensing details.')
-    
+        
+        if (args.omni or args.cluster) and 'sklearn' not in sys.modules:
+            logger.info('>>>> Omnipose requires scikit-learn for DBSCAN clustering.')
+            confirm = confirm_prompt('Install scikit-learn?')
+            if confirm:
+                install('scikit-learn')
+            else:
+                logger.info('>>>> scikit-learn not installed. DBSCAN clustering will be automatically disabled.')
+                    
         
         if not args.train and not args.train_size:
             tic = time.time()
