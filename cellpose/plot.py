@@ -23,7 +23,7 @@ from . import utils, io, transforms
 from .omnipose.utils import ncolorlabel, sinebow
 
 # modified to use sinebow color
-def dx_to_circ(dP,transparency=True,mask=None):
+def dx_to_circ(dP,transparency=False,mask=None):
     """ dP is 2 x Y x X => 'optic' flow representation 
     
     Parameters

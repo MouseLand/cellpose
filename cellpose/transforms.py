@@ -671,7 +671,7 @@ def normalize_field(mu,omni=False):
     if not omni:
         mu /= (1e-20 + (mu**2).sum(axis=0)**0.5)
     else:   
-        mu = omnipose.core.normalize_field(mu) 
+        mu = omnipose.utils.normalize_field(mu) 
     return mu
 
 

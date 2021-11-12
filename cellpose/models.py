@@ -3,7 +3,8 @@ from pathlib import Path
 import numpy as np
 from tqdm import trange, tqdm
 from urllib.parse import urlparse
-import torch
+import torch, gc
+gc.enable()
 
 import logging
 models_logger = logging.getLogger(__name__)
@@ -100,6 +101,7 @@ class Cellpose():
             self.diam_mean = 17. 
         elif bacterial:
             self.diam_mean = 0.
+            net_avg = False # No bacterial or omni models have additional models
         
         if not net_avg:
             self.pretrained_model = self.pretrained_model[0]
@@ -378,6 +380,7 @@ class CellposeModel(UnetModel):
                 self.diam_mean = 17. 
             elif bacterial:
                 self.diam_mean = 0.
+                net_avg = False #'bact' model also has no 1,2,3
 
             # set omni flag to true if the name contains it
             self.omni = 'omni' in os.path.splitext(Path(pretrained_model_string).name)[0]
@@ -558,6 +561,7 @@ class CellposeModel(UnetModel):
             nimg = len(x)
             iterator = trange(nimg, file=tqdm_out) if nimg>1 else range(nimg)
             for i in iterator:
+                torch.cuda.empty_cache() #attempt to clear memory before evaluation
                 maski, stylei, flowi = self.eval(x[i], 
                                                  batch_size=batch_size, 
                                                  channels=channels[i] if (len(channels)==len(x) and 
@@ -607,7 +611,7 @@ class CellposeModel(UnetModel):
                 self.net.load_model(self.pretrained_model[0], cpu=(not self.gpu))
                 if not self.torch:
                     self.net.collect_params().grad_req = 'null'
-
+            
             masks, styles, dP, dist, bd, p, tr = self._run_cp(x, 
                                                           compute_masks=compute_masks,
                                                           normalize=normalize,
@@ -632,8 +636,6 @@ class CellposeModel(UnetModel):
                                                           verbose=verbose)
 
             flows = [plot.dx_to_circ(dP,transparency=transparency,mask=1-1/(1+np.exp(dist))), dP, dist, bd, p, tr]
-            
-            torch.cuda.empty_cache() #attempt to clear memory
             return masks, flows, styles
 
     def _run_cp(self, x, compute_masks=True, normalize=True, invert=False,
@@ -642,6 +644,11 @@ class CellposeModel(UnetModel):
                 mask_threshold=0.0, diam_threshold=12., flow_threshold=0.4, min_size=15,
                 interp=False, cluster=False, anisotropy=1.0, do_3D=False, stitch_threshold=0.0,
                 omni=False, calc_trace=False, verbose=False):
+        
+        # not sure yet if this helps with memeory 
+        gc.collect()
+        torch.cuda.empty_cache()
+        
         tic = time.time()
         shape = x.shape
         nimg = shape[0]        
@@ -692,6 +699,11 @@ class CellposeModel(UnetModel):
                     bd[i] = yf[:,:,3]
                 styles[i] = style
         
+        #again, attempt to deal with memory overuse
+        yf, style = None, None
+        gc.collect()
+        torch.cuda.empty_cache()
+        
         net_time = time.time() - tic
         if nimg > 1:
             models_logger.info('network run in %2.2fs'%(net_time))
@@ -735,7 +747,7 @@ class CellposeModel(UnetModel):
                 models_logger.info('masks created in %2.2fs'%(flow_time))
         else:
             masks, p , tr = np.zeros(0), np.zeros(0), np.zeros(0) #pass back zeros if not compute_masks
-            
+        
         return masks.squeeze(), styles.squeeze(), dP.squeeze(), dist.squeeze(), bd.squeeze(), p.squeeze(), tr
 
         

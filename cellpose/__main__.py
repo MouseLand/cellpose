@@ -182,6 +182,16 @@ def main():
         nuclear = 'nuclei' in args.pretrained_model
         bacterial = 'bact' in args.pretrained_model
         
+        # force omni on for those models, but don't toggle it off if manually specified 
+        if 'omni' in args.pretrained_model:
+            args.omni = True
+        
+        if args.omni:
+            logger.info('>>>> Omnipose enabled. See \
+            https://raw.githubusercontent.com/MouseLand/cellpose/master/cellpose/omnipose/license.txt \
+            for licensing details.')
+    
+        
         if not args.train and not args.train_size:
             tic = time.time()
             if not builtin_model:
@@ -230,13 +240,7 @@ def main():
                                              torch=True,
                                              nclasses=args.nclasses,omni=args.omni)
             
-            # handle omnipose exceptions
-            if 'omni' in args.pretrained_model:
-                args.omni = True
-            
-            if args.omni:
-                logger.info('>>>> Omnipose is free for non-commercial use under the AGPL. For commercial licenses, contact uwcomotion@uw.edu.')
-    
+
             # omni changes not implemented for mxnet. Full parity for cpu/gpu in pytorch. 
             if args.omni and args.mxnet:
                 logger.info('>>>> omni only implemented in pytorch.')

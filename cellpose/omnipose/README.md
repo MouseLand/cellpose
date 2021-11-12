@@ -5,7 +5,7 @@
 Omnipose solves the over-segmentation problems of Cellpose on long, ansiotropic cells. This is particularly relevant for bacterial cells, but Omnipose is suitable for aribtrary cell shapes. 
 
 ### How to use Omnipose
-To use Omnipose on bacterial cells, use `model_type=bact_omni`. For other cell types, try `model_type=cyto2_omni`. You can also use your own Cellpose models with `omni=True` to help solve problems with over-segmentatuon. 
+To use Omnipose on bacterial cells, use `model_type=bact_omni`. For other cell types, try `model_type=cyto2_omni`. You can also use your own Cellpose models with `omni=True` to help solve problems with over-segmentation. 
 
 ### More about Omnipose
 Omnipose builds on Cellpose in a number of ways described in our [paper](http://biorxiv.org/content/early/2021/11/04/2021.11.03.467199). It turns out that cell 'centers' are not well-defined, and this is a huge problem for any cells that are long and curved - generally leading to over-segmentation.
@@ -19,5 +19,4 @@ The flow field points towards the skeleton of the cell, and we built a new mask 
 Omnipose as a fourth ouput class (as opposed to three in Cellpose). This extra output is a boundary probability field, which we found helped the network to make better predictions at cell boundaries. It is also useful in mask recontruction. 
 
 ### Licensing
-Omnipose is completely free for non-commercial use. The code associated with Omnipose is dual-licensed under the
-[GNU Affero General Public License](https://www.gnu.org/licenses/agpl-3.0.en.html). For commercial use, contact uwcomotion@uw.edu. 
+See `LICENSE.txt` for details. This license does not affect any users using Cellpose/Omnipose for noncommerical applications. 

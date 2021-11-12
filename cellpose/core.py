@@ -319,7 +319,7 @@ class UnetModel():
 
         if nolist:
             masks, flows, styles = masks[0], flows[0], styles[0]
-
+        
         return masks, flows, styles
 
     def _to_device(self, x):
@@ -485,9 +485,10 @@ class UnetModel():
 
         # slice out padding
         y = y[slc]
-
         # transpose so channels axis is last again
         y = np.transpose(y, detranspose)
+        
+        torch.cuda.empty_cache() #release cuda memory
         return y, style
     
     def _run_tiled(self, imgi, augment=False, bsize=224, tile_overlap=0.1, return_conv=False):
