@@ -1,5 +1,5 @@
-<img src="logo3.png" width="200" title="bacteria" alt="bacteria" align="right" vspace = "0">
-<img src="logo.png" width="200" title="omnipose" alt="omnipose" align="center" vspace = "0">
+<img src="https://github.com/MouseLand/cellpose/blob/master/cellpose/omnipose/logo3.png?raw=true" width="200" title="bacteria" alt="bacteria" align="right" vspace = "0">
+<img src="https://github.com/MouseLand/cellpose/blob/master/cellpose/omnipose/logo.png?raw=true" width="200" title="omnipose" alt="omnipose" align="center" vspace = "0">
 
 ### Why use Omnipose
 Omnipose solves the over-segmentation problems of Cellpose on long, ansiotropic cells. This is particularly relevant for bacterial cells, but Omnipose is suitable for aribtrary cell shapes. 
@@ -23,4 +23,4 @@ The flow field points towards the skeleton of the cell, and we built a new mask 
 Omnipose as a fourth ouput class (as opposed to three in Cellpose). This extra output is a boundary probability field, which we found helped the network to make better predictions at cell boundaries. It is also useful in mask recontruction. 
 
 ### Licensing
-See `LICENSE` for details. This license does not affect any users using Cellpose/Omnipose for noncommerical applications. 
+See `license.txt` for details. This license does not affect anyone using Cellpose/Omnipose for noncommerical applications. 
