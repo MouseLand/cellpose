@@ -1358,8 +1358,8 @@ class MainW(QMainWindow):
             #if not do_3D:
             #    masks = masks[0][np.newaxis,:,:]
             #    flows = flows[0]
-            self.flows[0] = (normalize99(flows[0].copy(),omni=True) * 255).astype(np.uint8) 
-            self.flows[1] = (normalize99(flows[2].copy(),omni=True) * 255).astype(np.uint8)
+            self.flows[0] = (normalize99(flows[0].copy(),omni=True) * 255).astype(np.uint8) #RGB flow
+            self.flows[1] = (normalize99(flows[2].copy(),omni=True) * 255).astype(np.uint8) #dist/prob
             if not do_3D:
                 masks = masks[np.newaxis,...]
                 self.flows[0] = resize_image(self.flows[0], masks.shape[-2], masks.shape[-1],
@@ -1371,9 +1371,9 @@ class MainW(QMainWindow):
             else:
                 self.flows[2] = (flows[1][0]/10 * 127 + 127).astype(np.uint8)
                 
-            if len(flows)>2:
-                self.flows.append(flows[3].squeeze())
-                self.flows.append(np.concatenate((flows[1], flows[2][np.newaxis,...]), axis=0))
+            if len(flows)>2: 
+                self.flows.append(flows[4].squeeze()) #p 
+                self.flows.append(np.concatenate((flows[1], flows[2][np.newaxis,...]), axis=0)) #dP, dist/prob
                 
             print('%d cells found with cellpose net in %0.3f sec'%(len(np.unique(masks)[1:]), time.time()-tic))
             self.progress.setValue(80)
