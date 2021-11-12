@@ -7,6 +7,10 @@ Omnipose solves the over-segmentation problems of Cellpose on long, ansiotropic 
 ### How to use Omnipose
 To use Omnipose on bacterial cells, use `model_type=bact_omni`. For other cell types, try `model_type=cyto2_omni`. You can also use your own Cellpose models with `omni=True` to help solve problems with over-segmentation. 
 
+We trained our `bact_omni` model using the flooiwng command:
+
+`python -m cellpose --train --use_gpu --dir <bacterial dataset directory> --mask_filter _masks --n_epochs 4000 --pretrained_model None --learning_rate 0.1 --diameter 0 --batch_size 16 --omni`
+
 ### More about Omnipose
 Omnipose builds on Cellpose in a number of ways described in our [paper](http://biorxiv.org/content/early/2021/11/04/2021.11.03.467199). It turns out that cell 'centers' are not well-defined, and this is a huge problem for any cells that are long and curved - generally leading to over-segmentation.
 

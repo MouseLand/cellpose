@@ -187,9 +187,7 @@ def main():
             args.omni = True
         
         if args.omni:
-            logger.info('>>>> Omnipose enabled. See \
-            https://raw.githubusercontent.com/MouseLand/cellpose/master/cellpose/omnipose/license.txt \
-            for licensing details.')
+            logger.info('>>>> Omnipose enabled. See https://raw.githubusercontent.com/MouseLand/cellpose/master/cellpose/omnipose/license.txt for licensing details.')
     
         
         if not args.train and not args.train_size:
