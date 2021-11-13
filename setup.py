@@ -2,15 +2,16 @@ import setuptools
 from setuptools import setup
 
 install_deps = ['numpy>=1.20.0', 'scipy', 'natsort',
-                'tifffile', 'tqdm', 'numba', 
+                'tifffile', 'tqdm', 'numba',
                 'torch>=1.6',
                 'opencv-python-headless',
-                'fastremap'
+                'fastremap',
+                'openvino==2021.3',
                 ]
 
 gui_deps = [
-        'pyqtgraph==0.11.0rc0', 
-        'pyqt5', 
+        'pyqtgraph==0.11.0rc0',
+        'pyqt5',
         'pyqt5.sip',
         'google-cloud-storage'
         ]
@@ -22,10 +23,10 @@ docs_deps = [
       ]
 
 omni_deps = [
-        'scikit-image', 
+        'scikit-image',
         'scikit-learn',
         'edt',
-        'torch_optimizer', 
+        'torch_optimizer',
         'ncolor'
         ]
 
@@ -46,8 +47,8 @@ except:
 
 with open("README.md", "r") as fh:
     long_description = fh.read()
-    
-    
+
+
 setup(
     name="cellpose",
     license="BSD",

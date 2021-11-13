@@ -31,6 +31,12 @@ except Exception as e:
     TORCH_ENABLED = False
     print(e)
 
+try:
+    from . import openvino_utils
+    OPENVINO_ENABLED = True
+except:
+    OPENVINO_ENABLED = False
+
 core_logger = logging.getLogger(__name__)
 tqdm_out = utils.TqdmToLogger(core_logger, level=logging.INFO)
 
@@ -133,7 +139,7 @@ class UnetModel():
             else:
                 device_gpu = self.device.device_type=='gpu'
         self.gpu = gpu if device is None else device_gpu
-        if torch and not self.gpu:
+        if torch and not self.gpu and not OPENVINO_ENABLED:
             self.mkldnn = check_mkl(self.torch)
         self.pretrained_model = pretrained_model
         self.diam_mean = diam_mean
@@ -254,6 +260,9 @@ class UnetModel():
                                     normalize, invert, nchan=self.nchan) for xi in x]
         nimg = len(x)
         self.batch_size = batch_size
+
+        if OPENVINO_ENABLED:
+            self.net = openvino_utils.to_openvino(self.net)
 
         styles = []
         flows = []
@@ -394,6 +403,9 @@ class UnetModel():
             but not averaged over networks.
 
         """
+        if OPENVINO_ENABLED:
+            self.net = openvino_utils.to_openvino(self.net)
+
         if isinstance(self.pretrained_model, str) or not net_avg:  
             y, style = self._run_net(img, augment=augment, tile=tile, tile_overlap=tile_overlap,
                                      bsize=bsize, return_conv=return_conv)
