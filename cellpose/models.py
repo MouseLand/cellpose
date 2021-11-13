@@ -10,11 +10,8 @@ import logging
 models_logger = logging.getLogger(__name__)
 models_logger.setLevel(logging.DEBUG)
 
-from . import transforms, dynamics, utils, plot
+from . import transforms, dynamics, utils, plot, omnipose
 from .core import UnetModel, assign_device, check_mkl, MXNET_ENABLED, parse_model_string
-# from .omnipose import omnipose
-import cellpose.omnipose as omnipose
-
 
 _MODEL_URL = 'https://www.cellpose.org/models'
 _MODEL_DIR_ENV = os.environ.get("CELLPOSE_LOCAL_MODELS_PATH")
@@ -771,7 +768,7 @@ class CellposeModel(UnetModel):
               test_data=None, test_labels=None, test_files=None,
               channels=None, normalize=True, pretrained_model=None, 
               save_path=None, save_every=100, save_each=False,
-              learning_rate=0.2, n_epochs=500, momentum=0.9, 
+              learning_rate=0.2, n_epochs=500, momentum=0.9, SGD=False,
               weight_decay=0.00001, batch_size=8, rescale=False, omni=False):
 
         """ train network with images train_data 
@@ -822,6 +819,8 @@ class CellposeModel(UnetModel):
 
             weight_decay: float (default, 0.00001)
 
+            SGD: bool (default, False) use SGD as optimization instead of RAdam
+
             batch_size: int (optional, default 8)
                 number of 224x224 patches to run simultaneously on the GPU
                 (can make smaller or bigger depending on GPU memory usage)
@@ -847,7 +846,8 @@ class CellposeModel(UnetModel):
         model_path = self._train_net(train_data, train_flows, 
                                      test_data, test_flows,
                                      pretrained_model, save_path, save_every, save_each,
-                                     learning_rate, n_epochs, momentum, weight_decay, batch_size, rescale)
+                                     learning_rate, n_epochs, momentum, weight_decay, SGD, 
+                                     batch_size, rescale)
         self.pretrained_model = model_path
         return model_path
 

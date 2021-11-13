@@ -14,9 +14,8 @@ import logging
 dynamics_logger = logging.getLogger(__name__)
 dynamics_logger.setLevel(logging.DEBUG)
 
-from . import utils, metrics, transforms
-import cellpose.omnipose as omnipose
-from cellpose.omnipose.core import eikonal_update_cpu,step_factor # njit requires direct function access or something like that 
+from . import utils, metrics, transforms, omnipose
+from .omnipose.core import eikonal_update_cpu,step_factor # njit requires direct function access or something like that 
 
 
 try:

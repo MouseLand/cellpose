@@ -10,9 +10,7 @@ import numpy as np
 import colorsys
 import io
 
-from . import metrics
-# from .omnipose.utils import 
-import cellpose.omnipose as omnipose
+from . import metrics, omnipose
 
 try:
     from skimage.morphology import remove_small_holes

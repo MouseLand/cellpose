@@ -8,8 +8,7 @@ import logging
 transforms_logger = logging.getLogger(__name__)
 transforms_logger.setLevel(logging.DEBUG)
 
-from . import dynamics, utils
-import cellpose.omnipose as omnipose
+from . import dynamics, utils, omnipose
 
 def _taper_mask(ly=224, lx=224, sig=7.5):
     bsize = max(224, max(ly, lx))

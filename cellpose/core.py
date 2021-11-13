@@ -795,14 +795,18 @@ class UnetModel():
             test_loss = nd.sum(loss).asnumpy()
         return test_loss
 
-    def _set_optimizer(self, learning_rate, momentum, weight_decay):
+    def _set_optimizer(self, learning_rate, momentum, weight_decay, SGD=False):
         if self.torch:
         # best optimizer I tested seemed to be RAdam, about 2x as fast as SGD and very stable.
         # Ranger21 is in beta and might be better/faster, but more testing is needed.
         # Ranger21 has a convenient current_lr field, whereas RAdam doesn't and I just set this field to the learning rate
-            self.optimizer = optim.RAdam(self.net.parameters(), lr=learning_rate, betas=(0.95, 0.999), #changed to .95
-                                         eps=1e-08, weight_decay=weight_decay)
-            core_logger.info('>>> Using RAdam optimizer')
+            if SGD:
+                self.optimizer = torch.optim.SGD(self.net.parameters(), lr=learning_rate,
+                                            momentum=momentum, weight_decay=weight_decay)
+            else:
+                self.optimizer = optim.RAdam(self.net.parameters(), lr=learning_rate, betas=(0.95, 0.999), #changed to .95
+                                            eps=1e-08, weight_decay=weight_decay)
+                core_logger.info('>>> Using RAdam optimizer')
 #             self.optimizer = optim.AdaBound(self.net.parameters(), lr=learning_rate, betas=(0.9, 0.999), 
 #                                 gamma=1e-3, eps=1e-08, final_lr=0.15, weight_decay=weight_decay)
 #             print('>>> Using AdaBound optimizer')
@@ -813,6 +817,13 @@ class UnetModel():
         else:
             self.optimizer = gluon.Trainer(self.net.collect_params(), 'sgd',{'learning_rate': learning_rate,
                                 'momentum': momentum, 'wd': weight_decay})
+
+    def _set_learning_rate(self, lr):
+        if self.torch:
+            for param_group in self.optimizer.param_groups:
+                param_group['lr'] = lr
+        else:
+            self.optimizer.set_learning_rate(lr)
 
     def _set_criterion(self):
         if self.unet:
@@ -839,14 +850,14 @@ class UnetModel():
               test_data=None, test_labels=None,
               pretrained_model=None, save_path=None, save_every=100, save_each=False,
               learning_rate=0.2, n_epochs=500, momentum=0.9, weight_decay=0.00001, 
-              batch_size=8, rescale=True, netstr='cellpose'): 
+              SGD=False, batch_size=8, rescale=True, netstr='cellpose'): 
         """ train function uses loss function self.loss_fn in models.py"""
         
         d = datetime.datetime.now()
         self.learning_rate = learning_rate
         self.n_epochs = n_epochs
         self.batch_size = batch_size
-        self._set_optimizer(self.learning_rate, momentum, weight_decay)
+        self._set_optimizer(self.learning_rate, momentum, weight_decay, SGD)
         self._set_criterion()
         
         nimg = len(train_data)
@@ -875,6 +886,17 @@ class UnetModel():
         
         tic = time.time()
 
+        # set learning rate schedule    
+        if SGD:
+            LR = np.linspace(0, self.learning_rate, 10)
+            if self.n_epochs > 250:
+                LR = np.append(LR, self.learning_rate*np.ones(self.n_epochs-100))
+                for i in range(10):
+                    LR = np.append(LR, LR[-1]/2 * np.ones(10))
+            else:
+                LR = np.append(LR, self.learning_rate*np.ones(max(0,self.n_epochs-10)))
+        
+
         lavg, nsum = 0, 0
 
         if save_path is not None:
@@ -893,8 +915,11 @@ class UnetModel():
         self.net.mkldnn = False
 
         for iepoch in range(self.n_epochs):
+                
             np.random.seed(iepoch)
             rperm = np.random.permutation(nimg)
+            if SGD:
+                self._set_learning_rate(LR[iepoch])
             
             for ibatch in range(0,nimg,batch_size):
                 inds = rperm[ibatch:ibatch+batch_size]
