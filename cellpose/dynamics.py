@@ -892,10 +892,10 @@ def compute_masks(dP, dist, bd=None, p=None, inds=None, niter=200, mask_threshol
                 dynamics_logger.info(f'resizing output with resize = {resize}')
             mask = transforms.resize_image(mask, resize[0], resize[1], interpolation=cv2.INTER_NEAREST)
             Ly,Lx = mask.shape
-            pi = np.zeros([2,Ly,Lx])
-            for k in range(2):
-                pi[k] = cv2.resize(p[k], (Lx, Ly), interpolation=cv2.INTER_NEAREST)
-            p = pi       
+            #pi = np.zeros([2,Ly,Lx])
+            #for k in range(2):
+            #    pi[k] = cv2.resize(p[k], (Lx, Ly), interpolation=cv2.INTER_NEAREST)
+            #p = pi       
     else: # nothing to compute, just make it compatible
         dynamics_logger.info('No cell pixels found.')
         p = np.zeros([2,1,1])

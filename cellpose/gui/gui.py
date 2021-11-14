@@ -1295,7 +1295,6 @@ class MainW(QMainWindow):
             thresh = self.threshold
             print('computing masks with cell prob=%0.3f, flow error threshold=%0.3f'%
                     (self.cellprob, thresh))
-
         maski = dynamics.compute_masks(self.flows[4][:-1], 
                                        self.flows[4][-1],
                                        p=self.flows[3].copy(),
@@ -1354,7 +1353,6 @@ class MainW(QMainWindow):
                 return
 
             self.progress.setValue(75)
-
             #if not do_3D:
             #    masks = masks[0][np.newaxis,:,:]
             #    flows = flows[0]
@@ -1370,7 +1368,6 @@ class MainW(QMainWindow):
                 self.flows = [self.flows[n][np.newaxis,...] for n in range(len(self.flows))]
             else:
                 self.flows[2] = (flows[1][0]/10 * 127 + 127).astype(np.uint8)
-                
             if len(flows)>2: 
                 self.flows.append(flows[4].squeeze()) #p 
                 self.flows.append(np.concatenate((flows[1], flows[2][np.newaxis,...]), axis=0)) #dP, dist/prob
