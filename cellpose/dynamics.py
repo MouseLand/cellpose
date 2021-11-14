@@ -840,10 +840,11 @@ def get_masks(p, iscell=None, rpad=20, flows=None, threshold=0.4, use_gpu=False,
     _,M0 = np.unique(M0, return_inverse=True)
     M0 = np.reshape(M0, shape0)
 
-    if M0.max()>0 and threshold is not None and threshold > 0 and flows is not None:
-        M0 = remove_bad_flow_masks(M0, flows, threshold=threshold, use_gpu=use_gpu, device=device)
-        _,M0 = np.unique(M0, return_inverse=True)
-        M0 = np.reshape(M0, shape0).astype(np.int32)
+    # moved to compute masks
+    # if M0.max()>0 and threshold is not None and threshold > 0 and flows is not None:
+    #     M0 = remove_bad_flow_masks(M0, flows, threshold=threshold, use_gpu=use_gpu, device=device)
+    #     _,M0 = np.unique(M0, return_inverse=True)
+    #     M0 = np.reshape(M0, shape0).astype(np.int32)
 
     return M0
 
@@ -883,19 +884,24 @@ def compute_masks(dP, dist, bd=None, p=None, inds=None, niter=200, mask_threshol
         #calculate masks
         if omni:
             mask = omnipose.core.get_masks(p,bd,dist,mask,inds,nclasses,cluster=cluster,
-                                      diam_threshold=diam_threshold,verbose=verbose) 
+                                           diam_threshold=diam_threshold,verbose=verbose)
         else:
             mask = get_masks(p, iscell=mask, flows=dP, threshold=flow_threshold if not do_3D else None, use_gpu=use_gpu)
+            
+        # quality control factored out 
+        shape0 = p.shape[1:]
+        flows = dP
+        if mask.max()>0 and flow_threshold is not None and flow_threshold > 0 and flows is not None:
+            mask = remove_bad_flow_masks(mask, flows, threshold=flow_threshold, use_gpu=use_gpu, device=device)
+            _,mask = np.unique(mask, return_inverse=True)
+            mask = np.reshape(mask, shape0).astype(np.int32)
 
         if resize is not None:
             if verbose:
                 dynamics_logger.info(f'resizing output with resize = {resize}')
             mask = transforms.resize_image(mask, resize[0], resize[1], interpolation=cv2.INTER_NEAREST)
             Ly,Lx = mask.shape
-            #pi = np.zeros([2,Ly,Lx])
-            #for k in range(2):
-            #    pi[k] = cv2.resize(p[k], (Lx, Ly), interpolation=cv2.INTER_NEAREST)
-            #p = pi       
+
     else: # nothing to compute, just make it compatible
         dynamics_logger.info('No cell pixels found.')
         p = np.zeros([2,1,1])

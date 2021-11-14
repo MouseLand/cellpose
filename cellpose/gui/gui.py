@@ -219,6 +219,7 @@ class MainW(QMainWindow):
         if MATPLOTLIB:
             self.colormap = (plt.get_cmap('gist_ncar')(np.linspace(0.0,.9,1000)) * 255).astype(np.uint8)
         else:
+            np.random.seed(42) # make colors stable
             self.colormap = ((np.random.rand(1000,3)*0.8+0.1)*255).astype(np.uint8)
         self.reset()
 
@@ -474,6 +475,26 @@ class MainW(QMainWindow):
         self.invert.setStyleSheet(self.checkstyle)
         self.invert.setFont(self.medfont)
         self.l0.addWidget(self.invert, b,0,1,2)
+        
+        # use omnipose mask recontruction
+        b+=1
+        self.omni = QCheckBox('omni')
+        self.omni.setStyleSheet(self.checkstyle)
+        self.omni.setFont(self.medfont)
+        self.omni.setChecked(False)
+        self.omni.setToolTip('use Omnipose mask recontruction algorithm (fix over-segmentation)')
+        # self.omni.toggled.connect(self.compute_model)
+        self.l0.addWidget(self.omni, b,0,1,2)
+        
+        # use DBSCAN clustering
+        b+=1
+        self.cluster = QCheckBox('cluster')
+        self.cluster.setStyleSheet(self.checkstyle)
+        self.cluster.setFont(self.medfont)
+        self.cluster.setChecked(False)
+        self.cluster.setToolTip('force DBSCAN clustering when omni is enabled')
+        # self.cluster.toggled.connect(self.compute_model)
+        self.l0.addWidget(self.cluster, b,0,1,2)
 
         b+=1
         # recompute model
@@ -1111,6 +1132,7 @@ class MainW(QMainWindow):
             while len(self.strokes) > 0:
                 self.remove_stroke(delete_points=False)
             if len(self.current_point_set) > 8:
+                np.random.seed(42) # make colors stable
                 col_rand = np.random.randint(1000)
                 color = self.colormap[col_rand,:3]
                 median = self.add_mask(points=self.current_point_set, color=color)
@@ -1301,7 +1323,8 @@ class MainW(QMainWindow):
                                        mask_threshold=self.cellprob,
                                        flow_threshold=thresh,
                                        resize=self.cellpix.shape[-2:],
-                                       omni=self.omni)[0]
+                                       omni=self.omni.isChecked(),
+                                       cluster=self.cluster.isChecked())[0]
         
         self.masksOn = True
         self.MCheckBox.setChecked(True)
@@ -1332,13 +1355,17 @@ class MainW(QMainWindow):
             channels = self.get_channels()
             self.diameter = float(self.Diameter.text())
             try:
-                self.omni = 'omni' in self.current_model
+                omni_model = 'omni' in self.current_model
                 bacterial = 'bact' in self.current_model
-                if self.omni:
+                if omni_model:
                     self.NetAvg.setCurrentIndex(2) #one run net
                 if bacterial:
                     self.diameter = 0.
+                    self.Diameter.setText('%0.1f'%self.diameter)
                     
+                # allow omni to be togged manually or forced by model
+                self.omni.setChecked(self.omni.isChecked() or omni_model) 
+                
                 net_avg = self.NetAvg.currentIndex()<2
                 resample = self.NetAvg.currentIndex()==1
                 # print(data.shape,channels,self.diameter,resample,do_3D,net_avg)
@@ -1346,7 +1373,7 @@ class MainW(QMainWindow):
                 masks, flows, _, _ = self.model.eval(data, channels=channels,
                                                     diameter=self.diameter, invert=self.invert.isChecked(),
                                                     net_avg=net_avg, augment=False, resample=resample,
-                                                    do_3D=do_3D, progress=self.progress, omni=self.omni)
+                                                    do_3D=do_3D, progress=self.progress, omni=self.omni.isChecked())
             except Exception as e:
                 print('NET ERROR: %s'%e)
                 self.progress.setValue(0)

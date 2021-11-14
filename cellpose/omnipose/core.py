@@ -226,7 +226,7 @@ def get_masks(p,bd,dist,mask,inds,nclasses=4,cluster=False,diam_threshold=12.,ve
         else:
             LL = label(skelmask)[0]
         mask[inds[:,0],inds[:,1]] = LL[newinds[:,0],newinds[:,1]]
-        
+    
     return mask
 
 
