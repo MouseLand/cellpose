@@ -725,7 +725,7 @@ def remove_bad_flow_masks(masks, flows, threshold=0.4, use_gpu=False, device=Non
     masks[np.isin(masks, badi)] = 0
     return masks
 
-def get_masks(p, iscell=None, rpad=20, flows=None, threshold=0.4, use_gpu=False, device=None):
+def get_masks(p, iscell=None, rpad=20, flows=None, use_gpu=False, device=None):
     """ create masks using pixel convergence after running dynamics
     
     Makes a histogram of final pixel locations p, initializes masks 
@@ -746,10 +746,6 @@ def get_masks(p, iscell=None, rpad=20, flows=None, threshold=0.4, use_gpu=False,
 
     rpad: int (optional, default 20)
         histogram edge padding
-
-    threshold: float (optional, default 0.4)
-        masks with flow error greater than threshold are discarded 
-        (if flows is not None)
 
     flows: float, 3D or 4D array (optional, default None)
         flows [axis x Ly x Lx] or [axis x Lz x Ly x Lx]. If flows
@@ -886,15 +882,16 @@ def compute_masks(dP, dist, bd=None, p=None, inds=None, niter=200, mask_threshol
             mask = omnipose.core.get_masks(p,bd,dist,mask,inds,nclasses,cluster=cluster,
                                            diam_threshold=diam_threshold,verbose=verbose)
         else:
-            mask = get_masks(p, iscell=mask, flows=dP, threshold=flow_threshold if not do_3D else None, use_gpu=use_gpu)
+            mask = get_masks(p, iscell=mask, flows=dP, use_gpu=use_gpu)
             
-        # quality control factored out 
-        shape0 = p.shape[1:]
-        flows = dP
-        if mask.max()>0 and flow_threshold is not None and flow_threshold > 0 and flows is not None:
-            mask = remove_bad_flow_masks(mask, flows, threshold=flow_threshold, use_gpu=use_gpu, device=device)
-            _,mask = np.unique(mask, return_inverse=True)
-            mask = np.reshape(mask, shape0).astype(np.int32)
+        # flow thresholding factored out of get_masks
+        if not do_3D:
+            shape0 = p.shape[1:]
+            flows = dP
+            if mask.max()>0 and flow_threshold is not None and flow_threshold > 0 and flows is not None:
+                mask = remove_bad_flow_masks(mask, flows, threshold=flow_threshold, use_gpu=use_gpu, device=device)
+                _,mask = np.unique(mask, return_inverse=True)
+                mask = np.reshape(mask, shape0).astype(np.int32)
 
         if resize is not None:
             if verbose:
