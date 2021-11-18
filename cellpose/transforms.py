@@ -509,7 +509,7 @@ def resize_image(img0, Ly=None, Lx=None, rsz=None, interpolation=cv2.INTER_LINEA
     -------------
 
     img0: ND-array
-        image of size [y x x x nchan] or [Lz x y x x x nchan] or [Lz x y x x]
+        image of size [Y x X x nchan] or [Lz x Y x X x nchan] or [Lz x Y x X]
 
     Ly: int, optional
 
@@ -543,6 +543,8 @@ def resize_image(img0, Ly=None, Lx=None, rsz=None, interpolation=cv2.INTER_LINEA
             Ly = int(img0.shape[-3] * rsz[-2])
             Lx = int(img0.shape[-2] * rsz[-1])
     
+    # no_channels useful for z-stacks, sot he third dimension is not treated as a channel
+    # but if this is called for grayscale images, they first become [Ly,Lx,2] so ndim=3 but 
     if (img0.ndim>2 and no_channels) or (img0.ndim==4 and not no_channels):
         if no_channels:
             imgs = np.zeros((img0.shape[0], Ly, Lx), np.float32)

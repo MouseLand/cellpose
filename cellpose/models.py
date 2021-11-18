@@ -97,7 +97,7 @@ class Cellpose():
         if nuclear:
             self.diam_mean = 17. 
         elif bacterial:
-            self.diam_mean = 0.
+            #self.diam_mean = 0.
             net_avg = False # No bacterial or omni models have additional models
         
         if not net_avg:
@@ -376,7 +376,7 @@ class CellposeModel(UnetModel):
             if nuclear:
                 self.diam_mean = 17. 
             elif bacterial:
-                self.diam_mean = 0.
+                #self.diam_mean = 0.
                 net_avg = False #'bact' model also has no 1,2,3
 
             # set omni flag to true if the name contains it
@@ -393,6 +393,7 @@ class CellposeModel(UnetModel):
                 if params is not None:
                     residual_on, style_on, concatenation = params 
                 self.omni = 'omni' in os.path.splitext(Path(pretrained_model_string).name)[0]
+        
         # must have four classes for omnipose models
         # Note that omni can still be used independently for evaluation to 'mix and match'
         #would be better just to read from the model 
