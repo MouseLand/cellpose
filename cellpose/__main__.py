@@ -93,7 +93,7 @@ def main():
     output_args = parser.add_argument_group("output arguments")
     output_args.add_argument('--save_png', action='store_true', help='save masks as png and outlines as text file for ImageJ')
     output_args.add_argument('--save_tif', action='store_true', help='save masks as tif and outlines as text file for ImageJ')
-    output_args.add_argument('--no_npy', action='store_false', help='suppress saving of npy')
+    output_args.add_argument('--no_npy', action='store_true', help='suppress saving of npy')
     output_args.add_argument('--savedir',
                         default=None, type=str, help='folder to which segmentation results will be saved (defaults to input image directory)')
     output_args.add_argument('--dir_above', action='store_true', help='save output folders adjacent to image folder instead of inside it (off by default)')
