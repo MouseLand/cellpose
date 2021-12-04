@@ -4,7 +4,6 @@ import numpy as np
 from tqdm import trange, tqdm
 from urllib.parse import urlparse
 import tempfile
-from scipy.ndimage import median_filter
 import cv2
 from . import transforms, dynamics, utils, plot, metrics
 
@@ -35,8 +34,7 @@ core_logger = logging.getLogger(__name__)
 core_logger.setLevel(logging.DEBUG)
 tqdm_out = utils.TqdmToLogger(core_logger, level=logging.INFO)
 
-# no longer returns nclasses, as it was hard-coded; now it is specified by the user
-# (maybe it should be incorportated into the model name in a future version)
+# nclasses now specified by user or by model type in models.py
 def parse_model_string(pretrained_model):
     if isinstance(pretrained_model, list):
         model_str = os.path.split(pretrained_model[0])[-1]
@@ -130,7 +128,12 @@ class UnetModel():
         if device is None:
             sdevice, gpu = assign_device(torch, gpu)
         self.device = device if device is not None else sdevice
-        self.gpu = gpu if device is None else (self.device.type=='cuda')
+        if device is not None:
+            if torch:
+                device_gpu = self.device.type=='cuda'
+            else:
+                device_gpu = self.device.device_type=='gpu'
+        self.gpu = gpu if device is None else device_gpu
         if torch and not self.gpu:
             self.mkldnn = check_mkl(self.torch)
         self.pretrained_model = pretrained_model
@@ -316,7 +319,7 @@ class UnetModel():
 
         if nolist:
             masks, flows, styles = masks[0], flows[0], styles[0]
-
+        
         return masks, flows, styles
 
     def _to_device(self, x):
@@ -482,9 +485,10 @@ class UnetModel():
 
         # slice out padding
         y = y[slc]
-
         # transpose so channels axis is last again
         y = np.transpose(y, detranspose)
+        
+        torch.cuda.empty_cache() #release cuda memory
         return y, style
     
     def _run_tiled(self, imgi, augment=False, bsize=224, tile_overlap=0.1, return_conv=False):
@@ -791,14 +795,18 @@ class UnetModel():
             test_loss = nd.sum(loss).asnumpy()
         return test_loss
 
-    def _set_optimizer(self, learning_rate, momentum, weight_decay):
+    def _set_optimizer(self, learning_rate, momentum, weight_decay, SGD=False):
         if self.torch:
         # best optimizer I tested seemed to be RAdam, about 2x as fast as SGD and very stable.
         # Ranger21 is in beta and might be better/faster, but more testing is needed.
         # Ranger21 has a convenient current_lr field, whereas RAdam doesn't and I just set this field to the learning rate
-            self.optimizer = optim.RAdam(self.net.parameters(), lr=learning_rate, betas=(0.95, 0.999), #changed to .95
-                                         eps=1e-08, weight_decay=weight_decay)
-            core_logger.info('>>> Using RAdam optimizer')
+            if SGD:
+                self.optimizer = torch.optim.SGD(self.net.parameters(), lr=learning_rate,
+                                            momentum=momentum, weight_decay=weight_decay)
+            else:
+                self.optimizer = optim.RAdam(self.net.parameters(), lr=learning_rate, betas=(0.95, 0.999), #changed to .95
+                                            eps=1e-08, weight_decay=weight_decay)
+                core_logger.info('>>> Using RAdam optimizer')
 #             self.optimizer = optim.AdaBound(self.net.parameters(), lr=learning_rate, betas=(0.9, 0.999), 
 #                                 gamma=1e-3, eps=1e-08, final_lr=0.15, weight_decay=weight_decay)
 #             print('>>> Using AdaBound optimizer')
@@ -809,6 +817,13 @@ class UnetModel():
         else:
             self.optimizer = gluon.Trainer(self.net.collect_params(), 'sgd',{'learning_rate': learning_rate,
                                 'momentum': momentum, 'wd': weight_decay})
+
+    def _set_learning_rate(self, lr):
+        if self.torch:
+            for param_group in self.optimizer.param_groups:
+                param_group['lr'] = lr
+        else:
+            self.optimizer.set_learning_rate(lr)
 
     def _set_criterion(self):
         if self.unet:
@@ -830,38 +845,38 @@ class UnetModel():
                 self.criterion  = gluon.loss.L2Loss()
                 self.criterion2 = gluon.loss.SigmoidBinaryCrossEntropyLoss()
 
-    # Restored defaults. Need to make sure rescale is properly turned off and skel turned on when using CLI. 
+    # Restored defaults. Need to make sure rescale is properly turned off and omni turned on when using CLI. 
     def _train_net(self, train_data, train_labels, 
               test_data=None, test_labels=None,
               pretrained_model=None, save_path=None, save_every=100, save_each=False,
               learning_rate=0.2, n_epochs=500, momentum=0.9, weight_decay=0.00001, 
-              batch_size=8, rescale=True, netstr='cellpose'): 
+              SGD=False, batch_size=8, rescale=True, netstr='cellpose'): 
         """ train function uses loss function self.loss_fn in models.py"""
         
         d = datetime.datetime.now()
         self.learning_rate = learning_rate
         self.n_epochs = n_epochs
         self.batch_size = batch_size
-        self._set_optimizer(self.learning_rate, momentum, weight_decay)
+        self._set_optimizer(self.learning_rate, momentum, weight_decay, SGD)
         self._set_criterion()
         
         nimg = len(train_data)
 
         # compute average cell diameter
         if rescale:
-            diam_train = np.array([utils.diameters(train_labels[k][0],skel=self.skel)[0] for k in range(len(train_labels))])
+            diam_train = np.array([utils.diameters(train_labels[k][0],omni=self.omni)[0] for k in range(len(train_labels))])
             diam_train[diam_train<5] = 5.
             if test_data is not None:
-                diam_test = np.array([utils.diameters(test_labels[k][0],skel=self.skel)[0] for k in range(len(test_labels))])
+                diam_test = np.array([utils.diameters(test_labels[k][0],omni=self.omni)[0] for k in range(len(test_labels))])
                 diam_test[diam_test<5] = 5.
             scale_range = 0.5
+            core_logger.info('>>>> median diameter set to = %d'%self.diam_mean)
         else:
             scale_range = 1.0
 
         nchan = train_data[0].shape[0]
         core_logger.info('>>>> training network with %d channel input <<<<'%nchan)
         core_logger.info('>>>> saving every %d epochs'%save_every)
-        core_logger.info('>>>> median diameter = %d'%self.diam_mean)
         core_logger.info('>>>> LR: %0.5f, batch_size: %d, weight_decay: %0.5f'%(self.learning_rate, self.batch_size, weight_decay))
         core_logger.info('>>>> ntrain = %d'%nimg)
         core_logger.info('>>>> rescale is %d'%rescale)
@@ -870,6 +885,17 @@ class UnetModel():
         core_logger.info(train_data[0].shape)
         
         tic = time.time()
+
+        # set learning rate schedule    
+        if SGD:
+            LR = np.linspace(0, self.learning_rate, 10)
+            if self.n_epochs > 250:
+                LR = np.append(LR, self.learning_rate*np.ones(self.n_epochs-100))
+                for i in range(10):
+                    LR = np.append(LR, LR[-1]/2 * np.ones(10))
+            else:
+                LR = np.append(LR, self.learning_rate*np.ones(max(0,self.n_epochs-10)))
+        
 
         lavg, nsum = 0, 0
 
@@ -889,8 +915,11 @@ class UnetModel():
         self.net.mkldnn = False
 
         for iepoch in range(self.n_epochs):
+                
             np.random.seed(iepoch)
             rperm = np.random.permutation(nimg)
+            if SGD:
+                self._set_learning_rate(LR[iepoch])
             
             for ibatch in range(0,nimg,batch_size):
                 inds = rperm[ibatch:ibatch+batch_size]
@@ -898,7 +927,7 @@ class UnetModel():
                 # now passing in the full train array, need the labels for distance field
                 imgi, lbl, scale = transforms.random_rotate_and_resize(
                                         [train_data[i] for i in inds], Y=[train_labels[i] for i in inds],
-                                        rescale=rsc, scale_range=scale_range, unet=self.unet, inds=inds, skel=self.skel)
+                                        rescale=rsc, scale_range=scale_range, unet=self.unet, inds=inds, omni=self.omni)
 
                 if self.unet and lbl.shape[1]>1 and rescale:
                     lbl[:,1] /= diam_batch[:,np.newaxis,np.newaxis]**2
@@ -917,7 +946,7 @@ class UnetModel():
                         rsc = diam_test[inds] / self.diam_mean if rescale else np.ones(len(inds), np.float32)
                         imgi, lbl, scale = transforms.random_rotate_and_resize(
                                             [test_data[i] for i in inds], Y=[test_labels[i] for i in inds], 
-                                            scale_range=0., rescale=rsc, unet=self.unet, inds=inds, skel=self.skel) 
+                                            scale_range=0., rescale=rsc, unet=self.unet, inds=inds, omni=self.omni) 
                         if self.unet and lbl.shape[1]>1 and rescale:
                             lbl[:,1] *= scale[0]**2
 
