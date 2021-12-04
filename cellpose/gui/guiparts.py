@@ -583,7 +583,8 @@ class RangeSlider(QSlider):
     def level_change(self):
         if self.parent is not None:
             if self.parent.loaded:
-                self.parent.ops_plot['saturation'] = [self._low, self._high]
+                self.parent.ops_plot = {'saturation': [self._low, self._high]}
+                self.parent.saturation[self.parent.currentZ] = [self._low, self._high]
                 self.parent.update_plot()
 
     def low(self):

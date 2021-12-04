@@ -52,6 +52,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
+          pip install dask dask_image scikit-learn
           pip install wheel setuptools tox tox-gh-actions
       # this runs the platform-specific tests declared in tox.ini
       - name: Test with tox

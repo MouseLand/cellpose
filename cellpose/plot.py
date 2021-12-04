@@ -3,31 +3,63 @@ import numpy as np
 import cv2
 from scipy.ndimage import gaussian_filter
 import scipy
-import matplotlib
-from skimage import color
-from skimage.segmentation import find_boundaries
+
+try:
+    import matplotlib
+    MATPLOTLIB_ENABLED = True 
+except:
+    MATPLOTLIB_ENABLED = False
+
+
+try:
+    from skimage import color
+    from skimage.segmentation import find_boundaries
+    SKIMAGE_ENABLED = True 
+except:
+    SKIMAGE_ENABLED = False
 
 
 from . import utils, io, transforms
+from .omnipose.utils import ncolorlabel, sinebow
 
 # modified to use sinebow color
-def dx_to_circ(dP,transparency=False):
-    """ dP is 2 x Y x X => 'optic' flow representation """
+def dx_to_circ(dP,transparency=False,mask=None):
+    """ dP is 2 x Y x X => 'optic' flow representation 
+    
+    Parameters
+    -------------
+    
+    dP: 2xLyxLx array
+        Flow field components [dy,dx]
+        
+    transparency: bool, default False
+        magnitude of flow controls opacity, not lightness (clear background)
+        
+    mask: 2D array 
+        Multiplies each RGB component to suppress noise
+    
+    """
+    
     dP = np.array(dP)
-    mag = transforms.normalize99(np.sqrt(np.sum(dP**2,axis=0)),skel=1)
+    mag = transforms.normalize99(np.sqrt(np.sum(dP**2,axis=0)),omni=1)
     angles = np.arctan2(dP[1], dP[0])+np.pi
     a = 2
     r = ((np.cos(angles)+1)/a)
     g = ((np.cos(angles+2*np.pi/3)+1)/a)
     b =((np.cos(angles+4*np.pi/3)+1)/a)
+    
     if transparency:
         im = np.stack((r,g,b,mag),axis=-1)
     else:
         im = np.stack((r*mag,g*mag,b*mag),axis=-1)
+        
+    if mask is not None and transparency and dP.shape[0]<3:
+        im[:,:,-1] *= mask
+        
     return im
 
 
-def show_segmentation(fig, img, maski, flowi, channels=[0,0], file_name=None, skel=False, seg_norm=False):
+def show_segmentation(fig, img, maski, flowi, channels=[0,0], file_name=None, omni=False, seg_norm=False, bg_color=None):
     """ plot segmentation results (like on website)
     
     Can save each panel of figure with file_name option. Use channels option if
@@ -53,15 +85,27 @@ def show_segmentation(fig, img, maski, flowi, channels=[0,0], file_name=None, sk
 
     file_name: str (optional, default None)
         file name of image, if file_name is not None, figure panels are saved
+        
+    omni: bool (optional, default False)
+        use omni version of normalize99, image_to_rgb
+        
+    seg_norm: bool (optional, default False)
+        improve cell visibility under labels
+        
+    bg_color: float (Optional, default none)
+        background color to draw behind flow (visible if flow transparency is on)
+        
 
     """
+    if not MATPLOTLIB_ENABLED:
+        raise ImportError("matplotlib not installed, install with 'pip install matplotlib'")
     ax = fig.add_subplot(1,4,1)
     img0 = img.copy()
 
     if img0.shape[0] < 4:
         img0 = np.transpose(img0, (1,2,0))
     if img0.shape[-1] < 3 or img0.ndim < 3:
-        img0 = image_to_rgb(img0, channels=channels, skel=skel)
+        img0 = image_to_rgb(img0, channels=channels, omni=omni)
     else:
         if img0.max()<=50.0:
             img0 = np.uint8(np.clip(img0*255, 0, 1))
@@ -70,22 +114,25 @@ def show_segmentation(fig, img, maski, flowi, channels=[0,0], file_name=None, sk
     ax.axis('off')
 
     outlines = utils.masks_to_outlines(maski)
-    c = utils.sinebow(5)
+    c = sinebow(5)
     colors = np.array(list(c.values()))[1:] 
     
     # Image normalization to improve cell visibility under labels
     if seg_norm:
         fg = 1/9
-        p = transforms.normalize99(img0,skel=skel)
+        p = transforms.normalize99(img0,omni=omni)
         img1 = p**(np.log(fg)/np.log(np.mean(p[maski>0])))
     else:
         img1 = img0
     
     # the mask_overlay function changes colors (preserves only hue I think). The label2rgb function from
     # skimage.color works really well. 
-    overlay = color.label2rgb(utils.ncolorlabel(maski),img1,colors,bg_label=0,alpha=1/3)
-    overlay = np.uint8(np.clip(overlay, 0, 1)*255)
-    overlay[maski==0] = img1[maski==0] #restore original level to background regions
+    if SKIMAGE_ENABLED:
+        overlay = color.label2rgb(ncolorlabel(maski),img1,colors,bg_label=0,alpha=1/3)
+        overlay = np.uint8(np.clip(overlay, 0, 1)*255)
+        overlay[maski==0] = img1[maski==0] #restore original level to background regions
+    else:
+        overlay = mask_overlay(img0, maski)
 
     ax = fig.add_subplot(1,4,2)
     outX, outY = np.nonzero(outlines)
@@ -102,6 +149,9 @@ def show_segmentation(fig, img, maski, flowi, channels=[0,0], file_name=None, sk
     ax.axis('off')
 
     ax = fig.add_subplot(1,4,4)
+    if bg_color is not None:
+        ax.imshow(np.ones_like(flowi)*bg_color)
+    
     ax.imshow(flowi)
     ax.set_title('predicted cell pose')
     ax.axis('off')
@@ -150,7 +200,7 @@ def mask_rgb(masks, colors=None):
     RGB = (utils.hsv_to_rgb(HSV) * 255).astype(np.uint8)
     return RGB
 
-def mask_overlay(img, masks, colors=None, skel=False):
+def mask_overlay(img, masks, colors=None, omni=False):
     """ overlay masks on image (set image to grayscale)
 
     Parameters
@@ -185,18 +235,18 @@ def mask_overlay(img, masks, colors=None, skel=False):
     
     HSV = np.zeros((img.shape[0], img.shape[1], 3), np.float32)
     HSV[:,:,2] = img
-    hues = np.linspace(0,1,5)
+    hues = np.linspace(0, 1, masks.max()+1)
     for n in range(int(masks.max())):
         ipix = (masks==n+1).nonzero()
         if colors is None:
-            HSV[ipix[0],ipix[1],0] = hues[n+1]
+            HSV[ipix[0],ipix[1],0] = hues[n]
         else:
             HSV[ipix[0],ipix[1],0] = colors[n,0]
         HSV[ipix[0],ipix[1],1] = 1.0
     RGB = (utils.hsv_to_rgb(HSV) * 255).astype(np.uint8)
     return RGB
 
-def image_to_rgb(img0, channels=[0,0], skel=False):
+def image_to_rgb(img0, channels=[0,0], omni=False):
     """ image is 2 x Ly x Lx or Ly x Lx x 2 - change to RGB Ly x Lx x 3 """
     img = img0.copy()
     img = img.astype(np.float32)
@@ -208,7 +258,7 @@ def image_to_rgb(img0, channels=[0,0], skel=False):
         img = img.mean(axis=-1)[:,:,np.newaxis]
     for i in range(img.shape[-1]):
         if np.ptp(img[:,:,i])>0:
-            img[:,:,i] = transforms.normalize99(img[:,:,i],skel=skel)
+            img[:,:,i] = transforms.normalize99(img[:,:,i],omni=omni)
             img[:,:,i] = np.clip(img[:,:,i], 0, 1)
     img *= 255
     img = np.uint8(img)
@@ -251,7 +301,10 @@ def outline_view(img0,maski,color=[1,0,0], mode='inner'):
 #         img0 = image_to_rgb(img0) broken, transposing some images...
         img0 = np.stack([img0]*3,axis=-1)
     
-    outlines = find_boundaries(maski,mode=mode) #not using masks_to_outlines as that gives border 'outlines'
+    if SKIMAGE_ENABLED:
+        outlines = find_boundaries(maski,mode=mode) #not using masks_to_outlines as that gives border 'outlines'
+    else:
+        outlines = utils.masks_to_outlines(maski,mode=mode) #not using masks_to_outlines as that gives border 'outlines'
     outY, outX = np.nonzero(outlines)
     imgout = img0.copy()
 #     imgout[outY, outX] = np.array([255,0,0]) #pure red
