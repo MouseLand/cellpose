@@ -70,14 +70,15 @@ def _use_gpu_mxnet(gpu_number=0):
         return False
 
 def _use_gpu_torch(gpu_number=0):
-    try:
+    if not torch.cuda.is_available():
+        core_logger.info('** TORCH CUDA version not installed/working. **')
+        return False
+    else:
+        assert gpu_number < torch.cuda.device_count()
         device = torch.device('cuda:' + str(gpu_number))
         _ = torch.zeros([1, 2, 3]).to(device)
         core_logger.info('** TORCH CUDA version installed and working. **')
         return True
-    except:
-        core_logger.info('TORCH CUDA version not installed/working.')
-        return False
 
 def assign_device(istorch, gpu):
     if gpu and use_gpu(istorch=istorch):
