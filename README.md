@@ -221,6 +221,10 @@ You can check if cellpose is running the MKL version (if you are using the CPU n
 
 See the [docs](http://cellpose.readthedocs.io/en/latest/outputs.html) for info.
 
+## Testing
+
+cellpose provides a [tox](https://tox.wiki/en/latest/index.html) config file for testing. For GPU-dependent tests you additionally need to install [tox-conda](https://github.com/tox-dev/tox-conda).
+
 ## Dependencies
 cellpose relies on the following excellent packages (which are automatically installed with conda/pip if missing):
 - [mxnet_mkl](https://mxnet.apache.org/)

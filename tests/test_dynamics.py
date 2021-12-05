@@ -18,7 +18,7 @@ EMPTY = np.zeros_like(BLOBS, dtype=int)
 def test_masks_to_flows__gpu(masks):
     dists = edt.edt(masks)
 
-    masks_to_flows(masks, dists, use_gpu=use_gpu)
+    masks_to_flows(masks, dists, use_gpu=True)
 
     return
 

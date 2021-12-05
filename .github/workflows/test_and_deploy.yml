@@ -59,6 +59,7 @@ jobs:
         run: tox
         env:
           PLATFORM: ${{ matrix.platform }}
+          DEVICE: cpu
 
       - name: Coverage
         uses: codecov/codecov-action@v1
