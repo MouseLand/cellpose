@@ -202,10 +202,7 @@ def masks_to_flows_gpu(masks, dists, device=None, omni=False):
     else:
         slices = scipy.ndimage.find_objects(masks)
         ext = np.array([[sr.stop - sr.start + 1, sc.stop - sc.start + 1] for sr, sc in slices])
-        if len(ext) > 0:
-            n_iter = 2 * (ext.sum(axis=1)).max()
-        else:
-            n_iter = 0
+        n_iter = 2 * (ext.sum(axis=1)).max()
    
     # run diffusion 
     mu, T = _extend_centers_gpu(neighbors, centers, isneighbor, Ly, Lx,
@@ -339,7 +336,13 @@ def masks_to_flows(masks, dists=None, use_gpu=False, device=None, omni=False):
         in which it resides 
 
     """
-   
+    if np.max(masks) == 0:
+        masks_shape = masks.shape
+        dists = np.zeros(masks_shape, dtype=np.float32)
+        T = np.zeros(masks_shape, dtype=np.float64)
+        mu = np.zeros((2,) + masks_shape, dtype=np.float32)
+        return masks, dists, T, mu
+
     if dists is None:
         masks = omnipose.utils.format_labels(masks)
         dists = edt.edt(masks)
