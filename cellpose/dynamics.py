@@ -323,17 +323,21 @@ def masks_to_flows(masks, dists=None, use_gpu=False, device=None, omni=False):
 
     masks: int, 2D or 3D array
         labelled masks 0=NO masks; 1,2,...=mask labels
+    dists: float, 2D or 3D array (optional, default None)
+        precalculated multi-label distance transfromation of masks
 
     Returns
     -------------
-
+    masks: int, 2D or 3D array
+        labelled masks
+    dists: float, 2D or 3D array
+        multi-label distance transformation of masks
+    T: float64, 2D or 3D array
+        for each pixel, the distance to the center of the mask 
+        in which it resides 
     mu: float, 3D or 4D array 
         flows in Y = mu[-2], flows in X = mu[-1].
         if masks are 3D, flows in Z = mu[0].
-
-    mu_c: float, 2D or 3D array
-        for each pixel, the distance to the center of the mask 
-        in which it resides 
 
     """
     if np.max(masks) == 0:
