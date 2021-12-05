@@ -101,7 +101,7 @@ def _extend_centers_gpu(neighbors, centers, isneighbor, Ly, Lx, n_iter=200, devi
     nimg = neighbors.shape[0] // 9
     pt = torch.from_numpy(neighbors).to(device)
     T = torch.zeros((nimg,Ly,Lx), dtype=torch.double, device=device)
-    meds = torch.from_numpy(centers.astype(int)).to(device)
+    meds = torch.from_numpy(centers.astype(np.int64)).to(device)
     isneigh = torch.from_numpy(isneighbor).to(device)
 
     for t in range(n_iter):
