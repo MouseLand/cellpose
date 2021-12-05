@@ -6,7 +6,7 @@ from cellpose.dynamics import *
 
 NO_GPU_AVAILABLE = not use_gpu()
 
-## mask_to_flows_gpu
+
 @pytest.mark.skipif(NO_GPU_AVAILABLE, reason='Requires GPU support')
 def test_masks_to_flows_gpu__blobs():
     masks = np.array([[ True, False,  True,  True,  True],
@@ -17,7 +17,6 @@ def test_masks_to_flows_gpu__blobs():
     dists = edt.edt(masks)
 
     masks_to_flows_gpu(masks, dists)
-
     return
 
 
@@ -27,8 +26,8 @@ def test_masks_to_flows_gpu__empty():
     dists = edt.edt(masks) 
 
     masks_to_flows_gpu(masks, dists)
-
     return
+
 
 def test_labels_to_flows__empty():
     label_shape = (16, 16)
@@ -40,5 +39,4 @@ def test_labels_to_flows__empty():
     
     assert all([flow.shape == flow_shape for flow in flows])
     assert all([np.all(flow == 0) for flow in flows])
-
     return
