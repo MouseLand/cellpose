@@ -9,8 +9,11 @@ NO_GPU_AVAILABLE = not use_gpu()
 ## mask_to_flows_gpu
 @pytest.mark.skipif(NO_GPU_AVAILABLE, reason='Requires GPU support')
 def test_masks_to_flows_gpu__blobs():
-    from skimage import data
-    masks = data.binary_blobs(length=5, blob_size_fraction=0.2) 
+    masks = np.array([[ True, False,  True,  True,  True],
+                      [ True,  True,  True, False,  True],
+                      [False,  True, False,  True,  True],
+                      [ True, False, False,  True,  True],
+                      [ True, False, False, False,  True]])
     dists = edt.edt(masks)
 
     masks_to_flows_gpu(masks, dists)
