@@ -6,26 +6,29 @@ from cellpose.dynamics import *
 
 NO_GPU_AVAILABLE = not use_gpu()
 
+BLOBS = np.array([[ 1, 0, 1, 1, 1],
+                  [ 1, 1, 1, 0, 1],
+                  [ 0, 1, 0, 1, 1],
+                  [ 1, 0, 0, 1, 1],
+                  [ 1, 0, 0, 0, 1]])
+EMPTY = np.zeros_like(BLOBS, dtype=int)
 
 @pytest.mark.skipif(NO_GPU_AVAILABLE, reason='Requires GPU support')
-def test_masks_to_flows_gpu__blobs():
-    masks = np.array([[ True, False,  True,  True,  True],
-                      [ True,  True,  True, False,  True],
-                      [False,  True, False,  True,  True],
-                      [ True, False, False,  True,  True],
-                      [ True, False, False, False,  True]])
+@pytest.mark.parametrize('masks', [BLOBS, EMPTY])
+def test_masks_to_flows__gpu(masks):
     dists = edt.edt(masks)
 
-    masks_to_flows_gpu(masks, dists)
+    masks_to_flows(masks, dists, use_gpu=use_gpu)
+
     return
 
 
-@pytest.mark.skipif(NO_GPU_AVAILABLE, reason='Requires GPU support')
-def test_masks_to_flows_gpu__empty():
-    masks = np.zeros((16, 16), dtype=int)
+@pytest.mark.parametrize("masks", [BLOBS, EMPTY])
+def test_masks_to_flows__non_gpu(masks):
     dists = edt.edt(masks) 
 
-    masks_to_flows_gpu(masks, dists)
+    masks_to_flows(masks, dists, use_gpu=False)
+
     return
 
 
