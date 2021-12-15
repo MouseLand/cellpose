@@ -5,7 +5,7 @@ install_deps = ['numpy', 'scipy', 'natsort',
                 'tifffile', 'tqdm', 'numba', 
                 'torch>=1.6',
                 'opencv-python-headless',
-                'dask', 'dask[array]', 'dask[delayed]',
+                'dask', 'dask[array]', 'dask[delayed]', 'dask-image',
                 'ClusterWrap']
 
 try:

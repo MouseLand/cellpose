@@ -18,6 +18,7 @@ dependencies:
     - dask
     - dask[array]
     - dask[delayed]
+    - dask-image
     - ClusterWrap
     
   
