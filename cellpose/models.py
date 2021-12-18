@@ -716,8 +716,9 @@ class CellposeModel(UnetModel):
                                                       resize=None, omni=omni, calc_trace=calc_trace, verbose=verbose,
                                                       use_gpu=self.gpu, device=self.device, nclasses=self.nclasses)
             else:
-                masks = np.zeros((nimg, shape[1], shape[2]), np.uint16)
-                p = np.zeros(dP.shape, np.uint16)
+                masks = np.zeros((nimg, shape[1], shape[2]), np.uint32)
+                p = np.zeros(dP.shape, np.uint32)
+                nlabel = 0
 
                 tr = [[]]*nimg # trace may not work correctly with multiple images currently, still need to test it 
                 resize = [shape[1], shape[2]] if not resample else None
@@ -734,7 +735,18 @@ class CellposeModel(UnetModel):
                                                                      use_gpu=self.gpu, 
                                                                      device=self.device, 
                                                                      nclasses=self.nclasses)
-            
+                    if masks[i].max() > nlabel:
+                        nlabel = masks[i].max()
+
+                if nlabel < 2**8:
+                    dtype = np.uint8
+                elif nlabel < 2**16:
+                    dtype = np.uint16
+                else:
+                    dtype = np.uint32
+                masks = masks.astype(dtype)
+                p = p.astype(dtype)
+
                 if stitch_threshold > 0 and nimg > 1:
                     models_logger.info(f'stitching {nimg} planes using stitch_threshold={stitch_threshold:0.3f} to make 3D masks')
                     masks = utils.stitch3D(masks, stitch_threshold=stitch_threshold)
