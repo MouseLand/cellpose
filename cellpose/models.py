@@ -718,7 +718,6 @@ class CellposeModel(UnetModel):
             else:
                 masks = np.zeros((nimg, shape[1], shape[2]), np.uint32)
                 p = np.zeros(dP.shape, np.uint32)
-                nlabel = 0
 
                 tr = [[]]*nimg # trace may not work correctly with multiple images currently, still need to test it 
                 resize = [shape[1], shape[2]] if not resample else None
@@ -735,12 +734,10 @@ class CellposeModel(UnetModel):
                                                                      use_gpu=self.gpu, 
                                                                      device=self.device, 
                                                                      nclasses=self.nclasses)
-                    if masks[i].max() > nlabel:
-                        nlabel = masks[i].max()
 
-                if nlabel < 2**8:
+                if masks.max() < 2**8:
                     dtype = np.uint8
-                elif nlabel < 2**16:
+                elif masks.max() < 2**16:
                     dtype = np.uint16
                 else:
                     dtype = np.uint32
