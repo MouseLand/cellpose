@@ -6,6 +6,8 @@ from glob import glob
 
 os.environ["KMP_DUPLICATE_LIB_OK"]="TRUE"
 
+
+
 def test_class_train(data_dir):
     train_dir = str(data_dir.joinpath('2D').joinpath('train'))
     model_dir = str(data_dir.joinpath('2D').joinpath('train').joinpath('models'))
@@ -19,10 +21,14 @@ def test_class_train(data_dir):
     print('>>>> model trained and saved to %s'%cpmodel_path)
         
 def test_cli_train(data_dir):
+    # import sys
+    # path_root = Path(__file__).parents[1]
+    # sys.path.append(str(path_root))
+    # print(Path(__file__).parents[0],Path(__file__).parents[1],Path(__file__).parents[2])
     train_dir = str(data_dir.joinpath('2D').joinpath('train'))
     model_dir = str(data_dir.joinpath('2D').joinpath('train').joinpath('models'))
     shutil.rmtree(model_dir, ignore_errors=True)
-    cmd = 'python -m cellpose --train --train_size --n_epochs 10 --dir %s --mask_filter _cyto_masks --pretrained_model None --chan 2 --chan2 1 --diameter 17'%train_dir
+    cmd = 'python -m cellpose --train --train_size --n_epochs 10 --dir %s --mask_filter _cyto_masks --pretrained_model None --chan 2 --chan2 1 --diameter 40'%train_dir
     try:
         cmd_stdout = check_output(cmd, stderr=STDOUT, shell=True).decode()
     except Exception as e:
@@ -36,7 +42,7 @@ def test_cli_train(data_dir):
     print(pretrained_models)
     pretrained_model = [pmodel for pmodel in pretrained_models if pmodel[-9:]!='_size.npy'][0]
     print(pretrained_model)
-    cmd = 'python -m cellpose --dir %s --pretrained_model %s --chan 2 --chan2 1 --diameter 17'%(train_dir, pretrained_model)
+    cmd = 'python -m cellpose --testing --dir %s --pretrained_model %s --chan 2 --chan2 1 --diameter 40'%(train_dir, pretrained_model)
     try:
         cmd_stdout = check_output(cmd, stderr=STDOUT, shell=True).decode()
     except Exception as e:
