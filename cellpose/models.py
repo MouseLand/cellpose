@@ -716,9 +716,8 @@ class CellposeModel(UnetModel):
                                                       resize=None, omni=omni, calc_trace=calc_trace, verbose=verbose,
                                                       use_gpu=self.gpu, device=self.device, nclasses=self.nclasses)
             else:
-                p = np.zeros(dP.shape, np.uint32)
                 masks = np.zeros((nimg, shape[1], shape[2]), np.uint32)
-                p = np.zeros(dP.shape, np.uint16)
+                p = np.zeros(dP.shape, np.uint32)
 
                 tr = [[]]*nimg # trace may not work correctly with multiple images currently, still need to test it 
                 resize = [shape[1], shape[2]] if not resample else None
