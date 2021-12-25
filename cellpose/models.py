@@ -839,7 +839,7 @@ class CellposeModel(UnetModel):
         # check if train_labels have flows
         train_flows = dynamics.labels_to_flows(train_labels, files=train_files, use_gpu=self.gpu, device=self.device, omni=omni)
         if run_test:
-            test_flows = dynamics.labels_to_flows(test_labels, files=test_files, omni=omni)
+            test_flows = dynamics.labels_to_flows(test_labels, files=test_files, use_gpu=self.gpu, device=self.device, omni=omni)
         else:
             test_flows = None
         
