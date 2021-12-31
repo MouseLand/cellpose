@@ -7,6 +7,7 @@ import logging
 
 from .. import utils, plot, transforms
 from ..io import imread, imsave, outlines_to_text
+from ..omnipose.utils import ncolorlabel
 
 try:
     from PyQt5.QtWidgets import QFileDialog
@@ -20,6 +21,10 @@ try:
 except:
     MATPLOTLIB = False
 
+NCOLOR = False 
+# WIP to make GUI use N-color masks. Tricky thing is that only the display should be 
+# reduced to N colors; selection and editing should act on unique labels. 
+    
 def _load_image(parent, filename=None):
     """ load image with filename; if None, open QFileDialog """
     if filename is None:
@@ -38,7 +43,6 @@ def _load_image(parent, filename=None):
         return
     try:
         image = imread(filename)
-        image.shape
         parent.loaded = True
     except:
         print('images not compatible')
@@ -81,9 +85,7 @@ def _initialize_images(parent, image, resize, X2):
 
         if image.shape[-1] < 3:
             shape = image.shape
-            image = np.concatenate((image,
-                                       np.zeros((shape[0], shape[1], 3-shape[2]),
-                                        dtype=type(image[0,0,0]))), axis=-1)
+            image = np.concatenate((image,np.zeros((shape[0], shape[1], 3-shape[2]),dtype=type(image[0,0,0]))), axis=-1)
             if 3-shape[2]>1:
                 parent.onechan=True
             image = image[np.newaxis,...]
@@ -92,7 +94,7 @@ def _initialize_images(parent, image, resize, X2):
             image = image[np.newaxis,...]
     else:
         image = image[np.newaxis,...]
-
+    
     parent.stack = image
     parent.NZ = len(parent.stack)
     parent.scroll.setMaximum(parent.NZ-1)
@@ -115,7 +117,7 @@ def _initialize_images(parent, image, resize, X2):
         if X2!=0:
             img = transforms._X2zoom(img, X2=X2)
         parent.stack[k] = img
-
+    
     parent.imask=0
     print(parent.NZ, parent.stack[0].shape)
     parent.Ly, parent.Lx = img.shape[0], img.shape[1]
@@ -238,7 +240,7 @@ def _load_seg(parent, filename=None, image=None, image_file=None):
     else:
         parent.clear_all()
 
-    parent.ismanual = np.zeros(parent.ncells, np.bool)
+    parent.ismanual = np.zeros(parent.ncells, bool)
     if 'ismanual' in dat:
         if len(dat['ismanual']) == parent.ncells:
             parent.ismanual = dat['ismanual']
@@ -310,13 +312,17 @@ def _masks_to_gui(parent, masks, outlines=None):
     """ masks loaded into GUI """
     # get unique values
     shape = masks.shape
-    _, masks = np.unique(masks, return_inverse=True)
-    masks = np.reshape(masks, shape)
-    masks = masks.astype(np.uint16) if masks.max()<2**16-1 else masks.astype(np.uint32)
+    
+    if NCOLOR:
+        masks = ncolorlabel(masks) 
+    else:
+        _, masks = np.unique(masks, return_inverse=True)
+        masks = np.reshape(masks, shape)
+        masks = masks.astype(np.uint16) if masks.max()<2**16-1 else masks.astype(np.uint32)
     parent.cellpix = masks
 
     # get outlines
-    if outlines is None:
+    if outlines is None: # parent.outlinesOn
         parent.outpix = np.zeros_like(masks)
         for z in range(parent.NZ):
             outlines = utils.masks_to_outlines(masks[z])
@@ -330,12 +336,19 @@ def _masks_to_gui(parent, masks, outlines=None):
         parent.outpix = np.reshape(parent.outpix, shape)
 
     parent.ncells = parent.cellpix.max()
-    colors = parent.colormap[np.random.randint(0,1000,size=parent.ncells), :3]
+    np.random.seed(42) #try to make a bit more stable 
+    
+    if NCOLOR:
+        colors = parent.colormap[np.linspace(0,255,parent.ncells).astype(int), :3]
+    else:
+        colors = parent.colormap[np.random.randint(0,1000,size=parent.ncells), :3]
+
     parent.cellcolors = list(np.concatenate((np.array([[255,255,255]]), colors), axis=0).astype(np.uint8))
     parent.draw_masks()
+    parent.redraw_masks(masks=parent.masksOn, outlines=parent.outlinesOn) # add to obey outline/mask setting upon recomputing 
     if parent.ncells>0:
         parent.toggle_mask_ops()
-    parent.ismanual = np.zeros(parent.ncells, np.bool)
+    parent.ismanual = np.zeros(parent.ncells, bool)
     parent.zdraw = list(-1*np.ones(parent.ncells, np.int16))
     parent.update_plot()
 

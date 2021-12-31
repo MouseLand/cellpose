@@ -1,10 +1,13 @@
 import numpy as np
 import warnings
 import cv2
+import edt
+import fastremap
 
 import logging
 transforms_logger = logging.getLogger(__name__)
 
+from . import dynamics, utils, omnipose
 
 def _taper_mask(ly=224, lx=224, sig=7.5):
     bsize = max(224, max(ly, lx))
@@ -183,13 +186,19 @@ def make_tiles(imgi, bsize=224, augment=False, tile_overlap=0.1):
         
     return IMG, ysub, xsub, Ly, Lx
 
-def normalize99(img):
-    """ normalize image so 0.0 is 1st percentile and 1.0 is 99th percentile """
-    X = img.copy()
-    x01 = np.percentile(X, 1)
-    x99 = np.percentile(X, 99)
-    X = (X - x01) / (x99 - x01)
+# needs to have a wider range to avoid weird effects with few cells in frame
+# also turns out previous formulation can give negative numbers, messes up log operations etc. 
+def normalize99(Y,lower=0.01,upper=99.99,omni=False):
+    """ normalize image so 0.0 is 0.01st percentile and 1.0 is 99.99th percentile """
+    if omni:
+        X = omnipose.utils.normalize99(Y)
+    else:
+        X = Y.copy()
+        x01 = np.percentile(X, 1)
+        x99 = np.percentile(X, 99)
+        X = (X - x01) / (x99 - x01)
     return X
+
 
 def move_axis(img, m_axis=-1, first=True):
     """ move axis m_axis to first or last position """
@@ -206,15 +215,18 @@ def move_axis(img, m_axis=-1, first=True):
     img = img.transpose(tuple(axes))
     return img
 
+# This was edited to fix a bug where single-channel images of shape (y,x) would be 
+# transposed to (x,y) if x<y, making the labels no longer correspond to the data. 
 def move_min_dim(img, force=False):
     """ move minimum dimension last as channels if < 10, or force==True """
-    min_dim = min(img.shape)
-    if min_dim < 10 or force:
-        if img.shape[-1]==min_dim:
-            channel_axis = -1
-        else:
-            channel_axis = (img.shape).index(min_dim)
-        img = move_axis(img, m_axis=channel_axis, first=False)
+    if len(img.shape) > 2: #only makese sense to do this if channel axis is already present 
+        min_dim = min(img.shape)
+        if min_dim < 10 or force:
+            if img.shape[-1]==min_dim:
+                channel_axis = -1
+            else:
+                channel_axis = (img.shape).index(min_dim)
+            img = move_axis(img, m_axis=channel_axis, first=False)
     return img
 
 def update_axis(m_axis, to_squeeze, ndim):
@@ -223,7 +235,7 @@ def update_axis(m_axis, to_squeeze, ndim):
     if (to_squeeze==m_axis).sum() == 1:
         m_axis = None
     else:
-        inds = np.ones(ndim, np.bool)
+        inds = np.ones(ndim, bool)
         inds[to_squeeze] = False
         m_axis = np.nonzero(np.arange(0, ndim)[inds]==m_axis)[0]
         if len(m_axis) > 0:
@@ -234,7 +246,7 @@ def update_axis(m_axis, to_squeeze, ndim):
 
 def convert_image(x, channels, channel_axis=None, z_axis=None,
                   do_3D=False, normalize=True, invert=False,
-                  nchan=2):
+                  nchan=2, omni=False):
     """ return image with z first, channels last and normalized intensities """
         
     # squeeze image, and if channel_axis or z_axis given, transpose image
@@ -297,7 +309,7 @@ def convert_image(x, channels, channel_axis=None, z_axis=None,
                                 axis=-1)
             
     if normalize or invert:
-        x = normalize_img(x, invert=invert)
+        x = normalize_img(x, invert=invert, omni=omni)
         
     return x
 
@@ -328,7 +340,7 @@ def reshape(data, channels=[0,0], chan_first=False):
     if data.ndim < 3:
         data = data[:,:,np.newaxis]
     elif data.shape[0]<8 and data.ndim==3:
-        data = np.transpose(data, (1,2,0))    
+        data = np.transpose(data, (1,2,0))
 
     # use grayscale image
     if data.shape[-1]==1:
@@ -357,7 +369,7 @@ def reshape(data, channels=[0,0], chan_first=False):
             data = np.transpose(data, (2,0,1))
     return data
 
-def normalize_img(img, axis=-1, invert=False):
+def normalize_img(img, axis=-1, invert=False, omni=False):
     """ normalize each channel of the image so that so that 0.0=1st percentile
     and 1.0=99th percentile of image intensities
 
@@ -386,13 +398,13 @@ def normalize_img(img, axis=-1, invert=False):
     img = np.moveaxis(img, axis, 0)
     for k in range(img.shape[0]):
         if np.ptp(img[k]) > 0.0:
-            img[k] = normalize99(img[k])
+            img[k] = normalize99(img[k],omni=omni)
             if invert:
                 img[k] = -1*img[k] + 1   
     img = np.moveaxis(img, 0, axis)
     return img
 
-def reshape_train_test(train_data, train_labels, test_data, test_labels, channels, normalize):
+def reshape_train_test(train_data, train_labels, test_data, test_labels, channels, normalize, omni=False):
     """ check sizes and reshape train and test data for training """
     nimg = len(train_data)
     # check that arrays are correct size
@@ -420,7 +432,7 @@ def reshape_train_test(train_data, train_labels, test_data, test_labels, channel
 
     # make data correct shape and normalize it so that 0 and 1 are 1st and 99th percentile of data
     train_data, test_data, run_test = reshape_and_normalize_data(train_data, test_data=test_data, 
-                                                                 channels=channels, normalize=normalize)
+                                                                 channels=channels, normalize=normalize, omni=omni)
 
     if train_data is None:
         error_message = 'training data do not all have the same number of channels'
@@ -434,7 +446,7 @@ def reshape_train_test(train_data, train_labels, test_data, test_labels, channel
 
     return train_data, train_labels, test_data, test_labels, run_test
 
-def reshape_and_normalize_data(train_data, test_data=None, channels=None, normalize=True):
+def reshape_and_normalize_data(train_data, test_data=None, channels=None, normalize=True, omni=False):
     """ inputs converted to correct shapes for *training* and rescaled so that 0.0=1st percentile
     and 1.0=99th percentile of image intensities in each channel
 
@@ -483,7 +495,7 @@ def reshape_and_normalize_data(train_data, test_data=None, channels=None, normal
             if data[i].ndim < 3:
                 data[i] = data[i][np.newaxis,:,:]
             if normalize:
-                data[i] = normalize_img(data[i], axis=0)
+                data[i] = normalize_img(data[i], axis=0, omni=omni)
         nchan = [data[i].shape[0] for i in range(nimg)]
         transforms_logger.info('%s channels = %d'%(['train', 'test'][test], nchan[0]))
     run_test = True
@@ -496,7 +508,7 @@ def resize_image(img0, Ly=None, Lx=None, rsz=None, interpolation=cv2.INTER_LINEA
     -------------
 
     img0: ND-array
-        image of size [y x x x nchan] or [Lz x y x x x nchan] or [Lz x y x x]
+        image of size [Y x X x nchan] or [Lz x Y x X x nchan] or [Lz x Y x X]
 
     Ly: int, optional
 
@@ -530,6 +542,8 @@ def resize_image(img0, Ly=None, Lx=None, rsz=None, interpolation=cv2.INTER_LINEA
             Ly = int(img0.shape[-3] * rsz[-2])
             Lx = int(img0.shape[-2] * rsz[-1])
     
+    # no_channels useful for z-stacks, sot he third dimension is not treated as a channel
+    # but if this is called for grayscale images, they first become [Ly,Lx,2] so ndim=3 but 
     if (img0.ndim>2 and no_channels) or (img0.ndim==4 and not no_channels):
         if no_channels:
             imgs = np.zeros((img0.shape[0], Ly, Lx), np.float32)
@@ -584,8 +598,10 @@ def pad_image_ND(img0, div=16, extra = 1):
     xsub = np.arange(ypad1, ypad1+Lx)
     return I, ysub, xsub
 
-def random_rotate_and_resize(X, Y=None, scale_range=1., xy = (224,224), 
-                             do_flip=True, rescale=None, unet=False):
+
+def random_rotate_and_resize(X, Y=None, scale_range=1., gamma_range=0.5, xy = (224,224), 
+                             do_flip=True, rescale=None, unet=False,
+                             inds=None, depth=0, omni=False):
     """ augmentation by random rotation and resizing
 
         X and Y are lists or arrays of length nimg, with dims channels x Ly x Lx (channels optional)
@@ -604,6 +620,9 @@ def random_rotate_and_resize(X, Y=None, scale_range=1., xy = (224,224),
         scale_range: float (optional, default 1.0)
             Range of resizing of images for augmentation. Images are resized by
             (1-scale_range/2) + scale_range * np.random.rand()
+        
+        gamma_range: float (optional, default 0.5)
+           Images are gamma-adjusted im**gamma for gamma in (1-gamma_range,1+gamma_range) 
 
         xy: tuple, int (optional, default (224,224))
             size of transformed images to return
@@ -627,6 +646,123 @@ def random_rotate_and_resize(X, Y=None, scale_range=1., xy = (224,224),
         scale: array, float
             amount each image was resized by
 
+    """
+    scale_range = max(0, min(2, float(scale_range))) # limit overall range to [0,2] i.e. 1+-1 
+    
+    if inds is None: # only relevant when debugging 
+        nimg = len(X)
+        inds = np.arange(nimg)
+    
+    if omni:
+        return omnipose.core.random_rotate_and_resize(X, Y=Y, scale_range=scale_range, gamma_range=gamma_range, 
+                                                 xy=xy, do_flip=do_flip, rescale=rescale, inds=inds)
+    else:
+        # backwards compatibility; completely 'stock', no gamma augmentation or any other extra frills. 
+        # [Y[i][1:] for i in inds] is necessary because the original transform function does not use masks (entry 0). 
+        # This used to be done in the original function call. 
+        if Y is not None:
+            Y = [y[1:] for y in Y]
+        return original_random_rotate_and_resize(X, Y=Y, scale_range=scale_range, xy=xy,
+                                                 do_flip=do_flip, rescale=rescale, unet=unet)
+
+
+# I have the omni flag here just in case, but it actually does not affect the tests
+def normalize_field(mu,omni=False):
+    if not omni:
+        mu /= (1e-20 + (mu**2).sum(axis=0)**0.5)
+    else:   
+        mu = omnipose.utils.normalize_field(mu) 
+    return mu
+
+
+def _X2zoom(img, X2=1):
+    """ zoom in image
+
+    Parameters
+    ----------
+    img : numpy array that's Ly x Lx
+
+    Returns
+    -------
+    img : numpy array that's Ly x Lx
+
+    """
+    ny,nx = img.shape[:2]
+    img = cv2.resize(img, (int(nx * (2**X2)), int(ny * (2**X2))))
+    return img
+
+def _image_resizer(img, resize=512, to_uint8=False):
+    """ resize image
+
+    Parameters
+    ----------
+    img : numpy array that's Ly x Lx
+
+    resize : int
+        max size of image returned
+
+    to_uint8 : bool
+        convert image to uint8
+
+    Returns
+    -------
+    img : numpy array that's Ly x Lx, Ly,Lx<resize
+
+    """
+    ny,nx = img.shape[:2]
+    if to_uint8:
+        if img.max()<=255 and img.min()>=0 and img.max()>1:
+            img = img.astype(np.uint8)
+        else:
+            img = img.astype(np.float32)
+            img -= img.min()
+            img /= img.max()
+            img *= 255
+            img = img.astype(np.uint8)
+    if np.array(img.shape).max() > resize:
+        if ny>nx:
+            nx = int(nx/ny * resize)
+            ny = resize
+        else:
+            ny = int(ny/nx * resize)
+            nx = resize
+        shape = (nx,ny)
+        img = cv2.resize(img, shape)
+        img = img.astype(np.uint8)
+    return img
+
+
+def original_random_rotate_and_resize(X, Y=None, scale_range=1., xy = (224,224),
+                                      do_flip=True, rescale=None, unet=False):
+    """ augmentation by random rotation and resizing
+        X and Y are lists or arrays of length nimg, with dims channels x Ly x Lx (channels optional)
+        Parameters
+        ----------
+        X: LIST of ND-arrays, float
+            list of image arrays of size [nchan x Ly x Lx] or [Ly x Lx]
+        Y: LIST of ND-arrays, float (optional, default None)
+            list of image labels of size [nlabels x Ly x Lx] or [Ly x Lx]. The 1st channel
+            of Y is always nearest-neighbor interpolated (assumed to be masks or 0-1 representation).
+            If Y.shape[0]==3 and not unet, then the labels are assumed to be [cell probability, Y flow, X flow]. 
+            If unet, second channel is dist_to_bound.
+        scale_range: float (optional, default 1.0)
+            Range of resizing of images for augmentation. Images are resized by
+            (1-scale_range/2) + scale_range * np.random.rand()
+        xy: tuple, int (optional, default (224,224))
+            size of transformed images to return
+        do_flip: bool (optional, default True)
+            whether or not to flip images horizontally
+        rescale: array, float (optional, default None)
+            how much to resize images by before performing augmentations
+        unet: bool (optional, default False)
+        Returns
+        -------
+        imgi: ND-array, float
+            transformed images in array [nimg x nchan x xy[0] x xy[1]]
+        lbl: ND-array, float
+            transformed labels in array [nimg x nchan x xy[0] x xy[1]]
+        scale: array, float
+            amount each image was resized by
     """
     scale_range = max(0, min(2, float(scale_range)))
     nimg = len(X)
@@ -697,60 +833,3 @@ def random_rotate_and_resize(X, Y=None, scale_range=1., xy = (224,224),
                 lbl[n,2] = (v1 * np.cos(-theta) + v2*np.sin(-theta))
 
     return imgi, lbl, scale
-
-
-def _X2zoom(img, X2=1):
-    """ zoom in image
-
-    Parameters
-    ----------
-    img : numpy array that's Ly x Lx
-
-    Returns
-    -------
-    img : numpy array that's Ly x Lx
-
-    """
-    ny,nx = img.shape[:2]
-    img = cv2.resize(img, (int(nx * (2**X2)), int(ny * (2**X2))))
-    return img
-
-def _image_resizer(img, resize=512, to_uint8=False):
-    """ resize image
-
-    Parameters
-    ----------
-    img : numpy array that's Ly x Lx
-
-    resize : int
-        max size of image returned
-
-    to_uint8 : bool
-        convert image to uint8
-
-    Returns
-    -------
-    img : numpy array that's Ly x Lx, Ly,Lx<resize
-
-    """
-    ny,nx = img.shape[:2]
-    if to_uint8:
-        if img.max()<=255 and img.min()>=0 and img.max()>1:
-            img = img.astype(np.uint8)
-        else:
-            img = img.astype(np.float32)
-            img -= img.min()
-            img /= img.max()
-            img *= 255
-            img = img.astype(np.uint8)
-    if np.array(img.shape).max() > resize:
-        if ny>nx:
-            nx = int(nx/ny * resize)
-            ny = resize
-        else:
-            ny = int(ny/nx * resize)
-            nx = resize
-        shape = (nx,ny)
-        img = cv2.resize(img, shape)
-        img = img.astype(np.uint8)
-    return img

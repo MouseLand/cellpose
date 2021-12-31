@@ -13,10 +13,10 @@ import cv2
 from scipy.ndimage import gaussian_filter
 
 from . import guiparts, menus, io
-from .. import models
-from ..utils import download_url_to_file, masks_to_outlines, normalize99
+from .. import models, core, dynamics
+from ..utils import download_url_to_file, masks_to_outlines
 from ..io import save_server
-from ..transforms import resize_image
+from ..transforms import resize_image, normalize99 #fixed import
 from ..plot import disk
 
 try:
@@ -33,6 +33,9 @@ try:
 except:
     SERVER_UPLOAD = False
 
+#Define possible models; can we make a master list in another file to use in models and main? 
+MODEL_NAMES = ['cyto', 'nuclei', 'cyto2', 'cyto2_omni', 'bact_omni']
+    
 class QHLine(QFrame):
     def __init__(self):
         super(QHLine, self).__init__()
@@ -137,7 +140,7 @@ def run(image=None):
     app.setWindowIcon(app_icon)
     os.environ['MXNET_CUDNN_AUTOTUNE_DEFAULT'] = '0'
 
-    models.download_model_weights()
+    # models.download_model_weights() # does not exist
     MainW(image=image)
     ret = app.exec_()
     sys.exit(ret)
@@ -216,6 +219,7 @@ class MainW(QMainWindow):
         if MATPLOTLIB:
             self.colormap = (plt.get_cmap('gist_ncar')(np.linspace(0.0,.9,1000)) * 255).astype(np.uint8)
         else:
+            np.random.seed(42) # make colors stable
             self.colormap = ((np.random.rand(1000,3)*0.8+0.1)*255).astype(np.uint8)
         self.reset()
 
@@ -345,14 +349,15 @@ class MainW(QMainWindow):
 
         b+=1
         # turn off outlines
-        self.outlinesOn = True
+        self.outlinesOn = False # turn off by default
         self.OCheckBox = QCheckBox('outlines on [Z]')
         self.OCheckBox.setStyleSheet(self.checkstyle)
         self.OCheckBox.setFont(self.medfont)
-        self.OCheckBox.setChecked(True)
-        self.OCheckBox.toggled.connect(self.toggle_masks)
         self.l0.addWidget(self.OCheckBox, b,0,1,2)
-
+        
+        self.OCheckBox.setChecked(False)
+        self.OCheckBox.toggled.connect(self.toggle_masks) 
+        
         b+=1
         # send to server
         self.ServerButton = QPushButton(' send manual seg. to server')
@@ -426,7 +431,7 @@ class MainW(QMainWindow):
         b+=1
         # choose models
         self.ModelChoose = QComboBox()
-        self.ModelChoose.addItems(['cyto', 'nuclei', 'cyto2'])
+        self.ModelChoose.addItems(MODEL_NAMES) #added omnipose model names
         self.ModelChoose.setFixedWidth(70)
         self.ModelChoose.setStyleSheet(self.dropdowns)
         self.ModelChoose.setFont(self.medfont)
@@ -434,8 +439,11 @@ class MainW(QMainWindow):
         label = QLabel('model: ')
         label.setStyleSheet(label_style)
         label.setFont(self.medfont)
-        label.setToolTip('there is a <em>cyto</em> model, a new <em>cyto2</em> model from user submissions, and a <em>nuclei</em> model')
-        self.ModelChoose.setToolTip('there is a <em>cyto</em> model, a new <em>cyto2</em> model from user submissions, and a <em>nuclei</em> model')
+        #update tooltip string 
+        tipstr = 'there is a <em>cyto</em> model, a new <em>cyto2</em> model from user submissions, a <em>nuclei</em> model, \
+                  and two omnipose models: <em>bact_omni</em> and <em>cyto2_omni</em>'
+        label.setToolTip(tipstr)
+        self.ModelChoose.setToolTip(tipstr)
         self.l0.addWidget(label, b, 0,1,1)
 
         b+=1
@@ -467,6 +475,26 @@ class MainW(QMainWindow):
         self.invert.setStyleSheet(self.checkstyle)
         self.invert.setFont(self.medfont)
         self.l0.addWidget(self.invert, b,0,1,2)
+        
+        # use omnipose mask recontruction
+        b+=1
+        self.omni = QCheckBox('omni')
+        self.omni.setStyleSheet(self.checkstyle)
+        self.omni.setFont(self.medfont)
+        self.omni.setChecked(False)
+        self.omni.setToolTip('use Omnipose mask recontruction algorithm (fix over-segmentation)')
+        # self.omni.toggled.connect(self.compute_model)
+        self.l0.addWidget(self.omni, b,0,1,2)
+        
+        # use DBSCAN clustering
+        b+=1
+        self.cluster = QCheckBox('cluster')
+        self.cluster.setStyleSheet(self.checkstyle)
+        self.cluster.setFont(self.medfont)
+        self.cluster.setChecked(False)
+        self.cluster.setToolTip('force DBSCAN clustering when omni is enabled')
+        # self.cluster.toggled.connect(self.compute_model)
+        self.l0.addWidget(self.cluster, b,0,1,2)
 
         b+=1
         # recompute model
@@ -485,7 +513,7 @@ class MainW(QMainWindow):
 
         b+=1
         label = QLabel('model match threshold:')
-        label.setToolTip('threshold on gradient match to accept a mask (set lower to get more cells)')
+        label.setToolTip('threshold on flow match to accept a mask (set lower to get more cells)')
         label.setStyleSheet(label_style)
         label.setFont(self.medfont)
         self.l0.addWidget(label, b, 0,1,2)
@@ -503,11 +531,12 @@ class MainW(QMainWindow):
         self.threshslider.setEnabled(False)
         
         b+=1
-        label = QLabel('cell prob threshold:')
+        label = QLabel('mask threshold:')
+        label.setToolTip('threshold on scalar output field to seed cell masks \
+                        (set lower to include more pixels)')
         label.setStyleSheet(label_style)
         label.setFont(self.medfont)
         self.l0.addWidget(label, b, 0,1,2)
-        label.setToolTip('cell probability threshold (set lower to get more cells)')
         
         b+=1
         self.probslider = QSlider()
@@ -659,11 +688,11 @@ class MainW(QMainWindow):
         self.torch = torch
         self.useGPU.setChecked(False)
         self.useGPU.setEnabled(False)    
-        if self.torch and models.use_gpu(istorch=True):
+        if self.torch and core.use_gpu(istorch=True):
             self.useGPU.setEnabled(True)
             self.useGPU.setChecked(True)
         elif models.MXNET_ENABLED:
-            if models.use_gpu(istorch=False):
+            if core.use_gpu(istorch=False):
                 print('>>> will run model on GPU in mxnet <<<')
                 self.torch = False
                 self.useGPU.setEnabled(True)
@@ -1103,6 +1132,7 @@ class MainW(QMainWindow):
             while len(self.strokes) > 0:
                 self.remove_stroke(delete_points=False)
             if len(self.current_point_set) > 8:
+                np.random.seed(42) # make colors stable
                 col_rand = np.random.randint(1000)
                 color = self.colormap[col_rand,:3]
                 median = self.add_mask(points=self.current_point_set, color=color)
@@ -1246,8 +1276,9 @@ class MainW(QMainWindow):
         # compute percentiles from stack
         self.saturation = []
         for n in range(len(self.stack)):
-            self.saturation.append([np.percentile(self.stack[n].astype(np.float32),1),
-                                    np.percentile(self.stack[n].astype(np.float32),99)])
+            # changed to use omnipose convention 
+            self.saturation.append([np.percentile(self.stack[n].astype(np.float32),0.01),
+                                    np.percentile(self.stack[n].astype(np.float32),99.99)])
 
     def chanchoose(self, image):
         if image.ndim > 2:
@@ -1286,18 +1317,19 @@ class MainW(QMainWindow):
             thresh = self.threshold
             print('computing masks with cell prob=%0.3f, flow error threshold=%0.3f'%
                     (self.cellprob, thresh))
-
-        maski = self.model.cp._compute_masks(self.flows[4][:-1],
-                                             self.flows[4][-1],
-                                             p=self.flows[3].copy(),
-                                             cellprob_threshold=self.cellprob,
-                                             flow_threshold=thresh,
-                                             resize=self.cellpix.shape[-2:])[0]
+        maski = dynamics.compute_masks(self.flows[4][:-1], 
+                                       self.flows[4][-1],
+                                       p=self.flows[3].copy(),
+                                       mask_threshold=self.cellprob,
+                                       flow_threshold=thresh,
+                                       resize=self.cellpix.shape[-2:],
+                                       omni=self.omni.isChecked(),
+                                       cluster=self.cluster.isChecked())[0]
         
         self.masksOn = True
-        self.outlinesOn = True
         self.MCheckBox.setChecked(True)
-        self.OCheckBox.setChecked(True)
+        # self.outlinesOn = True #should not turn outlines back on by default; masks make sense though 
+        # self.OCheckBox.setChecked(True)
         if maski.ndim<3:
             maski = maski[np.newaxis,...]
         print('%d cells found'%(len(np.unique(maski)[1:])))
@@ -1323,24 +1355,36 @@ class MainW(QMainWindow):
             channels = self.get_channels()
             self.diameter = float(self.Diameter.text())
             try:
+                omni_model = 'omni' in self.current_model
+                bacterial = 'bact' in self.current_model
+                if omni_model:
+                    self.NetAvg.setCurrentIndex(2) #one run net
+                if bacterial:
+                    self.diameter = 0.
+                    self.Diameter.setText('%0.1f'%self.diameter)
+                    
+                # allow omni to be togged manually or forced by model
+                self.omni.setChecked(self.omni.isChecked() or omni_model) 
+                
                 net_avg = self.NetAvg.currentIndex()<2
                 resample = self.NetAvg.currentIndex()==1
+                # print(data.shape,channels,self.diameter,resample,do_3D,net_avg)
+                print('net_avg',net_avg)
                 masks, flows, _, _ = self.model.eval(data, channels=channels,
                                                     diameter=self.diameter, invert=self.invert.isChecked(),
                                                     net_avg=net_avg, augment=False, resample=resample,
-                                                    do_3D=do_3D, progress=self.progress)
+                                                    do_3D=do_3D, progress=self.progress, omni=self.omni.isChecked())
             except Exception as e:
                 print('NET ERROR: %s'%e)
                 self.progress.setValue(0)
                 return
 
             self.progress.setValue(75)
-
             #if not do_3D:
             #    masks = masks[0][np.newaxis,:,:]
             #    flows = flows[0]
-            self.flows[0] = flows[0]
-            self.flows[1] = (np.clip(normalize99(flows[2].copy()),0,1) * 255).astype(np.uint8)
+            self.flows[0] = (normalize99(flows[0].copy(),omni=True) * 255).astype(np.uint8) #RGB flow
+            self.flows[1] = (normalize99(flows[2].copy(),omni=True) * 255).astype(np.uint8) #dist/prob
             if not do_3D:
                 masks = masks[np.newaxis,...]
                 self.flows[0] = resize_image(self.flows[0], masks.shape[-2], masks.shape[-1],
@@ -1351,18 +1395,17 @@ class MainW(QMainWindow):
                 self.flows = [self.flows[n][np.newaxis,...] for n in range(len(self.flows))]
             else:
                 self.flows[2] = (flows[1][0]/10 * 127 + 127).astype(np.uint8)
-                
-            if len(flows)>2:
-                self.flows.append(flows[3].squeeze())
-                self.flows.append(np.concatenate((flows[1], flows[2][np.newaxis,...]), axis=0))
+            if len(flows)>2: 
+                self.flows.append(flows[4].squeeze()) #p 
+                self.flows.append(np.concatenate((flows[1], flows[2][np.newaxis,...]), axis=0)) #dP, dist/prob
                 
             print('%d cells found with cellpose net in %0.3f sec'%(len(np.unique(masks)[1:]), time.time()-tic))
             self.progress.setValue(80)
             z=0
             self.masksOn = True
-            self.outlinesOn = True
             self.MCheckBox.setChecked(True)
-            self.OCheckBox.setChecked(True)
+            # self.outlinesOn = True #again, this option should persist and not get toggled by another GUI action 
+            # self.OCheckBox.setChecked(True)
 
             io._masks_to_gui(self, masks, outlines=None)
             self.progress.setValue(100)

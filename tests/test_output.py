@@ -11,6 +11,7 @@ except:
 
 r_tol, a_tol = 1e-2, 1e-2
 
+
 def clear_output(data_dir, image_names):
     data_dir_2D = data_dir.joinpath('2D')
     data_dir_3D = data_dir.joinpath('2D')
@@ -35,8 +36,9 @@ def test_class_2D(data_dir, image_names):
     chan2 = [0]
     for m,model_type in enumerate(model_types):
         model = models.Cellpose(model_type=model_type)
-        masks, flows, _, _ = model.eval(img, diameter=0, channels=[chan[m],chan2[m]], net_avg=False)
+        masks, flows, _, _ = model.eval(img, diameter=0, mask_threshold=0, channels=[chan[m],chan2[m]], net_avg=False)
         io.imsave(str(data_dir.joinpath('2D').joinpath('rgb_2D_cp_masks.png')), masks)
+#         io.imsave('/home/kcutler/DataDrive/cellpose_debug/rgb_2D_cp_masks.png', masks)
         compare_masks(data_dir, [image_name], '2D', model_type)
         clear_output(data_dir, image_names)
         if MATPLOTLIB:
@@ -89,7 +91,7 @@ def test_cli_3D(data_dir, image_names):
     chan = [2]
     chan2 = [1]
     for m,model_type in enumerate(model_types):
-        cmd = 'python -m cellpose --dir %s --do_3D --pretrained_model %s --fast_mode --chan %d --chan2 %d --diameter 25 --save_tif'%(str(data_dir.joinpath('3D')), model_type, chan[m], chan2[m])
+        cmd = 'python -m cellpose --dir %s --do_3D --pretrained_model %s --fast_mode --mask_threshold 0 --chan %d --chan2 %d --diameter 25 --save_tif'%(str(data_dir.joinpath('3D')), model_type, chan[m], chan2[m])
         try:
             cmd_stdout = check_output(cmd, stderr=STDOUT, shell=True).decode()
         except Exception as e:
@@ -125,7 +127,8 @@ def compare_masks(data_dir, image_names, runtype, model_type):
                 print('checking output %s'%output_test)
                 masks_test = io.imread(output_test)
                 masks_true = io.imread(output_true)
-
+                print('masks',np.unique(masks_test),np.unique(masks_true),output_test,output_true)
+                
                 ap = metrics.average_precision(masks_true, masks_test)[0]
                 print('average precision of [%0.3f %0.3f %0.3f]'%(ap[0],ap[1],ap[2]))
                 ap_precision = np.allclose(ap, np.ones(3), rtol=r_tol, atol=a_tol)

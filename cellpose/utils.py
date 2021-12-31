@@ -5,11 +5,18 @@ from urllib.parse import urlparse
 import cv2
 from scipy.ndimage import find_objects, gaussian_filter, generate_binary_structure, label, maximum_filter1d, binary_fill_holes
 from scipy.spatial import ConvexHull
+from scipy.stats import gmean
 import numpy as np
 import colorsys
 import io
 
-from . import metrics
+from . import metrics, omnipose
+
+try:
+    from skimage.morphology import remove_small_holes
+    SKIMAGE_ENABLED = True
+except:
+    SKIMAGE_ENABLED = False
 
 class TqdmToLogger(io.StringIO):
     """
@@ -52,6 +59,8 @@ def download_url_to_file(url, dst, progress=True):
             Default: True
     """
     file_size = None
+    import ssl
+    ssl._create_default_https_context = ssl._create_unverified_context
     u = urlopen(url)
     meta = u.info()
     if hasattr(meta, 'getheaders'):
@@ -192,7 +201,7 @@ def masks_to_outlines(masks):
     """
     if masks.ndim > 3 or masks.ndim < 2:
         raise ValueError('masks_to_outlines takes 2D or 3D array, not %dD array'%masks.ndim)
-    outlines = np.zeros(masks.shape, np.bool)
+    outlines = np.zeros(masks.shape, bool)
     
     if masks.ndim==3:
         for i in range(masks.shape[0]):
@@ -357,15 +366,19 @@ def stitch3D(masks, stitch_threshold=0.25):
             masks[i+1] = istitch[masks[i+1]]
     return masks
 
-def diameters(masks):
-    """ get median 'diameter' of masks """
-    _, counts = np.unique(np.int32(masks), return_counts=True)
-    counts = counts[1:]
-    md = np.median(counts**0.5)
-    if np.isnan(md):
-        md = 0
-    md /= (np.pi**0.5)/2
-    return md, counts**0.5
+# merged deiameter functions
+def diameters(masks, omni=False, dist_threshold=1):
+    if not omni: #original 'equivalent area circle' diameter
+        _, counts = np.unique(np.int32(masks), return_counts=True)
+        counts = counts[1:]
+        md = np.median(counts**0.5)
+        if np.isnan(md):
+            md = 0
+        md /= (np.pi**0.5)/2
+        return md, counts**0.5
+    else: #new distance-field-derived diameter (aggrees with cicle but more general)
+        return omnipose.core.diameters(masks), None
+
 
 def radius_distribution(masks, bins):
     unique, counts = np.unique(masks, return_counts=True)
@@ -384,11 +397,6 @@ def size_distribution(masks):
     counts = np.unique(masks, return_counts=True)[1][1:]
     return np.percentile(counts, 25) / np.percentile(counts, 75)
 
-def normalize99(img):
-    X = img.copy()
-    X = (X - np.percentile(X, 1)) / (np.percentile(X, 99) - np.percentile(X, 1))
-    return X
-
 def process_cells(M0, npix=20):
     unq, ic = np.unique(M0, return_counts=True)
     for j in range(len(unq)):
@@ -396,8 +404,9 @@ def process_cells(M0, npix=20):
             M0[M0==unq[j]] = 0
     return M0
 
-
-def fill_holes_and_remove_small_masks(masks, min_size=15):
+# Edited slightly to only remove small holes(under min_size) to avoid filling in voids formed by cells touching themselves
+# (Masks show this, outlines somehow do not. Also need to find a way to split self-contact points).
+def fill_holes_and_remove_small_masks(masks, min_size=15, hole_size=3, scale_factor=1):
     """ fill holes in masks (2D/3D) and discard masks smaller than min_size (2D)
     
     fill holes in each mask using scipy.ndimage.morphology.binary_fill_holes
@@ -421,8 +430,15 @@ def fill_holes_and_remove_small_masks(masks, min_size=15):
         size [Ly x Lx] or [Lz x Ly x Lx]
     
     """
+
+    if masks.ndim==2:
+        masks = omnipose.utils.format_labels(masks, min_area=min_size) # not sure how this works with 3D... tests pass though
+    
+    hole_size *= scale_factor
+        
     if masks.ndim > 3 or masks.ndim < 2:
-        raise ValueError('fill_holes_and_remove_small_masks takes 2D or 3D array, not %dD array'%masks.ndim)
+        raise ValueError('masks_to_outlines takes 2D or 3D array, not %dD array'%masks.ndim)
+    
     slices = find_objects(masks)
     j = 0
     for i,slc in enumerate(slices):
@@ -431,12 +447,47 @@ def fill_holes_and_remove_small_masks(masks, min_size=15):
             npix = msk.sum()
             if min_size > 0 and npix < min_size:
                 masks[slc][msk] = 0
-            else:    
+            else:   
+                hsz = np.count_nonzero(msk)*hole_size/100 #turn hole size into percentage
+                #eventually the boundary output should be used to properly exclude real holes vs label gaps 
                 if msk.ndim==3:
                     for k in range(msk.shape[0]):
+                        # Omnipose version (breaks 3D tests)
+                        # padmsk = remove_small_holes(np.pad(msk[k],1,mode='constant'),hsz)
+                        # msk[k] = padmsk[1:-1,1:-1]
+                        
+                        #Cellpose version
                         msk[k] = binary_fill_holes(msk[k])
-                else:
-                    msk = binary_fill_holes(msk)
+
+                else:          
+                    if SKIMAGE_ENABLED: # Omnipose version (passes 2D tests)
+                        padmsk = remove_small_holes(np.pad(msk,1,mode='constant'),hsz)
+                        msk = padmsk[1:-1,1:-1]
+                    else: #Cellpose version
+                        msk = binary_fill_holes(msk)
                 masks[slc][msk] = (j+1)
                 j+=1
     return masks
+
+
+    # if masks.ndim > 3 or masks.ndim < 2:
+    #     raise ValueError('fill_holes_and_remove_small_masks takes 2D or 3D array, not %dD array'%masks.ndim)
+    # slices = find_objects(masks)
+    # j = 0
+    # for i,slc in enumerate(slices):
+    #     if slc is not None:
+    #         msk = masks[slc] == (i+1)
+    #         npix = msk.sum()
+    #         if min_size > 0 and npix < min_size:
+    #             masks[slc][msk] = 0
+    #         else:    
+    #             if msk.ndim==3:
+    #                 for k in range(msk.shape[0]):
+    #                     msk[k] = binary_fill_holes(msk[k])
+    #             else:
+    #                 msk = binary_fill_holes(msk)
+    #             masks[slc][msk] = (j+1)
+    #             j+=1
+    # return masks
+
+
