@@ -7,7 +7,7 @@ import logging
 
 from .. import utils, plot, transforms
 from ..io import imread, imsave, outlines_to_text
-from ..omnipose.utils import ncolorlabel
+import ncolor
 
 try:
     from PyQt5.QtWidgets import QFileDialog
@@ -314,7 +314,7 @@ def _masks_to_gui(parent, masks, outlines=None):
     shape = masks.shape
     
     if NCOLOR:
-        masks = ncolorlabel(masks) 
+        masks = ncolor.label(masks) 
     else:
         _, masks = np.unique(masks, return_inverse=True)
         masks = np.reshape(masks, shape)

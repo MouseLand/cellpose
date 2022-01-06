@@ -14,9 +14,7 @@ import logging
 dynamics_logger = logging.getLogger(__name__)
 dynamics_logger.setLevel(logging.DEBUG)
 
-from . import utils, metrics, transforms, omnipose
-from .omnipose.core import eikonal_update_cpu,step_factor # njit requires direct function access or something like that 
-
+from . import utils, metrics, transforms
 
 try:
     import torch
@@ -33,6 +31,15 @@ try:
     SKIMAGE_ENABLED = True
 except:
     SKIMAGE_ENABLED = False
+    
+try:
+    import omnipose
+    # njit requires direct function access or something like that,
+    # so these functions need to be explicitly imported 
+    from omnipose.core import eikonal_update_cpu, step_factor 
+    OMNI_INSTALLED = True
+except:
+    OMNI_INSTALLED = False
 
 
 @njit('(float64[:], int32[:], int32[:], int32[:], int32[:], int32, int32, boolean)', nogil=True)
@@ -71,7 +78,7 @@ def _extend_centers(T, y, x, ymed, xmed, Lx, niter, omni=False):
 
     """
     for t in range(niter):
-        if omni:
+        if omni and OMNI_INSTALLED:
             # solve eikonal equation 
             T[y*Lx + x] = eikonal_update_cpu(T, y, x, Lx)
         else:
@@ -105,7 +112,7 @@ def _extend_centers_gpu(neighbors, centers, isneighbor, Ly, Lx, n_iter=200, devi
     isneigh = torch.from_numpy(isneighbor).to(device)
 
     for t in range(n_iter):
-        if omni:
+        if omni and OMNI_INSTALLED:
             T[:, pt[4,:,0], pt[4,:,1]] = omnipose.core.eikonal_update_gpu(T,pt,isneigh)
         else:
             T[:, meds[:,0], meds[:,1]] += 1
@@ -196,7 +203,7 @@ def masks_to_flows_gpu(masks, dists, device=None, omni=False):
     isneighbor = neighbor_masks == neighbor_masks[4] # 4 corresponds to x,y now
         
     # set number of iterations
-    if omni:
+    if omni and OMNI_INSTALLED:
         # omniversion requires fewer
         n_iter = omnipose.core.get_niter(dists)
     else:
@@ -274,7 +281,7 @@ def masks_to_flows_cpu(masks, dists, device=None, omni=False):
             # same number of points as a grid with  1px around the whole thing
             T = np.zeros(ly*lx, np.float64)
             
-            if omni:
+            if omni and OMNI_INSTALLED:
                 # This is what I found to be the lowest possible number of iterations to guarantee convergence,
                 # but only for the omni model. Too small for center-pixel heat to diffuse to the ends. 
                 # I would like to explain why this works theoretically; it is emperically validated for now.
@@ -282,7 +289,7 @@ def masks_to_flows_cpu(masks, dists, device=None, omni=False):
             else:
                 niter = 2*np.int32(np.ptp(x) + np.ptp(y))
             
-            if omni:
+            if omni and OMNI_INSTALLED:
                 xmed = x
                 ymed = y
             else:
@@ -364,7 +371,7 @@ def masks_to_flows(masks, dists=None, use_gpu=False, device=None, omni=False):
             mu[[0,1], :, :, x] += mu0
         return masks, dists, None, mu #consistency with below
     elif masks.ndim==2:
-        if omni: # padding helps avoid edge artifacts from cut-off cells 
+        if omni and OMNI_INSTALLED: # padding helps avoid edge artifacts from cut-off cells 
             pad = 15 
             masks_pad = np.pad(masks,pad,mode='reflect')
             dists_pad = np.pad(dists,pad,mode='reflect')
@@ -411,7 +418,7 @@ def labels_to_flows(labels, files=None, use_gpu=False, device=None, omni=False,r
         # compute flows; labels are fixed in masks_to_flows, so they need to be passed back
         labels, dist, heat, veci = map(list,zip(*[masks_to_flows(labels[n][0],use_gpu=use_gpu, device=device, omni=omni) for n in trange(nimg)]))
         # concatenate labels, distance transform, vector flows, heat (boundary and mask are computed in augmentations)
-        if omni:
+        if omni and OMNI_INSTALLED:
             flows = [np.concatenate((labels[n][np.newaxis,:,:], dist[n][np.newaxis,:,:], veci[n], heat[n][np.newaxis,:,:]), axis=0).astype(np.float32)
                         for n in range(nimg)]
         else:
@@ -488,7 +495,7 @@ def steps2D_interp(p, dP, niter, use_gpu=False, device=None, omni=False, calc_tr
                 trace = torch.cat((trace,pt))
             # align_corners default is False, just added to suppress warning
             dPt = torch.nn.functional.grid_sample(im, pt, align_corners=False)
-            if omni:
+            if omni and OMNI_INSTALLED:
                 dPt /= step_factor(t)
             
             for k in range(2): #clamp the final pixel locations
@@ -524,7 +531,7 @@ def steps2D_interp(p, dP, niter, use_gpu=False, device=None, omni=False, calc_tr
             if calc_trace:
                 tr[:,:,t] = p.copy()
             map_coordinates(dP.astype(np.float32), p[0], p[1], dPt)
-            if omni:
+            if omni and OMNI_INSTALLED:
                 dPt /= step_factor(t)
             for k in range(len(p)):
                 p[k] = np.minimum(shape[k]-1, np.maximum(0, p[k] + dPt[k]))
@@ -614,7 +621,7 @@ def steps2D(p, dP, inds, niter, omni=False, calc_trace=False):
             x = inds[j,1]
             p0, p1 = int(p[0,y,x]), int(p[1,y,x])
             step = dP[:,p0,p1]
-            if omni:
+            if omni and OMNI_INSTALLED:
                 step /= step_factor(t)
             for k in range(p.shape[0]):
                 p[k,y,x] = min(shape[k]-1, max(0, p[k,y,x] + step[k]))
@@ -862,7 +869,7 @@ def compute_masks(dP, dist, bd=None, p=None, inds=None, niter=200, mask_threshol
     if np.any(mask): #mask at this point is a cell cluster binary map, not labels 
         
         #preprocess flows
-        if omni:
+        if omni and OMNI_INSTALLED:
             dP_ = omnipose.core.div_rescale(dP,mask)
         else:
             dP_ = dP * mask / 5.
@@ -878,7 +885,7 @@ def compute_masks(dP, dist, bd=None, p=None, inds=None, niter=200, mask_threshol
                 dynamics_logger.info('p given')
         
         #calculate masks
-        if omni:
+        if omni and OMNI_INSTALLED:
             mask = omnipose.core.get_masks(p,bd,dist,mask,inds,nclasses,cluster=cluster,
                                            diam_threshold=diam_threshold,verbose=verbose)
         else:

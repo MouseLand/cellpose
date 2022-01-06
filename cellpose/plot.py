@@ -2,14 +2,14 @@ import os
 import numpy as np
 import cv2
 from scipy.ndimage import gaussian_filter
-import scipy
+from . import utils, io, transforms
+import ncolor
 
 try:
     import matplotlib
     MATPLOTLIB_ENABLED = True 
 except:
     MATPLOTLIB_ENABLED = False
-
 
 try:
     from skimage import color
@@ -18,9 +18,11 @@ try:
 except:
     SKIMAGE_ENABLED = False
 
-
-from . import utils, io, transforms
-from .omnipose.utils import ncolorlabel, sinebow
+try:
+    from omnipose.utils import sinebow
+    OMNI_INSTALLED = True
+except:
+    OMNI_INSTALLED = False
 
 # modified to use sinebow color
 def dx_to_circ(dP,transparency=False,mask=None):
@@ -114,9 +116,7 @@ def show_segmentation(fig, img, maski, flowi, channels=[0,0], file_name=None, om
     ax.axis('off')
 
     outlines = utils.masks_to_outlines(maski)
-    c = sinebow(5)
-    colors = np.array(list(c.values()))[1:] 
-    
+
     # Image normalization to improve cell visibility under labels
     if seg_norm:
         fg = 1/9
@@ -127,8 +127,10 @@ def show_segmentation(fig, img, maski, flowi, channels=[0,0], file_name=None, om
     
     # the mask_overlay function changes colors (preserves only hue I think). The label2rgb function from
     # skimage.color works really well. 
-    if SKIMAGE_ENABLED:
-        overlay = color.label2rgb(ncolorlabel(maski),img1,colors,bg_label=0,alpha=1/3)
+    if SKIMAGE_ENABLED and OMNI_INSTALLED:
+        c = sinebow(5)
+        colors = np.array(list(c.values()))[1:] 
+        overlay = color.label2rgb(ncolor.label(maski),img1,colors,bg_label=0,alpha=1/3)
         overlay = np.uint8(np.clip(overlay, 0, 1)*255)
         overlay[maski==0] = img1[maski==0] #restore original level to background regions
     else:

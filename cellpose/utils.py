@@ -10,7 +10,12 @@ import numpy as np
 import colorsys
 import io
 
-from . import metrics, omnipose
+from . import metrics
+try:
+    import omnipose
+    OMNI_INSTALLED = True
+except:
+    OMNI_INSTALLED = False
 
 try:
     from skimage.morphology import remove_small_holes
@@ -366,9 +371,11 @@ def stitch3D(masks, stitch_threshold=0.25):
             masks[i+1] = istitch[masks[i+1]]
     return masks
 
-# merged deiameter functions
+# merged diameter functions
 def diameters(masks, omni=False, dist_threshold=1):
-    if not omni: #original 'equivalent area circle' diameter
+    if omni and OMNI_INSTALLED: #new distance-field-derived diameter (aggrees with cicle but more general)
+        return omnipose.core.diameters(masks), None
+    else: #original 'equivalent area circle' diameter
         _, counts = np.unique(np.int32(masks), return_counts=True)
         counts = counts[1:]
         md = np.median(counts**0.5)
@@ -376,9 +383,6 @@ def diameters(masks, omni=False, dist_threshold=1):
             md = 0
         md /= (np.pi**0.5)/2
         return md, counts**0.5
-    else: #new distance-field-derived diameter (aggrees with cicle but more general)
-        return omnipose.core.diameters(masks), None
-
 
 def radius_distribution(masks, bins):
     unique, counts = np.unique(masks, return_counts=True)
@@ -431,7 +435,7 @@ def fill_holes_and_remove_small_masks(masks, min_size=15, hole_size=3, scale_fac
     
     """
 
-    if masks.ndim==2:
+    if masks.ndim==2 and OMNI_INSTALLED:
         masks = omnipose.utils.format_labels(masks, min_area=min_size) # not sure how this works with 3D... tests pass though
     
     hole_size *= scale_factor

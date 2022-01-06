@@ -5,8 +5,15 @@ import cv2
 import tifffile
 import logging, pathlib, sys
 from pathlib import Path
+import ncolor
 
-from . import utils, plot, transforms, omnipose
+from . import utils, plot, transforms
+
+try:
+    import omnipose.utils.format_labels as format_labels
+    OMNI_INSTALLED = True
+except:
+    OMNI_INSTALLED = False
 
 try:
     from PyQt5 import QtGui, QtCore, Qt, QtWidgets
@@ -373,7 +380,8 @@ def save_masks(images, masks, flows, file_names, png=True, tif=False, channels=[
         exts.append('.tif')
 
     # format_labels will also automatically use lowest bit depth possible
-    masks = omnipose.utils.format_labels(masks) 
+    if OMNI_INSTALLED:
+        masks = format_labels(masks) 
 
     # save masks
     with warnings.catch_warnings():
@@ -421,7 +429,7 @@ def save_masks(images, masks, flows, file_names, png=True, tif=False, channels=[
         check_dir(ncolordir)
         #convert masks to minimal n-color reresentation 
         imsave(os.path.join(ncolordir, basename + '_cp_ncolor_masks' + suffix + '.png'),
-               omnipose.utils.ncolorlabel(masks))
+               ncolor.label(masks))
     
     # save RGB flow picture
     if masks.ndim < 3 and save_flows:

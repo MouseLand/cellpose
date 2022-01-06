@@ -19,7 +19,7 @@ except Exception as err:
     GUI_ERROR = err
     GUI_IMPORT = False
     raise
-
+    
 import logging
 logger = logging.getLogger(__name__)
 
@@ -31,6 +31,16 @@ def confirm_prompt(question):
 
 def install(package):
     subprocess.check_call([sys.executable, "-m", "pip", "install", package])
+    
+def check_omni(logger,omni=False):
+    if omni and not 'omnipose' not in sys.modules:
+        logger.info('Omnipose features requested but not installed.')
+        confirm = confirm_prompt('Install Omnipose?')
+        if confirm:
+            install('omnipose')
+        else:
+            logger.info('>>>> Omnipose not installed. Running with omni=False')
+        return confirm
     
 # settings re-grouped a bit
 def main():
@@ -189,17 +199,18 @@ def main():
         if 'omni' in args.pretrained_model:
             args.omni = True
         
-        if args.omni:
-            logger.info('>>>> Omnipose enabled. See https://raw.githubusercontent.com/MouseLand/cellpose/master/cellpose/omnipose/license.txt for licensing details.')
-        
-        if (args.omni or args.cluster) and 'sklearn' not in sys.modules:
-            logger.info('>>>> Omnipose requires scikit-learn for DBSCAN clustering.')
+        if args.cluster and 'sklearn' not in sys.modules:
+            logger.info('>>>> DBSCAN clustering requires scikit-learn.')
             confirm = confirm_prompt('Install scikit-learn?')
             if confirm:
                 install('scikit-learn')
             else:
                 logger.info('>>>> scikit-learn not installed. DBSCAN clustering will be automatically disabled.')
-                    
+                          
+        omni = check_omni(args.omni) # repeat the above check but factor it for use elsewhere
+        if args.omni:
+            logger.info('>>>> Omnipose enabled. See https://raw.githubusercontent.com/MouseLand/cellpose/master/cellpose/omnipose/license.txt for licensing details.')
+        
         
         if not args.train and not args.train_size:
             tic = time.time()

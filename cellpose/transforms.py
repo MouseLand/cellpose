@@ -8,7 +8,12 @@ import logging
 transforms_logger = logging.getLogger(__name__)
 transforms_logger.setLevel(logging.DEBUG)
 
-from . import dynamics, utils, omnipose
+from . import dynamics, utils
+try:
+    import omnipose
+    OMNI_INSTALLED = True
+except:
+    OMNI_INSTALLED = False
 
 def _taper_mask(ly=224, lx=224, sig=7.5):
     bsize = max(224, max(ly, lx))
@@ -191,7 +196,7 @@ def make_tiles(imgi, bsize=224, augment=False, tile_overlap=0.1):
 # also turns out previous formulation can give negative numbers, messes up log operations etc. 
 def normalize99(Y,lower=0.01,upper=99.99,omni=False):
     """ normalize image so 0.0 is 0.01st percentile and 1.0 is 99.99th percentile """
-    if omni:
+    if omni and OMNI_INSTALLED:
         X = omnipose.utils.normalize99(Y)
     else:
         X = Y.copy()
@@ -654,7 +659,7 @@ def random_rotate_and_resize(X, Y=None, scale_range=1., gamma_range=0.5, xy = (2
         nimg = len(X)
         inds = np.arange(nimg)
     
-    if omni:
+    if omni and OMNI_INSTALLED:
         return omnipose.core.random_rotate_and_resize(X, Y=Y, scale_range=scale_range, gamma_range=gamma_range, 
                                                  xy=xy, do_flip=do_flip, rescale=rescale, inds=inds)
     else:
@@ -669,10 +674,10 @@ def random_rotate_and_resize(X, Y=None, scale_range=1., gamma_range=0.5, xy = (2
 
 # I have the omni flag here just in case, but it actually does not affect the tests
 def normalize_field(mu,omni=False):
-    if not omni:
-        mu /= (1e-20 + (mu**2).sum(axis=0)**0.5)
-    else:   
+    if omni and OMNI_INSTALLED:
         mu = omnipose.utils.normalize_field(mu) 
+    else:
+        mu /= (1e-20 + (mu**2).sum(axis=0)**0.5)
     return mu
 
 
