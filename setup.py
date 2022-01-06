@@ -6,7 +6,8 @@ install_deps = ['numpy>=1.20.0', 'scipy', 'natsort',
                 'torch>=1.6',
                 'torch_optimizer',
                 'opencv-python-headless',
-                'edt','fastremap','torch_optimizer']
+                'edt','fastremap','torch_optimizer', 
+                'ncolor']
 
 gui_deps = [
         'pyqtgraph==0.11.0rc0', 
