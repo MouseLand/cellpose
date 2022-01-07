@@ -9,6 +9,7 @@ from numba import njit, float32, int32, vectorize
 import edt
 import fastremap
 import cv2
+import ncolor #label formatter in here so that omnipose is not required; could just put in cellpose utils
 
 import logging
 dynamics_logger = logging.getLogger(__name__)
@@ -181,7 +182,9 @@ def masks_to_flows_gpu(masks, dists, device=None, omni=False):
     
     neighbors = np.stack((neighborsY, neighborsX), axis=-1)
     
-    if not omni: # do original centroid projection algrorithm
+    if omni and OMNI_INSTALLED: # do omnipose algorithm (see cpu flow code for more details)
+        centers = np.stack((y,x),axis=1)
+    else: # do original centroid projection algrorithm
         # get mask centers
         centers = np.array(scipy.ndimage.center_of_mass(masks_padded, labels=masks_padded, 
                                                         index=np.arange(1, masks_padded.max()+1))).astype(int)
@@ -194,10 +197,7 @@ def masks_to_flows_gpu(masks, dists, device=None, omni=False):
             imin = np.argmin((xi-xmed)**2 + (yi-ymed)**2)
             centers[i,0] = yi[imin]
             centers[i,1] = xi[imin] 
-            
-    else: # do omnipose algorithm (see cpu flow code for more details)
-        centers = np.stack((y,x),axis=1)
-    
+
     # get neighbor validator (not all neighbors are in same mask)
     neighbor_masks = masks_padded[neighbors[:,:,0], neighbors[:,:,1]] #extract list of label values, 
     isneighbor = neighbor_masks == neighbor_masks[4] # 4 corresponds to x,y now
@@ -345,7 +345,7 @@ def masks_to_flows(masks, dists=None, use_gpu=False, device=None, omni=False):
     """
    
     if dists is None:
-        masks = omnipose.utils.format_labels(masks)
+        masks = ncolor.format_labels(masks)
         dists = edt.edt(masks)
         
     if TORCH_ENABLED and use_gpu:
