@@ -343,7 +343,8 @@ def masks_to_flows(masks, dists=None, use_gpu=False, device=None, omni=False):
         in which it resides 
 
     """
-   
+
+
     if dists is None:
         masks = ncolor.format_labels(masks)
         dists = edt.edt(masks)

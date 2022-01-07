@@ -9,6 +9,7 @@ from scipy.stats import gmean
 import numpy as np
 import colorsys
 import io
+import ncolor #here just for label formatting 
 
 from . import metrics
 try:
@@ -435,9 +436,11 @@ def fill_holes_and_remove_small_masks(masks, min_size=15, hole_size=3, scale_fac
     
     """
 
-    if masks.ndim==2 and OMNI_INSTALLED:
-        masks = omnipose.utils.format_labels(masks, min_area=min_size) # not sure how this works with 3D... tests pass though
-    
+    if masks.ndim==2:
+        # formatting to integer is critical
+        # need to test how it does with 3D
+        masks = ncolor.format_labels(masks, min_area=min_size)
+        
     hole_size *= scale_factor
         
     if masks.ndim > 3 or masks.ndim < 2:
