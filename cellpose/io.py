@@ -152,6 +152,8 @@ def get_label_files(image_names, mask_filter, imf=None):
     # check for masks
     if os.path.exists(label_names[0] + mask_filter + '.tif'):
         label_names = [label_names[n] + mask_filter + '.tif' for n in range(nimg)]
+    elif os.path.exists(label_names[0] + mask_filter + '.tiff'):
+        label_names = [label_names[n] + mask_filter + '.tiff' for n in range(nimg)]
     elif os.path.exists(label_names[0] + mask_filter + '.png'):
         label_names = [label_names[n] + mask_filter + '.png' for n in range(nimg)]
     else:
