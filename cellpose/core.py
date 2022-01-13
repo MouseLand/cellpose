@@ -27,8 +27,9 @@ try:
     TORCH_ENABLED = True
     torch_GPU = torch.device('cuda')
     torch_CPU = torch.device('cpu')
-except:
+except Exception as e:
     TORCH_ENABLED = False
+    print(e)
 
 core_logger = logging.getLogger(__name__)
 core_logger.setLevel(logging.DEBUG)
@@ -850,7 +851,7 @@ class UnetModel():
               test_data=None, test_labels=None,
               pretrained_model=None, save_path=None, save_every=100, save_each=False,
               learning_rate=0.2, n_epochs=500, momentum=0.9, weight_decay=0.00001, 
-              SGD=False, batch_size=8, rescale=True, netstr='cellpose'): 
+              SGD=True, batch_size=8, rescale=True, netstr='cellpose'): 
         """ train function uses loss function self.loss_fn in models.py"""
         
         d = datetime.datetime.now()

@@ -774,7 +774,7 @@ class CellposeModel(UnetModel):
               test_data=None, test_labels=None, test_files=None,
               channels=None, normalize=True, pretrained_model=None, 
               save_path=None, save_every=100, save_each=False,
-              learning_rate=0.2, n_epochs=500, momentum=0.9, SGD=False,
+              learning_rate=0.2, n_epochs=500, momentum=0.9, SGD=True,
               weight_decay=0.00001, batch_size=8, rescale=False, omni=False):
 
         """ train network with images train_data 
@@ -825,7 +825,7 @@ class CellposeModel(UnetModel):
 
             weight_decay: float (default, 0.00001)
 
-            SGD: bool (default, False) use SGD as optimization instead of RAdam
+            SGD: bool (default, True) use SGD as optimization instead of RAdam
 
             batch_size: int (optional, default 8)
                 number of 224x224 patches to run simultaneously on the GPU

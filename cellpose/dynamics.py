@@ -6,10 +6,7 @@ import numpy as np
 import tifffile
 from tqdm import trange
 from numba import njit, float32, int32, vectorize
-import edt
-import fastremap
 import cv2
-import ncolor #label formatter in here so that omnipose is not required; could just put in cellpose utils
 
 import logging
 dynamics_logger = logging.getLogger(__name__)
@@ -38,6 +35,7 @@ try:
     # njit requires direct function access or something like that,
     # so these functions need to be explicitly imported 
     from omnipose.core import eikonal_update_cpu, step_factor 
+    import edt, fastremap
     OMNI_INSTALLED = True
 except:
     OMNI_INSTALLED = False
@@ -95,7 +93,7 @@ def _extend_centers(T, y, x, ymed, xmed, Lx, niter, omni=False):
 tic=time.time()
 
 # edited slightly to fix a 'bleeding' issue with the gradient; now identical to CPU version
-def _extend_centers_gpu(neighbors, centers, isneighbor, Ly, Lx, n_iter=200, device=torch.device('cuda'),omni=False,masks=[]):
+def _extend_centers_gpu_omni(neighbors, centers, isneighbor, Ly, Lx, n_iter=200, device=torch.device('cuda'),omni=False,masks=[]):
     """ runs diffusion on GPU to generate flows for training images or quality control
     
     neighbors is 9 x <pixels in masks>, 
@@ -109,7 +107,7 @@ def _extend_centers_gpu(neighbors, centers, isneighbor, Ly, Lx, n_iter=200, devi
     nimg = neighbors.shape[0] // 9
     pt = torch.from_numpy(neighbors).to(device)
     T = torch.zeros((nimg,Ly,Lx), dtype=torch.double, device=device)
-    meds = torch.from_numpy(centers.astype(int)).to(device)
+    meds = torch.from_numpy(centers.astype(int)).to(device).long()
     isneigh = torch.from_numpy(isneighbor).to(device)
 
     for t in range(n_iter):
@@ -135,8 +133,7 @@ def _extend_centers_gpu(neighbors, centers, isneighbor, Ly, Lx, n_iter=200, devi
 
     return mu_torch, Tcpy.cpu().squeeze()
 
-
-def masks_to_flows_gpu(masks, dists, device=None, omni=False):
+def masks_to_flows_gpu_omni(masks, dists, device=None, omni=False):
     """ convert masks to flows using diffusion from center pixel
 
     Center of masks where diffusion starts is defined using COM
@@ -224,6 +221,109 @@ def masks_to_flows_gpu(masks, dists, device=None, omni=False):
     
     mu_c = T[pad:-pad,pad:-pad] # mu_c now heat
     return mu0, mu_c
+
+
+def _extend_centers_gpu(neighbors, centers, isneighbor, Ly, Lx, n_iter=200, device=torch.device('cuda')):
+    """ runs diffusion on GPU to generate flows for training images or quality control
+    
+    neighbors is 9 x pixels in masks, 
+    centers are mask centers, 
+    isneighbor is valid neighbor boolean 9 x pixels
+    
+    """
+    if device is not None:
+        device = device
+    nimg = neighbors.shape[0] // 9
+    pt = torch.from_numpy(neighbors).to(device)
+    
+    T = torch.zeros((nimg,Ly,Lx), dtype=torch.double, device=device)
+    meds = torch.from_numpy(centers.astype(int)).to(device).long()
+    isneigh = torch.from_numpy(isneighbor).to(device)
+    for i in range(n_iter):
+        T[:, meds[:,0], meds[:,1]] +=1
+        Tneigh = T[:, pt[:,:,0], pt[:,:,1]]
+        Tneigh *= isneigh
+        T[:, pt[0,:,0], pt[0,:,1]] = Tneigh.mean(axis=1)
+  
+    T = torch.log(1.+ T)
+    # gradient positions
+    grads = T[:, pt[[2,1,4,3],:,0], pt[[2,1,4,3],:,1]]
+    dy = grads[:,0] - grads[:,1]
+    dx = grads[:,2] - grads[:,3]
+
+    mu_torch = np.stack((dy.cpu().squeeze(), dx.cpu().squeeze()), axis=-2)
+    return mu_torch
+
+
+def masks_to_flows_gpu(masks, dists=None, device=None, omni=False):
+    """ convert masks to flows using diffusion from center pixel
+    Center of masks where diffusion starts is defined using COM
+    Parameters
+    -------------
+    masks: int, 2D or 3D array
+        labelled masks 0=NO masks; 1,2,...=mask labels
+    Returns
+    -------------
+    mu: float, 3D or 4D array 
+        flows in Y = mu[-2], flows in X = mu[-1].
+        if masks are 3D, flows in Z = mu[0].
+    mu_c: float, 2D or 3D array
+        for each pixel, the distance to the center of the mask 
+        in which it resides 
+    """
+    if device is None:
+        device = torch.device('cuda')
+
+    
+    Ly0,Lx0 = masks.shape
+    Ly, Lx = Ly0+2, Lx0+2
+
+    masks_padded = np.zeros((Ly, Lx), np.int64)
+    masks_padded[1:-1, 1:-1] = masks
+
+    # get mask pixel neighbors
+    y, x = np.nonzero(masks_padded)
+    neighborsY = np.stack((y, y-1, y+1, 
+                           y, y, y-1, 
+                           y-1, y+1, y+1), axis=0)
+    neighborsX = np.stack((x, x, x, 
+                           x-1, x+1, x-1, 
+                           x+1, x-1, x+1), axis=0)
+    neighbors = np.stack((neighborsY, neighborsX), axis=-1)
+
+    # get mask centers
+    centers = np.array(scipy.ndimage.center_of_mass(masks_padded, labels=masks_padded, 
+                                                    index=np.arange(1, masks_padded.max()+1))).astype(int)
+    # (check mask center inside mask)
+    valid = masks_padded[centers[:,0], centers[:,1]] == np.arange(1, masks_padded.max()+1)
+    for i in np.nonzero(~valid)[0]:
+        yi,xi = np.nonzero(masks_padded==(i+1))
+        ymed = np.median(yi)
+        xmed = np.median(xi)
+        imin = np.argmin((xi-xmed)**2 + (yi-ymed)**2)
+        centers[i,0] = yi[imin]
+        centers[i,1] = xi[imin]        
+    
+    # get neighbor validator (not all neighbors are in same mask)
+    neighbor_masks = masks_padded[neighbors[:,:,0], neighbors[:,:,1]]
+    isneighbor = neighbor_masks == neighbor_masks[0]
+
+    slices = scipy.ndimage.find_objects(masks)
+    ext = np.array([[sr.stop - sr.start + 1, sc.stop - sc.start + 1] for sr, sc in slices])
+    n_iter = 2 * (ext.sum(axis=1)).max()
+    # run diffusion
+    mu = _extend_centers_gpu(neighbors, centers, isneighbor, Ly, Lx, 
+                             n_iter=n_iter, device=device)
+
+    # normalize
+    mu /= (1e-20 + (mu**2).sum(axis=0)**0.5)
+
+    # put into original image
+    mu0 = np.zeros((2, Ly0, Lx0))
+    mu0[:, y-1, x-1] = mu
+    mu_c = np.zeros_like(mu0)
+    return mu0, mu_c
+
 
 def masks_to_flows_cpu(masks, dists, device=None, omni=False):
     """ convert masks to flows using diffusion from center pixel
@@ -345,7 +445,7 @@ def masks_to_flows(masks, dists=None, use_gpu=False, device=None, omni=False):
     """
 
 
-    if dists is None:
+    if dists is None and omni and OMNI_INSTALLED:
         masks = ncolor.format_labels(masks)
         dists = edt.edt(masks)
         
@@ -354,7 +454,11 @@ def masks_to_flows(masks, dists=None, use_gpu=False, device=None, omni=False):
             device = torch_GPU
         elif device is None:
             device = torch_CPU
-        masks_to_flows_device = masks_to_flows_gpu 
+        if omni and OMNI_INSTALLED:
+            masks_to_flows_device = masks_to_flows_gpu_omni
+        else:
+            masks_to_flows_device = masks_to_flows_gpu
+            dists=None
     else:
         masks_to_flows_device = masks_to_flows_cpu
         
@@ -733,42 +837,39 @@ def remove_bad_flow_masks(masks, flows, threshold=0.4, use_gpu=False, device=Non
     masks[np.isin(masks, badi)] = 0
     return masks
 
-def get_masks(p, iscell=None, rpad=20, flows=None, use_gpu=False, device=None):
+def get_masks(p, iscell=None, rpad=20, flows=None, threshold=0.4, use_gpu=False, device=None):
     """ create masks using pixel convergence after running dynamics
     
     Makes a histogram of final pixel locations p, initializes masks 
     at peaks of histogram and extends the masks from the peaks so that
     they include all pixels with more than 2 final pixels p. Discards 
     masks with flow errors greater than the threshold. 
-
     Parameters
     ----------------
-
     p: float32, 3D or 4D array
         final locations of each pixel after dynamics,
         size [axis x Ly x Lx] or [axis x Lz x Ly x Lx].
-
     iscell: bool, 2D or 3D array
         if iscell is not None, set pixels that are 
         iscell False to stay in their original location.
-
     rpad: int (optional, default 20)
         histogram edge padding
-
+    threshold: float (optional, default 0.4)
+        masks with flow error greater than threshold are discarded 
+        (if flows is not None)
     flows: float, 3D or 4D array (optional, default None)
         flows [axis x Ly x Lx] or [axis x Lz x Ly x Lx]. If flows
         is not None, then masks with inconsistent flows are removed using 
         `remove_bad_flow_masks`.
-
     Returns
     ---------------
-
     M0: int, 2D or 3D array
         masks with inconsistent flow masks removed, 
         0=NO masks; 1,2,...=mask labels,
         size [Ly x Lx] or [Lz x Ly x Lx]
     
     """
+    
     pflows = []
     edges = []
     shape0 = p.shape[1:]
@@ -782,12 +883,12 @@ def get_masks(p, iscell=None, rpad=20, flows=None, use_gpu=False, device=None):
                      indexing='ij')
         for i in range(dims):
             p[i, ~iscell] = inds[i][~iscell]
-    
+
     for i in range(dims):
         pflows.append(p[i].flatten().astype('int32'))
         edges.append(np.arange(-.5-rpad, shape0[i]+.5+rpad, 1))
 
-    h,_ = np.lib.histogramdd(pflows, bins=edges)
+    h,_ = np.histogramdd(tuple(pflows), bins=edges)
     hmax = h.copy()
     for i in range(dims):
         hmax = maximum_filter1d(hmax, 5, axis=i)
@@ -797,6 +898,7 @@ def get_masks(p, iscell=None, rpad=20, flows=None, use_gpu=False, device=None):
     isort = np.argsort(Nmax)[::-1]
     for s in seeds:
         s = s[isort]
+
     pix = list(np.array(seeds).T)
 
     shape = h.shape
@@ -835,7 +937,7 @@ def get_masks(p, iscell=None, rpad=20, flows=None, use_gpu=False, device=None):
     for i in range(dims):
         pflows[i] = pflows[i] + rpad
     M0 = M[tuple(pflows)]
-    
+
     # remove big masks
     _,counts = np.unique(M0, return_counts=True)
     big = np.prod(shape0) * 0.4
@@ -843,12 +945,6 @@ def get_masks(p, iscell=None, rpad=20, flows=None, use_gpu=False, device=None):
         M0[M0==i] = 0
     _,M0 = np.unique(M0, return_inverse=True)
     M0 = np.reshape(M0, shape0)
-
-    # moved to compute masks
-    # if M0.max()>0 and threshold is not None and threshold > 0 and flows is not None:
-    #     M0 = remove_bad_flow_masks(M0, flows, threshold=threshold, use_gpu=use_gpu, device=device)
-    #     _,M0 = np.unique(M0, return_inverse=True)
-    #     M0 = np.reshape(M0, shape0).astype(np.int32)
 
     return M0
 
@@ -911,11 +1007,12 @@ def compute_masks(dP, dist, bd=None, p=None, inds=None, niter=200, mask_threshol
         dynamics_logger.info('No cell pixels found.')
         p = np.zeros([2,1,1])
         tr = []
-        mask = np.zeros(resize)
+        mask = np.zeros(resize, 'int')
 
     # moving the cleanup to the end helps avoid some bugs arising from scaling...
     # maybe better would be to rescale the min_size and hole_size parameters to do the
     # cleanup at the prediction scale, or switch depending on which one is bigger... 
     mask = utils.fill_holes_and_remove_small_masks(mask, min_size=min_size)
-    fastremap.renumber(mask,in_place=True) #convenient to guarantee non-skipped labels
+    if omni and OMNI_INSTALLED:
+        fastremap.renumber(mask,in_place=True) #convenient to guarantee non-skipped labels
     return mask, p, tr

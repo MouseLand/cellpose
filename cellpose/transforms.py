@@ -1,8 +1,6 @@
 import numpy as np
 import warnings
 import cv2
-import edt
-import fastremap
 
 import logging
 transforms_logger = logging.getLogger(__name__)
@@ -10,7 +8,7 @@ transforms_logger.setLevel(logging.DEBUG)
 
 from . import dynamics, utils
 try:
-    import omnipose
+    import omnipose, edt, fastremap
     OMNI_INSTALLED = True
 except:
     OMNI_INSTALLED = False

@@ -48,7 +48,7 @@ def main():
     
     # settings for CPU vs GPU
     hardware_args = parser.add_argument_group("hardware arguments")
-    hardware_args.add_argument('--use_gpu', action='store_true', help='use gpu if mxnet with cuda installed')
+    hardware_args.add_argument('--use_gpu', action='store_true', help='use gpu if torch or mxnet with cuda installed')
     hardware_args.add_argument('--check_mkl', action='store_true', help='check if mkl working')
     hardware_args.add_argument('--mkldnn', action='store_true', help='for mxnet, force MXNET_SUBGRAPH_BACKEND = "MKLDNN"')
         
@@ -56,7 +56,7 @@ def main():
     input_img_args = parser.add_argument_group("input image arguments")
     input_img_args.add_argument('--dir',
                         default=[], type=str, help='folder containing data to run or train on.')
-    input_img_args.add_argument('--look_one_level_down', action='store_true', help='')
+    input_img_args.add_argument('--look_one_level_down', action='store_true', help='run processing on all subdirectories of current folder')
     input_img_args.add_argument('--mxnet', action='store_true', help='use mxnet')
     input_img_args.add_argument('--img_filter',
                         default=[], type=str, help='end string for images to run on')

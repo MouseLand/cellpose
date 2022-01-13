@@ -5,12 +5,12 @@ import cv2
 import tifffile
 import logging, pathlib, sys
 from pathlib import Path
-import ncolor
 
 from . import utils, plot, transforms
 
 try:
     import omnipose.utils.format_labels as format_labels
+    import ncolor
     OMNI_INSTALLED = True
 except:
     OMNI_INSTALLED = False
@@ -425,7 +425,7 @@ def save_masks(images, masks, flows, file_names, png=True, tif=False, channels=[
         imsave(os.path.join(outlinedir, basename + '_outlines' + suffix + '.png'),  imgout)
     
     # ncolor labels (ready for color map application)
-    if masks.ndim < 3 and save_ncolor:
+    if masks.ndim < 3 and OMNI_INSTALLED and save_ncolor:
         check_dir(ncolordir)
         #convert masks to minimal n-color reresentation 
         imsave(os.path.join(ncolordir, basename + '_cp_ncolor_masks' + suffix + '.png'),

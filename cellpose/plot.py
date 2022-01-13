@@ -3,7 +3,6 @@ import numpy as np
 import cv2
 from scipy.ndimage import gaussian_filter
 from . import utils, io, transforms
-import ncolor
 
 try:
     import matplotlib
@@ -20,6 +19,7 @@ except:
 
 try:
     from omnipose.utils import sinebow
+    import ncolor
     OMNI_INSTALLED = True
 except:
     OMNI_INSTALLED = False

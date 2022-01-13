@@ -5,9 +5,18 @@ import torch.nn as nn
 from torch import optim
 import torch.nn.functional as F
 import datetime
+
+
 from . import transforms, io, dynamics, utils
 
 sz = 3
+
+def convbatchrelu(in_channels, out_channels, sz):
+    return nn.Sequential(
+        nn.Conv2d(in_channels, out_channels, sz, padding=sz//2),
+        nn.BatchNorm2d(out_channels, eps=1e-5),
+        nn.ReLU(inplace=True),
+    )  
 
 def batchconv(in_channels, out_channels, sz):
     return nn.Sequential(
@@ -175,12 +184,11 @@ class CPnet(nn.Module):
         self.make_style = make_style()
         self.output = batchconv(nbaseup[0], nout, 1)
         self.style_on = style_on
-        self.dropout = nn.Dropout(0.1) ###########################################################
         
     def forward(self, data):
         if self.mkldnn:
             data = data.to_mkldnn()
-        T0 = self.downsample(data)
+        T0    = self.downsample(data)
         if self.mkldnn:
             style = self.make_style(T0[-1].to_dense()) 
         else:
@@ -189,11 +197,11 @@ class CPnet(nn.Module):
         if not self.style_on:
             style = style * 0
         T0 = self.upsample(style, T0, self.mkldnn)
-        T0 = self.dropout(T0) ####################################################################
-        T0 = self.output(T0)
+        T1    = self.output(T0)
         if self.mkldnn:
-            T0 = T0.to_dense()
-        return T0, style0
+            T0 = T0.to_dense()    
+            T1 = T1.to_dense()    
+        return T1, style0
 
     def save_model(self, filename):
         torch.save(self.state_dict(), filename)
@@ -210,5 +218,3 @@ class CPnet(nn.Module):
                           self.concatenation,
                           self.mkldnn)
             self.load_state_dict(torch.load(filename, map_location=torch.device('cpu')))
-
-
