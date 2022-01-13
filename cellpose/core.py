@@ -896,6 +896,8 @@ class UnetModel():
                     LR = np.append(LR, LR[-1]/2 * np.ones(10))
             else:
                 LR = np.append(LR, self.learning_rate*np.ones(max(0,self.n_epochs-10)))
+        else:
+            LR = self.learning_rate * np.ones(self.n_epochs)
         
 
         lavg, nsum = 0, 0
@@ -956,10 +958,10 @@ class UnetModel():
                         nsum += len(imgi)
 
                     core_logger.info('Epoch %d, Time %4.1fs, Loss %2.4f, Loss Test %2.4f, LR %2.4f'%
-                            (iepoch, time.time()-tic, lavg, lavgt/nsum, self.optimizer.current_lr))
+                            (iepoch, time.time()-tic, lavg, lavgt/nsum, LR[iepoch]))
                 else:
                     core_logger.info('Epoch %d, Time %4.1fs, Loss %2.4f, LR %2.4f'%
-                            (iepoch, time.time()-tic, lavg, self.optimizer.current_lr))
+                            (iepoch, time.time()-tic, lavg, LR[iepoch]))
                 
                 lavg, nsum = 0, 0
                             
