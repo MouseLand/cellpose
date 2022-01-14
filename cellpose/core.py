@@ -21,7 +21,6 @@ try:
     import torch
 #     from GPUtil import showUtilization as gpu_usage #for gpu memory debugging 
     from torch import nn
-    import torch_optimizer as optim # for RADAM optimizer
     from torch.utils import mkldnn as mkldnn_utils
     from . import resnet_torch
     TORCH_ENABLED = True
@@ -119,7 +118,7 @@ class UnetModel():
     def __init__(self, gpu=False, pretrained_model=False,
                     diam_mean=30., net_avg=True, device=None,
                     residual_on=False, style_on=False, concatenation=True,
-                    nclasses=4, torch=True, nchan=2):
+                    nclasses=3, torch=True, nchan=2):
         self.unet = True
         if torch:
             if not TORCH_ENABLED:
@@ -345,7 +344,10 @@ class UnetModel():
             self.net.eval()
             if self.mkldnn:
                 self.net = mkldnn_utils.to_mkldnn(self.net)
-        y, style = self.net(X)
+            with torch.no_grad():
+                y, style = self.net(X)
+        else:
+            y, style = self.net(X)
         if self.mkldnn:
             self.net.to(torch_CPU)
         y = self._from_device(y)
@@ -763,10 +765,10 @@ class UnetModel():
         X = self._to_device(x)
         if self.torch:
             self.optimizer.zero_grad()
-            if self.gpu:
-                self.net.train().cuda()
-            else:
-                self.net.train()
+            #if self.gpu:
+            #    self.net.train() #.cuda()
+            #else:
+            self.net.train()
             y = self.net(X)[0]
             loss = self.loss_fn(lbl,y)
             loss.backward()
@@ -786,10 +788,11 @@ class UnetModel():
         X = self._to_device(x)
         if self.torch:
             self.net.eval()
-            y, style = self.net(X)
-            loss = self.loss_fn(lbl,y)
-            test_loss = loss.item()
-            test_loss *= len(x)
+            with torch.no_grad():
+                y, style = self.net(X)
+                loss = self.loss_fn(lbl,y)
+                test_loss = loss.item()
+                test_loss *= len(x)
         else:
             y, style = self.net(X)
             loss = self.loss_fn(lbl, y)
@@ -798,23 +801,15 @@ class UnetModel():
 
     def _set_optimizer(self, learning_rate, momentum, weight_decay, SGD=False):
         if self.torch:
-        # best optimizer I tested seemed to be RAdam, about 2x as fast as SGD and very stable.
-        # Ranger21 is in beta and might be better/faster, but more testing is needed.
-        # Ranger21 has a convenient current_lr field, whereas RAdam doesn't and I just set this field to the learning rate
             if SGD:
                 self.optimizer = torch.optim.SGD(self.net.parameters(), lr=learning_rate,
                                             momentum=momentum, weight_decay=weight_decay)
             else:
+                import torch_optimizer as optim # for RADAM optimizer
                 self.optimizer = optim.RAdam(self.net.parameters(), lr=learning_rate, betas=(0.95, 0.999), #changed to .95
                                             eps=1e-08, weight_decay=weight_decay)
                 core_logger.info('>>> Using RAdam optimizer')
-#             self.optimizer = optim.AdaBound(self.net.parameters(), lr=learning_rate, betas=(0.9, 0.999), 
-#                                 gamma=1e-3, eps=1e-08, final_lr=0.15, weight_decay=weight_decay)
-#             print('>>> Using AdaBound optimizer')
-#             self.optimizer = Ranger21(self.net.parameters(), lr=learning_rate, weight_decay=weight_decay, num_batches_per_epoch=self.batch_size, 
-#                                       num_epochs=self.n_epochs,num_warmup_iterations=20*self.batch_size, betas=(0.9, 0.999), eps=1e-08)
-#             print('>>> Using Ranger21 optimizer')
-            self.optimizer.current_lr = learning_rate
+                self.optimizer.current_lr = learning_rate
         else:
             self.optimizer = gluon.Trainer(self.net.collect_params(), 'sgd',{'learning_rate': learning_rate,
                                 'momentum': momentum, 'wd': weight_decay})
@@ -931,7 +926,6 @@ class UnetModel():
                 imgi, lbl, scale = transforms.random_rotate_and_resize(
                                         [train_data[i] for i in inds], Y=[train_labels[i] for i in inds],
                                         rescale=rsc, scale_range=scale_range, unet=self.unet, inds=inds, omni=self.omni)
-
                 if self.unet and lbl.shape[1]>1 and rescale:
                     lbl[:,1] /= diam_batch[:,np.newaxis,np.newaxis]**2
                 train_loss = self._train_step(imgi, lbl)

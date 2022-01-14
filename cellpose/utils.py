@@ -464,7 +464,7 @@ def fill_holes_and_remove_small_masks(masks, min_size=15, hole_size=3, scale_fac
                         msk[k] = binary_fill_holes(msk[k])
 
                 else:          
-                    if SKIMAGE_ENABLED: # Omnipose version (passes 2D tests)
+                    if OMNI_INSTALLED and SKIMAGE_ENABLED: # Omnipose version (passes 2D tests)
                         hsz = np.count_nonzero(msk)*hole_size/100 #turn hole size into percentage
                         padmsk = remove_small_holes(np.pad(msk,1,mode='constant'),hsz)
                         msk = padmsk[1:-1,1:-1]

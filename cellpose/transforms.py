@@ -408,7 +408,7 @@ def normalize_img(img, axis=-1, invert=False, omni=False):
     img = np.moveaxis(img, 0, axis)
     return img
 
-def reshape_train_test(train_data, train_labels, test_data, test_labels, channels, normalize, omni=False):
+def reshape_train_test(train_data, train_labels, test_data, test_labels, channels, normalize=True, omni=False):
     """ check sizes and reshape train and test data for training """
     nimg = len(train_data)
     # check that arrays are correct size
@@ -664,9 +664,8 @@ def random_rotate_and_resize(X, Y=None, scale_range=1., gamma_range=0.5, xy = (2
         # backwards compatibility; completely 'stock', no gamma augmentation or any other extra frills. 
         # [Y[i][1:] for i in inds] is necessary because the original transform function does not use masks (entry 0). 
         # This used to be done in the original function call. 
-        if Y is not None:
-            Y = [y[1:] for y in Y]
-        return original_random_rotate_and_resize(X, Y=Y, scale_range=scale_range, xy=xy,
+        return original_random_rotate_and_resize(X, Y=[y[1:] for y in Y] if Y is not None else None, 
+                                                 scale_range=scale_range, xy=xy,
                                                  do_flip=do_flip, rescale=rescale, unet=unet)
 
 
@@ -736,8 +735,8 @@ def _image_resizer(img, resize=512, to_uint8=False):
     return img
 
 
-def original_random_rotate_and_resize(X, Y=None, scale_range=1., xy = (224,224),
-                                      do_flip=True, rescale=None, unet=False):
+def original_random_rotate_and_resize(X, Y=None, scale_range=1., xy = (224,224), 
+                             do_flip=True, rescale=None, unet=False):
     """ augmentation by random rotation and resizing
         X and Y are lists or arrays of length nimg, with dims channels x Ly x Lx (channels optional)
         Parameters

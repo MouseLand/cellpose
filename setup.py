@@ -6,8 +6,7 @@ install_deps = ['numpy>=1.20.0', 'scipy', 'natsort',
                 'torch>=1.6',
                 'torch_optimizer',
                 'opencv-python-headless',
-                'edt','fastremap','torch_optimizer', 
-                'ncolor']
+                ]
 
 gui_deps = [
         'pyqtgraph==0.11.0rc0', 
@@ -24,7 +23,9 @@ docs_deps = [
 
 omni_deps = [
         'scikit-image', 
-        'scikit-learn'
+        'scikit-learn',
+        'edt','fastremap','torch_optimizer', 
+        'ncolor'
         ]
 
 distributed_deps = [

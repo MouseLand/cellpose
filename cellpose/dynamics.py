@@ -40,41 +40,63 @@ try:
 except:
     OMNI_INSTALLED = False
 
-
-@njit('(float64[:], int32[:], int32[:], int32[:], int32[:], int32, int32, boolean)', nogil=True)
-def _extend_centers(T, y, x, ymed, xmed, Lx, niter, omni=False):
+@njit('(float64[:], int32[:], int32[:], int32, int32, int32, int32)', nogil=True)
+def _extend_centers(T,y,x,ymed,xmed,Lx, niter):
     """ run diffusion from center of mask (ymed, xmed) on mask pixels (y, x)
-
     Parameters
     --------------
-
     T: float64, array
         _ x Lx array that diffusion is run in
-
     y: int32, array
         pixels in y inside mask
-
     x: int32, array
         pixels in x inside mask
-
     ymed: int32
         center of mask in y
-
     xmed: int32
         center of mask in x
-
     Lx: int32
         size of x-dimension of masks
-
     niter: int32
         number of iterations to run diffusion
-
     Returns
     ---------------
-
     T: float64, array
         amount of diffused particles at each pixel
+    """
 
+    for t in range(niter):
+        T[ymed*Lx + xmed] += 1
+        T[y*Lx + x] = 1/9. * (T[y*Lx + x] + T[(y-1)*Lx + x]   + T[(y+1)*Lx + x] +
+                                            T[y*Lx + x-1]     + T[y*Lx + x+1] +
+                                            T[(y-1)*Lx + x-1] + T[(y-1)*Lx + x+1] +
+                                            T[(y+1)*Lx + x-1] + T[(y+1)*Lx + x+1])
+    return T
+
+
+@njit('(float64[:], int32[:], int32[:], int32[:], int32[:], int32, int32, boolean)', nogil=True)
+def _extend_centers_omni(T, y, x, ymed, xmed, Lx, niter, omni=False):
+    """ run diffusion from center of mask (ymed, xmed) on mask pixels (y, x)
+    Parameters
+    --------------
+    T: float64, array
+        _ x Lx array that diffusion is run in
+    y: int32, array
+        pixels in y inside mask
+    x: int32, array
+        pixels in x inside mask
+    ymed: int32
+        center of mask in y
+    xmed: int32
+        center of mask in x
+    Lx: int32
+        size of x-dimension of masks
+    niter: int32
+        number of iterations to run diffusion
+    Returns
+    ---------------
+    T: float64, array
+        amount of diffused particles at each pixel
     """
     for t in range(niter):
         if omni and OMNI_INSTALLED:
@@ -209,7 +231,7 @@ def masks_to_flows_gpu_omni(masks, dists, device=None, omni=False):
         n_iter = 2 * (ext.sum(axis=1)).max()
    
     # run diffusion 
-    mu, T = _extend_centers_gpu(neighbors, centers, isneighbor, Ly, Lx,
+    mu, T = _extend_centers_gpu_omni(neighbors, centers, isneighbor, Ly, Lx,
                                 n_iter=n_iter, device=device, masks=masks_padded, omni=omni)
 
     # normalize
@@ -255,7 +277,7 @@ def _extend_centers_gpu(neighbors, centers, isneighbor, Ly, Lx, n_iter=200, devi
     return mu_torch
 
 
-def masks_to_flows_gpu(masks, dists=None, device=None, omni=False):
+def masks_to_flows_gpu(masks, device=None):
     """ convert masks to flows using diffusion from center pixel
     Center of masks where diffusion starts is defined using COM
     Parameters
@@ -325,7 +347,65 @@ def masks_to_flows_gpu(masks, dists=None, device=None, omni=False):
     return mu0, mu_c
 
 
-def masks_to_flows_cpu(masks, dists, device=None, omni=False):
+
+def masks_to_flows_cpu(masks, device=None):
+    """ convert masks to flows using diffusion from center pixel
+    Center of masks where diffusion starts is defined to be the 
+    closest pixel to the median of all pixels that is inside the 
+    mask. Result of diffusion is converted into flows by computing
+    the gradients of the diffusion density map. 
+    Parameters
+    -------------
+    masks: int, 2D array
+        labelled masks 0=NO masks; 1,2,...=mask labels
+    Returns
+    -------------
+    mu: float, 3D array 
+        flows in Y = mu[-2], flows in X = mu[-1].
+        if masks are 3D, flows in Z = mu[0].
+    mu_c: float, 2D array
+        for each pixel, the distance to the center of the mask 
+        in which it resides 
+    """
+    
+    Ly, Lx = masks.shape
+    mu = np.zeros((2, Ly, Lx), np.float64)
+    mu_c = np.zeros((Ly, Lx), np.float64)
+    
+    nmask = masks.max()
+    slices = scipy.ndimage.find_objects(masks)
+    dia = utils.diameters(masks)[0]
+    s2 = (.15 * dia)**2
+    for i,si in enumerate(slices):
+        if si is not None:
+            sr,sc = si
+            ly, lx = sr.stop - sr.start + 1, sc.stop - sc.start + 1
+            y,x = np.nonzero(masks[sr, sc] == (i+1))
+            y = y.astype(np.int32) + 1
+            x = x.astype(np.int32) + 1
+            ymed = np.median(y)
+            xmed = np.median(x)
+            imin = np.argmin((x-xmed)**2 + (y-ymed)**2)
+            xmed = x[imin]
+            ymed = y[imin]
+            
+            d2 = (x-xmed)**2 + (y-ymed)**2
+            mu_c[sr.start+y-1, sc.start+x-1] = np.exp(-d2/s2)
+
+            niter = 2*np.int32(np.ptp(x) + np.ptp(y))
+            T = np.zeros((ly+2)*(lx+2), np.float64)
+            T = _extend_centers(T, y, x, ymed, xmed, np.int32(lx), np.int32(niter))
+            T[(y+1)*lx + x+1] = np.log(1.+T[(y+1)*lx + x+1])
+
+            dy = T[(y+1)*lx + x] - T[(y-1)*lx + x]
+            dx = T[y*lx + x+1] - T[y*lx + x-1]
+            mu[:, sr.start+y-1, sc.start+x-1] = np.stack((dy,dx))
+
+    mu /= (1e-20 + (mu**2).sum(axis=0)**0.5)
+
+    return mu, mu_c
+
+def masks_to_flows_cpu_omni(masks, dists, device=None, omni=False):
     """ convert masks to flows using diffusion from center pixel
 
     Center of masks where diffusion starts is defined to be the 
@@ -400,7 +480,7 @@ def masks_to_flows_cpu(masks, dists, device=None, omni=False):
                 xmed = np.array([x[imin]],np.int32)
                 ymed = np.array([y[imin]],np.int32)
             
-            T = _extend_centers(T, y, x, ymed, xmed, lx, niter, omni)
+            T = _extend_centers_omni(T, y, x, ymed, xmed, lx, niter, omni)
             if not omni: 
                  T[(y+1)*lx + x+1] = np.log(1.+T[(y+1)*lx + x+1])
             
@@ -417,7 +497,7 @@ def masks_to_flows_cpu(masks, dists, device=None, omni=False):
     # intended for, but it is apparently not used for anything else
     return mu, mu_c
 
-def masks_to_flows(masks, dists=None, use_gpu=False, device=None, omni=False):
+def masks_to_flows(masks, use_gpu=False, device=None, dists=None, omni=False):
     """ convert masks to flows using diffusion from center pixel
 
     Center of masks where diffusion starts is defined to be the 
@@ -460,19 +540,22 @@ def masks_to_flows(masks, dists=None, use_gpu=False, device=None, omni=False):
             masks_to_flows_device = masks_to_flows_gpu
             dists=None
     else:
-        masks_to_flows_device = masks_to_flows_cpu
+        if omni and OMNI_INSTALLED:
+            masks_to_flows_device = masks_to_flows_cpu_omni
+        else:
+            masks_to_flows_device = masks_to_flows_cpu
         
     if masks.ndim==3:
         Lz, Ly, Lx = masks.shape
         mu = np.zeros((3, Lz, Ly, Lx), np.float32)
         for z in range(Lz):
-            mu0 = masks_to_flows_device(masks[z], dists, device=device, omni=omni)[0]
+            mu0 = masks_to_flows_device(masks[z], device=device)[0]
             mu[[1,2], z] += mu0
         for y in range(Ly):
-            mu0 = masks_to_flows_device(masks[:,y], dists, device=device, omni=omni)[0]
+            mu0 = masks_to_flows_device(masks[:,y], device=device)[0]
             mu[[0,2], :, y] += mu0
         for x in range(Lx):
-            mu0 = masks_to_flows_device(masks[:,:,x], dists, device=device, omni=omni)[0]
+            mu0 = masks_to_flows_device(masks[:,:,x], device=device)[0]
             mu[[0,1], :, :, x] += mu0
         return masks, dists, None, mu #consistency with below
     elif masks.ndim==2:
@@ -483,7 +566,7 @@ def masks_to_flows(masks, dists=None, use_gpu=False, device=None, omni=False):
             mu, T = masks_to_flows_device(masks_pad, dists_pad, device=device, omni=omni)
             return masks, dists, T[pad:-pad,pad:-pad], mu[:,pad:-pad,pad:-pad]
         else: # reflection not a good idea for centroid model 
-            mu, T = masks_to_flows_device(masks, dists=dists, device=device, omni=omni)
+            mu, T = masks_to_flows_device(masks, device=device)
             return masks, dists, T, mu
 
     else:
@@ -803,7 +886,7 @@ def follow_flows(dP, mask=None, inds=None, niter=200, interp=True, use_gpu=True,
             p[:,inds[:,0],inds[:,1]] = p_interp
     return p, inds, tr
 
-def remove_bad_flow_masks(masks, flows, threshold=0.4, use_gpu=False, device=None, omni=False):
+def remove_bad_flow_masks(masks, flows, threshold=0.4, use_gpu=False, device=None):
     """ remove masks which have inconsistent flows 
     
     Uses metrics.flow_error to compute flows from predicted masks 
@@ -832,7 +915,7 @@ def remove_bad_flow_masks(masks, flows, threshold=0.4, use_gpu=False, device=Non
         size [Ly x Lx] or [Lz x Ly x Lx]
     
     """
-    merrors, _ = metrics.flow_error(masks, flows, use_gpu, device, omni)
+    merrors, _ = metrics.flow_error(masks, flows, use_gpu, device)
     badi = 1+(merrors>threshold).nonzero()[0]
     masks[np.isin(masks, badi)] = 0
     return masks
@@ -945,36 +1028,33 @@ def get_masks(p, iscell=None, rpad=20, flows=None, threshold=0.4, use_gpu=False,
         M0[M0==i] = 0
     _,M0 = np.unique(M0, return_inverse=True)
     M0 = np.reshape(M0, shape0)
-
     return M0
 
-def compute_masks(dP, dist, bd=None, p=None, inds=None, niter=200, mask_threshold=0.0, diam_threshold=12.,
+def compute_masks(dP, cellprob, bd=None, p=None, inds=None, niter=200, mask_threshold=0.0, diam_threshold=12.,
                    flow_threshold=0.4, interp=True, cluster=False, do_3D=False, 
                    min_size=15, resize=None, omni=False, calc_trace=False, verbose=False,
                    use_gpu=False,device=None,nclasses=3):
-    """ compute masks using dynamics from dP, dist, and boundary """
+    """ compute masks using dynamics from dP, cellprob, and boundary """
     if verbose:
          dynamics_logger.info('mask_threshold is %f',mask_threshold)
     
     if (omni or (inds is not None)) and SKIMAGE_ENABLED:
         if verbose:
             dynamics_logger.info('Using hysteresis threshold.')
-        mask = filters.apply_hysteresis_threshold(dist, mask_threshold-1, mask_threshold) # good for thin features
+        cp_mask = filters.apply_hysteresis_threshold(cellprob, mask_threshold-1, mask_threshold) # good for thin features
     else:
-        mask = dist > mask_threshold # analog to original iscell=(cellprob>cellprob_threshold)
+        cp_mask = cellprob > mask_threshold # analog to original iscell=(cellprob>cellprob_threshold)
 
-    if np.any(mask): #mask at this point is a cell cluster binary map, not labels 
-        
-        #preprocess flows
-        if omni and OMNI_INSTALLED:
-            dP_ = omnipose.core.div_rescale(dP,mask)
-        else:
-            dP_ = dP * mask / 5.
+    if np.any(cp_mask): #mask at this point is a cell cluster binary map, not labels 
         
         # follow flows
         if p is None:
-            p , inds, tr = follow_flows(dP_, mask=mask, inds=inds, niter=niter, interp=interp, 
+            if omni and OMNI_INSTALLED:
+                p , inds, tr = follow_flows(omnipose.core.div_rescale(dP, cp_mask), mask=cp_mask, inds=inds, niter=niter, interp=interp, 
                                             use_gpu=use_gpu, device=device, omni=omni, calc_trace=calc_trace)
+            else:
+                p , inds, tr = follow_flows(dP * cp_mask / 5., mask=cp_mask, inds=inds, niter=niter, interp=interp, 
+                                            use_gpu=use_gpu, device=device)
         else: 
             tr = []
             inds = np.stack(np.nonzero(mask)).T
@@ -983,20 +1063,20 @@ def compute_masks(dP, dist, bd=None, p=None, inds=None, niter=200, mask_threshol
         
         #calculate masks
         if omni and OMNI_INSTALLED:
-            mask = omnipose.core.get_masks(p,bd,dist,mask,inds,nclasses,cluster=cluster,
+            mask = omnipose.core.get_masks(p,bd,cellprob,cp_mask,inds,nclasses,cluster=cluster,
                                            diam_threshold=diam_threshold,verbose=verbose)
         else:
-            mask = get_masks(p, iscell=mask, flows=dP, use_gpu=use_gpu)
+            mask = get_masks(p, iscell=cp_mask, flows=dP, use_gpu=use_gpu)
             
         # flow thresholding factored out of get_masks
         if not do_3D:
             shape0 = p.shape[1:]
-            flows = dP
-            if mask.max()>0 and flow_threshold is not None and flow_threshold > 0 and flows is not None:
-                mask = remove_bad_flow_masks(mask, flows, threshold=flow_threshold, use_gpu=use_gpu, device=device, omni=omni)
+            if mask.max()>0 and flow_threshold is not None and flow_threshold > 0:
+                mask = remove_bad_flow_masks(mask, dP, threshold=flow_threshold, use_gpu=use_gpu, device=device)
                 _,mask = np.unique(mask, return_inverse=True)
                 mask = np.reshape(mask, shape0).astype(np.int32)
 
+        mask = utils.fill_holes_and_remove_small_masks(mask, min_size=min_size)
         if resize is not None:
             if verbose:
                 dynamics_logger.info(f'resizing output with resize = {resize}')
@@ -1012,7 +1092,7 @@ def compute_masks(dP, dist, bd=None, p=None, inds=None, niter=200, mask_threshol
     # moving the cleanup to the end helps avoid some bugs arising from scaling...
     # maybe better would be to rescale the min_size and hole_size parameters to do the
     # cleanup at the prediction scale, or switch depending on which one is bigger... 
-    mask = utils.fill_holes_and_remove_small_masks(mask, min_size=min_size)
     if omni and OMNI_INSTALLED:
+        mask = utils.fill_holes_and_remove_small_masks(mask, min_size=min_size)
         fastremap.renumber(mask,in_place=True) #convenient to guarantee non-skipped labels
     return mask, p, tr

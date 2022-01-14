@@ -616,7 +616,7 @@ class CellposeModel(UnetModel):
                 if not self.torch:
                     self.net.collect_params().grad_req = 'null'
             
-            masks, styles, dP, dist, bd, p, tr = self._run_cp(x, 
+            masks, styles, dP, cellprob, p, bd, tr = self._run_cp(x, 
                                                           compute_masks=compute_masks,
                                                           normalize=normalize,
                                                           invert=invert,
@@ -639,7 +639,7 @@ class CellposeModel(UnetModel):
                                                           calc_trace=calc_trace,
                                                           verbose=verbose)
 
-            flows = [plot.dx_to_circ(dP,transparency=transparency,mask=1-1/(1+np.exp(dist))), dP, dist, bd, p, tr]
+            flows = [plot.dx_to_circ(dP,transparency=transparency,mask=1-1/(1+np.exp(cellprob))), dP, cellprob, p, bd, tr]
             return masks, flows, styles
 
     def _run_cp(self, x, compute_masks=True, normalize=True, invert=False,
@@ -648,7 +648,6 @@ class CellposeModel(UnetModel):
                 mask_threshold=0.0, diam_threshold=12., flow_threshold=0.4, min_size=15,
                 interp=False, cluster=False, anisotropy=1.0, do_3D=False, stitch_threshold=0.0,
                 omni=False, calc_trace=False, verbose=False):
-        
         # not sure yet if this helps with memeory 
         gc.collect()
         torch.cuda.empty_cache()
@@ -657,6 +656,7 @@ class CellposeModel(UnetModel):
         shape = x.shape
         nimg = shape[0]        
         
+        bd, tr = None, None
         if do_3D:
             img = np.asarray(x)
             if normalize or invert:
@@ -664,25 +664,22 @@ class CellposeModel(UnetModel):
             yf, styles = self._run_3D(img, rsz=rescale, anisotropy=anisotropy, 
                                       net_avg=net_avg, augment=augment, tile=tile,
                                       tile_overlap=tile_overlap)
-            dist = yf[0][-1] + yf[1][-1] + yf[2][-1] # changed in name only, no edits to 3D yet
+            cellprob = yf[0][-1] + yf[1][-1] + yf[2][-1] # changed in name only, no edits to 3D yet
             dP = np.stack((yf[1][0] + yf[2][0], yf[0][0] + yf[2][1], yf[0][1] + yf[1][1]),
                           axis=0) # (dZ, dY, dX)
             
             # just for compatibility below for now
-            bd = np.zeros_like(dist)
-            tr = None
         else:
             tqdm_out = utils.TqdmToLogger(models_logger, level=logging.INFO)
             iterator = trange(nimg, file=tqdm_out) if nimg>1 else range(nimg)
             styles = np.zeros((nimg, self.nbase[-1]), np.float32)
             if resample:
                 dP = np.zeros((2, nimg, shape[1], shape[2]), np.float32)
-                dist = np.zeros((nimg, shape[1], shape[2]), np.float32)
-                bd = np.zeros_like(dist)
+                cellprob = np.zeros((nimg, shape[1], shape[2]), np.float32)
+                
             else:
                 dP = np.zeros((2, nimg, int(shape[1]*rescale), int(shape[2]*rescale)), np.float32)
-                dist = np.zeros((nimg, int(shape[1]*rescale), int(shape[2]*rescale)), np.float32)
-                bd = np.zeros_like(dist)
+                cellprob = np.zeros((nimg, int(shape[1]*rescale), int(shape[2]*rescale)), np.float32)
                 
             for i in iterator:
                 img = np.asarray(x[i])
@@ -697,11 +694,14 @@ class CellposeModel(UnetModel):
                 if resample:
                     yf = transforms.resize_image(yf, shape[1], shape[2])
 
-                dist[i] = yf[:,:,2]
+                cellprob[i] = yf[:,:,2]
                 dP[:, i] = yf[:,:,:2].transpose((2,0,1)) 
                 if self.nclasses == 4:
+                    if i==0:
+                        bd = np.zeros_like(cellprob)
                     bd[i] = yf[:,:,3]
                 styles[i] = style
+        styles = styles.squeeze()
         
         #again, attempt to deal with memory overuse
         yf, style = None, None
@@ -716,7 +716,7 @@ class CellposeModel(UnetModel):
             tic=time.time()
             niter = 200 if do_3D else (1 / rescale * 200)
             if do_3D:
-                masks, p, tr = dynamics.compute_masks(dP, dist, bd, niter=niter, mask_threshold=mask_threshold,
+                masks, p, tr = dynamics.compute_masks(dP, cellprob, bd, niter=niter, mask_threshold=mask_threshold,
                                                       diam_threshold=diam_threshold,flow_threshold=flow_threshold,
                                                       interp=interp, cluster=cluster, do_3D=do_3D, min_size=min_size,
                                                       resize=None, omni=omni, calc_trace=calc_trace, verbose=verbose,
@@ -724,11 +724,11 @@ class CellposeModel(UnetModel):
             else:
                 masks = np.zeros((nimg, shape[1], shape[2]), np.uint16)
                 p = np.zeros(dP.shape, np.uint16)
-
-                tr = [[]]*nimg # trace may not work correctly with multiple images currently, still need to test it 
+                tr = [[]]*nimg
                 resize = [shape[1], shape[2]] if not resample else None
                 for i in iterator:
-                    masks[i], p[:,i], tr[i] = dynamics.compute_masks(dP[:,i], dist[i], bd[i], 
+                    bdi = bd[i] if bd is not None else None
+                    masks[i], p[:,i], tr[i] = dynamics.compute_masks(dP[:,i], cellprob[i], bdi, 
                                                                      niter=niter, 
                                                                      mask_threshold=mask_threshold,
                                                                      flow_threshold=flow_threshold, 
@@ -748,10 +748,11 @@ class CellposeModel(UnetModel):
             flow_time = time.time() - tic
             if nimg > 1:
                 models_logger.info('masks created in %2.2fs'%(flow_time))
+            masks, dP, cellprob, p = masks.squeeze(), dP.squeeze(), cellprob.squeeze(), p.squeeze()
+            bd = bd.squeeze() if bd is not None else bd
         else:
             masks, p , tr = np.zeros(0), np.zeros(0), np.zeros(0) #pass back zeros if not compute_masks
-        
-        return masks.squeeze(), styles.squeeze(), dP.squeeze(), dist.squeeze(), bd.squeeze(), p.squeeze(), tr
+        return masks, styles, dP, cellprob, p, bd, tr
 
         
     def loss_fn(self, lbl, y):
@@ -845,7 +846,7 @@ class CellposeModel(UnetModel):
         # check if train_labels have flows
         train_flows = dynamics.labels_to_flows(train_labels, files=train_files, use_gpu=self.gpu, device=self.device, omni=omni)
         if run_test:
-            test_flows = dynamics.labels_to_flows(test_labels, files=test_files)
+            test_flows = dynamics.labels_to_flows(test_labels, files=test_files, use_gpu=self.gpu, device=self.device)
         else:
             test_flows = None
         

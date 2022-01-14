@@ -242,7 +242,7 @@ def _true_positive(iou, th):
     tp = match_ok.sum()
     return tp
 
-def flow_error(maski, dP_net, use_gpu=False, device=None, omni=False):
+def flow_error(maski, dP_net, use_gpu=False, device=None):
     """ error in flows from predicted masks vs flows predicted by network run on image
 
     This function serves to benchmark the quality of masks, it works as follows

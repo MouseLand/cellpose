@@ -484,7 +484,7 @@ class MainW(QMainWindow):
         self.omni.setChecked(False)
         self.omni.setToolTip('use Omnipose mask recontruction algorithm (fix over-segmentation)')
         # self.omni.toggled.connect(self.compute_model)
-        self.l0.addWidget(self.omni, b,0,1,2)
+        #self.l0.addWidget(self.omni, b,0,1,2)
         
         # use DBSCAN clustering
         b+=1
@@ -494,7 +494,7 @@ class MainW(QMainWindow):
         self.cluster.setChecked(False)
         self.cluster.setToolTip('force DBSCAN clustering when omni is enabled')
         # self.cluster.toggled.connect(self.compute_model)
-        self.l0.addWidget(self.cluster, b,0,1,2)
+        #self.l0.addWidget(self.cluster, b,0,1,2)
 
         b+=1
         # recompute model
@@ -1383,8 +1383,8 @@ class MainW(QMainWindow):
             #if not do_3D:
             #    masks = masks[0][np.newaxis,:,:]
             #    flows = flows[0]
-            self.flows[0] = (normalize99(flows[0].copy(),omni=True) * 255).astype(np.uint8) #RGB flow
-            self.flows[1] = (normalize99(flows[2].copy(),omni=True) * 255).astype(np.uint8) #dist/prob
+            self.flows[0] = (normalize99(flows[0].copy()) * 255).astype(np.uint8) #RGB flow
+            self.flows[1] = (normalize99(flows[2].copy()) * 255).astype(np.uint8) #dist/prob
             if not do_3D:
                 masks = masks[np.newaxis,...]
                 self.flows[0] = resize_image(self.flows[0], masks.shape[-2], masks.shape[-1],
@@ -1396,7 +1396,7 @@ class MainW(QMainWindow):
             else:
                 self.flows[2] = (flows[1][0]/10 * 127 + 127).astype(np.uint8)
             if len(flows)>2: 
-                self.flows.append(flows[4].squeeze()) #p 
+                self.flows.append(flows[3].squeeze()) #p 
                 self.flows.append(np.concatenate((flows[1], flows[2][np.newaxis,...]), axis=0)) #dP, dist/prob
                 
             print('%d cells found with cellpose net in %0.3f sec'%(len(np.unique(masks)[1:]), time.time()-tic))
