@@ -527,9 +527,6 @@ class CellposeModel(UnetModel):
                 
             verbose: bool (optional, default False)
                 turn on additional output to logs for debugging 
-                
-            verbose: bool (optional, default False)
-                turn on additional output to logs for debugging
             
             transparency: bool (optional, default False)
                 modulate flow opacity by magnitude instead of brightness (can use flows on any color background) 

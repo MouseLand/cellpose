@@ -117,6 +117,8 @@ def make_cmap(cm=0):
     return cmap
 
 def run(image=None):
+    from ..io import logger_setup
+    logger, log_file = logger_setup()
     # Always start by initializing Qt (only once per application)
     warnings.filterwarnings("ignore")
     app = QApplication(sys.argv)
