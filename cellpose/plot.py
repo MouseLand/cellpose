@@ -43,7 +43,7 @@ def dx_to_circ(dP,transparency=False,mask=None):
     """
     
     dP = np.array(dP)
-    mag = transforms.normalize99(np.sqrt(np.sum(dP**2,axis=0)),omni=1)
+    mag = np.clip(transforms.normalize99(np.sqrt(np.sum(dP**2,axis=0)),omni=1), 0, 1.)
     angles = np.arctan2(dP[1], dP[0])+np.pi
     a = 2
     r = ((np.cos(angles)+1)/a)
@@ -119,7 +119,7 @@ def show_segmentation(fig, img, maski, flowi, channels=[0,0], file_name=None, om
     # Image normalization to improve cell visibility under labels
     if seg_norm:
         fg = 1/9
-        p = transforms.normalize99(img0,omni=omni)
+        p = np.clip(transforms.normalize99(img0,omni=omni), 0, 1)
         img1 = p**(np.log(fg)/np.log(np.mean(p[maski>0])))
     else:
         img1 = img0
@@ -259,7 +259,7 @@ def image_to_rgb(img0, channels=[0,0], omni=False):
         img = img.mean(axis=-1)[:,:,np.newaxis]
     for i in range(img.shape[-1]):
         if np.ptp(img[:,:,i])>0:
-            img[:,:,i] = transforms.normalize99(img[:,:,i],omni=omni)
+            img[:,:,i] = np.clip(transforms.normalize99(img[:,:,i],omni=omni), 0, 1)
             img[:,:,i] = np.clip(img[:,:,i], 0, 1)
     img *= 255
     img = np.uint8(img)

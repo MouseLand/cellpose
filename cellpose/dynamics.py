@@ -874,7 +874,6 @@ def follow_flows(dP, mask=None, inds=None, niter=200, interp=True, use_gpu=True,
             dynamics_logger.warning('WARNING: no mask pixels found')
             return p, inds, None
         if not interp:
-            dynamics_logger.warning('WARNING: not interp')
             p, tr = steps2D(p, dP.astype(np.float32), inds, niter,omni=omni,calc_trace=calc_trace)
             #p = p[:,inds[:,0], inds[:,1]]
             #tr = tr[:,:,inds[:,0], inds[:,1]].transpose((1,2,0))
@@ -1076,8 +1075,8 @@ def compute_masks(dP, cellprob, bd=None, p=None, inds=None, niter=200, mask_thre
 
         mask = utils.fill_holes_and_remove_small_masks(mask, min_size=min_size)
         if resize is not None:
-            if verbose:
-                dynamics_logger.info(f'resizing output with resize = {resize}')
+            #if verbose:
+            #    dynamics_logger.info(f'resizing output with resize = {resize}')
             mask = transforms.resize_image(mask, resize[0], resize[1], interpolation=cv2.INTER_NEAREST)
             Ly,Lx = mask.shape
 

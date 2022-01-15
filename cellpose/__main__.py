@@ -4,7 +4,6 @@ import subprocess
 import numpy as np
 from natsort import natsorted
 from tqdm import tqdm
-
 from cellpose import utils, models, io
 
 try:
@@ -140,7 +139,7 @@ def main():
     # misc settings
     parser.add_argument('--verbose', action='store_true', help='flag to output extra information (e.g. diameter metrics) for debugging and fine-tuning parameters')
     parser.add_argument('--testing', action='store_true', help='flag to suppress CLI user confirmation for saving output; for test scripts')
-
+    
     args = parser.parse_args()
 
 
@@ -158,10 +157,10 @@ def main():
     
     if len(args.dir)==0:
         if not GUI_ENABLED:
-            logger.critical('ERROR: %s'%GUI_ERROR)
+            print('GUI ERROR: %s'%GUI_ERROR)
             if GUI_IMPORT:
-                logger.critical('GUI FAILED: GUI dependencies may not be installed, to install, run')
-                logger.critical('     pip install cellpose[gui]')
+                print('GUI FAILED: GUI dependencies may not be installed, to install, run')
+                print('     pip install cellpose[gui]')
         else:
             gui.run()
 
@@ -171,7 +170,8 @@ def main():
             logger, log_file = logger_setup()
         else:
             print('>>>> !NEW LOGGING SETUP! To see cellpose progress, set --verbose')
-            print('No --verbose => no progress printed')
+            print('No --verbose => no progress or info printed')
+            logger = logging.getLogger(__name__)
 
         use_gpu = False
         channels = [args.chan, args.chan2]
@@ -187,7 +187,7 @@ def main():
         if not (args.train or args.train_size):
             saving_something = args.save_png or args.save_tif or args.save_flows or args.save_ncolor or args.save_txt
             if not (saving_something or args.testing): 
-                logger.info('>>>> Running without saving any output.')
+                print('>>>> Running without saving any output.')
                 confirm = confirm_prompt('Proceed Anyway?')
                 if not confirm:
                     exit()
@@ -207,16 +207,16 @@ def main():
             args.omni = True
         
         if args.cluster and 'sklearn' not in sys.modules:
-            logger.info('>>>> DBSCAN clustering requires scikit-learn.')
+            print('>>>> DBSCAN clustering requires scikit-learn.')
             confirm = confirm_prompt('Install scikit-learn?')
             if confirm:
                 install('scikit-learn')
             else:
-                logger.info('>>>> scikit-learn not installed. DBSCAN clustering will be automatically disabled.')
+                print('>>>> scikit-learn not installed. DBSCAN clustering will be automatically disabled.')
                           
         omni = check_omni(args.omni) # repeat the above check but factor it for use elsewhere
         if args.omni:
-            logger.info('>>>> Omnipose enabled. See https://raw.githubusercontent.com/MouseLand/cellpose/master/cellpose/omnipose/license.txt for licensing details.')
+            print('>>>> Omnipose enabled. See https://raw.githubusercontent.com/MouseLand/cellpose/master/cellpose/omnipose/license.txt for licensing details.')
         
         
         if not args.train and not args.train_size:
@@ -239,7 +239,8 @@ def main():
             cstr1 = ['NONE', 'RED', 'GREEN', 'BLUE']
             logger.info('>>>> running cellpose on %d images using chan_to_seg %s and chan (opt) %s'%
                             (nimg, cstr0[channels[0]], cstr1[channels[1]]))
-            logger.info('>>>> omni is %d, cluster is %d'%(args.omni,args.cluster))
+            if args.omni:
+                logger.info('>>>> omni is ON, cluster is %d'%(args.omni,args.cluster))
              
             # handle built-in model exceptions; bacterial ones get no size model 
             if builtin_model:

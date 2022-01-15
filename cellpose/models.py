@@ -548,11 +548,14 @@ class CellposeModel(UnetModel):
                 style vector summarizing each image, also used to estimate size of objects in image
 
         """
-        if verbose:
-            models_logger.info('Evaluating with omni %d, cluster %d, flow_threshold %f'%(omni,cluster,flow_threshold))
         
         if cellprob_threshold is not None or dist_threshold is not None:
             mask_threshold = deprecation_warning_cellprob_dist_threshold(cellprob_threshold, dist_threshold)
+        
+        if verbose:
+            models_logger.info('Evaluating with flow_threshold %0.2f, mask_threshold %0.2f'%(flow_threshold, mask_threshold))
+            if omni:
+                models_logger.info('using omni model, cluster %d'%(omni,cluster))
         
         if isinstance(x, list) or x.squeeze().ndim==5:
             masks, styles, flows = [], [], []
@@ -640,7 +643,7 @@ class CellposeModel(UnetModel):
                 rescale=1.0, net_avg=True, resample=False,
                 augment=False, tile=True, tile_overlap=0.1,
                 mask_threshold=0.0, diam_threshold=12., flow_threshold=0.4, min_size=15,
-                interp=False, cluster=False, anisotropy=1.0, do_3D=False, stitch_threshold=0.0,
+                interp=True, cluster=False, anisotropy=1.0, do_3D=False, stitch_threshold=0.0,
                 omni=False, calc_trace=False, verbose=False):
         
         tic = time.time()
@@ -987,13 +990,10 @@ class SizeModel():
                              tile=tile,
                              batch_size=batch_size, 
                              net_avg=False,
-                             rescale=(self.diam_mean / diam_style), 
-#                              rescale =  self.diam_mean / diam_style if self.diam_mean>0 else 1, 
-#                              rescale = None, 
+                             rescale =  self.diam_mean / diam_style if self.diam_mean>0 else 1, 
+                             #flow_threshold=0,
                              diameter=None,
-#                              interp=interp,
                              interp=False,
-#                              flow_threshold=0,
                              omni=omni)[0]
         
         # allow backwards compatibility to older scale metric
