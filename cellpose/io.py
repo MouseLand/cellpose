@@ -34,7 +34,6 @@ except:
     SERVER_UPLOAD = False
 
 io_logger = logging.getLogger(__name__)
-io_logger.setLevel(logging.DEBUG)
 
 def logger_setup():
     cp_dir = pathlib.Path.home().joinpath('.cellpose')

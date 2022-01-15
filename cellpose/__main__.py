@@ -141,9 +141,9 @@ def main():
     parser.add_argument('--verbose', action='store_true', help='flag to output extra information (e.g. diameter metrics) for debugging and fine-tuning parameters')
     parser.add_argument('--testing', action='store_true', help='flag to suppress CLI user confirmation for saving output; for test scripts')
 
-
-
     args = parser.parse_args()
+
+
     
     # handle mxnet option 
     if args.check_mkl:
@@ -166,6 +166,13 @@ def main():
             gui.run()
 
     else:
+        if args.verbose:
+            from .io import logger_setup
+            logger, log_file = logger_setup()
+        else:
+            print('>>>> !NEW LOGGING SETUP! To see cellpose progress, set --verbose')
+            print('No --verbose => no progress printed')
+
         use_gpu = False
         channels = [args.chan, args.chan2]
 

@@ -7,7 +7,6 @@ import torch
 
 import logging
 models_logger = logging.getLogger(__name__)
-models_logger.setLevel(logging.DEBUG)
 
 from . import transforms, dynamics, utils, plot
 from .core import UnetModel, assign_device, check_mkl, MXNET_ENABLED, parse_model_string
@@ -528,9 +527,6 @@ class CellposeModel(UnetModel):
                 
             verbose: bool (optional, default False)
                 turn on additional output to logs for debugging 
-                
-            verbose: bool (optional, default False)
-                turn on additional output to logs for debugging
             
             transparency: bool (optional, default False)
                 modulate flow opacity by magnitude instead of brightness (can use flows on any color background) 

@@ -10,7 +10,6 @@ import cv2
 
 import logging
 dynamics_logger = logging.getLogger(__name__)
-dynamics_logger.setLevel(logging.DEBUG)
 
 from . import utils, metrics, transforms
 
