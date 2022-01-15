@@ -3,8 +3,7 @@ from pathlib import Path
 import numpy as np
 from tqdm import trange, tqdm
 from urllib.parse import urlparse
-import torch, gc
-gc.enable()
+import torch
 
 import logging
 models_logger = logging.getLogger(__name__)
@@ -565,7 +564,6 @@ class CellposeModel(UnetModel):
             nimg = len(x)
             iterator = trange(nimg, file=tqdm_out) if nimg>1 else range(nimg)
             for i in iterator:
-                torch.cuda.empty_cache() #attempt to clear memory before evaluation
                 maski, stylei, flowi = self.eval(x[i], 
                                                  batch_size=batch_size, 
                                                  channels=channels[i] if (len(channels)==len(x) and 
@@ -648,9 +646,6 @@ class CellposeModel(UnetModel):
                 mask_threshold=0.0, diam_threshold=12., flow_threshold=0.4, min_size=15,
                 interp=False, cluster=False, anisotropy=1.0, do_3D=False, stitch_threshold=0.0,
                 omni=False, calc_trace=False, verbose=False):
-        # not sure yet if this helps with memeory 
-        gc.collect()
-        torch.cuda.empty_cache()
         
         tic = time.time()
         shape = x.shape
@@ -705,8 +700,6 @@ class CellposeModel(UnetModel):
         
         #again, attempt to deal with memory overuse
         yf, style = None, None
-        gc.collect()
-        torch.cuda.empty_cache()
         
         net_time = time.time() - tic
         if nimg > 1:

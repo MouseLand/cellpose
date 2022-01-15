@@ -478,23 +478,23 @@ class MainW(QMainWindow):
         
         # use omnipose mask recontruction
         b+=1
-        self.omni = QCheckBox('omni')
+        self.omni = QCheckBox('omni mask alg')
         self.omni.setStyleSheet(self.checkstyle)
         self.omni.setFont(self.medfont)
         self.omni.setChecked(False)
         self.omni.setToolTip('use Omnipose mask recontruction algorithm (fix over-segmentation)')
         # self.omni.toggled.connect(self.compute_model)
-        #self.l0.addWidget(self.omni, b,0,1,2)
+        self.l0.addWidget(self.omni, b,0,1,2)
         
         # use DBSCAN clustering
         b+=1
-        self.cluster = QCheckBox('cluster')
+        self.cluster = QCheckBox('cluster masks')
         self.cluster.setStyleSheet(self.checkstyle)
         self.cluster.setFont(self.medfont)
         self.cluster.setChecked(False)
         self.cluster.setToolTip('force DBSCAN clustering when omni is enabled')
         # self.cluster.toggled.connect(self.compute_model)
-        #self.l0.addWidget(self.cluster, b,0,1,2)
+        self.l0.addWidget(self.cluster, b,0,1,2)
 
         b+=1
         # recompute model

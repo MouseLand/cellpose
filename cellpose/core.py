@@ -491,7 +491,6 @@ class UnetModel():
         # transpose so channels axis is last again
         y = np.transpose(y, detranspose)
         
-        torch.cuda.empty_cache() #release cuda memory
         return y, style
     
     def _run_tiled(self, imgi, augment=False, bsize=224, tile_overlap=0.1, return_conv=False):
