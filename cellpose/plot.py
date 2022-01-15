@@ -60,7 +60,6 @@ def dx_to_circ(dP,transparency=False,mask=None):
         
     return im
 
-
 def show_segmentation(fig, img, maski, flowi, channels=[0,0], file_name=None, omni=False, seg_norm=False, bg_color=None):
     """ plot segmentation results (like on website)
     

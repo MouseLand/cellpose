@@ -637,7 +637,7 @@ class CellposeModel(UnetModel):
                                                           calc_trace=calc_trace,
                                                           verbose=verbose)
 
-            flows = [plot.dx_to_circ(dP,transparency=transparency,mask=1-1/(1+np.exp(cellprob))), dP, cellprob, p, bd, tr]
+            flows = [plot.dx_to_circ(dP,transparency=transparency), dP, cellprob, p, bd, tr]
             return masks, flows, styles
 
     def _run_cp(self, x, compute_masks=True, normalize=True, invert=False,

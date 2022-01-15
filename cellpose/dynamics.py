@@ -1045,8 +1045,7 @@ def compute_masks(dP, cellprob, bd=None, p=None, inds=None, niter=200, mask_thre
     else:
         cp_mask = cellprob > mask_threshold # analog to original iscell=(cellprob>cellprob_threshold)
 
-    if np.any(cp_mask): #mask at this point is a cell cluster binary map, not labels 
-        
+    if np.any(cp_mask): #mask at this point is a cell cluster binary map, not labels     
         # follow flows
         if p is None:
             if omni and OMNI_INSTALLED:
@@ -1057,12 +1056,12 @@ def compute_masks(dP, cellprob, bd=None, p=None, inds=None, niter=200, mask_thre
                                             use_gpu=use_gpu, device=device)
         else: 
             tr = []
-            inds = np.stack(np.nonzero(mask)).T
             if verbose:
                 dynamics_logger.info('p given')
         
         #calculate masks
         if omni and OMNI_INSTALLED:
+            inds = np.stack(np.nonzero(cp_mask)).T
             mask = omnipose.core.get_masks(p,bd,cellprob,cp_mask,inds,nclasses,cluster=cluster,
                                            diam_threshold=diam_threshold,verbose=verbose)
         else:

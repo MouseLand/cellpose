@@ -1383,8 +1383,8 @@ class MainW(QMainWindow):
             #if not do_3D:
             #    masks = masks[0][np.newaxis,:,:]
             #    flows = flows[0]
-            self.flows[0] = (normalize99(flows[0].copy()) * 255).astype(np.uint8) #RGB flow
-            self.flows[1] = (normalize99(flows[2].copy()) * 255).astype(np.uint8) #dist/prob
+            self.flows[0] = (np.clip(normalize99(flows[0].copy()), 0, 1) * 255).astype(np.uint8) #RGB flow
+            self.flows[1] = (np.clip(normalize99(flows[2].copy()), 0, 1) * 255).astype(np.uint8) #dist/prob
             if not do_3D:
                 masks = masks[np.newaxis,...]
                 self.flows[0] = resize_image(self.flows[0], masks.shape[-2], masks.shape[-1],
