@@ -31,7 +31,6 @@ except Exception as e:
     print(e)
 
 core_logger = logging.getLogger(__name__)
-core_logger.setLevel(logging.DEBUG)
 tqdm_out = utils.TqdmToLogger(core_logger, level=logging.INFO)
 
 # nclasses now specified by user or by model type in models.py
