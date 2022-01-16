@@ -453,7 +453,7 @@ def fill_holes_and_remove_small_masks(masks, min_size=15, hole_size=3, scale_fac
             npix = msk.sum()
             if min_size > 0 and npix < min_size:
                 masks[slc][msk] = 0
-            else:   
+            elif npix > 0:   
                 if msk.ndim==3:
                     for k in range(msk.shape[0]):
                         # Omnipose version (breaks 3D tests)

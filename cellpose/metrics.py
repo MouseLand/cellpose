@@ -275,9 +275,6 @@ def flow_error(maski, dP_net, use_gpu=False, device=None):
         print('ERROR: net flow is not same size as predicted masks')
         return
 
-    # ensure unique masks
-    maski = np.reshape(np.unique(maski.astype(np.float32), return_inverse=True)[1], maski.shape)
-
     # flows predicted from estimated masks
     idx = -1 # flows are the last thing returned now
     dP_masks = dynamics.masks_to_flows(maski, use_gpu=use_gpu, device=device)[idx] 

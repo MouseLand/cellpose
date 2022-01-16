@@ -658,11 +658,10 @@ class CellposeModel(UnetModel):
             yf, styles = self._run_3D(img, rsz=rescale, anisotropy=anisotropy, 
                                       net_avg=net_avg, augment=augment, tile=tile,
                                       tile_overlap=tile_overlap)
-            cellprob = yf[0][-1] + yf[1][-1] + yf[2][-1] # changed in name only, no edits to 3D yet
+            cellprob = yf[0][-1] + yf[1][-1] + yf[2][-1] 
             dP = np.stack((yf[1][0] + yf[2][0], yf[0][0] + yf[2][1], yf[0][1] + yf[1][1]),
                           axis=0) # (dZ, dY, dX)
-            
-            # just for compatibility below for now
+            del yf
         else:
             tqdm_out = utils.TqdmToLogger(models_logger, level=logging.INFO)
             iterator = trange(nimg, file=tqdm_out) if nimg>1 else range(nimg)
@@ -695,10 +694,9 @@ class CellposeModel(UnetModel):
                         bd = np.zeros_like(cellprob)
                     bd[i] = yf[:,:,3]
                 styles[i] = style
+            del yf, style
         styles = styles.squeeze()
         
-        #again, attempt to deal with memory overuse
-        yf, style = None, None
         
         net_time = time.time() - tic
         if nimg > 1:
@@ -714,25 +712,30 @@ class CellposeModel(UnetModel):
                                                       resize=None, omni=omni, calc_trace=calc_trace, verbose=verbose,
                                                       use_gpu=self.gpu, device=self.device, nclasses=self.nclasses)
             else:
-                masks = np.zeros((nimg, shape[1], shape[2]), np.uint16)
-                p = np.zeros(dP.shape, np.uint16)
-                tr = [[]]*nimg
+                masks, p, tr = [], [], []
                 resize = [shape[1], shape[2]] if not resample else None
                 for i in iterator:
                     bdi = bd[i] if bd is not None else None
-                    masks[i], p[:,i], tr[i] = dynamics.compute_masks(dP[:,i], cellprob[i], bdi, 
-                                                                     niter=niter, 
-                                                                     mask_threshold=mask_threshold,
-                                                                     flow_threshold=flow_threshold, 
-                                                                     diam_threshold=diam_threshold, 
-                                                                     interp=interp, cluster=cluster,
-                                                                     resize=resize, 
-                                                                     omni=omni, calc_trace=calc_trace, 
-                                                                     verbose=verbose,
-                                                                     use_gpu=self.gpu, 
-                                                                     device=self.device, 
-                                                                     nclasses=self.nclasses)
-            
+                    outputs = dynamics.compute_masks(dP[:,i], cellprob[i], bdi, 
+                                                    niter=niter, 
+                                                    mask_threshold=mask_threshold,
+                                                    flow_threshold=flow_threshold, 
+                                                    diam_threshold=diam_threshold, 
+                                                    interp=interp, cluster=cluster,
+                                                    resize=resize, 
+                                                    omni=omni, calc_trace=calc_trace, 
+                                                    verbose=verbose,
+                                                    use_gpu=self.gpu, 
+                                                    device=self.device, 
+                                                    nclasses=self.nclasses)
+                    masks.append(outputs[0])
+                    p.append(outputs[1])
+                    tr.append(outputs[2])
+                
+                masks = np.array(masks)
+                p = np.array(p)
+                tr = np.array(tr)
+
                 if stitch_threshold > 0 and nimg > 1:
                     models_logger.info(f'stitching {nimg} planes using stitch_threshold={stitch_threshold:0.3f} to make 3D masks')
                     masks = utils.stitch3D(masks, stitch_threshold=stitch_threshold)

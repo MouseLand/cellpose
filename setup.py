@@ -6,6 +6,7 @@ install_deps = ['numpy>=1.20.0', 'scipy', 'natsort',
                 'torch>=1.6',
                 'torch_optimizer',
                 'opencv-python-headless',
+                'fastremap'
                 ]
 
 gui_deps = [

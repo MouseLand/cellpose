@@ -7,6 +7,7 @@ import tifffile
 from tqdm import trange
 from numba import njit, float32, int32, vectorize
 import cv2
+import fastremap
 
 import logging
 dynamics_logger = logging.getLogger(__name__)
@@ -1011,7 +1012,7 @@ def get_masks(p, iscell=None, rpad=20, flows=None, threshold=0.4, use_gpu=False,
             if iter==4:
                 pix[k] = tuple(pix[k])
     
-    M = np.zeros(h.shape, np.int32)
+    M = np.zeros(h.shape, np.uint32)
     for k in range(len(pix)):
         M[pix[k]] = 1+k
         
@@ -1020,11 +1021,12 @@ def get_masks(p, iscell=None, rpad=20, flows=None, threshold=0.4, use_gpu=False,
     M0 = M[tuple(pflows)]
 
     # remove big masks
-    _,counts = np.unique(M0, return_counts=True)
+    uniq, counts = fastremap.unique(M0, return_counts=True)
     big = np.prod(shape0) * 0.4
-    for i in np.nonzero(counts > big)[0]:
-        M0[M0==i] = 0
-    _,M0 = np.unique(M0, return_inverse=True)
+    bigc = uniq[counts > big]
+    if len(bigc) > 0 and (len(bigc)>1 or bigc[0]!=0):
+        M0 = fastremap.mask(M0, bigc)
+    fastremap.renumber(M0, in_place=True) #convenient to guarantee non-skipped labels
     M0 = np.reshape(M0, shape0)
     return M0
 
@@ -1069,27 +1071,33 @@ def compute_masks(dP, cellprob, bd=None, p=None, inds=None, niter=200, mask_thre
         if not do_3D:
             shape0 = p.shape[1:]
             if mask.max()>0 and flow_threshold is not None and flow_threshold > 0:
+                # make sure labels are unique at output of get_masks
                 mask = remove_bad_flow_masks(mask, dP, threshold=flow_threshold, use_gpu=use_gpu, device=device)
-                _,mask = np.unique(mask, return_inverse=True)
-                mask = np.reshape(mask, shape0).astype(np.int32)
-
-        mask = utils.fill_holes_and_remove_small_masks(mask, min_size=min_size)
+        
         if resize is not None:
             #if verbose:
             #    dynamics_logger.info(f'resizing output with resize = {resize}')
+            if mask.max() > 2**16-1:
+                recast = True
+                mask = mask.astype(np.float32)
+            else:
+                recast = False
+                mask = mask.astype(np.uint16)
             mask = transforms.resize_image(mask, resize[0], resize[1], interpolation=cv2.INTER_NEAREST)
+            if recast:
+                mask = mask.astype(np.uint32)
             Ly,Lx = mask.shape
+        elif mask.max() < 2**16:
+            mask = mask.astype(np.uint16)
 
     else: # nothing to compute, just make it compatible
         dynamics_logger.info('No cell pixels found.')
         p = np.zeros([2,1,1])
         tr = []
-        mask = np.zeros(resize, 'int')
+        mask = np.zeros(resize, np.uint16)
 
     # moving the cleanup to the end helps avoid some bugs arising from scaling...
     # maybe better would be to rescale the min_size and hole_size parameters to do the
     # cleanup at the prediction scale, or switch depending on which one is bigger... 
-    if omni and OMNI_INSTALLED:
-        mask = utils.fill_holes_and_remove_small_masks(mask, min_size=min_size)
-        fastremap.renumber(mask,in_place=True) #convenient to guarantee non-skipped labels
+    mask = utils.fill_holes_and_remove_small_masks(mask, min_size=min_size)
     return mask, p, tr

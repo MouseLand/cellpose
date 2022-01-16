@@ -372,11 +372,17 @@ def save_masks(images, masks, flows, file_names, png=True, tif=False, channels=[
     check_dir(maskdir) 
 
     exts = []
-    if masks.ndim > 2 or masks.max()>2**16-1:
+    if masks.ndim > 2:
         png = False
         tif = True
     if png:    
-        exts.append('.png')
+        if masks.max() < 2**16:
+            masks = masks.astype(np.uint16) 
+            exts.append('.png')
+        else:
+            png = False 
+            tif = True
+            io_logger.warning('found more than 65535 masks in each image, cannot save PNG, saving as TIF')
     if tif:
         exts.append('.tif')
 
@@ -388,6 +394,7 @@ def save_masks(images, masks, flows, file_names, png=True, tif=False, channels=[
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         for ext in exts:
+            
             imsave(os.path.join(maskdir,basename + '_cp_masks' + suffix + ext), masks)
             
     if png and MATPLOTLIB and not min(images.shape) > 3:
