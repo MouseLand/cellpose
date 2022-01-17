@@ -444,7 +444,6 @@ def reshape_train_test(train_data, train_labels, test_data, test_labels, channel
         return
 
     if not run_test:
-        transforms_logger.info('NOTE: test data not provided OR labels incorrect OR not same number of channels as train data')
         test_data, test_labels = None, None
 
     return train_data, train_labels, test_data, test_labels, run_test
@@ -500,7 +499,6 @@ def reshape_and_normalize_data(train_data, test_data=None, channels=None, normal
             if normalize:
                 data[i] = normalize_img(data[i], axis=0, omni=omni)
         nchan = [data[i].shape[0] for i in range(nimg)]
-        transforms_logger.info('%s channels = %d'%(['train', 'test'][test], nchan[0]))
     run_test = True
     return train_data, test_data, run_test
 

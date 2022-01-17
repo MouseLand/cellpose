@@ -40,12 +40,11 @@ def parse_model_string(pretrained_model):
     else:
         model_str = os.path.split(pretrained_model)[-1]
     if len(model_str)>3 and model_str[:4]=='unet':
-        core_logger.info(f'parsing model string {model_str} to get unet options')
         nclasses = max(2, int(model_str[4]))
     elif len(model_str)>7 and model_str[:8]=='cellpose':
-        core_logger.info(f'parsing model string {model_str} to get cellpose options')
+        nclasses = 3
     else:
-        return None
+        return True, True, False
     ostrs = model_str.split('_')[2::2]
     residual_on = ostrs[0]=='on'
     style_on = ostrs[1]=='on'
@@ -682,7 +681,7 @@ class UnetModel():
 
     def train(self, train_data, train_labels, train_files=None, 
               test_data=None, test_labels=None, test_files=None,
-              channels=None, normalize=True, pretrained_model=None, save_path=None, save_every=50, save_each=False,
+              channels=None, normalize=True, save_path=None, save_every=50, save_each=False,
               learning_rate=0.2, n_epochs=500, momentum=0.9, weight_decay=0.00001, batch_size=8, rescale=False):
         """ train function uses 0-1 mask label and boundary pixels for training """
 
@@ -715,8 +714,7 @@ class UnetModel():
         del train_data[::8], train_classes[::8], train_labels[::8]
 
         model_path = self._train_net(train_data, train_classes, 
-                                     test_data, test_classes,
-                                     pretrained_model, save_path, save_every, save_each,
+                                     test_data, test_classes, save_path, save_every, save_each,
                                      learning_rate, n_epochs, momentum, weight_decay, 
                                      batch_size, rescale)
 
@@ -842,9 +840,9 @@ class UnetModel():
     # Restored defaults. Need to make sure rescale is properly turned off and omni turned on when using CLI. 
     def _train_net(self, train_data, train_labels, 
               test_data=None, test_labels=None,
-              pretrained_model=None, save_path=None, save_every=100, save_each=False,
+              save_path=None, save_every=100, save_each=False,
               learning_rate=0.2, n_epochs=500, momentum=0.9, weight_decay=0.00001, 
-              SGD=True, batch_size=8, rescale=True, netstr='cellpose'): 
+              SGD=True, batch_size=8, rescale=True, netstr=None): 
         """ train function uses loss function self.loss_fn in models.py"""
         
         d = datetime.datetime.now()
@@ -870,13 +868,12 @@ class UnetModel():
 
         nchan = train_data[0].shape[0]
         core_logger.info('>>>> training network with %d channel input <<<<'%nchan)
-        core_logger.info('>>>> saving every %d epochs'%save_every)
         core_logger.info('>>>> LR: %0.5f, batch_size: %d, weight_decay: %0.5f'%(self.learning_rate, self.batch_size, weight_decay))
-        core_logger.info('>>>> ntrain = %d'%nimg)
-        core_logger.info('>>>> rescale is %d'%rescale)
+        
         if test_data is not None:
-            core_logger.info('>>>> ntest = %d'%len(test_data))
-        core_logger.info(train_data[0].shape)
+            core_logger.info(f'>>>> ntrain = {nimg}, ntest = {len(test_data)}')
+        else:
+            core_logger.info(f'>>>> ntrain = {nimg}')
         
         tic = time.time()
 
@@ -891,7 +888,6 @@ class UnetModel():
                 LR = np.append(LR, self.learning_rate*np.ones(max(0,self.n_epochs-10)))
         else:
             LR = self.learning_rate * np.ones(self.n_epochs)
-        
 
         lavg, nsum = 0, 0
 
@@ -913,7 +909,10 @@ class UnetModel():
         for iepoch in range(self.n_epochs):
                 
             np.random.seed(iepoch)
-            rperm = np.random.permutation(nimg)
+            if nimg < batch_size:
+                rperm = np.random.choice(nimg, batch_size)
+            else:
+                rperm = np.random.permutation(nimg)
             if SGD:
                 self._set_learning_rate(LR[iepoch])
             
@@ -961,11 +960,17 @@ class UnetModel():
                 if iepoch==self.n_epochs-1 or iepoch%save_every==1:
                     # save model at the end
                     if save_each: #separate files as model progresses 
-                        file_name = '{}_{}_{}_{}'.format(self.net_type, file_label, 
-                                                         d.strftime("%Y_%m_%d_%H_%M_%S.%f"),
-                                                         'epoch_'+str(iepoch)) 
+                        if netstr is None:
+                            file_name = '{}_{}_{}_{}'.format(self.net_type, file_label, 
+                                                             d.strftime("%Y_%m_%d_%H_%M_%S.%f"),
+                                                             'epoch_'+str(iepoch)) 
+                        else:
+                            file_name = '{}_{}'.format(netstr, 'epoch_'+str(iepoch))
                     else:
-                        file_name = '{}_{}_{}'.format(self.net_type, file_label, d.strftime("%Y_%m_%d_%H_%M_%S.%f"))
+                        if netstr is None:
+                            file_name = '{}_{}_{}'.format(self.net_type, file_label, d.strftime("%Y_%m_%d_%H_%M_%S.%f"))
+                        else:
+                            file_name = netstr
                     file_name = os.path.join(file_path, file_name)
                     ksave += 1
                     core_logger.info(f'saving network parameters to {file_name}')

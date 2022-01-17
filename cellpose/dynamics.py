@@ -601,7 +601,7 @@ def labels_to_flows(labels, files=None, use_gpu=False, device=None, omni=False,r
 
     if labels[0].shape[0] == 1 or labels[0].ndim < 3 or redo_flows: # flows need to be recomputed
         
-        dynamics_logger.info('NOTE: computing flows for labels (could be done before to save time)')
+        dynamics_logger.info('computing flows for labels')
         
         # compute flows; labels are fixed in masks_to_flows, so they need to be passed back
         labels, dist, heat, veci = map(list,zip(*[masks_to_flows(labels[n][0],use_gpu=use_gpu, device=device, omni=omni) for n in trange(nimg)]))

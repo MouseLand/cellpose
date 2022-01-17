@@ -155,6 +155,9 @@ def get_label_files(image_names, mask_filter, imf=None):
         label_names = [label_names[n] + mask_filter + '.tiff' for n in range(nimg)]
     elif os.path.exists(label_names[0] + mask_filter + '.png'):
         label_names = [label_names[n] + mask_filter + '.png' for n in range(nimg)]
+    # todo, allow _seg.npy
+    #elif os.path.exists(label_names[0] + '_seg.npy'):
+    #    io_logger.info('labels found as _seg.npy files, converting to tif')
     else:
         raise ValueError('labels not provided with correct --mask_filter')
     if not all([os.path.exists(label) for label in label_names]):

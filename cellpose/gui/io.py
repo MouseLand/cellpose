@@ -1,11 +1,11 @@
-import os, datetime, gc, warnings, glob
+import os, datetime, gc, warnings, glob, shutil
 from natsort import natsorted
 import numpy as np
 import cv2
 import tifffile
 import logging
 
-from .. import utils, plot, transforms
+from .. import utils, plot, transforms, models
 from ..io import imread, imsave, outlines_to_text
 
 try:
@@ -24,7 +24,82 @@ NCOLOR = False
 # WIP to make GUI use N-color masks. Tricky thing is that only the display should be 
 # reduced to N colors; selection and editing should act on unique labels. 
     
-def _load_image(parent, filename=None):
+def _init_model_list(parent):
+    models.MODEL_DIR.mkdir(parents=True, exist_ok=True)
+    parent.model_list_path = os.fspath(models.MODEL_DIR.joinpath('gui_models.txt'))
+    parent.model_strings = models.MODEL_NAMES.copy()
+    if not os.path.exists(parent.model_list_path):
+        textfile = open(parent.model_list_path, 'w')
+        textfile.close()
+    else:
+        with open(parent.model_list_path, 'r') as textfile:
+            lines = [line.rstrip() for line in textfile]
+            if len(lines) > 0:
+                parent.model_strings.extend(lines)
+
+def _add_model(parent, filename=None):
+    if filename is None:
+        name = QFileDialog.getOpenFileName(
+            parent, "Add model to GUI"
+            )
+        filename = name[0]
+    fname = os.path.split(filename)[-1]
+    shutil.copyfile(filename, os.fspath(models.MODEL_DIR.joinpath(fname)))
+    print(f'GUI_INFO: {filename} copied to models folder {os.fspath(models.MODEL_DIR)}')
+    with open(parent.model_list_path, 'a') as textfile:
+        textfile.write(fname + '\n')
+    parent.ModelChoose.addItems([fname])
+    parent.model_strings.append(fname)
+    parent.ModelChoose.setCurrentIndex(len(parent.model_strings) - 1)
+
+def _remove_model(parent, ind=None):
+    if ind is None:
+        ind = parent.ModelChoose.currentIndex()
+    if ind > len(models.MODEL_NAMES)-1:
+        print(f'GUI_INFO: deleting {parent.model_strings[ind]} from GUI')
+        parent.ModelChoose.removeItem(ind)
+        del parent.model_strings[ind]
+        custom_strings = parent.model_strings[len(models.MODEL_NAMES):]
+        if len(custom_strings) > 0:
+            with open(parent.model_list_path, 'w') as textfile:
+                for fname in custom_strings:
+                    textfile.write(fname + '\n')
+            parent.ModelChoose.setCurrentIndex(len(parent.model_strings) - 1)
+        else:
+            # write empty file
+            textfile = open(parent.model_list_path, 'w')
+            textfile.close()
+            parent.ModelChoose.setCurrentIndex(0)
+    else:
+        print('ERROR: cannot remove built-in model, select custom model to delete')
+    
+
+def _get_train_set(image_names):
+    """ get training data and labels for images in current folder image_names"""
+    train_data, train_labels, train_files = [], [], []
+    for image_name_full in image_names:
+        image_name = os.path.splitext(image_name_full)[0]
+        label_name = None
+        if os.path.exists(image_name + '_seg.npy'):
+            dat = np.load(image_name + '_seg.npy', allow_pickle=True).item()
+            masks = dat['masks']
+            imsave(image_name + '_masks.tif', masks)
+            label_name = image_name + '_masks.tif'
+        else:
+            mask_filter = '_masks'
+            if os.path.exists(image_name + mask_filter + '.tif'):
+                label_name = image_name + mask_filter + '.tif'
+            elif os.path.exists(image_name + mask_filter + '.tiff'):
+                label_name = image_name + mask_filter + '.tiff'
+            elif os.path.exists(image_name + mask_filter + '.png'):
+                label_name = image_name + mask_filter + '.png'
+        if label_name is not None:
+            train_files.append(image_name_full)
+            train_data.append(imread(image_name_full))
+            train_labels.append(imread(label_name))
+    return train_data, train_labels, train_files
+
+def _load_image(parent, filename=None, load_seg=True):
     """ load image with filename; if None, open QFileDialog """
     if filename is None:
         name = QFileDialog.getOpenFileName(
@@ -32,24 +107,23 @@ def _load_image(parent, filename=None):
             )
         filename = name[0]
     manual_file = os.path.splitext(filename)[0]+'_seg.npy'
-    if os.path.isfile(manual_file):
-        print(manual_file)
-        _load_seg(parent, manual_file, image=imread(filename), image_file=filename)
-        return
-    elif os.path.isfile(os.path.splitext(filename)[0]+'_manual.npy'):
-        manual_file = os.path.splitext(filename)[0]+'_manual.npy'
-        _load_seg(parent, manual_file, image=imread(filename), image_file=filename)
-        return
+    if load_seg:
+        if os.path.isfile(manual_file):
+            _load_seg(parent, manual_file, image=imread(filename), image_file=filename)
+            return
+        elif os.path.isfile(os.path.splitext(filename)[0]+'_manual.npy'):
+            manual_file = os.path.splitext(filename)[0]+'_manual.npy'
+            _load_seg(parent, manual_file, image=imread(filename), image_file=filename)
+            return
     try:
         image = imread(filename)
         parent.loaded = True
     except:
-        print('images not compatible')
+        print('ERROR: images not compatible')
 
     if parent.loaded:
         parent.reset()
         parent.filename = filename
-        print(filename)
         filename = os.path.split(parent.filename)[-1]
         _initialize_images(parent, image, resize=parent.resize, X2=0)
         parent.clear_all()
@@ -118,7 +192,6 @@ def _initialize_images(parent, image, resize, X2):
         parent.stack[k] = img
     
     parent.imask=0
-    print(parent.NZ, parent.stack[0].shape)
     parent.Ly, parent.Lx = img.shape[0], img.shape[1]
     parent.stack = np.array(parent.stack)
     parent.layers = 0*np.ones((parent.NZ,parent.Ly,parent.Lx,4), np.uint8)
@@ -142,7 +215,7 @@ def _load_seg(parent, filename=None, image=None, image_file=None):
         parent.loaded = True
     except:
         parent.loaded = False
-        print('not NPY')
+        print('ERROR: not NPY')
         return
 
     parent.reset()
@@ -175,8 +248,7 @@ def _load_seg(parent, filename=None, image=None, image_file=None):
                 return
     else:
         parent.filename = image_file
-    print(parent.filename)
-
+    
     if 'X2' in dat:
         parent.X2 = dat['X2']
     else:
@@ -235,7 +307,7 @@ def _load_seg(parent, filename=None, image=None, image_file=None):
         else:
             parent.zdraw = [None for n in range(parent.ncells)]
         parent.loaded = True
-        print('%d masks found'%(parent.ncells))
+        print(f'GUI_INFO: {parent.ncells} masks found in {filename}')
     else:
         parent.clear_all()
 
@@ -301,7 +373,7 @@ def _load_masks(parent, filename=None):
     if masks.shape[0]!=parent.NZ:
         print('ERROR: masks are not same depth (number of planes) as image stack')
         return
-    print('%d masks found'%(len(np.unique(masks))-1))
+    print(f'GUI_INFO: {len(np.unique(masks))-1} masks found in {filename}')
 
     _masks_to_gui(parent, masks, outlines)
 
@@ -327,7 +399,7 @@ def _masks_to_gui(parent, masks, outlines=None):
             outlines = utils.masks_to_outlines(masks[z])
             parent.outpix[z] = outlines * masks[z]
             if z%50==0:
-                print('plane %d outlines processed'%z)
+                print('GUI_INFO: plane %d outlines processed'%z)
     else:
         parent.outpix = outlines
         shape = parent.outpix.shape
@@ -356,17 +428,17 @@ def _save_png(parent):
     filename = parent.filename
     base = os.path.splitext(filename)[0]
     if parent.NZ==1:
-        print('saving 2D masks to png')
+        print('GUI_INFO: saving 2D masks to png')
         imsave(base + '_cp_masks.png', parent.cellpix[0])
     else:
-        print('saving 3D masks to tiff')
+        print('GUI_INFO: saving 3D masks to tiff')
         imsave(base + '_cp_masks.tif', parent.cellpix)
 
 def _save_outlines(parent):
     filename = parent.filename
     base = os.path.splitext(filename)[0]
     if parent.NZ==1:
-        print('saving 2D outlines to text file, see docs for info to load into ImageJ')    
+        print('GUI_INFO: saving 2D outlines to text file, see docs for info to load into ImageJ')    
         outlines = utils.outlines_list(parent.cellpix[0])
         outlines_to_text(base, outlines)
     else:
@@ -400,8 +472,7 @@ def _save_sets(parent):
                  'ismanual': parent.ismanual,
                  'X2': parent.X2,
                  'filename': parent.filename,
-                 'flows': parent.flows})
+                 'flows': parent.flows,
+                 'model_path': parent.current_model_path if hasattr(parent, 'current_model_path') else 0})
     #print(parent.point_sets)
-    print('--- %d ROIs saved chan1 %s, chan2 %s'%(parent.ncells,
-                                                  parent.ChannelChoose[0].currentText(),
-                                                  parent.ChannelChoose[1].currentText()))
+    print('GUI_INFO: %d ROIs saved to %s'%(parent.ncells, base + '_seg.npy'))

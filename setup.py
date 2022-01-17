@@ -4,7 +4,6 @@ from setuptools import setup
 install_deps = ['numpy>=1.20.0', 'scipy', 'natsort',
                 'tifffile', 'tqdm', 'numba', 
                 'torch>=1.6',
-                'torch_optimizer',
                 'opencv-python-headless',
                 'fastremap'
                 ]
@@ -25,7 +24,8 @@ docs_deps = [
 omni_deps = [
         'scikit-image', 
         'scikit-learn',
-        'edt','fastremap','torch_optimizer', 
+        'edt',
+        'torch_optimizer', 
         'ncolor'
         ]
 

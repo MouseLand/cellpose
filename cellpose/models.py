@@ -21,7 +21,7 @@ _MODEL_URL = 'https://www.cellpose.org/models'
 _MODEL_DIR_ENV = os.environ.get("CELLPOSE_LOCAL_MODELS_PATH")
 _MODEL_DIR_DEFAULT = pathlib.Path.home().joinpath('.cellpose', 'models')
 MODEL_DIR = pathlib.Path(_MODEL_DIR_ENV) if _MODEL_DIR_ENV else _MODEL_DIR_DEFAULT
-MODEL_NAMES = ['cyto','nuclei','bact','cyto2','bact_omni','cyto2_omni']
+MODEL_NAMES = ['cyto','nuclei','cyto2','bact','bact_omni','cyto2_omni']
 
 def model_path(model_type, model_index, use_torch):
     torch_str = 'torch' if use_torch else ''
@@ -771,7 +771,8 @@ class CellposeModel(UnetModel):
               channels=None, normalize=True, pretrained_model=None, 
               save_path=None, save_every=100, save_each=False,
               learning_rate=0.2, n_epochs=500, momentum=0.9, SGD=True,
-              weight_decay=0.00001, batch_size=8, rescale=False, omni=False):
+              weight_decay=0.00001, batch_size=8, rescale=True, omni=False,
+              netstr=None):
 
         """ train network with images train_data 
         
@@ -832,6 +833,9 @@ class CellposeModel(UnetModel):
                 if True it assumes you will fit a size model after training or resize your images accordingly,
                 if False it will try to train the model to be scale-invariant (works worse)
 
+            netstr: str (default, None)
+                name of network, otherwise saved with name as params + training start time
+
         """
         if rescale:
             models_logger.info(f'Training with rescale = {rescale:.2f}')
@@ -847,9 +851,94 @@ class CellposeModel(UnetModel):
         
         model_path = self._train_net(train_data, train_flows, 
                                      test_data, test_flows,
-                                     pretrained_model, save_path, save_every, save_each,
+                                     save_path, save_every, save_each,
                                      learning_rate, n_epochs, momentum, weight_decay, SGD, 
-                                     batch_size, rescale)
+                                     batch_size, rescale, netstr)
+        self.pretrained_model = model_path
+        return model_path
+
+    def retrain(self, train_data, train_labels, train_files=None, 
+              test_data=None, test_labels=None, test_files=None,
+              channels=None, normalize=True, 
+              save_path=None, save_every=100, save_each=False,
+              learning_rate=0.025, n_epochs=100, momentum=0.9, SGD=True,
+              weight_decay=0.0001, batch_size=8, rescale=True, omni=False, netstr=None):
+
+        """ retrain network with images train_data 
+        
+            Parameters
+            ------------------
+
+            train_data: list of arrays (2D or 3D)
+                images for training
+
+            train_labels: list of arrays (2D or 3D)
+                labels for train_data, where 0=no masks; 1,2,...=mask labels
+                can include flows as additional images
+
+            train_files: list of strings
+                file names for images in train_data (to save flows for future runs)
+
+            test_data: list of arrays (2D or 3D)
+                images for testing
+
+            test_labels: list of arrays (2D or 3D)
+                labels for test_data, where 0=no masks; 1,2,...=mask labels; 
+                can include flows as additional images
+        
+            test_files: list of strings
+                file names for images in test_data (to save flows for future runs)
+
+            channels: list of ints (default, None)
+                channels to use for training
+
+            normalize: bool (default, True)
+                normalize data so 0.0=1st percentile and 1.0=99th percentile of image intensities in each channel
+
+            save_path: string (default, None)
+                where to save trained model, if None it is not saved
+
+            save_every: int (default, 100)
+                save network every [save_every] epochs
+
+            learning_rate: float (default, 0.2)
+                learning rate for training
+
+            n_epochs: int (default, 500)
+                how many times to go through whole training set during training
+
+            weight_decay: float (default, 0.00001)
+
+            SGD: bool (default, True) use SGD as optimization instead of RAdam
+
+            batch_size: int (optional, default 8)
+                number of 224x224 patches to run simultaneously on the GPU
+                (can make smaller or bigger depending on GPU memory usage)
+
+            rescale: bool (default, True)
+                whether or not to rescale images to diam_mean during training, 
+                if True it assumes you will fit a size model after training or resize your images accordingly,
+                if False it will try to train the model to be scale-invariant (works worse)
+
+            netstr: str (default, None)
+                name of network, otherwise saved with name as params + training start time
+
+        """
+        train_data, train_labels, test_data, test_labels, run_test = transforms.reshape_train_test(train_data, train_labels,
+                                                                                                   test_data, test_labels,
+                                                                                                   channels, normalize, omni)
+        # check if train_labels have flows
+        train_flows = dynamics.labels_to_flows(train_labels, files=train_files, use_gpu=self.gpu, device=self.device, omni=omni)
+        if run_test:
+            test_flows = dynamics.labels_to_flows(test_labels, files=test_files, use_gpu=self.gpu, device=self.device)
+        else:
+            test_flows = None
+        
+        model_path = self._train_net(train_data, train_flows, 
+                                     test_data, test_flows,
+                                     save_path, save_every, save_each,
+                                     learning_rate, n_epochs, momentum, weight_decay, SGD, 
+                                     batch_size, rescale, netstr)
         self.pretrained_model = model_path
         return model_path
 
