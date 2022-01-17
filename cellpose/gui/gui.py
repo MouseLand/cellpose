@@ -178,6 +178,8 @@ class MainW(QMainWindow):
         menus.editmenu(self)
         menus.modelmenu(self)
         menus.helpmenu(self)
+        if OMNI_INSTALLED:
+            menus.omnimenu(self)
 
         self.setStyleSheet("QMainWindow {background: 'black';}")
         self.stylePressed = ("QPushButton {Text-align: left; "
@@ -490,27 +492,7 @@ class MainW(QMainWindow):
         self.invert.setFont(self.medfont)
         self.l0.addWidget(self.invert, b,0,1,4)
         
-        # use omnipose mask recontruction
-        #b+=1
-        self.omni = QCheckBox('omni mask alg')
-        self.omni.setStyleSheet(self.checkstyle)
-        self.omni.setFont(self.medfont)
-        self.omni.setChecked(False)
-        self.omni.setToolTip('use Omnipose mask recontruction algorithm (fix over-segmentation)')
-        self.omni.setEnabled(OMNI_INSTALLED)
-        # self.omni.toggled.connect(self.compute_model)
-        self.l0.addWidget(self.omni, b,4,1,4)
         
-        # use DBSCAN clustering
-        b+=1
-        self.cluster = QCheckBox('omni mask clust')
-        self.cluster.setStyleSheet(self.checkstyle)
-        self.cluster.setFont(self.medfont)
-        self.cluster.setChecked(False)
-        self.cluster.setToolTip('force DBSCAN clustering when omni is enabled')
-        self.cluster.setEnabled(OMNI_INSTALLED)
-        # self.cluster.toggled.connect(self.compute_model)
-        self.l0.addWidget(self.cluster, b,4,1,4)
 
         b+=1
         # recompute segmentation
@@ -1349,8 +1331,10 @@ class MainW(QMainWindow):
             print('ERROR: cannot train model on 3D data')
             return
         
-        print('GUI_INFO: saving current masks to add to training')
-        io._save_sets(self)
+        # do not save current masks, could be from bad model
+        #print('GUI_INFO: saving current masks to add to training')
+        #io._save_sets(self)
+
         # train model
         image_names = self.get_files()[0]
         self.train_data, self.train_labels, self.train_files = io._get_train_set(image_names)
@@ -1477,13 +1461,14 @@ class MainW(QMainWindow):
                     
                 # allow omni to be togged manually or forced by model
                 self.omni.setChecked(self.omni.isChecked() or omni_model) 
+                self.cluster.setChecked(self.cluster.isChecked() or omni_model)
                 
                 net_avg = self.NetAvg.currentIndex()<2 and self.current_model in models.MODEL_NAMES
                 resample = self.NetAvg.currentIndex()==1
                 masks, flows = self.model.eval(data, channels=channels,
                                                 diameter=self.diameter, invert=self.invert.isChecked(),
                                                 net_avg=net_avg, augment=False, resample=resample,
-                                                do_3D=do_3D, progress=self.progress, omni=self.omni.isChecked() and OMNI_INSTALLED)[:2]
+                                                do_3D=do_3D, progress=self.progress, omni=self.omni.isChecked())[:2]
             except Exception as e:
                 print('NET ERROR: %s'%e)
                 self.progress.setValue(0)

@@ -9,7 +9,7 @@ from pathlib import Path
 from . import utils, plot, transforms
 
 try:
-    import omnipose.utils.format_labels as format_labels
+    from omnipose.utils import format_labels
     import ncolor
     OMNI_INSTALLED = True
 except:

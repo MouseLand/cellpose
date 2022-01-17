@@ -1064,6 +1064,7 @@ def compute_masks(dP, cellprob, bd=None, p=None, inds=None, niter=200, mask_thre
             inds = np.stack(np.nonzero(cp_mask)).T
             mask = omnipose.core.get_masks(p,bd,cellprob,cp_mask,inds,nclasses,cluster=cluster,
                                            diam_threshold=diam_threshold,verbose=verbose)
+            mask = mask.astype(np.uint32)
         else:
             mask = get_masks(p, iscell=cp_mask, flows=dP, use_gpu=use_gpu)
             

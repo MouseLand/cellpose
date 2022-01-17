@@ -134,3 +134,16 @@ def helpmenu(parent):
     openGUI.setShortcut("Ctrl+G")
     openGUI.triggered.connect(parent.gui_window)
     help_menu.addAction(openGUI)
+
+def omnimenu(parent):
+    main_menu = parent.menuBar()
+    omni_menu = main_menu.addMenu("&Omnipose")
+    # use omnipose mask recontruction
+    parent.omni = QAction('use Omnipose mask recontruction algorithm (fix over-segmentation)', parent, checkable=True)
+    parent.omni.setChecked(False)
+    omni_menu.addAction(parent.omni)
+
+    # use DBSCAN clustering
+    parent.cluster = QAction('force DBSCAN clustering when omni is enabled', parent, checkable=True)
+    parent.cluster.setChecked(False)
+    omni_menu.addAction(parent.cluster)

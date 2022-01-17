@@ -21,7 +21,10 @@ _MODEL_URL = 'https://www.cellpose.org/models'
 _MODEL_DIR_ENV = os.environ.get("CELLPOSE_LOCAL_MODELS_PATH")
 _MODEL_DIR_DEFAULT = pathlib.Path.home().joinpath('.cellpose', 'models')
 MODEL_DIR = pathlib.Path(_MODEL_DIR_ENV) if _MODEL_DIR_ENV else _MODEL_DIR_DEFAULT
-MODEL_NAMES = ['cyto','nuclei','cyto2','bact','bact_omni','cyto2_omni']
+if OMNI_INSTALLED:
+    MODEL_NAMES = ['cyto','nuclei','cyto2','bact','bact_omni','cyto2_omni']
+else:
+    MODEL_NAMES = ['cyto','nuclei','cyto2']
 
 def model_path(model_type, model_index, use_torch):
     torch_str = 'torch' if use_torch else ''
