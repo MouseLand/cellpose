@@ -1420,7 +1420,7 @@ class MainW(QMainWindow):
                                        mask_threshold=self.cellprob,
                                        flow_threshold=thresh,
                                        resize=self.cellpix.shape[-2:],
-                                       omni=self.omni.isChecked(),
+                                       omni=OMNI_INSTALLED and self.omni.isChecked(),
                                        cluster=self.cluster.isChecked())[0]
         
         self.masksOn = True
@@ -1460,15 +1460,16 @@ class MainW(QMainWindow):
                     self.Diameter.setText('%0.1f'%self.diameter)
                     
                 # allow omni to be togged manually or forced by model
-                self.omni.setChecked(self.omni.isChecked() or omni_model) 
-                self.cluster.setChecked(self.cluster.isChecked() or omni_model)
+                if OMNI_INSTALLED:
+                    self.omni.setChecked(self.omni.isChecked() or omni_model) 
+                    self.cluster.setChecked(self.cluster.isChecked() or omni_model)
                 
                 net_avg = self.NetAvg.currentIndex()<2 and self.current_model in models.MODEL_NAMES
                 resample = self.NetAvg.currentIndex()==1
                 masks, flows = self.model.eval(data, channels=channels,
                                                 diameter=self.diameter, invert=self.invert.isChecked(),
                                                 net_avg=net_avg, augment=False, resample=resample,
-                                                do_3D=do_3D, progress=self.progress, omni=self.omni.isChecked())[:2]
+                                                do_3D=do_3D, progress=self.progress, omni=OMNI_INSTALLED and self.omni.isChecked())[:2]
             except Exception as e:
                 print('NET ERROR: %s'%e)
                 self.progress.setValue(0)
