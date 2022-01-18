@@ -1038,14 +1038,17 @@ class MainW(QMainWindow):
         cZ = stroke[0,0]
         outpix = self.outpix[cZ][stroke[:,1],stroke[:,2]]>0
         self.layers[cZ][stroke[~outpix,1],stroke[~outpix,2]] = np.array([0,0,0,0])
+        #if self.masksOn:
+        cellpix = self.cellpix[cZ][stroke[:,1], stroke[:,2]]
+        ccol = np.array(self.cellcolors.copy())
+        if self.selected > 0:
+            ccol[self.selected] = np.array([255,255,255])
+        col2mask = ccol[cellpix]
         if self.masksOn:
-            cellpix = self.cellpix[cZ][stroke[:,1], stroke[:,2]]
-            ccol = np.array(self.cellcolors.copy())
-            if self.selected > 0:
-                ccol[self.selected] = np.array([255,255,255])
-            col2mask = ccol[cellpix]
             col2mask = np.concatenate((col2mask, self.opacity*(cellpix[:,np.newaxis]>0)), axis=-1)
-            self.layers[cZ][stroke[:,1], stroke[:,2], :] = col2mask
+        else:
+            col2mask = np.concatenate((col2mask, 0*(cellpix[:,np.newaxis]>0)), axis=-1)
+        self.layers[cZ][stroke[:,1], stroke[:,2], :] = col2mask
         if self.outlinesOn:
             self.layers[cZ][stroke[outpix,1],stroke[outpix,2]] = np.array(self.outcolor)
         if delete_points:

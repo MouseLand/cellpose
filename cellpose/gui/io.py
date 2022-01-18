@@ -286,6 +286,7 @@ def _load_seg(parent, filename=None, image=None, image_file=None):
             if dat['masks'].min()==-1:
                 dat['masks'] += 1
                 dat['outlines'] += 1
+            parent.ncells = dat['masks'].max()
             if 'colors' in dat:
                 colors = dat['colors']
             else:
@@ -293,7 +294,6 @@ def _load_seg(parent, filename=None, image=None, image_file=None):
             parent.cellpix = dat['masks']
             parent.outpix = dat['outlines']
             parent.cellcolors.extend(colors)
-            parent.ncells = parent.cellpix.max()
             parent.draw_masks()
             if 'est_diam' in dat:
                 parent.Diameter.setText('%0.1f'%dat['est_diam'])
