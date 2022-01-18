@@ -4,6 +4,7 @@ import numpy as np
 import cv2
 import tifffile
 import logging
+import fastremap 
 
 from .. import utils, plot, transforms, models
 from ..io import imread, imsave, outlines_to_text
@@ -288,8 +289,7 @@ def _load_seg(parent, filename=None, image=None, image_file=None):
             if 'colors' in dat:
                 colors = dat['colors']
             else:
-                col_rand = np.random.randint(0, 1000, (dat['masks'].max(),))
-                colors = parent.colormap[col_rand,:3]
+                colors = parent.colormap[:parent.ncells,:3]
             parent.cellpix = dat['masks']
             parent.outpix = dat['outlines']
             parent.cellcolors.extend(colors)
@@ -384,12 +384,9 @@ def _masks_to_gui(parent, masks, outlines=None):
     # get unique values
     shape = masks.shape
     
-    if NCOLOR:
-        masks = ncolor.label(masks) 
-    else:
-        _, masks = np.unique(masks, return_inverse=True)
-        masks = np.reshape(masks, shape)
-        masks = masks.astype(np.uint16) if masks.max()<2**16-1 else masks.astype(np.uint32)
+    fastremap.renumber(masks, in_place=True)
+    masks = np.reshape(masks, shape)
+    masks = masks.astype(np.uint16) if masks.max()<2**16-1 else masks.astype(np.uint32)
     parent.cellpix = masks
 
     # get outlines
@@ -398,7 +395,7 @@ def _masks_to_gui(parent, masks, outlines=None):
         for z in range(parent.NZ):
             outlines = utils.masks_to_outlines(masks[z])
             parent.outpix[z] = outlines * masks[z]
-            if z%50==0:
+            if z%50==0 and parent.NZ > 1:
                 print('GUI_INFO: plane %d outlines processed'%z)
     else:
         parent.outpix = outlines
@@ -407,12 +404,7 @@ def _masks_to_gui(parent, masks, outlines=None):
         parent.outpix = np.reshape(parent.outpix, shape)
 
     parent.ncells = parent.cellpix.max()
-    np.random.seed(42) #try to make a bit more stable 
-    
-    if NCOLOR:
-        colors = parent.colormap[np.linspace(0,255,parent.ncells).astype(int), :3]
-    else:
-        colors = parent.colormap[np.random.randint(0,1000,size=parent.ncells), :3]
+    colors = parent.colormap[:parent.ncells, :3]
 
     parent.cellcolors = list(np.concatenate((np.array([[255,255,255]]), colors), axis=0).astype(np.uint8))
     parent.draw_masks()

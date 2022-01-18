@@ -176,7 +176,8 @@ class MainW(QMainWindow):
 
         menus.mainmenu(self)
         menus.editmenu(self)
-        menus.modelmenu(self)
+        #menus.modelmenu(self)
+        self.model_strings = models.MODEL_NAMES
         menus.helpmenu(self)
         if OMNI_INSTALLED:
             menus.omnimenu(self)
@@ -1421,7 +1422,7 @@ class MainW(QMainWindow):
                                        flow_threshold=thresh,
                                        resize=self.cellpix.shape[-2:],
                                        omni=OMNI_INSTALLED and self.omni.isChecked(),
-                                       cluster=self.cluster.isChecked())[0]
+                                       cluster=OMNI_INSTALLED and self.cluster.isChecked())[0]
         
         self.masksOn = True
         self.MCheckBox.setChecked(True)
@@ -1515,13 +1516,11 @@ class MainW(QMainWindow):
 
 
     def enable_buttons(self):
-        #self.X2Up.setEnabled(True)
-        #self.X2Down.setEnabled(True)
         self.ModelButton.setEnabled(True)
         self.SizeButton.setEnabled(True)
         self.ModelButton.setStyleSheet(self.styleUnpressed)
         self.SizeButton.setStyleSheet(self.styleUnpressed)
-        self.newmodel.setEnabled(True)
+        #self.newmodel.setEnabled(True)
         self.loadMasks.setEnabled(True)
         self.saveSet.setEnabled(True)
         self.savePNG.setEnabled(True)
