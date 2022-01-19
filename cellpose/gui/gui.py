@@ -176,7 +176,7 @@ class MainW(QMainWindow):
 
         menus.mainmenu(self)
         menus.editmenu(self)
-        #menus.modelmenu(self)
+        menus.modelmenu(self)
         self.model_strings = models.MODEL_NAMES
         menus.helpmenu(self)
         if OMNI_INSTALLED:
@@ -971,12 +971,16 @@ class MainW(QMainWindow):
         if self.NZ==1:
             self.removed_cell = [self.ismanual[idx-1], self.cellcolors[idx], np.nonzero(cp), np.nonzero(op)]
             self.redo.setEnabled(True)
+            ar, ac = self.removed_cell[2]
+            self.track_changes.append([d.strftime("%m/%d/%Y, %H:%M:%S"), 'removed mask', [ar,ac]])
         # remove cell from lists
         self.ismanual = np.delete(self.ismanual, idx-1)
         del self.cellcolors[idx]
         del self.zdraw[idx-1]
         self.ncells -= 1
-        print('>>> removed cell %d'%(idx-1))
+        print('GUI_INFO: removed cell %d'%(idx-1))
+        d = datetime.datetime.now()
+        
         if self.ncells==0:
             self.ClearButton.setEnabled(False)
         if self.NZ==1:
@@ -1007,7 +1011,7 @@ class MainW(QMainWindow):
                 color = self.cellcolors[self.prev_selected]
                 self.draw_mask(z, ar, ac, vr, vc, color, idx=self.prev_selected)
             self.remove_cell(self.selected)
-            print('>>> merged two cells')
+            print('GUI_INFO: merged two cells')
             self.update_plot()
             io._save_sets(self)
             self.undo.setEnabled(False)      
@@ -1223,7 +1227,9 @@ class MainW(QMainWindow):
                 ar, ac = ar+ymin, ac+xmin
                 self.draw_mask(z+zmin, ar, ac, vr, vc, color)
         self.zdraw.append(zdraw)
-
+        if self.NZ==1:
+            d = datetime.datetime.now()
+            self.track_changes.append([d.strftime("%m/%d/%Y, %H:%M:%S"), 'added mask', [ar,ac]])
         return median
 
     def draw_mask(self, z, ar, ac, vr, vc, color, idx=None):
@@ -1523,7 +1529,7 @@ class MainW(QMainWindow):
         self.SizeButton.setEnabled(True)
         self.ModelButton.setStyleSheet(self.styleUnpressed)
         self.SizeButton.setStyleSheet(self.styleUnpressed)
-        #self.newmodel.setEnabled(True)
+        self.newmodel.setEnabled(True)
         self.loadMasks.setEnabled(True)
         self.saveSet.setEnabled(True)
         self.savePNG.setEnabled(True)

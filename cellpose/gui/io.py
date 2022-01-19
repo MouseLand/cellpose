@@ -202,6 +202,7 @@ def _initialize_images(parent, image, resize, X2):
     parent.currentZ = int(np.floor(parent.NZ/2))
     parent.scroll.setValue(parent.currentZ)
     parent.zpos.setText(str(parent.currentZ))
+    parent.track_changes = []
 
 def _load_seg(parent, filename=None, image=None, image_file=None):
     """ load *_seg.npy with filename; if None, open QFileDialog """
@@ -461,10 +462,10 @@ def _save_sets(parent):
                  'chan_choose': [parent.ChannelChoose[0].currentIndex(),
                                  parent.ChannelChoose[1].currentIndex()],
                  'img': image.squeeze(),
-                 'ismanual': parent.ismanual,
-                 'X2': parent.X2,
                  'filename': parent.filename,
                  'flows': parent.flows,
+                 'ismanual': parent.ismanual,
+                 'manual_changes': parent.track_changes,
                  'model_path': parent.current_model_path if hasattr(parent, 'current_model_path') else 0})
     #print(parent.point_sets)
     print('GUI_INFO: %d ROIs saved to %s'%(parent.ncells, base + '_seg.npy'))
