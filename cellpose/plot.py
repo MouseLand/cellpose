@@ -43,7 +43,7 @@ def dx_to_circ(dP,transparency=False,mask=None):
     """
     
     dP = np.array(dP)
-    mag = np.clip(transforms.normalize99(np.sqrt(np.sum(dP**2,axis=0)),omni=1), 0, 1.)
+    mag = np.clip(transforms.normalize99(np.sqrt(np.sum(dP**2,axis=0))), 0, 1.)
     angles = np.arctan2(dP[1], dP[0])+np.pi
     a = 2
     r = ((np.cos(angles)+1)/a)

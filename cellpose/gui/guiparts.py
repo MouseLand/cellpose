@@ -1,19 +1,79 @@
 from PyQt5 import QtGui, QtCore, QtWidgets
 from PyQt5.QtGui import QPainter, QPixmap
-from PyQt5.QtWidgets import QApplication, QRadioButton, QWidget, QDialog, QButtonGroup, QSlider, QStyle, QStyleOptionSlider, QGridLayout, QPushButton, QLabel
+from PyQt5.QtWidgets import QApplication, QRadioButton, QWidget, QDialog, QButtonGroup, QSlider, QStyle, QStyleOptionSlider, QGridLayout, QPushButton, QLabel, QLineEdit, QDialogButtonBox, QComboBox, QCheckBox
 import pyqtgraph as pg
 from pyqtgraph import functions as fn
 from pyqtgraph import Point
 import numpy as np
 import pathlib
 
-def make_quadrants(parent):
+class TrainWindow(QDialog):
+    def __init__(self, parent, model_strings):
+        super().__init__(parent)
+        self.setGeometry(100,100,300,300)
+        self.setWindowTitle('train settings')
+        self.win = QWidget(self)
+        self.l0 = QGridLayout()
+        self.win.setLayout(self.l0)
+
+        yoff = 0
+        qlabel = QLabel('train model using images + masks available in current folder')
+        qlabel.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
+        self.l0.addWidget(qlabel, yoff,0,1,2)
+
+        # choose initial model
+        yoff+=1
+        self.ModelChoose = QComboBox()
+        self.ModelChoose.addItems(model_strings) 
+        self.ModelChoose.setFixedWidth(150)
+        self.ModelChoose.setCurrentIndex(0)
+        self.l0.addWidget(self.ModelChoose, yoff, 1,1,1)
+        qlabel = QLabel('initial model: ')
+        qlabel.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
+        self.l0.addWidget(qlabel, yoff,0,1,1)
+
+        # choose parameters
+        labels = ['learning_rate', 'weight_decay', 'n_epochs']
+        values =  [0.025, 0.0001, 100]
+        self.edits = []
+        yoff += 1
+        for i, (label, value) in enumerate(zip(labels, values)):
+            qlabel = QLabel(label)
+            qlabel.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
+            self.l0.addWidget(qlabel, i+yoff,0,1,1)
+            self.edits.append(QLineEdit())
+            self.edits[-1].setText(str(value))
+            self.l0.addWidget(self.edits[-1], i+yoff, 1,1,1)
+
+        yoff+=len(labels)
+        self.autorun = QCheckBox('auto-run trained model on next image in folder')
+        self.autorun.setChecked(True)
+        self.l0.addWidget(self.autorun, yoff, 0, 1, 2)
+
+        # click button
+        yoff+=1
+        QBtn = QDialogButtonBox.Ok | QDialogButtonBox.Cancel
+        self.buttonBox = QDialogButtonBox(QBtn)
+        self.buttonBox.accepted.connect(lambda: self.accept(parent))
+        self.buttonBox.rejected.connect(self.reject)
+        self.l0.addWidget(self.buttonBox, yoff, 0, 1,3)
+
+    def accept(self, parent):
+        parent.autorun = self.autorun.isChecked()
+        parent.learning_rate = float(self.edits[0].text())
+        parent.weight_decay = float(self.edits[1].text())
+        parent.n_epochs = int(self.edits[2].text())
+        parent.ModelChoose.setCurrentIndex(self.ModelChoose.currentIndex())
+        self.done(1)
+    #    return
+
+def make_quadrants(parent, yp):
     """ make quadrant buttons """
     parent.quadbtns = QButtonGroup(parent)
     for b in range(9):
         btn = QuadButton(b, ' '+str(b+1), parent)
         parent.quadbtns.addButton(btn, b)
-        parent.l0.addWidget(btn, 0 + parent.quadbtns.button(b).ypos, 29 + parent.quadbtns.button(b).xpos, 1, 1)
+        parent.l0.addWidget(btn, yp + parent.quadbtns.button(b).ypos, 5+parent.quadbtns.button(b).xpos, 1, 1)
         btn.setEnabled(True)
         b += 1
     parent.quadbtns.setExclusive(True)
@@ -271,7 +331,7 @@ class RGBRadioButtons(QButtonGroup):
                 button.setChecked(True)
             self.addButton(button, b)
             button.toggled.connect(lambda: self.btnpress(parent))
-            self.parent.l0.addWidget(button, row+b,col,1,1)
+            self.parent.l0.addWidget(button, row+b,col,1,3)
         self.setExclusive(True)
         #self.buttons.
 
@@ -559,7 +619,7 @@ class RangeSlider(QSlider):
         self.hover_control = QStyle.SC_None
         self.click_offset = 0
 
-        self.setOrientation(QtCore.Qt.Vertical)
+        self.setOrientation(QtCore.Qt.Horizontal)
         self.setTickPosition(QSlider.TicksRight)
         self.setStyleSheet(\
                 "QSlider::handle:horizontal {\

@@ -86,6 +86,37 @@ def editmenu(parent):
     parent.remcell.setEnabled(False)
     edit_menu.addAction(parent.remcell)
 
+    parent.mergecell = QAction('FYI: Merge cells by Alt+Click', parent)
+    parent.mergecell.setEnabled(False)
+    edit_menu.addAction(parent.mergecell)
+
+def modelmenu(parent):
+    main_menu = parent.menuBar()
+    io._init_model_list(parent)
+    model_menu = main_menu.addMenu("&Models")
+    parent.addmodel = QAction('Add custom torch model to GUI', parent)
+    #parent.addmodel.setShortcut("Ctrl+A")
+    parent.addmodel.triggered.connect(parent.add_model)
+    parent.addmodel.setEnabled(True)
+    model_menu.addAction(parent.addmodel)
+
+    parent.removemodel = QAction('Remove selected custom model from GUI', parent)
+    #parent.removemodel.setShortcut("Ctrl+R")
+    parent.removemodel.triggered.connect(parent.remove_model)
+    parent.removemodel.setEnabled(True)
+    model_menu.addAction(parent.removemodel)
+
+    parent.newmodel = QAction('&Train new model with image+masks in folder', parent)
+    parent.newmodel.setShortcut("Ctrl+T")
+    parent.newmodel.triggered.connect(parent.new_model)
+    parent.newmodel.setEnabled(False)
+    model_menu.addAction(parent.newmodel)
+
+    parent.endtrain = QAction('End training', parent)
+    parent.endtrain.triggered.connect(parent.end_train)
+    parent.endtrain.setEnabled(False)
+    model_menu.addAction(parent.endtrain)
+
 def helpmenu(parent):
     main_menu = parent.menuBar()
     help_menu = main_menu.addMenu("&Help")
@@ -103,3 +134,16 @@ def helpmenu(parent):
     openGUI.setShortcut("Ctrl+G")
     openGUI.triggered.connect(parent.gui_window)
     help_menu.addAction(openGUI)
+
+def omnimenu(parent):
+    main_menu = parent.menuBar()
+    omni_menu = main_menu.addMenu("&Omnipose")
+    # use omnipose mask recontruction
+    parent.omni = QAction('use Omnipose mask recontruction algorithm (fix over-segmentation)', parent, checkable=True)
+    parent.omni.setChecked(False)
+    omni_menu.addAction(parent.omni)
+
+    # use DBSCAN clustering
+    parent.cluster = QAction('force DBSCAN clustering when omni is enabled', parent, checkable=True)
+    parent.cluster.setChecked(False)
+    omni_menu.addAction(parent.cluster)
