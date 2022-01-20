@@ -266,7 +266,7 @@ def _extend_centers_gpu(neighbors, centers, isneighbor, Ly, Lx, n_iter=200, devi
         Tneigh = T[:, pt[:,:,0], pt[:,:,1]]
         Tneigh *= isneigh
         T[:, pt[0,:,0], pt[0,:,1]] = Tneigh.mean(axis=1)
-  
+    
     T = torch.log(1.+ T)
     # gradient positions
     grads = T[:, pt[[2,1,4,3],:,0], pt[[2,1,4,3],:,1]]
@@ -314,23 +314,27 @@ def masks_to_flows_gpu(masks, device=None):
     neighbors = np.stack((neighborsY, neighborsX), axis=-1)
 
     # get mask centers
-    centers = np.array(scipy.ndimage.center_of_mass(masks_padded, labels=masks_padded, 
-                                                    index=np.arange(1, masks_padded.max()+1))).astype(int)
-    # (check mask center inside mask)
-    valid = masks_padded[centers[:,0], centers[:,1]] == np.arange(1, masks_padded.max()+1)
-    for i in np.nonzero(~valid)[0]:
-        yi,xi = np.nonzero(masks_padded==(i+1))
-        ymed = np.median(yi)
-        xmed = np.median(xi)
-        imin = np.argmin((xi-xmed)**2 + (yi-ymed)**2)
-        centers[i,0] = yi[imin]
-        centers[i,1] = xi[imin]        
+    slices = scipy.ndimage.find_objects(masks)
     
+    centers = np.zeros((masks.max(), 2), 'int')
+    for i,si in enumerate(slices):
+        if si is not None:
+            sr,sc = si
+            ly, lx = sr.stop - sr.start + 1, sc.stop - sc.start + 1
+            yi,xi = np.nonzero(masks[sr, sc] == (i+1))
+            yi = yi.astype(np.int32) + 1 # add padding
+            xi = xi.astype(np.int32) + 1 # add padding
+            ymed = np.median(yi)
+            xmed = np.median(xi)
+            imin = np.argmin((xi-xmed)**2 + (yi-ymed)**2)
+            xmed = xi[imin]
+            ymed = yi[imin]
+            centers[i,0] = ymed + sr.start 
+            centers[i,1] = xmed + sc.start
     # get neighbor validator (not all neighbors are in same mask)
     neighbor_masks = masks_padded[neighbors[:,:,0], neighbors[:,:,1]]
     isneighbor = neighbor_masks == neighbor_masks[0]
 
-    slices = scipy.ndimage.find_objects(masks)
     ext = np.array([[sr.stop - sr.start + 1, sc.stop - sc.start + 1] for sr, sc in slices])
     n_iter = 2 * (ext.sum(axis=1)).max()
     # run diffusion

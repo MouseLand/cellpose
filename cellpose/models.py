@@ -771,7 +771,7 @@ class CellposeModel(UnetModel):
 
     def train(self, train_data, train_labels, train_files=None, 
               test_data=None, test_labels=None, test_files=None,
-              channels=None, normalize=True, pretrained_model=None, 
+              channels=None, normalize=True, 
               save_path=None, save_every=100, save_each=False,
               learning_rate=0.2, n_epochs=500, momentum=0.9, SGD=True,
               weight_decay=0.00001, batch_size=8, rescale=True, omni=False,
@@ -808,17 +808,14 @@ class CellposeModel(UnetModel):
             normalize: bool (default, True)
                 normalize data so 0.0=1st percentile and 1.0=99th percentile of image intensities in each channel
 
-            pretrained_model: string (default, None)
-                path to pretrained_model to start from, if None it is trained from scratch
-
             save_path: string (default, None)
                 where to save trained model, if None it is not saved
 
             save_every: int (default, 100)
                 save network every [save_every] epochs
 
-            learning_rate: float (default, 0.2)
-                learning rate for training
+            learning_rate: float or list/np.ndarray (default, 0.2)
+                learning rate for training, if list, must be same length as n_epochs
 
             n_epochs: int (default, 500)
                 how many times to go through whole training set during training
@@ -848,7 +845,7 @@ class CellposeModel(UnetModel):
         # check if train_labels have flows
         train_flows = dynamics.labels_to_flows(train_labels, files=train_files, use_gpu=self.gpu, device=self.device, omni=omni)
         if run_test:
-            test_flows = dynamics.labels_to_flows(test_labels, files=test_files, use_gpu=self.gpu, device=self.device)
+            test_flows = dynamics.labels_to_flows(test_labels, files=test_files, use_gpu=self.gpu, device=self.device, omni=omni)
         else:
             test_flows = None
         

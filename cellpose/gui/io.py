@@ -328,11 +328,11 @@ def _load_seg(parent, filename=None, image=None, image_file=None):
 
     if 'flows' in dat:
         parent.flows = dat['flows']
-        if parent.flows[0].shape[-3]!=dat['masks'].shape[-2]:
-            Ly, Lx = dat['masks'].shape[-2:]
-            parent.flows[0] = cv2.resize(parent.flows[0][0], (Lx, Ly), interpolation=cv2.INTER_NEAREST)[np.newaxis,...]
-            parent.flows[1] = cv2.resize(parent.flows[1][0], (Lx, Ly), interpolation=cv2.INTER_NEAREST)[np.newaxis,...]
         try:
+            if parent.flows[0].shape[-3]!=dat['masks'].shape[-2]:
+                Ly, Lx = dat['masks'].shape[-2:]
+                parent.flows[0] = cv2.resize(parent.flows[0][0], (Lx, Ly), interpolation=cv2.INTER_NEAREST)[np.newaxis,...]
+                parent.flows[1] = cv2.resize(parent.flows[1][0], (Lx, Ly), interpolation=cv2.INTER_NEAREST)[np.newaxis,...]
             if parent.NZ==1:
                 parent.threshslider.setEnabled(True)
                 parent.probslider.setEnabled(True)

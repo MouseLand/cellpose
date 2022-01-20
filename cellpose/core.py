@@ -5,6 +5,7 @@ from tqdm import trange, tqdm
 from urllib.parse import urlparse
 import tempfile
 import cv2
+from scipy.stats import mode
 from . import transforms, dynamics, utils, plot, metrics
 
 try:
@@ -846,10 +847,31 @@ class UnetModel():
         """ train function uses loss function self.loss_fn in models.py"""
         
         d = datetime.datetime.now()
-        self.learning_rate = learning_rate
+        if isinstance(learning_rate, (list, np.ndarray)):
+            if isinstance(learning_rate, np.ndarray) and learning_rate.ndim > 1:
+                raise ValueError('learning_rate.ndim must equal 1')
+            elif len(learning_rate) != n_epochs:
+                raise ValueError('if learning_rate given as list or np.ndarray it must have length n_epochs')
+            self.learning_rate = learning_rate
+            self.learning_rate_const = mode(learning_rate)[0][0]
+        else:
+            self.learning_rate_const = learning_rate
+            # set learning rate schedule    
+            if SGD:
+                LR = np.linspace(0, self.learning_rate_const, 10)
+                if self.n_epochs > 250:
+                    LR = np.append(LR, self.learning_rate_const*np.ones(self.n_epochs-100))
+                    for i in range(10):
+                        LR = np.append(LR, LR[-1]/2 * np.ones(10))
+                else:
+                    LR = np.append(LR, self.learning_rate_const*np.ones(max(0,self.n_epochs-10)))
+            else:
+                LR = self.learning_rate_const * np.ones(self.n_epochs)
+            self.learning_rate = LR
+
         self.n_epochs = n_epochs
         self.batch_size = batch_size
-        self._set_optimizer(self.learning_rate, momentum, weight_decay, SGD)
+        self._set_optimizer(self.learning_rate[0], momentum, weight_decay, SGD)
         self._set_criterion()
         
         nimg = len(train_data)
@@ -868,7 +890,7 @@ class UnetModel():
 
         nchan = train_data[0].shape[0]
         core_logger.info('>>>> training network with %d channel input <<<<'%nchan)
-        core_logger.info('>>>> LR: %0.5f, batch_size: %d, weight_decay: %0.5f'%(self.learning_rate, self.batch_size, weight_decay))
+        core_logger.info('>>>> LR: %0.5f, batch_size: %d, weight_decay: %0.5f'%(self.learning_rate_const, self.batch_size, weight_decay))
         
         if test_data is not None:
             core_logger.info(f'>>>> ntrain = {nimg}, ntest = {len(test_data)}')
@@ -877,17 +899,7 @@ class UnetModel():
         
         tic = time.time()
 
-        # set learning rate schedule    
-        if SGD:
-            LR = np.linspace(0, self.learning_rate, 10)
-            if self.n_epochs > 250:
-                LR = np.append(LR, self.learning_rate*np.ones(self.n_epochs-100))
-                for i in range(10):
-                    LR = np.append(LR, LR[-1]/2 * np.ones(10))
-            else:
-                LR = np.append(LR, self.learning_rate*np.ones(max(0,self.n_epochs-10)))
-        else:
-            LR = self.learning_rate * np.ones(self.n_epochs)
+        
 
         lavg, nsum = 0, 0
 
@@ -914,7 +926,7 @@ class UnetModel():
             else:
                 rperm = np.random.permutation(nimg)
             if SGD:
-                self._set_learning_rate(LR[iepoch])
+                self._set_learning_rate(self.learning_rate[iepoch])
             
             for ibatch in range(0,nimg,batch_size):
                 inds = rperm[ibatch:ibatch+batch_size]
@@ -949,10 +961,10 @@ class UnetModel():
                         nsum += len(imgi)
 
                     core_logger.info('Epoch %d, Time %4.1fs, Loss %2.4f, Loss Test %2.4f, LR %2.4f'%
-                            (iepoch, time.time()-tic, lavg, lavgt/nsum, LR[iepoch]))
+                            (iepoch, time.time()-tic, lavg, lavgt/nsum, self.learning_rate[iepoch]))
                 else:
                     core_logger.info('Epoch %d, Time %4.1fs, Loss %2.4f, LR %2.4f'%
-                            (iepoch, time.time()-tic, lavg, LR[iepoch]))
+                            (iepoch, time.time()-tic, lavg, self.learning_rate[iepoch]))
                 
                 lavg, nsum = 0, 0
                             
