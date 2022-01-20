@@ -1001,6 +1001,7 @@ class MainW(QMainWindow):
             self.removed_cell = [self.ismanual[idx-1], self.cellcolors[idx], np.nonzero(cp), np.nonzero(op)]
             self.redo.setEnabled(True)
             ar, ac = self.removed_cell[2]
+            d = datetime.datetime.now()        
             self.track_changes.append([d.strftime("%m/%d/%Y, %H:%M:%S"), 'removed mask', [ar,ac]])
         # remove cell from lists
         self.ismanual = np.delete(self.ismanual, idx-1)
@@ -1008,7 +1009,6 @@ class MainW(QMainWindow):
         del self.zdraw[idx-1]
         self.ncells -= 1
         print('GUI_INFO: removed cell %d'%(idx-1))
-        d = datetime.datetime.now()
         
         if self.ncells==0:
             self.ClearButton.setEnabled(False)
