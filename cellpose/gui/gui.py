@@ -292,10 +292,10 @@ class MainW(QMainWindow):
         self.color = 0 # 0=RGB, 1=gray, 2=R, 3=G, 4=B
         self.RGBChoose = guiparts.RGBRadioButtons(self, b,4)
         self.RGBDropDown = QComboBox()
-        self.RGBDropDown.addItems(["RGB","gray","spectral","red","green","blue"])
+        self.RGBDropDown.addItems(["RGB","red=R","green=G","blue=B","gray","spectral"])
         self.RGBDropDown.setFont(self.medfont)
         self.RGBDropDown.currentIndexChanged.connect(self.color_choose)
-        self.RGBDropDown.setFixedWidth(60)
+        #self.RGBDropDown.setFixedWidth(60)
         self.RGBDropDown.setStyleSheet(self.dropdowns)
 
         self.l0.addWidget(self.RGBDropDown, b,0,1,4)
@@ -561,6 +561,14 @@ class MainW(QMainWindow):
         label.setFont(self.boldfont)
         self.l0.addWidget(label, b,0,1,8)
 
+        #b+=1
+        #self.autochannelbtn = QCheckBox('renormalize channels')
+        #self.autochannelbtn.setStyleSheet(self.checkstyle)
+        #self.autochannelbtn.setFont(self.medfont)
+        #self.autochannelbtn.setChecked(True)
+        #self.autochannelbtn.setToolTip('sets channels so that 1st and 99th percentiles at same values, only works for 2D images currently')
+        #self.l0.addWidget(self.autochannelbtn, b,0,1,4)
+
         b+=1
         self.autobtn = QCheckBox('auto-adjust')
         self.autobtn.setStyleSheet(self.checkstyle)
@@ -568,10 +576,11 @@ class MainW(QMainWindow):
         self.autobtn.setChecked(True)
         self.l0.addWidget(self.autobtn, b,0,1,4)
 
+        
         b+=1
         self.slider = guiparts.RangeSlider(self)
-        self.slider.setMinimum(0)
-        self.slider.setMaximum(255)
+        self.slider.setMinimum(-15)
+        self.slider.setMaximum(270)
         self.slider.setLow(0)
         self.slider.setHigh(255)
         self.slider.setTickPosition(QSlider.TicksRight)
@@ -674,6 +683,24 @@ class MainW(QMainWindow):
                     self.RGBDropDown.setCurrentIndex(self.color)
                 elif event.key() == QtCore.Qt.Key_Down or event.key() == QtCore.Qt.Key_S:
                     self.color = (self.color+1)%(6)
+                    self.RGBDropDown.setCurrentIndex(self.color)
+                elif event.key() == QtCore.Qt.Key_R:
+                    if self.color!=1:
+                        self.color = 1
+                    else:
+                        self.color = 0
+                    self.RGBDropDown.setCurrentIndex(self.color)
+                elif event.key() == QtCore.Qt.Key_G:
+                    if self.color!=2:
+                        self.color = 2
+                    else:
+                        self.color = 0
+                    self.RGBDropDown.setCurrentIndex(self.color)
+                elif event.key() == QtCore.Qt.Key_B:
+                    if self.color!=3:
+                        self.color = 3
+                    else:
+                        self.color = 0
                     self.RGBDropDown.setCurrentIndex(self.color)
                 elif (event.key() == QtCore.Qt.Key_Comma or
                         event.key() == QtCore.Qt.Key_Period):
@@ -885,8 +912,10 @@ class MainW(QMainWindow):
         self.opacity = 128 # how opaque masks should be
         self.outcolor = [200,200,255,200]
         self.NZ, self.Ly, self.Lx = 1,512,512
-        if self.autobtn.isChecked():
-            self.saturation = [[0,255] for n in range(self.NZ)]
+        self.saturation = [[0,255] for n in range(self.NZ)]
+        self.slider.setLow(0)
+        self.slider.setHigh(255)
+        self.slider.show()
         self.currentZ = 0
         self.flows = [[],[],[],[],[[]]]
         self.stack = np.zeros((1,self.Ly,self.Lx,3))
@@ -1109,15 +1138,16 @@ class MainW(QMainWindow):
                     # show single channel
                     image = self.stack[self.currentZ][:,:,0]
                 self.img.setImage(image, autoLevels=False, lut=None)
-            elif self.color==1:
+            elif self.color>0 and self.color<4:
+                image = image[:,:,self.color-1]
+                self.img.setImage(image, autoLevels=False, lut=self.cmap[self.color])
+            elif self.color==4:
                 image = image.astype(np.float32).mean(axis=-1).astype(np.uint8)
                 self.img.setImage(image, autoLevels=False, lut=None)
-            elif self.color==2:
+            elif self.color==5:
                 image = image.astype(np.float32).mean(axis=-1).astype(np.uint8)
                 self.img.setImage(image, autoLevels=False, lut=self.cmap[0])
-            elif self.color>2:
-                image = image[:,:,self.color-3]
-                self.img.setImage(image, autoLevels=False, lut=self.cmap[self.color-2])
+            
             self.img.setLevels(self.saturation[self.currentZ])
         else:
             image = np.zeros((self.Ly,self.Lx), np.uint8)
@@ -1133,8 +1163,8 @@ class MainW(QMainWindow):
         #self.img.set_ColorMap(self.bwr)
         if self.masksOn or self.outlinesOn:
             self.layer.setImage(self.layers[self.currentZ], autoLevels=False)
-        #self.slider.setLow(self.saturation[self.currentZ][0])
-        #self.slider.setHigh(self.saturation[self.currentZ][1])
+        self.slider.setLow(self.saturation[self.currentZ][0])
+        self.slider.setHigh(self.saturation[self.currentZ][1])
         self.win.show()
         self.show()
 

@@ -8,6 +8,7 @@ import fastremap
 
 from .. import utils, plot, transforms, models
 from ..io import imread, imsave, outlines_to_text
+from ..transforms import normalize99
 
 try:
     from PyQt5.QtWidgets import QFileDialog
@@ -156,15 +157,18 @@ def _initialize_images(parent, image, resize, X2):
     elif image.ndim==3:
         if image.shape[0] < 5:
             image = np.transpose(image, (1,2,0))
-
         if image.shape[-1] < 3:
             shape = image.shape
+            #if parent.autochannelbtn.isChecked():
+            #    image = normalize99(image) * 255
             image = np.concatenate((image,np.zeros((shape[0], shape[1], 3-shape[2]),dtype=type(image[0,0,0]))), axis=-1)
             if 3-shape[2]>1:
                 parent.onechan=True
             image = image[np.newaxis,...]
         elif image.shape[-1]<5 and image.shape[-1]>2:
             image = image[:,:,:3]
+            #if parent.autochannelbtn.isChecked():
+            #    image = normalize99(image) * 255
             image = image[np.newaxis,...]
     else:
         image = image[np.newaxis,...]
@@ -172,11 +176,12 @@ def _initialize_images(parent, image, resize, X2):
     parent.stack = image
     parent.NZ = len(parent.stack)
     parent.scroll.setMaximum(parent.NZ-1)
-    if parent.stack.max()>255 or parent.stack.min()<0.0 or parent.stack.max()<=50.0:
-        parent.stack = parent.stack.astype(np.float32)
-        parent.stack -= parent.stack.min()
-        parent.stack /= parent.stack.max()
-        parent.stack *= 255
+    parent.stack = parent.stack.astype(np.float32)
+    perc0 = np.percentile(parent.stack, 1)
+    parent.stack -= perc0
+    perc1 = np.percentile(parent.stack, 99)
+    parent.stack /= perc1 
+    parent.stack *= 255
     del image
     gc.collect()
 
