@@ -847,6 +847,8 @@ class UnetModel():
         """ train function uses loss function self.loss_fn in models.py"""
         
         d = datetime.datetime.now()
+        
+        self.n_epochs = n_epochs
         if isinstance(learning_rate, (list, np.ndarray)):
             if isinstance(learning_rate, np.ndarray) and learning_rate.ndim > 1:
                 raise ValueError('learning_rate.ndim must equal 1')
@@ -869,7 +871,6 @@ class UnetModel():
                 LR = self.learning_rate_const * np.ones(self.n_epochs)
             self.learning_rate = LR
 
-        self.n_epochs = n_epochs
         self.batch_size = batch_size
         self._set_optimizer(self.learning_rate[0], momentum, weight_decay, SGD)
         self._set_criterion()
