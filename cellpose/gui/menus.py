@@ -12,6 +12,10 @@ def mainmenu(parent):
     loadImg.triggered.connect(lambda: io._load_image(parent))
     file_menu.addAction(loadImg)
 
+    parent.autoloadMasks = QAction("Autoload masks from _masks.tif file", parent, checkable=True)
+    parent.autoloadMasks.setChecked(False)
+    file_menu.addAction(parent.autoloadMasks)
+    
     parent.loadMasks = QAction("Load &masks (*.tif, *.png, *.jpg)", parent)
     parent.loadMasks.setShortcut("Ctrl+M")
     parent.loadMasks.triggered.connect(lambda: io._load_masks(parent))

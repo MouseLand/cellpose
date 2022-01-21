@@ -38,6 +38,7 @@ def _init_model_list(parent):
             lines = [line.rstrip() for line in textfile]
             if len(lines) > 0:
                 parent.model_strings.extend(lines)
+    parent.permanent_model = [True for i in range(len(parent.model_strings))]
 
 def _add_model(parent, filename=None, permanent=True):
     if filename is None:
@@ -53,8 +54,13 @@ def _add_model(parent, filename=None, permanent=True):
             textfile.write(fname + '\n')
     parent.ModelChoose.addItems([fname])
     parent.model_strings.append(fname)
+    parent.permanent_model.append(permanent)
     parent.ModelChoose.setCurrentIndex(len(parent.model_strings) - 1)
     parent.NetAvg.setCurrentIndex(2)
+
+#def _remove_non_permanent_models(parent):
+#    for perm in parent.permanent_model:
+#        if not perm: 
 
 def _remove_model(parent, ind=None):
     if ind is None:
@@ -111,6 +117,7 @@ def _load_image(parent, filename=None, load_seg=True):
             )
         filename = name[0]
     manual_file = os.path.splitext(filename)[0]+'_seg.npy'
+    load_mask = False
     if load_seg:
         if os.path.isfile(manual_file):
             _load_seg(parent, manual_file, image=imread(filename), image_file=filename)
@@ -119,6 +126,9 @@ def _load_image(parent, filename=None, load_seg=True):
             manual_file = os.path.splitext(filename)[0]+'_manual.npy'
             _load_seg(parent, manual_file, image=imread(filename), image_file=filename)
             return
+        elif parent.autoloadMasks.isChecked():
+            mask_file = os.path.splitext(filename)[0]+'_masks'+os.path.splitext(filename)[-1]
+            load_mask = True if os.path.isfile(mask_file) else False
     try:
         image = imread(filename)
         parent.loaded = True
@@ -133,6 +143,8 @@ def _load_image(parent, filename=None, load_seg=True):
         parent.clear_all()
         parent.loaded = True
         parent.enable_buttons()
+        if load_mask:
+            _load_masks(parent, filename=mask_file)
         parent.threshslider.setEnabled(False)
         parent.probslider.setEnabled(False)
             

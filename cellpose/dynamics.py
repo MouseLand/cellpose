@@ -331,10 +331,10 @@ def masks_to_flows_gpu(masks, device=None):
             ymed = yi[imin]
             centers[i,0] = ymed + sr.start 
             centers[i,1] = xmed + sc.start
+
     # get neighbor validator (not all neighbors are in same mask)
     neighbor_masks = masks_padded[neighbors[:,:,0], neighbors[:,:,1]]
     isneighbor = neighbor_masks == neighbor_masks[0]
-
     ext = np.array([[sr.stop - sr.start + 1, sc.stop - sc.start + 1] for sr, sc in slices])
     n_iter = 2 * (ext.sum(axis=1)).max()
     # run diffusion
@@ -527,7 +527,9 @@ def masks_to_flows(masks, use_gpu=False, device=None, dists=None, omni=False):
         in which it resides 
 
     """
-
+    if masks.max() == 0:
+        dynamics_logger.warning('empty masks!')
+        return masks, None, None, np.zeros((2, *masks.shape), 'float32')
 
     if dists is None and omni and OMNI_INSTALLED:
         masks = ncolor.format_labels(masks)
@@ -608,6 +610,9 @@ def labels_to_flows(labels, files=None, use_gpu=False, device=None, omni=False,r
         dynamics_logger.info('computing flows for labels')
         
         # compute flows; labels are fixed in masks_to_flows, so they need to be passed back
+        # make sure labels are unique!
+        for label in labels:
+            fastremap.renumber(label, in_place=True)
         labels, dist, heat, veci = map(list,zip(*[masks_to_flows(labels[n][0],use_gpu=use_gpu, device=device, omni=omni) for n in trange(nimg)]))
         # concatenate labels, distance transform, vector flows, heat (boundary and mask are computed in augmentations)
         if omni and OMNI_INSTALLED:
