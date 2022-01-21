@@ -47,11 +47,10 @@ def _add_model(parent, filename=None, permanent=True):
             )
         filename = name[0]
     fname = os.path.split(filename)[-1]
-    if permanent:
-        shutil.copyfile(filename, os.fspath(models.MODEL_DIR.joinpath(fname)))
-        print(f'GUI_INFO: {filename} copied to models folder {os.fspath(models.MODEL_DIR)}')
-        with open(parent.model_list_path, 'a') as textfile:
-            textfile.write(fname + '\n')
+    shutil.copyfile(filename, os.fspath(models.MODEL_DIR.joinpath(fname)))
+    print(f'GUI_INFO: {filename} copied to models folder {os.fspath(models.MODEL_DIR)}')
+    with open(parent.model_list_path, 'a') as textfile:
+        textfile.write(fname + '\n')
     parent.ModelChoose.addItems([fname])
     parent.model_strings.append(fname)
     parent.permanent_model.append(permanent)
@@ -69,6 +68,7 @@ def _remove_model(parent, ind=None):
         print(f'GUI_INFO: deleting {parent.model_strings[ind]} from GUI')
         parent.ModelChoose.removeItem(ind)
         del parent.model_strings[ind]
+        del parent.permanent_model[ind]
         custom_strings = parent.model_strings[len(models.MODEL_NAMES):]
         if len(custom_strings) > 0:
             with open(parent.model_list_path, 'w') as textfile:

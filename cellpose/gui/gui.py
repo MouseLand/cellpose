@@ -14,7 +14,7 @@ from scipy.ndimage import gaussian_filter
 
 from . import guiparts, menus, io
 from .. import models, core, dynamics
-from ..utils import download_url_to_file, masks_to_outlines
+from ..utils import download_url_to_file, masks_to_outlines, diameters 
 from ..io import OMNI_INSTALLED, save_server, get_image_files, imsave, imread
 from ..transforms import resize_image, normalize99 #fixed import
 from ..plot import disk
@@ -1420,12 +1420,19 @@ class MainW(QMainWindow):
         print(f'GUI_INFO: model saved to {self.new_model_path} and loaded in gui')
         self.autorun = True
         if self.autorun:
+            channels = self.channels.copy()
             self.get_next_image(load_seg=True)
+            # keep same channels
+            self.ChannelChoose[0].setCurrentIndex(channels[0])
+            self.ChannelChoose[1].setCurrentIndex(channels[1])
             if self.train_files[0] == self.filename:
                 print(f'GUI_INFO: trained on all images + masks in folder --> auto-end training')
                 self.end_train() 
                 #self.get_next_image(load_seg=True)
                 return    
+            diam_train = np.array([diameters(masks)[0] for masks in self.train_labels])
+            self.diameter = diam_train.mean()
+            self.Diameter.setText('%0.1f'%self.diameter)        
             self.compute_model()
         logger.info(f'!!! computed masks for {os.path.split(self.filename)[1]} from new model !!!')
         
