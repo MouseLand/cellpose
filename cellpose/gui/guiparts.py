@@ -10,7 +10,7 @@ import pathlib
 class TrainWindow(QDialog):
     def __init__(self, parent, model_strings):
         super().__init__(parent)
-        self.setGeometry(100,100,300,300)
+        self.setGeometry(100,100,600,300)
         self.setWindowTitle('train settings')
         self.win = QWidget(self)
         self.l0 = QGridLayout()

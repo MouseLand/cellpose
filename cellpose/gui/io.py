@@ -1,4 +1,4 @@
-import os, datetime, gc, warnings, glob, shutil
+import os, datetime, gc, warnings, glob, shutil, copy
 from natsort import natsorted
 import numpy as np
 import cv2
@@ -39,20 +39,22 @@ def _init_model_list(parent):
             if len(lines) > 0:
                 parent.model_strings.extend(lines)
 
-def _add_model(parent, filename=None):
+def _add_model(parent, filename=None, permanent=True):
     if filename is None:
         name = QFileDialog.getOpenFileName(
             parent, "Add model to GUI"
             )
         filename = name[0]
     fname = os.path.split(filename)[-1]
-    shutil.copyfile(filename, os.fspath(models.MODEL_DIR.joinpath(fname)))
-    print(f'GUI_INFO: {filename} copied to models folder {os.fspath(models.MODEL_DIR)}')
-    with open(parent.model_list_path, 'a') as textfile:
-        textfile.write(fname + '\n')
+    if permanent:
+        shutil.copyfile(filename, os.fspath(models.MODEL_DIR.joinpath(fname)))
+        print(f'GUI_INFO: {filename} copied to models folder {os.fspath(models.MODEL_DIR)}')
+        with open(parent.model_list_path, 'a') as textfile:
+            textfile.write(fname + '\n')
     parent.ModelChoose.addItems([fname])
     parent.model_strings.append(fname)
     parent.ModelChoose.setCurrentIndex(len(parent.model_strings) - 1)
+    parent.NetAvg.setCurrentIndex(2)
 
 def _remove_model(parent, ind=None):
     if ind is None:

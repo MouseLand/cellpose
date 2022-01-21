@@ -177,7 +177,6 @@ class MainW(QMainWindow):
         menus.mainmenu(self)
         menus.editmenu(self)
         menus.modelmenu(self)
-        self.model_strings = models.MODEL_NAMES
         menus.helpmenu(self)
         if OMNI_INSTALLED:
             menus.omnimenu(self)
@@ -1416,7 +1415,7 @@ class MainW(QMainWindow):
                                                  netstr=netstr)
         
         # run model on next image 
-        io._add_model(self, self.new_model_path)
+        io._add_model(self, self.new_model_path, permanent=False)
         self.new_model_ind = len(self.model_strings)-1
         print(f'GUI_INFO: model saved to {self.new_model_path} and loaded in gui')
         self.autorun = True
