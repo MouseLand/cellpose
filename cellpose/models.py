@@ -774,8 +774,8 @@ class CellposeModel(UnetModel):
               channels=None, normalize=True, 
               save_path=None, save_every=100, save_each=False,
               learning_rate=0.2, n_epochs=500, momentum=0.9, SGD=True,
-              weight_decay=0.00001, batch_size=8, rescale=True, omni=False,
-              netstr=None):
+              weight_decay=0.00001, batch_size=8, nimg_per_epoch=None,
+              rescale=True, omni=False, netstr=None):
 
         """ train network with images train_data 
         
@@ -853,7 +853,7 @@ class CellposeModel(UnetModel):
                                      test_data, test_flows,
                                      save_path, save_every, save_each,
                                      learning_rate, n_epochs, momentum, weight_decay, SGD, 
-                                     batch_size, rescale, netstr)
+                                     batch_size, nimg_per_epoch, rescale, netstr)
         self.pretrained_model = model_path
         return model_path
 

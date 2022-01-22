@@ -611,8 +611,7 @@ def labels_to_flows(labels, files=None, use_gpu=False, device=None, omni=False,r
         
         # compute flows; labels are fixed in masks_to_flows, so they need to be passed back
         # make sure labels are unique!
-        for label in labels:
-            fastremap.renumber(label, in_place=True)
+        labels = [fastremap.renumber(label, in_place=True)[0] for label in labels]
         labels, dist, heat, veci = map(list,zip(*[masks_to_flows(labels[n][0],use_gpu=use_gpu, device=device, omni=omni) for n in trange(nimg)]))
         # concatenate labels, distance transform, vector flows, heat (boundary and mask are computed in augmentations)
         if omni and OMNI_INSTALLED:

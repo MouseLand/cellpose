@@ -843,7 +843,7 @@ class UnetModel():
               test_data=None, test_labels=None,
               save_path=None, save_every=100, save_each=False,
               learning_rate=0.2, n_epochs=500, momentum=0.9, weight_decay=0.00001, 
-              SGD=True, batch_size=8, rescale=True, netstr=None): 
+              SGD=True, batch_size=8, nimg_per_epoch=None, rescale=True, netstr=None): 
         """ train function uses loss function self.loss_fn in models.py"""
         
         d = datetime.datetime.now()
@@ -919,17 +919,22 @@ class UnetModel():
         # cannot train with mkldnn
         self.net.mkldnn = False
 
-        for iepoch in range(self.n_epochs):
-                
-            np.random.seed(iepoch)
-            if nimg < batch_size:
-                rperm = np.random.choice(nimg, batch_size)
-            else:
-                rperm = np.random.permutation(nimg)
+        # get indices for each epoch for training
+        np.random.seed(0)
+        inds_all = np.zeros((0,), 'int32')
+        if nimg_per_epoch is None or nimg > nimg_per_epoch:
+            nimg_per_epoch = nimg 
+        core_logger.info(f'>>>> nimg_per_epoch = {nimg_per_epoch}')
+        while len(inds_all) < n_epochs * nimg_per_epoch:
+            rperm = np.random.permutation(nimg)
+            inds_all = np.hstack((inds_all, rperm))
+        
+        for iepoch in range(self.n_epochs):    
             if SGD:
                 self._set_learning_rate(self.learning_rate[iepoch])
-            
-            for ibatch in range(0,nimg,batch_size):
+            np.random.seed(iepoch)
+            rperm = inds_all[iepoch*nimg_per_epoch:(iepoch+1)*nimg_per_epoch]
+            for ibatch in range(0,nimg_per_epoch,batch_size):
                 inds = rperm[ibatch:ibatch+batch_size]
                 rsc = diam_train[inds] / self.diam_mean if rescale else np.ones(len(inds), np.float32)
                 # now passing in the full train array, need the labels for distance field
