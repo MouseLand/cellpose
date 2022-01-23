@@ -400,7 +400,8 @@ def normalize_img(img, axis=-1, invert=False, omni=False):
     img = img.astype(np.float32)
     img = np.moveaxis(img, axis, 0)
     for k in range(img.shape[0]):
-        if np.ptp(img[k]) > 0.0:
+        # ptp can still give nan's with weird images
+        if np.percentile(img[k],99) > np.percentile(img[k],1)+1e-3: #np.ptp(img[k]) > 1e-3:
             img[k] = normalize99(img[k],omni=omni)
             if invert:
                 img[k] = -1*img[k] + 1   

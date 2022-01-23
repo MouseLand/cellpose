@@ -432,7 +432,7 @@ class CellposeModel(UnetModel):
              flow_threshold=0.4, mask_threshold=0.0, diam_threshold=12.,
              cellprob_threshold=None, dist_threshold=None,
              compute_masks=True, min_size=15, stitch_threshold=0.0, progress=None, omni=False, 
-             calc_trace=False, verbose=False, transparency=False):
+             calc_trace=False, verbose=False, transparency=False, loop_run=False):
         """
             segment list of images x, or 4D array - Z x nchan x Y x X
 
@@ -533,6 +533,9 @@ class CellposeModel(UnetModel):
             
             transparency: bool (optional, default False)
                 modulate flow opacity by magnitude instead of brightness (can use flows on any color background) 
+            
+            loop_run: bool (optional, default False)
+                internal variable for determining if model has been loaded, stops model loading in loop over images
 
             Returns
             -------
@@ -559,6 +562,7 @@ class CellposeModel(UnetModel):
             models_logger.info('Evaluating with flow_threshold %0.2f, mask_threshold %0.2f'%(flow_threshold, mask_threshold))
             if omni:
                 models_logger.info('using omni model, cluster %d'%(omni,cluster))
+        
         
         if isinstance(x, list) or x.squeeze().ndim==5:
             masks, styles, flows = [], [], []
@@ -596,13 +600,19 @@ class CellposeModel(UnetModel):
                                                  omni=omni,
                                                  calc_trace=calc_trace, 
                                                  verbose=verbose,
-                                                 transparency=transparency)
+                                                 transparency=transparency,
+                                                 loop_run=(i>0))
                 masks.append(maski)
                 flows.append(flowi)
                 styles.append(stylei)
             return masks, styles, flows 
         
         else:
+            if isinstance(self.pretrained_model, list) and not net_avg and not loop_run:
+                self.net.load_model(self.pretrained_model[0], cpu=(not self.gpu))
+                if not self.torch:
+                    self.net.collect_params().grad_req = 'null'
+
             x = transforms.convert_image(x, channels, channel_axis=channel_axis, z_axis=z_axis,
                                          do_3D=(do_3D or stitch_threshold>0), normalize=False, invert=False, nchan=self.nchan, omni=omni)
             if x.ndim < 4:
@@ -610,11 +620,6 @@ class CellposeModel(UnetModel):
             self.batch_size = batch_size
             rescale = self.diam_mean / diameter if (rescale is None and (diameter is not None and diameter>0)) else rescale
             rescale = 1.0 if rescale is None else rescale
-            
-            if isinstance(self.pretrained_model, list) and not net_avg:
-                self.net.load_model(self.pretrained_model[0], cpu=(not self.gpu))
-                if not self.torch:
-                    self.net.collect_params().grad_req = 'null'
             
             masks, styles, dP, cellprob, p, bd, tr = self._run_cp(x, 
                                                           compute_masks=compute_masks,
