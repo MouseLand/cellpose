@@ -182,7 +182,7 @@ class Cellpose():
         tile_overlap: float (optional, default 0.1)
             fraction of overlap of tiles when computing flows
 
-        resample: bool (optional, default False)
+        resample: bool (optional, default True)
             run dynamics at original image size (will be slower but create more accurate boundaries)
 
         interp: bool (optional, default True)
@@ -428,7 +428,7 @@ class CellposeModel(UnetModel):
              z_axis=None, normalize=True, invert=False, 
              rescale=None, diameter=None, do_3D=False, anisotropy=None, net_avg=True, 
              augment=False, tile=True, tile_overlap=0.1,
-             resample=False, interp=True, cluster=False,
+             resample=True, interp=True, cluster=False,
              flow_threshold=0.4, mask_threshold=0.0, diam_threshold=12.,
              cellprob_threshold=None, dist_threshold=None,
              compute_masks=True, min_size=15, stitch_threshold=0.0, progress=None, omni=False, 
@@ -490,7 +490,7 @@ class CellposeModel(UnetModel):
             tile_overlap: float (optional, default 0.1)
                 fraction of overlap of tiles when computing flows
 
-            resample: bool (optional, default False)
+            resample: bool (optional, default True)
                 run dynamics at original image size (will be slower but create more accurate boundaries)
 
             interp: bool (optional, default True)
@@ -683,7 +683,6 @@ class CellposeModel(UnetModel):
                     img = transforms.normalize_img(img, invert=invert, omni=omni)
                 if rescale != 1.0:
                     img = transforms.resize_image(img, rsz=rescale)
-
                 yf, style = self._run_nets(img, net_avg=net_avg,
                                            augment=augment, tile=tile,
                                            tile_overlap=tile_overlap)
@@ -707,7 +706,7 @@ class CellposeModel(UnetModel):
 
         if compute_masks:
             tic=time.time()
-            niter = 200 if do_3D else (1 / rescale * 200)
+            niter = 200 if (do_3D and not resample) else (1 / rescale * 200)
             if do_3D:
                 masks, p, tr = dynamics.compute_masks(dP, cellprob, bd, niter=niter, mask_threshold=mask_threshold,
                                                       diam_threshold=diam_threshold,flow_threshold=flow_threshold,

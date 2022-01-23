@@ -395,7 +395,7 @@ class UnetModel():
 
         """
         if isinstance(self.pretrained_model, str) or not net_avg:  
-            y, style = self._run_net(img, augment=augment, tile=tile, 
+            y, style = self._run_net(img, augment=augment, tile=tile, tile_overlap=tile_overlap,
                                      bsize=bsize, return_conv=return_conv)
         else:  
             for j in range(len(self.pretrained_model)):

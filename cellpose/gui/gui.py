@@ -434,9 +434,9 @@ class MainW(QMainWindow):
 
         # fast mode
         self.NetAvg = QComboBox()
-        self.NetAvg.addItems(['average 4 nets', '+ resample (slow)', 'run 1 net (fast)', ])
+        self.NetAvg.addItems(['average 4 nets', 'run 1 net', '+ turn off resample (fast)'])
         self.NetAvg.setFont(self.medfont)
-        self.NetAvg.setToolTip('average 4 different fit networks (default) + resample for smooth masks (slow) or run 1 network (fast)')
+        self.NetAvg.setToolTip('average 4 different fit networks (default); run 1 network (faster); or run 1 net + turn off resample (fast)')
         self.l0.addWidget(self.NetAvg, b,4,1,4)
 
         b+=1
@@ -444,10 +444,11 @@ class MainW(QMainWindow):
         self.ModelChoose = QComboBox()
         if len(self.model_strings) > len(models.MODEL_NAMES):
             current_index = len(models.MODEL_NAMES)
+            self.NetAvg.setCurrentIndex(1)
         else:
             current_index = 0
         self.ModelChoose.addItems(self.model_strings) #added omnipose model names
-        self.ModelChoose.setFixedWidth(150)
+        self.ModelChoose.setFixedWidth(175)
         self.ModelChoose.setStyleSheet(self.dropdowns)
         self.ModelChoose.setFont(self.medfont)
         self.ModelChoose.setCurrentIndex(current_index)
@@ -1500,7 +1501,7 @@ class MainW(QMainWindow):
                 omni_model = 'omni' in self.current_model
                 bacterial = 'bact' in self.current_model
                 if omni_model:
-                    self.NetAvg.setCurrentIndex(2) #one run net
+                    self.NetAvg.setCurrentIndex(1) #one run net
                 if bacterial:
                     self.diameter = 0.
                     self.Diameter.setText('%0.1f'%self.diameter)
@@ -1510,8 +1511,8 @@ class MainW(QMainWindow):
                     self.omni.setChecked(self.omni.isChecked() or omni_model) 
                     self.cluster.setChecked(self.cluster.isChecked() or omni_model)
                 
-                net_avg = self.NetAvg.currentIndex()<2 and self.current_model in models.MODEL_NAMES
-                resample = self.NetAvg.currentIndex()==1
+                net_avg = self.NetAvg.currentIndex()==0 and self.current_model in models.MODEL_NAMES
+                resample = self.NetAvg.currentIndex()<2
                 masks, flows = self.model.eval(data, channels=channels,
                                                 diameter=self.diameter, invert=self.invert.isChecked(),
                                                 net_avg=net_avg, augment=False, resample=resample,
