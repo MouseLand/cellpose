@@ -55,7 +55,7 @@ def _add_model(parent, filename=None, permanent=True):
     parent.model_strings.append(fname)
     parent.permanent_model.append(permanent)
     parent.ModelChoose.setCurrentIndex(len(parent.model_strings) - 1)
-    parent.NetAvg.setCurrentIndex(2)
+    parent.NetAvg.setCurrentIndex(1)
 
 #def _remove_non_permanent_models(parent):
 #    for perm in parent.permanent_model:

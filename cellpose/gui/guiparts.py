@@ -24,7 +24,8 @@ class TrainWindow(QDialog):
         # choose initial model
         yoff+=1
         self.ModelChoose = QComboBox()
-        self.ModelChoose.addItems(model_strings) 
+        self.ModelChoose.addItems(model_strings)
+        self.ModelChoose.addItems(['scratch']) 
         self.ModelChoose.setFixedWidth(150)
         self.ModelChoose.setCurrentIndex(0)
         self.l0.addWidget(self.ModelChoose, yoff, 1,1,1)
@@ -34,7 +35,7 @@ class TrainWindow(QDialog):
 
         # choose parameters
         labels = ['learning_rate', 'weight_decay', 'n_epochs']
-        values =  [0.025, 0.0001, 100]
+        values =  [0.1, 0.0001, 100]
         self.edits = []
         yoff += 1
         for i, (label, value) in enumerate(zip(labels, values)):
@@ -63,7 +64,9 @@ class TrainWindow(QDialog):
         parent.learning_rate = float(self.edits[0].text())
         parent.weight_decay = float(self.edits[1].text())
         parent.n_epochs = int(self.edits[2].text())
-        parent.ModelChoose.setCurrentIndex(self.ModelChoose.currentIndex())
+        parent.pretrained_to_use = self.ModelChoose.currentText()
+        if parent.pretrained_to_use != 'scratch':
+            parent.ModelChoose.setCurrentIndex(self.ModelChoose.currentIndex())
         self.done(1)
     #    return
 

@@ -1382,7 +1382,11 @@ class MainW(QMainWindow):
         train = TW.exec_()
         if train:
             logger.info(f'training with {[os.path.split(f)[1] for f in self.train_files]}')
-            self.get_model_path()
+            if self.pretrained_to_use != 'scratch':
+                self.get_model_path()
+            else:
+                self.current_model = 'scratch'
+                self.current_model_path = None
             self.channels = self.get_channels()
             logger.info(f'training with chan (cyto) = {self.ChannelChoose[0].currentText()}, chan2 (nuclei)={self.ChannelChoose[1].currentText()}')
             
@@ -1409,6 +1413,7 @@ class MainW(QMainWindow):
         save_path = os.path.dirname(self.filename)
         d = datetime.datetime.now()
         netstr = self.current_model + d.strftime("_%Y%m%d_%H%M%S")
+        print(netstr)
         self.new_model_path = self.model.retrain(self.train_data, self.train_labels, self.train_files, 
                                                  channels=self.channels, save_path=save_path, 
                                                  learning_rate=self.learning_rate, n_epochs=self.n_epochs,

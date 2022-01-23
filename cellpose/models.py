@@ -934,10 +934,12 @@ class CellposeModel(UnetModel):
             test_flows = None
         
         model_path = self._train_net(train_data, train_flows, 
-                                     test_data, test_flows,
-                                     save_path, save_every, save_each,
-                                     learning_rate, n_epochs, momentum, weight_decay, SGD, 
-                                     batch_size, rescale, netstr)
+                                     test_data=test_data, test_labels=test_flows,
+                                     save_path=save_path, save_every=save_every, save_each=save_each,
+                                     learning_rate=learning_rate, n_epochs=n_epochs, 
+                                     momentum=momentum, weight_decay=weight_decay, 
+                                     SGD=SGD, batch_size=batch_size, nimg_per_epoch=8, 
+                                     rescale=rescale, netstr=netstr)
         self.pretrained_model = model_path
         return model_path
 
