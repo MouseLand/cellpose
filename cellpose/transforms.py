@@ -401,10 +401,14 @@ def normalize_img(img, axis=-1, invert=False, omni=False):
     img = np.moveaxis(img, axis, 0)
     for k in range(img.shape[0]):
         # ptp can still give nan's with weird images
-        if np.percentile(img[k],99) > np.percentile(img[k],1)+1e-3: #np.ptp(img[k]) > 1e-3:
+        i99 = np.percentile(img[k],99)
+        i1 = np.percentile(img[k],1)
+        if i99 - i1 > +1e-3: #np.ptp(img[k]) > 1e-3:
             img[k] = normalize99(img[k],omni=omni)
             if invert:
                 img[k] = -1*img[k] + 1   
+        else:
+            img[k] = 0
     img = np.moveaxis(img, 0, axis)
     return img
 

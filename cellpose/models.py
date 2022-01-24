@@ -867,8 +867,11 @@ class CellposeModel(UnetModel):
         nmasks = np.array([label[0].max()-1 for label in train_flows])
         nremove = (nmasks < min_train_masks).sum()
         if nremove > 0:
-            models_logger.warning(f'{nremove} train images with less than min_train_masks ({min_train_masks}), removing from train set')
-        
+            models_logger.warning(f'{nremove} train images with number of masks less than min_train_masks ({min_train_masks}), removing from train set')
+            ikeep = np.nonzero(nmasks >= min_train_masks)[0]
+            train_data = [train_data[i] for i in ikeep]
+            train_flows = [train_flows[i] for i in ikeep]
+
         model_path = self._train_net(train_data, train_flows, 
                                      test_data=test_data, test_labels=test_flows,
                                      save_path=save_path, save_every=save_every, save_each=save_each,
