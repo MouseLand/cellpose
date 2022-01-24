@@ -33,6 +33,11 @@ try:
 except:
     SERVER_UPLOAD = False
 
+try:
+    import omnipose 
+except:
+    0
+
 #Define possible models; can we make a master list in another file to use in models and main? 
     
 class QHLine(QFrame):
@@ -176,7 +181,8 @@ class MainW(QMainWindow):
 
         menus.mainmenu(self)
         menus.editmenu(self)
-        menus.modelmenu(self)
+        #menus.modelmenu(self)
+        self.model_strings = models.MODEL_NAMES.copy()
         menus.helpmenu(self)
         if OMNI_INSTALLED:
             menus.omnimenu(self)
@@ -1467,14 +1473,22 @@ class MainW(QMainWindow):
             thresh = self.threshold
             logger.info('computing masks with cell prob=%0.3f, flow error threshold=%0.3f'%
                     (self.cellprob, thresh))
-        maski = dynamics.compute_masks(self.flows[4][:-1], 
-                                       self.flows[4][-1],
-                                       p=self.flows[3].copy(),
-                                       mask_threshold=self.cellprob,
-                                       flow_threshold=thresh,
-                                       resize=self.cellpix.shape[-2:],
-                                       omni=OMNI_INSTALLED and self.omni.isChecked(),
-                                       cluster=OMNI_INSTALLED and self.cluster.isChecked())[0]
+
+        if not (OMNI_INSTALLED and self.omni.isChecked()):
+            maski = dynamics.compute_masks(self.flows[4][:-1], 
+                                            self.flows[4][-1],
+                                            p=self.flows[3].copy(),
+                                            mask_threshold=self.cellprob,
+                                            flow_threshold=thresh,
+                                            resize=self.cellpix.shape[-2:])[0]
+        else:
+            maski = omnipose.core.compute_masks(self.flows[4][:-1], 
+                                            self.flows[4][-1],
+                                            p=self.flows[3].copy(),
+                                            mask_threshold=self.cellprob,
+                                            flow_threshold=thresh,
+                                            resize=self.cellpix.shape[-2:],
+                                            cluster=self.cluster.isChecked())[0]
         
         self.masksOn = True
         self.MCheckBox.setChecked(True)
@@ -1572,7 +1586,7 @@ class MainW(QMainWindow):
         self.SizeButton.setEnabled(True)
         self.ModelButton.setStyleSheet(self.styleUnpressed)
         self.SizeButton.setStyleSheet(self.styleUnpressed)
-        self.newmodel.setEnabled(True)
+        #self.newmodel.setEnabled(True)
         self.loadMasks.setEnabled(True)
         self.saveSet.setEnabled(True)
         self.savePNG.setEnabled(True)
