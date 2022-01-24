@@ -1414,10 +1414,11 @@ class MainW(QMainWindow):
         d = datetime.datetime.now()
         netstr = self.current_model + d.strftime("_%Y%m%d_%H%M%S")
         print(netstr)
-        self.new_model_path = self.model.retrain(self.train_data, self.train_labels, self.train_files, 
+        self.new_model_path = self.model.train(self.train_data, self.train_labels, self.train_files, 
                                                  channels=self.channels, save_path=save_path, 
                                                  learning_rate=self.learning_rate, n_epochs=self.n_epochs,
                                                  weight_decay=self.weight_decay, 
+                                                 nimg_per_epoch=8,
                                                  netstr=netstr)
         
         # run model on next image 

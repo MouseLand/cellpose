@@ -276,8 +276,7 @@ def flow_error(maski, dP_net, use_gpu=False, device=None):
         return
 
     # flows predicted from estimated masks
-    idx = -1 # flows are the last thing returned now
-    dP_masks = dynamics.masks_to_flows(maski, use_gpu=use_gpu, device=device)[idx] 
+    dP_masks = dynamics.masks_to_flows(maski, use_gpu=use_gpu, device=device)
     # difference between predicted flows vs mask flows
     flow_errors=np.zeros(maski.max())
     for i in range(dP_masks.shape[0]):

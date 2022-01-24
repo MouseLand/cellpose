@@ -81,8 +81,9 @@ def main():
     algorithm_args = parser.add_argument_group("algorithm arguments")
     parser.add_argument('--omni', action='store_true', help='Omnipose algorithm (disabled by default)')
     parser.add_argument('--cluster', action='store_true', help='DBSCAN clustering. Reduces oversegmentation of thin features (disabled by default).')
-    parser.add_argument('--fast_mode', action='store_true', help="make code run faster by turning off 4 network averaging")
-    parser.add_argument('--resample', action='store_true', help="run dynamics on full image (slower for images with large diameters)")
+    parser.add_argument('--fast_mode', action='store_true', help='make code run faster by turning off 4 network averaging and resampling')
+    parser.add_argument('--no_resample', action='store_true', help="disable dynamics on full image (makes algorithm faster for images with large diameters)")
+    parser.add_argument('--no_net_avg', action='store_true', help='make code run faster by only running 1 network')
     parser.add_argument('--no_interp', action='store_true', help='do not interpolate when running dynamics (was default)')
     parser.add_argument('--do_3D', action='store_true', help='process images as 3D stacks of images (nplanes x nchan x Ly x Lx')
     parser.add_argument('--diameter', required=False, default=30., type=float, 
@@ -126,6 +127,8 @@ def main():
                         default=500, type=int, help='number of epochs. Default: %(default)s')
     training_args.add_argument('--batch_size',
                         default=8, type=int, help='batch size. Default: %(default)s')
+    training_args.add_argument('--min_train_masks',
+                        default=5, type=int, help='minimum number of masks a training image must have to be used. Default: %(default)s')
     training_args.add_argument('--residual_on',
                         default=1, type=int, help='use residual connections')
     training_args.add_argument('--style_on',
@@ -315,9 +318,9 @@ def main():
             for image_name in tqdm(image_names, file=tqdm_out):
                 image = io.imread(image_name)
                 out = model.eval(image, channels=channels, diameter=diameter,
-                                do_3D=args.do_3D, net_avg=(not args.fast_mode),
+                                do_3D=args.do_3D, net_avg=(not args.fast_mode and not args.no_net_avg),
                                 augment=False,
-                                resample=args.resample,
+                                resample=(not args.no_resample and not args.fast_mode),
                                 flow_threshold=args.flow_threshold,
                                 mask_threshold=args.mask_threshold,
                                 diam_threshold=args.diam_threshold,
@@ -431,7 +434,9 @@ def main():
                                            save_path=os.path.realpath(args.dir), save_every=args.save_every,
                                            save_each=args.save_each,
                                            rescale=rescale,n_epochs=args.n_epochs,
-                                           batch_size=args.batch_size, omni=args.omni)
+                                           batch_size=args.batch_size, 
+                                           min_train_masks=args.min_train_masks,
+                                           omni=args.omni)
                 model.pretrained_model = cpmodel_path
                 logger.info('>>>> model trained and saved to %s'%cpmodel_path)
 

@@ -126,7 +126,7 @@ class Cellpose():
 
     def eval(self, x, batch_size=8, channels=None, channel_axis=None, z_axis=None,
              invert=False, normalize=True, diameter=30., do_3D=False, anisotropy=None,
-             net_avg=True, augment=False, tile=True, tile_overlap=0.1, resample=False, interp=True, cluster=False,
+             net_avg=True, augment=False, tile=True, tile_overlap=0.1, resample=True, interp=True, cluster=False,
              flow_threshold=0.4, mask_threshold=0.0, cellprob_threshold=None, dist_threshold=None,
              diam_threshold=12., min_size=15, stitch_threshold=0.0, 
              rescale=None, progress=None, omni=False, verbose=False, transparency=False):
@@ -237,8 +237,8 @@ class Cellpose():
             flows[k][0] = XY flow in HSV 0-255
             flows[k][1] = flows at each pixel
             flows[k][2] = scalar cell probability (Cellpose) or distance transform (Omnipose)
-            flows[k][3] = boundary output (nonempty for Omnipose)
-            flows[k][4] = final pixel locations after Euler integration 
+            flows[k][3] = final pixel locations after Euler integration 
+            flows[k][4] = boundary output (nonempty for Omnipose)
             flows[k][5] = pixel traces (nonempty for calc_trace=True)
 
         styles: list of 1D arrays of length 256, or single 1D array (if do_3D=True)
@@ -648,7 +648,7 @@ class CellposeModel(UnetModel):
             return masks, flows, styles
 
     def _run_cp(self, x, compute_masks=True, normalize=True, invert=False,
-                rescale=1.0, net_avg=True, resample=False,
+                rescale=1.0, net_avg=True, resample=True,
                 augment=False, tile=True, tile_overlap=0.1,
                 mask_threshold=0.0, diam_threshold=12., flow_threshold=0.4, min_size=15,
                 interp=True, cluster=False, anisotropy=1.0, do_3D=False, stitch_threshold=0.0,
@@ -714,27 +714,27 @@ class CellposeModel(UnetModel):
             niter = 200 if (do_3D and not resample) else (1 / rescale * 200)
             if do_3D:
                 masks, p, tr = dynamics.compute_masks(dP, cellprob, bd, niter=niter, mask_threshold=mask_threshold,
-                                                      diam_threshold=diam_threshold,flow_threshold=flow_threshold,
-                                                      interp=interp, cluster=cluster, do_3D=do_3D, min_size=min_size,
-                                                      resize=None, omni=omni, calc_trace=calc_trace, verbose=verbose,
+                                                      diam_threshold=diam_threshold, flow_threshold=flow_threshold,
+                                                      interp=interp, do_3D=do_3D, min_size=min_size,
+                                                      resize=None, verbose=verbose,
                                                       use_gpu=self.gpu, device=self.device, nclasses=self.nclasses)
             else:
                 masks, p, tr = [], [], []
                 resize = [shape[1], shape[2]] if not resample else None
                 for i in iterator:
-                    bdi = bd[i] if bd is not None else None
-                    outputs = dynamics.compute_masks(dP[:,i], cellprob[i], bdi, 
-                                                    niter=niter, 
-                                                    mask_threshold=mask_threshold,
-                                                    flow_threshold=flow_threshold, 
-                                                    diam_threshold=diam_threshold, 
-                                                    interp=interp, cluster=cluster,
-                                                    resize=resize, 
-                                                    omni=omni, calc_trace=calc_trace, 
-                                                    verbose=verbose,
-                                                    use_gpu=self.gpu, 
-                                                    device=self.device, 
-                                                    nclasses=self.nclasses)
+                    if not (omni and OMNI_INSTALLED):
+                        # run cellpose compute_masks
+                        outputs = dynamics.compute_masks(dP[:,i], cellprob[i], niter=niter, mask_threshold=mask_threshold,
+                                                         flow_threshold=flow_threshold, interp=interp, resize=resize, verbose=verbose,
+                                                         use_gpu=self.gpu, device=self.device, nclasses=self.nclasses)
+                    else:
+                        # run omnipose compute_masks
+                        bdi = bd[i] if bd is not None else None
+                        outputs = omnipose.core.compute_masks(dP[:,i], cellprob[i], bdi, niter=niter, mask_threshold=mask_threshold,
+                                                                flow_threshold=flow_threshold, diam_threshold=diam_threshold, 
+                                                                interp=interp, cluster=cluster, resize=resize, 
+                                                                calc_trace=calc_trace, verbose=verbose,
+                                                                use_gpu=self.gpu, device=self.device, nclasses=self.nclasses)
                     masks.append(outputs[0])
                     p.append(outputs[1])
                     tr.append(outputs[2])
@@ -779,7 +779,8 @@ class CellposeModel(UnetModel):
               save_path=None, save_every=100, save_each=False,
               learning_rate=0.2, n_epochs=500, momentum=0.9, SGD=True,
               weight_decay=0.00001, batch_size=8, nimg_per_epoch=None,
-              rescale=True, omni=False, netstr=None):
+              rescale=True, min_train_masks=5,
+              omni=False, netstr=None):
 
         """ train network with images train_data 
         
@@ -826,16 +827,24 @@ class CellposeModel(UnetModel):
 
             weight_decay: float (default, 0.00001)
 
-            SGD: bool (default, True) use SGD as optimization instead of RAdam
+            SGD: bool (default, True) 
+                use SGD as optimization instead of RAdam
 
             batch_size: int (optional, default 8)
                 number of 224x224 patches to run simultaneously on the GPU
                 (can make smaller or bigger depending on GPU memory usage)
 
+            nimg_per_epoch: int (optional, default None)
+                minimum number of images to train on per epoch, 
+                with a small training set (< 8 images) it may help to set to 8
+
             rescale: bool (default, True)
                 whether or not to rescale images to diam_mean during training, 
                 if True it assumes you will fit a size model after training or resize your images accordingly,
                 if False it will try to train the model to be scale-invariant (works worse)
+
+            min_train_masks: int (default, 5)
+                minimum number of masks an image must have to use in training set
 
             netstr: str (default, None)
                 name of network, otherwise saved with name as params + training start time
@@ -847,103 +856,25 @@ class CellposeModel(UnetModel):
                                                                                                    test_data, test_labels,
                                                                                                    channels, normalize, omni)
         # check if train_labels have flows
-        train_flows = dynamics.labels_to_flows(train_labels, files=train_files, use_gpu=self.gpu, device=self.device, omni=omni)
+        # if not, flows computed, returned with labels as train_flows[i][0]
+        labels_to_flows = dynamics.labels_to_flows if not (omni and OMNI_INSTALLED) else omnipose.core.labels_to_flows
+        train_flows = labels_to_flows(train_labels, files=train_files, use_gpu=self.gpu, device=self.device)
         if run_test:
-            test_flows = dynamics.labels_to_flows(test_labels, files=test_files, use_gpu=self.gpu, device=self.device, omni=omni)
+            test_flows = labels_to_flows(test_labels, files=test_files, use_gpu=self.gpu, device=self.device)
         else:
             test_flows = None
-        
-        model_path = self._train_net(train_data, train_flows, 
-                                     test_data, test_flows,
-                                     save_path, save_every, save_each,
-                                     learning_rate, n_epochs, momentum, weight_decay, SGD, 
-                                     batch_size, nimg_per_epoch, rescale, netstr)
-        self.pretrained_model = model_path
-        return model_path
 
-    def retrain(self, train_data, train_labels, train_files=None, 
-              test_data=None, test_labels=None, test_files=None,
-              channels=None, normalize=True, 
-              save_path=None, save_every=100, save_each=False,
-              learning_rate=0.025, n_epochs=100, momentum=0.9, SGD=True,
-              weight_decay=0.0001, batch_size=8, rescale=True, omni=False, netstr=None):
-
-        """ retrain network with images train_data 
-        
-            Parameters
-            ------------------
-
-            train_data: list of arrays (2D or 3D)
-                images for training
-
-            train_labels: list of arrays (2D or 3D)
-                labels for train_data, where 0=no masks; 1,2,...=mask labels
-                can include flows as additional images
-
-            train_files: list of strings
-                file names for images in train_data (to save flows for future runs)
-
-            test_data: list of arrays (2D or 3D)
-                images for testing
-
-            test_labels: list of arrays (2D or 3D)
-                labels for test_data, where 0=no masks; 1,2,...=mask labels; 
-                can include flows as additional images
-        
-            test_files: list of strings
-                file names for images in test_data (to save flows for future runs)
-
-            channels: list of ints (default, None)
-                channels to use for training
-
-            normalize: bool (default, True)
-                normalize data so 0.0=1st percentile and 1.0=99th percentile of image intensities in each channel
-
-            save_path: string (default, None)
-                where to save trained model, if None it is not saved
-
-            save_every: int (default, 100)
-                save network every [save_every] epochs
-
-            learning_rate: float (default, 0.2)
-                learning rate for training
-
-            n_epochs: int (default, 500)
-                how many times to go through whole training set during training
-
-            weight_decay: float (default, 0.00001)
-
-            SGD: bool (default, True) use SGD as optimization instead of RAdam
-
-            batch_size: int (optional, default 8)
-                number of 224x224 patches to run simultaneously on the GPU
-                (can make smaller or bigger depending on GPU memory usage)
-
-            rescale: bool (default, True)
-                whether or not to rescale images to diam_mean during training, 
-                if True it assumes you will fit a size model after training or resize your images accordingly,
-                if False it will try to train the model to be scale-invariant (works worse)
-
-            netstr: str (default, None)
-                name of network, otherwise saved with name as params + training start time
-
-        """
-        train_data, train_labels, test_data, test_labels, run_test = transforms.reshape_train_test(train_data, train_labels,
-                                                                                                   test_data, test_labels,
-                                                                                                   channels, normalize, omni)
-        # check if train_labels have flows
-        train_flows = dynamics.labels_to_flows(train_labels, files=train_files, use_gpu=self.gpu, device=self.device, omni=omni)
-        if run_test:
-            test_flows = dynamics.labels_to_flows(test_labels, files=test_files, use_gpu=self.gpu, device=self.device)
-        else:
-            test_flows = None
+        nmasks = np.array([label[0].max()-1 for label in train_flows])
+        nremove = (nmasks < min_train_masks).sum()
+        if nremove > 0:
+            models_logger.warning(f'{nremove} train images with less than min_train_masks ({min_train_masks}), removing from train set')
         
         model_path = self._train_net(train_data, train_flows, 
                                      test_data=test_data, test_labels=test_flows,
                                      save_path=save_path, save_every=save_every, save_each=save_each,
                                      learning_rate=learning_rate, n_epochs=n_epochs, 
                                      momentum=momentum, weight_decay=weight_decay, 
-                                     SGD=SGD, batch_size=batch_size, nimg_per_epoch=8, 
+                                     SGD=SGD, batch_size=batch_size, nimg_per_epoch=nimg_per_epoch, 
                                      rescale=rescale, netstr=netstr)
         self.pretrained_model = model_path
         return model_path
@@ -1074,6 +1005,7 @@ class SizeModel():
                               tile=tile,
                               batch_size=batch_size, 
                               net_avg=False,
+                              resample=False,
                               compute_masks=False)[-1]
 
         diam_style = self._size_estimation(np.array(styles))
@@ -1088,6 +1020,7 @@ class SizeModel():
                              tile=tile,
                              batch_size=batch_size, 
                              net_avg=False,
+                             resample=False,
                              rescale =  self.diam_mean / diam_style if self.diam_mean>0 else 1, 
                              #flow_threshold=0,
                              diameter=None,

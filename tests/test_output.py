@@ -36,7 +36,8 @@ def test_class_2D(data_dir, image_names):
     chan2 = [0]
     for m,model_type in enumerate(model_types):
         model = models.Cellpose(model_type=model_type)
-        masks, flows, _, _ = model.eval(img, diameter=0, mask_threshold=0, channels=[chan[m],chan2[m]], net_avg=False)
+        masks, flows, _, _ = model.eval(img, diameter=0, mask_threshold=0, channels=[chan[m],chan2[m]], 
+                                        net_avg=False, resample=False)
         io.imsave(str(data_dir.joinpath('2D').joinpath('rgb_2D_cp_masks.png')), masks)
 #         io.imsave('/home/kcutler/DataDrive/cellpose_debug/rgb_2D_cp_masks.png', masks)
         compare_masks(data_dir, [image_name], '2D', model_type)
