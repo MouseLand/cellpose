@@ -336,7 +336,7 @@ def labels_to_flows(labels, files=None, use_gpu=False, device=None, redo_flows=F
         veci = [masks_to_flows(labels[n][0],use_gpu=use_gpu, device=device) for n in trange(nimg)]
         
         # concatenate labels, distance transform, vector flows, heat (boundary and mask are computed in augmentations)
-        flows = [np.concatenate((labels[n][np.newaxis,:,:], labels[n][np.newaxis,:,:]>0.5, veci[n]), axis=0).astype(np.float32)
+        flows = [np.concatenate((labels[n], labels[n]>0.5, veci[n]), axis=0).astype(np.float32)
                     for n in range(nimg)]
         if files is not None:
             for flow, file in zip(flows, files):
