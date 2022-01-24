@@ -1062,6 +1062,12 @@ def compute_masks(dP, cellprob, bd=None, p=None, inds=None, niter=200, mask_thre
             else:
                 p , inds, tr = follow_flows(dP * cp_mask / 5., mask=cp_mask, inds=inds, niter=niter, interp=interp, 
                                             use_gpu=use_gpu, device=device)
+            if inds.ndim < 2 or inds.shape[0] < 5:
+                dynamics_logger.info('No cell pixels found.')
+                p = np.zeros([2,1,1])
+                tr = []
+                mask = np.zeros(resize, np.uint16)
+                return mask, p, tr
         else: 
             tr = []
             if verbose:
@@ -1104,6 +1110,8 @@ def compute_masks(dP, cellprob, bd=None, p=None, inds=None, niter=200, mask_thre
         p = np.zeros([2,1,1])
         tr = []
         mask = np.zeros(resize, np.uint16)
+        return mask, p, tr
+
 
     # moving the cleanup to the end helps avoid some bugs arising from scaling...
     # maybe better would be to rescale the min_size and hole_size parameters to do the
