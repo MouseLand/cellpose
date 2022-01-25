@@ -250,20 +250,22 @@ def main():
                         args.mxnet = False
                 if not bacterial:                
                     model = models.Cellpose(gpu=gpu, device=device, model_type=args.pretrained_model, 
-                                                torch=(not args.mxnet),omni=args.omni)
+                                                torch=(not args.mxnet),omni=args.omni, net_avg=(not args.fast_mode and not args.no_net_avg))
                 else:
                     cpmodel_path = models.model_path(args.pretrained_model, 0, True)
                     model = models.CellposeModel(gpu=gpu, device=device, 
                                                  pretrained_model=cpmodel_path,
                                                  torch=True,
-                                                 nclasses=args.nclasses,omni=args.omni)
+                                                 nclasses=args.nclasses,omni=args.omni,
+                                                 net_avg=False)
             else:
                 if args.all_channels:
                     channels = None  
                 model = models.CellposeModel(gpu=gpu, device=device, 
                                              pretrained_model=cpmodel_path,
                                              torch=True,
-                                             nclasses=args.nclasses,omni=args.omni)
+                                             nclasses=args.nclasses,omni=args.omni,
+                                             net_avg=False)
             
 
             # omni changes not implemented for mxnet. Full parity for cpu/gpu in pytorch. 
@@ -309,6 +311,7 @@ def main():
             
             
             tqdm_out = utils.TqdmToLogger(logger,level=logging.INFO)
+            
             for image_name in tqdm(image_names, file=tqdm_out):
                 image = io.imread(image_name)
                 out = model.eval(image, channels=channels, diameter=diameter,
@@ -326,7 +329,8 @@ def main():
                                 z_axis=args.z_axis,
                                 omni=args.omni,
                                 anisotropy=args.anisotropy,
-                                verbose=args.verbose)
+                                verbose=args.verbose,
+                                model_loaded=True)
                 masks, flows = out[:2]
                 if len(out) > 3:
                     diams = out[-1]

@@ -108,7 +108,8 @@ class Cellpose():
 
         self.cp = CellposeModel(device=self.device, gpu=self.gpu,
                                 pretrained_model=self.pretrained_model,
-                                diam_mean=self.diam_mean, torch=self.torch, omni=self.omni)
+                                diam_mean=self.diam_mean, torch=self.torch, omni=self.omni,
+                                net_avg=net_avg)
         self.cp.model_type = model_type
         
         # size model not used for bacterial model
@@ -125,7 +126,7 @@ class Cellpose():
              net_avg=True, augment=False, tile=True, tile_overlap=0.1, resample=True, interp=True, cluster=False,
              flow_threshold=0.4, mask_threshold=0.0, cellprob_threshold=None, dist_threshold=None,
              diam_threshold=12., min_size=15, stitch_threshold=0.0, 
-             rescale=None, progress=None, omni=False, verbose=False, transparency=False):
+             rescale=None, progress=None, omni=False, verbose=False, transparency=False, model_loaded=False):
         """ run cellpose and get masks
 
         Parameters
@@ -224,6 +225,9 @@ class Cellpose():
         transparency: bool (optional, default False)
             modulate flow opacity by magnitude instead of brightness (can use flows on any color background) 
 
+        model_loaded: bool (optional, default False)
+            internal variable for determining if model has been loaded, used in __main__.py
+
         Returns
         -------
         masks: list of 2D arrays, or single 3D array (if do_3D=True)
@@ -304,7 +308,8 @@ class Cellpose():
                                             stitch_threshold=stitch_threshold,
                                             omni=omni,
                                             verbose=verbose,
-                                            transparency=transparency)
+                                            transparency=transparency,
+                                            model_loaded=model_loaded)
         models_logger.info('>>>> TOTAL TIME %0.2f sec'%(time.time()-tic0))
     
         return masks, flows, styles, diams
@@ -378,9 +383,6 @@ class CellposeModel(UnetModel):
             
             if nuclear:
                 self.diam_mean = 17. 
-            elif bacterial:
-                #self.diam_mean = 0.
-                net_avg = False #'bact' model also has no 1,2,3
 
             # set omni flag to true if the name contains it
             self.omni = 'omni' in os.path.splitext(Path(pretrained_model_string).name)[0]
@@ -413,6 +415,8 @@ class CellposeModel(UnetModel):
         self.pretrained_model = pretrained_model
         if self.pretrained_model and len(self.pretrained_model)==1:
             self.net.load_model(self.pretrained_model[0], cpu=(not self.gpu))
+            if not self.torch:
+                self.net.collect_params().grad_req = 'null'
         ostr = ['off', 'on']
         omnistr = ['','_omni'] #toggle by containing omni phrase 
         self.net_type = 'cellpose_residual_{}_style_{}_concatenation_{}{}'.format(ostr[residual_on],
@@ -428,7 +432,7 @@ class CellposeModel(UnetModel):
              flow_threshold=0.4, mask_threshold=0.0, diam_threshold=12.,
              cellprob_threshold=None, dist_threshold=None,
              compute_masks=True, min_size=15, stitch_threshold=0.0, progress=None, omni=False, 
-             calc_trace=False, verbose=False, transparency=False, loop_run=False):
+             calc_trace=False, verbose=False, transparency=False, loop_run=False, model_loaded=False):
         """
             segment list of images x, or 4D array - Z x nchan x Y x X
 
@@ -533,6 +537,9 @@ class CellposeModel(UnetModel):
             loop_run: bool (optional, default False)
                 internal variable for determining if model has been loaded, stops model loading in loop over images
 
+            model_loaded: bool (optional, default False)
+                internal variable for determining if model has been loaded, used in __main__.py
+
             Returns
             -------
             masks: list of 2D arrays, or single 3D array (if do_3D=True)
@@ -597,14 +604,15 @@ class CellposeModel(UnetModel):
                                                  calc_trace=calc_trace, 
                                                  verbose=verbose,
                                                  transparency=transparency,
-                                                 loop_run=(i>0))
+                                                 loop_run=(i>0),
+                                                 model_loaded=model_loaded)
                 masks.append(maski)
                 flows.append(flowi)
                 styles.append(stylei)
             return masks, styles, flows 
         
         else:
-            if isinstance(self.pretrained_model, list) and not net_avg and not loop_run:
+            if not model_loaded and (isinstance(self.pretrained_model, list) and not net_avg and not loop_run):
                 self.net.load_model(self.pretrained_model[0], cpu=(not self.gpu))
                 if not self.torch:
                     self.net.collect_params().grad_req = 'null'
