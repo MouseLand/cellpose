@@ -58,6 +58,7 @@ def dx_to_circ(dP,transparency=False,mask=None):
     if mask is not None and transparency and dP.shape[0]<3:
         im[:,:,-1] *= mask
         
+    im = (np.clip(im, 0, 1) * 255).astype(np.uint8)
     return im
 
 def show_segmentation(fig, img, maski, flowi, channels=[0,0], file_name=None, omni=False, seg_norm=False, bg_color=None):
@@ -126,7 +127,7 @@ def show_segmentation(fig, img, maski, flowi, channels=[0,0], file_name=None, om
     
     # the mask_overlay function changes colors (preserves only hue I think). The label2rgb function from
     # skimage.color works really well. 
-    if SKIMAGE_ENABLED and OMNI_INSTALLED:
+    if omni and SKIMAGE_ENABLED and OMNI_INSTALLED:
         c = sinebow(5)
         colors = np.array(list(c.values()))[1:] 
         overlay = color.label2rgb(ncolor.label(maski),img1,colors,bg_label=0,alpha=1/3)
@@ -234,9 +235,10 @@ def mask_overlay(img, masks, colors=None, omni=False):
         img = img.astype(np.float32)
     
     
+    
     HSV = np.zeros((img.shape[0], img.shape[1], 3), np.float32)
-    HSV[:,:,2] = img
-    hues = np.linspace(0, 1, masks.max()+1)
+    HSV[:,:,2] = img / 255. if img.max() > 1 else img
+    hues = np.linspace(0, 1, masks.max()+1)[np.random.permutation(masks.max())]
     for n in range(int(masks.max())):
         ipix = (masks==n+1).nonzero()
         if colors is None:

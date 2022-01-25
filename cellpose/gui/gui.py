@@ -1502,7 +1502,7 @@ class MainW(QMainWindow):
 
     def compute_model(self):
         self.progress.setValue(0)
-        if 1:
+        try:
             tic=time.time()
             self.clear_all()
             self.flows = [[],[],[]]
@@ -1517,7 +1517,7 @@ class MainW(QMainWindow):
                 data = self.stack[0].copy()
             channels = self.get_channels()
             self.diameter = float(self.Diameter.text())
-            if 1:
+            try:
                 omni_model = 'omni' in self.current_model
                 bacterial = 'bact' in self.current_model
                 if omni_model or bacterial:
@@ -1541,7 +1541,7 @@ class MainW(QMainWindow):
                                                 diameter=self.diameter, invert=self.invert.isChecked(),
                                                 net_avg=net_avg, augment=False, resample=resample,
                                                 do_3D=do_3D, progress=self.progress, omni=OMNI_INSTALLED and self.omni.isChecked())[:2]
-            else:#except Exception as e:
+            except Exception as e:
                 print('NET ERROR: %s'%e)
                 self.progress.setValue(0)
                 return
@@ -1550,7 +1550,7 @@ class MainW(QMainWindow):
             #if not do_3D:
             #    masks = masks[0][np.newaxis,:,:]
             #    flows = flows[0]
-            self.flows[0] = (np.clip(normalize99(flows[0].copy()), 0, 1) * 255).astype(np.uint8) #RGB flow
+            self.flows[0] = flows[0].copy() #RGB flow
             self.flows[1] = (np.clip(normalize99(flows[2].copy()), 0, 1) * 255).astype(np.uint8) #dist/prob
             if not do_3D:
                 masks = masks[np.newaxis,...]
@@ -1581,7 +1581,7 @@ class MainW(QMainWindow):
             if not do_3D:
                 self.threshslider.setEnabled(True)
                 self.probslider.setEnabled(True)
-        else:#except Exception as e:
+        except Exception as e:
             print('ERROR: %s'%e)
 
 

@@ -247,7 +247,7 @@ def masks_flows_to_seg(images, masks, flows, diams, file_names, channels=None):
 
     if len(channels)==1:
         channels = channels[0]
-    flows[0] = (np.clip(transforms.normalize99(flows[0]), 0, 1) * 255).astype(np.uint8)
+    
     flowi = []
     if flows[0].ndim==3:
         Ly, Lx = masks.shape[-2:]
