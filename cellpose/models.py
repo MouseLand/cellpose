@@ -10,12 +10,7 @@ models_logger = logging.getLogger(__name__)
 
 from . import transforms, dynamics, utils, plot
 from .core import UnetModel, assign_device, check_mkl, MXNET_ENABLED, parse_model_string
-
-try:
-    import omnipose
-    OMNI_INSTALLED = True
-except:
-    OMNI_INSTALLED = False
+from .io import OMNI_INSTALLED
 
 _MODEL_URL = 'https://www.cellpose.org/models'
 _MODEL_DIR_ENV = os.environ.get("CELLPOSE_LOCAL_MODELS_PATH")
@@ -90,13 +85,8 @@ class Cellpose():
         if model_type=='cyto2' and not self.torch:
             model_type='cyto'
                 
-        self.omni = omni or 'omni' in model_type       
         
         # for now, omni models cannot do net_avg 
-        if self.omni:
-            net_avg = False
-        model_range = range(4) if net_avg else range(1)
-        self.pretrained_model = [model_path(model_type, j, torch) for j in model_range]
         
         self.diam_mean = 30. #default for any cyto model 
         nuclear = 'nuclei' in model_type
@@ -107,6 +97,12 @@ class Cellpose():
             #self.diam_mean = 0.
             net_avg = False # No bacterial or omni models have additional models
         
+        self.omni = omni or 'omni' in model_type       
+        if self.omni:
+            net_avg = False
+        model_range = range(4) if net_avg else range(1)
+        self.pretrained_model = [model_path(model_type, j, torch) for j in model_range]
+
         if not net_avg:
             self.pretrained_model = self.pretrained_model[0]
 
@@ -643,7 +639,6 @@ class CellposeModel(UnetModel):
                                                           omni=omni,
                                                           calc_trace=calc_trace,
                                                           verbose=verbose)
-
             flows = [plot.dx_to_circ(dP,transparency=transparency), dP, cellprob, p, bd, tr]
             return masks, flows, styles
 

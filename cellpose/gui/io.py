@@ -119,7 +119,7 @@ def _load_image(parent, filename=None, load_seg=True):
     manual_file = os.path.splitext(filename)[0]+'_seg.npy'
     load_mask = False
     if load_seg:
-        if os.path.isfile(manual_file):
+        if os.path.isfile(manual_file) and not parent.autoloadMasks.isChecked():
             _load_seg(parent, manual_file, image=imread(filename), image_file=filename)
             return
         elif os.path.isfile(os.path.splitext(filename)[0]+'_manual.npy'):
@@ -191,10 +191,10 @@ def _initialize_images(parent, image, resize, X2):
     parent.NZ = len(parent.stack)
     parent.scroll.setMaximum(parent.NZ-1)
     parent.stack = parent.stack.astype(np.float32)
-    perc0 = np.percentile(parent.stack, 1)
-    parent.stack -= perc0
-    perc1 = np.percentile(parent.stack, 99)
-    parent.stack /= perc1 
+    for i in range(parent.stack.shape[-1]):
+        parent.stack[...,i] -= parent.stack[...,i].min()
+        if np.ptp(parent.stack[...,i]) > 1e-6:
+            parent.stack[...,i] /= parent.stack[...,i].max()
     parent.stack *= 255
     del image
     gc.collect()
@@ -345,8 +345,8 @@ def _load_seg(parent, filename=None, image=None, image_file=None):
         try:
             if parent.flows[0].shape[-3]!=dat['masks'].shape[-2]:
                 Ly, Lx = dat['masks'].shape[-2:]
-                parent.flows[0] = cv2.resize(parent.flows[0][0], (Lx, Ly), interpolation=cv2.INTER_NEAREST)[np.newaxis,...]
-                parent.flows[1] = cv2.resize(parent.flows[1][0], (Lx, Ly), interpolation=cv2.INTER_NEAREST)[np.newaxis,...]
+                parent.flows[0] = cv2.resize(parent.flows[0].squeeze(), (Lx, Ly), interpolation=cv2.INTER_NEAREST)[np.newaxis,...]
+                parent.flows[1] = cv2.resize(parent.flows[1].squeeze(), (Lx, Ly), interpolation=cv2.INTER_NEAREST)[np.newaxis,...]
             if parent.NZ==1:
                 parent.threshslider.setEnabled(True)
                 parent.probslider.setEnabled(True)

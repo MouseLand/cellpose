@@ -13,6 +13,7 @@ import logging
 dynamics_logger = logging.getLogger(__name__)
 
 from . import utils, metrics, transforms
+from .io import OMNI_INSTALLED
 
 try:
     import torch
@@ -29,16 +30,6 @@ try:
     SKIMAGE_ENABLED = True
 except:
     SKIMAGE_ENABLED = False
-    
-try:
-    import omnipose
-    # njit requires direct function access or something like that,
-    # so these functions need to be explicitly imported 
-    from omnipose.core import eikonal_update_cpu, step_factor 
-    import edt, fastremap
-    OMNI_INSTALLED = True
-except:
-    OMNI_INSTALLED = False
 
 @njit('(float64[:], int32[:], int32[:], int32, int32, int32, int32)', nogil=True)
 def _extend_centers(T,y,x,ymed,xmed,Lx, niter):

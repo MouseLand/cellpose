@@ -189,12 +189,6 @@ def main():
         # Check with user if they REALLY mean to run without saving anything 
         if not (args.train or args.train_size):
             saving_something = args.save_png or args.save_tif or args.save_flows or args.save_ncolor or args.save_txt
-            if not (saving_something or args.testing): 
-                print('>>>> Running without saving any output.')
-                confirm = confirm_prompt('Proceed Anyway?')
-                if not confirm:
-                    exit()
-                    
                     
         device, gpu = models.assign_device((not args.mxnet), args.use_gpu)
 

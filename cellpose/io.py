@@ -10,7 +10,7 @@ from . import utils, plot, transforms
 
 try:
     from omnipose.utils import format_labels
-    import ncolor
+    import ncolor, edt
     OMNI_INSTALLED = True
 except:
     OMNI_INSTALLED = False
@@ -247,13 +247,14 @@ def masks_flows_to_seg(images, masks, flows, diams, file_names, channels=None):
 
     if len(channels)==1:
         channels = channels[0]
-
+    flows[0] = (np.clip(transforms.normalize99(flows[0]), 0, 1) * 255).astype(np.uint8)
     flowi = []
     if flows[0].ndim==3:
         Ly, Lx = masks.shape[-2:]
         flowi.append(cv2.resize(flows[0], (Lx, Ly), interpolation=cv2.INTER_NEAREST)[np.newaxis,...])
     else:
         flowi.append(flows[0])
+    
     if flows[0].ndim==3:
         cellprob = (np.clip(transforms.normalize99(flows[2]),0,1) * 255).astype(np.uint8)
         cellprob = cv2.resize(cellprob, (Lx, Ly), interpolation=cv2.INTER_NEAREST)

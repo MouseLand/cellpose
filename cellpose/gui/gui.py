@@ -585,8 +585,8 @@ class MainW(QMainWindow):
         
         b+=1
         self.slider = guiparts.RangeSlider(self)
-        self.slider.setMinimum(-15)
-        self.slider.setMaximum(270)
+        self.slider.setMinimum(0)
+        self.slider.setMaximum(255)
         self.slider.setLow(0)
         self.slider.setHigh(255)
         self.slider.setTickPosition(QSlider.TicksRight)
@@ -1502,7 +1502,7 @@ class MainW(QMainWindow):
 
     def compute_model(self):
         self.progress.setValue(0)
-        try:
+        if 1:
             tic=time.time()
             self.clear_all()
             self.flows = [[],[],[]]
@@ -1517,27 +1517,31 @@ class MainW(QMainWindow):
                 data = self.stack[0].copy()
             channels = self.get_channels()
             self.diameter = float(self.Diameter.text())
-            try:
+            if 1:
                 omni_model = 'omni' in self.current_model
                 bacterial = 'bact' in self.current_model
-                if omni_model:
+                if omni_model or bacterial:
                     self.NetAvg.setCurrentIndex(1) #one run net
                 if bacterial:
                     self.diameter = 0.
                     self.Diameter.setText('%0.1f'%self.diameter)
-                    
+                
                 # allow omni to be togged manually or forced by model
                 if OMNI_INSTALLED:
                     self.omni.setChecked(self.omni.isChecked() or omni_model) 
                     self.cluster.setChecked(self.cluster.isChecked() or omni_model)
-                
+                    if omni_model:
+                        print('GUI_INFO: turning on omnipose mask creation version for omnipose models (see menu)')
+                    elif self.omni.isChecked():
+                        print('WARNING: using omnipose mask creation with built-in cellpose model (turn off in Omnipose menu)')
+
                 net_avg = self.NetAvg.currentIndex()==0 and self.current_model in models.MODEL_NAMES
                 resample = self.NetAvg.currentIndex()<2
                 masks, flows = self.model.eval(data, channels=channels,
                                                 diameter=self.diameter, invert=self.invert.isChecked(),
                                                 net_avg=net_avg, augment=False, resample=resample,
                                                 do_3D=do_3D, progress=self.progress, omni=OMNI_INSTALLED and self.omni.isChecked())[:2]
-            except Exception as e:
+            else:#except Exception as e:
                 print('NET ERROR: %s'%e)
                 self.progress.setValue(0)
                 return
@@ -1577,7 +1581,7 @@ class MainW(QMainWindow):
             if not do_3D:
                 self.threshslider.setEnabled(True)
                 self.probslider.setEnabled(True)
-        except Exception as e:
+        else:#except Exception as e:
             print('ERROR: %s'%e)
 
 
