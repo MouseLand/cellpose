@@ -234,10 +234,8 @@ def mask_overlay(img, masks, colors=None, omni=False):
     else:
         img = img.astype(np.float32)
     
-    
-    
     HSV = np.zeros((img.shape[0], img.shape[1], 3), np.float32)
-    HSV[:,:,2] = img / 255. if img.max() > 1 else img
+    HSV[:,:,2] = np.clip((img / 255. if img.max() > 1 else img) * 1.5, 0, 1)
     hues = np.linspace(0, 1, masks.max()+1)[np.random.permutation(masks.max())]
     for n in range(int(masks.max())):
         ipix = (masks==n+1).nonzero()
