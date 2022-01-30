@@ -4,9 +4,8 @@ import numpy as np
 import cv2
 import tifffile
 import logging, pathlib, sys
+from tqdm import tqdm
 from pathlib import Path
-
-from . import utils, plot, transforms
 
 try:
     from omnipose.utils import format_labels
@@ -57,6 +56,8 @@ def logger_setup():
 
     return logger, log_file
 
+from . import utils, plot, transforms
+
 # helper function to check for a path; if it doesn't exist, make it 
 def check_dir(path):
     if not os.path.isdir(path):
@@ -73,7 +74,27 @@ def outlines_to_text(base, outlines):
 def imread(filename):
     ext = os.path.splitext(filename)[-1]
     if ext== '.tif' or ext=='tiff':
-        img = tifffile.imread(filename)
+        with tifffile.TiffFile(filename) as tif:
+            ltif = len(tif.pages)
+            try:
+                full_shape = tif.shaped_metadata[0]['shape']
+            except:
+                try:
+                    page = tif.series[0][0]
+                    full_shape = tif.series[0].shape
+                except:
+                    ltif = 0
+            if ltif < 10:
+                img = tif.asarray()
+            else:
+                page = tif.series[0][0]
+                shape, dtype = page.shape, page.dtype
+                ltif = int(np.prod(full_shape) / np.prod(shape))
+                io_logger.info(f'reading tiff with {ltif} planes')
+                img = np.zeros((ltif, *shape), dtype=dtype)
+                for i,page in enumerate(tqdm(tif.series[0])):
+                    img[i] = page.asarray()
+                img = img.reshape(full_shape)            
         return img
     else:
         try:
@@ -175,14 +196,15 @@ def load_train_test_data(train_dir, test_dir=None, image_filter=None, mask_filte
     label_names, flow_names = get_label_files(image_names, mask_filter, imf=image_filter)
     nimg = len(image_names)
     labels = [imread(label_names[n]) for n in range(nimg)]
-    if flow_names is not None and not unet:
-        for n in range(nimg):
-            flows = imread(flow_names[n])
-            if flows.shape[0]<4:
-                labels[n] = np.concatenate((labels[n][np.newaxis,:,:], flows), axis=0) 
-            else:
-                labels[n] = flows
-            
+    if not unet:
+        if flow_names is not None and not unet:
+            for n in range(nimg):
+                flows = imread(flow_names[n])
+                if flows.shape[0]<4:
+                    labels[n] = np.concatenate((labels[n][np.newaxis,:,:], flows), axis=0) 
+                else:
+                    labels[n] = flows
+                
     # testing data
     test_images, test_labels, image_names_test = None, None, None
     if test_dir is not None:
@@ -191,13 +213,14 @@ def load_train_test_data(train_dir, test_dir=None, image_filter=None, mask_filte
         nimg = len(image_names_test)
         test_images = [imread(image_names_test[n]) for n in range(nimg)]
         test_labels = [imread(label_names_test[n]) for n in range(nimg)]
-        if flow_names_test is not None and not unet:
-            for n in range(nimg):
-                flows = imread(flow_names_test[n])
-                if flows.shape[0]<4:
-                    test_labels[n] = np.concatenate((test_labels[n][np.newaxis,:,:], flows), axis=0) 
-                else:
-                    test_labels[n] = flows
+        if not unet:
+            if flow_names_test is not None and not unet:
+                for n in range(nimg):
+                    flows = imread(flow_names_test[n])
+                    if flows.shape[0]<4:
+                        test_labels[n] = np.concatenate((test_labels[n][np.newaxis,:,:], flows), axis=0) 
+                    else:
+                        test_labels[n] = flows
     return images, labels, image_names, test_images, test_labels, image_names_test
 
 

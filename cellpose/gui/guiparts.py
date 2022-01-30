@@ -472,10 +472,6 @@ class ImageDraw(pg.ImageItem):
                                 self.parent.select_cell(idx)
                         elif self.parent.masksOn:
                             self.parent.unselect_cell()
-                    else:
-                        ev.ignore()
-                        return
-
 
     def mouseDragEvent(self, ev):
         ev.ignore()

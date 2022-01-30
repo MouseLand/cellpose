@@ -290,9 +290,6 @@ def masks_to_flows(masks, use_gpu=False, device=None):
     else:
         raise ValueError('masks_to_flows only takes 2D or 3D arrays')
 
-# It is possible that flows can be eliminated in place of the distance field. The current distance field may not be smooth 
-# enough, or maybe the network really does require the flow field prediction to work well. But in 3D, it will be a huge
-# advantage if the network could predict just the distance (and boudnary) classes and not 3 extra flow components. 
 def labels_to_flows(labels, files=None, use_gpu=False, device=None, redo_flows=False):
     """ convert labels (list of masks or flows) to flows for training model 
 

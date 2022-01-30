@@ -738,7 +738,7 @@ def _image_resizer(img, resize=512, to_uint8=False):
 
 
 def original_random_rotate_and_resize(X, Y=None, scale_range=1., xy = (224,224), 
-                             do_flip=True, rescale=None, unet=False):
+                             do_flip=True, rescale=None, unet=False, random_per_image=True):
     """ augmentation by random rotation and resizing
         X and Y are lists or arrays of length nimg, with dims channels x Ly x Lx (channels optional)
         Parameters
@@ -760,6 +760,8 @@ def original_random_rotate_and_resize(X, Y=None, scale_range=1., xy = (224,224),
         rescale: array, float (optional, default None)
             how much to resize images by before performing augmentations
         unet: bool (optional, default False)
+        random_per_image: bool (optional, default True)
+            different random rotate and resize per image
         Returns
         -------
         imgi: ND-array, float
@@ -785,27 +787,29 @@ def original_random_rotate_and_resize(X, Y=None, scale_range=1., xy = (224,224),
             nt = 1
         lbl = np.zeros((nimg, nt, xy[0], xy[1]), np.float32)
 
-    scale = np.zeros(nimg, np.float32)
+    scale = np.ones(nimg, np.float32)
+    
     for n in range(nimg):
         Ly, Lx = X[n].shape[-2:]
 
-        # generate random augmentation parameters
-        flip = np.random.rand()>.5
-        theta = np.random.rand() * np.pi * 2
-        scale[n] = (1-scale_range/2) + scale_range * np.random.rand()
-        if rescale is not None:
-            scale[n] *= 1. / rescale[n]
-        dxy = np.maximum(0, np.array([Lx*scale[n]-xy[1],Ly*scale[n]-xy[0]]))
-        dxy = (np.random.rand(2,) - .5) * dxy
+        if random_per_image or n==0:
+            # generate random augmentation parameters
+            flip = np.random.rand()>.5
+            theta = np.random.rand() * np.pi * 2
+            scale[n] = (1-scale_range/2) + scale_range * np.random.rand()
+            if rescale is not None:
+                scale[n] *= 1. / rescale[n]
+            dxy = np.maximum(0, np.array([Lx*scale[n]-xy[1],Ly*scale[n]-xy[0]]))
+            dxy = (np.random.rand(2,) - .5) * dxy
 
-        # create affine transform
-        cc = np.array([Lx/2, Ly/2])
-        cc1 = cc - np.array([Lx-xy[1], Ly-xy[0]])/2 + dxy
-        pts1 = np.float32([cc,cc + np.array([1,0]), cc + np.array([0,1])])
-        pts2 = np.float32([cc1,
-                cc1 + scale[n]*np.array([np.cos(theta), np.sin(theta)]),
-                cc1 + scale[n]*np.array([np.cos(np.pi/2+theta), np.sin(np.pi/2+theta)])])
-        M = cv2.getAffineTransform(pts1,pts2)
+            # create affine transform
+            cc = np.array([Lx/2, Ly/2])
+            cc1 = cc - np.array([Lx-xy[1], Ly-xy[0]])/2 + dxy
+            pts1 = np.float32([cc,cc + np.array([1,0]), cc + np.array([0,1])])
+            pts2 = np.float32([cc1,
+                    cc1 + scale[n]*np.array([np.cos(theta), np.sin(theta)]),
+                    cc1 + scale[n]*np.array([np.cos(np.pi/2+theta), np.sin(np.pi/2+theta)])])
+            M = cv2.getAffineTransform(pts1,pts2)
 
         img = X[n].copy()
         if Y is not None:

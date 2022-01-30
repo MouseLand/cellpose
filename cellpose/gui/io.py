@@ -130,10 +130,12 @@ def _load_image(parent, filename=None, load_seg=True):
             mask_file = os.path.splitext(filename)[0]+'_masks'+os.path.splitext(filename)[-1]
             load_mask = True if os.path.isfile(mask_file) else False
     try:
+        print(f'GUI_INFO: loading image: {filename}')
         image = imread(filename)
         parent.loaded = True
-    except:
+    except Exception as e:
         print('ERROR: images not compatible')
+        print(f'ERROR: {e}')
 
     if parent.loaded:
         parent.reset()
@@ -187,36 +189,50 @@ def _initialize_images(parent, image, resize, X2):
     else:
         image = image[np.newaxis,...]
     
+    img_min = image.min() 
+    img_max = image.max()
     parent.stack = image
     parent.NZ = len(parent.stack)
     parent.scroll.setMaximum(parent.NZ-1)
     parent.stack = parent.stack.astype(np.float32)
-    for i in range(parent.stack.shape[-1]):
-        parent.stack[...,i] -= parent.stack[...,i].min()
-        if np.ptp(parent.stack[...,i]) > 1e-6:
-            parent.stack[...,i] /= parent.stack[...,i].max()
+    parent.stack -= img_min
+    if img_max > img_min + 1e-3:
+        parent.stack /= (img_max - img_min)
     parent.stack *= 255
+    if parent.NZ>1:
+        print('GUI_INFO: converted to float and normalized values to 0.0->255.0')
     del image
     gc.collect()
 
-    parent.stack = list(parent.stack)
-    for k,img in enumerate(parent.stack):
-        # if grayscale make 3D
-        if resize != -1:
-            img = transforms._image_resizer(img, resize=resize, to_uint8=False)
-        if img.ndim==2:
-            img = np.tile(img[:,:,np.newaxis], (1,1,3))
-            parent.onechan=True
-        if X2!=0:
-            img = transforms._X2zoom(img, X2=X2)
-        parent.stack[k] = img
+    #parent.stack = list(parent.stack)
+
+    if parent.stack.ndim < 4:
+        parent.onechan=True
+        parent.stack = parent.stack[:,:,:,np.newaxis]
+    
+    # old code from resizing images when annotating original cellpose dataset
+    #for k,img in enumerate(parent.stack):
+    #    # if grayscale make 3D
+    #    if resize != -1:
+    #        img = transforms._image_resizer(img, resize=resize, to_uint8=False)
+    #    if img.ndim==2:
+    #        img = np.tile(img[:,:,np.newaxis], (1,1,3))
+    #    if X2!=0:
+    #        img = transforms._X2zoom(img, X2=X2)
+    #    parent.stack[k] = img
     
     parent.imask=0
-    parent.Ly, parent.Lx = img.shape[0], img.shape[1]
-    parent.stack = np.array(parent.stack)
-    parent.layers = 0*np.ones((parent.NZ,parent.Ly,parent.Lx,4), np.uint8)
-    if parent.autobtn.isChecked() or len(parent.saturation)!=parent.NZ:
+    parent.Ly, parent.Lx = parent.stack.shape[1:3]
+    parent.layerz = 255 * np.ones((parent.Ly,parent.Lx,4), 'uint8')
+    print(parent.layerz.shape)
+    if parent.autobtn.isChecked():
         parent.compute_saturation()
+    elif len(parent.saturation) != parent.NZ:
+        parent.saturation = []
+        for n in range(parent.NZ):
+            parent.saturation.append([0, 255])
+        parent.slider.setLow(0)
+        parent.slider.setHigh(255)
     parent.compute_scale()
     parent.currentZ = int(np.floor(parent.NZ/2))
     parent.scroll.setValue(parent.currentZ)
@@ -297,7 +313,7 @@ def _load_seg(parent, filename=None, image=None, image_file=None):
                     color = parent.colormap[col_rand,:3]
                 median = parent.add_mask(points=outline, color=color)
                 if median is not None:
-                    parent.cellcolors.append(color)
+                    parent.cellcolors = np.append(parent.cellcolors, color[np.newaxis,:], axis=0)
                     parent.ncells+=1
         else:
             if dat['masks'].ndim==2:
@@ -307,21 +323,21 @@ def _load_seg(parent, filename=None, image=None, image_file=None):
                 dat['masks'] += 1
                 dat['outlines'] += 1
             parent.ncells = dat['masks'].max()
-            if 'colors' in dat:
+            if 'colors' in dat and len(dat['colors'])==dat['masks'].max():
                 colors = dat['colors']
             else:
                 colors = parent.colormap[:parent.ncells,:3]
             parent.cellpix = dat['masks']
             parent.outpix = dat['outlines']
-            parent.cellcolors.extend(colors)
-            parent.draw_masks()
+            parent.cellcolors = np.append(parent.cellcolors, colors, axis=0)
+            
+            parent.draw_layer()
             if 'est_diam' in dat:
                 parent.Diameter.setText('%0.1f'%dat['est_diam'])
                 parent.diameter = dat['est_diam']
                 parent.compute_scale()
 
-            if parent.masksOn or parent.outlinesOn and not (parent.masksOn and parent.outlinesOn):
-                parent.redraw_masks(masks=parent.masksOn, outlines=parent.outlinesOn)
+            
         if 'zdraw' in dat:
             parent.zdraw = dat['zdraw']
         else:
@@ -363,6 +379,7 @@ def _load_seg(parent, filename=None, image=None, image_file=None):
             parent.probslider.setEnabled(False)
             
     parent.enable_buttons()
+    parent.update_layer()
     del dat
     gc.collect()
 
@@ -373,6 +390,7 @@ def _load_masks(parent, filename=None):
             parent, "Load masks (PNG or TIFF)"
             )
         filename = name[0]
+    print(f'GUI_INFO: loading masks: {filename}')
     masks = imread(filename)
     outlines = None
     if masks.ndim>3:
@@ -393,21 +411,25 @@ def _load_masks(parent, filename=None):
     if masks.shape[0]!=parent.NZ:
         print('ERROR: masks are not same depth (number of planes) as image stack')
         return
-    print(f'GUI_INFO: {len(np.unique(masks))-1} masks found in {filename}')
 
     _masks_to_gui(parent, masks, outlines)
-
+    del masks 
+    gc.collect()
+    parent.update_layer()
     parent.update_plot()
 
 def _masks_to_gui(parent, masks, outlines=None):
     """ masks loaded into GUI """
     # get unique values
     shape = masks.shape
-    
+    masks = masks.flatten()
     fastremap.renumber(masks, in_place=True)
-    masks = np.reshape(masks, shape)
+    masks = masks.reshape(shape)
     masks = masks.astype(np.uint16) if masks.max()<2**16-1 else masks.astype(np.uint32)
     parent.cellpix = masks
+    if parent.cellpix.ndim == 2:
+        parent.cellpix = parent.cellpix[np.newaxis,:,:]
+    print(f'GUI_INFO: {masks.max()} masks found')
 
     # get outlines
     if outlines is None: # parent.outlinesOn
@@ -425,14 +447,14 @@ def _masks_to_gui(parent, masks, outlines=None):
 
     parent.ncells = parent.cellpix.max()
     colors = parent.colormap[:parent.ncells, :3]
-
-    parent.cellcolors = list(np.concatenate((np.array([[255,255,255]]), colors), axis=0).astype(np.uint8))
-    parent.draw_masks()
-    parent.redraw_masks(masks=parent.masksOn, outlines=parent.outlinesOn) # add to obey outline/mask setting upon recomputing 
+    print('GUI_INFO: creating cellcolors and drawing masks')
+    parent.cellcolors = np.concatenate((np.array([[255,255,255]]), colors), axis=0).astype(np.uint8)
+    parent.draw_layer()
     if parent.ncells>0:
         parent.toggle_mask_ops()
     parent.ismanual = np.zeros(parent.ncells, bool)
     parent.zdraw = list(-1*np.ones(parent.ncells, np.int16))
+    parent.update_layer()
     parent.update_plot()
 
 def _save_png(parent):

@@ -6,6 +6,7 @@ from urllib.parse import urlparse
 import tempfile
 import cv2
 from scipy.stats import mode
+import fastremap
 from . import transforms, dynamics, utils, plot, metrics
 
 try:
@@ -34,7 +35,6 @@ except Exception as e:
 core_logger = logging.getLogger(__name__)
 tqdm_out = utils.TqdmToLogger(core_logger, level=logging.INFO)
 
-# nclasses now specified by user or by model type in models.py
 def parse_model_string(pretrained_model):
     if isinstance(pretrained_model, list):
         model_str = os.path.split(pretrained_model[0])[-1]
@@ -45,12 +45,12 @@ def parse_model_string(pretrained_model):
     elif len(model_str)>7 and model_str[:8]=='cellpose':
         nclasses = 3
     else:
-        return True, True, False
+        return 3, True, True, False
     ostrs = model_str.split('_')[2::2]
     residual_on = ostrs[0]=='on'
     style_on = ostrs[1]=='on'
     concatenation = ostrs[2]=='on'
-    return residual_on, style_on, concatenation
+    return nclasses, residual_on, style_on, concatenation
 
 def use_gpu(gpu_number=0, istorch=True):
     """ check if gpu works """
@@ -119,6 +119,7 @@ class UnetModel():
                     residual_on=False, style_on=False, concatenation=True,
                     nclasses=3, torch=True, nchan=2):
         self.unet = True
+        self.omni = False
         if torch:
             if not TORCH_ENABLED:
                 torch = False
@@ -139,9 +140,11 @@ class UnetModel():
         self.diam_mean = diam_mean
 
         if pretrained_model:
-            params = parse_model_string(pretrained_model)
-            if params is not None:
-                nclasses, residual_on, style_on, concatenation = params
+            #nclasses, residul
+            nclasses = 3
+            #params = parse_model_string(pretrained_model)
+            #if params is not None:
+            #    nclasses, residual_on, style_on, concatenation = params
         
         ostr = ['off', 'on']
         self.net_type = 'unet{}_residual_{}_style_{}_concatenation_{}'.format(nclasses,
@@ -176,6 +179,7 @@ class UnetModel():
 
     def eval(self, x, batch_size=8, channels=None, channels_last=False, invert=False, normalize=True,
              rescale=None, do_3D=False, anisotropy=None, net_avg=True, augment=False,
+             channel_axis=None, z_axis=None, nolist=False,
              tile=True, cell_threshold=None, boundary_threshold=None, min_size=15):
         """ segment list of images x
 
@@ -292,7 +296,7 @@ class UnetModel():
                 img = x[i].copy()
                 shape = img.shape
                 # rescale image for flow computation
-                imgs = transforms.resize_image(img, rsz=rescale[i])
+                img = transforms.resize_image(img, rsz=rescale[i])
                 y, style = self._run_nets(img, net_avg=net_avg, augment=augment, 
                                           tile=tile)
                 
@@ -676,14 +680,22 @@ class UnetModel():
             lbl[boundary] *= 2
         else:
             lbl = lbl[:,0]
-        lbl = self._to_device(lbl)
+        lbl = self._to_device(lbl).long()
         loss = 8 * 1./self.nclasses * self.criterion(y, lbl)
+        
+        if 0:#else:
+            if lbl.shape[1]>1 and self.nclasses>2:
+                lbl[:,1] = lbl[:,1] <= 4
+            lbl = self._to_device(lbl)
+            lbl = torch.cat((lbl[:,[0]]==0, lbl), dim=1)
+            loss = 8 * 1./self.nclasses * self.criterion(y, lbl)
         return loss
 
     def train(self, train_data, train_labels, train_files=None, 
               test_data=None, test_labels=None, test_files=None,
-              channels=None, normalize=True, save_path=None, save_every=50, save_each=False,
-              learning_rate=0.2, n_epochs=500, momentum=0.9, weight_decay=0.00001, batch_size=8, rescale=False):
+              channels=None, normalize=True, save_path=None, save_every=100, save_each=False,
+              learning_rate=0.2, n_epochs=500, momentum=0.9, weight_decay=0.00001, batch_size=8, 
+              nimg_per_epoch=None, min_train_masks=5, rescale=False, netstr=None, omni=False):
         """ train function uses 0-1 mask label and boundary pixels for training """
 
         nimg = len(train_data)
@@ -691,39 +703,52 @@ class UnetModel():
         train_data, train_labels, test_data, test_labels, run_test = transforms.reshape_train_test(train_data, train_labels,
                                                                                                    test_data, test_labels,
                                                                                                    channels, normalize)
-
+        train_labels = [fastremap.renumber(label, in_place=True)[0] for label in train_labels]
         # add dist_to_bound to labels
         if self.nclasses==3:
-            core_logger.info('computing boundary pixels')
+            core_logger.info('computing boundary pixels for training data')
             train_classes = [np.stack((label, label>0, utils.distance_to_boundary(label)), axis=0).astype(np.float32)
                                 for label in tqdm(train_labels, file=tqdm_out)]
         else:
             train_classes = [np.stack((label, label>0), axis=0).astype(np.float32)
                                 for label in tqdm(train_labels, file=tqdm_out)]
         if run_test:
+            test_labels = [fastremap.renumber(label, in_place=True)[0] for label in test_labels]
             if self.nclasses==3:
+                core_logger.info('computing boundary pixels for test data')
                 test_classes = [np.stack((label, label>0, utils.distance_to_boundary(label)), axis=0).astype(np.float32)
                                     for label in tqdm(test_labels, file=tqdm_out)]
             else:
                 test_classes = [np.stack((label, label>0), axis=0).astype(np.float32)
                                     for label in tqdm(test_labels, file=tqdm_out)]
+        else:
+            test_classes = None
         
+        nmasks = np.array([label[0].max()-1 for label in train_classes])
+        nremove = (nmasks < min_train_masks).sum()
+        if nremove > 0:
+            core_logger.warning(f'{nremove} train images with number of masks less than min_train_masks ({min_train_masks}), removing from train set')
+            ikeep = np.nonzero(nmasks >= min_train_masks)[0]
+            train_data = [train_data[i] for i in ikeep]
+            train_classes = [train_classes[i] for i in ikeep]
+            train_labels = [train_labels[i] for i in ikeep]
+
         # split train data into train and val
         val_data = train_data[::8]
         val_classes = train_classes[::8]
         val_labels = train_labels[::8]
         del train_data[::8], train_classes[::8], train_labels[::8]
-
-        model_path = self._train_net(train_data, train_classes, 
-                                     test_data, test_classes, save_path, save_every, save_each,
-                                     learning_rate, n_epochs, momentum, weight_decay, 
-                                     batch_size, rescale)
-
+        model_path = self._train_net(train_data, train_classes, test_data, test_classes,
+                                    save_path=save_path, save_every=save_every, save_each=save_each,
+                                    learning_rate=learning_rate, n_epochs=n_epochs, momentum=momentum, 
+                                    weight_decay=weight_decay, SGD=True, batch_size=batch_size, 
+                                    nimg_per_epoch=nimg_per_epoch, rescale=rescale, netstr=netstr)
 
         # find threshold using validation set
         core_logger.info('>>>> finding best thresholds using validation set')
         cell_threshold, boundary_threshold = self.threshold_validation(val_data, val_labels)
         np.save(model_path+'_cell_boundary_threshold.npy', np.array([cell_threshold, boundary_threshold]))
+        return model_path
 
     def threshold_validation(self, val_data, val_labels):
         cell_thresholds = np.arange(-4.0, 4.25, 0.5)
@@ -735,8 +760,8 @@ class UnetModel():
         for j,cell_threshold in enumerate(cell_thresholds):
             for k,boundary_threshold in enumerate(boundary_thresholds):
                 masks = []
-                for i in range(len(val_data)):
-                    output,style = self._run_net(val_data[i].transpose(1,2,0), augment=False)
+                for data in val_data:
+                    output,style = self._run_net(data.transpose(1,2,0), augment=False)
                     masks.append(utils.get_masks_unet(output, cell_threshold, boundary_threshold))
                 ap = metrics.average_precision(val_labels, masks)[0]
                 ap0 = ap.mean(axis=0)
@@ -821,9 +846,9 @@ class UnetModel():
     def _set_criterion(self):
         if self.unet:
             if self.torch:
-                criterion = nn.SoftmaxCrossEntropyLoss(axis=1)
+                self.criterion = nn.CrossEntropyLoss(reduction='mean')
             else:
-                criterion = gluon.loss.SoftmaxCrossEntropyLoss(axis=1)
+                self.criterion = gluon.loss.SoftmaxCrossEntropyLoss(axis=1)
         else:
             if self.torch:
                 self.criterion  = nn.MSELoss(reduction='mean')
@@ -942,7 +967,7 @@ class UnetModel():
                                         [train_data[i] for i in inds], Y=[train_labels[i] for i in inds],
                                         rescale=rsc, scale_range=scale_range, unet=self.unet, inds=inds, omni=self.omni)
                 if self.unet and lbl.shape[1]>1 and rescale:
-                    lbl[:,1] /= diam_batch[:,np.newaxis,np.newaxis]**2
+                    lbl[:,1] *= scale[:,np.newaxis,np.newaxis]**2#diam_batch[:,np.newaxis,np.newaxis]**2
                 train_loss = self._train_step(imgi, lbl)
                 lavg += train_loss
                 nsum += len(imgi) 
@@ -960,7 +985,7 @@ class UnetModel():
                                             [test_data[i] for i in inds], Y=[test_labels[i] for i in inds], 
                                             scale_range=0., rescale=rsc, unet=self.unet, inds=inds, omni=self.omni) 
                         if self.unet and lbl.shape[1]>1 and rescale:
-                            lbl[:,1] *= scale[0]**2
+                            lbl[:,1] *= scale[:,np.newaxis,np.newaxis]**2
 
                         test_loss = self._test_eval(imgi, lbl)
                         lavgt += test_loss
@@ -996,7 +1021,6 @@ class UnetModel():
 
         # reset to mkldnn if available
         self.net.mkldnn = self.mkldnn
-
         return file_name
 
 class DerivativeLoss(torch.nn.Module):

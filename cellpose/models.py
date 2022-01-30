@@ -396,7 +396,7 @@ class CellposeModel(UnetModel):
                 pretrained_model_string = pretrained_model[0]
                 params = parse_model_string(pretrained_model_string)
                 if params is not None:
-                    residual_on, style_on, concatenation = params 
+                    nclasses, residual_on, style_on, concatenation = params 
                 self.omni = 'omni' in os.path.splitext(Path(pretrained_model_string).name)[0]
         
         # must have four classes for omnipose models
@@ -404,7 +404,6 @@ class CellposeModel(UnetModel):
         #would be better just to read from the model 
         if self.omni:
             self.nclasses = 4       
-
         # initialize network
         super().__init__(gpu=gpu, pretrained_model=False,
                          diam_mean=self.diam_mean, net_avg=net_avg, device=device,

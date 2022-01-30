@@ -4,7 +4,7 @@ import subprocess
 import numpy as np
 from natsort import natsorted
 from tqdm import tqdm
-from cellpose import utils, models, io
+from cellpose import utils, models, io, core
 
 try:
     from cellpose.gui import gui 
@@ -73,7 +73,7 @@ def main():
     # model settings 
     model_args = parser.add_argument_group("model arguments")
     parser.add_argument('--pretrained_model', required=False, default='cyto', type=str, help='model to use')
-    parser.add_argument('--unet', required=False, default=0, type=int, help='run standard unet instead of cellpose flow output')
+    parser.add_argument('--unet', action='store_true', help='run standard unet instead of cellpose flow output')
     model_args.add_argument('--nclasses',default=3, type=int, help='if running unet, choose 2 or 3; if training omni, choose 4; standard Cellpose uses 3')
 
 
