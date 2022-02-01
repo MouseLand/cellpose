@@ -376,9 +376,9 @@ def steps2D_interp(p, dP, niter, use_gpu=False, device=None, omni=False, calc_tr
     if use_gpu and TORCH_ENABLED:
         if device is None:
             device = torch_GPU
-        shape = np.array(shape)[[1,0]].astype('double')-1  # Y and X dimensions (dP is 2.Ly.Lx), flipped X-1, Y-1
-        pt = torch.from_numpy(p[[1,0]].T).double().to(device).unsqueeze(0).unsqueeze(0) # p is n_points by 2, so pt is [1 1 2 n_points]
-        im = torch.from_numpy(dP[[1,0]]).double().to(device).unsqueeze(0) #covert flow numpy array to tensor on GPU, add dimension 
+        shape = np.array(shape)[[1,0]].astype('float')-1  # Y and X dimensions (dP is 2.Ly.Lx), flipped X-1, Y-1
+        pt = torch.from_numpy(p[[1,0]].T).float().to(device).unsqueeze(0).unsqueeze(0) # p is n_points by 2, so pt is [1 1 2 n_points]
+        im = torch.from_numpy(dP[[1,0]]).float().to(device).unsqueeze(0) #covert flow numpy array to tensor on GPU, add dimension 
         # normalize pt between  0 and  1, normalize the flow
         for k in range(2): 
             im[:,k,:,:] *= 2./shape[k]
@@ -633,7 +633,7 @@ def remove_bad_flow_masks(masks, flows, threshold=0.4, use_gpu=False, device=Non
     masks[np.isin(masks, badi)] = 0
     return masks
 
-def get_masks(p, iscell=None, rpad=20, flows=None, threshold=0.4, use_gpu=False, device=None):
+def get_masks(p, iscell=None, rpad=20):
     """ create masks using pixel convergence after running dynamics
     
     Makes a histogram of final pixel locations p, initializes masks 
@@ -770,7 +770,7 @@ def compute_masks(dP, cellprob, bd=None, p=None, inds=None, niter=200, mask_thre
                 dynamics_logger.info('p given')
         
         #calculate masks
-        mask = get_masks(p, iscell=cp_mask, flows=dP, use_gpu=use_gpu)
+        mask = get_masks(p, iscell=cp_mask)
             
         # flow thresholding factored out of get_masks
         if not do_3D:

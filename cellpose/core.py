@@ -180,7 +180,8 @@ class UnetModel():
     def eval(self, x, batch_size=8, channels=None, channels_last=False, invert=False, normalize=True,
              rescale=None, do_3D=False, anisotropy=None, net_avg=True, augment=False,
              channel_axis=None, z_axis=None, nolist=False,
-             tile=True, cell_threshold=None, boundary_threshold=None, min_size=15):
+             tile=True, cell_threshold=None, boundary_threshold=None, min_size=15, 
+             compute_masks=True):
         """ segment list of images x
 
             Parameters
@@ -299,11 +300,13 @@ class UnetModel():
                 img = transforms.resize_image(img, rsz=rescale[i])
                 y, style = self._run_nets(img, net_avg=net_avg, augment=augment, 
                                           tile=tile)
-                
-                maski = utils.get_masks_unet(y, cell_threshold, boundary_threshold)
-                maski = utils.fill_holes_and_remove_small_masks(maski, min_size=min_size)
-                maski = transforms.resize_image(maski, shape[-3], shape[-2], 
-                                                    interpolation=cv2.INTER_NEAREST)
+                if compute_masks:
+                    maski = utils.get_masks_unet(y, cell_threshold, boundary_threshold)
+                    maski = utils.fill_holes_and_remove_small_masks(maski, min_size=min_size)
+                    maski = transforms.resize_image(maski, shape[-3], shape[-2], 
+                                                        interpolation=cv2.INTER_NEAREST)
+                else:
+                    maski = None
                 masks.append(maski)
                 styles.append(style)
         else:
@@ -313,8 +316,11 @@ class UnetModel():
                                          net_avg=net_avg, augment=augment, tile=tile)
                 yf = yf.mean(axis=0)
                 core_logger.info('probabilities computed %2.2fs'%(time.time()-tic))
-                maski = utils.get_masks_unet(yf.transpose((1,2,3,0)), cell_threshold, boundary_threshold)
-                maski = utils.fill_holes_and_remove_small_masks(maski, min_size=min_size)
+                if compute_masks:
+                    maski = utils.get_masks_unet(yf.transpose((1,2,3,0)), cell_threshold, boundary_threshold)
+                    maski = utils.fill_holes_and_remove_small_masks(maski, min_size=min_size)
+                else:
+                    maski = None
                 masks.append(maski)
                 styles.append(style)
                 core_logger.info('masks computed %2.2fs'%(time.time()-tic))

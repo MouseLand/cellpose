@@ -337,7 +337,9 @@ def _load_seg(parent, filename=None, image=None, image_file=None):
                 parent.diameter = dat['est_diam']
                 parent.compute_scale()
 
-            
+        if 'manual_changes' in dat: 
+            parent.track_changes = dat['manual_changes']
+            print('GUI_INFO: loaded in previous changes')    
         if 'zdraw' in dat:
             parent.zdraw = dat['zdraw']
         else:

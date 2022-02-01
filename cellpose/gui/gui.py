@@ -181,8 +181,7 @@ class MainW(QMainWindow):
 
         menus.mainmenu(self)
         menus.editmenu(self)
-        #menus.modelmenu(self)
-        self.model_strings = models.MODEL_NAMES.copy()
+        menus.modelmenu(self)
         menus.helpmenu(self)
         if OMNI_INSTALLED:
             menus.omnimenu(self)
@@ -1805,7 +1804,7 @@ class MainW(QMainWindow):
         self.SizeButton.setEnabled(True)
         self.ModelButton.setStyleSheet(self.styleUnpressed)
         self.SizeButton.setStyleSheet(self.styleUnpressed)
-        #self.newmodel.setEnabled(True)
+        self.newmodel.setEnabled(True)
         self.loadMasks.setEnabled(True)
         self.saveSet.setEnabled(True)
         self.savePNG.setEnabled(True)
