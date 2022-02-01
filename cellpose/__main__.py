@@ -237,7 +237,7 @@ def main():
             logger.info('>>>> running cellpose on %d images using chan_to_seg %s and chan (opt) %s'%
                             (nimg, cstr0[channels[0]], cstr1[channels[1]]))
             if args.omni:
-                logger.info('>>>> omni is ON, cluster is %d'%(args.omni,args.cluster))
+                logger.info('>>>> omni is ON, cluster is %d'%(args.cluster))
              
             # handle built-in model exceptions; bacterial ones get no size model 
             if builtin_model:
