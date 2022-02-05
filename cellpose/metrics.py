@@ -207,8 +207,8 @@ def _intersection_over_union(masks_true, masks_pred):
 
     ## The following code checks if a cell at page t completely overshadows (total overlap, not partial)
     ## another cell at page t+1 (and the other way round)
-    to_fwd = None
-    to_bwd = None
+    to_fwd = coo_matrix([])
+    to_bwd = coo_matrix([])
     if np.any(masks_true) and np.any(masks_pred):
         to_fwd = np.zeros(overlap.shape)
         np.divide(overlap, n_pixels_true, out=to_fwd, where=n_pixels_true != 0)

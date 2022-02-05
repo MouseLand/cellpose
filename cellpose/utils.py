@@ -381,7 +381,9 @@ def stitch3D(masks, stitch_threshold=0.25):
             mmax += len(ino)
             istitch = np.append(np.array(0), istitch)
 
-            if (to_fwd is not None) and (to_bwd is not None):
+            # apply the patch so that if cells fully overlap between successive slices
+            # they get the same label regardless to the iou metric
+            if (to_fwd.nnz != 0) or (to_bwd.nnz != 0):  # this line can be removed.
                 istitch[to_fwd.row] = to_fwd.col
                 istitch[to_bwd.row] = to_bwd.col
 
