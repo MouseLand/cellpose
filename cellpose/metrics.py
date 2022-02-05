@@ -1,13 +1,15 @@
 import numpy as np
 from . import utils, dynamics
 from numba import jit
+from scipy.sparse import coo_matrix
 from scipy.optimize import linear_sum_assignment
 from scipy.ndimage import convolve, mean
 
 
 def mask_ious(masks_true, masks_pred):
     """ return best-matched masks """
-    iou = _intersection_over_union(masks_true, masks_pred)[1:,1:]
+    iou, to_fwd, to_bwd = _intersection_over_union(masks_true, masks_pred)
+    iou = iou[1:, 1:]
     n_min = min(iou.shape[0], iou.shape[1])
     costs = -(iou >= 0.5).astype(float) - iou / (2*n_min)
     true_ind, pred_ind = linear_sum_assignment(costs)
@@ -115,7 +117,8 @@ def average_precision(masks_true, masks_pred, threshold=[0.5, 0.75, 0.9]):
     for n in range(len(masks_true)):
         #_,mt = np.reshape(np.unique(masks_true[n], return_index=True), masks_pred[n].shape)
         if n_pred[n] > 0:
-            iou = _intersection_over_union(masks_true[n], masks_pred[n])[1:, 1:]
+            iou, to_fwd, to_bwd = _intersection_over_union(masks_true[n], masks_pred[n])
+            iou = iou[1:, 1:]
             for k,th in enumerate(threshold):
                 tp[n,k] = _true_positive(iou, th)
         fp[n] = n_pred[n] - tp[n]
@@ -201,7 +204,24 @@ def _intersection_over_union(masks_true, masks_pred):
     n_pixels_true = np.sum(overlap, axis=1, keepdims=True)
     iou = overlap / (n_pixels_pred + n_pixels_true - overlap)
     iou[np.isnan(iou)] = 0.0
-    return iou
+
+    ## The following code checks if a cell at page t completely overshadows (total overlap, not partial)
+    ## another cell at page t+1 (and the other way round)
+    to_fwd = None
+    to_bwd = None
+    if np.any(masks_true) and np.any(masks_pred):
+        to_fwd = np.zeros(overlap.shape)
+        np.divide(overlap, n_pixels_true, out=to_fwd, where=n_pixels_true != 0)
+        to_fwd[0, :] = 0
+        to_fwd[:, 0] = 0
+        to_fwd = coo_matrix(to_fwd == 1)
+
+        to_bwd = np.zeros(overlap.shape)
+        np.divide(overlap, n_pixels_pred, out=to_bwd, where=n_pixels_pred != 0)
+        to_bwd[0, :] = 0
+        to_bwd[:, 0] = 0
+        to_bwd = coo_matrix(to_bwd == 1)
+    return iou, to_fwd, to_bwd
 
 def _true_positive(iou, th):
     """ true positive at threshold th

@@ -490,7 +490,8 @@ def mask_stats(test_root, save_root, save_figure=False):
     for j in range(len(masks)):
         iouall=np.zeros(0)
         for i in range(len(test_labels)):
-            iou = metrics._intersection_over_union(test_labels[i], masks[j][i])[1:,1:]
+            iou, to_fwd, to_bwd = metrics._intersection_over_union(test_labels[i], masks[j][i])
+            iou = iou[1:, 1:]
             n_min = min(iou.shape[0], iou.shape[1])
             costs = -(iou >= 0.5).astype(float) - iou / (2*n_min)
             true_ind, pred_ind = linear_sum_assignment(costs)
