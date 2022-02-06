@@ -181,6 +181,17 @@ def _intersection_over_union(masks_true, masks_pred):
 
     iou: ND-array, float
         matrix of IOU pairs of size [x.max()+1, y.max()+1]
+
+    to_fwd: coo_matrix
+        matrix of the pairs of labels from masks_true that are fully covered
+        by a mask from masks_pred. For example (to_fwd.row[i], to_fwd_col[i]to_fwd_col[i])
+        means that the mask labeled as to_fwd.row[i] (on the next page of the z-stack) is
+        totally covered by another mask which is labeled as to_fwd.col[i] (on the current page
+        of the z-stack)
+
+    to_bwd: coo_matrix
+        Same as to_fwd but now it looks for masks in masks_pred that are totally covered by
+        a mask in masks_true
     
     ------------
     How it works:
