@@ -57,9 +57,13 @@ def _add_model(parent, filename=None, permanent=True):
     parent.ModelChoose.setCurrentIndex(len(parent.model_strings) - 1)
     parent.NetAvg.setCurrentIndex(1)
 
-#def _remove_non_permanent_models(parent):
-#    for perm in parent.permanent_model:
-#        if not perm: 
+def _remove_non_permanent_models(parent):
+    i = 0
+    for perm in parent.permanent_model:
+        if not perm: 
+            _remove_model(parent, ind=i)
+        else:
+            i+=1
 
 def _remove_model(parent, ind=None):
     if ind is None:
@@ -92,21 +96,16 @@ def _get_train_set(image_names):
         label_name = None
         if os.path.exists(image_name + '_seg.npy'):
             dat = np.load(image_name + '_seg.npy', allow_pickle=True).item()
-            masks = dat['masks']
-            imsave(image_name + '_masks.tif', masks)
-            label_name = image_name + '_masks.tif'
-        else:
-            mask_filter = '_masks'
-            if os.path.exists(image_name + mask_filter + '.tif'):
-                label_name = image_name + mask_filter + '.tif'
-            elif os.path.exists(image_name + mask_filter + '.tiff'):
-                label_name = image_name + mask_filter + '.tiff'
-            elif os.path.exists(image_name + mask_filter + '.png'):
-                label_name = image_name + mask_filter + '.png'
+            masks = dat['masks'].squeeze()
+            if masks.ndim==2:
+                fastremap.renumber(masks, in_place=True)
+                label_name = image_name + '_seg.npy'
+            else:
+                print(f'GUI_INFO: _seg.npy found for {image_name} but masks.ndim!=2')
         if label_name is not None:
             train_files.append(image_name_full)
             train_data.append(imread(image_name_full))
-            train_labels.append(imread(label_name))
+            train_labels.append(masks)
     return train_data, train_labels, train_files
 
 def _load_image(parent, filename=None, load_seg=True):

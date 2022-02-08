@@ -458,24 +458,14 @@ class MainW(QMainWindow):
 
         b+=1
         # choose channel
-        self.ChannelChoose = [QComboBox(), QComboBox()]
-        self.ChannelChoose[0].addItems(['gray','red','green','blue'])
-        self.ChannelChoose[1].addItems(['none','red','green','blue'])
-        cstr = ['chan to segment:', 'chan2 (optional): ']
+        self.ChannelChoose, self.ChannelLabels = guiparts.create_channel_choose()
         for i in range(2):
             #self.ChannelChoose[i].setFixedWidth(70)
             self.ChannelChoose[i].setStyleSheet(self.dropdowns)
             self.ChannelChoose[i].setFont(self.medfont)
-            label = QLabel(cstr[i])
-            label.setStyleSheet(label_style)
-            label.setFont(self.medfont)
-            if i==0:
-                label.setToolTip('this is the channel in which the cytoplasm or nuclei exist that you want to segment')
-                self.ChannelChoose[i].setToolTip('this is the channel in which the cytoplasm or nuclei exist that you want to segment')
-            else:
-                label.setToolTip('if <em>cytoplasm</em> model is chosen, and you also have a nuclear channel, then choose the nuclear channel for this option')
-                self.ChannelChoose[i].setToolTip('if <em>cytoplasm</em> model is chosen, and you also have a nuclear channel, then choose the nuclear channel for this option')
-            self.l0.addWidget(label, b, 0,1,4)
+            self.ChannelLabels[i].setStyleSheet(label_style)
+            self.ChannelLabels[i].setFont(self.medfont)
+            self.l0.addWidget(self.ChannelLabels[i], b, 0,1,4)
             self.l0.addWidget(self.ChannelChoose[i], b, 4,1,4)
             b+=1
 
@@ -1591,10 +1581,6 @@ class MainW(QMainWindow):
             print('ERROR: cannot train model on 3D data')
             return
         
-        # do not save current masks, could be from bad model
-        #print('GUI_INFO: saving current masks to add to training')
-        #io._save_sets(self)
-
         # train model
         image_names = self.get_files()[0]
         self.train_data, self.train_labels, self.train_files = io._get_train_set(image_names)
@@ -1608,7 +1594,7 @@ class MainW(QMainWindow):
                 self.current_model = 'scratch'
                 self.current_model_path = None
             self.channels = self.get_channels()
-            logger.info(f'training with chan (cyto) = {self.ChannelChoose[0].currentText()}, chan2 (nuclei)={self.ChannelChoose[1].currentText()}')
+            logger.info(f'training with chan (cyto) = {self.ChannelChoose[0].currentText()}, chan2 (nuclei) = {self.ChannelChoose[1].currentText()}')
             
             if self.training:
                 # currently in training mode, need to remove new model path
@@ -1634,7 +1620,7 @@ class MainW(QMainWindow):
         d = datetime.datetime.now()
         netstr = self.current_model + d.strftime("_%Y%m%d_%H%M%S")
         print(netstr)
-        self.new_model_path = self.model.train(self.train_data, self.train_labels, self.train_files, 
+        self.new_model_path = self.model.train(self.train_data, self.train_labels, 
                                                  channels=self.channels, save_path=save_path, 
                                                  learning_rate=self.learning_rate, n_epochs=self.n_epochs,
                                                  weight_decay=self.weight_decay, 
@@ -1648,6 +1634,7 @@ class MainW(QMainWindow):
         self.autorun = True
         if self.autorun:
             channels = self.channels.copy()
+            self.clear_all()
             self.get_next_image(load_seg=True)
             # keep same channels
             self.ChannelChoose[0].setCurrentIndex(channels[0])
@@ -1664,6 +1651,11 @@ class MainW(QMainWindow):
         logger.info(f'!!! computed masks for {os.path.split(self.filename)[1]} from new model !!!')
         
     def end_train(self):
+        EW = guiparts.EndTrainWindow(self)
+        yes = EW.exec_()
+        io._remove_non_permanent_models(self)
+        print(yes)
+        
         self.endtrain.setEnabled(False)
         self.training = False
         print('done')    
