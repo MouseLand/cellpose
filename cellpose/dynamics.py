@@ -259,7 +259,7 @@ def masks_to_flows(masks, use_gpu=False, device=None):
     """
     if masks.max() == 0:
         dynamics_logger.warning('empty masks!')
-        return masks, None, None, np.zeros((2, *masks.shape), 'float32')
+        return np.zeros((2, *masks.shape), 'float32')
 
     if TORCH_ENABLED and use_gpu:
         if use_gpu and device is None:

@@ -564,7 +564,7 @@ class CellposeModel(UnetModel):
         if verbose:
             models_logger.info('Evaluating with flow_threshold %0.2f, mask_threshold %0.2f'%(flow_threshold, mask_threshold))
             if omni:
-                models_logger.info('using omni model, cluster %d'%(omni,cluster))
+                models_logger.info(f'using omni model, cluster {cluster}')
         
         
         if isinstance(x, list) or x.squeeze().ndim==5:
@@ -867,7 +867,7 @@ class CellposeModel(UnetModel):
         else:
             test_flows = None
 
-        nmasks = np.array([label[0].max()-1 for label in train_flows])
+        nmasks = np.array([label[0].max() for label in train_flows])
         nremove = (nmasks < min_train_masks).sum()
         if nremove > 0:
             models_logger.warning(f'{nremove} train images with number of masks less than min_train_masks ({min_train_masks}), removing from train set')
@@ -875,6 +875,8 @@ class CellposeModel(UnetModel):
             train_data = [train_data[i] for i in ikeep]
             train_flows = [train_flows[i] for i in ikeep]
 
+        if channels is None:
+            models_logger.warning('channels is set to None, input must therefore have nchan channels (default is 2)')
         model_path = self._train_net(train_data, train_flows, 
                                      test_data=test_data, test_labels=test_flows,
                                      save_path=save_path, save_every=save_every, save_each=save_each,

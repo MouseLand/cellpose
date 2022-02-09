@@ -230,12 +230,12 @@ class MainW(QMainWindow):
             self.cmap.append(make_cmap(i).getLookupTable(start=0.0, stop=255.0, alpha=False))
 
         if MATPLOTLIB:
-            self.colormap = (plt.get_cmap('gist_ncar')(np.linspace(0.0,.9,1000)) * 255).astype(np.uint8)
+            self.colormap = (plt.get_cmap('gist_ncar')(np.linspace(0.0,.9,1000000)) * 255).astype(np.uint8)
             np.random.seed(42) # make colors stable
-            self.colormap = self.colormap[np.random.permutation(1000)]
+            self.colormap = self.colormap[np.random.permutation(1000000)]
         else:
             np.random.seed(42) # make colors stable
-            self.colormap = ((np.random.rand(1000,3)*0.8+0.1)*255).astype(np.uint8)
+            self.colormap = ((np.random.rand(1000000,3)*0.8+0.1)*255).astype(np.uint8)
         self.reset()
 
         self.is_stack = True # always loading images of same FOV
@@ -1139,21 +1139,23 @@ class MainW(QMainWindow):
         self.Ly, self.Lx, _ = self.stack[self.currentZ].shape
         if self.view==0:
             image = self.stack[self.currentZ]
+            if self.onechan:
+                # show single channel
+                image = self.stack[self.currentZ,:,:,0]
             if self.color==0:
-                if self.onechan:
-                    # show single channel
-                    image = self.stack[self.currentZ][:,:,0]
                 self.img.setImage(image, autoLevels=False, lut=None)
             elif self.color>0 and self.color<4:
-                image = image[:,:,self.color-1]
+                if not self.onechan:
+                    image = image[:,:,self.color-1]
                 self.img.setImage(image, autoLevels=False, lut=self.cmap[self.color])
             elif self.color==4:
-                image = image.astype(np.float32).mean(axis=-1).astype(np.uint8)
+                if not self.onechan:
+                    image = image.mean(axis=-1)
                 self.img.setImage(image, autoLevels=False, lut=None)
             elif self.color==5:
-                image = image.astype(np.float32).mean(axis=-1).astype(np.uint8)
+                if not self.onechan:
+                    image = image.mean(axis=-1)
                 self.img.setImage(image, autoLevels=False, lut=self.cmap[0])
-            
             self.img.setLevels(self.saturation[self.currentZ])
         else:
             image = np.zeros((self.Ly,self.Lx), np.uint8)
@@ -1329,7 +1331,7 @@ class MainW(QMainWindow):
                                     np.percentile(self.stack[n].astype(np.float32),99)])
 
     def chanchoose(self, image):
-        if image.ndim > 2:
+        if image.ndim > 2 and not self.onechan:
             if self.ChannelChoose[0].currentIndex()==0:
                 image = image.astype(np.float32).mean(axis=-1)[...,np.newaxis]
             else:

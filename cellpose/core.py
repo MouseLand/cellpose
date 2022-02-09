@@ -993,6 +993,8 @@ class UnetModel():
                     ksave += 1
                     core_logger.info(f'saving network parameters to {file_name}')
                     self.net.save_model(file_name)
+            else:
+                file_name = save_path
 
         # reset to mkldnn if available
         self.net.mkldnn = self.mkldnn

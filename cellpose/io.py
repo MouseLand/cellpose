@@ -6,14 +6,14 @@ import tifffile
 import logging, pathlib, sys
 from pathlib import Path
 
-from . import utils, plot, transforms
-
 try:
     from omnipose.utils import format_labels
     import ncolor, edt
     OMNI_INSTALLED = True
 except:
     OMNI_INSTALLED = False
+
+from . import utils, plot, transforms
 
 try:
     from PyQt5 import QtGui, QtCore, Qt, QtWidgets
@@ -145,7 +145,7 @@ def get_label_files(image_names, mask_filter, imf=None):
     else:
         flow_names = [label_names[n] + '_flows.tif' for n in range(nimg)]
     if not all([os.path.exists(flow) for flow in flow_names]):
-        print('Not all flows are present. Run flow generation again.')
+        io_logger.info('not all flows are present, running flow generation for all images')
         flow_names = None
     
     # check for masks

@@ -149,6 +149,7 @@ def _load_image(parent, filename=None, load_seg=True):
         parent.probslider.setEnabled(False)
             
 
+
 def _initialize_images(parent, image, resize, X2):
     """ format image for GUI """
     parent.onechan=False
@@ -187,33 +188,28 @@ def _initialize_images(parent, image, resize, X2):
     else:
         image = image[np.newaxis,...]
     
+    img_min = image.min() 
+    img_max = image.max()
     parent.stack = image
     parent.NZ = len(parent.stack)
     parent.scroll.setMaximum(parent.NZ-1)
     parent.stack = parent.stack.astype(np.float32)
-    for i in range(parent.stack.shape[-1]):
-        parent.stack[...,i] -= parent.stack[...,i].min()
-        if np.ptp(parent.stack[...,i]) > 1e-6:
-            parent.stack[...,i] /= parent.stack[...,i].max()
+    parent.stack -= img_min
+    if img_max > img_min + 1e-3:
+        parent.stack /= (img_max - img_min)
     parent.stack *= 255
+    if parent.NZ>1:
+        print('GUI_INFO: converted to float and normalized values to 0.0->255.0')
     del image
     gc.collect()
 
-    parent.stack = list(parent.stack)
-    for k,img in enumerate(parent.stack):
-        # if grayscale make 3D
-        if resize != -1:
-            img = transforms._image_resizer(img, resize=resize, to_uint8=False)
-        if img.ndim==2:
-            img = np.tile(img[:,:,np.newaxis], (1,1,3))
-            parent.onechan=True
-        if X2!=0:
-            img = transforms._X2zoom(img, X2=X2)
-        parent.stack[k] = img
-    
+    #parent.stack = list(parent.stack)
+
+    if parent.stack.ndim < 4:
+        parent.onechan=True
+        parent.stack = parent.stack[:,:,:,np.newaxis]
     parent.imask=0
-    parent.Ly, parent.Lx = img.shape[0], img.shape[1]
-    parent.stack = np.array(parent.stack)
+    parent.Ly, parent.Lx = parent.stack.shape[1:3]
     parent.layers = 0*np.ones((parent.NZ,parent.Ly,parent.Lx,4), np.uint8)
     if parent.autobtn.isChecked() or len(parent.saturation)!=parent.NZ:
         parent.compute_saturation()
