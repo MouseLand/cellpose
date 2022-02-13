@@ -73,7 +73,7 @@ Linux, Windows and Mac OS are supported for running the code. For running the gr
 
 If you have an older `cellpose` environment you can remove it with `conda env remove -n cellpose` before creating a new one.
 
-If you are using a GPU, make sure its drivers and the cuda libraries are correctly installed.
+If you are using a GPU, make sure its drivers and the CUDA/ROCm libraries are correctly installed.
 
 1. Install an [Anaconda](https://www.anaconda.com/download/) distribution of Python -- Choose **Python 3.8** and your operating system. Note you might need to use an anaconda prompt if you did not add anaconda to the path.
 2. Open an anaconda prompt / command prompt with `conda` for **python 3** in the path
@@ -96,35 +96,59 @@ You can also try to install cellpose, omnipose and the GUI dependencies from you
 python -m pip install cellpose[all]
 ~~~~
 
-
 If you have **issues** with installation, see the [docs](https://cellpose.readthedocs.io/en/latest/installation.html) for more details. You can also use the cellpose environment file included in the repository and create a cellpose environment with `conda env create -f environment.yml` which may solve certain dependency issues.
 
 If these suggestions fail, open an issue.
 
-### GPU version (CUDA) on Windows or Linux
+### Enable GPU Support
 
-If you plan on running many images, you may want to install a GPU version of *torch* (if it isn't already installed).
+If you plan on running many images, you may want to install a GPU version of `torch`. Unless the GPU version is already installed, it is recommended to remove the CPU version before installing.
 
-Before installing the GPU version, remove the CPU version:
-~~~
+~~~bash
 pip uninstall torch
 ~~~
 
-Follow the instructions [here](https://pytorch.org/get-started/locally/) to determine what version to install. The Anaconda install is strongly recommended, and then choose the CUDA version that is supported by your GPU (newer GPUs may need newer CUDA versions > 10.2). For instance this command will install the 10.2 version on Linux and Windows (note the `torchvision` and `torchaudio` commands are removed because cellpose doesn't require them):
+Follow the instructions [here](https://pytorch.org/get-started/locally/) to determine what version to install. The Anaconda install is strongly recommended, and then choose the *torch* version that is supported by your GPU.
 
-~~~
+#### Nvidia (CUDA) on Windows or Linux
+
+For instance this command will install the 10.2 version on Linux and Windows (note the `torchvision` and `torchaudio` commands are removed because cellpose doesn't require them):
+
+~~~bash
 conda install pytorch cudatoolkit=10.2 -c pytorch
 ~~~~
 
 For the GPU version of mxnet, you will need to install the cuda toolkit first if you haven't already (on Windows it may be necessary to install via anaconda as below):
 
-~~~
+~~~bash
 conda install -c anaconda cudatoolkit
 ~~~
 
 When upgrading GPU Cellpose in the future, you will want to ignore dependencies (to ensure that the pip version of torch does not install):
-~~~
+~~~bash
 pip install --no-deps cellpose --upgrade
+~~~
+
+#### AMD (ROCm) on Linux
+
+After setting up [ROCm and the AMDGPU driver](https://docs.amd.com/), install `torch` into your python environment (note the `torchvision` and `torchaudio` packages are not required to run cellpose).
+
+~~~bash
+pip install torch -f https://download.pytorch.org/whl/rocm4.2/torch_stable.html
+~~~
+
+If you are not updating an old installation continue by getting the newest version of cellpose from github and install the required packages via pip:
+
+~~~bash
+git clone https://github.com/MouseLand/cellpose
+cd cellpose
+pip install -e .
+~~~
+
+To enable the cellpose GUI `pyqt5` and `pyqtgraph` also need to be installed.
+
+~~~bash
+pip install pyqt5 pyqtgraph
 ~~~
 
 ### Installation of github version
