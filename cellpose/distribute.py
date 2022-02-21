@@ -7,6 +7,7 @@ import ClusterWrap
 from cellpose import models
 import dask_image.ndmeasure._utils._label as label
 from scipy.ndimage import distance_transform_edt
+from scipy.ndimage import zoom
 import zarr
 from numcodecs import Blosc
 from itertools import product
@@ -116,12 +117,14 @@ def distributed_eval(
         index = index.squeeze()
 
         # skip block if there is no foreground
+        mask_block = None
         if mask is not None:
             ratio = np.array(full_shape) / mask.shape
             xyz = np.round( index / ratio ).astype(int)
             rad = np.round( blocksize / ratio ).astype(int)
             mask_slice = tuple(slice(x, x+r) for x, r in zip(xyz, rad))
-            if not np.any(mask[mask_slice]):
+            mask_block = mask[mask_slice]
+            if not np.any(mask_block):
                 return np.zeros(blocksize, dtype=np.int32)
 
         # open zarr file
@@ -157,6 +160,12 @@ def distributed_eval(
             if segmentation.shape[axis] > blocksize[axis]:
                 slc[axis] = slice(None, blocksize[axis])
                 segmentation = segmentation[tuple(slc)]
+
+        # apply mask
+        if mask_block is not None:
+            ratio = np.array(segmentation.shape) / mask_block.shape
+            mask_block = zoom(mask_block, ratio, order=0)
+            segmentation = segmentation * mask_block
 
         # return result
         return segmentation.astype(np.int32)
