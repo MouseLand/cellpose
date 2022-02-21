@@ -47,7 +47,7 @@ If you run in a notebook and want to save to a `*_seg.npy` file, run
 ::
 
     from cellpose import io
-    io.masks_flows_to_seg(images, masks, flows, diams, channels, file_names)
+    io.masks_flows_to_seg(images, masks, flows, diams, file_name, channels)
 
 where each of these inputs is a list (as the output of `model.eval` is)
 
@@ -82,7 +82,7 @@ Or use the function below if running in a notebook
     # image_name is file name of image 
     # masks is numpy array of masks for image
     base = os.path.splitext(image_name)[0]
-    outlines = plot.outlines_list(masks)
+    outlines = utils.outlines_list(masks)
     io.outlines_to_text(base, outlines)
     
 To load this ``_cp_outlines.txt`` file into ImageJ, use the python script 

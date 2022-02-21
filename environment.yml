@@ -1,11 +1,11 @@
 name: cellpose
 dependencies:
-  - python>3.4,<3.8
+  - python==3.8.5
   - pip
   - pip:
     - PyQt5
     - PyQt5.sip
-    - numpy>1.14.6,<1.19.4
+    - numpy>=1.20.0
     - numba>=0.43.1
     - scipy
     - torch>=1.6
@@ -20,5 +20,7 @@ dependencies:
     - dask[delayed]
     - dask-image
     - ClusterWrap
+    - fastremap
+    - cellpose
     
   

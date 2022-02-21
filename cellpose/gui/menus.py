@@ -1,4 +1,4 @@
-from PyQt5 import QtGui, QtCore, Qt, QtWidgets
+from PyQt5.QtWidgets import QAction
 from . import io
 from .. import models
 from ..io import save_server
@@ -7,51 +7,55 @@ def mainmenu(parent):
     main_menu = parent.menuBar()
     file_menu = main_menu.addMenu("&File")
     # load processed data
-    loadImg = QtGui.QAction("&Load image (*.tif, *.png, *.jpg)", parent)
+    loadImg = QAction("&Load image (*.tif, *.png, *.jpg)", parent)
     loadImg.setShortcut("Ctrl+L")
     loadImg.triggered.connect(lambda: io._load_image(parent))
     file_menu.addAction(loadImg)
 
-    parent.loadMasks = QtGui.QAction("Load &masks (*.tif, *.png, *.jpg)", parent)
+    parent.autoloadMasks = QAction("Autoload masks from _masks.tif file", parent, checkable=True)
+    parent.autoloadMasks.setChecked(False)
+    file_menu.addAction(parent.autoloadMasks)
+    
+    parent.loadMasks = QAction("Load &masks (*.tif, *.png, *.jpg)", parent)
     parent.loadMasks.setShortcut("Ctrl+M")
     parent.loadMasks.triggered.connect(lambda: io._load_masks(parent))
     file_menu.addAction(parent.loadMasks)
     parent.loadMasks.setEnabled(False)
 
-    loadManual = QtGui.QAction("Load &processed/labelled image (*_seg.npy)", parent)
+    loadManual = QAction("Load &processed/labelled image (*_seg.npy)", parent)
     loadManual.setShortcut("Ctrl+P")
     loadManual.triggered.connect(lambda: io._load_seg(parent))
     file_menu.addAction(loadManual)
 
-    #loadStack = QtGui.QAction("Load &numpy z-stack (*.npy nimgs x nchan x pixels x pixels)", parent)
+    #loadStack = QAction("Load &numpy z-stack (*.npy nimgs x nchan x pixels x pixels)", parent)
     #loadStack.setShortcut("Ctrl+N")
     #loadStack.triggered.connect(lambda: parent.load_zstack(None))
     #file_menu.addAction(loadStack)
 
-    parent.saveSet = QtGui.QAction("&Save masks and image (as *_seg.npy)", parent)
+    parent.saveSet = QAction("&Save masks and image (as *_seg.npy)", parent)
     parent.saveSet.setShortcut("Ctrl+S")
     parent.saveSet.triggered.connect(lambda: io._save_sets(parent))
     file_menu.addAction(parent.saveSet)
     parent.saveSet.setEnabled(False)
 
-    parent.savePNG = QtGui.QAction("Save masks as P&NG", parent)
+    parent.savePNG = QAction("Save masks as P&NG", parent)
     parent.savePNG.setShortcut("Ctrl+N")
     parent.savePNG.triggered.connect(lambda: io._save_png(parent))
     file_menu.addAction(parent.savePNG)
     parent.savePNG.setEnabled(False)
 
-    parent.saveOutlines = QtGui.QAction("Save &Outlines as text for imageJ", parent)
+    parent.saveOutlines = QAction("Save &Outlines as text for imageJ", parent)
     parent.saveOutlines.setShortcut("Ctrl+O")
     parent.saveOutlines.triggered.connect(lambda: io._save_outlines(parent))
     file_menu.addAction(parent.saveOutlines)
     parent.saveOutlines.setEnabled(False)
 
-    parent.saveServer = QtGui.QAction("Send manually labelled data to server", parent)
+    parent.saveServer = QAction("Send manually labelled data to server", parent)
     parent.saveServer.triggered.connect(lambda: save_server(parent))
     file_menu.addAction(parent.saveServer)
     parent.saveServer.setEnabled(False)
 
-    parent.switchBackend = QtGui.QAction("Switch backend to MXNET if installed", parent)
+    parent.switchBackend = QAction("Switch backend to MXNET if installed", parent)
     parent.switchBackend.triggered.connect(lambda: parent.check_gpu(False))
     file_menu.addAction(parent.switchBackend)
     if models.MXNET_ENABLED:
@@ -62,44 +66,88 @@ def mainmenu(parent):
 def editmenu(parent):
     main_menu = parent.menuBar()
     edit_menu = main_menu.addMenu("&Edit")
-    parent.undo = QtGui.QAction('Undo previous mask/trace', parent)
+    parent.undo = QAction('Undo previous mask/trace', parent)
     parent.undo.setShortcut("Ctrl+Z")
     parent.undo.triggered.connect(parent.undo_action)
     parent.undo.setEnabled(False)
     edit_menu.addAction(parent.undo)
 
-    parent.redo = QtGui.QAction('Undo remove mask', parent)
+    parent.redo = QAction('Undo remove mask', parent)
     parent.redo.setShortcut("Ctrl+Y")
     parent.redo.triggered.connect(parent.undo_remove_action)
     parent.redo.setEnabled(False)
     edit_menu.addAction(parent.redo)
 
-    parent.ClearButton = QtGui.QAction('Clear all masks', parent)
+    parent.ClearButton = QAction('Clear all masks', parent)
     parent.ClearButton.setShortcut("Ctrl+0")
     parent.ClearButton.triggered.connect(parent.clear_all)
     parent.ClearButton.setEnabled(False)
     edit_menu.addAction(parent.ClearButton)
 
-    parent.remcell = QtGui.QAction('Remove selected cell (Ctrl+CLICK)', parent)
+    parent.remcell = QAction('Remove selected cell (Ctrl+CLICK)', parent)
     parent.remcell.setShortcut("Ctrl+Click")
     parent.remcell.triggered.connect(parent.remove_action)
     parent.remcell.setEnabled(False)
     edit_menu.addAction(parent.remcell)
 
+    parent.mergecell = QAction('FYI: Merge cells by Alt+Click', parent)
+    parent.mergecell.setEnabled(False)
+    edit_menu.addAction(parent.mergecell)
+
+def modelmenu(parent):
+    main_menu = parent.menuBar()
+    io._init_model_list(parent)
+    model_menu = main_menu.addMenu("&Models")
+    parent.addmodel = QAction('Add custom torch model to GUI', parent)
+    #parent.addmodel.setShortcut("Ctrl+A")
+    parent.addmodel.triggered.connect(parent.add_model)
+    parent.addmodel.setEnabled(True)
+    model_menu.addAction(parent.addmodel)
+
+    parent.removemodel = QAction('Remove selected custom model from GUI', parent)
+    #parent.removemodel.setShortcut("Ctrl+R")
+    parent.removemodel.triggered.connect(parent.remove_model)
+    parent.removemodel.setEnabled(True)
+    model_menu.addAction(parent.removemodel)
+
+    parent.newmodel = QAction('&Train new model with image+masks in folder', parent)
+    parent.newmodel.setShortcut("Ctrl+T")
+    parent.newmodel.triggered.connect(parent.new_model)
+    parent.newmodel.setEnabled(False)
+    model_menu.addAction(parent.newmodel)
+
+    parent.endtrain = QAction('End training', parent)
+    parent.endtrain.triggered.connect(parent.end_train)
+    parent.endtrain.setEnabled(False)
+    model_menu.addAction(parent.endtrain)
+
 def helpmenu(parent):
     main_menu = parent.menuBar()
     help_menu = main_menu.addMenu("&Help")
     
-    checkMKL = QtGui.QAction("Check CPU MKL -- see terminal", parent)
+    checkMKL = QAction("Check CPU MKL -- see terminal", parent)
     checkMKL.triggered.connect(lambda: models.check_mkl(istorch=parent.torch))
     help_menu.addAction(checkMKL)
 
-    openHelp = QtGui.QAction("&Help window", parent)
+    openHelp = QAction("&Help window", parent)
     openHelp.setShortcut("Ctrl+H")
     openHelp.triggered.connect(parent.help_window)
     help_menu.addAction(openHelp)
 
-    openGUI = QtGui.QAction("&GUI layout", parent)
+    openGUI = QAction("&GUI layout", parent)
     openGUI.setShortcut("Ctrl+G")
     openGUI.triggered.connect(parent.gui_window)
     help_menu.addAction(openGUI)
+
+def omnimenu(parent):
+    main_menu = parent.menuBar()
+    omni_menu = main_menu.addMenu("&Omnipose")
+    # use omnipose mask recontruction
+    parent.omni = QAction('use Omnipose mask recontruction algorithm (fix over-segmentation)', parent, checkable=True)
+    parent.omni.setChecked(False)
+    omni_menu.addAction(parent.omni)
+
+    # use DBSCAN clustering
+    parent.cluster = QAction('force DBSCAN clustering when omni is enabled', parent, checkable=True)
+    parent.cluster.setChecked(False)
+    omni_menu.addAction(parent.cluster)

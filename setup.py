@@ -1,12 +1,42 @@
 import setuptools
 from setuptools import setup
 
-install_deps = ['numpy', 'scipy', 'natsort',
+install_deps = ['numpy>=1.20.0', 'scipy', 'natsort',
                 'tifffile', 'tqdm', 'numba', 
                 'torch>=1.6',
                 'opencv-python-headless',
-                'dask', 'dask[array]', 'dask[delayed]', 'dask-image',
-                'ClusterWrap']
+                'fastremap'
+                ]
+
+gui_deps = [
+        'pyqtgraph==0.11.0rc0', 
+        'pyqt5', 
+        'pyqt5.sip',
+        'google-cloud-storage'
+        ]
+
+docs_deps = [
+        'sphinx>=3.0',
+        'sphinxcontrib-apidoc',
+        'sphinx_rtd_theme',
+      ]
+
+omni_deps = [
+        'scikit-image', 
+        'scikit-learn',
+        'edt',
+        'torch_optimizer', 
+        'ncolor'
+        ]
+
+distributed_deps = [
+        'dask',
+        'dask_image',
+        'scikit-learn',
+        'dask[array]',
+        'dask[delayed]',
+        'ClusterWrap',
+        ]
 
 try:
     import torch
@@ -19,7 +49,8 @@ except:
 
 with open("README.md", "r") as fh:
     long_description = fh.read()
-
+    
+    
 setup(
     name="cellpose",
     license="BSD",
@@ -40,17 +71,11 @@ setup(
       'pytest'
     ],
     extras_require = {
-      'docs': [
-        'sphinx>=3.0',
-        'sphinxcontrib-apidoc',
-        'sphinx_rtd_theme',
-      ],
-      'gui': [
-        'pyqtgraph==0.11.0rc0', 
-        'pyqt5', 
-        'pyqt5.sip',
-        'google-cloud-storage'
-        ]
+      'omni': omni_deps,
+      'docs': docs_deps,
+      'gui': gui_deps,
+      'all': gui_deps + omni_deps,
+      'distributed': distributed_deps,
     },
     include_package_data=True,
     classifiers=(
