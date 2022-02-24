@@ -17,6 +17,7 @@ _MODEL_DIR_ENV = os.environ.get("CELLPOSE_LOCAL_MODELS_PATH")
 _MODEL_DIR_DEFAULT = pathlib.Path.home().joinpath('.cellpose', 'models')
 MODEL_DIR = pathlib.Path(_MODEL_DIR_ENV) if _MODEL_DIR_ENV else _MODEL_DIR_DEFAULT
 if OMNI_INSTALLED:
+    import omnipose
     MODEL_NAMES = ['cyto','nuclei','cyto2','bact','bact_omni','cyto2_omni']
 else:
     MODEL_NAMES = ['cyto','nuclei','cyto2']

@@ -374,6 +374,12 @@ def map_coordinates(I, yc, xc, Y):
                       np.float32(I[c, yf1, xf1]) * y * x )
 
 
+@njit()
+def step_factor(t):
+    """ Euler integration suppression factor."""
+    return (1+t)
+
+
 def steps2D_interp(p, dP, niter, use_gpu=False, device=None, omni=False, calc_trace=False):
     shape = dP.shape[1:]
     if use_gpu and TORCH_ENABLED:
