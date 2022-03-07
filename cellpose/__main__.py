@@ -4,7 +4,7 @@ import subprocess
 import numpy as np
 from natsort import natsorted
 from tqdm import tqdm
-from cellpose import utils, models, io
+from cellpose import core, utils, models, io
 
 try:
     from cellpose.gui import gui 
@@ -318,6 +318,7 @@ def main():
                                 do_3D=args.do_3D, net_avg=(not args.fast_mode and not args.no_net_avg),
                                 augment=False,
                                 resample=(not args.no_resample and not args.fast_mode),
+                                stitch_threshold=args.stitch_threshold,
                                 flow_threshold=args.flow_threshold,
                                 mask_threshold=args.mask_threshold,
                                 diam_threshold=args.diam_threshold,
