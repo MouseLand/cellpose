@@ -72,7 +72,7 @@ def outlines_to_text(base, outlines):
 
 def imread(filename):
     ext = os.path.splitext(filename)[-1]
-    if ext== '.tif' or ext=='tiff':
+    if ext== '.tif' or ext=='.tiff':
         img = tifffile.imread(filename)
         return img
     else:
@@ -87,7 +87,7 @@ def imread(filename):
 
 def imsave(filename, arr):
     ext = os.path.splitext(filename)[-1]
-    if ext== '.tif' or ext=='tiff':
+    if ext== '.tif' or ext=='.tiff':
         tifffile.imsave(filename, arr)
     else:
         if len(arr.shape)>2:
