@@ -870,7 +870,7 @@ class SizeModel():
             iterator = trange(nimg, file=tqdm_out) if nimg>1 else range(nimg)
             for i in iterator:
                 diam, diam_style = self.eval(x[i], 
-                                             channels=channels[i] if (len(channels)==len(x) and 
+                                             channels=channels[i] if (channels is not None and len(channels)==len(x) and 
                                                                      (isinstance(channels[i], list) or isinstance(channels[i], np.ndarray)) and
                                                                      len(channels[i])==2) else channels,
                                              channel_axis=channel_axis, 
