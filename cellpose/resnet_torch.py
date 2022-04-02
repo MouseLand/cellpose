@@ -179,8 +179,6 @@ class CPnet(nn.Module):
                 concatenation=False, mkldnn=False,
                 diam_mean=30.):
         super(CPnet, self).__init__()
-        self.diam_mean = nn.Parameter(data=torch.ones(1) * diam_mean, requires_grad=False)
-        self.diameter = nn.Parameter(data=torch.ones(1) * diam_mean, requires_grad=False)
         self.nbase = nbase
         self.nout = nout
         self.sz = sz
@@ -194,6 +192,8 @@ class CPnet(nn.Module):
         self.upsample = upsample(nbaseup, sz, residual_on=residual_on, concatenation=concatenation)
         self.make_style = make_style()
         self.output = batchconv(nbaseup[0], nout, 1)
+        #self.diam_mean = nn.Parameter(data=torch.ones(1) * diam_mean, requires_grad=False)
+        #self.diameter = nn.Parameter(data=torch.ones(1) * diam_mean, requires_grad=False)
         self.style_on = style_on
         
     def forward(self, data):
