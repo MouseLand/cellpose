@@ -174,9 +174,13 @@ class upsample(nn.Module):
         return x
     
 class CPnet(nn.Module):
-    def __init__(self, nbase, nout, sz, residual_on=True, 
-                 style_on=True, concatenation=False, mkldnn=False):
+    def __init__(self, nbase, nout, sz,
+                residual_on=True, style_on=True, 
+                concatenation=False, mkldnn=False,
+                diam_mean=30.):
         super(CPnet, self).__init__()
+        self.diam_mean = nn.Parameter(data=torch.ones(1) * diam_mean, requires_grad=False)
+        self.diameter = nn.Parameter(data=torch.ones(1) * diam_mean, requires_grad=False)
         self.nbase = nbase
         self.nout = nout
         self.sz = sz
@@ -215,7 +219,7 @@ class CPnet(nn.Module):
 
     def load_model(self, filename, cpu=False):
         if not cpu:
-            self.load_state_dict(torch.load(filename))
+            self.load_state_dict(torch.load(filename), strict=False)
         else:
             self.__init__(self.nbase,
                           self.nout,

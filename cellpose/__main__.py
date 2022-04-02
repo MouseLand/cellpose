@@ -157,7 +157,7 @@ def main():
         if not (args.train or args.train_size):
             saving_something = args.save_png or args.save_tif or args.save_flows or args.save_ncolor or args.save_txt
                     
-        device, gpu = models.assign_device(True, args.use_gpu)
+        device, gpu = models.assign_device(use_torch=True, gpu=args.use_gpu)
 
         #define available model names, right now we have three broad categories 
         builtin_model = np.any([args.pretrained_model==s for s in models.MODEL_NAMES])
@@ -220,6 +220,7 @@ def main():
                                 resample=(not args.no_resample and not args.fast_mode),
                                 flow_threshold=args.flow_threshold,
                                 cellprob_threshold=args.cellprob_threshold,
+                                stitch_threshold=args.stitch_threshold,
                                 invert=args.invert,
                                 batch_size=args.batch_size,
                                 interp=(not args.no_interp),

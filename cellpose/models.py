@@ -38,7 +38,6 @@ def cache_model_path(basename):
         utils.download_url_to_file(url, cached_file, progress=True)
     return cached_file
 
-
 class Cellpose():
     """ main model which combines SizeModel and CellposeModel
 

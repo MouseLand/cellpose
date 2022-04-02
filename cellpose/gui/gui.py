@@ -321,18 +321,18 @@ class MainW(QMainWindow):
         self.BrushChoose.setFixedWidth(60)
         self.BrushChoose.setStyleSheet(self.dropdowns)
         self.BrushChoose.setFont(self.medfont)
-        self.l0.addWidget(self.BrushChoose, b, 3,1,3)
-        label = QLabel('brush size: [, .]')
+        self.l0.addWidget(self.BrushChoose, b, 2,1,3)
+        label = QLabel('brush size:')
         label.setStyleSheet(label_style)
         label.setFont(self.medfont)
-        self.l0.addWidget(label, b,0,1,3)
+        self.l0.addWidget(label, b,0,1,2)
 
         # turn on drawing for 3D
         self.SCheckBox = QCheckBox('single stroke')
         self.SCheckBox.setStyleSheet(self.checkstyle)
         self.SCheckBox.setFont(self.medfont)
         self.SCheckBox.toggled.connect(self.autosave_on)
-        self.l0.addWidget(self.SCheckBox, b,6,1,3)
+        self.l0.addWidget(self.SCheckBox, b,5,1,3)
 
         
         b+=1
@@ -344,14 +344,14 @@ class MainW(QMainWindow):
         self.MCheckBox.setFont(self.medfont)
         self.MCheckBox.setChecked(True)
         self.MCheckBox.toggled.connect(self.toggle_masks)
-        self.l0.addWidget(self.MCheckBox, b,0,1,4)
+        self.l0.addWidget(self.MCheckBox, b,0,1,5)
 
         # turn off outlines
         self.outlinesOn = False # turn off by default
         self.OCheckBox = QCheckBox('outlines on [Z]')
         self.OCheckBox.setStyleSheet(self.checkstyle)
         self.OCheckBox.setFont(self.medfont)
-        self.l0.addWidget(self.OCheckBox, b,5,1,5)
+        self.l0.addWidget(self.OCheckBox, b,5,1,4)
         
         self.OCheckBox.setChecked(False)
         self.OCheckBox.toggled.connect(self.toggle_masks) 
@@ -380,12 +380,12 @@ class MainW(QMainWindow):
         self.Diameter.returnPressed.connect(self.compute_scale)
         self.Diameter.setFixedWidth(50)
         b+=1
-        self.l0.addWidget(self.Diameter, b, 0,1,4)
+        self.l0.addWidget(self.Diameter, b,0,1,5)
 
         # recompute model
         self.SizeButton = QPushButton('  calibrate')
         self.SizeButton.clicked.connect(self.calibrate_size)
-        self.l0.addWidget(self.SizeButton, b,5,1,5)
+        self.l0.addWidget(self.SizeButton, b,5,1,4)
         self.SizeButton.setEnabled(False)
         self.SizeButton.setStyleSheet(self.styleInactive)
         self.SizeButton.setFont(self.boldfont)
@@ -399,7 +399,7 @@ class MainW(QMainWindow):
         self.ScaleOn.setChecked(True)
         self.ScaleOn.setToolTip('see current diameter as red disk at bottom')
         self.ScaleOn.toggled.connect(self.toggle_scale)
-        self.l0.addWidget(self.ScaleOn, b,0,1,4)
+        self.l0.addWidget(self.ScaleOn, b,0,1,5)
 
         # use GPU
         #b+=1
@@ -408,14 +408,14 @@ class MainW(QMainWindow):
         self.useGPU.setFont(self.medfont)
         self.useGPU.setToolTip('if you have specially installed the <i>cuda</i> version of torch, then you can activate this')
         self.check_gpu()
-        self.l0.addWidget(self.useGPU, b,5,1,5)
+        self.l0.addWidget(self.useGPU, b,5,1,4)
 
         ### fast mode
         #self.NetAvg = QComboBox()
         #self.NetAvg.addItems(['average 4 nets', 'run 1 net', '+ turn off resample (fast)'])
         #self.NetAvg.setFont(self.medfont)
         #self.NetAvg.setToolTip('average 4 different fit networks (default); run 1 network (faster); or run 1 net + turn off resample (fast)')
-        #self.l0.addWidget(self.NetAvg, b,5,1,5)
+        #self.l0.addWidget(self.NetAvg, b,5,1,4)
 
         
         b+=1
@@ -437,40 +437,35 @@ class MainW(QMainWindow):
             else:
                 label.setToolTip('if <em>cytoplasm</em> model is chosen, and you also have a nuclear channel, then choose the nuclear channel for this option')
                 self.ChannelChoose[i].setToolTip('if <em>cytoplasm</em> model is chosen, and you also have a nuclear channel, then choose the nuclear channel for this option')
-            self.l0.addWidget(label, b, 0,1,4)
-            self.l0.addWidget(self.ChannelChoose[i], b, 4,1,5)
+            self.l0.addWidget(label, b,0,1,5)
+            self.l0.addWidget(self.ChannelChoose[i], b,5,1,4)
             b+=1
 
-        b+=1
-        # choose models
-        self.ModelChoose = QComboBox()
-        if len(self.model_strings) > len(models.MODEL_NAMES):
-            current_index = len(models.MODEL_NAMES)
-        else:
-            current_index = 0
-        self.ModelChoose.addItems(self.model_strings) #added omnipose model names
-        self.ModelChoose.setFixedWidth(180)
-        self.ModelChoose.setStyleSheet(self.dropdowns)
-        self.ModelChoose.setFont(self.medfont)
-        self.ModelChoose.setCurrentIndex(current_index)
-        self.l0.addWidget(self.ModelChoose, b, 4,1,5)
-        label = QLabel('model: ')
-        label.setStyleSheet(label_style)
-        label.setFont(self.medfont)
-        #update tooltip string 
-        tipstr = 'add or train your own models in the "Models" file menu'
-        label.setToolTip(tipstr)
-        self.ModelChoose.setToolTip(tipstr)
-        self.l0.addWidget(label, b, 0,1,4)
+        # post-hoc paramater tuning
 
         b+=1
-        # recompute segmentation
-        self.ModelButton = QPushButton(u' run segmentation ')
-        self.ModelButton.clicked.connect(self.compute_model)
-        self.l0.addWidget(self.ModelButton, b,0,1,9)
-        self.ModelButton.setEnabled(False)
-        self.ModelButton.setStyleSheet(self.styleInactive)
-        self.ModelButton.setFont(self.boldfont)
+        label = QLabel('flow threshold:')
+        label.setToolTip('threshold on flow error to accept a mask (set higher to get more cells, e.g. in range from (0.1, 3.0), OR set to 0.0 to turn off so no cells discarded);\n press enter to recompute if model already run')
+        label.setStyleSheet(label_style)
+        label.setFont(self.medfont)
+        self.l0.addWidget(label, b, 0,1,5)
+        self.flow_threshold = QLineEdit()
+        self.flow_threshold.setText('0.4')
+        self.flow_threshold.returnPressed.connect(self.compute_cprob)
+        self.flow_threshold.setFixedWidth(60)
+        self.l0.addWidget(self.flow_threshold, b,5,1,4)
+
+        b+=1
+        label = QLabel('cellprob threshold:')
+        label.setToolTip('threshold on cellprob output to seed cell masks (set lower to include more pixels or higher to include fewer, e.g. in range from (-6, 6)); \n press enter to recompute if model already run')
+        label.setStyleSheet(label_style)
+        label.setFont(self.medfont)
+        self.l0.addWidget(label, b, 0,1,5)
+        self.cellprob_threshold = QLineEdit()
+        self.cellprob_threshold.setText('0.0')
+        self.cellprob_threshold.returnPressed.connect(self.compute_cprob)
+        self.cellprob_threshold.setFixedWidth(60)
+        self.l0.addWidget(self.cellprob_threshold, b,5,1,4)
 
         b+=1
         self.GB = QGroupBox('model zoo')
@@ -479,7 +474,7 @@ class MainW(QMainWindow):
         self.GB.setLayout(self.GBg)
 
         # compute segmentation with general models
-        net_text = ['Cyto','Nuclei','TissueNet','LiveCell']
+        net_text = ['cyto','nuclei','tissuenet','livecell']
         nett = ['cellpose cyto model', 
                 'cellpose nuclei model',
                 'tissuenet cell model',
@@ -491,7 +486,6 @@ class MainW(QMainWindow):
             self.StyleButtons[-1].setFixedWidth(50)
             self.StyleButtons[-1].setToolTip(nett[j])
 
-        
         # compute segmentation with style model
         net_text = ['CP', 'CPx', 'TN1', 'TN2', 'TN3', #'TN-p','TN-gi','TN-i',
                     'LC1', 'LC2', 'LC3', 'LC4', #'LC-g','LC-e','LC-r','LC-n',
@@ -501,58 +495,45 @@ class MainW(QMainWindow):
         for j in range(9):
             self.StyleButtons.append(guiparts.ModelButton(self, net_text[j], net_text[j]))
             self.GBg.addWidget(self.StyleButtons[-1], 1,j,1,1)
-            self.StyleButtons[-1].setFixedWidth(25)
+            self.StyleButtons[-1].setFixedWidth(22)
             self.StyleButtons[-1].setToolTip(nett[j])
 
         self.l0.addWidget(self.GB, b, 0, 2, 9)
 
-        
         b+=2
+        self.CB = QGroupBox('custom models')
+        self.CB.setStyleSheet("QGroupBox { border: 1px solid white; color:white; padding: 4px 0px;}")
+        self.CBg = QGridLayout()
+        self.CB.setLayout(self.CBg)
+        tipstr = 'add or train your own models in the "Models" file menu and choose model here'
+        self.CB.setToolTip(tipstr)
+        
+        # choose models
+        self.ModelChoose = QComboBox()
+        if len(self.model_strings) > len(models.MODEL_NAMES):
+            current_index = len(models.MODEL_NAMES)
+        else:
+            current_index = 0
+        self.ModelChoose.addItems(self.model_strings)
+        self.ModelChoose.setFixedWidth(180)
+        self.ModelChoose.setStyleSheet(self.dropdowns)
+        self.ModelChoose.setFont(self.medfont)
+        self.ModelChoose.setCurrentIndex(current_index)
+        self.CBg.addWidget(self.ModelChoose, 0,0,1,7)
+
+        # recompute segmentation
+        self.ModelButton = QPushButton(u'run model')
+        self.ModelButton.clicked.connect(self.compute_model)
+        self.CBg.addWidget(self.ModelButton, 0,7,2,2)
+        self.ModelButton.setEnabled(False)
+        self.ModelButton.setStyleSheet(self.styleInactive)
+
+        self.l0.addWidget(self.CB, b, 0, 1, 9)
+        
+        b+=1
         self.progress = QProgressBar(self)
         self.progress.setStyleSheet('color: gray;')
         self.l0.addWidget(self.progress, b,0,1,9)
-
-
-        # post-hoc paramater tuning
-
-        b+=1
-        label = QLabel('model match threshold:')
-        label.setToolTip('threshold on flow match to accept a mask (set lower to get more cells)')
-        label.setStyleSheet(label_style)
-        label.setFont(self.medfont)
-        self.l0.addWidget(label, b, 0,1,9)
-
-        b+=1
-        self.threshold = 0.4
-        self.threshslider = QSlider()
-        self.threshslider.setOrientation(QtCore.Qt.Horizontal)
-        self.threshslider.setMinimum(1.0)
-        self.threshslider.setMaximum(30.0)
-        self.threshslider.setValue(31 - 4)
-        self.l0.addWidget(self.threshslider, b, 0,1,9)
-        self.threshslider.valueChanged.connect(self.compute_cprob)
-        self.threshslider.setStyleSheet(guiparts.horizontal_slider_style())
-        self.threshslider.setEnabled(False)
-        
-        b+=1
-        label = QLabel('mask threshold:')
-        label.setToolTip('threshold on scalar output field to seed cell masks \
-                        (set lower to include more pixels)')
-        label.setStyleSheet(label_style)
-        label.setFont(self.medfont)
-        self.l0.addWidget(label, b, 0,1,9)
-        
-        b+=1
-        self.probslider = QSlider()
-        self.probslider.setOrientation(QtCore.Qt.Horizontal)
-        self.probslider.setMinimum(-6.0)
-        self.probslider.setMaximum(6.0)
-        self.probslider.setValue(0.0)
-        self.cellprob = 0.0
-        self.l0.addWidget(self.probslider, b, 0,1,9)
-        self.probslider.valueChanged.connect(self.compute_cprob)
-        self.probslider.setStyleSheet(guiparts.horizontal_slider_style())
-        self.probslider.setEnabled(False)
 
         b+=1
         line = QHLine()
@@ -571,14 +552,14 @@ class MainW(QMainWindow):
         #self.autochannelbtn.setFont(self.medfont)
         #self.autochannelbtn.setChecked(True)
         #self.autochannelbtn.setToolTip('sets channels so that 1st and 99th percentiles at same values, only works for 2D images currently')
-        #self.l0.addWidget(self.autochannelbtn, b,0,1,4)
+        #self.l0.addWidget(self.autochannelbtn, b,0,1,5)
 
         b+=1
         self.autobtn = QCheckBox('auto-adjust')
         self.autobtn.setStyleSheet(self.checkstyle)
         self.autobtn.setFont(self.medfont)
-        self.autobtn.setChecked(False)
-        self.l0.addWidget(self.autobtn, b,0,1,4)
+        self.autobtn.setChecked(True)
+        self.l0.addWidget(self.autobtn, b,0,1,5)
 
         b+=1
         self.slider = guiparts.RangeSlider(self)
@@ -590,7 +571,7 @@ class MainW(QMainWindow):
         self.l0.addWidget(self.slider, b,0,1,9)
 
         b+=1
-        self.l0.addWidget(QLabel(''),b,0,1,4)
+        self.l0.addWidget(QLabel(''),b,0,1,5)
         self.l0.setRowStretch(b, 1)
 
         # cross-hair
@@ -605,7 +586,7 @@ class MainW(QMainWindow):
         self.orthobtn.setToolTip('activate orthoviews with 3D image')
         self.orthobtn.setFont(self.medfont)
         self.orthobtn.setChecked(False)
-        self.l0.addWidget(self.orthobtn, b,0,1,4)
+        self.l0.addWidget(self.orthobtn, b,0,1,5)
         self.orthobtn.toggled.connect(self.toggle_ortho)
 
         label = QLabel('ortho dz:')
@@ -764,7 +745,7 @@ class MainW(QMainWindow):
         self.torch = torch
         self.useGPU.setChecked(False)
         self.useGPU.setEnabled(False)    
-        if self.torch and core.use_gpu(torch):
+        if self.torch and core.use_gpu(use_torch=True):
             self.useGPU.setEnabled(True)
             self.useGPU.setChecked(True)
         else:
@@ -1036,6 +1017,8 @@ class MainW(QMainWindow):
         self.orthobtn.setChecked(False)
         self.filename = []
         self.loaded = False
+        self.recompute_masks = False
+
 
     def brush_choose(self):
         self.brush_size = self.BrushChoose.currentIndex()*2 + 1
@@ -1539,7 +1522,7 @@ class MainW(QMainWindow):
                 self.current_model_path = models.model_path(self.current_model, 0)
             else:
                 self.current_model_path = os.fspath(models.MODEL_DIR.joinpath(self.current_model))
-        print(self.current_model, self.current_model_path)
+        #print(self.current_model, self.current_model_path)
             
         if self.current_model in models.MODEL_NAMES:
             self.model = models.Cellpose(gpu=self.useGPU.isChecked(), 
@@ -1646,42 +1629,43 @@ class MainW(QMainWindow):
         self.training = False
         print('done')    
 
-    def compute_cprob(self):
-        rerun = False
-        if self.cellprob != self.probslider.value():
-            rerun = True
-            self.cellprob = self.probslider.value()
-        if self.threshold != (31 - self.threshslider.value())/10.:
-            rerun = True
-            self.threshold = (31 - self.threshslider.value())/10.
-        if not rerun:
-            return
-        
-        if self.threshold==3.0 or self.NZ>1:
-            thresh = None
-            logger.info('computing masks with cell prob=%0.3f, no flow error threshold'%
-                    (self.cellprob))
-        else:
-            thresh = self.threshold
-            logger.info('computing masks with cell prob=%0.3f, flow error threshold=%0.3f'%
-                    (self.cellprob, thresh))
+    def get_thresholds(self):
+        try:
+            flow_threshold = float(self.flow_threshold.text())
+            cellprob_threshold = float(self.cellprob_threshold.text())
+            if flow_threshold==0.0 or self.NZ>1:
+                flow_threshold = None
+                logger.info('computing masks with cell prob=%0.3f, no flow error threshold'%
+                        (cellprob_threshold))
+            else:
+                logger.info('computing masks with cell prob=%0.3f, flow error threshold=%0.3f'%
+                        (cellprob_threshold, flow_threshold))
+            return flow_threshold, cellprob_threshold
+        except Exception as e:
+            print('flow threshold or cellprob threshold not a valid number, setting to defaults')
+            self.flow_threshold.setText('0.4')
+            self.cellprob_threshold.setText('0.0')
+            return 0.4, 0.0
 
-        maski = dynamics.compute_masks(self.flows[4][:-1], 
-                                        self.flows[4][-1],
-                                        p=self.flows[3].copy(),
-                                        cellprob_threshold=self.cellprob,
-                                        flow_threshold=thresh,
-                                        resize=self.cellpix.shape[-2:])[0]
-        
-        self.masksOn = True
-        self.MCheckBox.setChecked(True)
-        # self.outlinesOn = True #should not turn outlines back on by default; masks make sense though 
-        # self.OCheckBox.setChecked(True)
-        if maski.ndim<3:
-            maski = maski[np.newaxis,...]
-        logger.info('%d cells found'%(len(np.unique(maski)[1:])))
-        io._masks_to_gui(self, maski, outlines=None)
-        self.show()
+    def compute_cprob(self):
+        if self.recompute_masks:
+            flow_threshold, cellprob_threshold = self.get_thresholds()
+            maski = dynamics.compute_masks(self.flows[4][:-1], 
+                                            self.flows[4][-1],
+                                            p=self.flows[3].copy(),
+                                            cellprob_threshold=cellprob_threshold,
+                                            flow_threshold=flow_threshold,
+                                            resize=self.cellpix.shape[-2:])[0]
+            
+            self.masksOn = True
+            self.MCheckBox.setChecked(True)
+            # self.outlinesOn = True #should not turn outlines back on by default; masks make sense though 
+            # self.OCheckBox.setChecked(True)
+            if maski.ndim<3:
+                maski = maski[np.newaxis,...]
+            logger.info('%d cells found'%(len(np.unique(maski)[1:])))
+            io._masks_to_gui(self, maski, outlines=None)
+            self.show()
 
     def compute_model(self, model_name=None):
         self.progress.setValue(0)
@@ -1699,14 +1683,16 @@ class MainW(QMainWindow):
             else:
                 data = self.stack[0].copy()
             channels = self.get_channels()
+            flow_threshold, cellprob_threshold = self.get_thresholds()
             self.diameter = float(self.Diameter.text())
             try:
-                net_avg = 0
-                resample = 1
-                masks, flows = self.model.eval(data, channels=channels,
+                masks, flows = self.model.eval(data, 
+                                                channels=channels,
                                                 diameter=self.diameter,
-                                                net_avg=net_avg, augment=False, resample=resample,
-                                                do_3D=do_3D, progress=self.progress)[:2]
+                                                cellprob_threshold=cellprob_threshold,
+                                                flow_threshold=flow_threshold,
+                                                do_3D=do_3D, 
+                                                progress=self.progress)[:2]
             except Exception as e:
                 print('NET ERROR: %s'%e)
                 self.progress.setValue(0)
@@ -1744,11 +1730,9 @@ class MainW(QMainWindow):
             self.progress.setValue(100)
 
             if not do_3D:
-                self.threshslider.setEnabled(True)
-                self.probslider.setEnabled(True)
+                self.recompute_masks = True
         except Exception as e:
             print('ERROR: %s'%e)
-
 
     def enable_buttons(self):
         if len(self.model_strings) > 0:

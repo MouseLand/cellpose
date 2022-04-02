@@ -136,6 +136,7 @@ def _load_image(parent, filename=None, load_seg=True):
             return
         elif parent.autoloadMasks.isChecked():
             mask_file = os.path.splitext(filename)[0]+'_masks'+os.path.splitext(filename)[-1]
+            mask_file = os.path.splitext(filename)[0]+'_masks.tif' if not os.path.isfile(mask_file) else mask_file
             load_mask = True if os.path.isfile(mask_file) else False
     try:
         print(f'GUI_INFO: loading image: {filename}')
@@ -155,8 +156,6 @@ def _load_image(parent, filename=None, load_seg=True):
         parent.enable_buttons()
         if load_mask:
             _load_masks(parent, filename=mask_file)
-        parent.threshslider.setEnabled(False)
-        parent.probslider.setEnabled(False)
             
 
 def _initialize_images(parent, image, resize, X2):
@@ -374,20 +373,18 @@ def _load_seg(parent, filename=None, image=None, image_file=None):
                 parent.flows[0] = cv2.resize(parent.flows[0].squeeze(), (Lx, Ly), interpolation=cv2.INTER_NEAREST)[np.newaxis,...]
                 parent.flows[1] = cv2.resize(parent.flows[1].squeeze(), (Lx, Ly), interpolation=cv2.INTER_NEAREST)[np.newaxis,...]
             if parent.NZ==1:
-                parent.threshslider.setEnabled(True)
-                parent.probslider.setEnabled(True)
+                parent.recompute_masks = True
             else:
-                parent.threshslider.setEnabled(False)
-                parent.probslider.setEnabled(False)
+                parent.recompute_masks = False
+                
         except:
             try:
                 if len(parent.flows[0])>0:
                     parent.flows = parent.flows[0]
             except:
                 parent.flows = [[],[],[],[],[[]]]
-            parent.threshslider.setEnabled(False)
-            parent.probslider.setEnabled(False)
-            
+            parent.recompute_masks = False
+
     parent.enable_buttons()
     parent.update_layer()
     del dat
@@ -493,6 +490,7 @@ def _save_sets(parent):
     """ save masks to *_seg.npy """
     filename = parent.filename
     base = os.path.splitext(filename)[0]
+    flow_threshold, cellprob_threshold = parent.get_thresholds()
     if parent.NZ > 1 and parent.is_stack:
         np.save(base + '_seg.npy',
                 {'outlines': parent.outpix,
@@ -501,7 +499,11 @@ def _save_sets(parent):
                  'current_channel': (parent.color-2)%5,
                  'filename': parent.filename,
                  'flows': parent.flows,
-                 'zdraw': parent.zdraw})
+                 'zdraw': parent.zdraw,
+                 'model_path': parent.current_model_path if hasattr(parent, 'current_model_path') else 0,
+                 'flow_threshold': flow_threshold,
+                 'cellprob_threshold': cellprob_threshold
+                 })
     else:
         image = parent.chanchoose(parent.stack[parent.currentZ].copy())
         if image.ndim < 4:
@@ -517,6 +519,8 @@ def _save_sets(parent):
                  'flows': parent.flows,
                  'ismanual': parent.ismanual,
                  'manual_changes': parent.track_changes,
-                 'model_path': parent.current_model_path if hasattr(parent, 'current_model_path') else 0})
+                 'model_path': parent.current_model_path if hasattr(parent, 'current_model_path') else 0,
+                 'flow_threshold': flow_threshold,
+                 'cellprob_threshold': cellprob_threshold})
     #print(parent.point_sets)
     print('GUI_INFO: %d ROIs saved to %s'%(parent.ncells, base + '_seg.npy'))
