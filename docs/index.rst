@@ -14,12 +14,14 @@ You can try it out without installing at `cellpose.org`_.
 Also check out these resources:
 
 Cellpose 2.0
+
 - `paper <https://youtu.be/3Y1VKcxjNy4>`_ on biorxiv
 - twitter `paper <https://youtu.be/3Y1VKcxjNy4>`_
 - human-in-the-loop training protocol `video <https://youtu.be/3Y1VKcxjNy4>`_
 
 Cellpose 1.0 
-- `paper`_ on biorxiv (see figure 1 below) and in `nature methods <>`_
+
+- `paper`_ on biorxiv (see figure 1 below) and in `nature methods <https://www.nature.com/articles/s41592-020-01018-x>`_
 - twitter `thread`_
 - Marius's `talk`_
 

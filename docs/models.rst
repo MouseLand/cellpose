@@ -23,8 +23,8 @@ starting from 4 different random initial parameter sets. This means you can
 run with ``diameter=0`` or ``--diameter 0`` and the model can estimate the ROI size. Also you can set 
 ``net_avg=True`` or ``--net_avg`` to average the results of the 4 models.
 
-These models can be loaded and used in the notebook with ``models.Cellpose(model_type='cyto')``
- or in the command line with ``python -m cellpose --pretrained_model cyto``.
+These models can be loaded and used in the notebook with ``models.Cellpose(model_type='cyto')`` 
+or in the command line with ``python -m cellpose --pretrained_model cyto``.
 
 Cytoplasm model (`'cyto'`)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
