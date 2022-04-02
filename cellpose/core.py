@@ -27,16 +27,25 @@ def parse_model_string(pretrained_model):
     else:
         model_str = os.path.split(pretrained_model)[-1]
     if len(model_str)>3 and model_str[:4]=='unet':
+        cp = False
         nclasses = max(2, int(model_str[4]))
     elif len(model_str)>7 and model_str[:8]=='cellpose':
+        cp = True
         nclasses = 3
     else:
         return 3, True, True, False
-    ostrs = model_str.split('_')[2::2]
-    residual_on = ostrs[0]=='on'
-    style_on = ostrs[1]=='on'
-    concatenation = ostrs[2]=='on'
-    return nclasses, residual_on, style_on, concatenation
+    
+    if 'residual' in model_str and 'style' in model_str and 'concatentation' in model_str:
+        ostrs = model_str.split('_')[2::2]
+        residual_on = ostrs[0]=='on'
+        style_on = ostrs[1]=='on'
+        concatenation = ostrs[2]=='on'
+        return nclasses, residual_on, style_on, concatenation
+    else:
+        if cp:
+            return 3, True, True, False
+        else:
+            return nclasses, False, False, True
 
 def use_gpu(gpu_number=0, use_torch=True):
     """ check if gpu works """
@@ -114,7 +123,8 @@ class UnetModel():
                                         residual_on=residual_on, 
                                         style_on=style_on,
                                         concatenation=concatenation,
-                                        mkldnn=self.mkldnn).to(self.device)
+                                        mkldnn=self.mkldnn,
+                                        diam_mean=diam_mean).to(self.device)
         
         if pretrained_model is not None and isinstance(pretrained_model, str):
             self.net.load_model(pretrained_model, cpu=(not self.gpu))
@@ -620,7 +630,7 @@ class UnetModel():
               test_data=None, test_labels=None, test_files=None,
               channels=None, normalize=True, save_path=None, save_every=100, save_each=False,
               learning_rate=0.2, n_epochs=500, momentum=0.9, weight_decay=0.00001, batch_size=8, 
-              nimg_per_epoch=None, min_train_masks=5, rescale=False, netstr=None):
+              nimg_per_epoch=None, min_train_masks=5, rescale=False, model_name=None):
         """ train function uses 0-1 mask label and boundary pixels for training """
 
         nimg = len(train_data)
@@ -667,7 +677,7 @@ class UnetModel():
                                     save_path=save_path, save_every=save_every, save_each=save_each,
                                     learning_rate=learning_rate, n_epochs=n_epochs, momentum=momentum, 
                                     weight_decay=weight_decay, SGD=True, batch_size=batch_size, 
-                                    nimg_per_epoch=nimg_per_epoch, rescale=rescale, netstr=netstr)
+                                    nimg_per_epoch=nimg_per_epoch, rescale=rescale, model_name=model_name)
 
         # find threshold using validation set
         core_logger.info('>>>> finding best thresholds using validation set')
@@ -759,7 +769,7 @@ class UnetModel():
               test_data=None, test_labels=None,
               save_path=None, save_every=100, save_each=False,
               learning_rate=0.2, n_epochs=500, momentum=0.9, weight_decay=0.00001, 
-              SGD=True, batch_size=8, nimg_per_epoch=None, rescale=True, netstr=None): 
+              SGD=True, batch_size=8, nimg_per_epoch=None, rescale=True, model_name=None): 
         """ train function uses loss function self.loss_fn in models.py"""
         
         d = datetime.datetime.now()
@@ -794,8 +804,9 @@ class UnetModel():
         nimg = len(train_data)
 
         # compute average cell diameter
+        diam_train = np.array([utils.diameters(train_labels[k][0])[0] for k in range(len(train_labels))])
+        diam_train_mean = diam_train[diam_train > 0].mean()
         if rescale:
-            diam_train = np.array([utils.diameters(train_labels[k][0])[0] for k in range(len(train_labels))])
             diam_train[diam_train<5] = 5.
             if test_data is not None:
                 diam_test = np.array([utils.diameters(test_labels[k][0])[0] for k in range(len(test_labels))])
@@ -804,6 +815,9 @@ class UnetModel():
             core_logger.info('>>>> median diameter set to = %d'%self.diam_mean)
         else:
             scale_range = 1.0
+            
+        core_logger.info(f'>>>> mean of training label mask diameters (saved to model) {diam_train_mean:.3f}')
+        self.net.diam_labels.data = torch.ones(1, device=self.device) * diam_train_mean
 
         nchan = train_data[0].shape[0]
         core_logger.info('>>>> training network with %d channel input <<<<'%nchan)
@@ -817,7 +831,6 @@ class UnetModel():
         tic = time.time()
 
         
-
         lavg, nsum = 0, 0
 
         if save_path is not None:
@@ -894,17 +907,17 @@ class UnetModel():
                 if iepoch==self.n_epochs-1 or iepoch%save_every==1:
                     # save model at the end
                     if save_each: #separate files as model progresses 
-                        if netstr is None:
+                        if model_name is None:
                             file_name = '{}_{}_{}_{}'.format(self.net_type, file_label, 
                                                              d.strftime("%Y_%m_%d_%H_%M_%S.%f"),
                                                              'epoch_'+str(iepoch)) 
                         else:
-                            file_name = '{}_{}'.format(netstr, 'epoch_'+str(iepoch))
+                            file_name = '{}_{}'.format(model_name, 'epoch_'+str(iepoch))
                     else:
-                        if netstr is None:
+                        if model_name is None:
                             file_name = '{}_{}_{}'.format(self.net_type, file_label, d.strftime("%Y_%m_%d_%H_%M_%S.%f"))
                         else:
-                            file_name = netstr
+                            file_name = model_name
                     file_name = os.path.join(file_path, file_name)
                     ksave += 1
                     core_logger.info(f'saving network parameters to {file_name}')

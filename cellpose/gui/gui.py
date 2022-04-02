@@ -238,8 +238,15 @@ class MainW(QMainWindow):
             self.filename = image
             io._load_image(self, self.filename)
 
-        # training from segmentation
-        self.training = False
+        # training settings
+        d = datetime.datetime.now()
+        self.training_params = {'model_index': 0,
+                                'learning_rate': 0.1, 
+                                'weight_decay': 0.0001, 
+                                'n_epochs': 100,
+                                'model_name': 'CP' + d.strftime("_%Y%m%d_%H%M%S")
+                               }
+
         self.setAcceptDrops(True)
         self.win.show()
         self.show()
@@ -511,14 +518,17 @@ class MainW(QMainWindow):
         # choose models
         self.ModelChoose = QComboBox()
         if len(self.model_strings) > 0:
-            current_index = len(self.model_strings)
+            current_index = 0
+            self.ModelChoose.addItems(['select custom model'])
+            self.ModelChoose.addItems(self.model_strings)
         else:
             current_index = -1
-        self.ModelChoose.addItems(self.model_strings)
         self.ModelChoose.setFixedWidth(180)
         self.ModelChoose.setStyleSheet(self.dropdowns)
         self.ModelChoose.setFont(self.medfont)
         self.ModelChoose.setCurrentIndex(current_index)
+        self.ModelChoose.currentIndexChanged.connect(self.model_choose)
+        
         self.CBg.addWidget(self.ModelChoose, 0,0,1,7)
 
         # recompute segmentation
@@ -757,6 +767,13 @@ class MainW(QMainWindow):
             channels[1] = 0
         return channels
 
+    def model_choose(self):
+        print(f'GUI_INFO: selected model {self.ModelChoose.currentText()}, loading now')
+        self.initialize_model(model_name=self.ModelChoose.currentText())
+        self.diameter = self.model.diam_labels
+        self.Diameter.setText('%0.2f'%self.diameter)
+        print(f'GUI_INFO: diameter set to {self.diameter: 0.2f} (but can be changed)')
+
     def calibrate_size(self):
         self.initialize_model(model_name='cyto')
         diams, _ = self.model.sz.eval(self.stack[self.currentZ].copy(), invert=self.invert.isChecked(),
@@ -936,8 +953,6 @@ class MainW(QMainWindow):
         #self.p0.linkView(self.p0.YAxis, self.pOrtho[0])
         #self.p0.linkView(self.p0.XAxis, self.pOrtho[1])
         
-        
-
         self.pOrtho[0].setYRange(0,self.Lx)
         self.pOrtho[0].setXRange(-self.dz/3,self.dz*2 + self.dz/3)
         self.pOrtho[1].setYRange(-self.dz/3,self.dz*2 + self.dz/3)
@@ -1558,22 +1573,6 @@ class MainW(QMainWindow):
         train = TW.exec_()
         if train:
             logger.info(f'training with {[os.path.split(f)[1] for f in self.train_files]}')
-            if self.pretrained_to_use != 'scratch':
-                self.initialize_model(model_name=self.pretrained_to_use)
-            else:
-                self.current_model = 'scratch'
-                self.current_model_path = None
-            self.channels = self.get_channels()
-            logger.info(f'training with chan (cyto) = {self.ChannelChoose[0].currentText()}, chan2 (nuclei) = {self.ChannelChoose[1].currentText()}')
-            
-            if self.training:
-                # currently in training mode, need to remove new model path
-                print(f'GUI_INFO: removing previous model ({os.path.split(self.new_model_path)[-1]}) from gui')
-                io._remove_model(self, self.new_model_ind)
-            else:
-                self.training = True
-                self.endtrain.setEnabled(True)
-                self.SizeButton.setEnabled(False)
             self.train_model()
 
         else:
@@ -1581,21 +1580,32 @@ class MainW(QMainWindow):
 
     
     def train_model(self):
-        logger.info(f'training new model starting at model {self.current_model_path}')
+        if self.training_params['model_index'] < len(models.MODEL_NAMES):
+            model_type = models.MODEL_NAMES[self.training_params['model_index']]
+            logger.info(f'training new model starting at model {model_type}')        
+        else:
+            model_type = None
+            logger.info(f'training new model starting from scratch')     
+        self.current_model = model_type   
+        
+        self.channels = self.get_channels()
+        logger.info(f'training with chan = {self.ChannelChoose[0].currentIndex()} ({self.ChannelChoose[0].currentIndex()}), chan2 = {self.ChannelChoose[1].currentText()} ({self.ChannelChoose[1].currentText()})')
+            
         self.model = models.CellposeModel(gpu=self.useGPU.isChecked(), 
-                                            pretrained_model=self.current_model_path)
+                                          model_type=model_type)
         self.SizeButton.setEnabled(False)
         save_path = os.path.dirname(self.filename)
-        d = datetime.datetime.now()
-        netstr = self.current_model + d.strftime("_%Y%m%d_%H%M%S")
-        print('GUI_INFO: name of new model: ' + netstr)
-        self.new_model_path = self.model.train(self.train_data, self.train_labels, 
-                                                 channels=self.channels, save_path=save_path, 
-                                                 learning_rate=self.learning_rate, n_epochs=self.n_epochs,
-                                                 weight_decay=self.weight_decay, 
-                                                 nimg_per_epoch=8,
-                                                 netstr=netstr)
         
+        print('GUI_INFO: name of new model: ' + self.training_params['model_name'])
+        self.new_model_path = self.model.train(self.train_data, self.train_labels, 
+                                               channels=self.channels, 
+                                               save_path=save_path, 
+                                               nimg_per_epoch=8,
+                                               learning_rate = self.training_params['learning_rate'], 
+                                               weight_decay = self.training_params['weight_decay'], 
+                                               n_epochs = self.training_params['n_epochs'],
+                                               model_name = self.training_params['model_name'])
+        diam_labels = self.model.diam_labels
         # run model on next image 
         io._add_model(self, self.new_model_path, permanent=False)
         self.new_model_ind = len(self.model_strings)-1
@@ -1608,28 +1618,15 @@ class MainW(QMainWindow):
             # keep same channels
             self.ChannelChoose[0].setCurrentIndex(channels[0])
             self.ChannelChoose[1].setCurrentIndex(channels[1])
+            self.diameter = diam_labels
+            self.Diameter.setText('%0.2f'%self.diameter)        
+            logger.info(f'!!! diameter set to diam_labels ( = {diam_labels: 0.3f} ) !!!')
             if self.train_files[0] == self.filename:
                 print(f'GUI_INFO: trained on all images + masks in folder --> auto-end training')
-                self.end_train() 
-                #self.get_next_image(load_seg=True)
                 return    
-            diam_train = np.array([diameters(masks)[0] for masks in self.train_labels])
-            self.diameter = diam_train.mean()
-            self.Diameter.setText('%0.1f'%self.diameter)        
             self.compute_model()
         logger.info(f'!!! computed masks for {os.path.split(self.filename)[1]} from new model !!!')
-        logger.info(f'!!! changed default diameter to average diameter from training images !!!')
         
-    def end_train(self):
-        EW = guiparts.EndTrainWindow(self)
-        yes = EW.exec_()
-        io._remove_non_permanent_models(self)
-        print(yes)
-        
-        self.endtrain.setEnabled(False)
-        self.training = False
-        print('done')    
-
     def get_thresholds(self):
         try:
             flow_threshold = float(self.flow_threshold.text())

@@ -103,12 +103,6 @@ def modelmenu(parent):
     parent.newmodel.setEnabled(False)
     model_menu.addAction(parent.newmodel)
 
-    parent.endtrain = QAction('End training', parent)
-    parent.endtrain.triggered.connect(parent.end_train)
-    parent.endtrain.setEnabled(False)
-    model_menu.addAction(parent.endtrain)
-
-
 def helpmenu(parent):
     main_menu = parent.menuBar()
     help_menu = main_menu.addMenu("&Help")

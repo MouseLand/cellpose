@@ -171,8 +171,6 @@ def main():
                 if not os.path.exists(cpmodel_path):
                     logger.warning('model path does not exist, using cyto model')
                     args.pretrained_model = 'cyto'
-                else:
-                    logger.info(f'>>> running model {cpmodel_path}')
 
             image_names = io.get_image_files(args.dir, 
                                              args.mask_filter, 
@@ -203,11 +201,12 @@ def main():
                     diameter = None
                     logger.info('>>>> estimating diameter for each image')
                 else:
-                    logger.info('>>>> using user-specified model, no auto-diameter estimation available')
-                    diameter = model.diam_mean
+                    logger.info('>>>> not using cyto or nuclei model, cannot auto-estimate diameter')
+                    diameter = model.diam_labels
+                    logger.info('>>>> using diameter %0.3f for all images'%diameter)
             else:
                 diameter = args.diameter
-                logger.info('>>>> using diameter %0.2f for all images'%diameter)
+                logger.info('>>>> using diameter %0.3f for all images'%diameter)
             
             
             tqdm_out = utils.TqdmToLogger(logger,level=logging.INFO)

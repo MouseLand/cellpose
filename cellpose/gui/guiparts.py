@@ -25,40 +25,6 @@ def create_channel_choose():
         
     return ChannelChoose, ChannelLabels
 
-class EndTrainWindow(QDialog):
-    def __init__(self, parent):
-        super().__init__(parent)
-        self.setGeometry(100,100,300,300)
-        self.setWindowTitle('end training')
-        self.win = QWidget(self)
-        self.l0 = QGridLayout()
-        self.win.setLayout(self.l0)
-        
-        yoff = 0
-        qlabel = QLabel('ending training, keep model saved in GUI?')
-        qlabel.setFont(QtGui.QFont("Arial", 10, QtGui.QFont.Bold))
-        qlabel.setAlignment(QtCore.Qt.AlignVCenter)
-        self.l0.addWidget(qlabel, yoff,0,1,2)
-
-        # click button
-        yoff+=1
-        QBtn = QDialogButtonBox.Yes | QDialogButtonBox.No
-        self.buttonBox = QDialogButtonBox(QBtn)
-        self.buttonBox.accepted.connect(lambda: self.accept(parent))
-        self.buttonBox.rejected.connect(lambda: self.reject(parent))
-        self.l0.addWidget(self.buttonBox, yoff, 0, 1,4)
-
-    def accept(self, parent):
-        # set channels
-        parent.permanent_model[-1] = True
-        self.done(1)
-
-    def reject(self, parent):
-        # set channels
-        print('rejected')
-        parent.permanent_model[-1] = False
-        self.done(0)
-
 class ModelButton(QPushButton):
     def __init__(self, parent, model_name, text):
         super().__init__()
@@ -94,7 +60,7 @@ class TrainWindow(QDialog):
         self.ModelChoose.addItems(model_strings)
         self.ModelChoose.addItems(['scratch']) 
         self.ModelChoose.setFixedWidth(150)
-        self.ModelChoose.setCurrentIndex(0)
+        self.ModelChoose.setCurrentIndex(parent.training_params['model_index'])
         self.l0.addWidget(self.ModelChoose, yoff, 1,1,1)
         qlabel = QLabel('initial model: ')
         qlabel.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
@@ -109,17 +75,16 @@ class TrainWindow(QDialog):
             self.l0.addWidget(self.ChannelLabels[i], yoff, 0,1,1)
             self.l0.addWidget(self.ChannelChoose[i], yoff, 1,1,1)
 
-        # choose parameters
-        labels = ['learning_rate', 'weight_decay', 'n_epochs']
-        values =  [0.1, 0.0001, 100]
+        # choose parameters        
+        labels = ['learning_rate', 'weight_decay', 'n_epochs', 'model_name']
         self.edits = []
         yoff += 1
-        for i, (label, value) in enumerate(zip(labels, values)):
+        for i, label in enumerate(labels):
             qlabel = QLabel(label)
             qlabel.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
             self.l0.addWidget(qlabel, i+yoff,0,1,1)
             self.edits.append(QLineEdit())
-            self.edits[-1].setText(str(value))
+            self.edits[-1].setText(str(parent.training_params[label]))
             self.l0.addWidget(self.edits[-1], i+yoff, 1,1,1)
 
         yoff+=len(labels)
@@ -160,22 +125,19 @@ class TrainWindow(QDialog):
             qlabel.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
             self.l0.addWidget(qlabel, i+1, 5,1,1)
 
-
     def accept(self, parent):
         # set channels
         for i in range(2):
             parent.ChannelChoose[i].setCurrentIndex(self.ChannelChoose[i].currentIndex())
         # set training params
-        parent.learning_rate = float(self.edits[0].text())
-        parent.weight_decay = float(self.edits[1].text())
-        parent.n_epochs = int(self.edits[2].text())
-        # set model to start with
-        parent.pretrained_to_use = self.ModelChoose.currentText()
-        if parent.pretrained_to_use != 'scratch':
-            parent.ModelChoose.setCurrentIndex(self.ModelChoose.currentIndex())
+        parent.training_params = {'model_index': self.ModelChoose.currentIndex(),
+                                 'learning_rate': float(self.edits[0].text()), 
+                                 'weight_decay': float(self.edits[1].text()), 
+                                 'n_epochs':  int(self.edits[2].text()),
+                                 'model_name': self.edits[3].text()
+                                 }
         self.done(1)
-    #    return
-
+        
 def make_quadrants(parent, yp):
     """ make quadrant buttons """
     parent.quadbtns = QButtonGroup(parent)

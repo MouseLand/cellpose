@@ -193,7 +193,7 @@ class CPnet(nn.Module):
         self.make_style = make_style()
         self.output = batchconv(nbaseup[0], nout, 1)
         self.diam_mean = nn.Parameter(data=torch.ones(1) * diam_mean, requires_grad=False)
-        self.diameter = nn.Parameter(data=torch.ones(1) * diam_mean, requires_grad=False)
+        self.diam_labels = nn.Parameter(data=torch.ones(1) * diam_mean, requires_grad=False)
         self.style_on = style_on
         
     def forward(self, data):

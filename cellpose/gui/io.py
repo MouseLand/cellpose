@@ -57,12 +57,15 @@ def _add_model(parent, filename=None, permanent=True):
     parent.ModelChoose.addItems([fname])
     parent.model_strings.append(fname)
     parent.permanent_model.append(permanent)
-    parent.ModelChoose.setCurrentIndex(len(parent.model_strings) - 1)
+    parent.ModelChoose.setCurrentIndex(len(parent.model_strings))
     if len(parent.model_strings) > 0:
         parent.ModelButton.setStyleSheet(parent.styleUnpressed)
         parent.ModelButton.setEnabled(True)
     
-    
+    for ind, model_string in enumerate(parent.model_strings[:-1]):
+        if model_string == fname:
+            _remove_model(parent, ind=ind, verbose=False)
+
 def _remove_non_permanent_models(parent):
     i = 0
     for perm in parent.permanent_model:
@@ -71,12 +74,13 @@ def _remove_non_permanent_models(parent):
         else:
             i+=1
 
-def _remove_model(parent, ind=None):
+def _remove_model(parent, ind=None, verbose=True):
     if ind is None:
-        ind = parent.ModelChoose.currentIndex()
+        ind = parent.ModelChoose.currentIndex() - 1
     if ind > -1:
-        print(f'GUI_INFO: deleting {parent.model_strings[ind]} from GUI')
-        parent.ModelChoose.removeItem(ind)
+        if verbose:
+            print(f'GUI_INFO: deleting {parent.model_strings[ind]} from GUI')
+        parent.ModelChoose.removeItem(ind+1)
         del parent.model_strings[ind]
         del parent.permanent_model[ind]
         custom_strings = parent.model_strings
@@ -84,7 +88,7 @@ def _remove_model(parent, ind=None):
             with open(parent.model_list_path, 'w') as textfile:
                 for fname in custom_strings:
                     textfile.write(fname + '\n')
-            parent.ModelChoose.setCurrentIndex(len(parent.model_strings) - 1)
+            parent.ModelChoose.setCurrentIndex(len(parent.model_strings))
         else:
             # write empty file
             textfile = open(parent.model_list_path, 'w')

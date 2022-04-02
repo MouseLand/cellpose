@@ -75,14 +75,8 @@ class Cellpose():
         if nuclear:
             self.diam_mean = 17. 
         
-        model_range = range(4) if net_avg else range(1)
-        self.pretrained_model = [model_path(model_type, j, self.torch) for j in model_range]
-
-        if not net_avg:
-            self.pretrained_model = self.pretrained_model[0]
-
         self.cp = CellposeModel(device=self.device, gpu=self.gpu,
-                                pretrained_model=self.pretrained_model,
+                                model_type=model_type,
                                 diam_mean=self.diam_mean,
                                 net_avg=net_avg)
         self.cp.model_type = model_type
@@ -272,8 +266,9 @@ class CellposeModel(UnetModel):
     net_avg: bool (optional, default False)
         loads the 4 built-in networks and averages them if True, loads one network if False
         
-    diam_mean: float (optional, default 27.)
-        mean 'diameter', 27. is built in value for 'cyto' model
+    diam_mean: float (optional, default 30.)
+        mean 'diameter', 30. is built in value for 'cyto' model; 17. is built in value for 'nuclei' model; 
+        if saved in custom model file (cellpose>=2.0) then it will be loaded automatically and overwrite this value
         
     device: torch device (optional, default None)
         device used for model running / training 
@@ -308,9 +303,8 @@ class CellposeModel(UnetModel):
         elif isinstance(pretrained_model, str):
             pretrained_model = [pretrained_model]
     
-        # initialize according to arguments 
         self.diam_mean = diam_mean
-        
+        builtin = False
         if model_type is not None or (pretrained_model and not os.path.exists(pretrained_model[0])):
             pretrained_model_string = model_type 
             if ~np.any([pretrained_model_string == s for s in MODEL_NAMES]): #also covers None case
@@ -319,19 +313,23 @@ class CellposeModel(UnetModel):
                 models_logger.warning('pretrained model has incorrect path')
             models_logger.info(f'>>{pretrained_model_string}<< model set to be used')
             
-            nuclear = 'nuclei' in pretrained_model_string
-            if nuclear:
+            if pretrained_model_string=='nuclei':
                 self.diam_mean = 17. 
+            else:
+                self.diam_mean = 30.
 
             model_range = range(4) if net_avg else range(1)
             pretrained_model = [model_path(pretrained_model_string, j, self.torch) for j in model_range]
             residual_on, style_on, concatenation = True, True, False
+            builtin = True
         else:
             if pretrained_model:
                 pretrained_model_string = pretrained_model[0]
                 params = parse_model_string(pretrained_model_string)
                 if params is not None:
-                    nclasses, residual_on, style_on, concatenation = params 
+                    _, residual_on, style_on, concatenation = params 
+                models_logger.info(f'>>>> loading model {pretrained_model_string}')
+
                 
         # initialize network
         super().__init__(gpu=gpu, pretrained_model=False,
@@ -343,6 +341,16 @@ class CellposeModel(UnetModel):
         self.pretrained_model = pretrained_model
         if self.pretrained_model and len(self.pretrained_model)==1:
             self.net.load_model(self.pretrained_model[0], cpu=(not self.gpu))
+            self.diam_mean = self.net.diam_mean.data.cpu().numpy()[0]
+            self.diam_labels = self.net.diam_labels.data.cpu().numpy()[0]
+            models_logger.info(f'>>>> model diam_mean = {self.diam_mean: .3f} (ROIs rescaled to this size during training)')
+            if not builtin:
+                models_logger.info(f'>>>> model diam_labels = {self.diam_labels: .3f} (mean diameter of training ROIs)')
+        else:
+            self.diam_mean = self.net.diam_mean.data.cpu().numpy()[0]
+            self.diam_labels = self.net.diam_labels.data.cpu().numpy()[0]
+            models_logger.info(f'>>>> model diam_mean = {self.diam_mean: .3f} (ROIs rescaled to this size during training)')
+        
         ostr = ['off', 'on']
         self.net_type = 'cellpose_residual_{}_style_{}_concatenation_{}'.format(ostr[residual_on],
                                                                                    ostr[style_on],
@@ -389,12 +397,13 @@ class CellposeModel(UnetModel):
             invert: bool (optional, default False)
                 invert image pixel intensity before running network
 
-            rescale: float (optional, default None)
-                resize factor for each image, if None, set to 1.0
-
             diameter: float (optional, default None)
-                diameter for each image (only used if rescale is None), 
-                if diameter is None, set to diam_mean
+                diameter for each image, 
+                if diameter is None, set to diam_mean or diam_train if available
+
+            rescale: float (optional, default None)
+                resize factor for each image, if None, set to 1.0;
+                (only used if diameter is None)
 
             do_3D: bool (optional, default False)
                 set to True to run 3D segmentation on 4D image input
@@ -511,9 +520,13 @@ class CellposeModel(UnetModel):
             if x.ndim < 4:
                 x = x[np.newaxis,...]
             self.batch_size = batch_size
-            rescale = self.diam_mean / diameter if (rescale is None and (diameter is not None and diameter>0)) else rescale
-            rescale = 1.0 if rescale is None else rescale
-            
+
+            if diameter is not None and diameter > 0:
+                rescale = self.diam_mean / diameter
+            elif rescale is None:
+                diameter = self.diam_labels
+                rescale = self.diam_mean / diameter
+
             masks, styles, dP, cellprob, p = self._run_cp(x, 
                                                           compute_masks=compute_masks,
                                                           normalize=normalize,
@@ -524,6 +537,7 @@ class CellposeModel(UnetModel):
                                                           augment=augment, 
                                                           tile=tile, 
                                                           tile_overlap=tile_overlap,
+                                                          flow_threshold=flow_threshold,
                                                           cellprob_threshold=cellprob_threshold, 
                                                           interp=interp,
                                                           min_size=min_size, 
@@ -538,7 +552,7 @@ class CellposeModel(UnetModel):
     def _run_cp(self, x, compute_masks=True, normalize=True, invert=False,
                 rescale=1.0, net_avg=False, resample=True,
                 augment=False, tile=True, tile_overlap=0.1,
-                cellprob_threshold=0.0, diam_threshold=12., 
+                cellprob_threshold=0.0, 
                 flow_threshold=0.4, min_size=15,
                 interp=True, anisotropy=1.0, do_3D=False, stitch_threshold=0.0,
                 ):
@@ -654,7 +668,7 @@ class CellposeModel(UnetModel):
               learning_rate=0.2, n_epochs=500, momentum=0.9, SGD=True,
               weight_decay=0.00001, batch_size=8, nimg_per_epoch=None,
               rescale=True, min_train_masks=5,
-              netstr=None):
+              model_name=None):
 
         """ train network with images train_data 
         
@@ -720,7 +734,7 @@ class CellposeModel(UnetModel):
             min_train_masks: int (default, 5)
                 minimum number of masks an image must have to use in training set
 
-            netstr: str (default, None)
+            model_name: str (default, None)
                 name of network, otherwise saved with name as params + training start time
 
         """
@@ -749,7 +763,7 @@ class CellposeModel(UnetModel):
                                      learning_rate=learning_rate, n_epochs=n_epochs, 
                                      momentum=momentum, weight_decay=weight_decay, 
                                      SGD=SGD, batch_size=batch_size, nimg_per_epoch=nimg_per_epoch, 
-                                     rescale=rescale, netstr=netstr)
+                                     rescale=rescale, model_name=model_name)
         self.pretrained_model = model_path
         return model_path
 
