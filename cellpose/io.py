@@ -4,16 +4,8 @@ import numpy as np
 import cv2
 import tifffile
 import logging, pathlib, sys
+from tqdm import tqdm
 from pathlib import Path
-
-try:
-    from omnipose.utils import format_labels
-    import ncolor, edt
-    OMNI_INSTALLED = True
-except:
-    OMNI_INSTALLED = False
-
-from . import utils, plot, transforms
 
 try:
     from PyQt5 import QtGui, QtCore, Qt, QtWidgets
@@ -26,13 +18,13 @@ try:
     MATPLOTLIB = True
 except:
     MATPLOTLIB = False
-    
+
 try:
     from google.cloud import storage
     SERVER_UPLOAD = True
 except:
     SERVER_UPLOAD = False
-
+  
 io_logger = logging.getLogger(__name__)
 
 def logger_setup():
@@ -57,6 +49,8 @@ def logger_setup():
 
     return logger, log_file
 
+from . import utils, plot, transforms
+
 # helper function to check for a path; if it doesn't exist, make it 
 def check_dir(path):
     if not os.path.isdir(path):
@@ -72,10 +66,30 @@ def outlines_to_text(base, outlines):
 
 def imread(filename):
     ext = os.path.splitext(filename)[-1]
-    if ext== '.tif' or ext=='tiff':
-        img = tifffile.imread(filename)
+    if ext== '.tif' or ext=='.tiff':
+        with tifffile.TiffFile(filename) as tif:
+            ltif = len(tif.pages)
+            try:
+                full_shape = tif.shaped_metadata[0]['shape']
+            except:
+                try:
+                    page = tif.series[0][0]
+                    full_shape = tif.series[0].shape
+                except:
+                    ltif = 0
+            if ltif < 10:
+                img = tif.asarray()
+            else:
+                page = tif.series[0][0]
+                shape, dtype = page.shape, page.dtype
+                ltif = int(np.prod(full_shape) / np.prod(shape))
+                io_logger.info(f'reading tiff with {ltif} planes')
+                img = np.zeros((ltif, *shape), dtype=dtype)
+                for i,page in enumerate(tqdm(tif.series[0])):
+                    img[i] = page.asarray()
+                img = img.reshape(full_shape)            
         return img
-    else:
+    elif ext != '.npy':
         try:
             img = cv2.imread(filename, -1)#cv2.LOAD_IMAGE_ANYDEPTH)
             if img.ndim > 2:
@@ -84,10 +98,19 @@ def imread(filename):
         except Exception as e:
             io_logger.critical('ERROR: could not read file, %s'%e)
             return None
+    else:
+        try:
+            dat = np.load(filename, allow_pickle=True).item()
+            masks = dat['masks']
+            return masks
+        except Exception as e:
+            io_logger.critical('ERROR: could not read masks from file, %s'%e)
+            return None
+
 
 def imsave(filename, arr):
     ext = os.path.splitext(filename)[-1]
-    if ext== '.tif' or ext=='tiff':
+    if ext== '.tif' or ext=='.tiff':
         tifffile.imsave(filename, arr)
     else:
         if len(arr.shape)>2:
@@ -97,7 +120,7 @@ def imsave(filename, arr):
 
 def get_image_files(folder, mask_filter, imf=None, look_one_level_down=False):
     """ find all images in a folder and if look_one_level_down all subfolders """
-    mask_filters = ['_cp_masks', '_cp_output', '_flows', mask_filter]
+    mask_filters = ['_cp_masks', '_cp_output', '_flows', '_masks', mask_filter]
     image_names = []
     if imf is None:
         imf = ''
@@ -117,7 +140,7 @@ def get_image_files(folder, mask_filter, imf=None, look_one_level_down=False):
     imn = []
     for im in image_names:
         imfile = os.path.splitext(im)[0]
-        igood = all([(len(imfile) > len(mask_filter) and imfile[-len(mask_filter):] != mask_filter) or len(imfile) < len(mask_filter) 
+        igood = all([(len(imfile) > len(mask_filter) and imfile[-len(mask_filter):] != mask_filter) or len(imfile) <= len(mask_filter) 
                         for mask_filter in mask_filters])
         if len(imf)>0:
             igood &= imfile[-len(imf):]==imf
@@ -149,6 +172,10 @@ def get_label_files(image_names, mask_filter, imf=None):
         flow_names = None
     
     # check for masks
+    if mask_filter =='_seg.npy':
+        label_names = [label_names[n] + mask_filter for n in range(nimg)]
+        return label_names, None
+
     if os.path.exists(label_names[0] + mask_filter + '.tif'):
         label_names = [label_names[n] + mask_filter + '.tif' for n in range(nimg)]
     elif os.path.exists(label_names[0] + mask_filter + '.tiff'):
@@ -166,39 +193,42 @@ def get_label_files(image_names, mask_filter, imf=None):
     return label_names, flow_names
 
 
-def load_train_test_data(train_dir, test_dir=None, image_filter=None, mask_filter='_masks', unet=False, look_one_level_down=True):
-    image_names = get_image_files(train_dir, mask_filter, image_filter, look_one_level_down)
+def load_images_labels(tdir, mask_filter='_masks', image_filter=None, look_one_level_down=False, unet=False):
+    image_names = get_image_files(tdir, mask_filter, image_filter, look_one_level_down)
     nimg = len(image_names)
-    images = [imread(image_names[n]) for n in range(nimg)]
 
     # training data
     label_names, flow_names = get_label_files(image_names, mask_filter, imf=image_filter)
-    nimg = len(image_names)
-    labels = [imread(label_names[n]) for n in range(nimg)]
-    if flow_names is not None and not unet:
-        for n in range(nimg):
-            flows = imread(flow_names[n])
-            if flows.shape[0]<4:
-                labels[n] = np.concatenate((labels[n][np.newaxis,:,:], flows), axis=0) 
-            else:
-                labels[n] = flows
-            
+    
+    images = []
+    labels = []
+    k = 0
+    for n in range(nimg):
+        if os.path.isfile(label_names[n]):
+            image = imread(image_names[n])
+            label = imread(label_names[n])
+            if not unet:
+                if flow_names is not None and not unet:
+                    flow = imread(flow_names[n])
+                    if flow.shape[0]<4:
+                        label = np.concatenate((label[np.newaxis,:,:], flow), axis=0) 
+                    else:
+                        label = flow
+            images.append(image)
+            labels.append(label)
+            k+=1
+    io_logger.info(f'{k} / {nimg} images in {tdir} folder have labels')
+    return images, labels, image_names
+
+def load_train_test_data(train_dir, test_dir=None, image_filter=None, mask_filter='_masks', unet=False, look_one_level_down=False):
+    images, labels, image_names = load_images_labels(train_dir, mask_filter, image_filter, look_one_level_down, unet)
+                    
     # testing data
-    test_images, test_labels, image_names_test = None, None, None
+    test_images, test_labels, test_image_names = None, None, None
     if test_dir is not None:
-        image_names_test = get_image_files(test_dir, mask_filter, image_filter, look_one_level_down)
-        label_names_test, flow_names_test = get_label_files(image_names_test, mask_filter, imf=image_filter)
-        nimg = len(image_names_test)
-        test_images = [imread(image_names_test[n]) for n in range(nimg)]
-        test_labels = [imread(label_names_test[n]) for n in range(nimg)]
-        if flow_names_test is not None and not unet:
-            for n in range(nimg):
-                flows = imread(flow_names_test[n])
-                if flows.shape[0]<4:
-                    test_labels[n] = np.concatenate((test_labels[n][np.newaxis,:,:], flows), axis=0) 
-                else:
-                    test_labels[n] = flows
-    return images, labels, image_names, test_images, test_labels, image_names_test
+        test_images, test_labels, test_image_names = load_images_labels(test_dir, mask_filter, image_filter, look_one_level_down, unet)
+
+    return images, labels, image_names, test_images, test_labels, test_image_names
 
 
 
@@ -303,7 +333,7 @@ def save_to_png(images, masks, flows, file_names):
 # Now saves flows, masks, etc. to separate folders.
 def save_masks(images, masks, flows, file_names, png=True, tif=False, channels=[0,0],
                suffix='',save_flows=False, save_outlines=False, save_ncolor=False, 
-               dir_above=False, in_folders=False, savedir=None, save_txt=True, omni=True):
+               dir_above=False, in_folders=False, savedir=None, save_txt=True):
     """ save masks + nicely plotted segmentation image to png and/or tiff
 
     if png, masks[k] for images[k] are saved to file_names[k]+'_cp_masks.png'
@@ -344,7 +374,7 @@ def save_masks(images, masks, flows, file_names, png=True, tif=False, channels=[
         for image, mask, flow, file_name in zip(images, masks, flows, file_names):
             save_masks(image, mask, flow, file_name, png=png, tif=tif, suffix=suffix,dir_above=dir_above,
                        save_flows=save_flows,save_outlines=save_outlines,save_ncolor=save_ncolor,
-                       savedir=savedir,save_txt=save_txt,in_folders=in_folders, omni=omni)
+                       savedir=savedir,save_txt=save_txt,in_folders=in_folders)
         return
     
     if masks.ndim > 2 and not tif:
@@ -390,10 +420,6 @@ def save_masks(images, masks, flows, file_names, png=True, tif=False, channels=[
     if tif:
         exts.append('.tif')
 
-    # format_labels will also automatically use lowest bit depth possible
-    if OMNI_INSTALLED:
-        masks = format_labels(masks) 
-
     # save masks
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
@@ -409,7 +435,7 @@ def save_masks(images, masks, flows, file_names, png=True, tif=False, channels=[
             np.transpose(img, (1,2,0))
         
         fig = plt.figure(figsize=(12,3))
-        plot.show_segmentation(fig, img, masks, flows[0], omni=omni)
+        plot.show_segmentation(fig, img, masks, flows[0])
         fig.savefig(os.path.join(savedir,basename + '_cp_output' + suffix + '.png'), dpi=300)
         plt.close(fig)
 
@@ -424,7 +450,7 @@ def save_masks(images, masks, flows, file_names, png=True, tif=False, channels=[
         check_dir(outlinedir) 
         outlines = utils.masks_to_outlines(masks)
         outX, outY = np.nonzero(outlines)
-        img0 = transforms.normalize99(images,omni=omni)
+        img0 = transforms.normalize99(images)
         if img0.shape[0] < 4:
             img0 = np.transpose(img0, (1,2,0))
         if img0.shape[-1] < 3 or img0.ndim < 3:
@@ -436,32 +462,22 @@ def save_masks(images, masks, flows, file_names, png=True, tif=False, channels=[
         imgout[outX, outY] = np.array([255,0,0]) #pure red 
         imsave(os.path.join(outlinedir, basename + '_outlines' + suffix + '.png'),  imgout)
     
-    # ncolor labels (ready for color map application)
-    if masks.ndim < 3 and OMNI_INSTALLED and save_ncolor:
-        check_dir(ncolordir)
-        #convert masks to minimal n-color reresentation 
-        imsave(os.path.join(ncolordir, basename + '_cp_ncolor_masks' + suffix + '.png'),
-               ncolor.label(masks))
-    
     # save RGB flow picture
     if masks.ndim < 3 and save_flows:
         check_dir(flowdir)
         imsave(os.path.join(flowdir, basename + '_flows' + suffix + '.tif'), (flows[0]*(2**16 - 1)).astype(np.uint16))
         #save full flow data
         imsave(os.path.join(flowdir, basename + '_dP' + suffix + '.tif'), flows[1]) 
-    
+
 def save_server(parent=None, filename=None):
     """ Uploads a *_seg.npy file to the bucket.
     
     Parameters
     ----------------
-
     parent: PyQt.MainWindow (optional, default None)
         GUI window to grab file info from
-
     filename: str (optional, default None)
         if no GUI, send this file to server
-
     """
     if parent is not None:
         q = QtGui.QMessageBox.question(
@@ -497,4 +513,3 @@ def save_server(parent=None, filename=None):
                 source_file_name, destination_blob_name
             )
         )
-

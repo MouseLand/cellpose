@@ -21,6 +21,13 @@ Cellpose was written by Carsen Stringer and Marius Pachitariu. To learn about Ce
 
 If you want to improve Cellpose for yourself and for everyone else, please consider contributing manual segmentations for a few of your images via the built-in GUI interface (see instructions below). 
 
+### :star2: UPDATE v2.0 (April 2022) :star2:
+
+Cellpose 2.0 now allows human-in-the-loop training of models! Check out the twitter [thread](twitter) and [preprint](biorxiv) for details.
+
+Read how to use it yourself in the [docs](docs), and check out the full human-in-the-loop 
+[![video](https://img.youtube.com/vi/3Y1VKcxjNy4/default.jpg)](https://youtu.be/3Y1VKcxjNy4)
+
 ### UPDATE v1.0 (Jan 2022)
 
 Cellpose has been relatively stable for a while now. Small bugs will continue to be fixed, but we are now releasing a reference 1.0 version. Larger updates to Cellpose will go towards a new 2.0 candidate version to be released soon.  

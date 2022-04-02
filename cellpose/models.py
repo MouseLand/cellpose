@@ -9,26 +9,26 @@ import logging
 models_logger = logging.getLogger(__name__)
 
 from . import transforms, dynamics, utils, plot
-from .core import UnetModel, assign_device, check_mkl, MXNET_ENABLED, parse_model_string
-from .io import OMNI_INSTALLED
+from .core import UnetModel, assign_device, check_mkl, parse_model_string
 
 _MODEL_URL = 'https://www.cellpose.org/models'
 _MODEL_DIR_ENV = os.environ.get("CELLPOSE_LOCAL_MODELS_PATH")
 _MODEL_DIR_DEFAULT = pathlib.Path.home().joinpath('.cellpose', 'models')
 MODEL_DIR = pathlib.Path(_MODEL_DIR_ENV) if _MODEL_DIR_ENV else _MODEL_DIR_DEFAULT
-if OMNI_INSTALLED:
-    import omnipose
-    MODEL_NAMES = ['cyto','nuclei','cyto2','bact','bact_omni','cyto2_omni']
-else:
-    MODEL_NAMES = ['cyto','nuclei','cyto2']
 
-def model_path(model_type, model_index, use_torch):
-    torch_str = 'torch' if use_torch else ''
-    basename = '%s%s_%d' % (model_type, torch_str, model_index)
+MODEL_NAMES = ['cyto','nuclei','tissuenet','livecell','cyto2',
+                'TN1', 'TN2', 'TN3', 'LC1', 'LC2', 'LC3', 'LC4']
+
+def model_path(model_type, model_index, use_torch=True):
+    torch_str = 'torch'
+    if model_type=='cyto' or model_type=='cyto2' or model_type=='nuclei':
+        basename = '%s%s_%d' % (model_type, torch_str, model_index)
+    else:
+        basename = model_type
     return cache_model_path(basename)
 
-def size_model_path(model_type, use_torch):
-    torch_str = 'torch' if use_torch else ''
+def size_model_path(model_type, use_torch=True):
+    torch_str = 'torch'
     basename = 'size_%s%s_0.npy' % (model_type, torch_str)
     return cache_model_path(basename)
 
@@ -41,11 +41,6 @@ def cache_model_path(basename):
         utils.download_url_to_file(url, cached_file, progress=True)
     return cached_file
 
-def deprecation_warning_cellprob_dist_threshold(cellprob_threshold, dist_threshold):
-    models_logger.warning('cellprob_threshold and dist_threshold are being deprecated in a future release, use mask_threshold instead')
-    return cellprob_threshold if cellprob_threshold is not None else dist_threshold
-
-
 class Cellpose():
     """ main model which combines SizeModel and CellposeModel
 
@@ -56,78 +51,50 @@ class Cellpose():
         whether or not to use GPU, will check if GPU available
 
     model_type: str (optional, default 'cyto')
-        'cyto'=cytoplasm model; 'nuclei'=nucleus model
+        'cyto'=cytoplasm model; 'nuclei'=nucleus model; 'cyto2'=cytoplasm model with additional user images
 
-    net_avg: bool (optional, default True)
+    net_avg: bool (optional, default False)
         loads the 4 built-in networks and averages them if True, loads one network if False
 
-    device: gpu device (optional, default None)
-        where model is saved (e.g. mx.gpu() or mx.cpu()), overrides gpu input,
-        recommended if you want to use a specific GPU (e.g. mx.gpu(4) or torch.cuda.device(4))
-
-    torch: bool (optional, default True)
-        run model using torch if available
+    device: torch device (optional, default None)
+        device used for model running / training 
+        (torch.device('cuda') or torch.device('cpu')), overrides gpu input,
+        recommended if you want to use a specific GPU (e.g. torch.device('cuda:1'))
 
     """
-    def __init__(self, gpu=False, model_type='cyto', net_avg=True, device=None, torch=True, model_dir=None, omni=False):
+    def __init__(self, gpu=False, model_type='cyto', net_avg=False, device=None):
         super(Cellpose, self).__init__()
-        if not torch:
-            if not MXNET_ENABLED:
-                torch = True
-        self.torch = torch
+        self.torch = True
         
         # assign device (GPU or CPU)
         sdevice, gpu = assign_device(self.torch, gpu)
         self.device = device if device is not None else sdevice
         self.gpu = gpu
         
-        # set defaults and catch if cyto2 is being used without torch 
         model_type = 'cyto' if model_type is None else model_type
-        if model_type=='cyto2' and not self.torch:
-            model_type='cyto'
-                
-        
-        # for now, omni models cannot do net_avg 
         
         self.diam_mean = 30. #default for any cyto model 
         nuclear = 'nuclei' in model_type
-        bacterial = 'bact' in model_type
         if nuclear:
             self.diam_mean = 17. 
-        elif bacterial:
-            #self.diam_mean = 0.
-            net_avg = False # No bacterial or omni models have additional models
         
-        self.omni = omni or 'omni' in model_type       
-        if self.omni:
-            net_avg = False
-        model_range = range(4) if net_avg else range(1)
-        self.pretrained_model = [model_path(model_type, j, torch) for j in model_range]
-
-        if not net_avg:
-            self.pretrained_model = self.pretrained_model[0]
-
         self.cp = CellposeModel(device=self.device, gpu=self.gpu,
-                                pretrained_model=self.pretrained_model,
-                                diam_mean=self.diam_mean, torch=self.torch, omni=self.omni,
+                                model_type=model_type,
+                                diam_mean=self.diam_mean,
                                 net_avg=net_avg)
         self.cp.model_type = model_type
         
         # size model not used for bacterial model
-        if not bacterial:
-            self.pretrained_size = size_model_path(model_type, torch)
-            self.sz = SizeModel(device=self.device, pretrained_size=self.pretrained_size,
-                                cp_model=self.cp)
-            self.sz.model_type = model_type
-        else:
-            self.pretrained_size = None
-
+        self.pretrained_size = size_model_path(model_type, self.torch)
+        self.sz = SizeModel(device=self.device, pretrained_size=self.pretrained_size,
+                            cp_model=self.cp)
+        self.sz.model_type = model_type
+        
     def eval(self, x, batch_size=8, channels=None, channel_axis=None, z_axis=None,
              invert=False, normalize=True, diameter=30., do_3D=False, anisotropy=None,
-             net_avg=True, augment=False, tile=True, tile_overlap=0.1, resample=True, interp=True, cluster=False,
-             flow_threshold=0.4, mask_threshold=0.0, cellprob_threshold=None, dist_threshold=None,
-             diam_threshold=12., min_size=15, stitch_threshold=0.0, 
-             rescale=None, progress=None, omni=False, verbose=False, transparency=False, model_loaded=False):
+             net_avg=False, augment=False, tile=True, tile_overlap=0.1, resample=True, interp=True,
+             flow_threshold=0.4, cellprob_threshold=0.0, min_size=15, stitch_threshold=0.0, 
+             rescale=None, progress=None, model_loaded=False):
         """ run cellpose and get masks
 
         Parameters
@@ -168,7 +135,7 @@ class Cellpose():
         anisotropy: float (optional, default None)
             for 3D segmentation, optional rescaling factor (e.g. set to 2.0 if Z is sampled half as dense as X or Y)
 
-        net_avg: bool (optional, default True)
+        net_avg: bool (optional, default False)
             runs the 4 built-in networks and averages them if True, runs one network if False
 
         augment: bool (optional, default False)
@@ -190,14 +157,8 @@ class Cellpose():
         flow_threshold: float (optional, default 0.4)
             flow error threshold (all cells with errors below threshold are kept) (not used for 3D)
 
-        mask_threshold: float (optional, default 0.0)
+        cellprob_threshold: float (optional, default 0.0)
             all pixels with value above threshold kept for masks, decrease to find more and larger masks
-        
-        dist_threshold: float (optional, default None) DEPRECATED
-            use mask_threshold instead
-
-        cellprob_threshold: float (optional, default None) DEPRECATED
-            use mask_threshold instead
 
         min_size: int (optional, default 15)
                 minimum number of pixels per mask, can turn off with -1
@@ -210,21 +171,6 @@ class Cellpose():
 
         progress: pyqt progress bar (optional, default None)
             to return progress bar status to GUI
-            
-        omni: bool (optional, default False)
-            use omnipose mask recontruction features
-
-        calc_trace: bool (optional, default False)
-            calculate pixel traces and return as part of the flow
-
-        verbose: bool (optional, default False)
-            turn on additional output to logs for debugging 
-
-        verbose: bool (optional, default False)
-            turn on additional output to logs for debugging
-
-        transparency: bool (optional, default False)
-            modulate flow opacity by magnitude instead of brightness (can use flows on any color background) 
 
         model_loaded: bool (optional, default False)
             internal variable for determining if model has been loaded, used in __main__.py
@@ -236,11 +182,9 @@ class Cellpose():
 
         flows: list of lists 2D arrays, or list of 3D arrays (if do_3D=True)
             flows[k][0] = XY flow in HSV 0-255
-            flows[k][1] = flows at each pixel
-            flows[k][2] = scalar cell probability (Cellpose) or distance transform (Omnipose)
+            flows[k][1] = XY flows at each pixel
+            flows[k][2] = cell probability (if > cellprob_threshold, pixel used for dynamics)
             flows[k][3] = final pixel locations after Euler integration 
-            flows[k][4] = boundary output (nonempty for Omnipose)
-            flows[k][5] = pixel traces (nonempty for calc_trace=True)
 
         styles: list of 1D arrays of length 256, or single 1D array (if do_3D=True)
             style vector summarizing each image, also used to estimate size of objects in image
@@ -248,9 +192,6 @@ class Cellpose():
         diams: list of diameters, or float (if do_3D=True)
 
         """        
-
-        if cellprob_threshold is not None or dist_threshold is not None:
-            mask_threshold = deprecation_warning_cellprob_dist_threshold(cellprob_threshold, dist_threshold)
 
         tic0 = time.time()
         channels = [0,0] if channels is None else channels # why not just make this a default in the function header?
@@ -301,15 +242,10 @@ class Cellpose():
                                             tile_overlap=tile_overlap,
                                             resample=resample,
                                             interp=interp,
-                                            cluster=cluster,
                                             flow_threshold=flow_threshold, 
-                                            mask_threshold=mask_threshold,
-                                            diam_threshold=diam_threshold,
+                                            cellprob_threshold=cellprob_threshold,
                                             min_size=min_size, 
                                             stitch_threshold=stitch_threshold,
-                                            omni=omni,
-                                            verbose=verbose,
-                                            transparency=transparency,
                                             model_loaded=model_loaded)
         models_logger.info('>>>> TOTAL TIME %0.2f sec'%(time.time()-tic0))
     
@@ -330,47 +266,51 @@ class CellposeModel(UnetModel):
     model_type: str (optional, default None)
         'cyto'=cytoplasm model; 'nuclei'=nucleus model; if None, pretrained_model used
         
-    net_avg: bool (optional, default True)
+    net_avg: bool (optional, default False)
         loads the 4 built-in networks and averages them if True, loads one network if False
         
-    torch: bool (optional, default True)
-        use torch nn rather than mxnet
+    diam_mean: float (optional, default 30.)
+        mean 'diameter', 30. is built in value for 'cyto' model; 17. is built in value for 'nuclei' model; 
+        if saved in custom model file (cellpose>=2.0) then it will be loaded automatically and overwrite this value
         
-    diam_mean: float (optional, default 27.)
-        mean 'diameter', 27. is built in value for 'cyto' model
-        
-    device: mxnet device (optional, default None)
-        where model is saved (mx.gpu() or mx.cpu()), overrides gpu input,
-        recommended if you want to use a specific GPU (e.g. mx.gpu(4))
-        
-    model_dir: str (optional, default None)
-        overwrite the built in model directory where cellpose looks for models
-    
-    omni: use omnipose model (optional, default False)
+    device: torch device (optional, default None)
+        device used for model running / training 
+        (torch.device('cuda') or torch.device('cpu')), overrides gpu input,
+        recommended if you want to use a specific GPU (e.g. torch.device('cuda:1'))
 
+    residual_on: bool (optional, default True)
+        use 4 conv blocks with skip connections per layer instead of 2 conv blocks
+        like conventional u-nets
+
+    style_on: bool (optional, default True)
+        use skip connections from style vector to all upsampling layers
+
+    concatenation: bool (optional, default False)
+        if True, concatentate downsampling block outputs with upsampling block inputs; 
+        default is to add 
+    
+    nchan: int (optional, default 2)
+        number of channels to use as input to network, default is 2 
+        (cyto + nuclei) or (nuclei + zeros)
+    
     """
     
-    # still need to put the omni model trained on cellpose data into the right folder with the right name with the size model 
     def __init__(self, gpu=False, pretrained_model=False, 
-                    model_type=None, net_avg=True, torch=True,
+                    model_type=None, net_avg=False,
                     diam_mean=30., device=None,
                     residual_on=True, style_on=True, concatenation=False,
-                    nchan=2, nclasses=3, omni=False):
-        if not torch:
-            if not MXNET_ENABLED:
-                torch = True
-        self.torch = torch
+                    nchan=2):
+        self.torch = True
         if isinstance(pretrained_model, np.ndarray):
             pretrained_model = list(pretrained_model)
         elif isinstance(pretrained_model, str):
             pretrained_model = [pretrained_model]
     
-        # initialize according to arguments 
-        # these are overwritten if a model requires it (bact_omni the most rectrictive)
-        self.omni = omni
-        self.nclasses = nclasses 
         self.diam_mean = diam_mean
-        
+        builtin = False
+        if model_type is not None:
+            assert model_type in MODEL_NAMES
+
         if model_type is not None or (pretrained_model and not os.path.exists(pretrained_model[0])):
             pretrained_model_string = model_type 
             if ~np.any([pretrained_model_string == s for s in MODEL_NAMES]): #also covers None case
@@ -379,61 +319,58 @@ class CellposeModel(UnetModel):
                 models_logger.warning('pretrained model has incorrect path')
             models_logger.info(f'>>{pretrained_model_string}<< model set to be used')
             
-            nuclear = 'nuclei' in pretrained_model_string
-            bacterial = 'bact' in pretrained_model_string
-            
-            if nuclear:
+            if pretrained_model_string=='nuclei':
                 self.diam_mean = 17. 
+            else:
+                self.diam_mean = 30.
 
-            # set omni flag to true if the name contains it
-            self.omni = 'omni' in os.path.splitext(Path(pretrained_model_string).name)[0]
-            
-            #changed to only look for multiple files if net_avg is selected
             model_range = range(4) if net_avg else range(1)
-            pretrained_model = [model_path(pretrained_model_string, j, torch) for j in model_range]
+            pretrained_model = [model_path(pretrained_model_string, j, self.torch) for j in model_range]
             residual_on, style_on, concatenation = True, True, False
+            builtin = True
         else:
             if pretrained_model:
                 pretrained_model_string = pretrained_model[0]
                 params = parse_model_string(pretrained_model_string)
                 if params is not None:
-                    residual_on, style_on, concatenation = params 
-                self.omni = 'omni' in os.path.splitext(Path(pretrained_model_string).name)[0]
-        
-        # must have four classes for omnipose models
-        # Note that omni can still be used independently for evaluation to 'mix and match'
-        #would be better just to read from the model 
-        if self.omni:
-            self.nclasses = 4       
+                    _, residual_on, style_on, concatenation = params 
+                models_logger.info(f'>>>> loading model {pretrained_model_string}')
 
+                
         # initialize network
         super().__init__(gpu=gpu, pretrained_model=False,
                          diam_mean=self.diam_mean, net_avg=net_avg, device=device,
                          residual_on=residual_on, style_on=style_on, concatenation=concatenation,
-                         nclasses=self.nclasses, torch=self.torch, nchan=nchan)
+                        nchan=nchan)
 
         self.unet = False
         self.pretrained_model = pretrained_model
         if self.pretrained_model and len(self.pretrained_model)==1:
             self.net.load_model(self.pretrained_model[0], cpu=(not self.gpu))
-            if not self.torch:
-                self.net.collect_params().grad_req = 'null'
+            self.diam_mean = self.net.diam_mean.data.cpu().numpy()[0]
+            self.diam_labels = self.net.diam_labels.data.cpu().numpy()[0]
+            models_logger.info(f'>>>> model diam_mean = {self.diam_mean: .3f} (ROIs rescaled to this size during training)')
+            if not builtin:
+                models_logger.info(f'>>>> model diam_labels = {self.diam_labels: .3f} (mean diameter of training ROIs)')
+        else:
+            self.diam_mean = self.net.diam_mean.data.cpu().numpy()[0]
+            self.diam_labels = self.net.diam_labels.data.cpu().numpy()[0]
+            models_logger.info(f'>>>> model diam_mean = {self.diam_mean: .3f} (ROIs rescaled to this size during training)')
+        
         ostr = ['off', 'on']
-        omnistr = ['','_omni'] #toggle by containing omni phrase 
-        self.net_type = 'cellpose_residual_{}_style_{}_concatenation_{}{}'.format(ostr[residual_on],
+        self.net_type = 'cellpose_residual_{}_style_{}_concatenation_{}'.format(ostr[residual_on],
                                                                                    ostr[style_on],
-                                                                                   ostr[concatenation],
-                                                                                   omnistr[omni]) 
+                                                                                   ostr[concatenation]
+                                                                                 ) 
     
     def eval(self, x, batch_size=8, channels=None, channel_axis=None, 
              z_axis=None, normalize=True, invert=False, 
-             rescale=None, diameter=None, do_3D=False, anisotropy=None, net_avg=True, 
+             rescale=None, diameter=None, do_3D=False, anisotropy=None, net_avg=False, 
              augment=False, tile=True, tile_overlap=0.1,
-             resample=True, interp=True, cluster=False,
-             flow_threshold=0.4, mask_threshold=0.0, diam_threshold=12.,
-             cellprob_threshold=None, dist_threshold=None,
-             compute_masks=True, min_size=15, stitch_threshold=0.0, progress=None, omni=False, 
-             calc_trace=False, verbose=False, transparency=False, loop_run=False, model_loaded=False):
+             resample=True, interp=True,
+             flow_threshold=0.4, cellprob_threshold=0.0,
+             compute_masks=True, min_size=15, stitch_threshold=0.0, progress=None,  
+             loop_run=False, model_loaded=False):
         """
             segment list of images x, or 4D array - Z x nchan x Y x X
 
@@ -466,12 +403,13 @@ class CellposeModel(UnetModel):
             invert: bool (optional, default False)
                 invert image pixel intensity before running network
 
-            rescale: float (optional, default None)
-                resize factor for each image, if None, set to 1.0
-
             diameter: float (optional, default None)
-                diameter for each image (only used if rescale is None), 
-                if diameter is None, set to diam_mean
+                diameter for each image, 
+                if diameter is None, set to diam_mean or diam_train if available
+
+            rescale: float (optional, default None)
+                resize factor for each image, if None, set to 1.0;
+                (only used if diameter is None)
 
             do_3D: bool (optional, default False)
                 set to True to run 3D segmentation on 4D image input
@@ -479,7 +417,7 @@ class CellposeModel(UnetModel):
             anisotropy: float (optional, default None)
                 for 3D segmentation, optional rescaling factor (e.g. set to 2.0 if Z is sampled half as dense as X or Y)
 
-            net_avg: bool (optional, default True)
+            net_avg: bool (optional, default False)
                 runs the 4 built-in networks and averages them if True, runs one network if False
 
             augment: bool (optional, default False)
@@ -501,14 +439,8 @@ class CellposeModel(UnetModel):
             flow_threshold: float (optional, default 0.4)
                 flow error threshold (all cells with errors below threshold are kept) (not used for 3D)
 
-            mask_threshold: float (optional, default 0.0)
+            cellprob_threshold: float (optional, default 0.0) 
                 all pixels with value above threshold kept for masks, decrease to find more and larger masks
-
-            dist_threshold: float (optional, default None) DEPRECATED
-                use mask_threshold instead
-
-            cellprob_threshold: float (optional, default None) DEPRECATED
-                use mask_threshold instead
 
             compute_masks: bool (optional, default True)
                 Whether or not to compute dynamics and return masks.
@@ -522,19 +454,7 @@ class CellposeModel(UnetModel):
 
             progress: pyqt progress bar (optional, default None)
                 to return progress bar status to GUI
-                
-            omni: bool (optional, default False)
-                use omnipose mask recontruction features
-            
-            calc_trace: bool (optional, default False)
-                calculate pixel traces and return as part of the flow
-                
-            verbose: bool (optional, default False)
-                turn on additional output to logs for debugging 
-            
-            transparency: bool (optional, default False)
-                modulate flow opacity by magnitude instead of brightness (can use flows on any color background) 
-            
+                            
             loop_run: bool (optional, default False)
                 internal variable for determining if model has been loaded, stops model loading in loop over images
 
@@ -548,25 +468,14 @@ class CellposeModel(UnetModel):
 
             flows: list of lists 2D arrays, or list of 3D arrays (if do_3D=True)
                 flows[k][0] = XY flow in HSV 0-255
-                flows[k][1] = flows at each pixel
-                flows[k][2] = scalar cell probability (Cellpose) or distance transform (Omnipose)
-                flows[k][3] = boundary output (nonempty for Omnipose)
-                flows[k][4] = final pixel locations after Euler integration 
-                flows[k][5] = pixel traces (nonempty for calc_trace=True)
+                flows[k][1] = XY flows at each pixel
+                flows[k][2] = cell probability (if > cellprob_threshold, pixel used for dynamics)
+                flows[k][3] = final pixel locations after Euler integration 
 
             styles: list of 1D arrays of length 64, or single 1D array (if do_3D=True)
                 style vector summarizing each image, also used to estimate size of objects in image
 
         """
-        
-        if cellprob_threshold is not None or dist_threshold is not None:
-            mask_threshold = deprecation_warning_cellprob_dist_threshold(cellprob_threshold, dist_threshold)
-        
-        if verbose:
-            models_logger.info('Evaluating with flow_threshold %0.2f, mask_threshold %0.2f'%(flow_threshold, mask_threshold))
-            if omni:
-                models_logger.info(f'using omni model, cluster {cluster}')
-        
         
         if isinstance(x, list) or x.squeeze().ndim==5:
             masks, styles, flows = [], [], []
@@ -574,7 +483,7 @@ class CellposeModel(UnetModel):
             nimg = len(x)
             iterator = trange(nimg, file=tqdm_out) if nimg>1 else range(nimg)
             for i in iterator:
-                maski, stylei, flowi = self.eval(x[i], 
+                maski, flowi, stylei = self.eval(x[i], 
                                                  batch_size=batch_size, 
                                                  channels=channels[i] if (len(channels)==len(x) and 
                                                                           (isinstance(channels[i], list) or isinstance(channels[i], np.ndarray)) and
@@ -593,40 +502,38 @@ class CellposeModel(UnetModel):
                                                  tile_overlap=tile_overlap,
                                                  resample=resample, 
                                                  interp=interp,
-                                                 cluster=cluster,
-                                                 flow_threshold=flow_threshold, 
-                                                 mask_threshold=mask_threshold, 
-                                                 diam_threshold=diam_threshold,
+                                                 flow_threshold=flow_threshold,
+                                                 cellprob_threshold=cellprob_threshold, 
                                                  compute_masks=compute_masks, 
                                                  min_size=min_size, 
                                                  stitch_threshold=stitch_threshold, 
                                                  progress=progress,
-                                                 omni=omni,
-                                                 calc_trace=calc_trace, 
-                                                 verbose=verbose,
-                                                 transparency=transparency,
                                                  loop_run=(i>0),
                                                  model_loaded=model_loaded)
                 masks.append(maski)
                 flows.append(flowi)
                 styles.append(stylei)
-            return masks, styles, flows 
+            return masks, flows, styles
         
         else:
             if not model_loaded and (isinstance(self.pretrained_model, list) and not net_avg and not loop_run):
                 self.net.load_model(self.pretrained_model[0], cpu=(not self.gpu))
-                if not self.torch:
-                    self.net.collect_params().grad_req = 'null'
-
+                
+            # reshape image (normalization happens in _run_cp)
             x = transforms.convert_image(x, channels, channel_axis=channel_axis, z_axis=z_axis,
-                                         do_3D=(do_3D or stitch_threshold>0), normalize=False, invert=False, nchan=self.nchan, omni=omni)
+                                         do_3D=(do_3D or stitch_threshold>0), 
+                                         normalize=False, invert=False, nchan=self.nchan)
             if x.ndim < 4:
                 x = x[np.newaxis,...]
             self.batch_size = batch_size
-            rescale = self.diam_mean / diameter if (rescale is None and (diameter is not None and diameter>0)) else rescale
-            rescale = 1.0 if rescale is None else rescale
-            
-            masks, styles, dP, cellprob, p, bd, tr = self._run_cp(x, 
+
+            if diameter is not None and diameter > 0:
+                rescale = self.diam_mean / diameter
+            elif rescale is None:
+                diameter = self.diam_labels
+                rescale = self.diam_mean / diameter
+
+            masks, styles, dP, cellprob, p = self._run_cp(x, 
                                                           compute_masks=compute_masks,
                                                           normalize=normalize,
                                                           invert=invert,
@@ -636,27 +543,25 @@ class CellposeModel(UnetModel):
                                                           augment=augment, 
                                                           tile=tile, 
                                                           tile_overlap=tile_overlap,
-                                                          mask_threshold=mask_threshold, 
-                                                          diam_threshold=diam_threshold,
                                                           flow_threshold=flow_threshold,
+                                                          cellprob_threshold=cellprob_threshold, 
                                                           interp=interp,
-                                                          cluster=cluster,
                                                           min_size=min_size, 
                                                           do_3D=do_3D, 
                                                           anisotropy=anisotropy,
                                                           stitch_threshold=stitch_threshold,
-                                                          omni=omni,
-                                                          calc_trace=calc_trace,
-                                                          verbose=verbose)
-            flows = [plot.dx_to_circ(dP,transparency=transparency), dP, cellprob, p, bd, tr]
+                                                          )
+            
+            flows = [plot.dx_to_circ(dP), dP, cellprob, p]
             return masks, flows, styles
 
     def _run_cp(self, x, compute_masks=True, normalize=True, invert=False,
-                rescale=1.0, net_avg=True, resample=True,
+                rescale=1.0, net_avg=False, resample=True,
                 augment=False, tile=True, tile_overlap=0.1,
-                mask_threshold=0.0, diam_threshold=12., flow_threshold=0.4, min_size=15,
-                interp=True, cluster=False, anisotropy=1.0, do_3D=False, stitch_threshold=0.0,
-                omni=False, calc_trace=False, verbose=False):
+                cellprob_threshold=0.0, 
+                flow_threshold=0.4, min_size=15,
+                interp=True, anisotropy=1.0, do_3D=False, stitch_threshold=0.0,
+                ):
         
         tic = time.time()
         shape = x.shape
@@ -666,7 +571,7 @@ class CellposeModel(UnetModel):
         if do_3D:
             img = np.asarray(x)
             if normalize or invert:
-                img = transforms.normalize_img(img, invert=invert, omni=omni)
+                img = transforms.normalize_img(img, invert=invert)
             yf, styles = self._run_3D(img, rsz=rescale, anisotropy=anisotropy, 
                                       net_avg=net_avg, augment=augment, tile=tile,
                                       tile_overlap=tile_overlap)
@@ -689,7 +594,7 @@ class CellposeModel(UnetModel):
             for i in iterator:
                 img = np.asarray(x[i])
                 if normalize or invert:
-                    img = transforms.normalize_img(img, invert=invert, omni=omni)
+                    img = transforms.normalize_img(img, invert=invert)
                 if rescale != 1.0:
                     img = transforms.resize_image(img, rsz=rescale)
                 yf, style = self._run_nets(img, net_avg=net_avg,
@@ -717,36 +622,26 @@ class CellposeModel(UnetModel):
             tic=time.time()
             niter = 200 if (do_3D and not resample) else (1 / rescale * 200)
             if do_3D:
-                masks, p, tr = dynamics.compute_masks(dP, cellprob, bd, niter=niter, mask_threshold=mask_threshold,
-                                                      diam_threshold=diam_threshold, flow_threshold=flow_threshold,
+                masks, p = dynamics.compute_masks(dP, cellprob, niter=niter, 
+                                                      cellprob_threshold=cellprob_threshold,
+                                                      flow_threshold=flow_threshold,
                                                       interp=interp, do_3D=do_3D, min_size=min_size,
-                                                      resize=None, verbose=verbose,
-                                                      use_gpu=self.gpu, device=self.device, nclasses=self.nclasses)
+                                                      resize=None,
+                                                      use_gpu=self.gpu, device=self.device
+                                                    )
             else:
-                masks, p, tr = [], [], []
+                masks, p = [], []
                 resize = [shape[1], shape[2]] if not resample else None
                 for i in iterator:
-                    if not (omni and OMNI_INSTALLED):
-                        # run cellpose compute_masks
-                        outputs = dynamics.compute_masks(dP[:,i], cellprob[i], niter=niter, mask_threshold=mask_threshold,
-                                                         flow_threshold=flow_threshold, interp=interp, resize=resize, verbose=verbose,
-                                                         use_gpu=self.gpu, device=self.device, nclasses=self.nclasses)
-                    else:
-                        # run omnipose compute_masks
-                        bdi = bd[i] if bd is not None else None
-                        outputs = omnipose.core.compute_masks(dP[:,i], cellprob[i], bdi, niter=niter, mask_threshold=mask_threshold,
-                                                                flow_threshold=flow_threshold, diam_threshold=diam_threshold, 
-                                                                interp=interp, cluster=cluster, resize=resize, 
-                                                                calc_trace=calc_trace, verbose=verbose,
-                                                                use_gpu=self.gpu, device=self.device, nclasses=self.nclasses)
+                    outputs = dynamics.compute_masks(dP[:,i], cellprob[i], niter=niter, cellprob_threshold=cellprob_threshold,
+                                                         flow_threshold=flow_threshold, interp=interp, resize=resize,
+                                                         use_gpu=self.gpu, device=self.device)
                     masks.append(outputs[0])
                     p.append(outputs[1])
-                    tr.append(outputs[2])
-                
+                    
                 masks = np.array(masks)
                 p = np.array(p)
-                tr = np.array(tr)
-
+                
                 if stitch_threshold > 0 and nimg > 1:
                     models_logger.info(f'stitching {nimg} planes using stitch_threshold={stitch_threshold:0.3f} to make 3D masks')
                     masks = utils.stitch3D(masks, stitch_threshold=stitch_threshold)
@@ -755,25 +650,20 @@ class CellposeModel(UnetModel):
             if nimg > 1:
                 models_logger.info('masks created in %2.2fs'%(flow_time))
             masks, dP, cellprob, p = masks.squeeze(), dP.squeeze(), cellprob.squeeze(), p.squeeze()
-            bd = bd.squeeze() if bd is not None else bd
+            
         else:
-            masks, p , tr = np.zeros(0), np.zeros(0), np.zeros(0) #pass back zeros if not compute_masks
-        return masks, styles, dP, cellprob, p, bd, tr
+            masks, p = np.zeros(0), np.zeros(0)  #pass back zeros if not compute_masks
+        return masks, styles, dP, cellprob, p
 
         
     def loss_fn(self, lbl, y):
         """ loss function between true labels lbl and prediction y """
-        if self.omni and OMNI_INSTALLED:
-             #loss function for omnipose field 
-            loss = omnipose.core.loss(self, lbl, y)
-        else: # original loss function 
-            veci = 5. * self._to_device(lbl[:,1:])
-            lbl  = self._to_device(lbl[:,0]>.5)
-            loss = self.criterion(y[:,:2] , veci) 
-            if self.torch:
-                loss /= 2.
-            loss2 = self.criterion2(y[:,2] , lbl)
-            loss = loss + loss2
+        veci = 5. * self._to_device(lbl[:,1:])
+        lbl  = self._to_device(lbl[:,0]>.5)
+        loss = self.criterion(y[:,:2] , veci) 
+        loss /= 2.
+        loss2 = self.criterion2(y[:,2] , lbl)
+        loss = loss + loss2
         return loss        
 
 
@@ -784,7 +674,7 @@ class CellposeModel(UnetModel):
               learning_rate=0.2, n_epochs=500, momentum=0.9, SGD=True,
               weight_decay=0.00001, batch_size=8, nimg_per_epoch=None,
               rescale=True, min_train_masks=5,
-              omni=False, netstr=None):
+              model_name=None):
 
         """ train network with images train_data 
         
@@ -850,21 +740,18 @@ class CellposeModel(UnetModel):
             min_train_masks: int (default, 5)
                 minimum number of masks an image must have to use in training set
 
-            netstr: str (default, None)
+            model_name: str (default, None)
                 name of network, otherwise saved with name as params + training start time
 
         """
-        if rescale:
-            models_logger.info(f'Training with rescale = {rescale:.2f}')
         train_data, train_labels, test_data, test_labels, run_test = transforms.reshape_train_test(train_data, train_labels,
                                                                                                    test_data, test_labels,
-                                                                                                   channels, normalize, omni)
+                                                                                                   channels, normalize)
         # check if train_labels have flows
         # if not, flows computed, returned with labels as train_flows[i][0]
-        labels_to_flows = dynamics.labels_to_flows if not (omni and OMNI_INSTALLED) else omnipose.core.labels_to_flows
-        train_flows = labels_to_flows(train_labels, files=train_files, use_gpu=self.gpu, device=self.device)
+        train_flows = dynamics.labels_to_flows(train_labels, files=train_files, use_gpu=self.gpu, device=self.device)
         if run_test:
-            test_flows = labels_to_flows(test_labels, files=test_files, use_gpu=self.gpu, device=self.device)
+            test_flows = dynamics.labels_to_flows(test_labels, files=test_files, use_gpu=self.gpu, device=self.device)
         else:
             test_flows = None
 
@@ -884,7 +771,7 @@ class CellposeModel(UnetModel):
                                      learning_rate=learning_rate, n_epochs=n_epochs, 
                                      momentum=momentum, weight_decay=weight_decay, 
                                      SGD=SGD, batch_size=batch_size, nimg_per_epoch=nimg_per_epoch, 
-                                     rescale=rescale, netstr=netstr)
+                                     rescale=rescale, model_name=model_name)
         self.pretrained_model = model_path
         return model_path
 
@@ -899,16 +786,14 @@ class SizeModel():
         cp_model: UnetModel or CellposeModel
             model from which to get styles
 
-        device: mxnet device (optional, default mx.cpu())
-            where cellpose model is saved (mx.gpu() or mx.cpu())
+        device: torch device (optional, default None)
+            device used for model running / training 
+            (torch.device('cuda') or torch.device('cpu')), overrides gpu input,
+            recommended if you want to use a specific GPU (e.g. torch.device('cuda:1'))
 
         pretrained_size: str
             path to pretrained size model
             
-        omni: bool
-            whether or not to use distance-based size metrics
-            corresponding to 'omni' model 
-
     """
     def __init__(self, cp_model, device=None, pretrained_size=None, **kwargs):
         super(SizeModel, self).__init__(**kwargs)
@@ -917,7 +802,7 @@ class SizeModel():
         self.cp = cp_model
         self.device = self.cp.device
         self.diam_mean = self.cp.diam_mean
-        self.torch = self.cp.torch
+        self.torch = True
         if pretrained_size is not None:
             self.params = np.load(self.pretrained_size, allow_pickle=True).item()
             self.diam_mean = self.params['diam_mean']
@@ -928,7 +813,7 @@ class SizeModel():
         
     def eval(self, x, channels=None, channel_axis=None, 
              normalize=True, invert=False, augment=False, tile=True,
-             batch_size=8, progress=None, interp=True, omni=False):
+             batch_size=8, progress=None, interp=True):
         """ use images x to produce style or use style input to predict size of objects in image
 
             Object size estimation is done in two steps:
@@ -995,7 +880,7 @@ class SizeModel():
                                              tile=tile,
                                              batch_size=batch_size,
                                              progress=progress,
-                                             omni=omni)
+                                            )
                 diams.append(diam)
                 diams_style.append(diam_style)
 
@@ -1021,6 +906,7 @@ class SizeModel():
         diam_style = self.diam_mean if (diam_style==0 or np.isnan(diam_style)) else diam_style
         
         masks = self.cp.eval(x, 
+                             compute_masks=True,
                              channels=channels, 
                              channel_axis=channel_axis, 
                              normalize=normalize, 
@@ -1034,15 +920,10 @@ class SizeModel():
                              #flow_threshold=0,
                              diameter=None,
                              interp=False,
-                             omni=omni)[0]
+                            )[0]
         
-        # allow backwards compatibility to older scale metric
-        diam = utils.diameters(masks,omni=omni)[0]
-        if hasattr(self, 'model_type') and (self.model_type=='nuclei' or self.model_type=='cyto') and not self.torch and not omni:
-            diam_style /= (np.pi**0.5)/2
-            diam = self.diam_mean / ((np.pi**0.5)/2) if (diam==0 or np.isnan(diam)) else diam
-        else:
-            diam = self.diam_mean if (diam==0 or np.isnan(diam)) else diam
+        diam = utils.diameters(masks)[0]
+        diam = self.diam_mean if (diam==0 or np.isnan(diam)) else diam
         return diam, diam_style
 
     def _size_estimation(self, style):
@@ -1062,7 +943,7 @@ class SizeModel():
               channels=None, normalize=True, 
               learning_rate=0.2, n_epochs=10, 
               l2_regularization=1.0, batch_size=8,
-              omni=False):
+              ):
         """ train size model with images train_data to estimate linear model from styles to diameters
         
             Parameters
@@ -1096,18 +977,16 @@ class SizeModel():
         self.cp.batch_size = batch_size
         train_data, train_labels, test_data, test_labels, run_test = transforms.reshape_train_test(train_data, train_labels,
                                                                                                    test_data, test_labels,
-                                                                                                   channels, normalize, omni)
+                                                                                                   channels, normalize)
         if isinstance(self.cp.pretrained_model, list):
             cp_model_path = self.cp.pretrained_model[0]
             self.cp.net.load_model(cp_model_path, cpu=(not self.cp.gpu))
-            if not self.torch:
-                self.cp.net.collect_params().grad_req = 'null'
         else:
             cp_model_path = self.cp.pretrained_model
         
-        diam_train = np.array([utils.diameters(lbl,omni=omni)[0] for lbl in train_labels])
+        diam_train = np.array([utils.diameters(lbl)[0] for lbl in train_labels])
         if run_test: 
-            diam_test = np.array([utils.diameters(lbl,omni=omni)[0] for lbl in test_labels])
+            diam_test = np.array([utils.diameters(lbl)[0] for lbl in test_labels])
         
         # remove images with no masks
         for i in range(len(diam_train)):
@@ -1128,11 +1007,9 @@ class SizeModel():
             iall = np.arange(0,nimg,1,int)
             for ibatch in range(0,nimg,batch_size):
                 inds = iall[ibatch:ibatch+batch_size]
-                #using the orignal rotate and resize just because mine apparently broke the feature that
-                # you could either pass in flows or masks... will eventually fix and streamline 
-                imgi,lbl,scale = transforms.original_random_rotate_and_resize([train_data[i] for i in inds],
-                                                                              Y=[train_labels[i].astype(np.int16) for i in inds], 
-                                                                              scale_range=1, xy=(512,512)) 
+                imgi,lbl,scale = transforms.random_rotate_and_resize([train_data[i] for i in inds],
+                                                                      Y=[train_labels[i].astype(np.int16) for i in inds], 
+                                                                      scale_range=1, xy=(512,512)) 
 
                 feat = self.cp.network(imgi)[1]
                 styles[inds+nimg*iepoch] = feat

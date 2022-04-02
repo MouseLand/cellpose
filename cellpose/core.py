@@ -6,67 +6,53 @@ from urllib.parse import urlparse
 import tempfile
 import cv2
 from scipy.stats import mode
+import fastremap
 from . import transforms, dynamics, utils, plot, metrics
 
-try:
-    from mxnet import gluon, nd
-    import mxnet as mx
-    from . import resnet_style
-    MXNET_ENABLED = True 
-    mx_GPU = mx.gpu()
-    mx_CPU = mx.cpu()
-except:
-    MXNET_ENABLED = False
-
-try:
-    import torch
+import torch
 #     from GPUtil import showUtilization as gpu_usage #for gpu memory debugging 
-    from torch import nn
-    from torch.utils import mkldnn as mkldnn_utils
-    from . import resnet_torch
-    TORCH_ENABLED = True
-    torch_GPU = torch.device('cuda')
-    torch_CPU = torch.device('cpu')
-except Exception as e:
-    TORCH_ENABLED = False
-    print(e)
+from torch import nn
+from torch.utils import mkldnn as mkldnn_utils
+from . import resnet_torch
+TORCH_ENABLED = True
+torch_GPU = torch.device('cuda')
+torch_CPU = torch.device('cpu')
 
 core_logger = logging.getLogger(__name__)
 tqdm_out = utils.TqdmToLogger(core_logger, level=logging.INFO)
 
-# nclasses now specified by user or by model type in models.py
 def parse_model_string(pretrained_model):
     if isinstance(pretrained_model, list):
         model_str = os.path.split(pretrained_model[0])[-1]
     else:
         model_str = os.path.split(pretrained_model)[-1]
     if len(model_str)>3 and model_str[:4]=='unet':
+        cp = False
         nclasses = max(2, int(model_str[4]))
     elif len(model_str)>7 and model_str[:8]=='cellpose':
+        cp = True
         nclasses = 3
     else:
-        return True, True, False
-    ostrs = model_str.split('_')[2::2]
-    residual_on = ostrs[0]=='on'
-    style_on = ostrs[1]=='on'
-    concatenation = ostrs[2]=='on'
-    return residual_on, style_on, concatenation
+        return 3, True, True, False
+    
+    if 'residual' in model_str and 'style' in model_str and 'concatentation' in model_str:
+        ostrs = model_str.split('_')[2::2]
+        residual_on = ostrs[0]=='on'
+        style_on = ostrs[1]=='on'
+        concatenation = ostrs[2]=='on'
+        return nclasses, residual_on, style_on, concatenation
+    else:
+        if cp:
+            return 3, True, True, False
+        else:
+            return nclasses, False, False, True
 
-def use_gpu(gpu_number=0, istorch=True):
+def use_gpu(gpu_number=0, use_torch=True):
     """ check if gpu works """
-    if istorch:
+    if use_torch:
         return _use_gpu_torch(gpu_number)
     else:
-        return _use_gpu_mxnet(gpu_number)
-
-def _use_gpu_mxnet(gpu_number=0):
-    try:
-        _ = mx.ndarray.array([1, 2, 3], ctx=mx.gpu(gpu_number))
-        core_logger.info('** MXNET CUDA version installed and working. **')
-        return True
-    except mx.MXNetError:
-        core_logger.info('MXNET CUDA version not installed/working.')
-        return False
+        raise ValueError('cellpose only runs with pytorch now')
 
 def _use_gpu_torch(gpu_number=0):
     try:
@@ -78,36 +64,23 @@ def _use_gpu_torch(gpu_number=0):
         core_logger.info('TORCH CUDA version not installed/working.')
         return False
 
-def assign_device(istorch, gpu):
-    if gpu and use_gpu(istorch=istorch):
-        device = torch_GPU if istorch else mx_GPU
+def assign_device(use_torch=True, gpu=False):
+    if gpu and use_gpu(use_torch=True):
+        device = torch_GPU
         gpu=True
         core_logger.info('>>>> using GPU')
     else:
-        device = torch_CPU if istorch else mx_CPU
+        device = torch_CPU
         core_logger.info('>>>> using CPU')
         gpu=False
     return device, gpu
 
-def check_mkl(istorch=True):
+def check_mkl(use_torch=True):
     #core_logger.info('Running test snippet to check if MKL-DNN working')
-    if istorch:
-        mkl_enabled = torch.backends.mkldnn.is_available()
-    else:
-        process = subprocess.Popen(['python', 'test_mkl.py'],
-                                    stdout=subprocess.PIPE, stderr=subprocess.PIPE, 
-                                    cwd=os.path.dirname(os.path.abspath(__file__)))
-        stdout, stderr = process.communicate()
-        if len(stdout)>0:
-            mkl_enabled = True
-        else:
-            mkl_enabled = False
+    mkl_enabled = torch.backends.mkldnn.is_available()
     if mkl_enabled:
         mkl_enabled = True
         #core_logger.info('MKL version working - CPU version is sped up.')
-    elif not istorch:
-        core_logger.info('WARNING: MKL version on mxnet not working/installed - CPU version will be SLOW.')
-        core_logger.info('see https://mxnet.apache.org/versions/1.6/api/python/docs/tutorials/performance/backend/mkldnn/mkldnn_readme.html#4)')
     else:
         core_logger.info('WARNING: MKL version on torch not working/installed - CPU version will be slightly slower.')
         core_logger.info('see https://pytorch.org/docs/stable/backends.html?highlight=mkl')
@@ -115,34 +88,23 @@ def check_mkl(istorch=True):
 
 class UnetModel():
     def __init__(self, gpu=False, pretrained_model=False,
-                    diam_mean=30., net_avg=True, device=None,
+                    diam_mean=30., net_avg=False, device=None,
                     residual_on=False, style_on=False, concatenation=True,
-                    nclasses=3, torch=True, nchan=2):
+                    nclasses=3, nchan=2):
         self.unet = True
-        if torch:
-            if not TORCH_ENABLED:
-                torch = False
-        self.torch = torch
+        self.torch = True
         self.mkldnn = None
         if device is None:
-            sdevice, gpu = assign_device(torch, gpu)
+            sdevice, gpu = assign_device(self.torch, gpu)
         self.device = device if device is not None else sdevice
         if device is not None:
-            if torch:
-                device_gpu = self.device.type=='cuda'
-            else:
-                device_gpu = self.device.device_type=='gpu'
+            device_gpu = self.device.type=='cuda'
         self.gpu = gpu if device is None else device_gpu
-        if torch and not self.gpu:
-            self.mkldnn = check_mkl(self.torch)
+        if not self.gpu:
+            self.mkldnn = check_mkl(True)
         self.pretrained_model = pretrained_model
         self.diam_mean = diam_mean
 
-        if pretrained_model:
-            params = parse_model_string(pretrained_model)
-            if params is not None:
-                nclasses, residual_on, style_on, concatenation = params
-        
         ostr = ['off', 'on']
         self.net_type = 'unet{}_residual_{}_style_{}_concatenation_{}'.format(nclasses,
                                                                                 ostr[residual_on],
@@ -154,29 +116,24 @@ class UnetModel():
         self.nclasses = nclasses
         self.nbase = [32,64,128,256]
         self.nchan = nchan
-        if self.torch:
-            self.nbase = [nchan, 32, 64, 128, 256]
-            self.net = resnet_torch.CPnet(self.nbase, 
-                                          self.nclasses, 
-                                          sz=3,
-                                          residual_on=residual_on, 
-                                          style_on=style_on,
-                                          concatenation=concatenation,
-                                          mkldnn=self.mkldnn).to(self.device)
-        else:
-            self.net = resnet_style.CPnet(self.nbase, nout=self.nclasses,
+        self.nbase = [nchan, 32, 64, 128, 256]
+        self.net = resnet_torch.CPnet(self.nbase, 
+                                        self.nclasses, 
+                                        sz=3,
                                         residual_on=residual_on, 
                                         style_on=style_on,
-                                        concatenation=concatenation)
-            self.net.hybridize(static_alloc=True, static_shape=True)
-            self.net.initialize(ctx = self.device)
-
+                                        concatenation=concatenation,
+                                        mkldnn=self.mkldnn,
+                                        diam_mean=diam_mean).to(self.device)
+        
         if pretrained_model is not None and isinstance(pretrained_model, str):
             self.net.load_model(pretrained_model, cpu=(not self.gpu))
 
     def eval(self, x, batch_size=8, channels=None, channels_last=False, invert=False, normalize=True,
-             rescale=None, do_3D=False, anisotropy=None, net_avg=True, augment=False,
-             tile=True, cell_threshold=None, boundary_threshold=None, min_size=15):
+             rescale=None, do_3D=False, anisotropy=None, net_avg=False, augment=False,
+             channel_axis=None, z_axis=None, nolist=False,
+             tile=True, cell_threshold=None, boundary_threshold=None, min_size=15, 
+             compute_masks=True):
         """ segment list of images x
 
             Parameters
@@ -217,7 +174,7 @@ class UnetModel():
             anisotropy: float (optional, default None)
                 for 3D segmentation, optional rescaling factor (e.g. set to 2.0 if Z is sampled half as dense as X or Y)
 
-            net_avg: bool (optional, default True)
+            net_avg: bool (optional, default False)
                 runs the 4 built-in networks and averages them if True, runs one network if False
 
             augment: bool (optional, default False)
@@ -271,8 +228,6 @@ class UnetModel():
             model_path = self.pretrained_model[0]
             if not net_avg:
                 self.net.load_model(self.pretrained_model[0])
-                if not self.torch:
-                    self.net.collect_params().grad_req = 'null'
         else:
             model_path = self.pretrained_model
 
@@ -292,14 +247,16 @@ class UnetModel():
                 img = x[i].copy()
                 shape = img.shape
                 # rescale image for flow computation
-                imgs = transforms.resize_image(img, rsz=rescale[i])
+                img = transforms.resize_image(img, rsz=rescale[i])
                 y, style = self._run_nets(img, net_avg=net_avg, augment=augment, 
                                           tile=tile)
-                
-                maski = utils.get_masks_unet(y, cell_threshold, boundary_threshold)
-                maski = utils.fill_holes_and_remove_small_masks(maski, min_size=min_size)
-                maski = transforms.resize_image(maski, shape[-3], shape[-2], 
-                                                    interpolation=cv2.INTER_NEAREST)
+                if compute_masks:
+                    maski = utils.get_masks_unet(y, cell_threshold, boundary_threshold)
+                    maski = utils.fill_holes_and_remove_small_masks(maski, min_size=min_size)
+                    maski = transforms.resize_image(maski, shape[-3], shape[-2], 
+                                                        interpolation=cv2.INTER_NEAREST)
+                else:
+                    maski = None
                 masks.append(maski)
                 styles.append(style)
         else:
@@ -309,8 +266,11 @@ class UnetModel():
                                          net_avg=net_avg, augment=augment, tile=tile)
                 yf = yf.mean(axis=0)
                 core_logger.info('probabilities computed %2.2fs'%(time.time()-tic))
-                maski = utils.get_masks_unet(yf.transpose((1,2,3,0)), cell_threshold, boundary_threshold)
-                maski = utils.fill_holes_and_remove_small_masks(maski, min_size=min_size)
+                if compute_masks:
+                    maski = utils.get_masks_unet(yf.transpose((1,2,3,0)), cell_threshold, boundary_threshold)
+                    maski = utils.fill_holes_and_remove_small_masks(maski, min_size=min_size)
+                else:
+                    maski = None
                 masks.append(maski)
                 styles.append(style)
                 core_logger.info('masks computed %2.2fs'%(time.time()-tic))
@@ -322,33 +282,21 @@ class UnetModel():
         return masks, flows, styles
 
     def _to_device(self, x):
-        if self.torch:
-            X = torch.from_numpy(x).float().to(self.device)
-        else:
-            #if x.dtype != 'bool':
-            X = nd.array(x.astype(np.float32), ctx=self.device)
+        X = torch.from_numpy(x).float().to(self.device)
         return X
 
     def _from_device(self, X):
-        if self.torch:
-            x = X.detach().cpu().numpy()
-        else:
-            x = X.asnumpy()
+        x = X.detach().cpu().numpy()
         return x
 
     def network(self, x, return_conv=False):
-        """ convert imgs to torch/mxnet and run network model and return numpy """
+        """ convert imgs to torch and run network model and return numpy """
         X = self._to_device(x)
-        if self.torch:
-            self.net.eval()
-            if self.mkldnn:
-                self.net = mkldnn_utils.to_mkldnn(self.net)
-            with torch.no_grad():
-                y, style = self.net(X)
-        else:
-            y, style = self.net(X)
+        self.net.eval()
         if self.mkldnn:
-            self.net.to(torch_CPU)
+            self.net = mkldnn_utils.to_mkldnn(self.net)
+        with torch.no_grad():
+            y, style = self.net(X)
         y = self._from_device(y)
         style = self._from_device(style)
         if return_conv:
@@ -357,7 +305,7 @@ class UnetModel():
         
         return y, style
                 
-    def _run_nets(self, img, net_avg=True, augment=False, tile=True, tile_overlap=0.1, bsize=224, 
+    def _run_nets(self, img, net_avg=False, augment=False, tile=True, tile_overlap=0.1, bsize=224, 
                   return_conv=False, progress=None):
         """ run network (if more than one, loop over networks and average results
 
@@ -366,7 +314,7 @@ class UnetModel():
 
         img: float, [Ly x Lx x nchan] or [Lz x Ly x Lx x nchan]
 
-        net_avg: bool (optional, default True)
+        net_avg: bool (optional, default False)
             runs the 4 built-in networks and averages them if True, runs one network if False
 
         augment: bool (optional, default False)
@@ -400,8 +348,6 @@ class UnetModel():
         else:  
             for j in range(len(self.pretrained_model)):
                 self.net.load_model(self.pretrained_model[j], cpu=(not self.gpu))
-                if not self.torch:
-                    self.net.collect_params().grad_req = 'null'
                 y0, style = self._run_net(img, augment=augment, tile=tile, 
                                           tile_overlap=tile_overlap, bsize=bsize,
                                           return_conv=return_conv)
@@ -593,7 +539,7 @@ class UnetModel():
             styles /= (styles**2).sum()**0.5
             return yf, styles
 
-    def _run_3D(self, imgs, rsz=1.0, anisotropy=None, net_avg=True, 
+    def _run_3D(self, imgs, rsz=1.0, anisotropy=None, net_avg=False, 
                 augment=False, tile=True, tile_overlap=0.1, 
                 bsize=224, progress=None):
         """ run network on stack of images
@@ -611,7 +557,7 @@ class UnetModel():
         anisotropy: float (optional, default None)
                 for 3D segmentation, optional rescaling factor (e.g. set to 2.0 if Z is sampled half as dense as X or Y)
 
-        net_avg: bool (optional, default True)
+        net_avg: bool (optional, default False)
             runs the 4 built-in networks and averages them if True, runs one network if False
 
         augment: bool (optional, default False)
@@ -676,14 +622,15 @@ class UnetModel():
             lbl[boundary] *= 2
         else:
             lbl = lbl[:,0]
-        lbl = self._to_device(lbl)
+        lbl = self._to_device(lbl).long()
         loss = 8 * 1./self.nclasses * self.criterion(y, lbl)
         return loss
 
     def train(self, train_data, train_labels, train_files=None, 
               test_data=None, test_labels=None, test_files=None,
-              channels=None, normalize=True, save_path=None, save_every=50, save_each=False,
-              learning_rate=0.2, n_epochs=500, momentum=0.9, weight_decay=0.00001, batch_size=8, rescale=False):
+              channels=None, normalize=True, save_path=None, save_every=100, save_each=False,
+              learning_rate=0.2, n_epochs=500, momentum=0.9, weight_decay=0.00001, batch_size=8, 
+              nimg_per_epoch=None, min_train_masks=5, rescale=False, model_name=None):
         """ train function uses 0-1 mask label and boundary pixels for training """
 
         nimg = len(train_data)
@@ -691,39 +638,52 @@ class UnetModel():
         train_data, train_labels, test_data, test_labels, run_test = transforms.reshape_train_test(train_data, train_labels,
                                                                                                    test_data, test_labels,
                                                                                                    channels, normalize)
-
+        train_labels = [fastremap.renumber(label, in_place=True)[0] for label in train_labels]
         # add dist_to_bound to labels
         if self.nclasses==3:
-            core_logger.info('computing boundary pixels')
+            core_logger.info('computing boundary pixels for training data')
             train_classes = [np.stack((label, label>0, utils.distance_to_boundary(label)), axis=0).astype(np.float32)
                                 for label in tqdm(train_labels, file=tqdm_out)]
         else:
             train_classes = [np.stack((label, label>0), axis=0).astype(np.float32)
                                 for label in tqdm(train_labels, file=tqdm_out)]
         if run_test:
+            test_labels = [fastremap.renumber(label, in_place=True)[0] for label in test_labels]
             if self.nclasses==3:
+                core_logger.info('computing boundary pixels for test data')
                 test_classes = [np.stack((label, label>0, utils.distance_to_boundary(label)), axis=0).astype(np.float32)
                                     for label in tqdm(test_labels, file=tqdm_out)]
             else:
                 test_classes = [np.stack((label, label>0), axis=0).astype(np.float32)
                                     for label in tqdm(test_labels, file=tqdm_out)]
+        else:
+            test_classes = None
         
+        nmasks = np.array([label[0].max()-1 for label in train_classes])
+        nremove = (nmasks < min_train_masks).sum()
+        if nremove > 0:
+            core_logger.warning(f'{nremove} train images with number of masks less than min_train_masks ({min_train_masks}), removing from train set')
+            ikeep = np.nonzero(nmasks >= min_train_masks)[0]
+            train_data = [train_data[i] for i in ikeep]
+            train_classes = [train_classes[i] for i in ikeep]
+            train_labels = [train_labels[i] for i in ikeep]
+
         # split train data into train and val
         val_data = train_data[::8]
         val_classes = train_classes[::8]
         val_labels = train_labels[::8]
         del train_data[::8], train_classes[::8], train_labels[::8]
-
-        model_path = self._train_net(train_data, train_classes, 
-                                     test_data, test_classes, save_path, save_every, save_each,
-                                     learning_rate, n_epochs, momentum, weight_decay, 
-                                     batch_size, rescale)
-
+        model_path = self._train_net(train_data, train_classes, test_data, test_classes,
+                                    save_path=save_path, save_every=save_every, save_each=save_each,
+                                    learning_rate=learning_rate, n_epochs=n_epochs, momentum=momentum, 
+                                    weight_decay=weight_decay, SGD=True, batch_size=batch_size, 
+                                    nimg_per_epoch=nimg_per_epoch, rescale=rescale, model_name=model_name)
 
         # find threshold using validation set
         core_logger.info('>>>> finding best thresholds using validation set')
         cell_threshold, boundary_threshold = self.threshold_validation(val_data, val_labels)
         np.save(model_path+'_cell_boundary_threshold.npy', np.array([cell_threshold, boundary_threshold]))
+        return model_path
 
     def threshold_validation(self, val_data, val_labels):
         cell_thresholds = np.arange(-4.0, 4.25, 0.5)
@@ -735,8 +695,8 @@ class UnetModel():
         for j,cell_threshold in enumerate(cell_thresholds):
             for k,boundary_threshold in enumerate(boundary_thresholds):
                 masks = []
-                for i in range(len(val_data)):
-                    output,style = self._run_net(val_data[i].transpose(1,2,0), augment=False)
+                for data in val_data:
+                    output,style = self._run_net(data.transpose(1,2,0), augment=False)
                     masks.append(utils.get_masks_unet(output, cell_threshold, boundary_threshold))
                 ap = metrics.average_precision(val_labels, masks)[0]
                 ap0 = ap.mean(axis=0)
@@ -760,90 +720,56 @@ class UnetModel():
 
     def _train_step(self, x, lbl):
         X = self._to_device(x)
-        if self.torch:
-            self.optimizer.zero_grad()
-            #if self.gpu:
-            #    self.net.train() #.cuda()
-            #else:
-            self.net.train()
-            y = self.net(X)[0]
-            loss = self.loss_fn(lbl,y)
-            loss.backward()
-            train_loss = loss.item()
-            self.optimizer.step()
-            train_loss *= len(x)
-        else:
-            with mx.autograd.record():
-                y = self.net(X)[0]
-                loss = self.loss_fn(lbl, y)
-            loss.backward()
-            train_loss = nd.sum(loss).asscalar()
-            self.optimizer.step(x.shape[0])
+        self.optimizer.zero_grad()
+        #if self.gpu:
+        #    self.net.train() #.cuda()
+        #else:
+        self.net.train()
+        y = self.net(X)[0]
+        loss = self.loss_fn(lbl,y)
+        loss.backward()
+        train_loss = loss.item()
+        self.optimizer.step()
+        train_loss *= len(x)
         return train_loss
 
     def _test_eval(self, x, lbl):
         X = self._to_device(x)
-        if self.torch:
-            self.net.eval()
-            with torch.no_grad():
-                y, style = self.net(X)
-                loss = self.loss_fn(lbl,y)
-                test_loss = loss.item()
-                test_loss *= len(x)
-        else:
+        self.net.eval()
+        with torch.no_grad():
             y, style = self.net(X)
-            loss = self.loss_fn(lbl, y)
-            test_loss = nd.sum(loss).asnumpy()
+            loss = self.loss_fn(lbl,y)
+            test_loss = loss.item()
+            test_loss *= len(x)
         return test_loss
 
     def _set_optimizer(self, learning_rate, momentum, weight_decay, SGD=False):
-        if self.torch:
-            if SGD:
-                self.optimizer = torch.optim.SGD(self.net.parameters(), lr=learning_rate,
-                                            momentum=momentum, weight_decay=weight_decay)
-            else:
-                import torch_optimizer as optim # for RADAM optimizer
-                self.optimizer = optim.RAdam(self.net.parameters(), lr=learning_rate, betas=(0.95, 0.999), #changed to .95
-                                            eps=1e-08, weight_decay=weight_decay)
-                core_logger.info('>>> Using RAdam optimizer')
-                self.optimizer.current_lr = learning_rate
+        if SGD:
+            self.optimizer = torch.optim.SGD(self.net.parameters(), lr=learning_rate,
+                                        momentum=momentum, weight_decay=weight_decay)
         else:
-            self.optimizer = gluon.Trainer(self.net.collect_params(), 'sgd',{'learning_rate': learning_rate,
-                                'momentum': momentum, 'wd': weight_decay})
-
+            import torch_optimizer as optim # for RADAM optimizer
+            self.optimizer = optim.RAdam(self.net.parameters(), lr=learning_rate, betas=(0.95, 0.999), #changed to .95
+                                        eps=1e-08, weight_decay=weight_decay)
+            core_logger.info('>>> Using RAdam optimizer')
+            self.optimizer.current_lr = learning_rate
+        
     def _set_learning_rate(self, lr):
-        if self.torch:
-            for param_group in self.optimizer.param_groups:
-                param_group['lr'] = lr
-        else:
-            self.optimizer.set_learning_rate(lr)
-
+        for param_group in self.optimizer.param_groups:
+            param_group['lr'] = lr
+    
     def _set_criterion(self):
         if self.unet:
-            if self.torch:
-                criterion = nn.SoftmaxCrossEntropyLoss(axis=1)
-            else:
-                criterion = gluon.loss.SoftmaxCrossEntropyLoss(axis=1)
+            self.criterion = nn.CrossEntropyLoss(reduction='mean')
         else:
-            if self.torch:
-                self.criterion  = nn.MSELoss(reduction='mean')
-                self.criterion2 = nn.BCEWithLogitsLoss(reduction='mean')
-                self.criterion6 = MaskedLoss()
-                self.criterion11 = DerivativeLoss()
-                self.criterion12 = WeightedLoss()
-                self.criterion14 = ArcCosDotLoss()
-                self.criterion15 = NormLoss()
-                self.criterion16 = DivergenceLoss()
-            else:
-                self.criterion  = gluon.loss.L2Loss()
-                self.criterion2 = gluon.loss.SigmoidBinaryCrossEntropyLoss()
-
-    # Restored defaults. Need to make sure rescale is properly turned off and omni turned on when using CLI. 
+            self.criterion  = nn.MSELoss(reduction='mean')
+            self.criterion2 = nn.BCEWithLogitsLoss(reduction='mean')
+            
     def _train_net(self, train_data, train_labels, 
               test_data=None, test_labels=None,
               save_path=None, save_every=100, save_each=False,
               learning_rate=0.2, n_epochs=500, momentum=0.9, weight_decay=0.00001, 
-              SGD=True, batch_size=8, nimg_per_epoch=None, rescale=True, netstr=None): 
+              SGD=True, batch_size=8, nimg_per_epoch=None, rescale=True, model_name=None): 
         """ train function uses loss function self.loss_fn in models.py"""
         
         d = datetime.datetime.now()
@@ -878,16 +804,21 @@ class UnetModel():
         nimg = len(train_data)
 
         # compute average cell diameter
+        diam_train = np.array([utils.diameters(train_labels[k][0])[0] for k in range(len(train_labels))])
+        diam_train_mean = diam_train[diam_train > 0].mean()
+        self.diam_labels = diam_train_mean
         if rescale:
-            diam_train = np.array([utils.diameters(train_labels[k][0],omni=self.omni)[0] for k in range(len(train_labels))])
             diam_train[diam_train<5] = 5.
             if test_data is not None:
-                diam_test = np.array([utils.diameters(test_labels[k][0],omni=self.omni)[0] for k in range(len(test_labels))])
+                diam_test = np.array([utils.diameters(test_labels[k][0])[0] for k in range(len(test_labels))])
                 diam_test[diam_test<5] = 5.
             scale_range = 0.5
             core_logger.info('>>>> median diameter set to = %d'%self.diam_mean)
         else:
             scale_range = 1.0
+            
+        core_logger.info(f'>>>> mean of training label mask diameters (saved to model) {diam_train_mean:.3f}')
+        self.net.diam_labels.data = torch.ones(1, device=self.device) * diam_train_mean
 
         nchan = train_data[0].shape[0]
         core_logger.info('>>>> training network with %d channel input <<<<'%nchan)
@@ -901,7 +832,6 @@ class UnetModel():
         tic = time.time()
 
         
-
         lavg, nsum = 0, 0
 
         if save_path is not None:
@@ -939,10 +869,10 @@ class UnetModel():
                 rsc = diam_train[inds] / self.diam_mean if rescale else np.ones(len(inds), np.float32)
                 # now passing in the full train array, need the labels for distance field
                 imgi, lbl, scale = transforms.random_rotate_and_resize(
-                                        [train_data[i] for i in inds], Y=[train_labels[i] for i in inds],
-                                        rescale=rsc, scale_range=scale_range, unet=self.unet, inds=inds, omni=self.omni)
+                                        [train_data[i] for i in inds], Y=[train_labels[i][1:] for i in inds],
+                                        rescale=rsc, scale_range=scale_range, unet=self.unet)
                 if self.unet and lbl.shape[1]>1 and rescale:
-                    lbl[:,1] /= diam_batch[:,np.newaxis,np.newaxis]**2
+                    lbl[:,1] *= scale[:,np.newaxis,np.newaxis]**2#diam_batch[:,np.newaxis,np.newaxis]**2
                 train_loss = self._train_step(imgi, lbl)
                 lavg += train_loss
                 nsum += len(imgi) 
@@ -957,10 +887,10 @@ class UnetModel():
                         inds = rperm[ibatch:ibatch+batch_size]
                         rsc = diam_test[inds] / self.diam_mean if rescale else np.ones(len(inds), np.float32)
                         imgi, lbl, scale = transforms.random_rotate_and_resize(
-                                            [test_data[i] for i in inds], Y=[test_labels[i] for i in inds], 
-                                            scale_range=0., rescale=rsc, unet=self.unet, inds=inds, omni=self.omni) 
+                                            [test_data[i] for i in inds], Y=[test_labels[i][1:] for i in inds], 
+                                            scale_range=0., rescale=rsc, unet=self.unet) 
                         if self.unet and lbl.shape[1]>1 and rescale:
-                            lbl[:,1] *= scale[0]**2
+                            lbl[:,1] *= scale[:,np.newaxis,np.newaxis]**2
 
                         test_loss = self._test_eval(imgi, lbl)
                         lavgt += test_loss
@@ -978,17 +908,17 @@ class UnetModel():
                 if iepoch==self.n_epochs-1 or iepoch%save_every==1:
                     # save model at the end
                     if save_each: #separate files as model progresses 
-                        if netstr is None:
+                        if model_name is None:
                             file_name = '{}_{}_{}_{}'.format(self.net_type, file_label, 
                                                              d.strftime("%Y_%m_%d_%H_%M_%S.%f"),
                                                              'epoch_'+str(iepoch)) 
                         else:
-                            file_name = '{}_{}'.format(netstr, 'epoch_'+str(iepoch))
+                            file_name = '{}_{}'.format(model_name, 'epoch_'+str(iepoch))
                     else:
-                        if netstr is None:
+                        if model_name is None:
                             file_name = '{}_{}_{}'.format(self.net_type, file_label, d.strftime("%Y_%m_%d_%H_%M_%S.%f"))
                         else:
-                            file_name = netstr
+                            file_name = model_name
                     file_name = os.path.join(file_path, file_name)
                     ksave += 1
                     core_logger.info(f'saving network parameters to {file_name}')
@@ -998,103 +928,4 @@ class UnetModel():
 
         # reset to mkldnn if available
         self.net.mkldnn = self.mkldnn
-
         return file_name
-
-class DerivativeLoss(torch.nn.Module):
-    def __init__(self):
-        super().__init__()
-
-    def forward(self,y,Y,w,mask):
-        dx,dy = derivatives(y)
-        gx,gy = derivatives(Y)
-        d1 = (dx-gx)/5.
-        d2 = (dy-gy)/5.
-        L1 = torch.square(d1)
-        L2 = torch.square(d2)
-        return torch.mean((L1[mask]+L2[mask])*w[mask])
-#         return torch.mean(torch.sum((L1+L2)*w,axis=(-2,-1))/torch.sum(mask,axis=(-2,-1)))
-    
-    
-class WeightedLoss(torch.nn.Module):
-    def __init__(self):
-        super().__init__()
-
-    def forward(self,y,Y,w):
-
-        diff = (y-Y)/5.
-        return torch.mean(torch.square(diff)*w)
-
-class MaskedLoss(torch.nn.Module):
-    def __init__(self):
-        super().__init__()
-
-    def forward(self,y,Y,mask):
-        diff = (y-Y)/5.
-        return torch.mean(torch.square(diff[mask]))
-#         return torch.mean(torch.sum(torch.square(diff),axis=(-2,-1))/torch.sum(mask,axis=(-2,-1)))
-        
-def derivatives(x):
-    sobely = [[-1, -2, -1], [0, 0, 0], [1, 2, 1]]
-    sobelx = [[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]]
-    depth = x.size()[1]
-    sobel_kernel_x = torch.tensor(sobelx, dtype=torch.float32).unsqueeze(0).expand(depth,1,3,3).to(torch.device('cuda'))
-    sobel_kernel_y = torch.tensor(sobely, dtype=torch.float32).unsqueeze(0).expand(depth,1,3,3).to(torch.device('cuda'))
-
-    dx = torch.nn.functional.conv2d(x, sobel_kernel_x, stride=1, padding=1, groups=x.size(1))
-    dy = torch.nn.functional.conv2d(x, sobel_kernel_y, stride=1, padding=1, groups=x.size(1))
-
-    return dy,dx 
-
-class ArcCosDotLoss(torch.nn.Module):
-    def __init__(self):
-        super().__init__()
-
-    def forward(self,x,y,w,mask):
-        eps = 1e-12
-        denom = torch.multiply(torch.linalg.norm(x,dim=1),torch.linalg.norm(y,dim=1))+eps
-        dot = (x[:,0,:,:]*y[:,0,:,:]+x[:,1,:,:]*y[:,1,:,:])
-        phasediff = torch.acos(torch.clip(dot/denom,-0.999999,0.999999))/3.141549
-        return torch.mean((torch.square(phasediff[mask]))*w[mask])
-#         return torch.mean(torch.sum(torch.square(phasediff)*w,axis=(-2,-1))/torch.sum(mask,axis=(-2,-1)))
-    
-class NormLoss(torch.nn.Module):
-    def __init__(self):
-        super().__init__()
-
-    def forward(self,y,Y,w,mask):
-        ny = torch.linalg.norm(y,dim=1,keepdim=False)/5.
-        nY = torch.linalg.norm(Y,dim=1,keepdim=False)/5.
-        diff = (ny-nY)
-        return torch.mean(torch.square(diff[mask])*w[mask])
-#         return torch.mean(torch.sum(torch.square(diff)*w,axis=(-2,-1))/torch.sum(mask,axis=(-2,-1))) #mean of means, alterna
-    
-class DivergenceLoss(torch.nn.Module):
-    def __init__(self):
-        super().__init__()
-
-    def forward(self,y,Y,mask=None):
-        divy = divergence(y)
-        divY = divergence(Y)
-        if mask is None:
-            mask = torch.abs(divY)>1
-        diff = (divY - divy)/5.
-        return torch.mean(torch.square(diff[mask]))
-#         return torch.mean(torch.sum(torch.square(diff),axis=(-2,-1))/torch.sum(mask,axis=(-2,-1)))
-
-def divergence(x):
-    sobely = [[-1, -2, -1], [0, 0, 0], [1, 2, 1]]
-    sobelx = [[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]]
-    depth = x.size()[1]
-    sobel_kernel_x = torch.tensor(sobelx, dtype=torch.float32).unsqueeze(0).expand(depth,1,3,3).to(torch.device('cuda'))
-    sobel_kernel_y = torch.tensor(sobely, dtype=torch.float32).unsqueeze(0).expand(depth,1,3,3).to(torch.device('cuda'))
-
-    dx = torch.nn.functional.conv2d(x, sobel_kernel_x, stride=1, padding=1, groups=x.size(1))
-    dy = torch.nn.functional.conv2d(x, sobel_kernel_y, stride=1, padding=1, groups=x.size(1))
-    div = dy[:,0,:,:]+dx[:,1,:,:]
-    return div
-
-# averaging the mean across each 
-def mean_of_means(x):
-    return torch.mean(torch.mean(x, axis=(-2,-1)))
-
