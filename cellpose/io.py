@@ -8,13 +8,6 @@ from tqdm import tqdm
 from pathlib import Path
 
 try:
-    from omnipose.utils import format_labels
-    import ncolor, edt
-    OMNI_INSTALLED = True
-except:
-    OMNI_INSTALLED = False
-
-try:
     from PyQt5 import QtGui, QtCore, Qt, QtWidgets
     GUI = True
 except:
@@ -25,13 +18,13 @@ try:
     MATPLOTLIB = True
 except:
     MATPLOTLIB = False
-    
+
 try:
     from google.cloud import storage
     SERVER_UPLOAD = True
 except:
     SERVER_UPLOAD = False
-
+  
 io_logger = logging.getLogger(__name__)
 
 def logger_setup():
@@ -326,7 +319,7 @@ def save_to_png(images, masks, flows, file_names):
 # Now saves flows, masks, etc. to separate folders.
 def save_masks(images, masks, flows, file_names, png=True, tif=False, channels=[0,0],
                suffix='',save_flows=False, save_outlines=False, save_ncolor=False, 
-               dir_above=False, in_folders=False, savedir=None, save_txt=True, omni=True):
+               dir_above=False, in_folders=False, savedir=None, save_txt=True):
     """ save masks + nicely plotted segmentation image to png and/or tiff
 
     if png, masks[k] for images[k] are saved to file_names[k]+'_cp_masks.png'
@@ -367,7 +360,7 @@ def save_masks(images, masks, flows, file_names, png=True, tif=False, channels=[
         for image, mask, flow, file_name in zip(images, masks, flows, file_names):
             save_masks(image, mask, flow, file_name, png=png, tif=tif, suffix=suffix,dir_above=dir_above,
                        save_flows=save_flows,save_outlines=save_outlines,save_ncolor=save_ncolor,
-                       savedir=savedir,save_txt=save_txt,in_folders=in_folders, omni=omni)
+                       savedir=savedir,save_txt=save_txt,in_folders=in_folders)
         return
     
     if masks.ndim > 2 and not tif:
@@ -413,10 +406,6 @@ def save_masks(images, masks, flows, file_names, png=True, tif=False, channels=[
     if tif:
         exts.append('.tif')
 
-    # format_labels will also automatically use lowest bit depth possible
-    if OMNI_INSTALLED:
-        masks = format_labels(masks) 
-
     # save masks
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
@@ -432,7 +421,7 @@ def save_masks(images, masks, flows, file_names, png=True, tif=False, channels=[
             np.transpose(img, (1,2,0))
         
         fig = plt.figure(figsize=(12,3))
-        plot.show_segmentation(fig, img, masks, flows[0], omni=omni)
+        plot.show_segmentation(fig, img, masks, flows[0])
         fig.savefig(os.path.join(savedir,basename + '_cp_output' + suffix + '.png'), dpi=300)
         plt.close(fig)
 
@@ -447,7 +436,7 @@ def save_masks(images, masks, flows, file_names, png=True, tif=False, channels=[
         check_dir(outlinedir) 
         outlines = utils.masks_to_outlines(masks)
         outX, outY = np.nonzero(outlines)
-        img0 = transforms.normalize99(images,omni=omni)
+        img0 = transforms.normalize99(images)
         if img0.shape[0] < 4:
             img0 = np.transpose(img0, (1,2,0))
         if img0.shape[-1] < 3 or img0.ndim < 3:
@@ -459,32 +448,22 @@ def save_masks(images, masks, flows, file_names, png=True, tif=False, channels=[
         imgout[outX, outY] = np.array([255,0,0]) #pure red 
         imsave(os.path.join(outlinedir, basename + '_outlines' + suffix + '.png'),  imgout)
     
-    # ncolor labels (ready for color map application)
-    if masks.ndim < 3 and OMNI_INSTALLED and save_ncolor:
-        check_dir(ncolordir)
-        #convert masks to minimal n-color reresentation 
-        imsave(os.path.join(ncolordir, basename + '_cp_ncolor_masks' + suffix + '.png'),
-               ncolor.label(masks))
-    
     # save RGB flow picture
     if masks.ndim < 3 and save_flows:
         check_dir(flowdir)
         imsave(os.path.join(flowdir, basename + '_flows' + suffix + '.tif'), (flows[0]*(2**16 - 1)).astype(np.uint16))
         #save full flow data
         imsave(os.path.join(flowdir, basename + '_dP' + suffix + '.tif'), flows[1]) 
-    
+
 def save_server(parent=None, filename=None):
     """ Uploads a *_seg.npy file to the bucket.
     
     Parameters
     ----------------
-
     parent: PyQt.MainWindow (optional, default None)
         GUI window to grab file info from
-
     filename: str (optional, default None)
         if no GUI, send this file to server
-
     """
     if parent is not None:
         q = QtGui.QMessageBox.question(
@@ -520,4 +499,3 @@ def save_server(parent=None, filename=None):
                 source_file_name, destination_blob_name
             )
         )
-

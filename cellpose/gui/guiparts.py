@@ -59,7 +59,18 @@ class EndTrainWindow(QDialog):
         parent.permanent_model[-1] = False
         self.done(0)
 
-
+class ModelButton(QPushButton):
+    def __init__(self, parent, model_name, text):
+        super().__init__()
+        self.setEnabled(False)
+        self.setStyleSheet(parent.styleInactive)
+        self.setText(text)
+        self.setFont(parent.smallfont)
+        self.clicked.connect(lambda: self.press(parent))
+        self.model_name = model_name
+        
+    def press(self, parent):
+        parent.compute_model(self.model_name)
 
 class TrainWindow(QDialog):
     def __init__(self, parent, model_strings):

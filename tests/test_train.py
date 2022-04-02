@@ -42,7 +42,7 @@ def test_cli_train(data_dir):
     print(pretrained_models)
     pretrained_model = [pmodel for pmodel in pretrained_models if pmodel[-9:]!='_size.npy'][0]
     print(pretrained_model)
-    cmd = 'python -m cellpose --testing --dir %s --pretrained_model %s --chan 2 --chan2 1 --diameter 40'%(train_dir, pretrained_model)
+    cmd = 'python -m cellpose --testing --dir %s --pretrained_model %s --chan 2 --chan2 1 --diam_mean 40'%(train_dir, pretrained_model)
     try:
         cmd_stdout = check_output(cmd, stderr=STDOUT, shell=True).decode()
     except Exception as e:
@@ -53,7 +53,7 @@ def test_cli_train_pretrained(data_dir):
     train_dir = str(data_dir.joinpath('2D').joinpath('train'))
     model_dir = str(data_dir.joinpath('2D').joinpath('train').joinpath('models'))
     shutil.rmtree(model_dir, ignore_errors=True)
-    cmd = 'python -m cellpose --train --train_size --n_epochs 3 --dir %s --mask_filter _cyto_masks --pretrained_model cyto --chan 2 --chan2 1 --diameter 30'%train_dir
+    cmd = 'python -m cellpose --train --train_size --n_epochs 3 --dir %s --mask_filter _cyto_masks --pretrained_model cyto --chan 2 --chan2 1'%train_dir
     try:
         cmd_stdout = check_output(cmd, stderr=STDOUT, shell=True).decode()
     except Exception as e:

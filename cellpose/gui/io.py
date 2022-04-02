@@ -29,7 +29,7 @@ NCOLOR = False
 def _init_model_list(parent):
     models.MODEL_DIR.mkdir(parents=True, exist_ok=True)
     parent.model_list_path = os.fspath(models.MODEL_DIR.joinpath('gui_models.txt'))
-    parent.model_strings = models.MODEL_NAMES.copy()
+    parent.model_strings = []
     if not os.path.exists(parent.model_list_path):
         textfile = open(parent.model_list_path, 'w')
         textfile.close()
@@ -38,7 +38,7 @@ def _init_model_list(parent):
             lines = [line.rstrip() for line in textfile]
             if len(lines) > 0:
                 parent.model_strings.extend(lines)
-    parent.permanent_model = [True for i in range(len(parent.model_strings))]
+    parent.permanent_model = [True for i in range(len(parent.model_strings))]    
 
 def _add_model(parent, filename=None, permanent=True):
     if filename is None:
@@ -47,7 +47,10 @@ def _add_model(parent, filename=None, permanent=True):
             )
         filename = name[0]
     fname = os.path.split(filename)[-1]
-    shutil.copyfile(filename, os.fspath(models.MODEL_DIR.joinpath(fname)))
+    try:
+        shutil.copyfile(filename, os.fspath(models.MODEL_DIR.joinpath(fname)))
+    except shutil.SameFileError:
+        pass
     print(f'GUI_INFO: {filename} copied to models folder {os.fspath(models.MODEL_DIR)}')
     with open(parent.model_list_path, 'a') as textfile:
         textfile.write(fname + '\n')
@@ -55,8 +58,11 @@ def _add_model(parent, filename=None, permanent=True):
     parent.model_strings.append(fname)
     parent.permanent_model.append(permanent)
     parent.ModelChoose.setCurrentIndex(len(parent.model_strings) - 1)
-    parent.NetAvg.setCurrentIndex(1)
-
+    if len(parent.model_strings) > 0:
+        parent.ModelButton.setStyleSheet(parent.styleUnpressed)
+        parent.ModelButton.setEnabled(True)
+    
+    
 def _remove_non_permanent_models(parent):
     i = 0
     for perm in parent.permanent_model:
@@ -68,12 +74,12 @@ def _remove_non_permanent_models(parent):
 def _remove_model(parent, ind=None):
     if ind is None:
         ind = parent.ModelChoose.currentIndex()
-    if ind > len(models.MODEL_NAMES)-1:
+    if ind > -1:
         print(f'GUI_INFO: deleting {parent.model_strings[ind]} from GUI')
         parent.ModelChoose.removeItem(ind)
         del parent.model_strings[ind]
         del parent.permanent_model[ind]
-        custom_strings = parent.model_strings[len(models.MODEL_NAMES):]
+        custom_strings = parent.model_strings
         if len(custom_strings) > 0:
             with open(parent.model_list_path, 'w') as textfile:
                 for fname in custom_strings:
@@ -84,8 +90,11 @@ def _remove_model(parent, ind=None):
             textfile = open(parent.model_list_path, 'w')
             textfile.close()
             parent.ModelChoose.setCurrentIndex(0)
+            parent.ModelButton.setStyleSheet(parent.styleInactive)
+            parent.ModelButton.setEnabled(False)
     else:
-        print('ERROR: cannot remove built-in model, select custom model to delete')
+        print('ERROR: no model selected to delete')
+
     
 
 def _get_train_set(image_names):
