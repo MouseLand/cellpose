@@ -16,10 +16,10 @@ Run settings
 These are the same :ref:`settings`, but set up for the command line, e.g.
 `channels = [chan, chan2]`.
 
-    * chan: (int)
+    * chan: (int) channel to segment, ones-based because zero is gray (average of all channels)
         0 = grayscale; 1 = red; 2 = green; 3 = blue 
 
-    * chan2: (int)
+    * chan2: (int) nuclear or other channel, ones-based because zero means set to all zeros
         (optional); 0 = None (will be set to zero); 1 = red; 2 = green; 3 = blue
 
     * pretrained_model: (string)
@@ -78,54 +78,30 @@ You can run the help string and see all the options:
                    [--channel_axis CHANNEL_AXIS] [--z_axis Z_AXIS]
                    [--chan CHAN] [--chan2 CHAN2] [--invert] [--all_channels]
                    [--pretrained_model PRETRAINED_MODEL] [--unet]
-                   [--nclasses NCLASSES] [--fast_mode] [--no_resample]
-                   [--no_net_avg] [--no_interp] [--do_3D]
-                   [--diameter DIAMETER] [--stitch_threshold STITCH_THRESHOLD]
+                   [--nclasses NCLASSES] [--no_resample] [--net_avg]
+                   [--no_interp] [--do_3D] [--diameter DIAMETER]
+                   [--stitch_threshold STITCH_THRESHOLD] [--fast_mode]
                    [--flow_threshold FLOW_THRESHOLD]
                    [--cellprob_threshold CELLPROB_THRESHOLD]
-                   [--anisotropy ANISOTROPY] [--diam_threshold DIAM_THRESHOLD]
-                   [--exclude_on_edges] [--save_png] [--save_tif] [--no_npy]
-                   [--savedir SAVEDIR] [--dir_above] [--in_folders]
-                   [--save_flows] [--save_outlines] [--save_ncolor]
-                   [--save_txt] [--train] [--train_size]
-                   [--mask_filter MASK_FILTER] [--test_dir TEST_DIR]
-                   [--learning_rate LEARNING_RATE] [--n_epochs N_EPOCHS]
+                   [--anisotropy ANISOTROPY] [--exclude_on_edges] [--save_png]
+                   [--save_tif] [--no_npy] [--savedir SAVEDIR] [--dir_above]
+                   [--in_folders] [--save_flows] [--save_outlines]
+                   [--save_ncolor] [--save_txt] [--train] [--train_size]
+                   [--test_dir TEST_DIR] [--mask_filter MASK_FILTER]
+                   [--diam_mean DIAM_MEAN] [--learning_rate LEARNING_RATE]
+                   [--weight_decay WEIGHT_DECAY] [--n_epochs N_EPOCHS]
                    [--batch_size BATCH_SIZE]
                    [--min_train_masks MIN_TRAIN_MASKS]
                    [--residual_on RESIDUAL_ON] [--style_on STYLE_ON]
                    [--concatenation CONCATENATION] [--save_every SAVE_EVERY]
-                   [--save_each] [--verbose] [--testing]
+                   [--save_each] [--verbose]
 
     cellpose parameters
 
     optional arguments:
     -h, --help            show this help message and exit
-    --pretrained_model PRETRAINED_MODEL
-                            model to use
-    --unet                run standard unet instead of cellpose flow output
-    --fast_mode           make code run faster by turning off 4 network
-                            averaging and resampling
-    --no_resample         disable dynamics on full image (makes algorithm faster
-                            for images with large diameters)
-    --no_net_avg          make code run faster by only running 1 network
-    --no_interp           do not interpolate when running dynamics (was default)
-    --do_3D               process images as 3D stacks of images (nplanes x nchan
-                            x Ly x Lx
-    --diameter DIAMETER   cell diameter, if 0 cellpose will estimate for each
-                            image
-    --stitch_threshold STITCH_THRESHOLD
-                            compute masks in 2D then stitch together masks with
-                            IoU>0.9 across planes
-    --anisotropy ANISOTROPY
-                            anisotropy of volume in 3D
-    --diam_threshold DIAM_THRESHOLD
-                            cell diameter threshold for upscaling before mask
-                            rescontruction, default 12.
-    --exclude_on_edges    discard masks which touch edges of image
-    --verbose             flag to output extra information (e.g. diameter
-                            metrics) for debugging and fine-tuning parameters
-    --testing             flag to suppress CLI user confirmation for saving
-                            output; for test scripts
+    --verbose             show information about running and settings and save
+                            to log
 
     hardware arguments:
     --use_gpu             use gpu if torch with cuda installed
@@ -149,15 +125,35 @@ You can run the help string and see all the options:
                             images with special channels
 
     model arguments:
+    --pretrained_model PRETRAINED_MODEL
+                            model to use for running or starting training
+    --unet                run standard unet instead of cellpose flow output
     --nclasses NCLASSES   if running unet, choose 2 or 3; cellpose always uses 3
 
     algorithm arguments:
+    --no_resample         disable dynamics on full image (makes algorithm faster
+                            for images with large diameters)
+    --net_avg             run 4 networks instead of 1 and average results
+    --no_interp           do not interpolate when running dynamics (was default)
+    --do_3D               process images as 3D stacks of images (nplanes x nchan
+                            x Ly x Lx
+    --diameter DIAMETER   cell diameter, if 0 will use the diameter of the
+                            training labels used in the model, or with built-in
+                            model will estimate diameter for each image
+    --stitch_threshold STITCH_THRESHOLD
+                            compute masks in 2D then stitch together masks with
+                            IoU>0.9 across planes
+    --fast_mode           now equivalent to --no_resample; make code run faster
+                            by turning off resampling
     --flow_threshold FLOW_THRESHOLD
                             flow error threshold, 0 turns off this optional QC
                             step. Default: 0.4
     --cellprob_threshold CELLPROB_THRESHOLD
                             cellprob threshold, default is 0, decrease to find
                             more and larger masks
+    --anisotropy ANISOTROPY
+                            anisotropy of volume in 3D
+    --exclude_on_edges    discard masks which touch edges of image
 
     output arguments:
     --save_png            save masks as png and outlines as text file for ImageJ
@@ -180,11 +176,17 @@ You can run the help string and see all the options:
     training arguments:
     --train               train network using images in dir
     --train_size          train size network at end of training
+    --test_dir TEST_DIR   folder containing test data (optional)
     --mask_filter MASK_FILTER
                             end string for masks to run on. Default: _masks
-    --test_dir TEST_DIR   folder containing test data (optional)
+    --diam_mean DIAM_MEAN
+                            mean diameter to resize cells to during training -- if
+                            starting from pretrained models it cannot be changed
+                            from 30.0
     --learning_rate LEARNING_RATE
                             learning rate. Default: 0.2
+    --weight_decay WEIGHT_DECAY
+                            weight decay. Default: 1e-05
     --n_epochs N_EPOCHS   number of epochs. Default: 500
     --batch_size BATCH_SIZE
                             batch size. Default: 8

@@ -806,6 +806,7 @@ class UnetModel():
         # compute average cell diameter
         diam_train = np.array([utils.diameters(train_labels[k][0])[0] for k in range(len(train_labels))])
         diam_train_mean = diam_train[diam_train > 0].mean()
+        self.diam_labels = diam_train_mean
         if rescale:
             diam_train[diam_train<5] = 5.
             if test_data is not None:

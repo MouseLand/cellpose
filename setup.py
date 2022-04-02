@@ -62,8 +62,8 @@ setup(
     extras_require = {
       'docs': docs_deps,
       'gui': gui_deps,
-      'all': gui_deps + omni_deps,
       'distributed': distributed_deps,
+      'all': gui_deps + distributed_deps,
     },
     include_package_data=True,
     classifiers=(

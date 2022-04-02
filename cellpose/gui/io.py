@@ -38,9 +38,8 @@ def _init_model_list(parent):
             lines = [line.rstrip() for line in textfile]
             if len(lines) > 0:
                 parent.model_strings.extend(lines)
-    parent.permanent_model = [True for i in range(len(parent.model_strings))]    
-
-def _add_model(parent, filename=None, permanent=True):
+    
+def _add_model(parent, filename=None, load_model=True):
     if filename is None:
         name = QFileDialog.getOpenFileName(
             parent, "Add model to GUI"
@@ -56,33 +55,27 @@ def _add_model(parent, filename=None, permanent=True):
         textfile.write(fname + '\n')
     parent.ModelChoose.addItems([fname])
     parent.model_strings.append(fname)
-    parent.permanent_model.append(permanent)
-    parent.ModelChoose.setCurrentIndex(len(parent.model_strings))
     if len(parent.model_strings) > 0:
         parent.ModelButton.setStyleSheet(parent.styleUnpressed)
         parent.ModelButton.setEnabled(True)
     
     for ind, model_string in enumerate(parent.model_strings[:-1]):
         if model_string == fname:
-            _remove_model(parent, ind=ind, verbose=False)
+            _remove_model(parent, ind=ind+1, verbose=False)
 
-def _remove_non_permanent_models(parent):
-    i = 0
-    for perm in parent.permanent_model:
-        if not perm: 
-            _remove_model(parent, ind=i)
-        else:
-            i+=1
+    parent.ModelChoose.setCurrentIndex(len(parent.model_strings))
+    if load_model:
+        parent.model_choose(len(parent.model_strings))
 
 def _remove_model(parent, ind=None, verbose=True):
     if ind is None:
-        ind = parent.ModelChoose.currentIndex() - 1
-    if ind > -1:
+        ind = parent.ModelChoose.currentIndex()
+    if ind > 0:
+        ind -= 1
         if verbose:
             print(f'GUI_INFO: deleting {parent.model_strings[ind]} from GUI')
         parent.ModelChoose.removeItem(ind+1)
         del parent.model_strings[ind]
-        del parent.permanent_model[ind]
         custom_strings = parent.model_strings
         if len(custom_strings) > 0:
             with open(parent.model_list_path, 'w') as textfile:

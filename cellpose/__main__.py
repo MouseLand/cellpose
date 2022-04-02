@@ -61,7 +61,7 @@ def main():
     algorithm_args.add_argument('--no_interp', action='store_true', help='do not interpolate when running dynamics (was default)')
     algorithm_args.add_argument('--do_3D', action='store_true', help='process images as 3D stacks of images (nplanes x nchan x Ly x Lx')
     algorithm_args.add_argument('--diameter', required=False, default=30., type=float, 
-                        help='cell diameter, if 0 cellpose will estimate for each image')
+                        help='cell diameter, if 0 will use the diameter of the training labels used in the model, or with built-in model will estimate diameter for each image')
     algorithm_args.add_argument('--stitch_threshold', required=False, default=0.0, type=float, help='compute masks in 2D then stitch together masks with IoU>0.9 across planes')
     algorithm_args.add_argument('--fast_mode', action='store_true', help='now equivalent to --no_resample; make code run faster by turning off resampling')
     
@@ -98,6 +98,8 @@ def main():
                         default=30., type=float, help='mean diameter to resize cells to during training -- if starting from pretrained models it cannot be changed from 30.0')
     training_args.add_argument('--learning_rate',
                         default=0.2, type=float, help='learning rate. Default: %(default)s')
+    training_args.add_argument('--weight_decay',
+                        default=0.00001, type=float, help='weight decay. Default: %(default)s')
     training_args.add_argument('--n_epochs',
                         default=500, type=int, help='number of epochs. Default: %(default)s')
     training_args.add_argument('--batch_size',
@@ -115,8 +117,7 @@ def main():
     training_args.add_argument('--save_each', action='store_true', help='save the model under a different filename per --save_every epoch for later comparsion')
     
     # misc settings
-    parser.add_argument('--verbose', action='store_true', help='flag to output extra information (e.g. diameter metrics) for debugging and fine-tuning parameters')
-    parser.add_argument('--testing', action='store_true', help='flag to suppress CLI user confirmation for saving output; for test scripts')
+    parser.add_argument('--verbose', action='store_true', help='show information about running and settings and save to log')
     
     args = parser.parse_args()
 
@@ -310,7 +311,9 @@ def main():
             if args.train:
                 cpmodel_path = model.train(images, labels, train_files=image_names,
                                            test_data=test_images, test_labels=test_labels, test_files=image_names_test,
-                                           learning_rate=args.learning_rate, channels=channels,
+                                           learning_rate=args.learning_rate, 
+                                           weight_decay=args.weight_decay,
+                                           channels=channels,
                                            save_path=os.path.realpath(args.dir), save_every=args.save_every,
                                            save_each=args.save_each,
                                            n_epochs=args.n_epochs,

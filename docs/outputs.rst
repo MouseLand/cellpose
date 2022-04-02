@@ -13,22 +13,22 @@ _seg.npy output
 
 - *filename* : filename of image
 - *img* : image with chosen channels (nchan x Ly x Lx) (if not multiplane)
-- *masks* : masks (0 = NO masks; 1,2,... = mask labels)
-- *colors* : colors for masks
-- *outlines* : outlines of masks (0 = NO outline; 1,2,... = outline labels)
+- *masks* : each pixel in the image is assigned to an ROI (0 = NO ROI; 1,2,... = ROI labels)
+- *colors* : colors for ROIs
+- *outlines* : outlines of ROIs (0 = NO outline; 1,2,... = outline labels)
 - *chan_choose* : channels that you chose in GUI (0=gray/none, 1=red, 2=green, 3=blue)
 - *ismanual* : element *k* = whether or not mask *k* was manually drawn or computed by the cellpose algorithm
 - *flows* : flows[0] is XY flow in RGB, flows[1] is the cell probability in range 0-255 instead of 0.0 to 1.0, flows[2] is Z flow in range 0-255 (if it exists, otherwise zeros), 
             flows[3] is [dY, dX, cellprob] (or [dZ, dY, dX, cellprob] for 3D), flows[4] is pixel destinations (for internal use)
 - *est_diam* : estimated diameter (if run on command line)
-- *zdraw* : for each mask, which planes were manually labelled (planes in between manually drawn have interpolated masks)
+- *zdraw* : for each mask, which planes were manually labelled (planes in between manually drawn have interpolated ROIs)
 
 Here is an example of loading in a ``*_seg.npy`` file and plotting masks and outlines
 
 ::
 
     import numpy as np
-    from cellpose import plot
+    from cellpose import plot, utils
     dat = np.load('_seg.npy', allow_pickle=True).item()
 
     # plot image with masks overlaid
@@ -36,7 +36,7 @@ Here is an example of loading in a ``*_seg.npy`` file and plotting masks and out
                             colors=np.array(dat['colors']))
 
     # plot image with outlines overlaid in red
-    outlines = plot.outlines_list(dat['masks'])
+    outlines = utils.outlines_list(dat['masks'])
     plt.imshow(dat['img'])
     for o in outlines:
         plt.plot(o[:,0], o[:,1], color='r')
@@ -68,16 +68,16 @@ Or use the function below if running in a notebook
 ROI manager compatible output for ImageJ
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-You can save the outlines of masks in a text file that's compatible with ImageJ 
+You can save the outlines of ROIs in a text file that's compatible with ImageJ 
 ROI Manager in the GUI File menu.
 
-To save using the command line, add the flag ``--save_png``.
+To save using the command line, add the flag ``--save_outlines``.
 
 Or use the function below if running in a notebook
 
 ::
 
-    from cellpose import io, plot
+    from cellpose import io, utils
 
     # image_name is file name of image 
     # masks is numpy array of masks for image

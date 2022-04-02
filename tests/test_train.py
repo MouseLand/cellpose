@@ -42,7 +42,7 @@ def test_cli_train(data_dir):
     print(pretrained_models)
     pretrained_model = [pmodel for pmodel in pretrained_models if pmodel[-9:]!='_size.npy'][0]
     print(pretrained_model)
-    cmd = 'python -m cellpose --testing --dir %s --pretrained_model %s --chan 2 --chan2 1 --diam_mean 40'%(train_dir, pretrained_model)
+    cmd = 'python -m cellpose --dir %s --pretrained_model %s --chan 2 --chan2 1 --diam_mean 40'%(train_dir, pretrained_model)
     try:
         cmd_stdout = check_output(cmd, stderr=STDOUT, shell=True).decode()
     except Exception as e:

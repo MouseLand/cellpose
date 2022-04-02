@@ -13,9 +13,15 @@ can install it as ``pip install cellpose[gui]``.
 You can try it out without installing at `cellpose.org`_. 
 Also check out these resources:
 
+Cellpose 2.0
+- `paper <https://youtu.be/3Y1VKcxjNy4>`_ on biorxiv
+- twitter `paper <https://youtu.be/3Y1VKcxjNy4>`_
+- human-in-the-loop training protocol `video <https://youtu.be/3Y1VKcxjNy4>`_
+
+Cellpose 1.0 
+- `paper`_ on biorxiv (see figure 1 below) and in `nature methods <>`_
 - twitter `thread`_
-- Marius's `talk`_ on cellpose
-- `paper`_ on biorxiv (see figure 1 below)
+- Marius's `talk`_
 
 .. image:: _static/fig1.PNG
     :width: 1200px
@@ -39,6 +45,7 @@ Also check out these resources:
    inputs
    settings
    outputs
+   models
    train
    
 

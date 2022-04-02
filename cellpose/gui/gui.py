@@ -428,8 +428,8 @@ class MainW(QMainWindow):
         b+=1
         # choose channel
         self.ChannelChoose = [QComboBox(), QComboBox()]
-        self.ChannelChoose[0].addItems(['gray','red','green','blue'])
-        self.ChannelChoose[1].addItems(['none','red','green','blue'])
+        self.ChannelChoose[0].addItems(['0: gray', '1: red', '2: green','3: blue'])
+        self.ChannelChoose[1].addItems(['0: none', '1: red', '2: green', '3: blue'])
         cstr = ['chan to segment:', 'chan2 (optional): ']
         for i in range(2):
             #self.ChannelChoose[i].setFixedWidth(70)
@@ -481,16 +481,20 @@ class MainW(QMainWindow):
         self.GB.setLayout(self.GBg)
 
         # compute segmentation with general models
-        net_text = ['cyto','nuclei','tissuenet','livecell']
+        net_text = ['cyto','nuclei','tissuenet','livecell', 'cyto2']
         nett = ['cellpose cyto model', 
                 'cellpose nuclei model',
                 'tissuenet cell model',
-                'livecell model']
+                'livecell model',
+                'cellpose cyto2 model']
         self.StyleButtons = []
         for j in range(len(net_text)):
             self.StyleButtons.append(guiparts.ModelButton(self, net_text[j], net_text[j]))
             self.GBg.addWidget(self.StyleButtons[-1], 0,2*j,1,2)
-            self.StyleButtons[-1].setFixedWidth(50)
+            if j < 4:
+                self.StyleButtons[-1].setFixedWidth(45)
+            else:
+                self.StyleButtons[-1].setFixedWidth(35)
             self.StyleButtons[-1].setToolTip(nett[j])
 
         # compute segmentation with style model
@@ -522,12 +526,13 @@ class MainW(QMainWindow):
             self.ModelChoose.addItems(['select custom model'])
             self.ModelChoose.addItems(self.model_strings)
         else:
-            current_index = -1
+            self.ModelChoose.addItems(['select custom model'])
+            current_index = 0
         self.ModelChoose.setFixedWidth(180)
         self.ModelChoose.setStyleSheet(self.dropdowns)
         self.ModelChoose.setFont(self.medfont)
         self.ModelChoose.setCurrentIndex(current_index)
-        self.ModelChoose.currentIndexChanged.connect(self.model_choose)
+        self.ModelChoose.activated.connect(self.model_choose)
         
         self.CBg.addWidget(self.ModelChoose, 0,0,1,7)
 
@@ -767,12 +772,13 @@ class MainW(QMainWindow):
             channels[1] = 0
         return channels
 
-    def model_choose(self):
-        print(f'GUI_INFO: selected model {self.ModelChoose.currentText()}, loading now')
-        self.initialize_model(model_name=self.ModelChoose.currentText())
-        self.diameter = self.model.diam_labels
-        self.Diameter.setText('%0.2f'%self.diameter)
-        print(f'GUI_INFO: diameter set to {self.diameter: 0.2f} (but can be changed)')
+    def model_choose(self, index):
+        if index > 0:
+            print(f'GUI_INFO: selected model {self.ModelChoose.currentText()}, loading now')
+            self.initialize_model()
+            self.diameter = self.model.diam_labels
+            self.Diameter.setText('%0.2f'%self.diameter)
+            print(f'GUI_INFO: diameter set to {self.diameter: 0.2f} (but can be changed)')
 
     def calibrate_size(self):
         self.initialize_model(model_name='cyto')
@@ -1531,22 +1537,20 @@ class MainW(QMainWindow):
     def initialize_model(self, model_name=None):
         if model_name is None or not isinstance(model_name, str):
             self.get_model_path()
+            self.model = models.CellposeModel(gpu=self.useGPU.isChecked(), 
+                                              pretrained_model=self.current_model_path)
         else:
             self.current_model = model_name
             if 'cyto' in self.current_model or 'nuclei' in self.current_model:
                 self.current_model_path = models.model_path(self.current_model, 0)
             else:
                 self.current_model_path = os.fspath(models.MODEL_DIR.joinpath(self.current_model))
-        #print(self.current_model, self.current_model_path)
-            
-        if self.current_model in models.MODEL_NAMES:
-            self.model = models.Cellpose(gpu=self.useGPU.isChecked(), 
-                                        model_type=self.current_model)
-            self.SizeButton.setEnabled(True)
-        else:
-            self.model = models.CellposeModel(gpu=self.useGPU.isChecked(), 
-                                              pretrained_model=self.current_model_path)
-            self.SizeButton.setEnabled(False)
+            if self.current_model=='cyto':
+                self.model = models.Cellpose(gpu=self.useGPU.isChecked(), 
+                                             model_type=self.current_model)
+            else:
+                self.model = models.CellposeModel(gpu=self.useGPU.isChecked(), 
+                                                  model_type=self.current_model)
             
     def add_model(self):
         io._add_model(self)
@@ -1589,7 +1593,7 @@ class MainW(QMainWindow):
         self.current_model = model_type   
         
         self.channels = self.get_channels()
-        logger.info(f'training with chan = {self.ChannelChoose[0].currentIndex()} ({self.ChannelChoose[0].currentIndex()}), chan2 = {self.ChannelChoose[1].currentText()} ({self.ChannelChoose[1].currentText()})')
+        logger.info(f'training with chan = {self.ChannelChoose[0].currentText()}, chan2 = {self.ChannelChoose[1].currentText()}')
             
         self.model = models.CellposeModel(gpu=self.useGPU.isChecked(), 
                                           model_type=model_type)
@@ -1605,11 +1609,10 @@ class MainW(QMainWindow):
                                                weight_decay = self.training_params['weight_decay'], 
                                                n_epochs = self.training_params['n_epochs'],
                                                model_name = self.training_params['model_name'])
-        diam_labels = self.model.diam_labels
+        diam_labels = self.model.diam_labels.copy()
         # run model on next image 
-        io._add_model(self, self.new_model_path, permanent=False)
-        self.new_model_ind = len(self.model_strings)-1
-        print(f'GUI_INFO: model saved to {self.new_model_path} and loaded in gui')
+        io._add_model(self, self.new_model_path, load_model=False)
+        self.new_model_ind = len(self.model_strings)
         self.autorun = True
         if self.autorun:
             channels = self.channels.copy()
@@ -1620,7 +1623,7 @@ class MainW(QMainWindow):
             self.ChannelChoose[1].setCurrentIndex(channels[1])
             self.diameter = diam_labels
             self.Diameter.setText('%0.2f'%self.diameter)        
-            logger.info(f'!!! diameter set to diam_labels ( = {diam_labels: 0.3f} ) !!!')
+            logger.info(f'>>>> diameter set to diam_labels ( = {diam_labels: 0.3f} )')
             if self.train_files[0] == self.filename:
                 print(f'GUI_INFO: trained on all images + masks in folder --> auto-end training')
                 return    
@@ -1672,7 +1675,6 @@ class MainW(QMainWindow):
             self.clear_all()
             self.flows = [[],[],[]]
             self.initialize_model(model_name)
-            logger.info('using model %s'%self.current_model)
             self.progress.setValue(10)
             do_3D = False
             if self.NZ > 1:
