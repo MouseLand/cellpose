@@ -192,8 +192,8 @@ class CPnet(nn.Module):
         self.upsample = upsample(nbaseup, sz, residual_on=residual_on, concatenation=concatenation)
         self.make_style = make_style()
         self.output = batchconv(nbaseup[0], nout, 1)
-        #self.diam_mean = nn.Parameter(data=torch.ones(1) * diam_mean, requires_grad=False)
-        #self.diameter = nn.Parameter(data=torch.ones(1) * diam_mean, requires_grad=False)
+        self.diam_mean = nn.Parameter(data=torch.ones(1) * diam_mean, requires_grad=False)
+        self.diameter = nn.Parameter(data=torch.ones(1) * diam_mean, requires_grad=False)
         self.style_on = style_on
         
     def forward(self, data):
@@ -219,7 +219,7 @@ class CPnet(nn.Module):
 
     def load_model(self, filename, cpu=False):
         if not cpu:
-            self.load_state_dict(torch.load(filename), strict=False)
+            state_dict = torch.load(filename)
         else:
             self.__init__(self.nbase,
                           self.nout,
@@ -227,5 +227,7 @@ class CPnet(nn.Module):
                           self.residual_on,
                           self.style_on,
                           self.concatenation,
-                          self.mkldnn)
-            self.load_state_dict(torch.load(filename, map_location=torch.device('cpu')))
+                          self.mkldnn,
+                          self.diam_mean)
+            state_dict = torch.load(filename, map_location=torch.device('cpu'))
+        self.load_state_dict(dict([(name, param) for name, param in state_dict.items()]), strict=False)

@@ -510,10 +510,10 @@ class MainW(QMainWindow):
         
         # choose models
         self.ModelChoose = QComboBox()
-        if len(self.model_strings) > len(models.MODEL_NAMES):
-            current_index = len(models.MODEL_NAMES)
+        if len(self.model_strings) > 0:
+            current_index = len(self.model_strings)
         else:
-            current_index = 0
+            current_index = -1
         self.ModelChoose.addItems(self.model_strings)
         self.ModelChoose.setFixedWidth(180)
         self.ModelChoose.setStyleSheet(self.dropdowns)
@@ -1559,7 +1559,7 @@ class MainW(QMainWindow):
         if train:
             logger.info(f'training with {[os.path.split(f)[1] for f in self.train_files]}')
             if self.pretrained_to_use != 'scratch':
-                self.get_model_path()
+                self.initialize_model(model_name=self.pretrained_to_use)
             else:
                 self.current_model = 'scratch'
                 self.current_model_path = None
@@ -1588,7 +1588,7 @@ class MainW(QMainWindow):
         save_path = os.path.dirname(self.filename)
         d = datetime.datetime.now()
         netstr = self.current_model + d.strftime("_%Y%m%d_%H%M%S")
-        print(netstr)
+        print('GUI_INFO: name of new model: ' + netstr)
         self.new_model_path = self.model.train(self.train_data, self.train_labels, 
                                                  channels=self.channels, save_path=save_path, 
                                                  learning_rate=self.learning_rate, n_epochs=self.n_epochs,
@@ -1618,6 +1618,7 @@ class MainW(QMainWindow):
             self.Diameter.setText('%0.1f'%self.diameter)        
             self.compute_model()
         logger.info(f'!!! computed masks for {os.path.split(self.filename)[1]} from new model !!!')
+        logger.info(f'!!! changed default diameter to average diameter from training images !!!')
         
     def end_train(self):
         EW = guiparts.EndTrainWindow(self)
