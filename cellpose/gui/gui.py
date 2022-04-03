@@ -485,7 +485,7 @@ class MainW(QMainWindow):
 
         b+=1
         self.GB = QGroupBox('model zoo')
-        self.GB.setStyleSheet("QGroupBox { border: 1px solid white; color:white; padding: 4px 0px;}")
+        self.GB.setStyleSheet("QGroupBox { border: 1px solid white; color:white; padding: 10px 0px;}")
         self.GBg = QGridLayout()
         self.GB.setLayout(self.GBg)
 
@@ -522,7 +522,7 @@ class MainW(QMainWindow):
 
         b+=2
         self.CB = QGroupBox('custom models')
-        self.CB.setStyleSheet("QGroupBox { border: 1px solid white; color:white; padding: 4px 0px;}")
+        self.CB.setStyleSheet("QGroupBox { border: 1px solid white; color:white; padding: 10px 0px;}")
         self.CBg = QGridLayout()
         self.CB.setLayout(self.CBg)
         tipstr = 'add or train your own models in the "Models" file menu and choose model here'
