@@ -10,7 +10,6 @@ from pyqtgraph import GraphicsScene
 
 import numpy as np
 import cv2
-from scipy.ndimage import gaussian_filter
 
 from . import guiparts, menus, io
 from .. import models, core, dynamics
@@ -132,7 +131,7 @@ def run():
         print('downloading logo')
         download_url_to_file('https://www.cellpose.org/static/images/cellpose_transparent.png', icon_path, progress=True)
     if not guip_path.is_file():
-        download_url_to_file('https://github.com/MouseLand/cellpose/raw/master/docs/_static/cellpose_gui.png', guip_path, progress=True)
+        download_url_to_file('https://www.cellpose.org/static/images/cellpose_gui.png', guip_path, progress=True)
     icon_path = str(icon_path.resolve())
     app_icon = QtGui.QIcon()
     app_icon.addFile(icon_path, QtCore.QSize(16, 16))
@@ -255,6 +254,10 @@ class MainW(QMainWindow):
         HW = guiparts.HelpWindow(self)
         HW.show()
 
+    def train_help_window(self):
+        THW = guiparts.TrainHelpWindow(self)
+        THW.show()
+
     def gui_window(self):
         EG = guiparts.ExampleGUI(self)
         EG.show()
@@ -303,8 +306,14 @@ class MainW(QMainWindow):
         self.RGBDropDown.currentIndexChanged.connect(self.color_choose)
         #self.RGBDropDown.setFixedWidth(60)
         self.RGBDropDown.setStyleSheet(self.dropdowns)
+        
 
         self.l0.addWidget(self.RGBDropDown, b,0,1,4)
+        label = QLabel('[press R / G / B to \n toggle RGB and color ]')
+        label.setStyleSheet(label_style)
+        label.setFont(self.smallfont)
+        self.l0.addWidget(label, b+1,0,1,4)
+
         b+=3
 
         self.resize = -1
@@ -451,7 +460,7 @@ class MainW(QMainWindow):
         # post-hoc paramater tuning
 
         b+=1
-        label = QLabel('flow threshold:')
+        label = QLabel('flow_threshold:')
         label.setToolTip('threshold on flow error to accept a mask (set higher to get more cells, e.g. in range from (0.1, 3.0), OR set to 0.0 to turn off so no cells discarded);\n press enter to recompute if model already run')
         label.setStyleSheet(label_style)
         label.setFont(self.medfont)
@@ -463,7 +472,7 @@ class MainW(QMainWindow):
         self.l0.addWidget(self.flow_threshold, b,5,1,4)
 
         b+=1
-        label = QLabel('cellprob threshold:')
+        label = QLabel('cellprob_threshold:')
         label.setToolTip('threshold on cellprob output to seed cell masks (set lower to include more pixels or higher to include fewer, e.g. in range from (-6, 6)); \n press enter to recompute if model already run')
         label.setStyleSheet(label_style)
         label.setFont(self.medfont)
@@ -782,7 +791,7 @@ class MainW(QMainWindow):
 
     def calibrate_size(self):
         self.initialize_model(model_name='cyto')
-        diams, _ = self.model.sz.eval(self.stack[self.currentZ].copy(), invert=self.invert.isChecked(),
+        diams, _ = self.model.sz.eval(self.stack[self.currentZ].copy(),
                                    channels=self.get_channels(), progress=self.progress)
         diams = np.maximum(5.0, diams)
         logger.info('estimated diameter of cells using %s model = %0.1f pixels'%
@@ -1624,9 +1633,6 @@ class MainW(QMainWindow):
             self.diameter = diam_labels
             self.Diameter.setText('%0.2f'%self.diameter)        
             logger.info(f'>>>> diameter set to diam_labels ( = {diam_labels: 0.3f} )')
-            if self.train_files[0] == self.filename:
-                print(f'GUI_INFO: trained on all images + masks in folder --> auto-end training')
-                return    
             self.compute_model()
         logger.info(f'!!! computed masks for {os.path.split(self.filename)[1]} from new model !!!')
         

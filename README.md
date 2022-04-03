@@ -25,8 +25,11 @@ If you want to improve Cellpose for yourself and for everyone else, please consi
 
 Cellpose 2.0 now allows human-in-the-loop training of models! Check out the twitter [thread](twitter) and [preprint](biorxiv) for details.
 
-Read how to use it yourself in the [docs](docs), and check out the full human-in-the-loop 
+Read how to use it yourself in the [docs](https://cellpose.readthedocs.io/en/latest/gui.html#training-your-own-cellpose-model), and check out the full human-in-the-loop video:
+
 [![video](https://img.youtube.com/vi/3Y1VKcxjNy4/default.jpg)](https://youtu.be/3Y1VKcxjNy4)
+
+![gui screenshot](https://www.cellpose.org/static/images/cellpose_gui.png)
 
 ### UPDATE v1.0 (Jan 2022)
 
