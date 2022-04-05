@@ -121,6 +121,7 @@ with the model, or will be used if the diameter is 0
 
 These models can be loaded and used in the notebook with e.g. 
 ``models.CellposeModel(model_type='name_in_gui')``  or with the full path
-``models.CellposeModel(pretrained_model='/full/path/to/model')``
-or in the command line with ``python -m cellpose --pretrained_model name_in_gui`` or 
-``python -m cellpose --pretrained_model /full/path/to/model ``.
+``models.CellposeModel(pretrained_model='/full/path/to/model')`` .
+
+Or they can be used in the command line with ``python -m cellpose --pretrained_model name_in_gui`` 
+or ``python -m cellpose --pretrained_model /full/path/to/model`` .
