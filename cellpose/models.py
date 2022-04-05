@@ -41,6 +41,17 @@ def cache_model_path(basename):
         utils.download_url_to_file(url, cached_file, progress=True)
     return cached_file
 
+def get_user_models():
+    model_list_path = os.fspath(MODEL_DIR.joinpath('gui_models.txt'))
+    model_strings = []
+    if os.path.exists(model_list_path):
+        with open(model_list_path, 'r') as textfile:
+            lines = [line.rstrip() for line in textfile]
+            if len(lines) > 0:
+                model_strings.extend(lines)
+    return model_strings
+    
+
 class Cellpose():
     """ main model which combines SizeModel and CellposeModel
 
@@ -261,10 +272,11 @@ class CellposeModel(UnetModel):
         whether or not to save model to GPU, will check if GPU available
         
     pretrained_model: str or list of strings (optional, default False)
-        path to pretrained cellpose model(s), if None or False, no model loaded
+        full path to pretrained cellpose model(s), if None or False, no model loaded
         
     model_type: str (optional, default None)
-        'cyto'=cytoplasm model; 'nuclei'=nucleus model; if None, pretrained_model used
+        any model that is available in the GUI, use name in GUI e.g. 'livecell' 
+        (can be user-trained or model zoo)
         
     net_avg: bool (optional, default False)
         loads the 4 built-in networks and averages them if True, loads one network if False
@@ -307,17 +319,22 @@ class CellposeModel(UnetModel):
             pretrained_model = [pretrained_model]
     
         self.diam_mean = diam_mean
-        builtin = False
-        if model_type is not None:
-            assert model_type in MODEL_NAMES
+        builtin = True
+        
 
         if model_type is not None or (pretrained_model and not os.path.exists(pretrained_model[0])):
-            pretrained_model_string = model_type 
-            if ~np.any([pretrained_model_string == s for s in MODEL_NAMES]): #also covers None case
+            pretrained_model_string = model_type if model_type is not None else 'cyto'
+            model_strings = get_user_models()
+            all_models = MODEL_NAMES.copy() 
+            all_models.extend(model_strings)
+            if ~np.any([pretrained_model_string == s for s in MODEL_NAMES]): 
+                builtin = False
+            elif ~np.any([pretrained_model_string == s for s in all_models]):
                 pretrained_model_string = 'cyto'
+                
             if (pretrained_model and not os.path.exists(pretrained_model[0])):
                 models_logger.warning('pretrained model has incorrect path')
-            models_logger.info(f'>>{pretrained_model_string}<< model set to be used')
+            models_logger.info(f'>> {pretrained_model_string} << model set to be used')
             
             if pretrained_model_string=='nuclei':
                 self.diam_mean = 17. 
@@ -327,13 +344,14 @@ class CellposeModel(UnetModel):
             model_range = range(4) if net_avg else range(1)
             pretrained_model = [model_path(pretrained_model_string, j, self.torch) for j in model_range]
             residual_on, style_on, concatenation = True, True, False
-            builtin = True
+            
         else:
             if pretrained_model:
                 pretrained_model_string = pretrained_model[0]
                 params = parse_model_string(pretrained_model_string)
                 if params is not None:
                     _, residual_on, style_on, concatenation = params 
+                builtin = False
                 models_logger.info(f'>>>> loading model {pretrained_model_string}')
 
                 
@@ -345,17 +363,13 @@ class CellposeModel(UnetModel):
 
         self.unet = False
         self.pretrained_model = pretrained_model
-        if self.pretrained_model and len(self.pretrained_model)==1:
+        if self.pretrained_model:
             self.net.load_model(self.pretrained_model[0], cpu=(not self.gpu))
             self.diam_mean = self.net.diam_mean.data.cpu().numpy()[0]
             self.diam_labels = self.net.diam_labels.data.cpu().numpy()[0]
             models_logger.info(f'>>>> model diam_mean = {self.diam_mean: .3f} (ROIs rescaled to this size during training)')
             if not builtin:
                 models_logger.info(f'>>>> model diam_labels = {self.diam_labels: .3f} (mean diameter of training ROIs)')
-        else:
-            self.diam_mean = self.net.diam_mean.data.cpu().numpy()[0]
-            self.diam_labels = self.net.diam_labels.data.cpu().numpy()[0]
-            models_logger.info(f'>>>> model diam_mean = {self.diam_mean: .3f} (ROIs rescaled to this size during training)')
         
         ostr = ['off', 'on']
         self.net_type = 'cellpose_residual_{}_style_{}_concatenation_{}'.format(ostr[residual_on],
