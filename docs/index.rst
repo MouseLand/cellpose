@@ -15,13 +15,13 @@ Also check out these resources:
 
 Cellpose 2.0
 
-- `paper <https://youtu.be/3Y1VKcxjNy4>`_ on biorxiv
-- twitter `paper <https://youtu.be/3Y1VKcxjNy4>`_
+- `paper <https://www.biorxiv.org/content/10.1101/2022.04.01.486764v1>`_ on biorxiv
+- twitter `thread <https://twitter.com/marius10p/status/1511415409047650307?s=20&t=umTVIG1CFKIWHYMrQqFKyQ>`_
 - human-in-the-loop training protocol `video <https://youtu.be/3Y1VKcxjNy4>`_
 
 Cellpose 1.0 
 
-- `paper <https://www.biorxiv.org/content/10.1101/2020.02.02.931238v1>`_ on biorxiv (see figure 1 below) and in `nature methods <https://www.nature.com/articles/s41592-020-01018-x>`_
+- `paper <https://www.biorxiv.org/content/10.1101/2020.02.02.931238v1>`_ on biorxiv (see figure 1 below) and in `nature methods <https://t.co/kBMXmPp3Yn?amp=1>`_
 - twitter `thread`_
 - Marius's `talk`_
 
