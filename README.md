@@ -35,6 +35,8 @@ and updated GUI:
 
 ![gui screenshot](https://www.cellpose.org/static/images/cellpose_gui.png)
 
+Mxnet is no longer supported in cellpose. To use mxnet, please use v1.0.2.
+
 ### UPDATE v1.0 (Jan 2022)
 
 Cellpose has been relatively stable for a while now. Small bugs will continue to be fixed, but we are now releasing a reference 1.0 version. Larger updates to Cellpose will go towards a new 2.0 candidate version to be released soon.  
@@ -43,6 +45,11 @@ This update fixes bugs in GUI and plotting. It also stops model weight reloading
 ```
 from cellpose.io import logger_setup
 logger_setup();
+```
+
+To install this version please use
+```
+pip install cellpose==1.0.2
 ```
 
 ### UPDATE v0.7 (Nov 2021)
@@ -129,17 +136,6 @@ Follow the instructions [here](https://pytorch.org/get-started/locally/) to dete
 ~~~
 conda install pytorch cudatoolkit=10.2 -c pytorch
 ~~~~
-
-For the GPU version of mxnet, you will need to install the cuda toolkit first if you haven't already (on Windows it may be necessary to install via anaconda as below):
-
-~~~
-conda install -c anaconda cudatoolkit
-~~~
-
-When upgrading GPU Cellpose in the future, you will want to ignore dependencies (to ensure that the pip version of torch does not install):
-~~~
-pip install --no-deps cellpose --upgrade
-~~~
 
 ### Installation of github version
 
@@ -246,7 +242,7 @@ See the [docs](http://cellpose.readthedocs.io/en/latest/outputs.html) for info.
 
 ## Dependencies
 cellpose relies on the following excellent packages (which are automatically installed with conda/pip if missing):
-- [mxnet_mkl](https://mxnet.apache.org/)
+- [pytorch](https://pytorch.org/)
 - [pyqtgraph](http://pyqtgraph.org/)
 - [PyQt5](http://pyqt.sourceforge.net/Docs/PyQt5/)
 - [numpy](http://www.numpy.org/) (>=1.16.0)

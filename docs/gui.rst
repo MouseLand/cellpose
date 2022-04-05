@@ -15,6 +15,18 @@ You can **drag and drop** images (.tif, .png, .jpg, .gif) into the GUI and run C
 
 For multi-channel, multi-Z tiff's, the expected format is Z x channels x Ly x Lx.
 
+.. note::
+    The output file with the masks is in the same folder as the loaded
+    image with ``_seg.npy`` appended. The GUI automatically saves after you 
+    draw an ROI but NOT after running a model for
+    segmentation and NOT after 3D mask drawing (too slow). Save in the file
+    menu or with Ctrl+S. 
+
+.. note::
+    Since the output file is in the same folder as the loaded
+    image with ``_seg.npy`` appended, make sure you have WRITE access 
+    in the folder, otherwise the file will not save.
+
 Using the GUI 
 ~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -41,14 +53,10 @@ in 2D should be single strokes (if *single_stroke* is checked).
 
 If you want to draw masks in 3D, then you can turn *single_stroke*
 option off and draw a stroke on each plane with the cell and then press
-ENTER. 3D labelling will fill in unlabelled z-planes so that you do not
+ENTER (cellpose 1.0 only currently). 
+3D labelling will fill in unlabelled z-planes so that you do not
 have to as densely label.
 
-.. note::
-    The GUI automatically saves after you draw a mask but NOT after
-    segmentation and NOT after 3D mask drawing (too slow). Save in the file
-    menu or with Ctrl+S. The output file is in the same folder as the loaded
-    image with ``_seg.npy`` appended.
 
 Segmentation options
 ~~~~~~~~~~~~~~~~~~~~~~~~

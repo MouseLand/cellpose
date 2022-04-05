@@ -1642,11 +1642,7 @@ class MainW(QMainWindow):
             cellprob_threshold = float(self.cellprob_threshold.text())
             if flow_threshold==0.0 or self.NZ>1:
                 flow_threshold = None
-                logger.info('computing masks with cell prob=%0.3f, no flow error threshold'%
-                        (cellprob_threshold))
-            else:
-                logger.info('computing masks with cell prob=%0.3f, flow error threshold=%0.3f'%
-                        (cellprob_threshold, flow_threshold))
+                
             return flow_threshold, cellprob_threshold
         except Exception as e:
             print('flow threshold or cellprob threshold not a valid number, setting to defaults')
@@ -1657,6 +1653,12 @@ class MainW(QMainWindow):
     def compute_cprob(self):
         if self.recompute_masks:
             flow_threshold, cellprob_threshold = self.get_thresholds()
+            if flow_threshold is None:
+                logger.info('computing masks with cell prob=%0.3f, no flow error threshold'%
+                        (cellprob_threshold))
+            else:
+                logger.info('computing masks with cell prob=%0.3f, flow error threshold=%0.3f'%
+                        (cellprob_threshold, flow_threshold))
             maski = dynamics.compute_masks(self.flows[4][:-1], 
                                             self.flows[4][-1],
                                             p=self.flows[3].copy(),

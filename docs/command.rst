@@ -31,11 +31,14 @@ These are the same :ref:`settings`, but set up for the command line, e.g.
     * use_gpu: (bool)
         run network on GPU
 
+    * save_outlines: FLAG
+        save outlines as text file for ImageJ
+
     * save_png: FLAG
-        save masks as png and outlines as text file for ImageJ
+        save masks as png     
 
     * save_tif: FLAG
-        save masks as tif and outlines as text file for ImageJ
+        save masks as tif
 
     * no_npy: FLAG 
         turn off saving of _seg.npy file 
@@ -73,6 +76,7 @@ Options
 You can run the help string and see all the options:
 
 ::
+    
     usage: __main__.py [-h] [--use_gpu] [--check_mkl] [--dir DIR]
                    [--look_one_level_down] [--img_filter IMG_FILTER]
                    [--channel_axis CHANNEL_AXIS] [--z_axis Z_AXIS]

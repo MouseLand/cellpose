@@ -33,16 +33,6 @@ this code at the beginning of your notebook before you import cellpose:
 Common issues
 ~~~~~~~~~~~~~~~~~~~~~~~
 
-If you receive the error: ``Illegal instruction (core dumped)``, then
-likely mxnet does not recognize your MKL version. Please uninstall and
-reinstall mxnet without mkl:
-
-::
-
-   pip uninstall mxnet-mkl
-   pip uninstall mxnet
-   pip install mxnet==1.4.0
-
 If you receive the error: ``No module named PyQt5.sip``, then try
 uninstalling and reinstalling pyqt5
 
@@ -84,7 +74,7 @@ Dependencies
 cellpose relies on the following excellent packages (which are
 automatically installed with conda/pip if missing):
 
--  `mxnet_mkl`_
+-  `pytorch`_
 -  `pyqtgraph`_
 -  `PyQt5`_
 -  `numpy`_ (>=1.16.0)
@@ -98,7 +88,7 @@ automatically installed with conda/pip if missing):
 .. _environment.yml: https://github.com/MouseLand/cellpose/blob/master/environment.yml?raw=true
 .. _here: https://pypi.org/project/cellpose/
 
-.. _mxnet_mkl: https://mxnet.apache.org/
+.. _pytorch: https://pytorch.org/
 .. _pyqtgraph: http://pyqtgraph.org/
 .. _PyQt5: http://pyqt.sourceforge.net/Docs/PyQt5/
 .. _numpy: http://www.numpy.org/
