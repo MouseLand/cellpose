@@ -135,7 +135,7 @@ class Cellpose():
             invert image pixel intensity before running network (if True, image is also normalized)
 
         normalize: bool (optional, default True)
-                normalize data so 0.0=1st percentile and 1.0=99th percentile of image intensities in each channel
+            normalize data so 0.0=1st percentile and 1.0=99th percentile of image intensities in each channel
 
         diameter: float (optional, default 30.)
             if set to None, then diameter is automatically estimated if size model is loaded

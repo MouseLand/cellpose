@@ -117,7 +117,6 @@ You can also try to install cellpose, omnipose and the GUI dependencies from you
 python -m pip install cellpose[all]
 ~~~~
 
-
 If you have **issues** with installation, see the [docs](https://cellpose.readthedocs.io/en/latest/installation.html) for more details. You can also use the cellpose environment file included in the repository and create a cellpose environment with `conda env create -f environment.yml` which may solve certain dependency issues.
 
 If these suggestions fail, open an issue.
@@ -131,10 +130,10 @@ Before installing the GPU version, remove the CPU version:
 pip uninstall torch
 ~~~
 
-Follow the instructions [here](https://pytorch.org/get-started/locally/) to determine what version to install. The Anaconda install is strongly recommended, and then choose the CUDA version that is supported by your GPU (newer GPUs may need newer CUDA versions > 10.2). For instance this command will install the 10.2 version on Linux and Windows (note the `torchvision` and `torchaudio` commands are removed because cellpose doesn't require them):
+Follow the instructions [here](https://pytorch.org/get-started/locally/) to determine what version to install. The Anaconda install is strongly recommended, and then choose the CUDA version that is supported by your GPU (newer GPUs may need newer CUDA versions > 10.2). For instance this command will install the 11.3 version on Linux and Windows (note the `torchvision` and `torchaudio` commands are removed because cellpose doesn't require them):
 
 ~~~
-conda install pytorch cudatoolkit=10.2 -c pytorch
+conda install pytorch cudatoolkit=11.3 -c pytorch
 ~~~~
 
 ### Installation of github version

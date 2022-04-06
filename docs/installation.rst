@@ -33,6 +33,15 @@ this code at the beginning of your notebook before you import cellpose:
 Common issues
 ~~~~~~~~~~~~~~~~~~~~~~~
 
+If you are having issues with CUDA on Windows, or want to use 
+Cuda Toolkit 10, please follow these `instructions <https://github.com/MouseLand/cellpose/issues/481#issuecomment-1080137885>`_:
+
+::
+   
+   conda create -n cellpose pytorch=1.8.2 cudatoolkit=10.2 -c pytorch-lts
+   conda activate cellpose
+   pip install cellpose
+
 If you receive the error: ``No module named PyQt5.sip``, then try
 uninstalling and reinstalling pyqt5
 
