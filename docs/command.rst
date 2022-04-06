@@ -109,6 +109,8 @@ You can run the help string and see all the options:
 
     hardware arguments:
     --use_gpu             use gpu if torch with cuda installed
+    --gpu_device GPU_DEVICE
+                          which gpu device to use. Default: 0
     --check_mkl           check if mkl working
 
     input image arguments:

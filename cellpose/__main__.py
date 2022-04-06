@@ -28,6 +28,7 @@ def main():
     # settings for CPU vs GPU
     hardware_args = parser.add_argument_group("hardware arguments")
     hardware_args.add_argument('--use_gpu', action='store_true', help='use gpu if torch with cuda installed')
+    hardware_args.add_argument('--gpu_device', required=False, default=0, type=int, help='which gpu device to use')
     hardware_args.add_argument('--check_mkl', action='store_true', help='check if mkl working')
         
     # settings for locating and formatting images
@@ -159,7 +160,7 @@ def main():
         if not (args.train or args.train_size):
             saving_something = args.save_png or args.save_tif or args.save_flows or args.save_ncolor or args.save_txt
                     
-        device, gpu = models.assign_device(use_torch=True, gpu=args.use_gpu)
+        device, gpu = models.assign_device(use_torch=True, gpu=args.use_gpu, device=args.gpu_device)
 
         if args.pretrained_model is None or args.pretrained_model == 'None' or args.pretrained_model == 'False' or args.pretrained_model == '0':
             pretrained_model = False
