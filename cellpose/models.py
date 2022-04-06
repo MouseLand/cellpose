@@ -346,13 +346,14 @@ class CellposeModel(UnetModel):
             residual_on, style_on, concatenation = True, True, False
             
         else:
+            builtin = False
             if pretrained_model:
                 pretrained_model_string = pretrained_model[0]
                 params = parse_model_string(pretrained_model_string)
                 if params is not None:
                     _, residual_on, style_on, concatenation = params 
-                builtin = False
                 models_logger.info(f'>>>> loading model {pretrained_model_string}')
+            
 
                 
         # initialize network
