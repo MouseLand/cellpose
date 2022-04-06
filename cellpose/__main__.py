@@ -59,6 +59,7 @@ def main():
     algorithm_args.add_argument('--no_resample', action='store_true', help="disable dynamics on full image (makes algorithm faster for images with large diameters)")
     algorithm_args.add_argument('--net_avg', action='store_true', help='run 4 networks instead of 1 and average results')
     algorithm_args.add_argument('--no_interp', action='store_true', help='do not interpolate when running dynamics (was default)')
+    algorithm_args.add_argument('--no_norm', action='store_true', help='do not normalize images (normalize=False)')
     algorithm_args.add_argument('--do_3D', action='store_true', help='process images as 3D stacks of images (nplanes x nchan x Ly x Lx')
     algorithm_args.add_argument('--diameter', required=False, default=30., type=float, 
                         help='cell diameter, if 0 will use the diameter of the training labels used in the model, or with built-in model will estimate diameter for each image')
@@ -237,6 +238,7 @@ def main():
                                 invert=args.invert,
                                 batch_size=args.batch_size,
                                 interp=(not args.no_interp),
+                                normalize=(not args.no_norm),
                                 channel_axis=args.channel_axis,
                                 z_axis=args.z_axis,
                                 anisotropy=args.anisotropy,

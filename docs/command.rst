@@ -139,6 +139,7 @@ You can run the help string and see all the options:
                             for images with large diameters)
     --net_avg             run 4 networks instead of 1 and average results
     --no_interp           do not interpolate when running dynamics (was default)
+    --no_norm             do not normalize images (normalize=False)
     --do_3D               process images as 3D stacks of images (nplanes x nchan
                             x Ly x Lx
     --diameter DIAMETER   cell diameter, if 0 will use the diameter of the
