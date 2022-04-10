@@ -17,7 +17,7 @@
 
 A generalist algorithm for cell and nucleus segmentation. 
 
-Cellpose was written by Carsen Stringer and Marius Pachitariu. To learn about Cellpose, read the [paper](https://t.co/kBMXmPp3Yn?amp=1) or watch the [talk](https://t.co/JChCsTD0SK?amp=1). For support, please open an [issue](https://github.com/MouseLand/cellpose/issues). If you use Cellpose in your work please cite the paper.
+Cellpose was written by Carsen Stringer and Marius Pachitariu. To learn about Cellpose 1.0, read the [paper](https://t.co/kBMXmPp3Yn?amp=1) or watch the [talk](https://t.co/JChCsTD0SK?amp=1). For support, please open an [issue](https://github.com/MouseLand/cellpose/issues). If you use Cellpose in your work please cite the paper. Please find the detailed documentation at <span style="font-size:larger;">[cellpose.readthedocs.io](https://cellpose.readthedocs.io/en/latest/)</span>.
 
 If you want to improve Cellpose for yourself and for everyone else, please consider contributing manual segmentations for a few of your images via the built-in GUI interface (see instructions below). 
 
@@ -29,68 +29,33 @@ Read how to use it yourself in the [docs](https://cellpose.readthedocs.io/en/lat
 
 Results of human-in-the-loop
 
-![cellpose2](https://www.cellpose.org/static/images/cellpose2.gif)
+<img src="https://www.cellpose.org/static/images/cellpose2.gif" width="500" title="cellpose2" alt="cellpose2 vs cellpose1 results" align="center" vspace = "50">
 
 and updated GUI:
 
-![gui screenshot](https://www.cellpose.org/static/images/cellpose_gui.png)
+<img src="https://www.cellpose.org/static/images/cellpose_gui.png" width="500" title="cellpose2 gui screenshot" alt="cellpose2 gui screenshot" align="center" vspace = "50">
 
 Mxnet is no longer supported in cellpose. To use mxnet, please use v1.0.2.
 
-### UPDATE v1.0 (Jan 2022)
+# Installation
 
-Cellpose has been relatively stable for a while now. Small bugs will continue to be fixed, but we are now releasing a reference 1.0 version. Larger updates to Cellpose will go towards a new 2.0 candidate version to be released soon.  
+## Local installation (< 2 minutes)
 
-This update fixes bugs in GUI and plotting. It also stops model weight reloading to improve speed. `resample=True` is default again as in earlier releases, turn off with `--no_resample`. Now logging is turned off by default. Turn on in CLI with `--verbose` flag or in a script/notebook by
-```
-from cellpose.io import logger_setup
-logger_setup();
-```
-
-To install this version please use
-```
-pip install cellpose==1.0.2
-```
-
-### UPDATE v0.7 (Nov 2021)
-
-[Omnipose](https://github.com/kevinjohncutler/omnipose) is now officially available and supported as part of Cellpose. `pip install omnipose` and use the 'omni' flag and models to take advantage of it for long cells! (<i>E.g.</i>, filamentous bacteria.) Omnipose was written by Kevin Cutler ([@kevinjohncutler](https://github.com/kevinjohncutler)). To learn about Omnipose, read the [paper](http://biorxiv.org/content/early/2021/11/04/2021.11.03.467199). If you use Omnipose in your work please cite the Cellpose paper and the Omnipose paper.
-
-
-### UPDATE v0.6 (Dec 2020)
-
-Pytorch is now the default deep neural network software for cellpose. Mxnet will still be supported. To install mxnet (CPU), run `pip install mxnet-mkl`. To use mxnet in a notebook, declare `torch=False` when creating a model, e.g. `model = models.Cellpose(torch=False)`. To use mxnet on the command line, add the flag `--mxnet`, e.g. `python -m cellpose --dir ~/images/ --mxnet`. The pytorch implementation is 20% faster than the mxnet implementation when running on the GPU and 20% slower when running on the CPU. 
-
-Dynamics are computed using bilinear interpolation by default instead of nearest neighbor interpolation. Set `interp=False` in `model.eval` to turn off. The bilinear interpolation will be slightly slower on the CPU, but it is faster than nearest neighbor if using torch and the GPU is enabled.
-
-### Run cellpose without local python installation
-
-You can quickly try out Cellpose on the [website](https://www.cellpose.org) first (some features disabled). 
-
-You can also run Cellpose in google colab with a GPU: 
-* a code-based notebook: [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/MouseLand/cellpose/blob/master/notebooks/run_cellpose_GPU.ipynb)
-* a more user-friendly notebook for 2D segmentation written by [@pr4deepr](https://github.com/pr4deepr): [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/MouseLand/cellpose/blob/master/notebooks/Cellpose_cell_segmentation_2D_prediction_only.ipynb)
-* a user-friendly [ZeroCostDL4Mic](https://github.com/HenriquesLab/ZeroCostDL4Mic) notebook that includes training cellpose models, written by [@guijacquemet](https://github.com/guijacquemet): [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/HenriquesLab/ZeroCostDL4Mic/blob/master/Colab_notebooks/Beta%20notebooks/Cellpose_2D_ZeroCostDL4Mic.ipynb)
-
-The colab notebooks are recommended if you have issues with MKL or run speed on your local computer (and are running 3D volumes). Colab does not allow you to run the GUI, but you can save `*_seg.npy` files in colab that you can download and open in the GUI.
-
-**Executable file**: You can download an executable file for [*Windows 10*](http://www.cellpose.org/windows) or for [*Mac OS*](http://www.cellpose.org/mac) (High Sierra or greater) that were made using PyInstaller on Intel processors (MKL acceleration works, but no GPU support). Note in both cases it will take a few seconds to open.
-
-* The [*Mac OS*](https://www.cellpose.org/mac) file will download as `cellpose_mac` OR `cellpose_mac.dms`. You will need to make it into an executable file and run it through the terminal:
-1. Open a terminal and run `cd ~/Downloads/`.
-2. Run `chmod 777 cellpose_mac` OR `chmod 777 cellpose_mac.dms` to make the file executable.
-3. Run `./cellpose_mac` OR `./cellpose_mac.dms` to open the cellpose GUI. Messages from cellpose will be printed in the terminal.
-4. You can also run using the command line interface, e.g. as `./cellpose_mac --dir ~/Pictures/ --chan 2 --save_png`.
-
-* The [*Windows 10*](https://www.cellpose.org/windows) file is an exe and you can click on it to run the GUI. You can also run using the command line interface, e.g. as `cellpose.exe --dir Pictures/ --chan 2 --save_png`
-
-### Detailed documentation at [www.cellpose.org/docs](http://www.cellpose.org/docs).
-
-## System requirements
+### System requirements
 
 Linux, Windows and Mac OS are supported for running the code. For running the graphical interface you will need a Mac OS later than Yosemite. At least 8GB of RAM is required to run the software. 16GB-32GB may be required for larger images and 3D volumes. The software has been heavily tested on Windows 10 and Ubuntu 18.04 and less well-tested on Mac OS. Please open an issue if you have problems with installation.
 
-## Local installation
+### Dependencies
+cellpose relies on the following excellent packages (which are automatically installed with conda/pip if missing):
+- [pytorch](https://pytorch.org/)
+- [pyqtgraph](http://pyqtgraph.org/)
+- [PyQt5](http://pyqt.sourceforge.net/Docs/PyQt5/)
+- [numpy](http://www.numpy.org/) (>=1.16.0)
+- [numba](http://numba.pydata.org/numba-doc/latest/user/5minguide.html)
+- [scipy](https://www.scipy.org/)
+- [natsort](https://natsort.readthedocs.io/en/master/)
+
+### Instructions
 
 If you have an older `cellpose` environment you can remove it with `conda env remove -n cellpose` before creating a new one.
 
@@ -145,11 +110,28 @@ pip install git+https://www.github.com/mouseland/cellpose.git
 
 If you want edit ability to the code, in the github repository folder, run `pip install -e .`. If you want to go back to the pip version of cellpose, then say `pip install cellpose`.
 
-### Download of pretrained models
+## Run cellpose 1.0 without local python installation
 
-The models will be downloaded automatically from the [website](https://www.cellpose.org) when you first run a pretrained model in cellpose. If you are having issues with the downloads, you can download them from this [google drive zip file](https://drive.google.com/file/d/1mK8aJDg0jv6s9Vc_5HntpUPmC--p2fE0/view?usp=sharing), unzip the file and put the models in your home directory under the path .cellpose/models/, e.g. on Windows this would be C:/Users/YOUR_USERNAME/.cellpose/models/ or on Linux this would be /home/YOUR_USERNAME/.cellpose/models/, so /home/YOUR_USERNAME/.cellpose/models/cyto_0 is the full path to one model for example. If you cannot access google drive, the models are also available on baidu: Link：https://pan.baidu.com/s/1CARpRGCBHIYaz7KeyoX-fg ; Fetch code：pose ; thanks to @qixinbo!
+You can quickly try out Cellpose on the [website](https://www.cellpose.org) first (some features disabled). 
 
-## Running cellpose
+You can also run Cellpose in google colab with a GPU: 
+* a code-based notebook: [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/MouseLand/cellpose/blob/master/notebooks/run_cellpose_GPU.ipynb)
+* a more user-friendly notebook for 2D segmentation written by [@pr4deepr](https://github.com/pr4deepr): [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/MouseLand/cellpose/blob/master/notebooks/Cellpose_cell_segmentation_2D_prediction_only.ipynb)
+* a user-friendly [ZeroCostDL4Mic](https://github.com/HenriquesLab/ZeroCostDL4Mic) notebook that includes training cellpose models, written by [@guijacquemet](https://github.com/guijacquemet): [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/HenriquesLab/ZeroCostDL4Mic/blob/master/Colab_notebooks/Beta%20notebooks/Cellpose_2D_ZeroCostDL4Mic.ipynb)
+
+The colab notebooks are recommended if you have issues with MKL or run speed on your local computer (and are running 3D volumes). Colab does not allow you to run the GUI, but you can save `*_seg.npy` files in colab that you can download and open in the GUI.
+
+**Executable file**: You can download an executable file for [*Windows 10*](http://www.cellpose.org/windows) or for [*Mac OS*](http://www.cellpose.org/mac) (High Sierra or greater) that were made using PyInstaller on Intel processors (MKL acceleration works, but no GPU support). Note in both cases it will take a few seconds to open.
+
+* The [*Mac OS*](https://www.cellpose.org/mac) file will download as `cellpose_mac` OR `cellpose_mac.dms`. You will need to make it into an executable file and run it through the terminal:
+1. Open a terminal and run `cd ~/Downloads/`.
+2. Run `chmod 777 cellpose_mac` OR `chmod 777 cellpose_mac.dms` to make the file executable.
+3. Run `./cellpose_mac` OR `./cellpose_mac.dms` to open the cellpose GUI. Messages from cellpose will be printed in the terminal.
+4. You can also run using the command line interface, e.g. as `./cellpose_mac --dir ~/Pictures/ --chan 2 --save_png`.
+
+* The [*Windows 10*](https://www.cellpose.org/windows) file is an exe and you can click on it to run the GUI. You can also run using the command line interface, e.g. as `cellpose.exe --dir Pictures/ --chan 2 --save_png`
+
+# Run cellpose locally
 
 The quickest way to start is to open the GUI from a command line terminal. You might need to open an anaconda prompt if you did not add anaconda to the path:
 ~~~~
@@ -160,7 +142,7 @@ The first time cellpose runs it downloads the latest available trained model wei
 
 You can now **drag and drop** any images (*.tif, *.png, *.jpg, *.gif) into the GUI and run Cellpose, and/or manually segment them. When the GUI is processing, you will see the progress bar fill up and during this time you cannot click on anything in the GUI. For more information about what the GUI is doing you can look at the terminal/prompt you opened the GUI with. For example data, see [website](http://www.cellpose.org) or this google drive [folder](https://drive.google.com/open?id=18syVlaix8cIlrnNF20pEWKMWUsKx9R9z). For best accuracy and runtime performance, resize images so cells are less than 100 pixels across. 
 
-### Step-by-step demo
+## Step-by-step demo
 
 1. Download the google drive [folder](https://drive.google.com/open?id=18syVlaix8cIlrnNF20pEWKMWUsKx9R9z) and unzip it. These are a subset of the test images from the paper.
 2. Start the GUI with `python -m cellpose`.
@@ -176,53 +158,40 @@ On the demo images each of these steps should run in less than a few seconds on 
 
 For multi-channel, multi-Z tiff's, the expected format is Z x channels x Ly x Lx.
 
-## Contributing training data
+### Download of pretrained models
 
-We are very excited about receiving community contributions to the training data and re-training the cytoplasm model to make it better. Please follow these guidelines:
+The models will be downloaded automatically from the [website](https://www.cellpose.org) when you first run a pretrained model in cellpose. If you are having issues with the downloads, you can download them from this [google drive zip file](https://drive.google.com/file/d/1zHGFYCqRCTwTPwgEUMNZu0EhQy2zaovg/view?usp=sharing), unzip the file and put the models in your home directory under the path .cellpose/models/, e.g. on Windows this would be C:/Users/YOUR_USERNAME/.cellpose/models/ or on Linux this would be /home/YOUR_USERNAME/.cellpose/models/, so /home/YOUR_USERNAME/.cellpose/models/cyto_0 is the full path to one model for example. If you cannot access google drive, the models are also available on baidu: Link：https://pan.baidu.com/s/1CARpRGCBHIYaz7KeyoX-fg ; Fetch code：pose ; thanks to @qixinbo!
 
-1. Run cellpose on your data to see how well it does. Try varying the diameter, which can change results a little. 
-2. If there are relatively few mistakes, it won't help much to contribute labelled data. 
-3. If there are consistent mistakes, your data is likely very different from anything in the training set, and you should expect major improvements from contributing even just a few manually segmented images.
-4. For images that you contribute, the cells should be at least 10 pixels in diameter, and there should be **at least** several dozens of cells per image, ideally ~100. If your images are too small, consider combining multiple images into a single big one and then manually segmenting that. If they are too big, consider splitting them into smaller crops. 
-5. For the manual segmentation, please try to outline the boundaries of the cell, so that everything (membrane, cytoplasm, nucleus) is inside the boundaries. Do not just outline the cytoplasm and exclude the membrane, because that would be inconsistent with our own labelling and we wouldn't be able to use that. 
-6. Do not use the results of the algorithm in any way to do contributed manual segmentations. This can reinforce a vicious circle of mistakes, and compromise the dataset for further algorithm development. 
+# Older software releases
 
-If you are having problems with the nucleus model, please open an issue before contributing data. Nucleus images are generally much less diverse, and we think the current training dataset already covers a very large set of modalities. 
+### UPDATE v1.0 (Jan 2022)
+
+Cellpose has been relatively stable for a while now. Small bugs will continue to be fixed, but we are now releasing a reference 1.0 version. Larger updates to Cellpose will go towards a new 2.0 candidate version to be released soon.  
+
+This update fixes bugs in GUI and plotting. It also stops model weight reloading to improve speed. `resample=True` is default again as in earlier releases, turn off with `--no_resample`. Now logging is turned off by default. Turn on in CLI with `--verbose` flag or in a script/notebook by
+```
+from cellpose.io import logger_setup
+logger_setup();
+```
+
+To install this version please use
+```
+pip install cellpose==1.0.2
+```
+
+### UPDATE v0.7 (Nov 2021)
+
+[Omnipose](https://github.com/kevinjohncutler/omnipose) is now officially available and supported as part of Cellpose. `pip install omnipose` and use the 'omni' flag and models to take advantage of it for long cells! (<i>E.g.</i>, filamentous bacteria.) Omnipose was written by Kevin Cutler ([@kevinjohncutler](https://github.com/kevinjohncutler)). To learn about Omnipose, read the [paper](http://biorxiv.org/content/early/2021/11/04/2021.11.03.467199). If you use Omnipose in your work please cite the Cellpose paper and the Omnipose paper.
 
 
-## Using the GUI
+### UPDATE v0.6 (Dec 2020)
 
-The GUI serves two main functions:
+Pytorch is now the default deep neural network software for cellpose. Mxnet will still be supported. To install mxnet (CPU), run `pip install mxnet-mkl`. To use mxnet in a notebook, declare `torch=False` when creating a model, e.g. `model = models.Cellpose(torch=False)`. To use mxnet on the command line, add the flag `--mxnet`, e.g. `python -m cellpose --dir ~/images/ --mxnet`. The pytorch implementation is 20% faster than the mxnet implementation when running on the GPU and 20% slower when running on the CPU. 
 
-1. Running the segmentation algorithm.
-2. Manually labelling data.
+Dynamics are computed using bilinear interpolation by default instead of nearest neighbor interpolation. Set `interp=False` in `model.eval` to turn off. The bilinear interpolation will be slightly slower on the CPU, but it is faster than nearest neighbor if using torch and the GPU is enabled.
 
-There is a help window in the GUI that provides more instructions and 
-a page in the documentation [here](http://cellpose.readthedocs.io/en/latest/gui.html).
-Also, if you hover over certain words in the GUI, their definitions are revealed as tooltips. 
-Here is a summary of their functions:
 
-<img src="docs/_static/cellpose_gui.png" width="600" title="cellpose gui" alt="cellpose gui" vspace = "50">
-
-### In a notebook
-
-See [run_cellpose.ipynb](notebooks/run_cellpose.ipynb).
-
-### From the command line
-
-Run `python -m cellpose` and specify parameters as below. For instance to run on a folder with images where cytoplasm is green and nucleus is blue and save the output as a png:
-~~~
-python -m cellpose --dir ~/images_cyto/test/ --pretrained_model cyto --chan 2 --chan2 3 --save_png
-~~~
-
-You can specify the diameter for all the images or set to 0 if you want the algorithm to estimate it on an image by image basis. Here is how to run on nuclear data (grayscale) where the diameter is automatically estimated:
-~~~
-python -m cellpose --dir ~/images_nuclei/test/ --pretrained_model nuclei --diameter 0. --save_png
-~~~
-
-See the [docs](http://cellpose.readthedocs.io/en/latest/command.html) for more info.
-
-### Timing
+### Timing (v0.6)
 
 You can check if cellpose is running the MKL version (if you are using the CPU not the GPU) by adding the flag `--check_mkl`. If you are not using MKL cellpose will be much slower. Here are Cellpose run times divided into the time it takes to run the deep neural network (DNN) and the time for postprocessing (gradient tracking, segmentation, quality control etc.). The DNN runtime is shown using either a GPU (Nvidia GTX 1080Ti) or a CPU (Intel 10-core 7900X), with or without network ensembling (4net vs 1net). The postprocessing runtime is similar regardless of ensembling or CPU/GPU version. Runtime is shown for different image sizes, all with a cell diameter of 30 pixels (the average from our training set).
 
@@ -234,17 +203,3 @@ You can check if cellpose is running the MKL version (if you are using the CPU n
 | DNN (4net, CPU) | 1.3 s | 2.5 s | 9.1 s  |
 |  | |  |  |
 | Postprocessing (CPU) | 0.32 s | 1.2 s | 6.1 s  |
-
-## Outputs
-
-See the [docs](http://cellpose.readthedocs.io/en/latest/outputs.html) for info.
-
-## Dependencies
-cellpose relies on the following excellent packages (which are automatically installed with conda/pip if missing):
-- [pytorch](https://pytorch.org/)
-- [pyqtgraph](http://pyqtgraph.org/)
-- [PyQt5](http://pyqt.sourceforge.net/Docs/PyQt5/)
-- [numpy](http://www.numpy.org/) (>=1.16.0)
-- [numba](http://numba.pydata.org/numba-doc/latest/user/5minguide.html)
-- [scipy](https://www.scipy.org/)
-- [natsort](https://natsort.readthedocs.io/en/master/)
