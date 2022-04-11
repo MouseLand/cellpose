@@ -297,6 +297,7 @@ class UnetModel():
             self.net = mkldnn_utils.to_mkldnn(self.net)
         with torch.no_grad():
             y, style = self.net(X)
+        del X
         y = self._from_device(y)
         style = self._from_device(style)
         if return_conv:
@@ -726,6 +727,7 @@ class UnetModel():
         #else:
         self.net.train()
         y = self.net(X)[0]
+        del X
         loss = self.loss_fn(lbl,y)
         loss.backward()
         train_loss = loss.item()
@@ -738,6 +740,7 @@ class UnetModel():
         self.net.eval()
         with torch.no_grad():
             y, style = self.net(X)
+            del X
             loss = self.loss_fn(lbl,y)
             test_loss = loss.item()
             test_loss *= len(x)

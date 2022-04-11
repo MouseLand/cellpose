@@ -77,13 +77,14 @@ def _extend_centers_gpu(neighbors, centers, isneighbor, Ly, Lx, n_iter=200, devi
         Tneigh = T[:, pt[:,:,0], pt[:,:,1]]
         Tneigh *= isneigh
         T[:, pt[0,:,0], pt[0,:,1]] = Tneigh.mean(axis=1)
-    
+    del meds, isneigh, Tneigh
     T = torch.log(1.+ T)
     # gradient positions
     grads = T[:, pt[[2,1,4,3],:,0], pt[[2,1,4,3],:,1]]
+    del pt
     dy = grads[:,0] - grads[:,1]
     dx = grads[:,2] - grads[:,3]
-
+    del grads
     mu_torch = np.stack((dy.cpu().squeeze(), dx.cpu().squeeze()), axis=-2)
     return mu_torch
 
