@@ -753,8 +753,8 @@ class RangeSlider(QSlider):
             else:
                 opt.activeSubControls = self.hover_control
 
-            opt.sliderPosition = value
-            opt.sliderValue = value
+            opt.sliderPosition = int(value)
+            opt.sliderValue = int(value)
             style.drawComplexControl(QStyle.CC_Slider, opt, painter, self)
 
 
