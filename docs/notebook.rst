@@ -7,17 +7,17 @@ See `settings <settings.html>`__ for more information on run settings.
 
     import numpy as np
     import matplotlib.pyplot as plt
-    import skimage.io
     from cellpose import models
+    from cellpose.io import imread 
 
-    # model_type='cyto' or model_type='nuclei'
+    # model_type='cyto' or 'nuclei' or 'cyto2'
     model = models.Cellpose(model_type='cyto')
 
     # list of files
     # PUT PATH TO YOUR FILES HERE!
     files = ['/media/carsen/DATA1/TIFFS/onechan.tif']
 
-    imgs = [skimage.io.imread(f) for f in files]
+    imgs = [imread(f) for f in files]
     nimg = len(imgs)
 
     # define CHANNELS to run segementation on

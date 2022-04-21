@@ -4,6 +4,11 @@ def test_cellpose_imports_without_error():
     model = models.CellposeModel()
     model = core.UnetModel()
 
+def test_model_zoo_imports_without_error():
+    from cellpose import models 
+    for model_name in models.MODEL_NAMES:
+        model = models.CellposeModel(model_type=model_name)
+
 def test_gui_imports_without_error():
     from cellpose import gui
 

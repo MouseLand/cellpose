@@ -15,6 +15,18 @@ You can **drag and drop** images (.tif, .png, .jpg, .gif) into the GUI and run C
 
 For multi-channel, multi-Z tiff's, the expected format is Z x channels x Ly x Lx.
 
+.. note::
+    The output file with the masks is in the same folder as the loaded
+    image with ``_seg.npy`` appended. The GUI automatically saves after you 
+    draw an ROI but NOT after running a model for
+    segmentation and NOT after 3D mask drawing (too slow). Save in the file
+    menu or with Ctrl+S. 
+
+.. note::
+    Since the output file is in the same folder as the loaded
+    image with ``_seg.npy`` appended, make sure you have WRITE access 
+    in the folder, otherwise the file will not save.
+
 Using the GUI 
 ~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -22,6 +34,7 @@ The GUI serves two main functions:
 
 1. Running the segmentation algorithm.
 2. Manually labelling data.
+3. (NEW) Fine-tuning a pretrained cellpose model on your own data.
 
 Main GUI mouse controls (works in all views):
 
@@ -40,56 +53,10 @@ in 2D should be single strokes (if *single_stroke* is checked).
 
 If you want to draw masks in 3D, then you can turn *single_stroke*
 option off and draw a stroke on each plane with the cell and then press
-ENTER. 3D labelling will fill in unlabelled z-planes so that you do not
+ENTER (cellpose 1.0 only currently). 
+3D labelling will fill in unlabelled z-planes so that you do not
 have to as densely label.
 
-.. note::
-    The GUI automatically saves after you draw a mask but NOT after
-    segmentation and NOT after 3D mask drawing (too slow). Save in the file
-    menu or with Ctrl+S. The output file is in the same folder as the loaded
-    image with ``_seg.npy`` appended.
-
-+---------------------+-----------------------------------------------+
-| Keyboard shortcuts  | Description                                   |
-+=====================+===============================================+
-| CTRL+H              | help                                          |
-+---------------------+-----------------------------------------------+            
-| =/+  // -           | zoom in // zoom out                           |
-+---------------------+-----------------------------------------------+
-| CTRL+Z              | undo previously drawn mask/stroke             |
-+---------------------+-----------------------------------------------+
-| CTRL+0              | clear all masks                               |
-+---------------------+-----------------------------------------------+
-| CTRL+L              | load image (can alternatively drag and drop   |
-|                     | image)                                        |
-+---------------------+-----------------------------------------------+
-| CTRL+S              | SAVE MASKS IN IMAGE to ``_seg.npy`` file      |
-+---------------------+-----------------------------------------------+
-| CTRL+P              | load ``_seg.npy`` file (note: it will load    |
-|                     | automatically with image if it exists)        |
-+---------------------+-----------------------------------------------+
-| CTRL+M              | load masks file (must be same size as image   |
-|                     | with 0 for NO mask, and 1,2,3... for masks)   |
-+---------------------+-----------------------------------------------+
-| CTRL+N              | load numpy stack (NOT WORKING ATM)            |
-+---------------------+-----------------------------------------------+
-| A/D or LEFT/RIGHT   | cycle through images in current directory     |
-+---------------------+-----------------------------------------------+
-| W/S or UP/DOWN      | change color (RGB/gray/red/green/blue)        |
-+---------------------+-----------------------------------------------+
-| PAGE-UP / PAGE-DOWN | change to flows and cell prob views (if       |
-|                     | segmentation computed)                        |
-+---------------------+-----------------------------------------------+
-| , / .               | increase / decrease brush size for drawing    |
-|                     | masks                                         |
-+---------------------+-----------------------------------------------+
-| X                   | turn masks ON or OFF                          |
-+---------------------+-----------------------------------------------+
-| Z                   | toggle outlines ON or OFF                     |
-+---------------------+-----------------------------------------------+
-| C                   | cycle through labels for image type (saved to |
-|                     | ``_seg.npy``)                                 |
-+---------------------+-----------------------------------------------+
 
 Segmentation options
 ~~~~~~~~~~~~~~~~~~~~~~~~
@@ -107,8 +74,21 @@ CHAN TO SEG: this is the channel in which the cytoplasm or nuclei exist
 
 CHAN2 (OPT): if *cytoplasm* model is chosen, then choose the nuclear channel for this option
 
+Training your own cellpose model
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Check out this `video <https://youtu.be/3Y1VKcxjNy4>`_ to learn the process.
+
+1. Drag and drop an image from a folder of images with a similar style (like similar cell types).
+2. Run the built-in models on one of the images using the "model zoo" and find the one that works best for your data. Make sure that if you have a nuclear channel you have selected it for CHAN2.
+3. Fix the labelling by drawing new ROIs (right-click) and deleting incorrect ones (CTRL+click). The GUI autosaves any manual changes (but does not autosave after running the model, for that click CTRL+S). The segmentation is saved in a ``_seg.npy`` file.
+4. Go to the "Models" menu in the File bar at the top and click "Train new model..." or use shortcut CTRL+T.
+5. Choose the pretrained model to start the training from (the model you used in #2), and type in the model name that you want to use. The other parameters should work well in general for most data types. Then click OK.
+6. The model will train (much faster if you have a GPU) and then auto-run on the next image in the folder. Next you can repeat #3-#5 as many times as is necessary.
+7. The trained model is available to use in the future in the GUI in the "custom model" section and is saved in your image folder.
+
 Contributing training data
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 We are very excited about receiving community contributions to the training data and re-training the cytoplasm model to make it better. Please follow these guidelines:
 
@@ -120,5 +100,51 @@ We are very excited about receiving community contributions to the training data
 6. Do not use the results of the algorithm in any way to do contributed manual segmentations. This can reinforce a vicious circle of mistakes, and compromise the dataset for further algorithm development. 
 
 If you are having problems with the nucleus model, please open an issue before contributing data. Nucleus images are generally much less diverse, and we think the current training dataset already covers a very large set of modalities. 
+Additionally, you can run a non-nuclear model on nuclear data such as cyto.
+
+
+Keyboard shortcuts 
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
++---------------------+-----------------------------------------------+
+| Keyboard shortcuts  | Description                                   |
++=====================+===============================================+
+| CTRL+H              | help                                          |
++---------------------+-----------------------------------------------+            
+| =/+  // -           | zoom in // zoom out                           |
++---------------------+-----------------------------------------------+
+| CTRL+Z              | undo previously drawn mask/stroke             |
++---------------------+-----------------------------------------------+
+| CTRL+0              | clear all masks                               |
++---------------------+-----------------------------------------------+
+| CTRL+L              | load image (can alternatively drag and drop   |
+|                     | image)                                        |
++---------------------+-----------------------------------------------+
+| CTRL+S              | SAVE MASKS IN IMAGE to ``_seg.npy`` file      |
++---------------------+-----------------------------------------------+
+| CTRL+T              | start model training using ``_seg.npy`` files |
++---------------------+-----------------------------------------------+
+| CTRL+P              | load ``_seg.npy`` file (note: it will load    |
+|                     | automatically with image if it exists)        |
++---------------------+-----------------------------------------------+
+| CTRL+M              | load masks file (must be same size as image   |
+|                     | with 0 for NO mask, and 1,2,3... for masks)   |
++---------------------+-----------------------------------------------+
+| A/D or LEFT/RIGHT   | cycle through images in current directory     |
++---------------------+-----------------------------------------------+
+| W/S or UP/DOWN      | change color (RGB/gray/red/green/blue)        |
++---------------------+-----------------------------------------------+
+| R / G / B           | press to toggle RGB and Red or Green or Blue  |
++---------------------+-----------------------------------------------+
+| PAGE-UP / PAGE-DOWN | change to flows and cell prob views (if       |
+|                     | segmentation computed)                        |
++---------------------+-----------------------------------------------+
+| X                   | turn masks ON or OFF                          |
++---------------------+-----------------------------------------------+
+| Z                   | toggle outlines ON or OFF                     |
++---------------------+-----------------------------------------------+
+| , / .               | increase / decrease brush size for drawing    |
++---------------------+-----------------------------------------------+
+
 
 

@@ -27,11 +27,6 @@ def mainmenu(parent):
     loadManual.triggered.connect(lambda: io._load_seg(parent))
     file_menu.addAction(loadManual)
 
-    #loadStack = QAction("Load &numpy z-stack (*.npy nimgs x nchan x pixels x pixels)", parent)
-    #loadStack.setShortcut("Ctrl+N")
-    #loadStack.triggered.connect(lambda: parent.load_zstack(None))
-    #file_menu.addAction(loadStack)
-
     parent.saveSet = QAction("&Save masks and image (as *_seg.npy)", parent)
     parent.saveSet.setShortcut("Ctrl+S")
     parent.saveSet.triggered.connect(lambda: io._save_sets(parent))
@@ -49,19 +44,11 @@ def mainmenu(parent):
     parent.saveOutlines.triggered.connect(lambda: io._save_outlines(parent))
     file_menu.addAction(parent.saveOutlines)
     parent.saveOutlines.setEnabled(False)
-
+    
     parent.saveServer = QAction("Send manually labelled data to server", parent)
     parent.saveServer.triggered.connect(lambda: save_server(parent))
     file_menu.addAction(parent.saveServer)
     parent.saveServer.setEnabled(False)
-
-    parent.switchBackend = QAction("Switch backend to MXNET if installed", parent)
-    parent.switchBackend.triggered.connect(lambda: parent.check_gpu(False))
-    file_menu.addAction(parent.switchBackend)
-    if models.MXNET_ENABLED:
-        parent.switchBackend.setEnabled(True)
-    else:
-        parent.switchBackend.setEnabled(False)
 
 def editmenu(parent):
     main_menu = parent.menuBar()
@@ -116,38 +103,24 @@ def modelmenu(parent):
     parent.newmodel.setEnabled(False)
     model_menu.addAction(parent.newmodel)
 
-    parent.endtrain = QAction('End training', parent)
-    parent.endtrain.triggered.connect(parent.end_train)
-    parent.endtrain.setEnabled(False)
-    model_menu.addAction(parent.endtrain)
+    openTrainHelp = QAction("Training instructions", parent)
+    openTrainHelp.triggered.connect(parent.train_help_window)
+    model_menu.addAction(openTrainHelp)
 
 def helpmenu(parent):
     main_menu = parent.menuBar()
     help_menu = main_menu.addMenu("&Help")
-    
-    checkMKL = QAction("Check CPU MKL -- see terminal", parent)
-    checkMKL.triggered.connect(lambda: models.check_mkl(istorch=parent.torch))
-    help_menu.addAction(checkMKL)
 
-    openHelp = QAction("&Help window", parent)
+    openHelp = QAction("&Help with GUI", parent)
     openHelp.setShortcut("Ctrl+H")
     openHelp.triggered.connect(parent.help_window)
     help_menu.addAction(openHelp)
-
+    
     openGUI = QAction("&GUI layout", parent)
     openGUI.setShortcut("Ctrl+G")
     openGUI.triggered.connect(parent.gui_window)
     help_menu.addAction(openGUI)
 
-def omnimenu(parent):
-    main_menu = parent.menuBar()
-    omni_menu = main_menu.addMenu("&Omnipose")
-    # use omnipose mask recontruction
-    parent.omni = QAction('use Omnipose mask recontruction algorithm (fix over-segmentation)', parent, checkable=True)
-    parent.omni.setChecked(False)
-    omni_menu.addAction(parent.omni)
-
-    # use DBSCAN clustering
-    parent.cluster = QAction('force DBSCAN clustering when omni is enabled', parent, checkable=True)
-    parent.cluster.setChecked(False)
-    omni_menu.addAction(parent.cluster)
+    openTrainHelp = QAction("Training instructions", parent)
+    openTrainHelp.triggered.connect(parent.train_help_window)
+    help_menu.addAction(openTrainHelp)

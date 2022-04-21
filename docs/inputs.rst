@@ -19,8 +19,8 @@ nplanes x nY x nX. You can test this by running in python
 
 ::
 
-    import skimage.io
-    data = skimage.io.imread('img.tif')
+    import tifffile
+    data = tifffile.imread('img.tif')
     print(data.shape)
 
 If drag-and-drop of the tiff into 

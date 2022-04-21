@@ -5,7 +5,38 @@ import pyqtgraph as pg
 from pyqtgraph import functions as fn
 from pyqtgraph import Point
 import numpy as np
-import pathlib
+import pathlib, os
+
+def create_channel_choose():
+    # choose channel
+    ChannelChoose = [QComboBox(), QComboBox()]
+    ChannelLabels = []
+    ChannelChoose[0].addItems(['gray','red','green','blue'])
+    ChannelChoose[1].addItems(['none','red','green','blue'])
+    cstr = ['chan to segment:', 'chan2 (optional): ']
+    for i in range(2):
+        ChannelLabels.append(QLabel(cstr[i]))
+        if i==0:
+            ChannelLabels[i].setToolTip('this is the channel in which the cytoplasm or nuclei exist that you want to segment')
+            ChannelChoose[i].setToolTip('this is the channel in which the cytoplasm or nuclei exist that you want to segment')
+        else:
+            ChannelLabels[i].setToolTip('if <em>cytoplasm</em> model is chosen, and you also have a nuclear channel, then choose the nuclear channel for this option')
+            ChannelChoose[i].setToolTip('if <em>cytoplasm</em> model is chosen, and you also have a nuclear channel, then choose the nuclear channel for this option')
+        
+    return ChannelChoose, ChannelLabels
+
+class ModelButton(QPushButton):
+    def __init__(self, parent, model_name, text):
+        super().__init__()
+        self.setEnabled(False)
+        self.setStyleSheet(parent.styleInactive)
+        self.setText(text)
+        self.setFont(parent.smallfont)
+        self.clicked.connect(lambda: self.press(parent))
+        self.model_name = model_name
+        
+    def press(self, parent):
+        parent.compute_model(self.model_name)
 
 class TrainWindow(QDialog):
     def __init__(self, parent, model_strings):
@@ -17,8 +48,10 @@ class TrainWindow(QDialog):
         self.win.setLayout(self.l0)
 
         yoff = 0
-        qlabel = QLabel('train model using images + masks available in current folder')
-        qlabel.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
+        qlabel = QLabel('train model w/ images + _seg.npy in current folder >>')
+        qlabel.setFont(QtGui.QFont("Arial", 10, QtGui.QFont.Bold))
+        
+        qlabel.setAlignment(QtCore.Qt.AlignVCenter)
         self.l0.addWidget(qlabel, yoff,0,1,2)
 
         # choose initial model
@@ -27,29 +60,38 @@ class TrainWindow(QDialog):
         self.ModelChoose.addItems(model_strings)
         self.ModelChoose.addItems(['scratch']) 
         self.ModelChoose.setFixedWidth(150)
-        self.ModelChoose.setCurrentIndex(0)
+        self.ModelChoose.setCurrentIndex(parent.training_params['model_index'])
         self.l0.addWidget(self.ModelChoose, yoff, 1,1,1)
         qlabel = QLabel('initial model: ')
         qlabel.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
         self.l0.addWidget(qlabel, yoff,0,1,1)
 
-        # choose parameters
-        labels = ['learning_rate', 'weight_decay', 'n_epochs']
-        values =  [0.1, 0.0001, 100]
+        # choose channels
+        self.ChannelChoose, self.ChannelLabels = create_channel_choose()
+        for i in range(2):
+            yoff+=1
+            self.ChannelChoose[i].setFixedWidth(150)
+            self.ChannelChoose[i].setCurrentIndex(parent.ChannelChoose[i].currentIndex())
+            self.l0.addWidget(self.ChannelLabels[i], yoff, 0,1,1)
+            self.l0.addWidget(self.ChannelChoose[i], yoff, 1,1,1)
+
+        # choose parameters        
+        labels = ['learning_rate', 'weight_decay', 'n_epochs', 'model_name']
         self.edits = []
         yoff += 1
-        for i, (label, value) in enumerate(zip(labels, values)):
+        for i, label in enumerate(labels):
             qlabel = QLabel(label)
             qlabel.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
             self.l0.addWidget(qlabel, i+yoff,0,1,1)
             self.edits.append(QLineEdit())
-            self.edits[-1].setText(str(value))
+            self.edits[-1].setText(str(parent.training_params[label]))
             self.l0.addWidget(self.edits[-1], i+yoff, 1,1,1)
 
         yoff+=len(labels)
-        self.autorun = QCheckBox('auto-run trained model on next image in folder')
-        self.autorun.setChecked(True)
-        self.l0.addWidget(self.autorun, yoff, 0, 1, 2)
+
+        yoff+=1
+        qlabel = QLabel('(to remove files, click cancel then remove from folder and reopen train window)')
+        self.l0.addWidget(qlabel, yoff,0,1,4)
 
         # click button
         yoff+=1
@@ -57,19 +99,45 @@ class TrainWindow(QDialog):
         self.buttonBox = QDialogButtonBox(QBtn)
         self.buttonBox.accepted.connect(lambda: self.accept(parent))
         self.buttonBox.rejected.connect(self.reject)
-        self.l0.addWidget(self.buttonBox, yoff, 0, 1,3)
+        self.l0.addWidget(self.buttonBox, yoff, 0, 1,4)
+
+        
+        # list files in folder
+        qlabel = QLabel('filenames')
+        qlabel.setFont(QtGui.QFont("Arial", 8, QtGui.QFont.Bold))
+        self.l0.addWidget(qlabel, 0,4,1,1)
+        qlabel = QLabel('# of masks')
+        qlabel.setFont(QtGui.QFont("Arial", 8, QtGui.QFont.Bold))
+        self.l0.addWidget(qlabel, 0,5,1,1)
+    
+        for i in range(10):
+            if i > len(parent.train_files) - 1:
+                break
+            elif i==9 and len(parent.train_files) > 10:
+                label = '...'
+                nmasks = '...'
+            else:
+                label = os.path.split(parent.train_files[i])[-1]
+                nmasks = str(parent.train_labels[i].max())
+            qlabel = QLabel(label)
+            self.l0.addWidget(qlabel, i+1,4,1,1)
+            qlabel = QLabel(nmasks)
+            qlabel.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
+            self.l0.addWidget(qlabel, i+1, 5,1,1)
 
     def accept(self, parent):
-        parent.autorun = self.autorun.isChecked()
-        parent.learning_rate = float(self.edits[0].text())
-        parent.weight_decay = float(self.edits[1].text())
-        parent.n_epochs = int(self.edits[2].text())
-        parent.pretrained_to_use = self.ModelChoose.currentText()
-        if parent.pretrained_to_use != 'scratch':
-            parent.ModelChoose.setCurrentIndex(self.ModelChoose.currentIndex())
+        # set channels
+        for i in range(2):
+            parent.ChannelChoose[i].setCurrentIndex(self.ChannelChoose[i].currentIndex())
+        # set training params
+        parent.training_params = {'model_index': self.ModelChoose.currentIndex(),
+                                 'learning_rate': float(self.edits[0].text()), 
+                                 'weight_decay': float(self.edits[1].text()), 
+                                 'n_epochs':  int(self.edits[2].text()),
+                                 'model_name': self.edits[3].text()
+                                 }
         self.done(1)
-    #    return
-
+        
 def make_quadrants(parent, yp):
     """ make quadrant buttons """
     parent.quadbtns = QButtonGroup(parent)
@@ -188,7 +256,7 @@ class ExampleGUI(QDialog):
 class HelpWindow(QDialog):
     def __init__(self, parent=None):
         super(HelpWindow, self).__init__(parent)
-        self.setGeometry(100,100,700,800)
+        self.setGeometry(100,50,700,850)
         self.setWindowTitle('cellpose help')
         self.win = QWidget(self)
         layout = QGridLayout()
@@ -210,6 +278,8 @@ class HelpWindow(QDialog):
             <p class="has-line-data" data-line-start="17" data-line-end="18">!NOTE!: The GUI automatically saves after you draw a mask in 2D but NOT after 3D mask drawing and NOT after segmentation. Save in the file menu or with Ctrl+S. The output file is in the same folder as the loaded image with <code>_seg.npy</code> appended.</p>
             <table class="table table-striped table-bordered">
             <br><br>
+            FYI there are tooltips throughout the GUI (hover over text to see)
+            <br>
             <thead>
             <tr>
             <th>Keyboard shortcuts</th>
@@ -242,16 +312,16 @@ class HelpWindow(QDialog):
             <td>SAVE MASKS IN IMAGE to <code>_seg.npy</code> file</td>
             </tr>
             <tr>
+            <td>CTRL+T</td>
+            <td>train model using _seg.npy files in folder
+            </tr>
+            <tr>
             <td>CTRL+P</td>
             <td>load <code>_seg.npy</code> file (note: it will load automatically with image if it exists)</td>
             </tr>
             <tr>
             <td>CTRL+M</td>
             <td>load masks file (must be same size as image with 0 for NO mask, and 1,2,3… for masks)</td>
-            </tr>
-            <tr>
-            <td>CTRL+N</td>
-            <td>load numpy stack (NOT WORKING ATM)</td>
             </tr>
             <tr>
             <td>A/D or LEFT/RIGHT</td>
@@ -262,12 +332,12 @@ class HelpWindow(QDialog):
             <td>change color (RGB/gray/red/green/blue)</td>
             </tr>
             <tr>
-            <td>PAGE-UP / PAGE-DOWN</td>
-            <td>change to flows and cell prob views (if segmentation computed)</td>
+            <td>R / G / B </td>
+            <td>toggle between RGB and Red or Green or Blue</td>
             </tr>
             <tr>
-            <td>, / .</td>
-            <td>increase / decrease brush size for drawing masks</td>
+            <td>PAGE-UP / PAGE-DOWN</td>
+            <td>change to flows and cell prob views (if segmentation computed)</td>
             </tr>
             <tr>
             <td>X</td>
@@ -278,8 +348,8 @@ class HelpWindow(QDialog):
             <td>toggle outlines ON or OFF</td>
             </tr>
             <tr>
-            <td>C</td>
-            <td>cycle through labels for image type (saved to <code>_seg.npy</code>)</td>
+            <td>, / .</td>
+            <td>increase / decrease brush size for drawing masks</td>
             </tr>
             </tbody>
             </table>
@@ -295,6 +365,35 @@ class HelpWindow(QDialog):
         label.setWordWrap(True)
         layout.addWidget(label, 0, 0, 1, 1)
         self.show()
+
+
+class TrainHelpWindow(QDialog):
+    def __init__(self, parent=None):
+        super(TrainHelpWindow, self).__init__(parent)
+        self.setGeometry(100,50,700,300)
+        self.setWindowTitle('training instructions')
+        self.win = QWidget(self)
+        layout = QGridLayout()
+        self.win.setLayout(layout)
+        
+        text = ('''
+            Check out this <a href="https://youtu.be/3Y1VKcxjNy4">video</a> to learn the process.
+            <ol>
+                <li>Drag and drop an image from a folder of images with a similar style (like similar cell types).</li>
+                <li>Run the built-in models on one of the images using the "model zoo" and find the one that works best for your data. Make sure that if you have a nuclear channel you have selected it for CHAN2.</li>
+                <li>Fix the labelling by drawing new ROIs (right-click) and deleting incorrect ones (CTRL+click). The GUI autosaves any manual changes (but does not autosave after running the model, for that click CTRL+S). The segmentation is saved in a "_seg.npy" file.</li>
+                <li> Go to the "Models" menu in the File bar at the top and click "Train new model..." or use shortcut CTRL+T. </li>
+                <li> Choose the pretrained model to start the training from (the model you used in #2), and type in the model name that you want to use. The other parameters should work well in general for most data types. Then click OK. </li>
+                <li> The model will train (much faster if you have a GPU) and then auto-run on the next image in the folder. Next you can repeat #3-#5 as many times as is necessary. </li>
+                <li> The trained model is available to use in the future in the GUI in the "custom model" section and is saved in your image folder. </li>
+            </ol>
+            ''')
+        label = QLabel(text)
+        label.setFont(QtGui.QFont("Arial", 8))
+        label.setWordWrap(True)
+        layout.addWidget(label, 0, 0, 1, 1)
+        self.show()
+
 
 class TypeRadioButtons(QButtonGroup):
     def __init__(self, parent=None, row=0, col=0):
@@ -472,10 +571,6 @@ class ImageDraw(pg.ImageItem):
                                 self.parent.select_cell(idx)
                         elif self.parent.masksOn:
                             self.parent.unselect_cell()
-                    else:
-                        ev.ignore()
-                        return
-
 
     def mouseDragEvent(self, ev):
         ev.ignore()
