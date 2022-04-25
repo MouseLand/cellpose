@@ -2,27 +2,28 @@ import functools
 import operator
 import numpy as np
 import dask.array as da
-import dask.delayed as delayed
-import ClusterWrap
+from dask import delayed
+from dask.distributed import wait
+from ClusterWrap.decorator import cluster
 from cellpose import models
+from cellpose.io import logger_setup
 import dask_image.ndmeasure._utils._label as label
-from scipy.ndimage import distance_transform_edt
-from scipy.ndimage import zoom
+from scipy.ndimage import distance_transform_edt, find_objects
 import zarr
 from numcodecs import Blosc
-from itertools import product
 
 
+@cluster
 def distributed_eval(
-    zarr_path,
+    zarr_array,
     blocksize,
-    dataset_path=None,
+    write_path,
     mask=None,
     preprocessing_steps=[],
     model_kwargs={},
     eval_kwargs={},
+    cluster=None,
     cluster_kwargs={},
-    write_path=None,
 ):
     """
     Evaluate a cellpose model on overlapping blocks of a big image
@@ -97,163 +98,182 @@ def distributed_eval(
     cellpose results for your entire image (may be too large for local RAM!)
     """
 
-    # set eval defaults
+    # set default values
     if 'diameter' not in eval_kwargs.keys():
         eval_kwargs['diameter'] = 30
-
-    # compute overlap
     overlap = eval_kwargs['diameter'] * 2
+    blocksize = np.array(blocksize)
 
-    # open zarr file for shape and data type
-    metadata = zarr.open(zarr_path, 'r')
-    if dataset_path is not None:
-        metadata = metadata[dataset_path]
-    full_shape = metadata.shape
+    # construct array of block coordinate slices
+    nblocks = np.ceil(np.array(zarr_array.shape) / blocksize).astype(np.int16)
+    block_coords = np.empty(nblocks, dtype=tuple)
+    for (i, j, k) in np.ndindex(*nblocks):
+        start = blocksize * (i, j, k) - overlap
+        stop = start + blocksize + 2 * overlap
+        start = np.maximum(0, start)
+        stop = np.minimum(zarr_array.shape, stop)
+        coords = tuple(slice(x, y) for x, y in zip(start, stop))
+        block_coords[i, j, k] = coords
+
+    # construct array of booleans for masking
+    block_flags = np.ones(nblocks, dtype=bool)
+    if mask is not None:
+        mask_blocksize = np.round(blocksize * mask.shape / zarr_array.shape).astype(int)
+        for (i, j, k) in np.ndindex(*nblocks):
+            start = mask_blocksize * (i, j, k)
+            stop = start + mask_blocksize
+            stop = np.minimum(mask.shape, stop)
+            mask_coords = tuple(slice(x, y) for x, y in zip(start, stop))
+            if not np.any(mask[mask_coords]): block_flags[i, j, k] = False
+
+    # convert to dask arrays
+    block_coords = da.from_array(block_coords, chunks=(1,)*block_coords.ndim)
+    block_flags = da.from_array(block_flags, chunks=(1,)*block_flags.ndim)
 
     # pipeline to run on each block
-    def preprocess_and_segment(index, mask):
+    def preprocess_and_segment(coords, flag, block_info=None):
 
-        # squeeze the index
-        index = index.squeeze()
+        # skip block if no foreground, otherwise read image data
+        if not flag.item():
+            return np.zeros(blocksize, dtype=np.uint32)
+        coords = coords.item()
+        image = zarr_array[coords]
 
-        # skip block if there is no foreground
-        mask_block = None
-        if mask is not None:
-            ratio = np.array(full_shape) / mask.shape
-            xyz = np.round( index / ratio ).astype(int)
-            rad = np.round( blocksize / ratio ).astype(int)
-            mask_slice = tuple(slice(x, x+r) for x, r in zip(xyz, rad))
-            mask_block = mask[mask_slice]
-            if not np.any(mask_block):
-                return np.zeros(blocksize, dtype=np.int32)
-
-        # open zarr file
-        zarr_file = zarr.open(zarr_path, 'r')
-        if dataset_path is not None:
-            zarr_file = zarr_file[dataset_path]
-
-        # read data block (with overlaps)
-        xyz = [max(0, iii-overlap) for iii in index]
-        image = zarr_file[xyz[0]:xyz[0]+blocksize[0]+2*overlap,
-                          xyz[1]:xyz[1]+blocksize[1]+2*overlap,
-                          xyz[2]:xyz[2]+blocksize[2]+2*overlap]
-
-        # run preprocessing steps
+        # preprocess
         for pp_step in preprocessing_steps:
             image = pp_step[0](image, **pp_step[1])
 
         # segment
+        logger_setup()
         model = models.Cellpose(**model_kwargs)
-        segmentation = model.eval(image, **eval_kwargs)[0]
+        segmentation = model.eval(image, **eval_kwargs)[0].astype(np.uint32)
 
-        # crop out overlaps
+        # get all segment bounding boxes, adjust to global coordinates
+        boxes = find_objects(segmentation)
+        for iii, box in enumerate(boxes):
+            boxes[iii] = tuple(slice(a.start+b.start, a.start+b.stop) for a, b in zip(coords, box))
+
+        # remap segment ids to globally unique values
+        # TODO: casting string to uint32 will overflow witout warning or exception
+        #    so, using uint32 this only works if:
+        #    number of blocks is less than or equal to 42950
+        #    number of segments per block is less than or equal to 99999
+        #    if max number of blocks becomes insufficient, could pack values
+        #    in binary instead of decimal, then split into two 16 bit chunks
+        #    then max number of blocks and max number of cells per block
+        #    are both 2**16
+        a = block_info[0]['chunk-location']
+        b = block_info[0]['num-chunks']
+        p = str(np.ravel_multi_index(a, b))
+        remap = [np.uint32(p+str(x).zfill(5)) for x in range(len(boxes)+1)]
+        remap[0] = np.uint32(0)
+        segmentation = np.array(remap)[segmentation]
+
+        # remove overlaps
         for axis in range(segmentation.ndim):
 
-            # crop left side
+            # left side
             slc = [slice(None),]*segmentation.ndim
-            if index[axis] != 0:
+            if coords[axis].start != 0:
                 slc[axis] = slice(overlap, None)
                 segmentation = segmentation[tuple(slc)]
 
-            # crop right side
+            # right side
             slc = [slice(None),]*segmentation.ndim
             if segmentation.shape[axis] > blocksize[axis]:
                 slc[axis] = slice(None, blocksize[axis])
                 segmentation = segmentation[tuple(slc)]
 
-        # apply mask
-        if mask_block is not None:
-            ratio = np.array(segmentation.shape) / mask_block.shape
-            mask_block = zoom(mask_block, ratio, order=0)
-            segmentation = segmentation * mask_block
+        # package and return results
+        result = np.empty((1,)*image.ndim + (3,), dtype=object)
+        result[(0,)*image.ndim + (0,)] = segmentation
+        result[(0,)*image.ndim + (1,)] = boxes
+        result[(0,)*image.ndim + (2,)] = remap[1:]
+        return result
 
-        # return result
-        return segmentation.astype(np.int32)
+    # run segmentation
+    results = da.map_blocks(
+        preprocess_and_segment,
+        block_coords,
+        block_flags,
+        dtype=object,
+        new_axis=[3,],
+        chunks=(1,)*zarr_array.ndim + (3,),
+    ).persist()
+    wait(results)
 
-    # start cluster
-    with ClusterWrap.cluster(**cluster_kwargs) as cluster:
+    # unpack results to seperate dask arrays
+    boxes, box_ids = [], []
+    segmentation = np.empty(nblocks, dtype=object)
+    for (i, j, k) in np.ndindex(*nblocks):
 
-        # determine block indices, convert to dask array
-        slc = tuple(slice(None, x, y) for x, y in zip(full_shape, blocksize))
-        block_indices = np.moveaxis(np.array(np.mgrid[slc]), 0, -1)
-        d = len(full_shape)
-        block_indices_da = da.from_array(block_indices, chunks=(1,)*d + (d,))
+        # references to array, boxes, and box ids
+        a = results[i, j, k, 0:1]
+        b = results[i, j, k, 1:2]
+        c = results[i, j, k, 2:3]
 
-        # send mask to all workers
-        mask_d = None
-        if mask is not None:
-            mask_d = cluster.client.scatter(mask, broadcast=True)
+        # create new dask array with correct metadata
+        # [0][0] unwraps the arrays created by to_delayed and the return construct
+        a = da.from_delayed(a.to_delayed()[0][0], shape=blocksize, dtype=np.uint32)
+        segmentation[i, j, k] = a
 
-        # run segmentation
-        segmentation = da.map_blocks(
-            preprocess_and_segment, block_indices_da,
-            mask=mask_d,
-            dtype=np.int32,
-            drop_axis=[len(block_indices_da.shape)-1],
-            chunks=blocksize,
-        )
+        # bring the boxes and box ids to local memory
+        boxes += b.compute()[0]
+        box_ids += c.compute()[0]
 
-        # crop back to original shape
-        slc = tuple(slice(0, x) for x in full_shape)
-        segmentation = segmentation[slc]
+    # reassemble segmentation dask array, adjust for assumed map_overlap shape
+    segmentation = da.block(segmentation.tolist())
+    segmentation = segmentation[tuple(slice(0, s) for s in zarr_array.shape)]
 
-        # create container for and iterator over blocks
-        updated_blocks = np.empty(segmentation.numblocks, dtype=object)
-        block_iter = zip(
-            np.ndindex(*segmentation.numblocks),
-            map(functools.partial(operator.getitem, segmentation),
-                da.core.slices_from_chunks(segmentation.chunks))
-        )
+    # determine mergers
+    label_range = np.max(box_ids)
+    label_groups = _block_face_adjacency_graph(segmentation, label_range)
+    new_labeling = label.connected_components_delayed(label_groups).compute()
+    # XXX: new_labeling is returned as int32. Potentially a problem.
 
-        # convert local labels to unique global labels
-        index, block = next(block_iter)
-        updated_blocks[index] = block
-        total = da.max(block)
-        for index, block in block_iter:
-            local_max = da.max(block)
-            block += da.where(block > 0, total, 0)
-            updated_blocks[index] = block
-            total += local_max
+    # TESTING: check details of new_labeling
+    print(new_labeling.shape, new_labeling.dtype, np.max(new_labeling))
 
-        # put blocks back together as dask array
-        updated_blocks = da.block(updated_blocks.tolist())
+    # map unused label ids to zero and remap remaining ids to [0, 1, 2, ...]
+    unused_labels = np.ones(label_range + 1, dtype=bool)
+    unused_labels[box_ids] = 0
+    new_labeling[unused_labels] = 0
+    unique, unique_inverse = np.unique(new_labeling, return_inverse=True)
 
-        # intermediate computation, may smooth out dask errors
-        updated_blocks.persist()
+    # TESTING: learn number of cells that were merged
+    print(label_range + 1)  # nominal number of labels used
+    print(len(boxes))  # number of cells originally found
+    print(len(unique), flush=True)  # number of cells after merger
 
-        # stitch
-        label_groups = _block_face_adjacency_graph(
-            updated_blocks, total
-        )
-        new_labeling = label.connected_components_delayed(label_groups)
-        relabeled = label.relabel_blocks(updated_blocks, new_labeling).astype(np.int32)
+    new_labeling = np.arange(len(unique), dtype=np.uint32)[unique_inverse]
 
-        # if writing zarr file
-        if write_path is not None:
-            compressor = Blosc(
-                cname='zstd',
-                clevel=4,
-                shuffle=Blosc.BITSHUFFLE,
-            )
-            zarr_disk = zarr.open(
-                write_path, 'w',
-                shape=relabeled.shape,
-                chunks=relabeled.chunksize,
-                dtype=relabeled.dtype,
-                compressor=compressor,
-            )
-            da.to_zarr(relabeled, zarr_disk)
-            return zarr_disk
+    # TESTING: make sure new_labeling array is correct
+    u2 = np.unique(new_labeling)
+    print(new_labeling.shape, new_labeling.dtype, np.max(new_labeling), len(u2), u2.max(), flush=True)
 
-        # or if user wants numpy array
-        else:
-            return relabeled.compute()
+    new_labeling = da.from_array(new_labeling, chunks=-1)
+
+    # TESTING: check dask array details
+    print(new_labeling, flush=True)
+
+    # execute mergers and relabeling
+    relabeled = label.relabel_blocks(segmentation, new_labeling)
+
+    # TESTING: check relabeled dask array details
+    print(relabeled, flush=True)
+
+    # TODO: take union of merged label boxes
+    # TODO: eliminate merged box ids
+
+    # compute and store final result, return segmentation and boxes
+    da.to_zarr(relabeled, write_path)
+    return zarr.open(write_path, 'r+'), boxes
 
 
 def _block_face_adjacency_graph(labels, nlabels):
     """
     Shrink labels in face plane, then find which labels touch across the
-    face boundary
+    ace boundary
     """
 
     # get all boundary faces
@@ -286,7 +306,7 @@ def _block_face_adjacency_graph(labels, nlabels):
     mat = label._to_csr_matrix(i, j, nlabels + 1)
 
     # return matrix
-    return mat.astype(np.int32)
+    return mat
 
 
 def _shrink_labels(plane, threshold):
