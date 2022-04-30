@@ -53,9 +53,11 @@ in 2D should be single strokes (if *single_stroke* is checked).
 
 If you want to draw masks in 3D, then you can turn *single_stroke*
 option off and draw a stroke on each plane with the cell and then press
-ENTER (cellpose 1.0 only currently). 
-3D labelling will fill in unlabelled z-planes so that you do not
-have to as densely label.
+ENTER. 
+
+.. note::
+    3D labelling will fill in unlabelled z-planes so that you do not
+    have to densely label, for example you can skip some planes.
 
 
 Segmentation options

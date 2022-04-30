@@ -36,6 +36,9 @@ class ModelButton(QPushButton):
         self.model_name = model_name
         
     def press(self, parent):
+        for i in range(len(parent.StyleButtons)):
+            parent.StyleButtons[i].setStyleSheet(parent.styleUnpressed)
+        self.setStyleSheet(parent.stylePressed)
         parent.compute_model(self.model_name)
 
 class TrainWindow(QDialog):
@@ -636,7 +639,7 @@ class ImageDraw(pg.ImageItem):
         #print(ev.pressure())
 
     def drawAt(self, pos, ev=None):
-        mask = self.greenmask
+        mask = self.strokemask
         set = self.parent.current_point_set
         stroke = self.parent.current_stroke
         pos = [int(pos.y()), int(pos.x())]
@@ -691,7 +694,7 @@ class ImageDraw(pg.ImageItem):
         offmask = np.zeros((bs,bs,1))
         opamask = 100 * kernel[:,:,np.newaxis]
         self.redmask = np.concatenate((onmask,offmask,offmask,onmask), axis=-1)
-        self.greenmask = np.concatenate((onmask,offmask,onmask,opamask), axis=-1)
+        self.strokemask = np.concatenate((onmask,offmask,onmask,opamask), axis=-1)
 
 
 class RangeSlider(QSlider):
