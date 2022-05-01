@@ -23,10 +23,13 @@ If you want to improve Cellpose for yourself and for everyone else, please consi
 
 ### :star2: UPDATE v2.0 (April 2022) :star2:
 
-Cellpose 2.0 now allows human-in-the-loop training of models! Check out the twitter [thread](https://twitter.com/marius10p/status/1511415409047650307?s=20&t=umTVIG1CFKIWHYMrQqFKyQ), [preprint](https://www.biorxiv.org/content/10.1101/2022.04.01.486764v1) for details, and [talk](https://www.youtube.com/watch?v=3ydtAhfq6H0).
-
-Read how to use it yourself in the [docs](https://cellpose.readthedocs.io/en/latest/gui.html#training-your-own-cellpose-model), and check out the full human-in-the-loop [video](https://youtu.be/3Y1VKcxjNy4). Also, here's a colab notebook to give cloud access to a GPU to train your models or run your custom models: * a code-based notebook: [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/MouseLand/cellpose/blob/main/notebooks/run_cellpose_2.ipynb)
-
+Cellpose 2.0 now allows human-in-the-loop training of models! To learn more...
+* Check out the twitter [thread](https://twitter.com/marius10p/status/1511415409047650307?s=20&t=umTVIG1CFKIWHYMrQqFKyQ) for an overview.
+* Check out the [preprint](https://www.biorxiv.org/content/10.1101/2022.04.01.486764v1) for more details on the algorithm and the performance.
+* Watch the short intro [talk](https://www.youtube.com/watch?v=3ydtAhfq6H0) and watch the longer [tutorial talk](https://youtu.be/5qANHWoubZU) which goes through running Cellpose 2.0 in the GUI and a jupyter notebook.
+* Check out the full human-in-the-loop [video](https://youtu.be/3Y1VKcxjNy4). 
+* Check out the colab notebook to give cloud access to a GPU to train your models or run your custom models: [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/MouseLand/cellpose/blob/main/notebooks/run_cellpose_2.ipynb).
+* See how to use it yourself in the [docs](https://cellpose.readthedocs.io/en/latest/gui.html#training-your-own-cellpose-model) and also check out the help info in the `Models` menu in the GUI.
 
 Results of human-in-the-loop
 
