@@ -23,9 +23,10 @@ If you want to improve Cellpose for yourself and for everyone else, please consi
 
 ### :star2: UPDATE v2.0 (April 2022) :star2:
 
-Cellpose 2.0 now allows human-in-the-loop training of models! Check out the twitter [thread](https://twitter.com/marius10p/status/1511415409047650307?s=20&t=umTVIG1CFKIWHYMrQqFKyQ) and [preprint](https://www.biorxiv.org/content/10.1101/2022.04.01.486764v1) for details.
+Cellpose 2.0 now allows human-in-the-loop training of models! Check out the twitter [thread](https://twitter.com/marius10p/status/1511415409047650307?s=20&t=umTVIG1CFKIWHYMrQqFKyQ), [preprint](https://www.biorxiv.org/content/10.1101/2022.04.01.486764v1) for details, and [talk](https://www.youtube.com/watch?v=3ydtAhfq6H0).
 
-Read how to use it yourself in the [docs](https://cellpose.readthedocs.io/en/latest/gui.html#training-your-own-cellpose-model), and check out the full human-in-the-loop [video](https://youtu.be/3Y1VKcxjNy4).
+Read how to use it yourself in the [docs](https://cellpose.readthedocs.io/en/latest/gui.html#training-your-own-cellpose-model), and check out the full human-in-the-loop [video](https://youtu.be/3Y1VKcxjNy4). Also, here's a colab notebook to give cloud access to a GPU to train your models or run your custom models: * a code-based notebook: [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/MouseLand/cellpose/blob/main/notebooks/run_cellpose_2.ipynb)
+
 
 Results of human-in-the-loop
 
@@ -66,7 +67,7 @@ If you are using a GPU, make sure its drivers and the cuda libraries are correct
 3. Create a new environment with `conda create --name cellpose python=3.8`.
 4. To activate this new environment, run `conda activate cellpose`
 5. To install the minimal version of cellpose, run `python -m pip install cellpose`.  
-6. To install cellpose, omnipose and the GUI, run `python -m pip install cellpose[all]`. If you're on a zsh server, you may need to use ' ' around the cellpose[all] call: `python -m pip install 'cellpose[all]'.
+6. To install cellpose and the GUI, run `python -m pip install cellpose[gui]`. If you're on a zsh server, you may need to use ' ' around the cellpose[gui] call: `python -m pip install 'cellpose[gui]'.
 
 To upgrade cellpose (package [here](https://pypi.org/project/cellpose/)), run the following in the environment:
 
@@ -76,10 +77,10 @@ python -m pip install cellpose --upgrade
 
 Note you will always have to run `conda activate cellpose` before you run cellpose. If you want to run jupyter notebooks in this environment, then also `conda install jupyter` and `python -m pip install matplotlib`.
 
-You can also try to install cellpose, omnipose and the GUI dependencies from your base environment using the command
+You can also try to install cellpose and the GUI dependencies from your base environment using the command
 
 ~~~~sh
-python -m pip install cellpose[all]
+python -m pip install cellpose[gui]
 ~~~~
 
 If you have **issues** with installation, see the [docs](https://cellpose.readthedocs.io/en/latest/installation.html) for more details. You can also use the cellpose environment file included in the repository and create a cellpose environment with `conda env create -f environment.yml` which may solve certain dependency issues.
@@ -115,8 +116,8 @@ If you want edit ability to the code, in the github repository folder, run `pip 
 You can quickly try out Cellpose on the [website](https://www.cellpose.org) first (some features disabled). 
 
 You can also run Cellpose in google colab with a GPU: 
-* a code-based notebook: [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/MouseLand/cellpose/blob/master/notebooks/run_cellpose_GPU.ipynb)
-* a more user-friendly notebook for 2D segmentation written by [@pr4deepr](https://github.com/pr4deepr): [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/MouseLand/cellpose/blob/master/notebooks/Cellpose_cell_segmentation_2D_prediction_only.ipynb)
+* a code-based notebook: [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/MouseLand/cellpose/blob/main/notebooks/run_cellpose_GPU.ipynb)
+* a more user-friendly notebook for 2D segmentation written by [@pr4deepr](https://github.com/pr4deepr): [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/MouseLand/cellpose/blob/main/notebooks/Cellpose_cell_segmentation_2D_prediction_only.ipynb)
 * a user-friendly [ZeroCostDL4Mic](https://github.com/HenriquesLab/ZeroCostDL4Mic) notebook that includes training cellpose models, written by [@guijacquemet](https://github.com/guijacquemet): [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/HenriquesLab/ZeroCostDL4Mic/blob/master/Colab_notebooks/Beta%20notebooks/Cellpose_2D_ZeroCostDL4Mic.ipynb)
 
 The colab notebooks are recommended if you have issues with MKL or run speed on your local computer (and are running 3D volumes). Colab does not allow you to run the GUI, but you can save `*_seg.npy` files in colab that you can download and open in the GUI.

@@ -95,7 +95,7 @@ def main():
     training_args.add_argument('--test_dir',
                         default=[], type=str, help='folder containing test data (optional)')
     training_args.add_argument('--mask_filter',
-                        default='_masks', type=str, help='end string for masks to run on. Default: %(default)s')
+                        default='_masks', type=str, help='end string for masks to run on. use "_seg.npy" for manual annotations from the GUI. Default: %(default)s')
     training_args.add_argument('--diam_mean',
                         default=30., type=float, help='mean diameter to resize cells to during training -- if starting from pretrained models it cannot be changed from 30.0')
     training_args.add_argument('--learning_rate',
