@@ -3,11 +3,11 @@ OpenVINO
 
 `OpenVINO <https://github.com/openvinotoolkit/openvino>`_ is an optional backend for Cellpose which optimizes deep learning inference for Intel Architectures.
 
-It can be installed with a primary package by adding extra suffix:
+It should be installed in the same environment with Cellpose by the following command :
 
 ::
 
-    pip install cellpose[openvino]
+    pip install --no-deps openvino
 
 Using ``openvino_utils.to_openvino``, convert PyTorch model to OpenVINO one:
 

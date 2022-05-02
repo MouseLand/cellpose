@@ -27,10 +27,6 @@ distributed_deps = [
         'scikit-learn',
 ]
 
-openvino_deps = [
-        'openvino==2021.3',
-]
-
 try:
     import torch
     a = torch.ones(2, 3)
@@ -67,8 +63,7 @@ setup(
       'docs': docs_deps,
       'gui': gui_deps,
       'distributed': distributed_deps,
-      'openvino': openvino_deps,
-      'all': gui_deps + distributed_deps + openvino_deps,
+      'all': gui_deps + distributed_deps,
     },
     include_package_data=True,
     classifiers=(
