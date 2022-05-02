@@ -49,7 +49,7 @@ Cellpose 1.0
    outputs
    models
    train
-   
+   openvino
 
 .. toctree::
    :maxdepth: 3
