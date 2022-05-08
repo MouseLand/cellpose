@@ -57,6 +57,7 @@ setup(
     use_scm_version=True,
     install_requires = install_deps,
     tests_require=[
+      'isort',
       'pytest'
     ],
     extras_require = {
