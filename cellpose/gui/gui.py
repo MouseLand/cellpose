@@ -27,12 +27,12 @@ from PyQt5.QtWidgets import (
 )
 from tqdm import trange
 
-from .. import core, dynamics, models
-from ..io import get_image_files
-from ..plot import disk
-from ..transforms import normalize99, resize_image  # fixed import
-from ..utils import download_url_to_file, masks_to_outlines
-from . import guiparts, io, menus
+from cellpose import core, dynamics, models
+from cellpose.gui import guiparts, io, menus
+from cellpose.io import get_image_files
+from cellpose.plot import disk
+from cellpose.transforms import normalize99, resize_image  # fixed import
+from cellpose.utils import download_url_to_file, masks_to_outlines
 
 try:
     import matplotlib.pyplot as plt

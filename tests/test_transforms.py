@@ -1,3 +1,5 @@
+import numpy as np
+
 from cellpose.transforms import random_rotate_and_resize
 
 

@@ -6,8 +6,8 @@ import cv2
 import fastremap
 import numpy as np
 
-from .. import models, utils
-from ..io import imread, imsave, outlines_to_text
+from cellpose import models, utils
+from cellpose.io import imread, imsave, outlines_to_text
 
 try:
     from PyQt5.QtWidgets import QFileDialog

@@ -1,8 +1,8 @@
 from PyQt5.QtWidgets import QAction
 
-from .. import models
-from ..io import save_server
-from . import io
+from cellpose import models
+from cellpose.gui import io
+from cellpose.io import save_server
 
 
 def mainmenu(parent):

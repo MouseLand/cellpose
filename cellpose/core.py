@@ -14,7 +14,7 @@ from torch import nn
 from torch.utils import mkldnn as mkldnn_utils
 from tqdm import tqdm, trange
 
-from . import metrics, resnet_torch, transforms, utils
+from cellpose import metrics, resnet_torch, transforms, utils
 
 TORCH_ENABLED = True
 torch_GPU = torch.device('cuda')

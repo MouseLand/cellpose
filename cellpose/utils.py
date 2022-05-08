@@ -11,7 +11,7 @@ from scipy.ndimage import binary_fill_holes, find_objects, gaussian_filter, gene
 from scipy.spatial import ConvexHull
 from tqdm import tqdm
 
-from . import metrics
+from cellpose import metrics
 
 try:
     from skimage.morphology import remove_small_holes  # noqa: F401

@@ -13,6 +13,8 @@ import tifffile
 from natsort import natsorted
 from tqdm import tqdm
 
+from cellpose import plot, transforms, utils
+
 try:
     from PyQt5 import Qt, QtCore, QtGui, QtWidgets  # noqa: F401
     GUI = True
@@ -55,7 +57,7 @@ def logger_setup():
 
     return logger, log_file
 
-from . import plot, transforms, utils
+
 
 
 # helper function to check for a path; if it doesn't exist, make it 

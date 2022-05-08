@@ -7,7 +7,6 @@ from cellpose import io, models
 os.environ["KMP_DUPLICATE_LIB_OK"]="TRUE"
 
 
-
 def test_class_train(data_dir):
     train_dir = str(data_dir.joinpath('2D').joinpath('train'))
     model_dir = str(data_dir.joinpath('2D').joinpath('train').joinpath('models'))

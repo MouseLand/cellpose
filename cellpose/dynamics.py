@@ -8,14 +8,14 @@ import scipy.ndimage
 import tifffile
 import torch
 from numba import njit
-from scipy.ndimage.filters import maximum_filter1d
+from scipy.ndimage import maximum_filter1d
 from tqdm import trange
 
 dynamics_logger = logging.getLogger(__name__)
 
 import torch
 
-from . import metrics, transforms, utils
+from cellpose import metrics, transforms, utils
 
 TORCH_ENABLED = True 
 torch_GPU = torch.device('cuda')

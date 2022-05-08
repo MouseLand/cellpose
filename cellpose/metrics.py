@@ -3,7 +3,7 @@ from numba import jit
 from scipy.ndimage import convolve, mean
 from scipy.optimize import linear_sum_assignment
 
-from . import dynamics, utils
+from cellpose import dynamics, utils
 
 
 def mask_ious(masks_true, masks_pred):

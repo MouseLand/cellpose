@@ -3,7 +3,7 @@ import os
 import numpy as np
 from scipy.ndimage import gaussian_filter
 
-from . import io, transforms, utils
+from cellpose import io, transforms, utils
 
 try:
     import matplotlib  # noqa: F401
