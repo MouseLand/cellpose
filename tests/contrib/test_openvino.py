@@ -6,14 +6,14 @@ from cellpose.contrib import openvino_utils
 
 
 def create_model():
-    return models.CellposeModel(gpu=False,
-                                pretrained_model="cyto",
-                                net_avg=True,
-                                device=torch.device("cpu"))
+    return models.CellposeModel(
+        gpu=False, pretrained_model="cyto", net_avg=True, device=torch.device("cpu")
+    )
+
 
 def test_unet(data_dir):
-    image_name = 'rgb_2D.png'
-    img = io.imread(str(data_dir.joinpath('2D').joinpath(image_name)))
+    image_name = "rgb_2D.png"
+    img = io.imread(str(data_dir.joinpath("2D").joinpath(image_name)))
 
     # Get a reference results
     ref_model = create_model()

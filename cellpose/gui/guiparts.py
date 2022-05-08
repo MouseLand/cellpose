@@ -28,19 +28,28 @@ def create_channel_choose():
     # choose channel
     ChannelChoose = [QComboBox(), QComboBox()]
     ChannelLabels = []
-    ChannelChoose[0].addItems(['gray','red','green','blue'])
-    ChannelChoose[1].addItems(['none','red','green','blue'])
-    cstr = ['chan to segment:', 'chan2 (optional): ']
+    ChannelChoose[0].addItems(["gray", "red", "green", "blue"])
+    ChannelChoose[1].addItems(["none", "red", "green", "blue"])
+    cstr = ["chan to segment:", "chan2 (optional): "]
     for i in range(2):
         ChannelLabels.append(QLabel(cstr[i]))
-        if i==0:
-            ChannelLabels[i].setToolTip('this is the channel in which the cytoplasm or nuclei exist that you want to segment')
-            ChannelChoose[i].setToolTip('this is the channel in which the cytoplasm or nuclei exist that you want to segment')
+        if i == 0:
+            ChannelLabels[i].setToolTip(
+                "this is the channel in which the cytoplasm or nuclei exist that you want to segment"
+            )
+            ChannelChoose[i].setToolTip(
+                "this is the channel in which the cytoplasm or nuclei exist that you want to segment"
+            )
         else:
-            ChannelLabels[i].setToolTip('if <em>cytoplasm</em> model is chosen, and you also have a nuclear channel, then choose the nuclear channel for this option')
-            ChannelChoose[i].setToolTip('if <em>cytoplasm</em> model is chosen, and you also have a nuclear channel, then choose the nuclear channel for this option')
-        
+            ChannelLabels[i].setToolTip(
+                "if <em>cytoplasm</em> model is chosen, and you also have a nuclear channel, then choose the nuclear channel for this option"
+            )
+            ChannelChoose[i].setToolTip(
+                "if <em>cytoplasm</em> model is chosen, and you also have a nuclear channel, then choose the nuclear channel for this option"
+            )
+
     return ChannelChoose, ChannelLabels
+
 
 class ModelButton(QPushButton):
     def __init__(self, parent, model_name, text):
@@ -51,139 +60,155 @@ class ModelButton(QPushButton):
         self.setFont(parent.smallfont)
         self.clicked.connect(lambda: self.press(parent))
         self.model_name = model_name
-        
+
     def press(self, parent):
         for i in range(len(parent.StyleButtons)):
             parent.StyleButtons[i].setStyleSheet(parent.styleUnpressed)
         self.setStyleSheet(parent.stylePressed)
         parent.compute_model(self.model_name)
 
+
 class TrainWindow(QDialog):
     def __init__(self, parent, model_strings):
         super().__init__(parent)
-        self.setGeometry(100,100,600,300)
-        self.setWindowTitle('train settings')
+        self.setGeometry(100, 100, 600, 300)
+        self.setWindowTitle("train settings")
         self.win = QWidget(self)
         self.l0 = QGridLayout()
         self.win.setLayout(self.l0)
 
         yoff = 0
-        qlabel = QLabel('train model w/ images + _seg.npy in current folder >>')
+        qlabel = QLabel("train model w/ images + _seg.npy in current folder >>")
         qlabel.setFont(QtGui.QFont("Arial", 10, QtGui.QFont.Bold))
-        
+
         qlabel.setAlignment(QtCore.Qt.AlignVCenter)
-        self.l0.addWidget(qlabel, yoff,0,1,2)
+        self.l0.addWidget(qlabel, yoff, 0, 1, 2)
 
         # choose initial model
-        yoff+=1
+        yoff += 1
         self.ModelChoose = QComboBox()
         self.ModelChoose.addItems(model_strings)
-        self.ModelChoose.addItems(['scratch']) 
+        self.ModelChoose.addItems(["scratch"])
         self.ModelChoose.setFixedWidth(150)
-        self.ModelChoose.setCurrentIndex(parent.training_params['model_index'])
-        self.l0.addWidget(self.ModelChoose, yoff, 1,1,1)
-        qlabel = QLabel('initial model: ')
+        self.ModelChoose.setCurrentIndex(parent.training_params["model_index"])
+        self.l0.addWidget(self.ModelChoose, yoff, 1, 1, 1)
+        qlabel = QLabel("initial model: ")
         qlabel.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
-        self.l0.addWidget(qlabel, yoff,0,1,1)
+        self.l0.addWidget(qlabel, yoff, 0, 1, 1)
 
         # choose channels
         self.ChannelChoose, self.ChannelLabels = create_channel_choose()
         for i in range(2):
-            yoff+=1
+            yoff += 1
             self.ChannelChoose[i].setFixedWidth(150)
-            self.ChannelChoose[i].setCurrentIndex(parent.ChannelChoose[i].currentIndex())
-            self.l0.addWidget(self.ChannelLabels[i], yoff, 0,1,1)
-            self.l0.addWidget(self.ChannelChoose[i], yoff, 1,1,1)
+            self.ChannelChoose[i].setCurrentIndex(
+                parent.ChannelChoose[i].currentIndex()
+            )
+            self.l0.addWidget(self.ChannelLabels[i], yoff, 0, 1, 1)
+            self.l0.addWidget(self.ChannelChoose[i], yoff, 1, 1, 1)
 
-        # choose parameters        
-        labels = ['learning_rate', 'weight_decay', 'n_epochs', 'model_name']
+        # choose parameters
+        labels = ["learning_rate", "weight_decay", "n_epochs", "model_name"]
         self.edits = []
         yoff += 1
         for i, label in enumerate(labels):
             qlabel = QLabel(label)
             qlabel.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
-            self.l0.addWidget(qlabel, i+yoff,0,1,1)
+            self.l0.addWidget(qlabel, i + yoff, 0, 1, 1)
             self.edits.append(QLineEdit())
             self.edits[-1].setText(str(parent.training_params[label]))
-            self.l0.addWidget(self.edits[-1], i+yoff, 1,1,1)
+            self.l0.addWidget(self.edits[-1], i + yoff, 1, 1, 1)
 
-        yoff+=len(labels)
+        yoff += len(labels)
 
-        yoff+=1
-        qlabel = QLabel('(to remove files, click cancel then remove from folder and reopen train window)')
-        self.l0.addWidget(qlabel, yoff,0,1,4)
+        yoff += 1
+        qlabel = QLabel(
+            "(to remove files, click cancel then remove from folder and reopen train window)"
+        )
+        self.l0.addWidget(qlabel, yoff, 0, 1, 4)
 
         # click button
-        yoff+=1
+        yoff += 1
         QBtn = QDialogButtonBox.Ok | QDialogButtonBox.Cancel
         self.buttonBox = QDialogButtonBox(QBtn)
         self.buttonBox.accepted.connect(lambda: self.accept(parent))
         self.buttonBox.rejected.connect(self.reject)
-        self.l0.addWidget(self.buttonBox, yoff, 0, 1,4)
+        self.l0.addWidget(self.buttonBox, yoff, 0, 1, 4)
 
-        
         # list files in folder
-        qlabel = QLabel('filenames')
+        qlabel = QLabel("filenames")
         qlabel.setFont(QtGui.QFont("Arial", 8, QtGui.QFont.Bold))
-        self.l0.addWidget(qlabel, 0,4,1,1)
-        qlabel = QLabel('# of masks')
+        self.l0.addWidget(qlabel, 0, 4, 1, 1)
+        qlabel = QLabel("# of masks")
         qlabel.setFont(QtGui.QFont("Arial", 8, QtGui.QFont.Bold))
-        self.l0.addWidget(qlabel, 0,5,1,1)
-    
+        self.l0.addWidget(qlabel, 0, 5, 1, 1)
+
         for i in range(10):
             if i > len(parent.train_files) - 1:
                 break
-            elif i==9 and len(parent.train_files) > 10:
-                label = '...'
-                nmasks = '...'
+            elif i == 9 and len(parent.train_files) > 10:
+                label = "..."
+                nmasks = "..."
             else:
                 label = os.path.split(parent.train_files[i])[-1]
                 nmasks = str(parent.train_labels[i].max())
             qlabel = QLabel(label)
-            self.l0.addWidget(qlabel, i+1,4,1,1)
+            self.l0.addWidget(qlabel, i + 1, 4, 1, 1)
             qlabel = QLabel(nmasks)
             qlabel.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
-            self.l0.addWidget(qlabel, i+1, 5,1,1)
+            self.l0.addWidget(qlabel, i + 1, 5, 1, 1)
 
     def accept(self, parent):
         # set channels
         for i in range(2):
-            parent.ChannelChoose[i].setCurrentIndex(self.ChannelChoose[i].currentIndex())
+            parent.ChannelChoose[i].setCurrentIndex(
+                self.ChannelChoose[i].currentIndex()
+            )
         # set training params
-        parent.training_params = {'model_index': self.ModelChoose.currentIndex(),
-                                 'learning_rate': float(self.edits[0].text()), 
-                                 'weight_decay': float(self.edits[1].text()), 
-                                 'n_epochs':  int(self.edits[2].text()),
-                                 'model_name': self.edits[3].text()
-                                 }
+        parent.training_params = {
+            "model_index": self.ModelChoose.currentIndex(),
+            "learning_rate": float(self.edits[0].text()),
+            "weight_decay": float(self.edits[1].text()),
+            "n_epochs": int(self.edits[2].text()),
+            "model_name": self.edits[3].text(),
+        }
         self.done(1)
-        
+
+
 def make_quadrants(parent, yp):
-    """ make quadrant buttons """
+    """make quadrant buttons"""
     parent.quadbtns = QButtonGroup(parent)
     for b in range(9):
-        btn = QuadButton(b, ' '+str(b+1), parent)
+        btn = QuadButton(b, " " + str(b + 1), parent)
         parent.quadbtns.addButton(btn, b)
-        parent.l0.addWidget(btn, yp + parent.quadbtns.button(b).ypos, 5+parent.quadbtns.button(b).xpos, 1, 1)
+        parent.l0.addWidget(
+            btn,
+            yp + parent.quadbtns.button(b).ypos,
+            5 + parent.quadbtns.button(b).xpos,
+            1,
+            1,
+        )
         btn.setEnabled(True)
         b += 1
     parent.quadbtns.setExclusive(True)
 
+
 class QuadButton(QPushButton):
-    """ custom QPushButton class for quadrant plotting
-        requires buttons to put into a QButtonGroup (parent.quadbtns)
-         allows only 1 button to pressed at a time
+    """custom QPushButton class for quadrant plotting
+    requires buttons to put into a QButtonGroup (parent.quadbtns)
+     allows only 1 button to pressed at a time
     """
+
     def __init__(self, bid, Text, parent=None):
-        super(QuadButton,self).__init__(parent)
+        super(QuadButton, self).__init__(parent)
         self.setText(Text)
         self.setCheckable(True)
         self.setStyleSheet(parent.styleUnpressed)
         self.setFont(QtGui.QFont("Arial", 8, QtGui.QFont.Bold))
         self.resize(self.minimumSizeHint())
         self.setMaximumWidth(22)
-        self.xpos = bid%3
-        self.ypos = int(np.floor(bid/3))
+        self.xpos = bid % 3
+        self.ypos = int(np.floor(bid / 3))
         self.clicked.connect(lambda: self.press(parent, bid))
         self.show()
 
@@ -192,12 +217,13 @@ class QuadButton(QPushButton):
             if parent.quadbtns.button(b).isEnabled():
                 parent.quadbtns.button(b).setStyleSheet(parent.styleUnpressed)
         self.setStyleSheet(parent.stylePressed)
-        self.xrange = np.array([self.xpos-.2, self.xpos+1.2]) * parent.Lx/3
-        self.yrange = np.array([self.ypos-.2, self.ypos+1.2]) * parent.Ly/3
+        self.xrange = np.array([self.xpos - 0.2, self.xpos + 1.2]) * parent.Lx / 3
+        self.yrange = np.array([self.ypos - 0.2, self.ypos + 1.2]) * parent.Ly / 3
         # change the zoom
         parent.p0.setXRange(self.xrange[0], self.xrange[1])
         parent.p0.setYRange(self.yrange[0], self.yrange[1])
         parent.show()
+
 
 def horizontal_slider_style():
     return """QSlider::groove:horizontal {
@@ -257,15 +283,16 @@ def horizontal_slider_style():
             border-radius: 4px;
             }"""
 
+
 class ExampleGUI(QDialog):
     def __init__(self, parent=None):
         super(ExampleGUI, self).__init__(parent)
-        self.setGeometry(100,100,1300,900)
-        self.setWindowTitle('GUI layout')
+        self.setGeometry(100, 100, 1300, 900)
+        self.setWindowTitle("GUI layout")
         self.win = QWidget(self)
         layout = QGridLayout()
         self.win.setLayout(layout)
-        guip_path = pathlib.Path.home().joinpath('.cellpose', 'cellpose_gui.png')
+        guip_path = pathlib.Path.home().joinpath(".cellpose", "cellpose_gui.png")
         guip_path = str(guip_path.resolve())
         pixmap = QPixmap(guip_path)
         label = QLabel(self)
@@ -273,16 +300,17 @@ class ExampleGUI(QDialog):
         pixmap.scaled
         layout.addWidget(label, 0, 0, 1, 1)
 
+
 class HelpWindow(QDialog):
     def __init__(self, parent=None):
         super(HelpWindow, self).__init__(parent)
-        self.setGeometry(100,50,700,850)
-        self.setWindowTitle('cellpose help')
+        self.setGeometry(100, 50, 700, 850)
+        self.setWindowTitle("cellpose help")
         self.win = QWidget(self)
         layout = QGridLayout()
         self.win.setLayout(layout)
-        
-        text = ('''
+
+        text = """
             <p class="has-line-data" data-line-start="5" data-line-end="6">Main GUI mouse controls:</p>
             <ul>
             <li class="has-line-data" data-line-start="7" data-line-end="8">Pan  = left-click  + drag</li>
@@ -379,7 +407,7 @@ class HelpWindow(QDialog):
             <p class="has-line-data" data-line-start="42" data-line-end="43">MODEL: there is a <em>cytoplasm</em> model and a <em>nuclei</em> model, choose what you want to segment</p>
             <p class="has-line-data" data-line-start="44" data-line-end="45">CHAN TO SEG: this is the channel in which the cytoplasm or nuclei exist</p>
             <p class="has-line-data" data-line-start="46" data-line-end="47">CHAN2 (OPT): if <em>cytoplasm</em> model is chosen, then choose the nuclear channel for this option</p>
-            ''')
+            """
         label = QLabel(text)
         label.setFont(QtGui.QFont("Arial", 8))
         label.setWordWrap(True)
@@ -390,13 +418,13 @@ class HelpWindow(QDialog):
 class TrainHelpWindow(QDialog):
     def __init__(self, parent=None):
         super(TrainHelpWindow, self).__init__(parent)
-        self.setGeometry(100,50,700,300)
-        self.setWindowTitle('training instructions')
+        self.setGeometry(100, 50, 700, 300)
+        self.setWindowTitle("training instructions")
         self.win = QWidget(self)
         layout = QGridLayout()
         self.win.setLayout(layout)
-        
-        text = ('''
+
+        text = """
             Check out this <a href="https://youtu.be/3Y1VKcxjNy4">video</a> to learn the process.
             <ol>
                 <li>Drag and drop an image from a folder of images with a similar style (like similar cell types).</li>
@@ -407,7 +435,7 @@ class TrainHelpWindow(QDialog):
                 <li> The model will train (much faster if you have a GPU) and then auto-run on the next image in the folder. Next you can repeat #3-#5 as many times as is necessary. </li>
                 <li> The trained model is available to use in the future in the GUI in the "custom model" section and is saved in your image folder. </li>
             </ol>
-            ''')
+            """
         label = QLabel(text)
         label.setFont(QtGui.QFont("Arial", 8))
         label.setWordWrap(True)
@@ -423,19 +451,20 @@ class TypeRadioButtons(QButtonGroup):
         self.bstr = self.parent.cell_types
         for b in range(len(self.bstr)):
             button = QRadioButton(self.bstr[b])
-            button.setStyleSheet('color: rgb(190,190,190);')
+            button.setStyleSheet("color: rgb(190,190,190);")
             button.setFont(QtGui.QFont("Arial", 10))
-            if b==0:
+            if b == 0:
                 button.setChecked(True)
             self.addButton(button, b)
             button.toggled.connect(lambda: self.btnpress(parent))
-            self.parent.l0.addWidget(button, row+b,col,1,2)
+            self.parent.l0.addWidget(button, row + b, col, 1, 2)
         self.setExclusive(True)
-        #self.buttons.
+        # self.buttons.
 
     def btnpress(self, parent):
-       b = self.checkedId()
-       self.parent.cell_type = b
+        b = self.checkedId()
+        self.parent.cell_type = b
+
 
 class RGBRadioButtons(QButtonGroup):
     def __init__(self, parent=None, row=0, col=0):
@@ -443,31 +472,50 @@ class RGBRadioButtons(QButtonGroup):
         parent.color = 0
         self.parent = parent
         self.bstr = ["image", "gradXY", "cellprob", "gradZ"]
-        #self.buttons = QButtonGroup()
+        # self.buttons = QButtonGroup()
         self.dropdown = []
         for b in range(len(self.bstr)):
             button = QRadioButton(self.bstr[b])
-            button.setStyleSheet('color: white;')
+            button.setStyleSheet("color: white;")
             button.setFont(QtGui.QFont("Arial", 10))
-            if b==0:
+            if b == 0:
                 button.setChecked(True)
             self.addButton(button, b)
             button.toggled.connect(lambda: self.btnpress(parent))
-            self.parent.l0.addWidget(button, row+b,col,1,3)
+            self.parent.l0.addWidget(button, row + b, col, 1, 3)
         self.setExclusive(True)
-        #self.buttons.
+        # self.buttons.
 
     def btnpress(self, parent):
-       b = self.checkedId()
-       self.parent.view = b
-       if self.parent.loaded:
-           self.parent.update_plot()
+        b = self.checkedId()
+        self.parent.view = b
+        if self.parent.loaded:
+            self.parent.update_plot()
 
 
 class ViewBoxNoRightDrag(pg.ViewBox):
-    def __init__(self, parent=None, border=None, lockAspect=False, enableMouse=True, invertY=False, enableMenu=True, name=None, invertX=False):
-        pg.ViewBox.__init__(self, None, border, lockAspect, enableMouse,
-                            invertY, enableMenu, name, invertX)
+    def __init__(
+        self,
+        parent=None,
+        border=None,
+        lockAspect=False,
+        enableMouse=True,
+        invertY=False,
+        enableMenu=True,
+        name=None,
+        invertX=False,
+    ):
+        pg.ViewBox.__init__(
+            self,
+            None,
+            border,
+            lockAspect,
+            enableMouse,
+            invertY,
+            enableMenu,
+            name,
+            invertX,
+        )
         self.parent = parent
         self.axHistoryPointer = -1
 
@@ -480,16 +528,18 @@ class ViewBoxNoRightDrag(pg.ViewBox):
 
         """
         ev.accept()
-        if ev.text() == '-':
+        if ev.text() == "-":
             self.scaleBy([1.1, 1.1])
-        elif ev.text() in ['+', '=']:
+        elif ev.text() in ["+", "="]:
             self.scaleBy([0.9, 0.9])
         else:
             ev.ignore()
-    
+
     def mouseDragEvent(self, ev, axis=None):
         ## if axis is specified, event will only affect that axis.
-        if self.parent is None or (self.parent is not None and not self.parent.in_stroke):
+        if self.parent is None or (
+            self.parent is not None and not self.parent.in_stroke
+        ):
             ev.accept()  ## we accept all buttons
 
             pos = ev.pos()
@@ -498,35 +548,40 @@ class ViewBoxNoRightDrag(pg.ViewBox):
             dif = dif * -1
 
             ## Ignore axes if mouse is disabled
-            mouseEnabled = np.array(self.state['mouseEnabled'], dtype=np.float)
+            mouseEnabled = np.array(self.state["mouseEnabled"], dtype=np.float)
             mask = mouseEnabled.copy()
             if axis is not None:
-                mask[1-axis] = 0.0
+                mask[1 - axis] = 0.0
 
             ## Scale or translate based on mouse button
             if ev.button() & (QtCore.Qt.LeftButton | QtCore.Qt.MidButton):
-                if self.state['mouseMode'] == pg.ViewBox.RectMode:
-                    if ev.isFinish():  ## This is the final move in the drag; change the view scale now
-                        #print "finish"
+                if self.state["mouseMode"] == pg.ViewBox.RectMode:
+                    if (
+                        ev.isFinish()
+                    ):  ## This is the final move in the drag; change the view scale now
+                        # print "finish"
                         self.rbScaleBox.hide()
-                        ax = QtCore.QRectF(Point(ev.buttonDownPos(ev.button())), Point(pos))
+                        ax = QtCore.QRectF(
+                            Point(ev.buttonDownPos(ev.button())), Point(pos)
+                        )
                         ax = self.childGroup.mapRectFromParent(ax)
                         self.showAxRect(ax)
                         self.axHistoryPointer += 1
-                        self.axHistory = self.axHistory[:self.axHistoryPointer] + [ax]
+                        self.axHistory = self.axHistory[: self.axHistoryPointer] + [ax]
                     else:
                         ## update shape of scale box
                         self.updateScaleBox(ev.buttonDownPos(), ev.pos())
                 else:
-                    tr = dif*mask
-                    tr = self.mapToView(tr) - self.mapToView(Point(0,0))
+                    tr = dif * mask
+                    tr = self.mapToView(tr) - self.mapToView(Point(0, 0))
                     x = tr.x() if mask[0] == 1 else None
                     y = tr.y() if mask[1] == 1 else None
 
                     self._resetTarget()
                     if x is not None or y is not None:
                         self.translateBy(x=x, y=y)
-                    self.sigRangeChangedManually.emit(self.state['mouseEnabled'])
+                    self.sigRangeChangedManually.emit(self.state["mouseEnabled"])
+
 
 class ImageDraw(pg.ImageItem):
     """
@@ -547,24 +602,27 @@ class ImageDraw(pg.ImageItem):
 
     def __init__(self, image=None, viewbox=None, parent=None, **kargs):
         super(ImageDraw, self).__init__()
-        #self.image=None
-        #self.viewbox=viewbox
-        self.levels = np.array([0,255])
+        # self.image=None
+        # self.viewbox=viewbox
+        self.levels = np.array([0, 255])
         self.lut = None
         self.autoDownsample = False
-        self.axisOrder = 'row-major'
+        self.axisOrder = "row-major"
         self.removable = False
 
         self.parent = parent
-        #kernel[1,1] = 1
+        # kernel[1,1] = 1
         self.setDrawKernel(kernel_size=self.parent.brush_size)
         self.parent.current_stroke = []
         self.parent.in_stroke = False
 
     def mouseClickEvent(self, ev):
         if self.parent.masksOn or self.parent.outlinesOn:
-            if  self.parent.loaded and (ev.button()==QtCore.Qt.RightButton or 
-                    ev.modifiers() == QtCore.Qt.ShiftModifier and not ev.double()):
+            if self.parent.loaded and (
+                ev.button() == QtCore.Qt.RightButton
+                or ev.modifiers() == QtCore.Qt.ShiftModifier
+                and not ev.double()
+            ):
                 if not self.parent.in_stroke:
                     ev.accept()
                     self.create_start(ev.pos())
@@ -576,15 +634,15 @@ class ImageDraw(pg.ImageItem):
                     self.end_stroke()
                     self.parent.in_stroke = False
             elif not self.parent.in_stroke:
-                y,x = int(ev.pos().y()), int(ev.pos().x())
-                if y>=0 and y<self.parent.Ly and x>=0 and x<self.parent.Lx:
-                    if ev.button()==QtCore.Qt.LeftButton and not ev.double():
-                        idx = self.parent.cellpix[self.parent.currentZ][y,x]
+                y, x = int(ev.pos().y()), int(ev.pos().x())
+                if y >= 0 and y < self.parent.Ly and x >= 0 and x < self.parent.Lx:
+                    if ev.button() == QtCore.Qt.LeftButton and not ev.double():
+                        idx = self.parent.cellpix[self.parent.currentZ][y, x]
                         if idx > 0:
-                            if ev.modifiers()==QtCore.Qt.ControlModifier:
+                            if ev.modifiers() == QtCore.Qt.ControlModifier:
                                 # delete mask selected
                                 self.parent.remove_cell(idx)
-                            elif ev.modifiers()==QtCore.Qt.AltModifier:
+                            elif ev.modifiers() == QtCore.Qt.AltModifier:
                                 self.parent.merge_cells(idx)
                             elif self.parent.masksOn:
                                 self.parent.unselect_cell()
@@ -607,27 +665,34 @@ class ImageDraw(pg.ImageItem):
                     self.parent.in_stroke = False
         else:
             ev.acceptClicks(QtCore.Qt.RightButton)
-            #ev.acceptClicks(QtCore.Qt.LeftButton)
+            # ev.acceptClicks(QtCore.Qt.LeftButton)
 
     def create_start(self, pos):
-        self.scatter = pg.ScatterPlotItem([pos.x()], [pos.y()], pxMode=False,
-                                        pen=pg.mkPen(color=(255,0,0), width=self.parent.brush_size),
-                                        size=max(3*2, self.parent.brush_size*1.8*2), brush=None)
+        self.scatter = pg.ScatterPlotItem(
+            [pos.x()],
+            [pos.y()],
+            pxMode=False,
+            pen=pg.mkPen(color=(255, 0, 0), width=self.parent.brush_size),
+            size=max(3 * 2, self.parent.brush_size * 1.8 * 2),
+            brush=None,
+        )
         self.parent.p0.addItem(self.scatter)
 
     def is_at_start(self, pos):
-        thresh_out = max(6, self.parent.brush_size*3)
-        thresh_in = max(3, self.parent.brush_size*1.8)
+        thresh_out = max(6, self.parent.brush_size * 3)
+        thresh_in = max(3, self.parent.brush_size * 1.8)
         # first check if you ever left the start
         if len(self.parent.current_stroke) > 3:
             stroke = np.array(self.parent.current_stroke)
-            dist = (((stroke[1:,1:] - stroke[:1,1:][np.newaxis,:,:])**2).sum(axis=-1))**0.5
+            dist = (
+                ((stroke[1:, 1:] - stroke[:1, 1:][np.newaxis, :, :]) ** 2).sum(axis=-1)
+            ) ** 0.5
             dist = dist.flatten()
-            #print(dist)
+            # print(dist)
             has_left = (dist > thresh_out).nonzero()[0]
             if len(has_left) > 0:
                 first_left = np.sort(has_left)[0]
-                has_returned = (dist[max(4,first_left+1):] < thresh_in).sum()
+                has_returned = (dist[max(4, first_left + 1) :] < thresh_in).sum()
                 if has_returned > 0:
                     return True
                 else:
@@ -641,8 +706,10 @@ class ImageDraw(pg.ImageItem):
             self.parent.strokes.append(self.parent.current_stroke)
             self.parent.stroke_appended = True
             self.parent.current_stroke = np.array(self.parent.current_stroke)
-            ioutline = self.parent.current_stroke[:,3]==1
-            self.parent.current_point_set.extend(list(self.parent.current_stroke[ioutline]))
+            ioutline = self.parent.current_stroke[:, 3] == 1
+            self.parent.current_point_set.extend(
+                list(self.parent.current_stroke[ioutline])
+            )
             self.parent.current_stroke = []
             if self.parent.autosave:
                 self.parent.add_set()
@@ -651,9 +718,9 @@ class ImageDraw(pg.ImageItem):
 
     def tabletEvent(self, ev):
         pass
-        #print(ev.device())
-        #print(ev.pointerType())
-        #print(ev.pressure())
+        # print(ev.device())
+        # print(ev.pointerType())
+        # print(ev.pressure())
 
     def drawAt(self, pos, ev=None):
         mask = self.strokemask
@@ -662,71 +729,73 @@ class ImageDraw(pg.ImageItem):
         pos = [int(pos.y()), int(pos.x())]
         dk = self.drawKernel
         kc = self.drawKernelCenter
-        sx = [0,dk.shape[0]]
-        sy = [0,dk.shape[1]]
-        tx = [pos[0] - kc[0], pos[0] - kc[0]+ dk.shape[0]]
-        ty = [pos[1] - kc[1], pos[1] - kc[1]+ dk.shape[1]]
+        sx = [0, dk.shape[0]]
+        sy = [0, dk.shape[1]]
+        tx = [pos[0] - kc[0], pos[0] - kc[0] + dk.shape[0]]
+        ty = [pos[1] - kc[1], pos[1] - kc[1] + dk.shape[1]]
         kcent = kc.copy()
-        if tx[0]<=0:
+        if tx[0] <= 0:
             sx[0] = 0
             sx[1] = kc[0] + 1
-            tx    = sx
+            tx = sx
             kcent[0] = 0
-        if ty[0]<=0:
+        if ty[0] <= 0:
             sy[0] = 0
             sy[1] = kc[1] + 1
-            ty    = sy
+            ty = sy
             kcent[1] = 0
-        if tx[1] >= self.parent.Ly-1:
+        if tx[1] >= self.parent.Ly - 1:
             sx[0] = dk.shape[0] - kc[0] - 1
             sx[1] = dk.shape[0]
             tx[0] = self.parent.Ly - kc[0] - 1
             tx[1] = self.parent.Ly
-            kcent[0] = tx[1]-tx[0]-1
-        if ty[1] >= self.parent.Lx-1:
+            kcent[0] = tx[1] - tx[0] - 1
+        if ty[1] >= self.parent.Lx - 1:
             sy[0] = dk.shape[1] - kc[1] - 1
             sy[1] = dk.shape[1]
             ty[0] = self.parent.Lx - kc[1] - 1
             ty[1] = self.parent.Lx
-            kcent[1] = ty[1]-ty[0]-1
+            kcent[1] = ty[1] - ty[0] - 1
 
-
-        ts = (slice(tx[0],tx[1]), slice(ty[0],ty[1]))
-        ss = (slice(sx[0],sx[1]), slice(sy[0],sy[1]))
+        ts = (slice(tx[0], tx[1]), slice(ty[0], ty[1]))
+        ss = (slice(sx[0], sx[1]), slice(sy[0], sy[1]))
         self.image[ts] = mask[ss]
 
-        for ky,y in enumerate(np.arange(ty[0], ty[1], 1, int)):
-            for kx,x in enumerate(np.arange(tx[0], tx[1], 1, int)):
-                iscent = np.logical_and(kx==kcent[0], ky==kcent[1])
+        for ky, y in enumerate(np.arange(ty[0], ty[1], 1, int)):
+            for kx, x in enumerate(np.arange(tx[0], tx[1], 1, int)):
+                iscent = np.logical_and(kx == kcent[0], ky == kcent[1])
                 stroke.append([self.parent.currentZ, x, y, iscent])
         self.updateImage()
 
     def setDrawKernel(self, kernel_size=3):
         bs = kernel_size
-        kernel = np.ones((bs,bs), np.uint8)
+        kernel = np.ones((bs, bs), np.uint8)
         self.drawKernel = kernel
-        self.drawKernelCenter = [int(np.floor(kernel.shape[0]/2)),
-                                 int(np.floor(kernel.shape[1]/2))]
-        onmask = 255 * kernel[:,:,np.newaxis]
-        offmask = np.zeros((bs,bs,1))
-        opamask = 100 * kernel[:,:,np.newaxis]
-        self.redmask = np.concatenate((onmask,offmask,offmask,onmask), axis=-1)
-        self.strokemask = np.concatenate((onmask,offmask,onmask,opamask), axis=-1)
+        self.drawKernelCenter = [
+            int(np.floor(kernel.shape[0] / 2)),
+            int(np.floor(kernel.shape[1] / 2)),
+        ]
+        onmask = 255 * kernel[:, :, np.newaxis]
+        offmask = np.zeros((bs, bs, 1))
+        opamask = 100 * kernel[:, :, np.newaxis]
+        self.redmask = np.concatenate((onmask, offmask, offmask, onmask), axis=-1)
+        self.strokemask = np.concatenate((onmask, offmask, onmask, opamask), axis=-1)
 
 
 class RangeSlider(QSlider):
-    """ A slider for ranges.
+    """A slider for ranges.
 
-        This class provides a dual-slider for ranges, where there is a defined
-        maximum and minimum, as is a normal slider, but instead of having a
-        single slider value, there are 2 slider values.
+    This class provides a dual-slider for ranges, where there is a defined
+    maximum and minimum, as is a normal slider, but instead of having a
+    single slider value, there are 2 slider values.
 
-        This class emits the same signals as the QSlider base class, with the
-        exception of valueChanged
+    This class emits the same signals as the QSlider base class, with the
+    exception of valueChanged
 
-        Found this slider here: https://www.mail-archive.com/pyqt@riverbankcomputing.com/msg22889.html
-        and modified it
+    Found this slider here: https://www.mail-archive.com/pyqt@riverbankcomputing.com/msg22889.html
+    and modified it
     """
+
     def __init__(self, parent=None, *args):
         super(RangeSlider, self).__init__(*args)
 
@@ -739,8 +808,8 @@ class RangeSlider(QSlider):
 
         self.setOrientation(QtCore.Qt.Horizontal)
         self.setTickPosition(QSlider.TicksRight)
-        self.setStyleSheet(\
-                "QSlider::handle:horizontal {\
+        self.setStyleSheet(
+            "QSlider::handle:horizontal {\
                 background-color: white;\
                 border: 1px solid #5c5c5c;\
                 border-radius: 0px;\
@@ -748,12 +817,12 @@ class RangeSlider(QSlider):
                 height: 8px;\
                 width: 6px;\
                 margin: -8px 2; \
-                }")
+                }"
+        )
 
-
-        #self.opt = QStyleOptionSlider()
-        #self.opt.orientation=QtCore.Qt.Vertical
-        #self.initStyleOption(self.opt)
+        # self.opt = QStyleOptionSlider()
+        # self.opt.orientation=QtCore.Qt.Vertical
+        # self.initStyleOption(self.opt)
         # 0 for the low, 1 for the high, -1 for both
         self.active_slider = 0
         self.parent = parent
@@ -761,7 +830,7 @@ class RangeSlider(QSlider):
     def level_change(self):
         if self.parent is not None:
             if self.parent.loaded:
-                self.parent.ops_plot = {'saturation': [self._low, self._high]}
+                self.parent.ops_plot = {"saturation": [self._low, self._high]}
                 self.parent.saturation[self.parent.currentZ] = [self._low, self._high]
                 self.parent.update_plot()
 
@@ -791,7 +860,9 @@ class RangeSlider(QSlider):
             # Only draw the groove for the first slider so it doesn't get drawn
             # on top of the existing ones every time
             if i == 0:
-                opt.subControls = QStyle.SC_SliderHandle#QStyle.SC_SliderGroove | QStyle.SC_SliderHandle
+                opt.subControls = (
+                    QStyle.SC_SliderHandle
+                )  # QStyle.SC_SliderGroove | QStyle.SC_SliderHandle
             else:
                 opt.subControls = QStyle.SC_SliderHandle
 
@@ -807,7 +878,6 @@ class RangeSlider(QSlider):
             opt.sliderPosition = int(value)
             opt.sliderValue = int(value)
             style.drawComplexControl(QStyle.CC_Slider, opt, painter, self)
-
 
     def mousePressEvent(self, event):
         event.accept()
@@ -827,7 +897,9 @@ class RangeSlider(QSlider):
 
             for i, value in enumerate([self._low, self._high]):
                 opt.sliderPosition = value
-                hit = style.hitTestComplexControl(style.CC_Slider, opt, event.pos(), self)
+                hit = style.hitTestComplexControl(
+                    style.CC_Slider, opt, event.pos(), self
+                )
                 if hit == style.SC_SliderHandle:
                     self.active_slider = i
                     self.pressed_control = hit
@@ -840,7 +912,9 @@ class RangeSlider(QSlider):
 
             if self.active_slider < 0:
                 self.pressed_control = QStyle.SC_SliderHandle
-                self.click_offset = self.__pixelPosToRangeValue(self.__pick(event.pos()))
+                self.click_offset = self.__pixelPosToRangeValue(
+                    self.__pick(event.pos())
+                )
                 self.triggerAction(self.SliderMove)
                 self.setRepeatAction(self.SliderNoAction)
         else:
@@ -889,7 +963,6 @@ class RangeSlider(QSlider):
         else:
             return pt.y()
 
-
     def __pixelPosToRangeValue(self, pos):
         opt = QStyleOptionSlider()
         self.initStyleOption(opt)
@@ -907,6 +980,10 @@ class RangeSlider(QSlider):
             slider_min = gr.y()
             slider_max = gr.bottom() - slider_length + 1
 
-        return style.sliderValueFromPosition(self.minimum(), self.maximum(),
-                                             pos-slider_min, slider_max-slider_min,
-                                             opt.upsideDown)
+        return style.sliderValueFromPosition(
+            self.minimum(),
+            self.maximum(),
+            pos - slider_min,
+            slider_max - slider_min,
+            opt.upsideDown,
+        )

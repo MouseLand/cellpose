@@ -6,6 +6,7 @@ from openvino.runtime import Core
 
 ie = Core()
 
+
 def to_openvino(model):
     if isinstance(model.net, OpenVINOModel):
         return model
@@ -21,7 +22,6 @@ class OpenVINOModel(object):
         self._nets = {}
         self._model_id = "default"
 
-
     def _init_model(self, inp):
         if self._model_id in self._nets:
             return self._nets[self._model_id]
@@ -31,15 +31,22 @@ class OpenVINOModel(object):
             self._base_model.load_model(self._model_id, cpu=True)
 
         buf = io.BytesIO()
-        dummy_input = torch.zeros([1] + list(inp.shape[1:]))  # To avoid extra network reloading we process batch in the loop
-        torch.onnx.export(self._base_model, dummy_input, buf, input_names=["input"], output_names=["output", "style"])
+        dummy_input = torch.zeros(
+            [1] + list(inp.shape[1:])
+        )  # To avoid extra network reloading we process batch in the loop
+        torch.onnx.export(
+            self._base_model,
+            dummy_input,
+            buf,
+            input_names=["input"],
+            output_names=["output", "style"],
+        )
         net = ie.read_model(buf.getvalue(), b"")
         exec_net = ie.compile_model(net, "CPU").create_infer_request()
 
         self._nets[self._model_id] = exec_net
 
         return exec_net
-
 
     def __call__(self, inp):
         exec_net = self._init_model(inp)
@@ -62,11 +69,9 @@ class OpenVINOModel(object):
             outs = {out.get_any_name(): value for out, value in outs.items()}
             return torch.tensor(outs["output"]), torch.tensor(outs["style"])
 
-
     def load_model(self, path, cpu):
         self._model_id = path
         return self
-
 
     def eval(self):
         pass

@@ -17,12 +17,12 @@
 
 # -- Project information -----------------------------------------------------
 
-project = 'cellpose'
-copyright = '2020, Carsen Stringer & Marius Pachitariu'
-author = 'Carsen Stringer & Marius Pachitariu'
+project = "cellpose"
+copyright = "2020, Carsen Stringer & Marius Pachitariu"
+author = "Carsen Stringer & Marius Pachitariu"
 
 # The full version, including alpha/beta/rc tags
-release = '0.7.2'
+release = "0.7.2"
 
 
 # -- General configuration ---------------------------------------------------
@@ -36,8 +36,9 @@ extensions = [
     "sphinx.ext.intersphinx",
     "sphinx.ext.mathjax",
     "sphinx.ext.viewcode",
-    'sphinx.ext.napoleon']
-#extensions = ['sphinx.ext.autodoc',
+    "sphinx.ext.napoleon",
+]
+# extensions = ['sphinx.ext.autodoc',
 #            'sphinx.ext.mathjax',
 #            'sphinx.ext.viewcode',
 #            'sphinx.ext.autosummary',
@@ -46,15 +47,15 @@ extensions = [
 #            'autoapi.extension',
 #            'sphinx.ext.napoleon']
 
-autoapi_dirs = ['../cellpose']
+autoapi_dirs = ["../cellpose"]
 
-source_suffix='.rst'
+source_suffix = ".rst"
 
-master_doc = 'index'
+master_doc = "index"
 
 
 # Add any paths that contain templates here, relative to this directory.
-templates_path = ['_templates']
+templates_path = ["_templates"]
 
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
@@ -63,31 +64,33 @@ exclude_patterns = []
 
 
 # -- Options for HTML output -------------------------------------------------
-html_logo = '_static/favicon.ico'
-html_favicon = '_static/favicon.ico'
+html_logo = "_static/favicon.ico"
+html_favicon = "_static/favicon.ico"
 
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #
-html_theme = 'sphinx_rtd_theme'
-html_theme_path = ["_themes", ]
+html_theme = "sphinx_rtd_theme"
+html_theme_path = [
+    "_themes",
+]
 html_theme_options = {
-    'canonical_url': '',
-    'analytics_id': 'UA-XXXXXXX-1',  #  Provided by Google in your dashboard
-    'logo_only': False,
-    'display_version': True,
-    'prev_next_buttons_location': 'top',
-    'style_external_links': False,
-    'style_nav_header_background': 'black',
+    "canonical_url": "",
+    "analytics_id": "UA-XXXXXXX-1",  #  Provided by Google in your dashboard
+    "logo_only": False,
+    "display_version": True,
+    "prev_next_buttons_location": "top",
+    "style_external_links": False,
+    "style_nav_header_background": "black",
     # Toc options
-    'collapse_navigation': True,
-    'sticky_navigation': True,
-    'navigation_depth': 4,
-    'includehidden': True,
-    'titles_only': False
+    "collapse_navigation": True,
+    "sticky_navigation": True,
+    "navigation_depth": 4,
+    "includehidden": True,
+    "titles_only": False,
 }
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
-html_static_path = ['_static']
+html_static_path = ["_static"]
