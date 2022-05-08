@@ -1,13 +1,12 @@
 import os
 
-import cv2
 import numpy as np
 from scipy.ndimage import gaussian_filter
 
 from . import io, transforms, utils
 
 try:
-    import matplotlib
+    import matplotlib  # noqa: F401
     MATPLOTLIB_ENABLED = True 
 except:
     MATPLOTLIB_ENABLED = False

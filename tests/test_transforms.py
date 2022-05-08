@@ -1,4 +1,4 @@
-from cellpose.transforms import *
+from cellpose.transforms import random_rotate_and_resize
 
 
 def test_random_rotate_and_resize__default():

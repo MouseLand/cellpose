@@ -1,6 +1,4 @@
 import os
-import shutil
-from pathlib import Path
 from subprocess import STDOUT, check_output
 
 import numpy as np

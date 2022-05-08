@@ -1,5 +1,4 @@
 import datetime
-import gc
 import glob
 import logging
 import os
@@ -15,7 +14,7 @@ from natsort import natsorted
 from tqdm import tqdm
 
 try:
-    from PyQt5 import Qt, QtCore, QtGui, QtWidgets
+    from PyQt5 import Qt, QtCore, QtGui, QtWidgets  # noqa: F401
     GUI = True
 except:
     GUI = False

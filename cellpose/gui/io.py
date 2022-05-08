@@ -1,21 +1,13 @@
-import copy
-import datetime
 import gc
-import glob
-import logging
 import os
 import shutil
-import warnings
 
 import cv2
 import fastremap
 import numpy as np
-import tifffile
-from natsort import natsorted
 
-from .. import models, plot, transforms, utils
+from .. import models, utils
 from ..io import imread, imsave, outlines_to_text
-from ..transforms import normalize99
 
 try:
     from PyQt5.QtWidgets import QFileDialog
@@ -24,7 +16,7 @@ except:
     GUI = False
 
 try:
-    import matplotlib.pyplot as plt
+    import matplotlib.pyplot as plt  # noqa: F401
     MATPLOTLIB = True
 except:
     MATPLOTLIB = False

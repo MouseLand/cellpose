@@ -1,18 +1,14 @@
 import datetime
-import gc
-import glob
 import os
 import pathlib
 import sys
-import tempfile
 import time
 import warnings
 
 import cv2
 import numpy as np
 import pyqtgraph as pg
-from natsort import natsorted
-from PyQt5 import Qt, QtCore, QtGui, QtWidgets
+from PyQt5 import QtCore, QtGui
 from PyQt5.QtWidgets import (
     QApplication,
     QCheckBox,
@@ -23,22 +19,19 @@ from PyQt5.QtWidgets import (
     QLabel,
     QLineEdit,
     QMainWindow,
-    QMessageBox,
     QProgressBar,
     QPushButton,
     QScrollBar,
     QSlider,
     QWidget,
 )
-from pyqtgraph import GraphicsScene
-from scipy.ndimage import gaussian_filter
-from tqdm import tqdm, trange
+from tqdm import trange
 
 from .. import core, dynamics, models
-from ..io import get_image_files, imread, imsave
+from ..io import get_image_files
 from ..plot import disk
 from ..transforms import normalize99, resize_image  # fixed import
-from ..utils import diameters, download_url_to_file, masks_to_outlines
+from ..utils import download_url_to_file, masks_to_outlines
 from . import guiparts, io, menus
 
 try:
@@ -49,7 +42,7 @@ except:
 
 
 try:
-    from google.cloud import storage
+    from google.cloud import storage  # noqa: F401
     os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = os.path.join(os.path.dirname(os.path.realpath(__file__)),
                                                         'key/cellpose-data-writer.json')
     SERVER_UPLOAD = True

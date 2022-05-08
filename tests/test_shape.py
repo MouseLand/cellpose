@@ -1,11 +1,6 @@
-import os
-import shutil
-from pathlib import Path
-from subprocess import STDOUT, check_output
-
 import numpy as np
 
-from cellpose import io, metrics, models, plot
+from cellpose import models
 
 
 def test_shape_2D():

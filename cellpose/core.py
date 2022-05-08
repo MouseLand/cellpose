@@ -1,13 +1,7 @@
 import datetime
 import logging
 import os
-import pathlib
-import shutil
-import subprocess
-import sys
-import tempfile
 import time
-from urllib.parse import urlparse
 
 import cv2
 import fastremap
@@ -20,7 +14,7 @@ from torch import nn
 from torch.utils import mkldnn as mkldnn_utils
 from tqdm import tqdm, trange
 
-from . import dynamics, metrics, plot, resnet_torch, transforms, utils
+from . import metrics, resnet_torch, transforms, utils
 
 TORCH_ENABLED = True
 torch_GPU = torch.device('cuda')

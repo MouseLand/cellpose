@@ -1,13 +1,8 @@
 import argparse
-import glob
 import os
-import pathlib
-import subprocess
-import sys
 import time
 
 import numpy as np
-from natsort import natsorted
 from tqdm import tqdm
 
 from cellpose import core, io, models, utils

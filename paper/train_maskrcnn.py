@@ -22,12 +22,10 @@ if __name__ == '__main__':
 
     # Agg backend runs without a display
     matplotlib.use('Agg')
-    import matplotlib.pyplot as plt
 
 import datetime
 import glob
 import os
-import pdb
 import sys
 
 import numpy as np
@@ -41,9 +39,8 @@ ROOT_DIR = os.path.abspath("/groups/pachitariu/pachitariulab/code/github/Mask_RC
 
 # Import Mask RCNN
 sys.path.append(ROOT_DIR)  # To find local version of the library
-import matplotlib.pyplot as plt
 from mrcnn import model as modellib
-from mrcnn import utils, visualize
+from mrcnn import utils
 from mrcnn.config import Config
 from stardist import matching
 

@@ -8,7 +8,6 @@ from PyQt5.QtGui import QPainter, QPixmap
 from PyQt5.QtWidgets import (
     QApplication,
     QButtonGroup,
-    QCheckBox,
     QComboBox,
     QDialog,
     QDialogButtonBox,
@@ -23,7 +22,6 @@ from PyQt5.QtWidgets import (
     QWidget,
 )
 from pyqtgraph import Point
-from pyqtgraph import functions as fn
 
 
 def create_channel_choose():

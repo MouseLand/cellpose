@@ -1,34 +1,20 @@
 import colorsys
-import datetime
 import io
 import os
-import pathlib
 import shutil
-import subprocess
 import tempfile
-import time
-import warnings
-from urllib.parse import urlparse
 from urllib.request import urlopen
 
 import cv2
 import numpy as np
-from scipy.ndimage import (
-    binary_fill_holes,
-    find_objects,
-    gaussian_filter,
-    generate_binary_structure,
-    label,
-    maximum_filter1d,
-)
+from scipy.ndimage import binary_fill_holes, find_objects, gaussian_filter, generate_binary_structure, label
 from scipy.spatial import ConvexHull
-from scipy.stats import gmean
 from tqdm import tqdm
 
 from . import metrics
 
 try:
-    from skimage.morphology import remove_small_holes
+    from skimage.morphology import remove_small_holes  # noqa: F401
     SKIMAGE_ENABLED = True
 except:
     SKIMAGE_ENABLED = False
