@@ -1,4 +1,5 @@
 import argparse
+import logging
 import os
 import time
 
@@ -8,8 +9,8 @@ from tqdm import tqdm
 from cellpose import core, io, models, utils
 
 try:
-    from cellpose.gui import gui 
-    GUI_ENABLED = True 
+    from cellpose.gui import gui
+    GUI_ENABLED = True
 except ImportError as err:
     GUI_ERROR = err
     GUI_ENABLED = False
@@ -19,8 +20,6 @@ except Exception as err:
     GUI_ERROR = err
     GUI_IMPORT = False
     raise
-    
-import logging
 
 
 # settings re-grouped a bit

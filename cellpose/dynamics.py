@@ -11,11 +11,9 @@ from numba import njit
 from scipy.ndimage import maximum_filter1d
 from tqdm import trange
 
-dynamics_logger = logging.getLogger(__name__)
-
-import torch
-
 from cellpose import metrics, transforms, utils
+
+dynamics_logger = logging.getLogger(__name__)
 
 TORCH_ENABLED = True 
 torch_GPU = torch.device('cuda')

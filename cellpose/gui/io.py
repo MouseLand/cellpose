@@ -12,13 +12,13 @@ from cellpose.io import imread, imsave, outlines_to_text
 try:
     from PyQt5.QtWidgets import QFileDialog
     GUI = True
-except:
+except ModuleNotFoundError:
     GUI = False
 
 try:
     import matplotlib.pyplot as plt  # noqa: F401
     MATPLOTLIB = True
-except:
+except ModuleNotFoundError:
     MATPLOTLIB = False
 
 NCOLOR = False 

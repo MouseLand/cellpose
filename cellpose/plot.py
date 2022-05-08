@@ -8,14 +8,13 @@ from cellpose import io, transforms, utils
 try:
     import matplotlib  # noqa: F401
     MATPLOTLIB_ENABLED = True 
-except:
+except ModuleNotFoundError:
     MATPLOTLIB_ENABLED = False
 
 try:
-    from skimage import color
     from skimage.segmentation import find_boundaries
     SKIMAGE_ENABLED = True 
-except:
+except ModuleNotFoundError:
     SKIMAGE_ENABLED = False
 
 # modified to use sinebow color

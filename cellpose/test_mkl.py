@@ -1,8 +1,8 @@
 import os
 
-os.environ["MKLDNN_VERBOSE"]="1"
-
 import numpy as np
+
+os.environ["MKLDNN_VERBOSE"]="1"
 
 try:
     import mxnet as mx

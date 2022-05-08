@@ -37,7 +37,7 @@ from cellpose.utils import download_url_to_file, masks_to_outlines
 try:
     import matplotlib.pyplot as plt
     MATPLOTLIB = True
-except:
+except ModuleNotFoundError:
     MATPLOTLIB = False
 
 
@@ -46,7 +46,7 @@ try:
     os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = os.path.join(os.path.dirname(os.path.realpath(__file__)),
                                                         'key/cellpose-data-writer.json')
     SERVER_UPLOAD = True
-except:
+except ModuleNotFoundError:
     SERVER_UPLOAD = False
 
 #Define possible models; can we make a master list in another file to use in models and main? 

@@ -18,19 +18,19 @@ from cellpose import plot, transforms, utils
 try:
     from PyQt5 import Qt, QtCore, QtGui, QtWidgets  # noqa: F401
     GUI = True
-except:
+except ModuleNotFoundError:
     GUI = False
 
 try:
     import matplotlib.pyplot as plt
     MATPLOTLIB = True
-except:
+except ModuleNotFoundError:
     MATPLOTLIB = False
 
 try:
     from google.cloud import storage
     SERVER_UPLOAD = True
-except:
+except ModuleNotFoundError:
     SERVER_UPLOAD = False
   
 io_logger = logging.getLogger(__name__)

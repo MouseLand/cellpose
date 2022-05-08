@@ -8,7 +8,7 @@ from cellpose import io, metrics, models, plot
 try:
     import matplotlib.pyplot as plt
     MATPLOTLIB = True
-except:
+except ModuleNotFoundError:
     MATPLOTLIB = False
 
 r_tol, a_tol = 1e-2, 1e-2

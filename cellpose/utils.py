@@ -16,7 +16,7 @@ from cellpose import metrics
 try:
     from skimage.morphology import remove_small_holes  # noqa: F401
     SKIMAGE_ENABLED = True
-except:
+except ModuleNotFoundError:
     SKIMAGE_ENABLED = False
 
 class TqdmToLogger(io.StringIO):

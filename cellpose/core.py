@@ -8,8 +8,6 @@ import fastremap
 import numpy as np
 import torch
 from scipy.stats import mode
-
-#     from GPUtil import showUtilization as gpu_usage #for gpu memory debugging 
 from torch import nn
 from torch.utils import mkldnn as mkldnn_utils
 from tqdm import tqdm, trange
