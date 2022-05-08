@@ -85,7 +85,7 @@ class Cellpose():
         recommended if you want to use a specific GPU (e.g. torch.device('cuda:1'))
 
     """
-    def __init__(self, gpu: bool=False, model_type: str='cyto', net_avg: bool=False, device: None=None) -> None:
+    def __init__(self, gpu: bool=False, model_type: str='cyto', net_avg: bool=False, device: Optional=None) -> None:
         super(Cellpose, self).__init__()
         self.torch = True
         
@@ -114,10 +114,10 @@ class Cellpose():
         self.sz.model_type = model_type
         
     def eval(self, x: Union[ndarray, List[ndarray]], batch_size: int=8, channels: Optional[List[int]]=None, channel_axis: Optional[int]=None, z_axis: Optional[int]=None,
-             invert: bool=False, normalize: bool=True, diameter: int=30., do_3D: bool=False, anisotropy: None=None,
+             invert: bool=False, normalize: bool=True, diameter: int=30., do_3D: bool=False, anisotropy: Optional=None,
              net_avg: bool=False, augment: bool=False, tile: bool=True, tile_overlap: float=0.1, resample: bool=True, interp: bool=True,
              flow_threshold: float=0.4, cellprob_threshold: Union[float, int]=0.0, min_size: int=15, stitch_threshold: float=0.0, 
-             rescale: None=None, progress: None=None, model_loaded: bool=False) -> Union[Tuple[ndarray, List[ndarray], ndarray, int], Tuple[ndarray, List[ndarray], ndarray, float64], Tuple[List[ndarray], List[List[ndarray]], List[ndarray], int]]:
+             rescale: Optional=None, progress: Optional=None, model_loaded: bool=False) -> Union[Tuple[ndarray, List[ndarray], ndarray, int], Tuple[ndarray, List[ndarray], ndarray, float64], Tuple[List[ndarray], List[List[ndarray]], List[ndarray], int]]:
         """ run cellpose and get masks
 
         Parameters
@@ -392,11 +392,11 @@ class CellposeModel(UnetModel):
     
     def eval(self, x: Union[ndarray, List[ndarray]], batch_size: int=8, channels: Optional[List[int]]=None, channel_axis: Optional[int]=None, 
              z_axis: Optional[int]=None, normalize: bool=True, invert: bool=False, 
-             rescale: Optional[float64]=None, diameter: Optional[int]=None, do_3D: bool=False, anisotropy: None=None, net_avg: bool=False, 
+             rescale: Optional[float64]=None, diameter: Optional[int]=None, do_3D: bool=False, anisotropy: Optional[float]=None, net_avg: bool=False, 
              augment: bool=False, tile: bool=True, tile_overlap: float=0.1,
              resample: bool=True, interp: bool=True,
              flow_threshold: float=0.4, cellprob_threshold: Union[float, int]=0.0,
-             compute_masks: bool=True, min_size: int=15, stitch_threshold: float=0.0, progress: None=None,  
+             compute_masks: bool=True, min_size: int=15, stitch_threshold: float=0.0, progress: Optional=None,  
              loop_run: bool=False, model_loaded: bool=False) -> Union[Tuple[ndarray, List[ndarray], ndarray], Tuple[List[ndarray], List[List[ndarray]], List[ndarray]]]:
         """
             segment list of images x, or 4D array - Z x nchan x Y x X
@@ -587,7 +587,7 @@ class CellposeModel(UnetModel):
                 augment: bool=False, tile: bool=True, tile_overlap: float=0.1,
                 cellprob_threshold: Union[float, int]=0.0, 
                 flow_threshold: float=0.4, min_size: int=15,
-                interp: bool=True, anisotropy: None=1.0, do_3D: bool=False, stitch_threshold: float=0.0,
+                interp: bool=True, anisotropy: Optional[float]=1.0, do_3D: bool=False, stitch_threshold: float=0.0,
                 ) -> Tuple[ndarray, ndarray, ndarray, ndarray, ndarray]:
         
         tic = time.time()
@@ -695,13 +695,13 @@ class CellposeModel(UnetModel):
 
 
     def train(self, train_data: List[ndarray], train_labels: List[ndarray], train_files: Optional[List[str]]=None, 
-              test_data: None=None, test_labels: None=None, test_files: None=None,
+              test_data: Optional=None, test_labels: Optional=None, test_files: Optional=None,
               channels: Optional[List[int]]=None, normalize: bool=True, 
               save_path: Optional[str]=None, save_every: int=100, save_each: bool=False,
               learning_rate: float=0.2, n_epochs: int=500, momentum: float=0.9, SGD: bool=True,
-              weight_decay: float=0.00001, batch_size: int=8, nimg_per_epoch: None=None,
+              weight_decay: float=0.00001, batch_size: int=8, nimg_per_epoch: Optional=None,
               rescale: bool=True, min_train_masks: int=5,
-              model_name: None=None) -> str:
+              model_name: Optional=None) -> str:
 
         """ train network with images train_data 
         
@@ -838,9 +838,9 @@ class SizeModel():
             models_logger.critical(error_message)
             raise ValueError(error_message)
         
-    def eval(self, x: ndarray, channels: Optional[List[int]]=None, channel_axis: None=None, 
+    def eval(self, x: ndarray, channels: Optional[List[int]]=None, channel_axis: Optional[int]=None, 
              normalize: bool=True, invert: bool=False, augment: bool=False, tile: bool=True,
-             batch_size: int=8, progress: None=None, interp: bool=True) -> Tuple[float64, float64]:
+             batch_size: int=8, progress: Optional=None, interp: bool=True) -> Tuple[float64, float64]:
         """ use images x to produce style or use style input to predict size of objects in image
 
             Object size estimation is done in two steps:

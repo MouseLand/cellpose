@@ -36,7 +36,7 @@ class OpenVINOModel(object):
 
         buf = io.BytesIO()
         dummy_input = torch.zeros([1] + list(inp.shape[1:]))  # To avoid extra network reloading we process batch in the loop
-   torch.onnx.export(self._base_model, dummy_input, buf, input_names=["input"], output_names=["output", "style"])
+        torch.onnx.export(self._base_model, dummy_input, buf, input_names=["input"], output_names=["output", "style"])
         net = ie.read_model(buf.getvalue(), b"")
         exec_net = ie.compile_model(net, "CPU").create_infer_request()
 

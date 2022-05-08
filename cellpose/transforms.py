@@ -405,7 +405,7 @@ def normalize_img(img: ndarray, axis: int=-1, invert: bool=False) -> ndarray:
     img = np.moveaxis(img, 0, axis)
     return img
 
-def reshape_train_test(train_data: List[ndarray], train_labels: List[ndarray], test_data: None, test_labels: None, channels: List[int], normalize: bool=True) -> Tuple[List[ndarray], List[ndarray], None, None, bool]:
+def reshape_train_test(train_data: List[ndarray], train_labels: List[ndarray], test_data: Optional, test_labels: Optional, channels: List[int], normalize: bool=True) -> Tuple[List[ndarray], List[ndarray], None, None, bool]:
     """ check sizes and reshape train and test data for training """
     nimg = len(train_data)
     # check that arrays are correct size
@@ -446,7 +446,7 @@ def reshape_train_test(train_data: List[ndarray], train_labels: List[ndarray], t
 
     return train_data, train_labels, test_data, test_labels, run_test
 
-def reshape_and_normalize_data(train_data: List[ndarray], test_data: None=None, channels: Optional[List[int]]=None, normalize: bool=True) -> Tuple[List[ndarray], None, bool]:
+def reshape_and_normalize_data(train_data: List[ndarray], test_data: Optional=None, channels: Optional[List[int]]=None, normalize: bool=True) -> Tuple[List[ndarray], None, bool]:
     """ inputs converted to correct shapes for *training* and rescaled so that 0.0=1st percentile
     and 1.0=99th percentile of image intensities in each channel
 

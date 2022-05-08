@@ -489,7 +489,7 @@ def steps2D(p, dP, inds, niter):
                 p[k,y,x] = min(shape[k]-1, max(0, p[k,y,x] + step[k]))
     return p
 
-def follow_flows(dP: ndarray, mask: None=None, niter: float64=200, interp: bool=True, use_gpu: bool=True, device: Optional[torch.device]=None) -> Tuple[ndarray, ndarray]:
+def follow_flows(dP: ndarray, mask: Optional[ndarray]=None, niter: float64=200, interp: bool=True, use_gpu: bool=True, device: Optional[torch.device]=None) -> Tuple[ndarray, ndarray]:
     """ define pixels and run dynamics to recover masks in 2D
     
     Pixels are meshgrid. Only pixels with non-zero cell-probability
@@ -697,7 +697,7 @@ def get_masks(p: ndarray, iscell: Optional[ndarray]=None, rpad: int=20) -> ndarr
     M0 = np.reshape(M0, shape0)
     return M0
 
-def compute_masks(dP: ndarray, cellprob: ndarray, p: None=None, niter: float64=200, 
+def compute_masks(dP: ndarray, cellprob: ndarray, p: Optional[ndarray]=None, niter: float64=200, 
                    cellprob_threshold: Union[float, int]=0.0,
                    flow_threshold: float=0.4, interp: bool=True, do_3D: bool=False, 
                    min_size: int=15, resize: Optional[List[int]]=None, 

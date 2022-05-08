@@ -121,7 +121,7 @@ def imsave(filename: str, arr: ndarray) -> None:
         cv2.imwrite(filename, arr)
 #         skimage.io.imsave(filename, arr.astype()) #cv2 doesn't handle transparency
 
-def get_image_files(folder: str, mask_filter: str, imf: None=None, look_one_level_down: bool=False) -> List[str]:
+def get_image_files(folder: str, mask_filter: str, imf: Optional=None, look_one_level_down: bool=False) -> List[str]:
     """ find all images in a folder and if look_one_level_down all subfolders """
     mask_filters = ['_cp_masks', '_cp_output', '_flows', '_masks', mask_filter]
     image_names = []
@@ -156,7 +156,7 @@ def get_image_files(folder: str, mask_filter: str, imf: None=None, look_one_leve
     
     return image_names
         
-def get_label_files(image_names: List[str], mask_filter: str, imf: None=None) -> Tuple[List[str], None]:
+def get_label_files(image_names: List[str], mask_filter: str, imf: Optional=None) -> Tuple[List[str], None]:
     nimg = len(image_names)
     label_names0 = [os.path.splitext(image_names[n])[0] for n in range(nimg)]
 
@@ -196,7 +196,7 @@ def get_label_files(image_names: List[str], mask_filter: str, imf: None=None) ->
     return label_names, flow_names
 
 
-def load_images_labels(tdir: str, mask_filter: str='_masks', image_filter: None=None, look_one_level_down: bool=False, unet: bool=False) -> Tuple[List[ndarray], List[ndarray], List[str]]:
+def load_images_labels(tdir: str, mask_filter: str='_masks', image_filter: Optional=None, look_one_level_down: bool=False, unet: bool=False) -> Tuple[List[ndarray], List[ndarray], List[str]]:
     image_names = get_image_files(tdir, mask_filter, image_filter, look_one_level_down)
     nimg = len(image_names)
 
@@ -223,7 +223,7 @@ def load_images_labels(tdir: str, mask_filter: str='_masks', image_filter: None=
     io_logger.info(f'{k} / {nimg} images in {tdir} folder have labels')
     return images, labels, image_names
 
-def load_train_test_data(train_dir: str, test_dir: None=None, image_filter: None=None, mask_filter: str='_masks', unet: bool=False, look_one_level_down: bool=False) -> Tuple[List[ndarray], List[ndarray], List[str], None, None, None]:
+def load_train_test_data(train_dir: str, test_dir: Optional=None, image_filter: Optional=None, mask_filter: str='_masks', unet: bool=False, look_one_level_down: bool=False) -> Tuple[List[ndarray], List[ndarray], List[str], None, None, None]:
     images, labels, image_names = load_images_labels(train_dir, mask_filter, image_filter, look_one_level_down, unet)
                     
     # testing data

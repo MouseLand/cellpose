@@ -218,7 +218,7 @@ class CPnet(nn.Module):
         return T0, style0
 
     def save_model(self, filename: str) -> None:
-   torch.save(self.state_dict(), filename)
+        torch.save(self.state_dict(), filename)
 
     def load_model(self, filename: str, cpu: bool=False) -> None:
         if not cpu:

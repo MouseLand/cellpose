@@ -308,7 +308,7 @@ class UnetModel():
         return y, style
                 
     def _run_nets(self, img: ndarray, net_avg: bool=False, augment: bool=False, tile: bool=True, tile_overlap: float=0.1, bsize: int=224, 
-                  return_conv: bool=False, progress: None=None) -> Tuple[ndarray, ndarray]:
+                  return_conv: bool=False, progress=None) -> Tuple[ndarray, ndarray]:
         """ run network (if more than one, loop over networks and average results
 
         Parameters
@@ -541,9 +541,9 @@ class UnetModel():
             styles /= (styles**2).sum()**0.5
             return yf, styles
 
-    def _run_3D(self, imgs: ndarray, rsz: float64=1.0, anisotropy: None=None, net_avg: bool=False, 
+    def _run_3D(self, imgs: ndarray, rsz: float64=1.0, anisotropy: Optional[float]=None, net_avg: bool=False, 
                 augment: bool=False, tile: bool=True, tile_overlap: float=0.1, 
-                bsize: int=224, progress: None=None) -> Tuple[ndarray, ndarray]:
+                bsize: int=224, progress=None) -> Tuple[ndarray, ndarray]:
         """ run network on stack of images
 
         (faster if augment is False)
@@ -770,10 +770,10 @@ class UnetModel():
             self.criterion2 = nn.BCEWithLogitsLoss(reduction='mean')
             
     def _train_net(self, train_data: List[ndarray], train_labels: List[ndarray], 
-              test_data: None=None, test_labels: None=None,
+              test_data: Optional[List[ndarray]]=None, test_labels: Optional[List[ndarray]]=None,
               save_path: Optional[str]=None, save_every: int=100, save_each: bool=False,
               learning_rate: float=0.2, n_epochs: int=500, momentum: float=0.9, weight_decay: float=0.00001, 
-              SGD: bool=True, batch_size: int=8, nimg_per_epoch: None=None, rescale: bool=True, model_name: None=None) -> str: 
+              SGD: bool=True, batch_size: int=8, nimg_per_epoch: Optional[int]=None, rescale: bool=True, model_name: Optional[str]=None) -> str: 
         """ train function uses loss function self.loss_fn in models.py"""
         
         d = datetime.datetime.now()
