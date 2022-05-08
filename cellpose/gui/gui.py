@@ -1,23 +1,45 @@
-import sys, os, pathlib, warnings, datetime, tempfile, glob, time
+import datetime
 import gc
+import glob
+import os
+import pathlib
+import sys
+import tempfile
+import time
+import warnings
+
+import cv2
+import numpy as np
+import pyqtgraph as pg
 from natsort import natsorted
+from PyQt5 import Qt, QtCore, QtGui, QtWidgets
+from PyQt5.QtWidgets import (
+    QApplication,
+    QCheckBox,
+    QComboBox,
+    QFrame,
+    QGridLayout,
+    QGroupBox,
+    QLabel,
+    QLineEdit,
+    QMainWindow,
+    QMessageBox,
+    QProgressBar,
+    QPushButton,
+    QScrollBar,
+    QSlider,
+    QWidget,
+)
+from pyqtgraph import GraphicsScene
+from scipy.ndimage import gaussian_filter
 from tqdm import tqdm, trange
 
-from PyQt5 import QtGui, QtCore, Qt, QtWidgets
-from PyQt5.QtWidgets import QMainWindow, QApplication, QWidget, QScrollBar, QSlider, QComboBox, QGridLayout, QPushButton, QFrame, QCheckBox, QLabel, QProgressBar, QLineEdit, QMessageBox, QGroupBox
-import pyqtgraph as pg
-from pyqtgraph import GraphicsScene
-
-import numpy as np
-import cv2
-from scipy.ndimage import gaussian_filter
-
-from . import guiparts, menus, io
-from .. import models, core, dynamics
-from ..utils import download_url_to_file, masks_to_outlines, diameters 
-from ..io import get_image_files, imsave, imread
-from ..transforms import resize_image, normalize99 #fixed import
+from .. import core, dynamics, models
+from ..io import get_image_files, imread, imsave
 from ..plot import disk
+from ..transforms import normalize99, resize_image  # fixed import
+from ..utils import diameters, download_url_to_file, masks_to_outlines
+from . import guiparts, io, menus
 
 try:
     import matplotlib.pyplot as plt

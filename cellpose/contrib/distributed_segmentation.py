@@ -14,6 +14,7 @@ import dask
 import dask.array as da
 import numpy as np
 
+
 class DistSegError(Exception):
     """Error in image segmentation."""
 

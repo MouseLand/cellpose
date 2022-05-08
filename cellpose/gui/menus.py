@@ -1,7 +1,9 @@
 from PyQt5.QtWidgets import QAction
-from . import io
+
 from .. import models
 from ..io import save_server
+from . import io
+
 
 def mainmenu(parent):
     main_menu = parent.menuBar()

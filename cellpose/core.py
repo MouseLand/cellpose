@@ -1,19 +1,27 @@
-import os, sys, time, shutil, tempfile, datetime, pathlib, subprocess
+import datetime
 import logging
-import numpy as np
-from tqdm import trange, tqdm
-from urllib.parse import urlparse
+import os
+import pathlib
+import shutil
+import subprocess
+import sys
 import tempfile
-import cv2
-from scipy.stats import mode
-import fastremap
-from . import transforms, dynamics, utils, plot, metrics
+import time
+from urllib.parse import urlparse
 
+import cv2
+import fastremap
+import numpy as np
 import torch
+from scipy.stats import mode
+
 #     from GPUtil import showUtilization as gpu_usage #for gpu memory debugging 
 from torch import nn
 from torch.utils import mkldnn as mkldnn_utils
-from . import resnet_torch
+from tqdm import tqdm, trange
+
+from . import dynamics, metrics, plot, resnet_torch, transforms, utils
+
 TORCH_ENABLED = True
 torch_GPU = torch.device('cuda')
 torch_CPU = torch.device('cpu')
@@ -748,7 +756,7 @@ class UnetModel():
             self.optimizer = torch.optim.SGD(self.net.parameters(), lr=learning_rate,
                                         momentum=momentum, weight_decay=weight_decay)
         else:
-            import torch_optimizer as optim # for RADAM optimizer
+            import torch_optimizer as optim  # for RADAM optimizer
             self.optimizer = optim.RAdam(self.net.parameters(), lr=learning_rate, betas=(0.95, 0.999), #changed to .95
                                         eps=1e-08, weight_decay=weight_decay)
             core_logger.info('>>> Using RAdam optimizer')

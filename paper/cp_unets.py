@@ -1,15 +1,20 @@
-import sys, os, time, string, shutil
-from natsort import natsorted
+import os
+import shutil
+import string
+import sys
+import time
 from glob import glob
 from pathlib import Path
-import numpy as np
+
+import cv2
 import matplotlib.pyplot as plt
 import mxnet as mx
-import matplotlib.pyplot as plt
+import numpy as np
 from matplotlib import rc
-import cv2
+from natsort import natsorted
 from scipy import stats
-from cellpose import models, datasets, utils, transforms, io, metrics
+
+from cellpose import datasets, io, metrics, models, transforms, utils
 
 thresholds = np.arange(0.5, 1.05, 0.05)
 

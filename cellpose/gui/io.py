@@ -1,12 +1,19 @@
-import os, datetime, gc, warnings, glob, shutil, copy
-from natsort import natsorted
-import numpy as np
-import cv2
-import tifffile
+import copy
+import datetime
+import gc
+import glob
 import logging
-import fastremap 
+import os
+import shutil
+import warnings
 
-from .. import utils, plot, transforms, models
+import cv2
+import fastremap
+import numpy as np
+import tifffile
+from natsort import natsorted
+
+from .. import models, plot, transforms, utils
 from ..io import imread, imsave, outlines_to_text
 from ..transforms import normalize99
 

@@ -1,8 +1,12 @@
-from cellpose import io, models, metrics, plot
+import os
+import shutil
 from pathlib import Path
-from subprocess import check_output, STDOUT
-import os, shutil
+from subprocess import STDOUT, check_output
+
 import numpy as np
+
+from cellpose import io, metrics, models, plot
+
 try:
     import matplotlib.pyplot as plt
     MATPLOTLIB = True

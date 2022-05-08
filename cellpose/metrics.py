@@ -1,8 +1,9 @@
 import numpy as np
-from . import utils, dynamics
 from numba import jit
-from scipy.optimize import linear_sum_assignment
 from scipy.ndimage import convolve, mean
+from scipy.optimize import linear_sum_assignment
+
+from . import dynamics, utils
 
 
 def mask_ious(masks_true, masks_pred):

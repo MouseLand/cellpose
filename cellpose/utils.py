@@ -1,14 +1,29 @@
-import os, warnings, time, tempfile, datetime, pathlib, shutil, subprocess
-from tqdm import tqdm
-from urllib.request import urlopen
+import colorsys
+import datetime
+import io
+import os
+import pathlib
+import shutil
+import subprocess
+import tempfile
+import time
+import warnings
 from urllib.parse import urlparse
+from urllib.request import urlopen
+
 import cv2
-from scipy.ndimage import find_objects, gaussian_filter, generate_binary_structure, label, maximum_filter1d, binary_fill_holes
+import numpy as np
+from scipy.ndimage import (
+    binary_fill_holes,
+    find_objects,
+    gaussian_filter,
+    generate_binary_structure,
+    label,
+    maximum_filter1d,
+)
 from scipy.spatial import ConvexHull
 from scipy.stats import gmean
-import numpy as np
-import colorsys
-import io
+from tqdm import tqdm
 
 from . import metrics
 

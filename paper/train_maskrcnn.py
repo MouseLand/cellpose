@@ -19,12 +19,19 @@ Usage: import the module (see Jupyter notebooks for examples), or run from
 """
 if __name__ == '__main__':
     import matplotlib
+
     # Agg backend runs without a display
     matplotlib.use('Agg')
     import matplotlib.pyplot as plt
 
-import os, sys, datetime, glob,pdb
+import datetime
+import glob
+import os
+import pdb
+import sys
+
 import numpy as np
+
 #np.random.bit_generator = np.random._bit_generator
 import skimage.io
 from imgaug import augmenters as iaa
@@ -34,12 +41,10 @@ ROOT_DIR = os.path.abspath("/groups/pachitariu/pachitariulab/code/github/Mask_RC
 
 # Import Mask RCNN
 sys.path.append(ROOT_DIR)  # To find local version of the library
-from mrcnn.config import Config
-from mrcnn import utils
-from mrcnn import model as modellib
-from mrcnn import visualize
 import matplotlib.pyplot as plt
-
+from mrcnn import model as modellib
+from mrcnn import utils, visualize
+from mrcnn.config import Config
 from stardist import matching
 
 # Path to trained weights file
@@ -135,6 +140,8 @@ class NucleusInferenceConfig(NucleusConfig):
 #  Dataset
 ############################################################
 import glob
+
+
 class NucleusDataset(utils.Dataset):
     def load_nucleus(self, dataset_dir, subset):
         """Load a subset of the nuclei dataset.

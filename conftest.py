@@ -1,8 +1,12 @@
+import os
+import shutil
+import sys
+from pathlib import Path
+
 import pytest
-import os, sys, shutil
+
 from cellpose import utils
 
-from pathlib import Path
 
 @pytest.fixture()
 def image_names():

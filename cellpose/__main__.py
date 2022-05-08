@@ -1,10 +1,16 @@
-import sys, os, argparse, glob, pathlib, time
+import argparse
+import glob
+import os
+import pathlib
 import subprocess
+import sys
+import time
 
 import numpy as np
 from natsort import natsorted
 from tqdm import tqdm
-from cellpose import utils, models, io, core
+
+from cellpose import core, io, models, utils
 
 try:
     from cellpose.gui import gui 
@@ -20,6 +26,7 @@ except Exception as err:
     raise
     
 import logging
+
 
 # settings re-grouped a bit
 def main():

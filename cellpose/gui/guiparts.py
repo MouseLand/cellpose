@@ -1,11 +1,30 @@
-from PyQt5 import QtGui, QtCore, QtWidgets
-from PyQt5.QtGui import QPainter, QPixmap
-from PyQt5.QtWidgets import QApplication, QRadioButton, QWidget, QDialog, QButtonGroup, QSlider, QStyle, QStyleOptionSlider, QGridLayout, QPushButton, QLabel, QLineEdit, QDialogButtonBox, QComboBox, QCheckBox
-import pyqtgraph as pg
-from pyqtgraph import functions as fn
-from pyqtgraph import Point
+import os
+import pathlib
+
 import numpy as np
-import pathlib, os
+import pyqtgraph as pg
+from PyQt5 import QtCore, QtGui, QtWidgets
+from PyQt5.QtGui import QPainter, QPixmap
+from PyQt5.QtWidgets import (
+    QApplication,
+    QButtonGroup,
+    QCheckBox,
+    QComboBox,
+    QDialog,
+    QDialogButtonBox,
+    QGridLayout,
+    QLabel,
+    QLineEdit,
+    QPushButton,
+    QRadioButton,
+    QSlider,
+    QStyle,
+    QStyleOptionSlider,
+    QWidget,
+)
+from pyqtgraph import Point
+from pyqtgraph import functions as fn
+
 
 def create_channel_choose():
     # choose channel
