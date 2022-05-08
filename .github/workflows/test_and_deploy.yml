@@ -58,6 +58,10 @@ jobs:
         run: |
           python -m pip install isort
           isort --check-only --settings-path=setup.cfg .
+      - name: Format with black
+        run: |
+          python -m pip install black
+          black --check .
       # this runs the platform-specific tests declared in tox.ini
       - name: Test with tox
         run: tox
