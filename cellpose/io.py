@@ -17,6 +17,7 @@ from cellpose import plot, transforms, utils
 
 try:
     from PyQt5 import Qt, QtCore, QtGui, QtWidgets  # noqa: F401
+    from PyQt5.QtWidgets import QMessageBox
     GUI = True
 except ModuleNotFoundError:
     GUI = False
@@ -489,13 +490,13 @@ def save_server(parent=None, filename=None):
         if no GUI, send this file to server
     """
     if parent is not None:
-        q = QtGui.QMessageBox.question(
+        q = QMessageBox.question(
                                     parent,
                                     "Send to server",
                                     "Are you sure? Only send complete and fully manually segmented data.\n (do not send partially automated segmentations)",
-                                    QtGui.QMessageBox.Yes | QtGui.QMessageBox.No
+                                    QMessageBox.Yes | QMessageBox.No
                                   )
-        if q != QtGui.QMessageBox.Yes:
+        if q != QMessageBox.Yes:
             return
         else:
             filename = parent.filename

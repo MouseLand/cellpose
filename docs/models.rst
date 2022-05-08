@@ -1,8 +1,15 @@
 Models
 ------------------------------
 
+``from cellpose import models``
+
 Cellpose 2.0 now has a model zoo and options for user model training. 
-See paper for more details.
+Each model will be downloaded automatically to your ``models.MODELS_DIR`` 
+(see Installation instructions for more details on MODELS_DIR). 
+See paper for more details on the model zoo. You can also directly download a 
+model by going to the URL, e.g.:
+
+``https://www.cellpose.org/models/MODEL_NAME``
 
 Model Zoo
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -25,6 +32,11 @@ run with ``diameter=0`` or ``--diameter 0`` and the model can estimate the ROI s
 
 These models can be loaded and used in the notebook with ``models.Cellpose(model_type='cyto')`` 
 or in the command line with ``python -m cellpose --pretrained_model cyto``.
+
+These models' names (to download all the models for a class run with ``--net_avg``): 
+* `'cyto'`: ``cytotorch_0``, ``cytotorch_1``, ``cytotorch_2``, ``cytotorch_3``, ``size_cytotorch_0.npy``
+* `'nuclei'`: ``nucleitorch_0``, ``nucleitorch_1``, ``nucleitorch_2``, ``nucleitorch_3``, ``size_nucleitorch_0.npy``
+* `'cyto2'`: ``cyto2torch_0``, ``cyto2torch_1``, ``cyto2torch_2``, ``cyto2torch_3``, ``size_cyto2torch_0.npy``
 
 Cytoplasm model (`'cyto'`)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -71,6 +83,8 @@ These models can be loaded and used in the notebook with e.g.
 ``models.CellposeModel(model_type='tissuenet')`` or ``models.CellposeModel(model_type='LC2')``, 
 or in the command line with ``python -m cellpose --pretrained_model tissuenet``.
 
+These models' names are the same as their strings in the GUI.
+
 TissueNet models
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -106,5 +120,8 @@ with the model, or will be used if the diameter is 0
 (``diameter=0`` or ``--diameter 0``).
 
 These models can be loaded and used in the notebook with e.g. 
-``models.CellposeModel(model_type='/full/path/to/model')``  
-or in the command line with ``python -m cellpose --pretrained_model /full/path/to/model``.
+``models.CellposeModel(model_type='name_in_gui')``  or with the full path
+``models.CellposeModel(pretrained_model='/full/path/to/model')`` .
+
+Or they can be used in the command line with ``python -m cellpose --pretrained_model name_in_gui`` 
+or ``python -m cellpose --pretrained_model /full/path/to/model`` .

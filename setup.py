@@ -2,10 +2,13 @@ import setuptools
 from setuptools import setup
 
 install_deps = ['numpy>=1.20.0', 'scipy', 'natsort',
-                'tifffile', 'tqdm', 'numba', 
+                'tifffile', 'tqdm', 
+                'numba>=0.53.0', 
+                'llvmlite',
                 'torch>=1.6',
                 'opencv-python-headless',
-                'fastremap'
+                'fastremap',
+                'imagecodecs'
                 ]
 
 gui_deps = [
