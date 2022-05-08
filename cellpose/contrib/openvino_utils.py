@@ -3,10 +3,14 @@ import io
 import numpy as np
 import torch
 from openvino.runtime import Core
+from cellpose.models import CellposeModel
+from cellpose.resnet_torch import CPnet
+from openvino.runtime.ie_api import InferRequest
+from typing import Tuple
 
 ie = Core()
 
-def to_openvino(model):
+def to_openvino(model: CellposeModel) -> CellposeModel:
     if isinstance(model.net, OpenVINOModel):
         return model
     model.mkldnn = False
@@ -16,13 +20,13 @@ def to_openvino(model):
 
 
 class OpenVINOModel(object):
-    def __init__(self, model):
+    def __init__(self, model: CPnet) -> None:
         self._base_model = model
         self._nets = {}
         self._model_id = "default"
 
 
-    def _init_model(self, inp):
+    def _init_model(self, inp:torch.Tensor) -> InferRequest:
         if self._model_id in self._nets:
             return self._nets[self._model_id]
 
@@ -32,7 +36,7 @@ class OpenVINOModel(object):
 
         buf = io.BytesIO()
         dummy_input = torch.zeros([1] + list(inp.shape[1:]))  # To avoid extra network reloading we process batch in the loop
-        torch.onnx.export(self._base_model, dummy_input, buf, input_names=["input"], output_names=["output", "style"])
+   torch.onnx.export(self._base_model, dummy_input, buf, input_names=["input"], output_names=["output", "style"])
         net = ie.read_model(buf.getvalue(), b"")
         exec_net = ie.compile_model(net, "CPU").create_infer_request()
 
@@ -41,7 +45,7 @@ class OpenVINOModel(object):
         return exec_net
 
 
-    def __call__(self, inp):
+    def __call__(self, inp:torch.Tensor) -> Tuple[    torch.Tensor,torch.Tensor]:
         exec_net = self._init_model(inp)
 
         batch_size = inp.shape[0]
@@ -63,10 +67,10 @@ class OpenVINOModel(object):
             return torch.tensor(outs["output"]), torch.tensor(outs["style"])
 
 
-    def load_model(self, path, cpu):
+    def load_model(self, path: str, cpu: bool) -> "OpenVINOModel":
         self._model_id = path
         return self
 
 
-    def eval(self):
+    def eval(self) -> None:
         pass

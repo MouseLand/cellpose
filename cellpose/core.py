@@ -14,6 +14,9 @@ import torch
 from torch import nn
 from torch.utils import mkldnn as mkldnn_utils
 from . import resnet_torch
+from numpy import float64, ndarray
+from typing import List, Optional, Tuple, Union
+
 TORCH_ENABLED = True
 
 core_logger = logging.getLogger(__name__)
@@ -45,14 +48,14 @@ def parse_model_string(pretrained_model):
         else:
             return nclasses, False, False, True
 
-def use_gpu(gpu_number=0, use_torch=True):
+def use_gpu(gpu_number: int=0, use_torch: bool=True) -> bool:
     """ check if gpu works """
     if use_torch:
         return _use_gpu_torch(gpu_number)
     else:
         raise ValueError('cellpose only runs with pytorch now')
 
-def _use_gpu_torch(gpu_number=0):
+def _use_gpu_torch(gpu_number: int=0) -> bool:
     try:
         device = torch.device('cuda:' + str(gpu_number))
         _ = torch.zeros([1, 2, 3]).to(device)
@@ -62,7 +65,7 @@ def _use_gpu_torch(gpu_number=0):
         core_logger.info('TORCH CUDA version not installed/working.')
         return False
 
-def assign_device(use_torch=True, gpu=False, device=0):
+def assign_device(use_torch: bool=True, gpu: bool=False, device: int=0) -> Tuple[torch.device, bool]:
     if gpu and use_gpu(use_torch=True):
         device = torch.device(f'cuda:{device}')
         gpu=True
@@ -73,7 +76,7 @@ def assign_device(use_torch=True, gpu=False, device=0):
         gpu=False
     return device, gpu
 
-def check_mkl(use_torch=True):
+def check_mkl(use_torch: bool=True) -> bool:
     #core_logger.info('Running test snippet to check if MKL-DNN working')
     mkl_enabled = torch.backends.mkldnn.is_available()
     if mkl_enabled:
@@ -85,10 +88,10 @@ def check_mkl(use_torch=True):
     return mkl_enabled
 
 class UnetModel():
-    def __init__(self, gpu=False, pretrained_model=False,
-                    diam_mean=30., net_avg=False, device=None,
-                    residual_on=False, style_on=False, concatenation=True,
-                    nclasses=3, nchan=2):
+    def __init__(self, gpu: bool=False, pretrained_model: bool=False,
+                    diam_mean: Union[float, int]=30., net_avg: bool=False, device: Optional[    torch.device]=None,
+                    residual_on: bool=False, style_on: bool=False, concatenation: bool=True,
+                    nclasses: int=3, nchan: int=2) -> None:
         self.unet = True
         self.torch = True
         self.mkldnn = None
@@ -279,15 +282,15 @@ class UnetModel():
         
         return masks, flows, styles
 
-    def _to_device(self, x):
+    def _to_device(self, x: ndarray) ->torch.Tensor:
         X = torch.from_numpy(x).float().to(self.device)
         return X
 
-    def _from_device(self, X):
+    def _from_device(self, X:torch.Tensor) -> ndarray:
         x = X.detach().cpu().numpy()
         return x
 
-    def network(self, x, return_conv=False):
+    def network(self, x: ndarray, return_conv: bool=False) -> Tuple[ndarray, ndarray]:
         """ convert imgs to torch and run network model and return numpy """
         X = self._to_device(x)
         self.net.eval()
@@ -304,8 +307,8 @@ class UnetModel():
         
         return y, style
                 
-    def _run_nets(self, img, net_avg=False, augment=False, tile=True, tile_overlap=0.1, bsize=224, 
-                  return_conv=False, progress=None):
+    def _run_nets(self, img: ndarray, net_avg: bool=False, augment: bool=False, tile: bool=True, tile_overlap: float=0.1, bsize: int=224, 
+                  return_conv: bool=False, progress: None=None) -> Tuple[ndarray, ndarray]:
         """ run network (if more than one, loop over networks and average results
 
         Parameters
@@ -361,8 +364,8 @@ class UnetModel():
             
         return y, style
 
-    def _run_net(self, imgs, augment=False, tile=True, tile_overlap=0.1, bsize=224,
-                 return_conv=False):
+    def _run_net(self, imgs: ndarray, augment: bool=False, tile: bool=True, tile_overlap: float=0.1, bsize: int=224,
+                 return_conv: bool=False) -> Tuple[ndarray, ndarray]:
         """ run network on image or stack of images
 
         (faster if augment is False)
@@ -437,7 +440,7 @@ class UnetModel():
         
         return y, style
     
-    def _run_tiled(self, imgi, augment=False, bsize=224, tile_overlap=0.1, return_conv=False):
+    def _run_tiled(self, imgi: ndarray, augment: bool=False, bsize: int=224, tile_overlap: float=0.1, return_conv: bool=False) -> Tuple[ndarray, ndarray]:
         """ run network in tiles of size [bsize x bsize]
 
         First image is split into overlapping tiles of size [bsize x bsize].
@@ -538,9 +541,9 @@ class UnetModel():
             styles /= (styles**2).sum()**0.5
             return yf, styles
 
-    def _run_3D(self, imgs, rsz=1.0, anisotropy=None, net_avg=False, 
-                augment=False, tile=True, tile_overlap=0.1, 
-                bsize=224, progress=None):
+    def _run_3D(self, imgs: ndarray, rsz: float64=1.0, anisotropy: None=None, net_avg: bool=False, 
+                augment: bool=False, tile: bool=True, tile_overlap: float=0.1, 
+                bsize: int=224, progress: None=None) -> Tuple[ndarray, ndarray]:
         """ run network on stack of images
 
         (faster if augment is False)
@@ -717,7 +720,7 @@ class UnetModel():
                                                           aps[jbest,kbest,0]))
         return cell_threshold, boundary_threshold
 
-    def _train_step(self, x, lbl):
+    def _train_step(self, x: ndarray, lbl: ndarray) -> float:
         X = self._to_device(x)
         self.optimizer.zero_grad()
         #if self.gpu:
@@ -744,7 +747,7 @@ class UnetModel():
             test_loss *= len(x)
         return test_loss
 
-    def _set_optimizer(self, learning_rate, momentum, weight_decay, SGD=False):
+    def _set_optimizer(self, learning_rate: float64, momentum: float, weight_decay: float, SGD: bool=False) -> None:
         if SGD:
             self.optimizer = torch.optim.SGD(self.net.parameters(), lr=learning_rate,
                                         momentum=momentum, weight_decay=weight_decay)
@@ -755,22 +758,22 @@ class UnetModel():
             core_logger.info('>>> Using RAdam optimizer')
             self.optimizer.current_lr = learning_rate
         
-    def _set_learning_rate(self, lr):
+    def _set_learning_rate(self, lr: float64) -> None:
         for param_group in self.optimizer.param_groups:
             param_group['lr'] = lr
     
-    def _set_criterion(self):
+    def _set_criterion(self) -> None:
         if self.unet:
             self.criterion = nn.CrossEntropyLoss(reduction='mean')
         else:
             self.criterion  = nn.MSELoss(reduction='mean')
             self.criterion2 = nn.BCEWithLogitsLoss(reduction='mean')
             
-    def _train_net(self, train_data, train_labels, 
-              test_data=None, test_labels=None,
-              save_path=None, save_every=100, save_each=False,
-              learning_rate=0.2, n_epochs=500, momentum=0.9, weight_decay=0.00001, 
-              SGD=True, batch_size=8, nimg_per_epoch=None, rescale=True, model_name=None): 
+    def _train_net(self, train_data: List[ndarray], train_labels: List[ndarray], 
+              test_data: None=None, test_labels: None=None,
+              save_path: Optional[str]=None, save_every: int=100, save_each: bool=False,
+              learning_rate: float=0.2, n_epochs: int=500, momentum: float=0.9, weight_decay: float=0.00001, 
+              SGD: bool=True, batch_size: int=8, nimg_per_epoch: None=None, rescale: bool=True, model_name: None=None) -> str: 
         """ train function uses loss function self.loss_fn in models.py"""
         
         d = datetime.datetime.now()

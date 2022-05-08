@@ -13,6 +13,10 @@ import operator
 import dask
 import dask.array as da
 import numpy as np
+from dask.array.core import Array
+from dask.delayed import Delayed
+from numpy import int32, ndarray
+from typing import List, Tuple, Union
 
 class DistSegError(Exception):
     """Error in image segmentation."""
@@ -186,7 +190,7 @@ def segment_chunk(
     return segments.astype(np.int32), segments.max()
 
 
-def link_labels(block_labeled, total, depth, iou_threshold=1):
+def link_labels(block_labeled: Array, total: Union[Array, int32], depth: Union[int, Tuple[int, int]], iou_threshold: Union[float, int]=1) -> Array:
     """
     Build a label connectivity graph that groups labels across blocks,
     use this graph to find connected components, and then relabel each
@@ -197,7 +201,7 @@ def link_labels(block_labeled, total, depth, iou_threshold=1):
     return _label.relabel_blocks(block_labeled, new_labeling)
 
 
-def label_adjacency_graph(labels, nlabels, depth, iou_threshold):
+def label_adjacency_graph(labels: Array, nlabels: Union[Array, int32], depth: Union[int, Tuple[int, int]], iou_threshold: Union[float, int]) -> Delayed:
     all_mappings = [da.empty((2, 0), dtype=np.int32, chunks=1)]
 
     slices_and_axes = get_slices_and_axes(labels.chunks, labels.shape, depth)
@@ -211,14 +215,14 @@ def label_adjacency_graph(labels, nlabels, depth, iou_threshold):
     return result
 
 
-def _across_block_iou_delayed(face, axis, iou_threshold):
+def _across_block_iou_delayed(face: Array, axis: int, iou_threshold: Union[float, int]) -> Array:
     """Delayed version of :func:`_across_block_label_grouping`."""
     _across_block_label_grouping_ = dask.delayed(_across_block_label_iou)
     grouped = _across_block_label_grouping_(face, axis, iou_threshold)
     return da.from_delayed(grouped, shape=(2, np.nan), dtype=np.int32)
 
 
-def _across_block_label_iou(face, axis, iou_threshold):
+def _across_block_label_iou(face: ndarray, axis: int, iou_threshold: Union[float, int]) -> ndarray:
     unique = np.unique(face)
     face0, face1 = np.split(face, 2, axis)
 
@@ -243,7 +247,7 @@ def _across_block_label_iou(face, axis, iou_threshold):
     return grouped[:, valid]
 
 
-def get_slices_and_axes(chunks, shape, depth):
+def get_slices_and_axes(chunks: Union[Tuple[Tuple[int, int], Tuple[int, int]], Tuple[Tuple[int], Tuple[int, int]], Tuple[Tuple[int, int]], Tuple[Tuple[int, int], Tuple[int]]], shape: Union[Tuple[int], Tuple[int, int]], depth: Union[int, Tuple[int, int]]) -> List[Union[Tuple[Tuple[slice], int], Tuple[Tuple[slice, slice], int]]]:
     ndim = len(shape)
     depth = da.overlap.coerce_depth(ndim, depth)
     slices = da.core.slices_from_chunks(chunks)

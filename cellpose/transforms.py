@@ -6,8 +6,10 @@ import logging
 transforms_logger = logging.getLogger(__name__)
 
 from . import dynamics, utils
+from numpy import float64, int64, ndarray
+from typing import Any, List, Optional, Tuple, Union
 
-def _taper_mask(ly=224, lx=224, sig=7.5):
+def _taper_mask(ly: int=224, lx: int=224, sig: float=7.5) -> ndarray:
     bsize = max(224, max(ly, lx))
     xm = np.arange(bsize)
     xm = np.abs(xm - xm.mean())
@@ -52,7 +54,7 @@ def unaugment_tiles(y, unet=False):
                     y[j,i,1] *= -1
     return y
 
-def average_tiles(y, ysub, xsub, Ly, Lx):
+def average_tiles(y: ndarray, ysub: List[List[int64]], xsub: List[List[int64]], Ly: int, Lx: int) -> ndarray:
     """ average results of network over tiles
 
     Parameters
@@ -92,7 +94,7 @@ def average_tiles(y, ysub, xsub, Ly, Lx):
     yf /= Navg
     return yf
 
-def make_tiles(imgi, bsize=224, augment=False, tile_overlap=0.1):
+def make_tiles(imgi: ndarray, bsize: int=224, augment: bool=False, tile_overlap: float=0.1) -> Tuple[ndarray, List[List[int64]], List[List[int64]], int, int]:
     """ make tiles of image to run at test-time
 
     if augmented, tiles are flipped and tile_overlap=2.
@@ -184,7 +186,7 @@ def make_tiles(imgi, bsize=224, augment=False, tile_overlap=0.1):
         
     return IMG, ysub, xsub, Ly, Lx
 
-def normalize99(Y, lower=1,upper=99):
+def normalize99(Y: ndarray, lower: int=1,upper: int=99) -> ndarray:
     """ normalize image so 0.0 is 1st percentile and 1.0 is 99th percentile """
     X = Y.copy()
     x01 = np.percentile(X, lower)
@@ -192,7 +194,7 @@ def normalize99(Y, lower=1,upper=99):
     X = (X - x01) / (x99 - x01)
     return X
 
-def move_axis(img, m_axis=-1, first=True):
+def move_axis(img: ndarray, m_axis: Union[int64, int]=-1, first: bool=True) -> ndarray:
     """ move axis m_axis to first or last position """
     if m_axis==-1:
         m_axis = img.ndim-1
@@ -209,7 +211,7 @@ def move_axis(img, m_axis=-1, first=True):
 
 # This was edited to fix a bug where single-channel images of shape (y,x) would be 
 # transposed to (x,y) if x<y, making the labels no longer correspond to the data. 
-def move_min_dim(img, force=False):
+def move_min_dim(img: ndarray, force: bool=False) -> ndarray:
     """ move minimum dimension last as channels if < 10, or force==True """
     if len(img.shape) > 2: #only makese sense to do this if channel axis is already present 
         min_dim = min(img.shape)
@@ -221,7 +223,7 @@ def move_min_dim(img, force=False):
             img = move_axis(img, m_axis=channel_axis, first=False)
     return img
 
-def update_axis(m_axis, to_squeeze, ndim):
+def update_axis(m_axis: int, to_squeeze: ndarray, ndim: int) -> int64:
     if m_axis==-1:
         m_axis = ndim-1
     if (to_squeeze==m_axis).sum() == 1:
@@ -236,9 +238,9 @@ def update_axis(m_axis, to_squeeze, ndim):
             m_axis = None
     return m_axis
 
-def convert_image(x, channels, channel_axis=None, z_axis=None,
-                  do_3D=False, normalize=True, invert=False,
-                  nchan=2):
+def convert_image(x: ndarray, channels: Optional[List[int]], channel_axis: Optional[int]=None, z_axis: Optional[int]=None,
+                  do_3D: bool=False, normalize: bool=True, invert: bool=False,
+                  nchan: int=2) -> ndarray:
     """ return image with z first, channels last and normalized intensities """
         
     # squeeze image, and if channel_axis or z_axis given, transpose image
@@ -305,7 +307,7 @@ def convert_image(x, channels, channel_axis=None, z_axis=None,
         
     return x
 
-def reshape(data, channels=[0,0], chan_first=False):
+def reshape(data: ndarray, channels: List[int]=[0,0], chan_first: bool=False) -> ndarray:
     """ reshape data using channels
 
     Parameters
@@ -361,7 +363,7 @@ def reshape(data, channels=[0,0], chan_first=False):
             data = np.transpose(data, (2,0,1))
     return data
 
-def normalize_img(img, axis=-1, invert=False):
+def normalize_img(img: ndarray, axis: int=-1, invert: bool=False) -> ndarray:
     """ normalize each channel of the image so that so that 0.0=1st percentile
     and 1.0=99th percentile of image intensities
 
@@ -403,7 +405,7 @@ def normalize_img(img, axis=-1, invert=False):
     img = np.moveaxis(img, 0, axis)
     return img
 
-def reshape_train_test(train_data, train_labels, test_data, test_labels, channels, normalize=True):
+def reshape_train_test(train_data: List[ndarray], train_labels: List[ndarray], test_data: None, test_labels: None, channels: List[int], normalize: bool=True) -> Tuple[List[ndarray], List[ndarray], None, None, bool]:
     """ check sizes and reshape train and test data for training """
     nimg = len(train_data)
     # check that arrays are correct size
@@ -444,7 +446,7 @@ def reshape_train_test(train_data, train_labels, test_data, test_labels, channel
 
     return train_data, train_labels, test_data, test_labels, run_test
 
-def reshape_and_normalize_data(train_data, test_data=None, channels=None, normalize=True):
+def reshape_and_normalize_data(train_data: List[ndarray], test_data: None=None, channels: Optional[List[int]]=None, normalize: bool=True) -> Tuple[List[ndarray], None, bool]:
     """ inputs converted to correct shapes for *training* and rescaled so that 0.0=1st percentile
     and 1.0=99th percentile of image intensities in each channel
 
@@ -499,7 +501,7 @@ def reshape_and_normalize_data(train_data, test_data=None, channels=None, normal
     run_test = True
     return train_data, test_data, run_test
 
-def resize_image(img0, Ly=None, Lx=None, rsz=None, interpolation=cv2.INTER_LINEAR, no_channels=False):
+def resize_image(img0: ndarray, Ly: Optional[int]=None, Lx: Optional[int]=None, rsz: Optional[float64]=None, interpolation: int=cv2.INTER_LINEAR, no_channels: bool=False) -> ndarray:
     """ resize image for computing flows / unresize for computing dynamics
 
     Parameters
@@ -553,7 +555,7 @@ def resize_image(img0, Ly=None, Lx=None, rsz=None, interpolation=cv2.INTER_LINEA
         imgs = cv2.resize(img0, (Lx, Ly), interpolation=interpolation)
     return imgs
 
-def pad_image_ND(img0, div=16, extra = 1):
+def pad_image_ND(img0: ndarray, div: int=16, extra: int = 1) -> Tuple[ndarray, ndarray, ndarray]:
     """ pad image for test-time so that its dimensions are a multiple of 16 (2D or 3D)
 
     Parameters
@@ -657,8 +659,8 @@ def _image_resizer(img, resize=512, to_uint8=False):
     return img
 
 
-def random_rotate_and_resize(X, Y=None, scale_range=1., xy = (224,224), 
-                             do_flip=True, rescale=None, unet=False, random_per_image=True):
+def random_rotate_and_resize(X: List[ndarray], Y: Optional[List[ndarray]]=None, scale_range: float=1., xy: Tuple[int, int] = (224,224), 
+                             do_flip: bool=True, rescale: Optional[ndarray]=None, unet: bool=False, random_per_image: bool=True) -> Union[Tuple[ndarray, ndarray, ndarray], Tuple[ndarray, List[Any], ndarray]]:
     """ augmentation by random rotation and resizing
         X and Y are lists or arrays of length nimg, with dims channels x Ly x Lx (channels optional)
         Parameters

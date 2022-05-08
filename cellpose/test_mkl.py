@@ -10,7 +10,7 @@ try:
 except:
     MXNET_ENABLED = False
 
-def test_mkl():
+def test_mkl() -> None:
     if MXNET_ENABLED:
         num_filter = 32
         kernel = (3, 3)

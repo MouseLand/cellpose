@@ -2,16 +2,17 @@ import pytest
 import os, sys, shutil
 from cellpose import utils
 
-from pathlib import Path
+from pathlib import PosixPath, Path
+from typing import List
 
 @pytest.fixture()
-def image_names():
+def image_names() -> List[str]:
     image_names = ['gray_2D.png', 'rgb_2D.png', 'rgb_2D_tif.tif', 'gray_3D.tif', 'rgb_3D.tif',
                     'segment_80x224x448_input.tiff', 'segment_80x224x448_expected.tiff']
     return image_names
 
 @pytest.fixture()
-def data_dir(image_names):
+def data_dir(image_names: List[str]) -> PosixPath:
     cp_dir = Path.home().joinpath('.cellpose')
     cp_dir.mkdir(exist_ok=True)
     data_dir = cp_dir.joinpath('data')

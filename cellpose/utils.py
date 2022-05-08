@@ -11,6 +11,9 @@ import colorsys
 import io
 
 from . import metrics
+from logging import Logger
+from numpy import float64, ndarray
+from typing import Optional, Tuple
 
 try:
     from skimage.morphology import remove_small_holes
@@ -26,13 +29,13 @@ class TqdmToLogger(io.StringIO):
     logger = None
     level = None
     buf = ''
-    def __init__(self,logger,level=None):
+    def __init__(self,logger: Logger,level: Optional[int]=None) -> None:
         super(TqdmToLogger, self).__init__()
         self.logger = logger
         self.level = level or logging.INFO
-    def write(self,buf):
+    def write(self,buf: str) -> None:
         self.buf = buf.strip('\r\n\t ')
-    def flush(self):
+    def flush(self) -> None:
         self.logger.log(self.level, self.buf)
 
 def rgb_to_hsv(arr):
@@ -49,7 +52,7 @@ def hsv_to_rgb(arr):
     rgb = np.stack((r,g,b), axis=-1)
     return rgb
 
-def download_url_to_file(url, dst, progress=True):
+def download_url_to_file(url: str, dst: str, progress: bool=True) -> None:
     r"""Download object at the given URL to a local path.
             Thanks to torch, slightly modified
     Args:
@@ -183,7 +186,7 @@ def remove_edge_masks(masks, change_index=True):
 
     return masks
 
-def masks_to_outlines(masks):
+def masks_to_outlines(masks: ndarray) -> ndarray:
     """ get outlines of masks as a 0-1 array 
     
     Parameters
@@ -350,7 +353,7 @@ def get_masks_unet(output, cell_threshold=0, boundary_threshold=0):
     masks = np.reshape(masks, shape0)
     return masks
 
-def stitch3D(masks, stitch_threshold=0.25):
+def stitch3D(masks: ndarray, stitch_threshold: float=0.25) -> ndarray:
     """ stitch 2D masks into 3D volume with stitch_threshold on IOU """
     mmax = masks[0].max()
     empty = 0
@@ -379,7 +382,7 @@ def stitch3D(masks, stitch_threshold=0.25):
             
     return masks
 
-def diameters(masks):
+def diameters(masks: ndarray) -> Tuple[float64, ndarray]:
     _, counts = np.unique(np.int32(masks), return_counts=True)
     counts = counts[1:]
     md = np.median(counts**0.5)
@@ -412,7 +415,7 @@ def process_cells(M0, npix=20):
             M0[M0==unq[j]] = 0
     return M0
 
-def fill_holes_and_remove_small_masks(masks, min_size=15):
+def fill_holes_and_remove_small_masks(masks: ndarray, min_size: int=15) -> ndarray:
     """ fill holes in masks (2D/3D) and discard masks smaller than min_size (2D)
     
     fill holes in each mask using scipy.ndimage.morphology.binary_fill_holes

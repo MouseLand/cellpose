@@ -3,6 +3,7 @@ import numpy as np
 import cv2
 from scipy.ndimage import gaussian_filter
 from . import utils, io, transforms
+from numpy import ndarray
 
 try:
     import matplotlib
@@ -18,7 +19,7 @@ except:
     SKIMAGE_ENABLED = False
 
 # modified to use sinebow color
-def dx_to_circ(dP,transparency=False,mask=None):
+def dx_to_circ(dP: ndarray,transparency: bool=False,mask: None=None) -> ndarray:
     """ dP is 2 x Y x X => 'optic' flow representation 
     
     Parameters

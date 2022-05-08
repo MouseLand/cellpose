@@ -17,6 +17,9 @@ from . import utils, metrics, transforms
 import torch
 from torch import optim, nn
 from . import resnet_torch
+from numpy import float64, ndarray, uint32
+from typing import List, Optional, Tuple, Union
+
 TORCH_ENABLED = True 
 torch_GPU = torch.device('cuda')
 torch_CPU = torch.device('cpu')
@@ -164,7 +167,7 @@ def masks_to_flows_gpu(masks, device=None):
 
 
 
-def masks_to_flows_cpu(masks, device=None):
+def masks_to_flows_cpu(masks: ndarray, device: Optional[torch.device]=None) -> Tuple[ndarray, ndarray]:
     """ convert masks to flows using diffusion from center pixel
     Center of masks where diffusion starts is defined to be the 
     closest pixel to the median of all pixels that is inside the 
@@ -222,7 +225,7 @@ def masks_to_flows_cpu(masks, device=None):
     return mu, mu_c
 
 
-def masks_to_flows(masks, use_gpu=False, device=None):
+def masks_to_flows(masks: ndarray, use_gpu: bool=False, device: Optional[torch.device]=None) -> ndarray:
     """ convert masks to flows using diffusion from center pixel
 
     Center of masks where diffusion starts is defined to be the 
@@ -281,7 +284,7 @@ def masks_to_flows(masks, use_gpu=False, device=None):
     else:
         raise ValueError('masks_to_flows only takes 2D or 3D arrays')
 
-def labels_to_flows(labels, files=None, use_gpu=False, device=None, redo_flows=False):
+def labels_to_flows(labels: List[ndarray], files: Optional[List[str]]=None, use_gpu: bool=False, device: Optional[torch.device]=None, redo_flows: bool=False) -> List[ndarray]:
     """ convert labels (list of masks or flows) to flows for training model 
 
     if files is not None, flows are saved to files to be reused
@@ -362,7 +365,7 @@ def map_coordinates(I, yc, xc, Y):
                       np.float32(I[c, yf1, xf1]) * y * x )
 
 
-def steps2D_interp(p, dP, niter, use_gpu=False, device=None):
+def steps2D_interp(p: ndarray, dP: ndarray, niter: uint32, use_gpu: bool=False, device: Optional[torch.device]=None) -> ndarray:
     shape = dP.shape[1:]
     if use_gpu:
         if device is None:
@@ -486,7 +489,7 @@ def steps2D(p, dP, inds, niter):
                 p[k,y,x] = min(shape[k]-1, max(0, p[k,y,x] + step[k]))
     return p
 
-def follow_flows(dP, mask=None, niter=200, interp=True, use_gpu=True, device=None):
+def follow_flows(dP: ndarray, mask: None=None, niter: float64=200, interp: bool=True, use_gpu: bool=True, device: Optional[torch.device]=None) -> Tuple[ndarray, ndarray]:
     """ define pixels and run dynamics to recover masks in 2D
     
     Pixels are meshgrid. Only pixels with non-zero cell-probability
@@ -549,7 +552,7 @@ def follow_flows(dP, mask=None, niter=200, interp=True, use_gpu=True, device=Non
             p[:,inds[:,0],inds[:,1]] = p_interp
     return p, inds
 
-def remove_bad_flow_masks(masks, flows, threshold=0.4, use_gpu=False, device=None):
+def remove_bad_flow_masks(masks: ndarray, flows: ndarray, threshold: float=0.4, use_gpu: bool=False, device: Optional[torch.device]=None) -> ndarray:
     """ remove masks which have inconsistent flows 
     
     Uses metrics.flow_error to compute flows from predicted masks 
@@ -583,7 +586,7 @@ def remove_bad_flow_masks(masks, flows, threshold=0.4, use_gpu=False, device=Non
     masks[np.isin(masks, badi)] = 0
     return masks
 
-def get_masks(p, iscell=None, rpad=20):
+def get_masks(p: ndarray, iscell: Optional[ndarray]=None, rpad: int=20) -> ndarray:
     """ create masks using pixel convergence after running dynamics
     
     Makes a histogram of final pixel locations p, initializes masks 
@@ -694,11 +697,11 @@ def get_masks(p, iscell=None, rpad=20):
     M0 = np.reshape(M0, shape0)
     return M0
 
-def compute_masks(dP, cellprob, p=None, niter=200, 
-                   cellprob_threshold=0.0,
-                   flow_threshold=0.4, interp=True, do_3D=False, 
-                   min_size=15, resize=None, 
-                   use_gpu=False,device=None):
+def compute_masks(dP: ndarray, cellprob: ndarray, p: None=None, niter: float64=200, 
+                   cellprob_threshold: Union[float, int]=0.0,
+                   flow_threshold: float=0.4, interp: bool=True, do_3D: bool=False, 
+                   min_size: int=15, resize: Optional[List[int]]=None, 
+                   use_gpu: bool=False,device: Optional[torch.device]=None) -> Tuple[ndarray, ndarray]:
     """ compute masks using dynamics from dP, cellprob, and boundary """
     
     cp_mask = cellprob > cellprob_threshold 

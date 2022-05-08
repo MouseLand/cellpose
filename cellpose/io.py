@@ -51,6 +51,8 @@ def logger_setup():
     return logger, log_file
 
 from . import utils, plot, transforms
+from numpy import float32, ndarray
+from typing import List, Optional, Tuple, Union
 
 # helper function to check for a path; if it doesn't exist, make it 
 def check_dir(path):
@@ -65,7 +67,7 @@ def outlines_to_text(base, outlines):
             f.write(xy_str)
             f.write('\n')
 
-def imread(filename):
+def imread(filename: str) -> ndarray:
     ext = os.path.splitext(filename)[-1]
     if ext== '.tif' or ext=='.tiff':
         with tifffile.TiffFile(filename) as tif:
@@ -109,7 +111,7 @@ def imread(filename):
             return None
 
 
-def imsave(filename, arr):
+def imsave(filename: str, arr: ndarray) -> None:
     ext = os.path.splitext(filename)[-1]
     if ext== '.tif' or ext=='.tiff':
         tifffile.imsave(filename, arr)
@@ -119,7 +121,7 @@ def imsave(filename, arr):
         cv2.imwrite(filename, arr)
 #         skimage.io.imsave(filename, arr.astype()) #cv2 doesn't handle transparency
 
-def get_image_files(folder, mask_filter, imf=None, look_one_level_down=False):
+def get_image_files(folder: str, mask_filter: str, imf: None=None, look_one_level_down: bool=False) -> List[str]:
     """ find all images in a folder and if look_one_level_down all subfolders """
     mask_filters = ['_cp_masks', '_cp_output', '_flows', '_masks', mask_filter]
     image_names = []
@@ -154,7 +156,7 @@ def get_image_files(folder, mask_filter, imf=None, look_one_level_down=False):
     
     return image_names
         
-def get_label_files(image_names, mask_filter, imf=None):
+def get_label_files(image_names: List[str], mask_filter: str, imf: None=None) -> Tuple[List[str], None]:
     nimg = len(image_names)
     label_names0 = [os.path.splitext(image_names[n])[0] for n in range(nimg)]
 
@@ -194,7 +196,7 @@ def get_label_files(image_names, mask_filter, imf=None):
     return label_names, flow_names
 
 
-def load_images_labels(tdir, mask_filter='_masks', image_filter=None, look_one_level_down=False, unet=False):
+def load_images_labels(tdir: str, mask_filter: str='_masks', image_filter: None=None, look_one_level_down: bool=False, unet: bool=False) -> Tuple[List[ndarray], List[ndarray], List[str]]:
     image_names = get_image_files(tdir, mask_filter, image_filter, look_one_level_down)
     nimg = len(image_names)
 
@@ -221,7 +223,7 @@ def load_images_labels(tdir, mask_filter='_masks', image_filter=None, look_one_l
     io_logger.info(f'{k} / {nimg} images in {tdir} folder have labels')
     return images, labels, image_names
 
-def load_train_test_data(train_dir, test_dir=None, image_filter=None, mask_filter='_masks', unet=False, look_one_level_down=False):
+def load_train_test_data(train_dir: str, test_dir: None=None, image_filter: None=None, mask_filter: str='_masks', unet: bool=False, look_one_level_down: bool=False) -> Tuple[List[ndarray], List[ndarray], List[str], None, None, None]:
     images, labels, image_names = load_images_labels(train_dir, mask_filter, image_filter, look_one_level_down, unet)
                     
     # testing data
@@ -233,7 +235,7 @@ def load_train_test_data(train_dir, test_dir=None, image_filter=None, mask_filte
 
 
 
-def masks_flows_to_seg(images, masks, flows, diams, file_names, channels=None):
+def masks_flows_to_seg(images: Union[List[ndarray], ndarray], masks: Union[List[ndarray], ndarray], flows: List[Union[ndarray, List[ndarray]]], diams: Union[float32, int], file_names: Union[List[str], str], channels: Optional[List[int]]=None) -> None:
     """ save output of model eval to be loaded in GUI 
 
     can be list output (run on multiple images) or single output (run on single image)
