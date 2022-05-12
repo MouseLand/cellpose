@@ -9,6 +9,7 @@ from cellpose import models
 from cellpose.io import logger_setup
 import dask_image.ndmeasure._utils._label as label
 from scipy.ndimage import distance_transform_edt, find_objects
+from scipy.ndimage import generate_binary_structure
 import zarr
 from numcodecs import Blosc
 
@@ -134,8 +135,13 @@ def distributed_eval(
     def preprocess_and_segment(coords, flag, block_info=None):
 
         # skip block if no foreground, otherwise read image data
+        ndim = len(block_info[0]['shape'])
         if not flag.item():
-            return np.zeros(blocksize, dtype=np.uint32)
+            result = np.empty((1,)*ndim + (3,), dtype=object)
+            result[(0,)*ndim + (0,)] = np.zeros(blocksize, dtype=np.uint32)
+            result[(0,)*ndim + (1,)] = []
+            result[(0,)*ndim + (2,)] = []
+            return result
         coords = coords.item()
         image = zarr_array[coords]
 
@@ -148,10 +154,31 @@ def distributed_eval(
         model = models.Cellpose(**model_kwargs)
         segmentation = model.eval(image, **eval_kwargs)[0].astype(np.uint32)
 
+        # remove overlaps
+        new_coords = list(coords)
+        for axis in range(ndim):
+
+            # left side
+            if coords[axis].start != 0:
+                slc = [slice(None),]*ndim
+                slc[axis] = slice(overlap, None)
+                segmentation = segmentation[tuple(slc)]
+                a, b = coords[axis].start, coords[axis].stop
+                new_coords[axis] = slice(a + overlap, b)
+
+            # right side
+            if segmentation.shape[axis] > blocksize[axis]:
+                slc = [slice(None),]*ndim
+                slc[axis] = slice(None, blocksize[axis])
+                segmentation = segmentation[tuple(slc)]
+                a = new_coords[axis].start
+                new_coords[axis] = slice(a, a + blocksize)
+
         # get all segment bounding boxes, adjust to global coordinates
         boxes = find_objects(segmentation)
+        boxes = [b for b in boxes if b is not None]
         for iii, box in enumerate(boxes):
-            boxes[iii] = tuple(slice(a.start+b.start, a.start+b.stop) for a, b in zip(coords, box))
+            boxes[iii] = tuple(slice(a.start+b.start, a.start+b.stop) for a, b in zip(new_coords, box))
 
         # remap segment ids to globally unique values
         # TODO: casting string to uint32 will overflow witout warning or exception
@@ -162,33 +189,19 @@ def distributed_eval(
         #    in binary instead of decimal, then split into two 16 bit chunks
         #    then max number of blocks and max number of cells per block
         #    are both 2**16
+        unique, unique_inverse = np.unique(segmentation, return_inverse=True)
         a = block_info[0]['chunk-location']
         b = block_info[0]['num-chunks']
         p = str(np.ravel_multi_index(a, b))
-        remap = [np.uint32(p+str(x).zfill(5)) for x in range(len(boxes)+1)]
+        remap = [np.uint32(p+str(x).zfill(5)) for x in range(len(unique))]
         remap[0] = np.uint32(0)
-        segmentation = np.array(remap)[segmentation]
-
-        # remove overlaps
-        for axis in range(segmentation.ndim):
-
-            # left side
-            slc = [slice(None),]*segmentation.ndim
-            if coords[axis].start != 0:
-                slc[axis] = slice(overlap, None)
-                segmentation = segmentation[tuple(slc)]
-
-            # right side
-            slc = [slice(None),]*segmentation.ndim
-            if segmentation.shape[axis] > blocksize[axis]:
-                slc[axis] = slice(None, blocksize[axis])
-                segmentation = segmentation[tuple(slc)]
+        segmentation = np.array(remap)[unique_inverse.reshape(segmentation.shape)]
 
         # package and return results
-        result = np.empty((1,)*image.ndim + (3,), dtype=object)
-        result[(0,)*image.ndim + (0,)] = segmentation
-        result[(0,)*image.ndim + (1,)] = boxes
-        result[(0,)*image.ndim + (2,)] = remap[1:]
+        result = np.empty((1,)*ndim + (3,), dtype=object)
+        result[(0,)*ndim + (0,)] = segmentation
+        result[(0,)*ndim + (1,)] = boxes
+        result[(0,)*ndim + (2,)] = remap[1:]
         return result
 
     # run segmentation
@@ -231,43 +244,33 @@ def distributed_eval(
     new_labeling = label.connected_components_delayed(label_groups).compute()
     # XXX: new_labeling is returned as int32. Potentially a problem.
 
-    # TESTING: check details of new_labeling
-    print(new_labeling.shape, new_labeling.dtype, np.max(new_labeling))
-
     # map unused label ids to zero and remap remaining ids to [0, 1, 2, ...]
     unused_labels = np.ones(label_range + 1, dtype=bool)
     unused_labels[box_ids] = 0
     new_labeling[unused_labels] = 0
     unique, unique_inverse = np.unique(new_labeling, return_inverse=True)
-
-    # TESTING: learn number of cells that were merged
-    print(label_range + 1)  # nominal number of labels used
-    print(len(boxes))  # number of cells originally found
-    print(len(unique), flush=True)  # number of cells after merger
-
     new_labeling = np.arange(len(unique), dtype=np.uint32)[unique_inverse]
 
-    # TESTING: make sure new_labeling array is correct
-    u2 = np.unique(new_labeling)
-    print(new_labeling.shape, new_labeling.dtype, np.max(new_labeling), len(u2), u2.max(), flush=True)
-
-    new_labeling = da.from_array(new_labeling, chunks=-1)
-
-    # TESTING: check dask array details
-    print(new_labeling, flush=True)
-
-    # execute mergers and relabeling
-    relabeled = label.relabel_blocks(segmentation, new_labeling)
-
-    # TESTING: check relabeled dask array details
-    print(relabeled, flush=True)
-
-    # TODO: take union of merged label boxes
-    # TODO: eliminate merged box ids
-
-    # compute and store final result, return segmentation and boxes
+    # execute mergers and relabeling, write result to disk
+    new_labeling_da = da.from_array(new_labeling, chunks=-1)
+    relabeled = label.relabel_blocks(segmentation, new_labeling_da)
     da.to_zarr(relabeled, write_path)
-    return zarr.open(write_path, 'r+'), boxes
+
+    # merge boxes
+    merged_boxes = []
+    new_box_ids = new_labeling[box_ids]
+    boxes_array = np.empty(len(boxes), dtype=object)
+    boxes_array[...] = boxes
+    for iii in range(1, len(unique)):
+        merge_indices = np.argwhere(new_box_ids == iii).squeeze()
+        if merge_indices.shape:
+            merged_box = _merge_boxes(boxes_array[merge_indices])
+        else:
+            merged_box = boxes_array[merge_indices]
+        merged_boxes.append(merged_box)
+
+    # return segmentation and boxes
+    return zarr.open(write_path, 'r+'), merged_boxes
 
 
 def _block_face_adjacency_graph(labels, nlabels):
@@ -279,6 +282,7 @@ def _block_face_adjacency_graph(labels, nlabels):
     # get all boundary faces
     faces = label._chunk_faces(labels.chunks, labels.shape)
     all_mappings = [da.empty((2, 0), dtype=label.LABEL_DTYPE, chunks=1)]
+    structure = generate_binary_structure(3, 1)
 
     for face_slice in faces:
         # get boundary region
@@ -290,11 +294,6 @@ def _block_face_adjacency_graph(labels, nlabels):
         a = _shrink_labels_delayed(face[sl0], 1.0)
         b = _shrink_labels_delayed(face[sl1], 1.0)
         face = da.concatenate((a, b), axis=np.argmin(a.shape))
-
-        # connectivity structure normal to face plane
-        structure = np.zeros((3,)*face.ndim, dtype=bool)
-        sl = tuple(slice(None) if d==2 else slice(1, 2) for d in face.shape)
-        structure[sl] = True  # the line above will fail for really tiny chunks
 
         # find connections
         mapped = label._across_block_label_grouping_delayed(face, structure)
@@ -332,4 +331,20 @@ def _shrink_labels_delayed(plane, threshold):
     return da.from_delayed(
         shrunk_labels, shape=plane.shape, dtype=plane.dtype,
     )
+
+
+def _merge_boxes(boxes):
+    """
+    Take union of parallelpipeds
+    """
+
+    box1 = boxes[0]
+    for iii in range(1, len(boxes)):
+        union = []
+        for s1, s2 in zip(box1, boxes[iii]):
+            start = min(s1.start, s2.start)
+            stop = max(s1.stop, s2.stop)
+            union.append(slice(start, stop))
+        box1 = tuple(union)
+    return box1
 
