@@ -216,23 +216,23 @@ def distributed_eval(
     wait(results)
 
     # unpack results to seperate dask arrays
-    boxes, box_ids = [], []
+    boxes_da, box_ids_da = [], []
     segmentation = np.empty(nblocks, dtype=object)
     for (i, j, k) in np.ndindex(*nblocks):
-
-        # references to array, boxes, and box ids
-        a = results[i, j, k, 0:1]
-        b = results[i, j, k, 1:2]
-        c = results[i, j, k, 2:3]
-
         # create new dask array with correct metadata
         # [0][0] unwraps the arrays created by to_delayed and the return construct
-        a = da.from_delayed(a.to_delayed()[0][0], shape=blocksize, dtype=np.uint32)
-        segmentation[i, j, k] = a
+        a = results[i, j, k, 0:1].to_delayed()[0][0]
+        segmentation[i, j, k] = da.from_delayed(a, shape=blocksize, dtype=np.uint32)
+        boxes_da.append(results[i, j, k, 1:2])
+        box_ids_da.append(results[i, j, k, 2:3])
 
-        # bring the boxes and box ids to local memory
-        boxes += b.compute()[0]
-        box_ids += c.compute()[0]
+    # gather boxes and box_ids to local memory
+    # returns numpy array containing a list
+    boxes, box_ids = [], []
+    for a in cluster.client.gather(cluster.client.compute(boxes_da)):
+        boxes += a[0]
+    for a in cluster.client.gather(cluster.client.compute(box_ids_da)):
+        box_ids += a[0]
 
     # reassemble segmentation dask array, adjust for assumed map_overlap shape
     segmentation = da.block(segmentation.tolist())
