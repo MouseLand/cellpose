@@ -25,38 +25,20 @@ jobs:
 
     steps:
       - uses: actions/checkout@v2
-
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v2
+        uses: conda-incubator/setup-miniconda@v2
         with:
+          auto-activate-base: true
           python-version: ${{ matrix.python-version }}
-
-      # these libraries, along with pytest-xvfb (added in the `deps` in tox.ini),
-      # enable testing on Qt on linux
-      - name: Install Linux libraries
-        if: runner.os == 'Linux'
-        run: |
-          sudo apt-get install -y libdbus-1-3 libxkbcommon-x11-0 libxcb-icccm4 \
-            libxcb-image0 libxcb-keysyms1 libxcb-randr0 libxcb-render-util0 \
-            libxcb-xinerama0 libxcb-xinput0 libxcb-xfixes0 pkg-config libhdf5-103 libhdf5-dev
-      # strategy borrowed from vispy for installing opengl libs on windows
-      - name: Install Windows OpenGL
-        if: runner.os == 'Windows'
-        run: |
-          git clone --depth 1 https://www.github.com/pyvista/gl-ci-helpers.git
-          powershell gl-ci-helpers/appveyor/install_opengl.ps1
-      # note: if you need dependencies from conda, considering using
-      # setup-miniconda: https://github.com/conda-incubator/setup-miniconda
-      # and
-      # tox-conda: https://github.com/tox-dev/tox-conda
       - name: Install dependencies
+        shell: bash -l {0}
         run: |
-          python -m pip install --upgrade pip
-          pip install dask dask_image scikit-learn
-          pip install wheel setuptools tox tox-gh-actions
+          python -m pip install tox tox-gh-actions
       # this runs the platform-specific tests declared in tox.ini
       - name: Test with tox
-        run: tox
+        shell: bash -l {0}
+        run: |
+          tox
         env:
           PLATFORM: ${{ matrix.platform }}
 
