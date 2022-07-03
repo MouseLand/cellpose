@@ -61,7 +61,7 @@ class ModelButton(QPushButton):
 class TrainWindow(QDialog):
     def __init__(self, parent, model_strings):
         super().__init__(parent)
-        self.setGeometry(100,100,600,300)
+        self.setGeometry(100,100,900,350)
         self.setWindowTitle('train settings')
         self.win = QWidget(self)
         self.l0 = QGridLayout()
@@ -105,16 +105,17 @@ class TrainWindow(QDialog):
             self.l0.addWidget(qlabel, i+yoff,0,1,1)
             self.edits.append(QLineEdit())
             self.edits[-1].setText(str(parent.training_params[label]))
+            self.edits[-1].setFixedWidth(200)
             self.l0.addWidget(self.edits[-1], i+yoff, 1,1,1)
 
         yoff+=len(labels)
 
         yoff+=1
-        qlabel = QLabel('(to remove files, click cancel then remove from folder and reopen train window)')
-        self.l0.addWidget(qlabel, yoff,0,1,4)
+        qlabel = QLabel('(to remove files, click cancel then remove \nfrom folder and reopen train window)')
+        self.l0.addWidget(qlabel, yoff,0,2,4)
 
         # click button
-        yoff+=1
+        yoff+=2
         QBtn = QDialogButtonBox.Ok | QDialogButtonBox.Cancel
         self.buttonBox = QDialogButtonBox(QBtn)
         self.buttonBox.accepted.connect(lambda: self.accept(parent))

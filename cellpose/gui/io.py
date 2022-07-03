@@ -455,8 +455,12 @@ def _save_png(parent):
     filename = parent.filename
     base = os.path.splitext(filename)[0]
     if parent.NZ==1:
-        print('GUI_INFO: saving 2D masks to png')
-        imsave(base + '_cp_masks.png', parent.cellpix[0])
+        if parent.cellpix[0].max() > 65534:
+            print('GUI_INFO: saving 2D masks to tif (too many masks for PNG)')
+            imsave(base + '_cp_masks.tif', parent.cellpix[0])
+        else:
+            print('GUI_INFO: saving 2D masks to png')
+            imsave(base + '_cp_masks.png', parent.cellpix[0].astype(np.uint16))
     else:
         print('GUI_INFO: saving 3D masks to tiff')
         imsave(base + '_cp_masks.tif', parent.cellpix)

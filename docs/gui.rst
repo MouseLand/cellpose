@@ -89,6 +89,23 @@ Check out this `video <https://youtu.be/3Y1VKcxjNy4>`_ to learn the process.
 6. The model will train (much faster if you have a GPU) and then auto-run on the next image in the folder. Next you can repeat #3-#5 as many times as is necessary.
 7. The trained model is available to use in the future in the GUI in the "custom model" section and is saved in your image folder.
 
+If you have **3D** data, please save random XY, YZ and XZ slices through your 3D data, 
+ideally sufficiently spaced from each other so the information each slice has is 
+distinct. Then put these slices into a folder and start the human-in-the-loop training. 
+You can then use the new custom model on new 3D data. 
+
+.. note::
+    You can only start training with one of the built-in Cellpose models or from scratch. 
+    When you start training from a built-in model or from scratch each time, then you are training 
+    the network on all the previously labelled images in the folder and weighting them equally in 
+    your training set. 
+
+    If you restart from a previous retraining, you are biasing the network towards the earlier 
+    images it has already been trained on. Conversely, if you have created a custom model 
+    with different images, and you retrain that model, then you are downweighting the images 
+    that you have already trained on and excluded from your new training set. Therefore, we recommend having all images 
+    that you want to be trained for the same model in the same folder so they are all used.
+
 Contributing training data
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
