@@ -28,7 +28,11 @@ this code at the beginning of your notebook before you import cellpose:
    import os 
    os.environ["CELLPOSE_LOCAL_MODELS_PATH"] = "/PATH_FOR_MODELS/"
 
+M1 Mac installation
+~~~~~~~~~~~~~~~~~~~~~~~
 
+Please use the instructions provided on `image.sc <https://forum.image.sc/t/cellpose-on-macos-m1-pro-apple-silicon-arm64/68018/4>` 
+by Peter Sobolewski. 
 
 Common issues
 ~~~~~~~~~~~~~~~~~~~~~~~

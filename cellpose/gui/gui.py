@@ -9,6 +9,7 @@ import pyqtgraph as pg
 from pyqtgraph import GraphicsScene
 
 import numpy as np
+from scipy.stats import mode
 import cv2
 
 from . import guiparts, menus, io
@@ -125,13 +126,18 @@ def run():
     app = QApplication(sys.argv)
     icon_path = pathlib.Path.home().joinpath('.cellpose', 'logo.png')
     guip_path = pathlib.Path.home().joinpath('.cellpose', 'cellpose_gui.png')
+    style_path = pathlib.Path.home().joinpath('.cellpose', 'style_choice.npy')
     if not icon_path.is_file():
         cp_dir = pathlib.Path.home().joinpath('.cellpose')
         cp_dir.mkdir(exist_ok=True)
         print('downloading logo')
         download_url_to_file('https://www.cellpose.org/static/images/cellpose_transparent.png', icon_path, progress=True)
     if not guip_path.is_file():
+        print('downloading help window image')
         download_url_to_file('https://www.cellpose.org/static/images/cellpose_gui.png', guip_path, progress=True)
+    if not style_path.is_file():
+        print('downloading style classifier')
+        download_url_to_file('https://www.cellpose.org/static/models/style_choice.npy', style_path, progress=True)
     icon_path = str(icon_path.resolve())
     app_icon = QtGui.QIcon()
     app_icon.addFile(icon_path, QtCore.QSize(16, 16))
@@ -503,15 +509,15 @@ class MainW(QMainWindow):
         self.GB.setLayout(self.GBg)
 
         # compute segmentation with general models
-        net_text = ['cyto','nuclei','tissuenet','livecell', 'cyto2']
+        self.net_text = ['cyto','nuclei','tissuenet','livecell', 'cyto2']
         nett = ['cellpose cyto model', 
                 'cellpose nuclei model',
                 'tissuenet cell model',
                 'livecell model',
                 'cellpose cyto2 model']
         self.StyleButtons = []
-        for j in range(len(net_text)):
-            self.StyleButtons.append(guiparts.ModelButton(self, net_text[j], net_text[j]))
+        for j in range(len(self.net_text)):
+            self.StyleButtons.append(guiparts.ModelButton(self, self.net_text[j], self.net_text[j]))
             self.GBg.addWidget(self.StyleButtons[-1], 0,2*j,1,2)
             if j < 4:
                 self.StyleButtons[-1].setFixedWidth(45)
@@ -520,16 +526,23 @@ class MainW(QMainWindow):
             self.StyleButtons[-1].setToolTip(nett[j])
 
         # compute segmentation with style model
-        net_text = ['CP', 'CPx', 'TN1', 'TN2', 'TN3', #'TN-p','TN-gi','TN-i',
-                    'LC1', 'LC2', 'LC3', 'LC4', #'LC-g','LC-e','LC-r','LC-n',
-                    ]
+        self.net_text.extend(['CP', 'CPx', 'TN1', 'TN2', 'TN3', #'TN-p','TN-gi','TN-i',
+                         'LC1', 'LC2', 'LC3', 'LC4', #'LC-g','LC-e','LC-r','LC-n',
+                        ])
         nett = ['cellpose cyto fluorescent', 'cellpose other', 'tissuenet 1', 'tissuenet 2', 'tissuenet 3',
                 'livecell A172 + SKOV3', 'livecell various', 'livecell BV2 + SkBr3', 'livecell SHSY5Y']
         for j in range(9):
-            self.StyleButtons.append(guiparts.ModelButton(self, net_text[j], net_text[j]))
+            self.StyleButtons.append(guiparts.ModelButton(self, self.net_text[j+5], self.net_text[j+5]))
             self.GBg.addWidget(self.StyleButtons[-1], 1,j,1,1)
             self.StyleButtons[-1].setFixedWidth(22)
             self.StyleButtons[-1].setToolTip(nett[j])
+
+        self.StyleToModel = QPushButton(' compute style and run suggested model')
+        self.StyleToModel.setStyleSheet(self.styleInactive)
+        self.StyleToModel.clicked.connect(self.suggest_model)
+        self.StyleToModel.setToolTip(' uses general cp2 model to compute style and runs suggested model based on style')
+        self.StyleToModel.setFont(self.smallfont)
+        self.GBg.addWidget(self.StyleToModel, 2,0,1,10)
 
         self.l0.addWidget(self.GB, b, 0, 2, 9)
 
@@ -1705,6 +1718,33 @@ class MainW(QMainWindow):
             io._masks_to_gui(self, maski, outlines=None)
             self.show()
 
+    def suggest_model(self, model_name=None):
+        logger.info('computing styles with 2D image...')
+        data = self.stack[self.NZ//2].copy()
+        styles_gt = np.load(os.fspath(pathlib.Path.home().joinpath('.cellpose', 'style_choice.npy')), 
+                            allow_pickle=True).item()
+        train_styles, train_labels, label_models = styles_gt['train_styles'], styles_gt['leiden_labels'], styles_gt['label_models']
+        self.diameter = float(self.Diameter.text())
+        self.current_model = 'general'
+        channels = self.get_channels()
+        model = models.CellposeModel(model_type='general', gpu=self.useGPU.isChecked())
+        styles = model.eval(data, 
+                            channels=channels, 
+                            diameter=self.diameter, 
+                            compute_masks=False)[-1]
+
+        n_neighbors = 5
+        dists = ((train_styles - styles)**2).sum(axis=1)**0.5
+        neighbor_labels = train_labels[dists.argsort()[:n_neighbors]]
+        label = mode(neighbor_labels)[0][0]
+        model_type = label_models[label]
+        logger.info(f'style suggests model {model_type}')
+        ind = self.net_text.index(model_type)
+        for i in range(len(self.net_text)):
+            self.StyleButtons[i].setStyleSheet(self.styleUnpressed)
+        self.StyleButtons[ind].setStyleSheet(self.stylePressed)
+        self.compute_model(model_name=model_type)
+            
     def compute_model(self, model_name=None):
         self.progress.setValue(0)
         try:
@@ -1781,6 +1821,8 @@ class MainW(QMainWindow):
         if len(self.model_strings) > 0:
             self.ModelButton.setStyleSheet(self.styleUnpressed)
             self.ModelButton.setEnabled(True)
+        self.StyleToModel.setStyleSheet(self.styleUnpressed)
+        self.StyleToModel.setEnabled(True)
         for i in range(len(self.StyleButtons)):
             self.StyleButtons[i].setEnabled(True)
             self.StyleButtons[i].setStyleSheet(self.styleUnpressed)
