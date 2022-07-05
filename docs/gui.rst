@@ -106,6 +106,8 @@ You can then use the new custom model on new 3D data.
     that you have already trained on and excluded from your new training set. Therefore, we recommend having all images 
     that you want to be trained for the same model in the same folder so they are all used.
 
+See the models :doc:`models.rst` for info on the new model zoo.
+
 Contributing training data
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

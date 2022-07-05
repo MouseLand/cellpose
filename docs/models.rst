@@ -22,6 +22,14 @@ The models will internally take care of rescaling the images given a
 user-provided diameter (or with the diameter from 
 auto-diameter estimation in full models).
 
+There is a suggestion button below the model zoo in the GUI. This runs a ``general`` model 
+that has been trained on Cellpose, TissueNet, and LiveCell to obtain the style 
+of the image. It uses this style to suggest which model would be best for the 
+given image (see info in Cellpose 2.0 `paper <https://www.biorxiv.org/content/10.1101/2022.04.01.486764v1>`_, 
+and runs the suggested model on the image. Make sure the diameter is set to the approximate 
+diameter of the ROIs in the image before clicking the button to ensure best performance.
+
+
 Full built-in models
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
