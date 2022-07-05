@@ -11,7 +11,8 @@ The quickest way to start is to open the GUI from a command line terminal. You m
 
 The first time cellpose runs it downloads the latest available trained model weights from the website.
 
-You can **drag and drop** images (.tif, .png, .jpg, .gif) into the GUI and run Cellpose, and/or manually segment them. When the GUI is processing, you will see the progress bar fill up and during this time you cannot click on anything in the GUI. For more information about what the GUI is doing you can look at the terminal/prompt you opened the GUI with. For example data, See [website](http://www.cellpose.org). For best accuracy and runtime performance, resize images so cells are less than 100 pixels across. 
+You can **drag and drop** images (.tif, .png, .jpg, .gif) into the GUI and run Cellpose, and/or manually segment them. When the GUI is processing, you will see the progress bar fill up and during this time you cannot click on anything in the GUI. For more information about what the GUI is doing you can look at the terminal/prompt you opened the GUI with. 
+For example data, see `cellpose website <https://www.cellpose.org>`_. For best accuracy and runtime performance, resize images so cells are less than 100 pixels across. 
 
 For multi-channel, multi-Z tiff's, the expected format is Z x channels x Ly x Lx.
 
@@ -106,7 +107,7 @@ You can then use the new custom model on new 3D data.
     that you have already trained on and excluded from your new training set. Therefore, we recommend having all images 
     that you want to be trained for the same model in the same folder so they are all used.
 
-See the models :doc:`models.rst` for info on the new model zoo.
+See the Models doc for info on the new model zoo and suggestion mode.
 
 Contributing training data
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
