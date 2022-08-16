@@ -437,7 +437,7 @@ class RGBRadioButtons(QButtonGroup):
                 button.setChecked(True)
             self.addButton(button, b)
             button.toggled.connect(lambda: self.btnpress(parent))
-            self.parent.l0.addWidget(button, row+b,col,1,3)
+            self.parent.l0.addWidget(button, row,col+2*b,1,2)
         self.setExclusive(True)
         #self.buttons.
 
@@ -581,7 +581,7 @@ class ImageDraw(pg.ImageItem):
         return
 
     def hoverEvent(self, ev):
-        QtWidgets.QApplication.setOverrideCursor(QtCore.Qt.CrossCursor)
+        #QtWidgets.QApplication.setOverrideCursor(QtCore.Qt.CrossCursor)
         if self.parent.in_stroke:
             if self.parent.in_stroke:
                 # continue stroke if not at start
@@ -726,12 +726,12 @@ class RangeSlider(QSlider):
         self.setStyleSheet(\
                 "QSlider::handle:horizontal {\
                 background-color: white;\
-                border: 1px solid #5c5c5c;\
-                border-radius: 0px;\
-                border-color: black;\
+                border: 1px solid white;\
+                border-radius: 2px;\
+                border-color: white;\
                 height: 8px;\
                 width: 6px;\
-                margin: -8px 2; \
+                margin: 0px 2; \
                 }")
 
 
