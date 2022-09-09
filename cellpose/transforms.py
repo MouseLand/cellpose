@@ -1,6 +1,7 @@
 import numpy as np
 import warnings
 import cv2
+import torch
 
 import logging
 transforms_logger = logging.getLogger(__name__)
@@ -240,7 +241,13 @@ def convert_image(x, channels, channel_axis=None, z_axis=None,
                   do_3D=False, normalize=True, invert=False,
                   nchan=2):
     """ return image with z first, channels last and normalized intensities """
-        
+
+    # check if image is a torch array instead of numpy array
+    # converts torch to numpy
+    if torch.is_tensor(x):
+        transforms_logger.warning('torch array used as input, converting to numpy')
+        x = x.cpu().numpy()
+    
     # squeeze image, and if channel_axis or z_axis given, transpose image
     if x.ndim > 3:
         to_squeeze = np.array([int(isq) for isq,s in enumerate(x.shape) if s==1])

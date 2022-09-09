@@ -18,6 +18,8 @@ def test_class_train(data_dir):
     cpmodel_path = model.train(images, labels, train_files=image_names, 
                                test_data=test_images, test_labels=test_labels, test_files=image_names_test,
                                channels=[2,1], save_path=train_dir, n_epochs=3)
+    io.add_model(cpmodel_path)
+    io.remove_model(cpmodel_path, delete=True)
     print('>>>> model trained and saved to %s'%cpmodel_path)
         
 def test_cli_train(data_dir):
