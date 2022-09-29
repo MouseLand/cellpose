@@ -23,8 +23,7 @@ Cellpose was written by Carsen Stringer and Marius Pachitariu. To learn about Ce
 Stringer, C., Wang, T., Michaelos, M., & Pachitariu, M. (2021). <em> Cellpose: a generalist algorithm for cellular segmentation </em>. Nature methods, 18(1), 100-106.
 
 If you use the new human-in-the-loop training or the new models, please cite the Cellpose 2.0 [paper](https://www.biorxiv.org/content/10.1101/2022.04.01.486764v1):  
-Stringer, C., Wang, T., Michaelos, M., & Pachitariu, M. (2021). <em> Cellpose: a generalist algorithm for cellular segmentation </em>. Nature methods, 18(1), 100-106.
-Stringer, C., & Pachitariu, M. (2022). Cellpose 2.0: how to train your own model. bioRxiv.
+Stringer, C., & Pachitariu, M. (2022). <em> Cellpose 2.0: how to train your own model </em>. bioRxiv.
 
 If you want to improve Cellpose for yourself and for everyone else, please consider contributing manual segmentations for a few of your images via the built-in GUI interface (see instructions below).
 
