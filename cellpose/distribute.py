@@ -1,17 +1,21 @@
-import functools
+import functools, os
 import operator
 import numpy as np
-import dask.array as da
 from dask import delayed
 from dask.distributed import wait
+import dask.array as da
 from ClusterWrap.decorator import cluster
+import CircuitSeeker.utility as ut
 from cellpose import models
 from cellpose.io import logger_setup
 import dask_image.ndmeasure._utils._label as label
 from scipy.ndimage import distance_transform_edt, find_objects
 from scipy.ndimage import generate_binary_structure
+from scipy.sparse import coo_matrix
+from scipy.sparse.csgraph import connected_components
 import zarr
 from numcodecs import Blosc
+import tempfile
 
 
 @cluster
@@ -25,6 +29,7 @@ def distributed_eval(
     eval_kwargs={},
     cluster=None,
     cluster_kwargs={},
+    temporary_directory=None,
 ):
     """
     Evaluate a cellpose model on overlapping blocks of a big image
@@ -104,46 +109,50 @@ def distributed_eval(
         eval_kwargs['diameter'] = 30
     overlap = eval_kwargs['diameter'] * 2
     blocksize = np.array(blocksize)
+    if mask is not None:
+        mask_blocksize = np.round(blocksize * mask.shape / zarr_array.shape).astype(int)
 
-    # construct array of block coordinate slices
+    # get all foreground block coordinates
     nblocks = np.ceil(np.array(zarr_array.shape) / blocksize).astype(np.int16)
-    block_coords = np.empty(nblocks, dtype=tuple)
+    block_coords = []
     for (i, j, k) in np.ndindex(*nblocks):
         start = blocksize * (i, j, k) - overlap
         stop = start + blocksize + 2 * overlap
         start = np.maximum(0, start)
         stop = np.minimum(zarr_array.shape, stop)
         coords = tuple(slice(x, y) for x, y in zip(start, stop))
-        block_coords[i, j, k] = coords
 
-    # construct array of booleans for masking
-    block_flags = np.ones(nblocks, dtype=bool)
-    if mask is not None:
-        mask_blocksize = np.round(blocksize * mask.shape / zarr_array.shape).astype(int)
-        for (i, j, k) in np.ndindex(*nblocks):
+        # check foreground
+        foreground = True
+        if mask is not None:
             start = mask_blocksize * (i, j, k)
             stop = start + mask_blocksize
             stop = np.minimum(mask.shape, stop)
             mask_coords = tuple(slice(x, y) for x, y in zip(start, stop))
-            if not np.any(mask[mask_coords]): block_flags[i, j, k] = False
+            if not np.any(mask[mask_coords]): foreground = False
+        if foreground:
+            block_coords.append( ((i, j, k), coords) )
 
-    # convert to dask arrays
-    block_coords = da.from_array(block_coords, chunks=(1,)*block_coords.ndim)
-    block_flags = da.from_array(block_flags, chunks=(1,)*block_flags.ndim)
+    # construct zarr file for output
+    temporary_directory = tempfile.TemporaryDirectory(
+        prefix='.', dir=temporary_directory or os.getcwd(),
+    )
+    output_zarr_path = temporary_directory.name + '/segmentation_unstitched.zarr'
+    output_zarr = ut.create_zarr(
+        output_zarr_path,
+        zarr_array.shape,
+        blocksize,
+        np.uint32,
+    )
 
     # pipeline to run on each block
-    def preprocess_and_segment(coords, flag, block_info=None):
+    def preprocess_and_segment(coords):
 
-        # skip block if no foreground, otherwise read image data
-        ndim = len(block_info[0]['shape'])
-        if not flag.item():
-            result = np.empty((1,)*ndim + (3,), dtype=object)
-            result[(0,)*ndim + (0,)] = np.zeros(blocksize, dtype=np.uint32)
-            result[(0,)*ndim + (1,)] = []
-            result[(0,)*ndim + (2,)] = []
-            return result
-        coords = coords.item()
+        # parse inputs and print
+        block_index = coords[0]
+        coords = coords[1]
         image = zarr_array[coords]
+        print('SEGMENTING BLOCK: ', block_index, '\tREGION: ', coords, flush=True)
 
         # preprocess
         for pp_step in preprocessing_steps:
@@ -156,11 +165,11 @@ def distributed_eval(
 
         # remove overlaps
         new_coords = list(coords)
-        for axis in range(ndim):
+        for axis in range(image.ndim):
 
             # left side
             if coords[axis].start != 0:
-                slc = [slice(None),]*ndim
+                slc = [slice(None),]*image.ndim
                 slc[axis] = slice(overlap, None)
                 segmentation = segmentation[tuple(slc)]
                 a, b = coords[axis].start, coords[axis].stop
@@ -168,11 +177,11 @@ def distributed_eval(
 
             # right side
             if segmentation.shape[axis] > blocksize[axis]:
-                slc = [slice(None),]*ndim
+                slc = [slice(None),]*image.ndim
                 slc[axis] = slice(None, blocksize[axis])
                 segmentation = segmentation[tuple(slc)]
                 a = new_coords[axis].start
-                new_coords[axis] = slice(a, a + blocksize)
+                new_coords[axis] = slice(a, a + blocksize[axis])
 
         # get all segment bounding boxes, adjust to global coordinates
         boxes = find_objects(segmentation)
@@ -190,58 +199,50 @@ def distributed_eval(
         #    then max number of blocks and max number of cells per block
         #    are both 2**16
         unique, unique_inverse = np.unique(segmentation, return_inverse=True)
-        a = block_info[0]['chunk-location']
-        b = block_info[0]['num-chunks']
-        p = str(np.ravel_multi_index(a, b))
+        p = str(np.ravel_multi_index(block_index, nblocks))
         remap = [np.uint32(p+str(x).zfill(5)) for x in range(len(unique))]
         remap[0] = np.uint32(0)
         segmentation = np.array(remap)[unique_inverse.reshape(segmentation.shape)]
 
+        # write segmentaiton block
+        output_zarr[tuple(new_coords)] = segmentation
+
+        # get the block faces
+        faces = []
+        for iii in range(3):
+            a = [slice(None),] * 3
+            a[iii] = slice(0, 1)
+            faces.append(segmentation[tuple(a)])
+            a = [slice(None),] * 3
+            a[iii] = slice(-1, None)
+            faces.append(segmentation[tuple(a)])
+
         # package and return results
-        result = np.empty((1,)*ndim + (3,), dtype=object)
-        result[(0,)*ndim + (0,)] = segmentation
-        result[(0,)*ndim + (1,)] = boxes
-        result[(0,)*ndim + (2,)] = remap[1:]
-        return result
+        return block_index, (faces, boxes, remap[1:])
 
-    # run segmentation
-    results = da.map_blocks(
-        preprocess_and_segment,
-        block_coords,
-        block_flags,
-        dtype=object,
-        new_axis=[3,],
-        chunks=(1,)*zarr_array.ndim + (3,),
-    ).persist()
-    wait(results)
+    # submit all segmentations, reformat to dict[block_index] = (faces, boxes, box_ids)
+    results = cluster.client.gather(cluster.client.map(
+        preprocess_and_segment, block_coords,
+    ))
+    results = {a:b for a, b in results}
+    print('REDUCE STEP, SHOULD TAKE 5-10 MINUTES')
 
-    # unpack results to seperate dask arrays
-    boxes_da, box_ids_da = [], []
-    segmentation = np.empty(nblocks, dtype=object)
-    for (i, j, k) in np.ndindex(*nblocks):
-        # create new dask array with correct metadata
-        # [0][0] unwraps the arrays created by to_delayed and the return construct
-        a = results[i, j, k, 0:1].to_delayed()[0][0]
-        segmentation[i, j, k] = da.from_delayed(a, shape=blocksize, dtype=np.uint32)
-        boxes_da.append(results[i, j, k, 1:2])
-        box_ids_da.append(results[i, j, k, 2:3])
-
-    # gather boxes and box_ids to local memory
-    # returns numpy array containing a list
-    boxes, box_ids = [], []
-    for a in cluster.client.gather(cluster.client.compute(boxes_da)):
-        boxes += a[0]
-    for a in cluster.client.gather(cluster.client.compute(box_ids_da)):
-        box_ids += a[0]
-
-    # reassemble segmentation dask array, adjust for assumed map_overlap shape
-    segmentation = da.block(segmentation.tolist())
-    segmentation = segmentation[tuple(slice(0, s) for s in zarr_array.shape)]
+    # find face adjacency pairs
+    faces, boxes, box_ids = [], [], []
+    for block_index, result in results.items():
+        for ax, index in enumerate(block_index):
+            neighbor_index = tuple(a+1 if i==ax else a for i, a in enumerate(block_index))
+            if neighbor_index not in results.keys(): continue
+            a = result[0][2*ax + 1]
+            b = results[neighbor_index][0][2*ax]
+            faces.append( np.concatenate((a, b), axis=ax) )
+        boxes += result[1]
+        box_ids += result[2]
 
     # determine mergers
     label_range = np.max(box_ids)
-    label_groups = _block_face_adjacency_graph(segmentation, label_range)
-    new_labeling = label.connected_components_delayed(label_groups).compute()
+    label_groups = _block_face_adjacency_graph(faces, label_range)
+    new_labeling = connected_components(label_groups, directed=False)[1]
     # XXX: new_labeling is returned as int32. Potentially a problem.
 
     # map unused label ids to zero and remap remaining ids to [0, 1, 2, ...]
@@ -250,10 +251,12 @@ def distributed_eval(
     new_labeling[unused_labels] = 0
     unique, unique_inverse = np.unique(new_labeling, return_inverse=True)
     new_labeling = np.arange(len(unique), dtype=np.uint32)[unique_inverse]
+    print('REDUCTION COMPLETE')
 
     # execute mergers and relabeling, write result to disk
     new_labeling_da = da.from_array(new_labeling, chunks=-1)
-    relabeled = label.relabel_blocks(segmentation, new_labeling_da)
+    segmentation_da = da.from_zarr(output_zarr)
+    relabeled = label.relabel_blocks(segmentation_da, new_labeling_da)
     da.to_zarr(relabeled, write_path)
 
     # merge boxes
@@ -270,42 +273,33 @@ def distributed_eval(
         merged_boxes.append(merged_box)
 
     # return segmentation and boxes
-    return zarr.open(write_path, 'r+'), merged_boxes
+    return zarr.open(write_path, mode='r'), merged_boxes
 
 
-def _block_face_adjacency_graph(labels, nlabels):
+def _block_face_adjacency_graph(faces, nlabels):
     """
     Shrink labels in face plane, then find which labels touch across the
-    ace boundary
+    face boundary
     """
 
-    # get all boundary faces
-    faces = label._chunk_faces(labels.chunks, labels.shape)
-    all_mappings = [da.empty((2, 0), dtype=label.LABEL_DTYPE, chunks=1)]
+    all_mappings = []
     structure = generate_binary_structure(3, 1)
-
-    for face_slice in faces:
-        # get boundary region
-        face = labels[face_slice]
-
+    for face in faces:
         # shrink labels in plane
         sl0 = tuple(slice(0, 1) if d==2 else slice(None) for d in face.shape)
         sl1 = tuple(slice(1, 2) if d==2 else slice(None) for d in face.shape)
-        a = _shrink_labels_delayed(face[sl0], 1.0)
-        b = _shrink_labels_delayed(face[sl1], 1.0)
-        face = da.concatenate((a, b), axis=np.argmin(a.shape))
+        a = _shrink_labels(face[sl0], 1.0)  # TODO: look at merges, consider increasing threshold
+        b = _shrink_labels(face[sl1], 1.0)
+        face = np.concatenate((a, b), axis=np.argmin(a.shape))
 
         # find connections
-        mapped = label._across_block_label_grouping_delayed(face, structure)
+        mapped = label._across_block_label_grouping(face, structure)
         all_mappings.append(mapped)
 
-    # reorganize as csr_matrix
-    all_mappings = da.concatenate(all_mappings, axis=1)
-    i, j = all_mappings
-    mat = label._to_csr_matrix(i, j, nlabels + 1)
-
-    # return matrix
-    return mat
+    # reformat as csr_matrix and return
+    i, j = np.concatenate(all_mappings, axis=1)
+    v = np.ones_like(i)
+    return coo_matrix((v, (i, j)), shape=(nlabels+1, nlabels+1)).tocsr()
 
 
 def _shrink_labels(plane, threshold):
@@ -319,18 +313,6 @@ def _shrink_labels(plane, threshold):
     distances = distance_transform_edt(shrunk_labels)
     shrunk_labels[distances <= threshold] = 0
     return shrunk_labels.reshape(plane.shape)
-
-
-def _shrink_labels_delayed(plane, threshold):
-    """
-    Delayed version of `_shrink_labels`
-    """
-
-    _shrink_labels_d = delayed(_shrink_labels)
-    shrunk_labels = _shrink_labels_d(plane, threshold)
-    return da.from_delayed(
-        shrunk_labels, shape=plane.shape, dtype=plane.dtype,
-    )
 
 
 def _merge_boxes(boxes):
