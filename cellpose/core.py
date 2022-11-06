@@ -63,11 +63,28 @@ def _use_gpu_torch(gpu_number=0):
         return False
 
 def assign_device(use_torch=True, gpu=False, device=0):
+    mac = False
+    cpu = True
+    if isinstance(device, str):
+        if device=='mps':
+            mac = True 
+        else:
+            device = int(device)
     if gpu and use_gpu(use_torch=True):
         device = torch.device(f'cuda:{device}')
         gpu=True
+        cpu=False
         core_logger.info('>>>> using GPU')
-    else:
+    elif mac:
+        try:
+            device = torch.device('mps')
+            gpu=True
+            core_logger.info('>>>> using GPU')
+        except:
+            cpu = True 
+            gpu = False
+
+    if cpu:
         device = torch.device('cpu')
         core_logger.info('>>>> using CPU')
         gpu=False

@@ -385,7 +385,7 @@ def save_masks(images, masks, flows, file_names, png=True, tif=False, channels=[
 
     if png and matplotlib installed, full segmentation figure is saved to file_names[k]+'_cp.png'
 
-    only tif option works for 3D data
+    only tif option works for 3D data, and only tif option works for empty masks
     
     Parameters
     -------------
@@ -422,7 +422,16 @@ def save_masks(images, masks, flows, file_names, png=True, tif=False, channels=[
     
     if masks.ndim > 2 and not tif:
         raise ValueError('cannot save 3D outputs as PNG, use tif option instead')
-#     base = os.path.splitext(file_names)[0]
+    
+    if masks.max() == 0:
+        io_logger.warning('no masks found, will not save PNG or outlines')
+        if not tif:
+            return
+        else:
+            png = False 
+            save_outlines=False 
+            save_flows=False
+            save_txt=False
     
     if savedir is None: 
         if dir_above:
