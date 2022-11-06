@@ -3,6 +3,7 @@ import gc
 from natsort import natsorted
 from tqdm import tqdm, trange
 
+import PyQt5
 from PyQt5 import QtGui, QtCore, Qt, QtWidgets
 from PyQt5.QtWidgets import QMainWindow, QApplication, QWidget, QScrollBar, QSlider, QComboBox, QGridLayout, QPushButton, QFrame, QCheckBox, QLabel, QProgressBar, QLineEdit, QMessageBox, QGroupBox
 import pyqtgraph as pg
