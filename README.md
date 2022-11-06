@@ -19,11 +19,15 @@ A generalist algorithm for cell and nucleus segmentation.
 
 Cellpose was written by Carsen Stringer and Marius Pachitariu. To learn about Cellpose 2.0 (human-in-the-loop), read the [paper](https://www.biorxiv.org/content/10.1101/2022.04.01.486764v1) or watch the [talk](https://www.youtube.com/watch?v=3ydtAhfq6H0). To learn about Cellpose 1.0, read the [paper](https://t.co/kBMXmPp3Yn?amp=1) or watch the [talk](https://t.co/JChCsTD0SK?amp=1). For support, please open an [issue](https://github.com/MouseLand/cellpose/issues).  Please find the detailed documentation at <span style="font-size:larger;">[cellpose.readthedocs.io](https://cellpose.readthedocs.io/en/latest/)</span>.
 
-**CITATION**: If you use the original built-in models (`cyto` or `nuclei`), please cite the Cellpose 1.0 [paper](https://t.co/kBMXmPp3Yn?amp=1):  
+### CITATION
+
+If you use the original built-in models (`cyto` or `nuclei`), please cite the Cellpose 1.0 [paper](https://t.co/kBMXmPp3Yn?amp=1):  
 Stringer, C., Wang, T., Michaelos, M., & Pachitariu, M. (2021). <em> Cellpose: a generalist algorithm for cellular segmentation </em>. Nature methods, 18(1), 100-106.
 
 If you use the new human-in-the-loop training or the new models, please cite the Cellpose 2.0 [paper](https://www.biorxiv.org/content/10.1101/2022.04.01.486764v1):  
 Stringer, C., & Pachitariu, M. (2022). <em> Cellpose 2.0: how to train your own model </em>. bioRxiv.
+
+:triangular_flag_on_post: the new `tissuenet`, `TN1`, `TN2`, `TN3`, `livecell`, `LC1`, `LC2`, `LC3` and `LC4` were trained using data under a **CC-BY-NC** license, so these models CANNOT be used for commercial applications.
 
 If you want to improve Cellpose for yourself and for everyone else, please consider contributing manual segmentations for a few of your images via the built-in GUI interface (see instructions below).
 

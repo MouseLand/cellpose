@@ -502,8 +502,8 @@ class MainW(QMainWindow):
         self.net_text = ['cyto','nuclei','tissuenet','livecell', 'cyto2']
         nett = ['cellpose cyto model', 
                 'cellpose nuclei model',
-                'tissuenet cell model',
-                'livecell model',
+                'tissuenet cell model\n(non-commercial use only)',
+                'livecell model\n(non-commercial use only)',
                 'cellpose cyto2 model']
         self.StyleButtons = []
         for j in range(len(self.net_text)):
@@ -519,8 +519,10 @@ class MainW(QMainWindow):
         self.net_text.extend(['CP', 'CPx', 'TN1', 'TN2', 'TN3', #'TN-p','TN-gi','TN-i',
                          'LC1', 'LC2', 'LC3', 'LC4', #'LC-g','LC-e','LC-r','LC-n',
                         ])
-        nett = ['cellpose cyto fluorescent', 'cellpose other', 'tissuenet 1', 'tissuenet 2', 'tissuenet 3',
-                'livecell A172 + SKOV3', 'livecell various', 'livecell BV2 + SkBr3', 'livecell SHSY5Y']
+        nett = ['cellpose cyto fluorescent', 'cellpose other', 'tissuenet 1\n(non-commercial use only)', 
+                'tissuenet 2\n(non-commercial use only)', 'tissuenet 3\n(non-commercial use only)',
+                'livecell A172 + SKOV3\n(non-commercial use only)', 'livecell various\n(non-commercial use only)', 
+                'livecell BV2 + SkBr3\n(non-commercial use only)', 'livecell SHSY5Y\n(non-commercial use only)']
         for j in range(9):
             self.StyleButtons.append(guiparts.ModelButton(self, self.net_text[j+5], self.net_text[j+5]))
             self.GBg.addWidget(self.StyleButtons[-1], 1,j,1,1)
