@@ -7,6 +7,9 @@ Input settings
     * dir: (string)
         directory of images 
 
+    * image_path: (string)
+        if dir not given, path to a single image file to run
+
     * img_filter: (string)
         (optional) ending of filenames (excluding extension) for processing
 
@@ -77,11 +80,11 @@ You can run the help string and see all the options:
 
 ::
     
-    usage: __main__.py [-h] [--use_gpu] [--gpu_device GPU_DEVICE] [--check_mkl] [--dir DIR] [--look_one_level_down]
-                   [--img_filter IMG_FILTER] [--channel_axis CHANNEL_AXIS] [--z_axis Z_AXIS] [--chan CHAN]
-                   [--chan2 CHAN2] [--invert] [--all_channels] [--pretrained_model PRETRAINED_MODEL] [--unet]
-                   [--nclasses NCLASSES] [--no_resample] [--net_avg] [--no_interp] [--no_norm] [--do_3D]
-                   [--diameter DIAMETER] [--stitch_threshold STITCH_THRESHOLD] [--fast_mode]
+    usage: __main__.py [-h] [--use_gpu] [--gpu_device GPU_DEVICE] [--check_mkl] [--dir DIR] [--image_path IMAGE_PATH]
+                   [--look_one_level_down] [--img_filter IMG_FILTER] [--channel_axis CHANNEL_AXIS] [--z_axis Z_AXIS]
+                   [--chan CHAN] [--chan2 CHAN2] [--invert] [--all_channels] [--pretrained_model PRETRAINED_MODEL]
+                   [--add_model ADD_MODEL] [--unet] [--nclasses NCLASSES] [--no_resample] [--net_avg] [--no_interp]
+                   [--no_norm] [--do_3D] [--diameter DIAMETER] [--stitch_threshold STITCH_THRESHOLD] [--fast_mode]
                    [--flow_threshold FLOW_THRESHOLD] [--cellprob_threshold CELLPROB_THRESHOLD]
                    [--anisotropy ANISOTROPY] [--exclude_on_edges] [--save_png] [--save_tif] [--no_npy]
                    [--savedir SAVEDIR] [--dir_above] [--in_folders] [--save_flows] [--save_outlines] [--save_ncolor]
@@ -100,11 +103,14 @@ You can run the help string and see all the options:
     hardware arguments:
     --use_gpu             use gpu if torch with cuda installed
     --gpu_device GPU_DEVICE
-                            which gpu device to use
+                            which gpu device to use, use an integer for torch, or mps for M1
     --check_mkl           check if mkl working
 
     input image arguments:
     --dir DIR             folder containing data to run or train on.
+    --image_path IMAGE_PATH
+                            if given and --dir not given, run on single image instead of folder (cannot train with this
+                            option)
     --look_one_level_down
                             run processing on all subdirectories of current folder
     --img_filter IMG_FILTER
@@ -120,6 +126,8 @@ You can run the help string and see all the options:
     model arguments:
     --pretrained_model PRETRAINED_MODEL
                             model to use for running or starting training
+    --add_model ADD_MODEL
+                            model path to copy model to hidden .cellpose folder for using in GUI/CLI
     --unet                run standard unet instead of cellpose flow output
     --nclasses NCLASSES   if running unet, choose 2 or 3; cellpose always uses 3
 

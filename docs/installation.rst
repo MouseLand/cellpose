@@ -32,7 +32,12 @@ M1 Mac installation
 ~~~~~~~~~~~~~~~~~~~~~~~
 
 Please use the instructions provided on `image.sc <https://forum.image.sc/t/cellpose-on-macos-m1-pro-apple-silicon-arm64/68018/4>` 
-by Peter Sobolewski. 
+by Peter Sobolewski. From the command line you can choose the Mac device with
+
+::
+
+   python -m cellpose --dir path --gpu_device mps --use_gpu
+   
 
 Common issues
 ~~~~~~~~~~~~~~~~~~~~~~~
