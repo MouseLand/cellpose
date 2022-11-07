@@ -21,15 +21,14 @@ Cellpose was written by Carsen Stringer and Marius Pachitariu. To learn about Ce
 
 ### CITATION
 
-If you use the original built-in models (`cyto` or `nuclei`), please cite the Cellpose 1.0 [paper](https://t.co/kBMXmPp3Yn?amp=1):  
-Stringer, C., Wang, T., Michaelos, M., & Pachitariu, M. (2021). <em> Cellpose: a generalist algorithm for cellular segmentation </em>. Nature methods, 18(1), 100-106.
+**If you use Cellpose 1 or 2, please cite the Cellpose 1.0 [paper](https://t.co/kBMXmPp3Yn?amp=1):**  
+Stringer, C., Wang, T., Michaelos, M., & Pachitariu, M. (2021). Cellpose: a generalist algorithm for cellular segmentation. <em>Nature methods, 18</em>(1), 100-106.
+([bibtex link](https://scholar.googleusercontent.com/scholar.bib?q=info:rmoKTp0cEiYJ:scholar.google.com/&output=citation&scisdr=CgXHFLYtEMb9qOfkmrg:AAGBfm0AAAAAY2jigrhA_p9qteLfyKDZlh96dZdapgkX&scisig=AAGBfm0AAAAAY2jigv55oXhgKwSArS2sr_fxBh--42gU&scisf=4&ct=citation&cd=-1&hl=en&scfhb=1))
 
-If you use the new human-in-the-loop training or the new models, please cite the Cellpose 2.0 [paper](https://www.biorxiv.org/content/10.1101/2022.04.01.486764v1):  
-Stringer, C., & Pachitariu, M. (2022). <em> Cellpose 2.0: how to train your own model </em>. bioRxiv.
+**If you use the new human-in-the-loop training or use the new cyto2, livecell, or tissuenet models, please also cite the Cellpose 2.0 [paper](https://www.nature.com/articles/s41592-022-01663-4):**
+Pachitariu, M. & Stringer, C. (2022). Cellpose 2.0: how to train your own model. <em>Nature methods</em>.
 
-:triangular_flag_on_post: the new `tissuenet`, `TN1`, `TN2`, `TN3`, `livecell`, `LC1`, `LC2`, `LC3` and `LC4` were trained using data under a **CC-BY-NC** license, so these models CANNOT be used for commercial applications.
-
-If you want to improve Cellpose for yourself and for everyone else, please consider contributing manual segmentations for a few of your images via the built-in GUI interface (see instructions below).
+:triangular_flag_on_post: the new tissuenet and livecell models (`tissuenet`, `TN1`, `TN2`, `TN3`, `livecell`, `LC1`, `LC2`, `LC3` and `LC4`)  were trained using data under a **CC-BY-NC** license, so these models are **non-commercial use only**.
 
 ### :star2: UPDATE v2.0 (April 2022) :star2:
 

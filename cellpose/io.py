@@ -144,7 +144,7 @@ def add_model(filename):
 def imsave(filename, arr):
     ext = os.path.splitext(filename)[-1].lower()
     if ext== '.tif' or ext=='.tiff':
-        tifffile.imsave(filename, arr)
+        tifffile.imwrite(filename, arr)
     else:
         if len(arr.shape)>2:
             arr = cv2.cvtColor(arr, cv2.COLOR_BGR2RGB)
