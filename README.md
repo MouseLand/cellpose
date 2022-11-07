@@ -5,6 +5,7 @@
 ![tests](https://github.com/mouseland/cellpose/actions/workflows/test_and_deploy.yml/badge.svg)
 [![Coverage Status](https://coveralls.io/repos/github/MouseLand/cellpose/badge.svg?branch=master)](https://coveralls.io/github/MouseLand/cellpose?branch=master)
 [![PyPI version](https://badge.fury.io/py/cellpose.svg)](https://badge.fury.io/py/cellpose)
+[![Downloads](https://pepy.tech/badge/cellpose)](https://pepy.tech/project/cellpose)
 [![Downloads](https://pepy.tech/badge/cellpose/month)](https://pepy.tech/project/cellpose)
 [![Python version](https://img.shields.io/pypi/pyversions/cellpose)](https://pypistats.org/packages/cellpose)
 [![Licence: GPL v3](https://img.shields.io/github/license/MouseLand/cellpose)](https://github.com/MouseLand/cellpose/blob/master/LICENSE)
@@ -15,26 +16,26 @@
 [![GitHub stars](https://img.shields.io/github/stars/MouseLand/cellpose?style=social)](https://github.com/MouseLand/cellpose/)
 [![GitHub forks](https://img.shields.io/github/forks/MouseLand/cellpose?style=social)](https://github.com/MouseLand/cellpose/)
 
-A generalist algorithm for cell and nucleus segmentation. 
+A generalist algorithm for cell and nucleus segmentation (v1.0) that can be optimized for your own data (v2.0). 
 
-Cellpose was written by Carsen Stringer and Marius Pachitariu. To learn about Cellpose 2.0 (human-in-the-loop), read the [paper](https://www.biorxiv.org/content/10.1101/2022.04.01.486764v1) or watch the [talk](https://www.youtube.com/watch?v=3ydtAhfq6H0). To learn about Cellpose 1.0, read the [paper](https://t.co/kBMXmPp3Yn?amp=1) or watch the [talk](https://t.co/JChCsTD0SK?amp=1). For support, please open an [issue](https://github.com/MouseLand/cellpose/issues).  Please find the detailed documentation at <span style="font-size:larger;">[cellpose.readthedocs.io](https://cellpose.readthedocs.io/en/latest/)</span>.
+Cellpose was written by Carsen Stringer and Marius Pachitariu. To learn about Cellpose 2.0 (human-in-the-loop), read the [paper](https://www.nature.com/articles/s41592-022-01663-4) or watch the [talk](https://www.youtube.com/watch?v=3ydtAhfq6H0). To learn about Cellpose 1.0, read the [paper](https://t.co/kBMXmPp3Yn?amp=1) or watch the [talk](https://t.co/JChCsTD0SK?amp=1). For support, please open an [issue](https://github.com/MouseLand/cellpose/issues).  Please find the detailed documentation at <span style="font-size:larger;">[cellpose.readthedocs.io](https://cellpose.readthedocs.io/en/latest/)</span>.
 
 ### CITATION
 
 **If you use Cellpose 1 or 2, please cite the Cellpose 1.0 [paper](https://t.co/kBMXmPp3Yn?amp=1):**  
 Stringer, C., Wang, T., Michaelos, M., & Pachitariu, M. (2021). Cellpose: a generalist algorithm for cellular segmentation. <em>Nature methods, 18</em>(1), 100-106.
-([bibtex link](https://scholar.googleusercontent.com/scholar.bib?q=info:rmoKTp0cEiYJ:scholar.google.com/&output=citation&scisdr=CgXHFLYtEMb9qOfkmrg:AAGBfm0AAAAAY2jigrhA_p9qteLfyKDZlh96dZdapgkX&scisig=AAGBfm0AAAAAY2jigv55oXhgKwSArS2sr_fxBh--42gU&scisf=4&ct=citation&cd=-1&hl=en&scfhb=1))
+[[bibtex](https://scholar.googleusercontent.com/scholar.bib?q=info:rmoKTp0cEiYJ:scholar.google.com/&output=citation&scisdr=CgXHFLYtEMb9qOfkmrg:AAGBfm0AAAAAY2jigrhA_p9qteLfyKDZlh96dZdapgkX&scisig=AAGBfm0AAAAAY2jigv55oXhgKwSArS2sr_fxBh--42gU&scisf=4&ct=citation&cd=-1&hl=en&scfhb=1)]
 
-**If you use the new human-in-the-loop training or use the new cyto2, livecell, or tissuenet models, please also cite the Cellpose 2.0 [paper](https://www.nature.com/articles/s41592-022-01663-4):**
+**If you use the new human-in-the-loop training or use the new cyto2, livecell, or tissuenet models, please also cite the Cellpose 2.0 [paper](https://www.nature.com/articles/s41592-022-01663-4):**  
 Pachitariu, M. & Stringer, C. (2022). Cellpose 2.0: how to train your own model. <em>Nature methods</em>.
 
 :triangular_flag_on_post: the new tissuenet and livecell models (`tissuenet`, `TN1`, `TN2`, `TN3`, `livecell`, `LC1`, `LC2`, `LC3` and `LC4`)  were trained using data under a **CC-BY-NC** license, so these models are **non-commercial use only**.
 
-### :star2: UPDATE v2.0 (April 2022) :star2:
+### :star2: v2.0 (April 2022) :star2:
 
 Cellpose 2.0 now allows human-in-the-loop training of models! To learn more...
 * Check out the twitter [thread](https://twitter.com/marius10p/status/1511415409047650307?s=20&t=umTVIG1CFKIWHYMrQqFKyQ) for an overview.
-* Check out the [preprint](https://www.biorxiv.org/content/10.1101/2022.04.01.486764v1) for more details on the algorithm and the performance.
+* Check out the [paper](https://www.nature.com/articles/s41592-022-01663-4) for more details on the algorithm and the performance.
 * Watch the short intro [talk](https://www.youtube.com/watch?v=3ydtAhfq6H0) and watch the longer [tutorial talk](https://youtu.be/5qANHWoubZU) which goes through running Cellpose 2.0 in the GUI and a jupyter notebook.
 * Check out the full human-in-the-loop [video](https://youtu.be/3Y1VKcxjNy4). 
 * Check out the colab notebook to get cloud access to a GPU to train your models or run your custom models: [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/MouseLand/cellpose/blob/main/notebooks/run_cellpose_2.ipynb).
