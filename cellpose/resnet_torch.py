@@ -217,9 +217,9 @@ class CPnet(nn.Module):
     def save_model(self, filename):
         torch.save(self.state_dict(), filename)
 
-    def load_model(self, filename, cpu=False):
-        if not cpu:
-            state_dict = torch.load(filename)
+    def load_model(self, filename, device=None):
+        if (device is not None) and (device.type != 'cpu'):
+            state_dict = torch.load(filename, map_location=device)
         else:
             self.__init__(self.nbase,
                           self.nout,
