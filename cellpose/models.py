@@ -366,7 +366,7 @@ class CellposeModel(UnetModel):
         self.unet = False
         self.pretrained_model = pretrained_model
         if self.pretrained_model:
-            self.net.load_model(self.pretrained_model[0], device=device)
+            self.net.load_model(self.pretrained_model[0], device=self.device)
             self.diam_mean = self.net.diam_mean.data.cpu().numpy()[0]
             self.diam_labels = self.net.diam_labels.data.cpu().numpy()[0]
             models_logger.info(f'>>>> model diam_mean = {self.diam_mean: .3f} (ROIs rescaled to this size during training)')

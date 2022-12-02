@@ -1839,4 +1839,3 @@ class MainW(QMainWindow):
 
     def toggle_mask_ops(self):
         self.toggle_removals()
-        
