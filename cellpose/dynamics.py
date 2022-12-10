@@ -78,7 +78,7 @@ def _extend_centers_gpu(neighbors, centers, isneighbor, Ly, Lx, n_iter=200, devi
         Tneigh *= isneigh
         T[:, pt[0,:,0], pt[0,:,1]] = Tneigh.mean(axis=1)
     del meds, isneigh, Tneigh
-    T = torch.log(1.+ T)
+    T = torch.log1p(T)
     # gradient positions
     grads = T[:, pt[[2,1,4,3],:,0], pt[[2,1,4,3],:,1]]
     del pt
@@ -211,7 +211,7 @@ def masks_to_flows_cpu(masks, device=None):
             niter = 2*np.int32(np.ptp(x) + np.ptp(y))
             T = np.zeros((ly+2)*(lx+2), np.float64)
             T = _extend_centers(T, y, x, ymed, xmed, np.int32(lx), np.int32(niter))
-            T[(y+1)*lx + x+1] = np.log(1.+T[(y+1)*lx + x+1])
+            T[(y+1)*lx + x+1] = np.log1p(T[(y+1)*lx + x+1])
 
             dy = T[(y+1)*lx + x] - T[(y-1)*lx + x]
             dx = T[y*lx + x+1] - T[y*lx + x-1]
