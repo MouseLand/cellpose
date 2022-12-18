@@ -28,7 +28,16 @@ this code at the beginning of your notebook before you import cellpose:
    import os 
    os.environ["CELLPOSE_LOCAL_MODELS_PATH"] = "/PATH_FOR_MODELS/"
 
+M1 Mac installation
+~~~~~~~~~~~~~~~~~~~~~~~
 
+Please use the instructions provided on `image.sc <https://forum.image.sc/t/cellpose-on-macos-m1-pro-apple-silicon-arm64/68018/4>` 
+by Peter Sobolewski. From the command line you can choose the Mac device with
+
+::
+
+   python -m cellpose --dir path --gpu_device mps --use_gpu
+   
 
 Common issues
 ~~~~~~~~~~~~~~~~~~~~~~~
@@ -50,6 +59,8 @@ uninstalling and reinstalling pyqt5
    pip uninstall pyqt5 pyqt5-tools
    pip install pyqt5 pyqt5-tools pyqt5.sip
 
+If you are having other issues with the graphical interface and QT, see some advice `here <https://github.com/MouseLand/cellpose/issues/564#issuecomment-1268061118>`_ .
+
 If you have errors related to OpenMP and libiomp5, then try 
 
 ::
@@ -68,7 +79,6 @@ If you receive the error: ``ImportError: _arpack DLL load failed``, then try uni
    pip uninstall scipy
    pip install scipy
 
-If you are having issues with the graphical interface, make sure you have **python 3.7** and not python 3.8 installed.
 
 If you are on Yosemite Mac OS or earlier, PyQt doesn't work and you won't be able
 to use the graphical interface for cellpose. More recent versions of Mac

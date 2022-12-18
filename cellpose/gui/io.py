@@ -7,10 +7,11 @@ import logging
 import fastremap 
 
 from .. import utils, plot, transforms, models
-from ..io import imread, imsave, outlines_to_text
+from ..io import imread, imsave, outlines_to_text, add_model, remove_model
 from ..transforms import normalize99
 
 try:
+    import PyQt5
     from PyQt5.QtWidgets import QFileDialog
     GUI = True
 except:
@@ -28,16 +29,8 @@ NCOLOR = False
     
 def _init_model_list(parent):
     models.MODEL_DIR.mkdir(parents=True, exist_ok=True)
-    parent.model_list_path = os.fspath(models.MODEL_DIR.joinpath('gui_models.txt'))
-    parent.model_strings = []
-    if not os.path.exists(parent.model_list_path):
-        textfile = open(parent.model_list_path, 'w')
-        textfile.close()
-    else:
-        with open(parent.model_list_path, 'r') as textfile:
-            lines = [line.rstrip() for line in textfile]
-            if len(lines) > 0:
-                parent.model_strings.extend(lines)
+    parent.model_list_path = models.MODEL_LIST_PATH
+    parent.model_strings = models.get_user_models()
     
 def _add_model(parent, filename=None, load_model=True):
     if filename is None:
@@ -45,14 +38,8 @@ def _add_model(parent, filename=None, load_model=True):
             parent, "Add model to GUI"
             )
         filename = name[0]
+    add_model(filename)
     fname = os.path.split(filename)[-1]
-    try:
-        shutil.copyfile(filename, os.fspath(models.MODEL_DIR.joinpath(fname)))
-    except shutil.SameFileError:
-        pass
-    print(f'GUI_INFO: {filename} copied to models folder {os.fspath(models.MODEL_DIR)}')
-    with open(parent.model_list_path, 'a') as textfile:
-        textfile.write(fname + '\n')
     parent.ModelChoose.addItems([fname])
     parent.model_strings.append(fname)
     if len(parent.model_strings) > 0:
@@ -63,7 +50,7 @@ def _add_model(parent, filename=None, load_model=True):
         if model_string == fname:
             _remove_model(parent, ind=ind+1, verbose=False)
 
-    parent.ModelChoose.setCurrentIndex(len(parent.model_strings))
+    parent.ModelChoose.setCurrentIndex(len(parent.model_strings))    
     if load_model:
         parent.model_choose(len(parent.model_strings))
 
@@ -72,27 +59,19 @@ def _remove_model(parent, ind=None, verbose=True):
         ind = parent.ModelChoose.currentIndex()
     if ind > 0:
         ind -= 1
-        if verbose:
-            print(f'GUI_INFO: deleting {parent.model_strings[ind]} from GUI')
         parent.ModelChoose.removeItem(ind+1)
         del parent.model_strings[ind]
-        custom_strings = parent.model_strings
-        if len(custom_strings) > 0:
-            with open(parent.model_list_path, 'w') as textfile:
-                for fname in custom_strings:
-                    textfile.write(fname + '\n')
+        # remove model from txt path
+        modelstr = parent.ModelChoose.currentText()
+        remove_model(modelstr)
+        if len(parent.model_strings) > 0:
             parent.ModelChoose.setCurrentIndex(len(parent.model_strings))
         else:
-            # write empty file
-            textfile = open(parent.model_list_path, 'w')
-            textfile.close()
             parent.ModelChoose.setCurrentIndex(0)
             parent.ModelButton.setStyleSheet(parent.styleInactive)
             parent.ModelButton.setEnabled(False)
     else:
         print('ERROR: no model selected to delete')
-
-    
 
 def _get_train_set(image_names):
     """ get training data and labels for images in current folder image_names"""
@@ -456,8 +435,12 @@ def _save_png(parent):
     filename = parent.filename
     base = os.path.splitext(filename)[0]
     if parent.NZ==1:
-        print('GUI_INFO: saving 2D masks to png')
-        imsave(base + '_cp_masks.png', parent.cellpix[0])
+        if parent.cellpix[0].max() > 65534:
+            print('GUI_INFO: saving 2D masks to tif (too many masks for PNG)')
+            imsave(base + '_cp_masks.tif', parent.cellpix[0])
+        else:
+            print('GUI_INFO: saving 2D masks to png')
+            imsave(base + '_cp_masks.png', parent.cellpix[0].astype(np.uint16))
     else:
         print('GUI_INFO: saving 3D masks to tiff')
         imsave(base + '_cp_masks.tif', parent.cellpix)

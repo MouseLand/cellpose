@@ -1,3 +1,4 @@
+import PyQt5
 from PyQt5.QtWidgets import QAction
 from . import io
 from .. import models
@@ -33,7 +34,7 @@ def mainmenu(parent):
     file_menu.addAction(parent.saveSet)
     parent.saveSet.setEnabled(False)
 
-    parent.savePNG = QAction("Save masks as P&NG", parent)
+    parent.savePNG = QAction("Save masks as P&NG/tif", parent)
     parent.savePNG.setShortcut("Ctrl+N")
     parent.savePNG.triggered.connect(lambda: io._save_png(parent))
     file_menu.addAction(parent.savePNG)

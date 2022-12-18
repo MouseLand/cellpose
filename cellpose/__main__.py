@@ -24,17 +24,19 @@ import logging
 # settings re-grouped a bit
 def main():
     parser = argparse.ArgumentParser(description='cellpose parameters')
-    
+
     # settings for CPU vs GPU
     hardware_args = parser.add_argument_group("hardware arguments")
     hardware_args.add_argument('--use_gpu', action='store_true', help='use gpu if torch with cuda installed')
-    hardware_args.add_argument('--gpu_device', required=False, default=0, type=int, help='which gpu device to use')
+    hardware_args.add_argument('--gpu_device', required=False, default='0', type=str, help='which gpu device to use, use an integer for torch, or mps for M1')
     hardware_args.add_argument('--check_mkl', action='store_true', help='check if mkl working')
         
     # settings for locating and formatting images
     input_img_args = parser.add_argument_group("input image arguments")
     input_img_args.add_argument('--dir',
                         default=[], type=str, help='folder containing data to run or train on.')
+    input_img_args.add_argument('--image_path',
+                        default=[], type=str, help='if given and --dir not given, run on single image instead of folder (cannot train with this option)')
     input_img_args.add_argument('--look_one_level_down', action='store_true', help='run processing on all subdirectories of current folder')
     input_img_args.add_argument('--img_filter',
                         default=[], type=str, help='end string for images to run on')
@@ -52,6 +54,7 @@ def main():
     # model settings 
     model_args = parser.add_argument_group("model arguments")
     model_args.add_argument('--pretrained_model', required=False, default='cyto', type=str, help='model to use for running or starting training')
+    model_args.add_argument('--add_model', required=False, default=None, type=str, help='model path to copy model to hidden .cellpose folder for using in GUI/CLI')
     model_args.add_argument('--unet', action='store_true', help='run standard unet instead of cellpose flow output')
     model_args.add_argument('--nclasses',default=3, type=int, help='if running unet, choose 2 or 3; cellpose always uses 3')
 
@@ -128,14 +131,17 @@ def main():
     else:
         mkl_enabled = True
     
-    if len(args.dir)==0:
-        if not GUI_ENABLED:
-            print('GUI ERROR: %s'%GUI_ERROR)
-            if GUI_IMPORT:
-                print('GUI FAILED: GUI dependencies may not be installed, to install, run')
-                print('     pip install cellpose[gui]')
+    if len(args.dir)==0 and len(args.image_path)==0:
+        if args.add_model:
+            io.add_model(args.add_model)
         else:
-            gui.run()
+            if not GUI_ENABLED:
+                print('GUI ERROR: %s'%GUI_ERROR)
+                if GUI_IMPORT:
+                    print('GUI FAILED: GUI dependencies may not be installed, to install, run')
+                    print('     pip install cellpose[gui]')
+            else:
+                gui.run()
 
     else:
         if args.verbose:
@@ -183,13 +189,21 @@ def main():
                 szmean = 30.
         builtin_size = model_type == 'cyto' or model_type == 'cyto2' or model_type == 'nuclei'
         
+        if len(args.image_path) > 0 and (args.train or args.train_size):
+            raise ValueError('ERROR: cannot train model with single image input')
+
         if not args.train and not args.train_size:
             tic = time.time()
-
-            image_names = io.get_image_files(args.dir, 
-                                             args.mask_filter, 
-                                             imf=imf,
-                                             look_one_level_down=args.look_one_level_down)
+            if len(args.dir) > 0:
+                image_names = io.get_image_files(args.dir, 
+                                                args.mask_filter, 
+                                                imf=imf,
+                                                look_one_level_down=args.look_one_level_down)
+            else:
+                if os.path.exists(args.image_path):
+                    image_names = [args.image_path]
+                else:
+                    raise ValueError(f'ERROR: no file found at {args.image_path}')
             nimg = len(image_names)
                 
             cstr0 = ['GRAY', 'RED', 'GREEN', 'BLUE']
