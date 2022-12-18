@@ -366,7 +366,7 @@ class CellposeModel(UnetModel):
         self.unet = False
         self.pretrained_model = pretrained_model
         if self.pretrained_model:
-            self.net.load_model(self.pretrained_model[0], cpu=(not self.gpu))
+            self.net.load_model(self.pretrained_model[0], device=self.device)
             self.diam_mean = self.net.diam_mean.data.cpu().numpy()[0]
             self.diam_labels = self.net.diam_labels.data.cpu().numpy()[0]
             models_logger.info(f'>>>> model diam_mean = {self.diam_mean: .3f} (ROIs rescaled to this size during training)')
@@ -533,7 +533,7 @@ class CellposeModel(UnetModel):
         
         else:
             if not model_loaded and (isinstance(self.pretrained_model, list) and not net_avg and not loop_run):
-                self.net.load_model(self.pretrained_model[0], cpu=(not self.gpu))
+                self.net.load_model(self.pretrained_model[0], device=self.device)
                 
             # reshape image (normalization happens in _run_cp)
             x = transforms.convert_image(x, channels, channel_axis=channel_axis, z_axis=z_axis,
@@ -996,7 +996,7 @@ class SizeModel():
                                                                                                    channels, normalize)
         if isinstance(self.cp.pretrained_model, list):
             cp_model_path = self.cp.pretrained_model[0]
-            self.cp.net.load_model(cp_model_path, cpu=(not self.cp.gpu))
+            self.cp.net.load_model(cp_model_path, device=self.cp.device)
         else:
             cp_model_path = self.cp.pretrained_model
         
