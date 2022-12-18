@@ -1,7 +1,6 @@
 import time, os
-from scipy.ndimage.filters import maximum_filter1d
+from scipy.ndimage import maximum_filter1d, find_objects
 import torch
-import scipy.ndimage
 import numpy as np
 import tifffile
 from tqdm import trange
@@ -126,7 +125,7 @@ def masks_to_flows_gpu(masks, device=None):
     neighbors = np.stack((neighborsY, neighborsX), axis=-1)
 
     # get mask centers
-    slices = scipy.ndimage.find_objects(masks)
+    slices = find_objects(masks)
     
     centers = np.zeros((masks.max(), 2), 'int')
     for i,si in enumerate(slices):
@@ -189,7 +188,7 @@ def masks_to_flows_cpu(masks, device=None):
     mu_c = np.zeros((Ly, Lx), np.float64)
     
     nmask = masks.max()
-    slices = scipy.ndimage.find_objects(masks)
+    slices = find_objects(masks)
     dia = utils.diameters(masks)[0]
     s2 = (.15 * dia)**2
     for i,si in enumerate(slices):
