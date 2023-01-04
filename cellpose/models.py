@@ -613,6 +613,7 @@ class CellposeModel(UnetModel):
                     img = transforms.normalize_img(img, invert=invert)
                 if rescale != 1.0:
                     img = transforms.resize_image(img, rsz=rescale)
+                #np.save('C:/Users/olive/OneDrive - University of Leeds/Project/Code/masters/locpix/sandpit/img_test.npy', img)
                 yf, style = self._run_nets(img, net_avg=net_avg,
                                            augment=augment, tile=tile,
                                            tile_overlap=tile_overlap)
@@ -674,12 +675,16 @@ class CellposeModel(UnetModel):
         
     def loss_fn(self, lbl, y):
         """ loss function between true labels lbl and prediction y """
-        veci = 5. * self._to_device(lbl[:,1:])
-        lbl  = self._to_device(lbl[:,0]>.5)
-        loss = self.criterion(y[:,:2] , veci) 
-        loss /= 2.
-        loss2 = self.criterion2(y[:,2] , lbl)
-        loss = loss + loss2
+        lbl = self._to_device(lbl[:,0])
+        #print(y[:,2].shape)
+        #print(lbl.shape)
+        #print(torch.max(lbl))
+        loss = self.criterion2(y[:,2] , lbl)
+        # check
+        #import matplotlib.pyplot as plt
+        #plt.imshow(y[:,2][0].detach().numpy(), #cmap='Greys', alpha=0.9)
+        #plt.imshow(lbl[0].detach().numpy(), #cmap='Reds', alpha=.4)
+        #plt.show()
         return loss        
 
 
@@ -760,9 +765,15 @@ class CellposeModel(UnetModel):
                 name of network, otherwise saved with name as params + training start time
 
         """
+        from .io import logger_setup
+        logger, log_file = logger_setup()
+
         train_data, train_labels, test_data, test_labels, run_test = transforms.reshape_train_test(train_data, train_labels,
                                                                                                    test_data, test_labels,
                                                                                                    channels, normalize)
+
+        #print('train labels', len(train_labels))
+        #print('train labels', train_labels[0].shape)
         # check if train_labels have flows
         # if not, flows computed, returned with labels as train_flows[i][0]
         train_flows = dynamics.labels_to_flows(train_labels, files=train_files, use_gpu=self.gpu, device=self.device)
@@ -770,6 +781,10 @@ class CellposeModel(UnetModel):
             test_flows = dynamics.labels_to_flows(test_labels, files=test_files, use_gpu=self.gpu, device=self.device)
         else:
             test_flows = None
+        #print('train flows', len(train_flows))
+        #print('train flows', train_flows[0].shape)
+        #np.testing.assert_equal(train_labels[0], train_flows[0][0])
+        #np.testing.assert_equal(train_labels[1], train_flows[1][0])
 
         nmasks = np.array([label[0].max() for label in train_flows])
         nremove = (nmasks < min_train_masks).sum()

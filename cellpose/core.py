@@ -640,6 +640,7 @@ class UnetModel():
             lbl = lbl[:,0]
         lbl = self._to_device(lbl).long()
         loss = 8 * 1./self.nclasses * self.criterion(y, lbl)
+        # input('test loss')
         return loss
 
     def train(self, train_data, train_labels, train_files=None, 
@@ -740,6 +741,7 @@ class UnetModel():
         #if self.gpu:
         #    self.net.train() #.cuda()
         #else:
+        # lbl[0] is mask
         self.net.train()
         y = self.net(X)[0]
         del X
@@ -887,8 +889,10 @@ class UnetModel():
                 rsc = diam_train[inds] / self.diam_mean if rescale else np.ones(len(inds), np.float32)
                 # now passing in the full train array, need the labels for distance field
                 imgi, lbl, scale = transforms.random_rotate_and_resize(
-                                        [train_data[i] for i in inds], Y=[train_labels[i][1:] for i in inds],
-                                        rescale=rsc, scale_range=scale_range, unet=self.unet)
+                                        [train_data[i] for i in inds], Y=[train_labels[i][0:3] for i in inds],
+                                        rescale=rsc, scale_range=scale_range, unet=False)
+                # lbl is shape batch x 3 x height x width
+                # lbl[,0,,] is the label/cell probability
                 if self.unet and lbl.shape[1]>1 and rescale:
                     lbl[:,1] *= scale[:,np.newaxis,np.newaxis]**2#diam_batch[:,np.newaxis,np.newaxis]**2
                 train_loss = self._train_step(imgi, lbl)
@@ -905,10 +909,11 @@ class UnetModel():
                         inds = rperm[ibatch:ibatch+batch_size]
                         rsc = diam_test[inds] / self.diam_mean if rescale else np.ones(len(inds), np.float32)
                         imgi, lbl, scale = transforms.random_rotate_and_resize(
-                                            [test_data[i] for i in inds], Y=[test_labels[i][1:] for i in inds], 
-                                            scale_range=0., rescale=rsc, unet=self.unet) 
+                                        [test_data[i] for i in inds], Y=[test_labels[i][0:3] for i in inds],
+                                        rescale=rsc, scale_range=0, unet=False) 
                         if self.unet and lbl.shape[1]>1 and rescale:
                             lbl[:,1] *= scale[:,np.newaxis,np.newaxis]**2
+                            #input('rescaling')
 
                         test_loss = self._test_eval(imgi, lbl)
                         lavgt += test_loss
