@@ -28,7 +28,7 @@ class OpenVINOModel(object):
 
         # Load a new instance of the model with updated weights
         if self._model_id != "default":
-            self._base_model.load_model(self._model_id, cpu=True)
+            self._base_model.load_model(self._model_id, device=None)
 
         buf = io.BytesIO()
         dummy_input = torch.zeros([1] + list(inp.shape[1:]))  # To avoid extra network reloading we process batch in the loop
@@ -63,7 +63,7 @@ class OpenVINOModel(object):
             return torch.tensor(outs["output"]), torch.tensor(outs["style"])
 
 
-    def load_model(self, path, cpu):
+    def load_model(self, path, device):
         self._model_id = path
         return self
 

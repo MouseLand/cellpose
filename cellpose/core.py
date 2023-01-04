@@ -142,7 +142,7 @@ class UnetModel():
                                         diam_mean=diam_mean).to(self.device)
         
         if pretrained_model is not None and isinstance(pretrained_model, str):
-            self.net.load_model(pretrained_model, cpu=(not self.gpu))
+            self.net.load_model(pretrained_model, device=self.device)
 
     def eval(self, x, batch_size=8, channels=None, channels_last=False, invert=False, normalize=True,
              rescale=None, do_3D=False, anisotropy=None, net_avg=False, augment=False,
@@ -242,7 +242,7 @@ class UnetModel():
         if isinstance(self.pretrained_model, list):
             model_path = self.pretrained_model[0]
             if not net_avg:
-                self.net.load_model(self.pretrained_model[0])
+                self.net.load_model(self.pretrained_model[0], device=self.device)
         else:
             model_path = self.pretrained_model
 
@@ -363,7 +363,7 @@ class UnetModel():
                                      bsize=bsize, return_conv=return_conv)
         else:  
             for j in range(len(self.pretrained_model)):
-                self.net.load_model(self.pretrained_model[j], cpu=(not self.gpu))
+                self.net.load_model(self.pretrained_model[j], device=self.device)
                 y0, style = self._run_net(img, augment=augment, tile=tile, 
                                           tile_overlap=tile_overlap, bsize=bsize,
                                           return_conv=return_conv)

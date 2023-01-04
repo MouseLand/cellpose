@@ -190,6 +190,10 @@ def get_image_files(folder, mask_filter, imf=None, look_one_level_down=False):
         if igood:
             imn.append(im)
     image_names = imn
+
+    # remove duplicates
+    image_names = [*set(image_names)]
+    image_names = natsorted(image_names)
     
     if len(image_names)==0:
         raise ValueError('ERROR: no images in --dir folder without _masks or _flows ending')
