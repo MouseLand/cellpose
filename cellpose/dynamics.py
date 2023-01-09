@@ -84,7 +84,7 @@ def _extend_centers_gpu(neighbors, centers, isneighbor, Ly, Lx, n_iter=200, devi
     dy = grads[:,0] - grads[:,1]
     dx = grads[:,2] - grads[:,3]
     del grads
-    mu_torch = np.stack((dy.cpu().squeeze(), dx.cpu().squeeze()), axis=-2)
+    mu_torch = np.stack((dy.cpu().squeeze(0), dx.cpu().squeeze(0)), axis=-2)
     return mu_torch
 
 
