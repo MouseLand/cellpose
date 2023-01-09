@@ -698,9 +698,7 @@ class MainW(QMainWindow):
     def keyPressEvent(self, event):
         if self.loaded:
             #self.p0.setMouseEnabled(x=True, y=True)
-            if (event.modifiers() != QtCore.Qt.ControlModifier and
-                event.modifiers() != QtCore.Qt.ShiftModifier and
-                event.modifiers() != QtCore.Qt.AltModifier) and not self.in_stroke:
+            if not (event.modifiers() & (QtCore.Qt.ControlModifier | QtCore.Qt.ShiftModifier | QtCore.Qt.AltModifier) or self.in_stroke):
                 updated = False
                 if len(self.current_point_set) > 0:
                     if event.key() == QtCore.Qt.Key_Return:
@@ -792,11 +790,6 @@ class MainW(QMainWindow):
                     self.brush_choose()
                 if not updated:
                     self.update_plot()
-                elif event.modifiers() == QtCore.Qt.ControlModifier:
-                    if event.key() == QtCore.Qt.Key_Z:
-                        self.undo_action()
-                    if event.key() == QtCore.Qt.Key_0:
-                        self.clear_all()
         if event.key() == QtCore.Qt.Key_Minus or event.key() == QtCore.Qt.Key_Equal:
             self.p0.keyPressEvent(event)
 
@@ -1251,8 +1244,7 @@ class MainW(QMainWindow):
         del self.strokes[stroke_ind]
 
     def plot_clicked(self, event):
-        if event.button()==QtCore.Qt.LeftButton and (event.modifiers() != QtCore.Qt.ShiftModifier and
-                    event.modifiers() != QtCore.Qt.AltModifier):
+        if event.button()==QtCore.Qt.LeftButton and not event.modifiers() & (QtCore.Qt.ShiftModifier | QtCore.Qt.AltModifier):
             if event.double():
                 try:
                     self.p0.setYRange(0,self.Ly+self.pr)
