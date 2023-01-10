@@ -26,7 +26,6 @@ try:
 except:
     MATPLOTLIB = False
 
-
 try:
     from google.cloud import storage
     os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = os.path.join(os.path.dirname(os.path.realpath(__file__)),
@@ -1643,6 +1642,7 @@ class MainW(QMainWindow):
         print('GUI_INFO: name of new model: ' + self.training_params['model_name'])
         self.new_model_path = self.model.train(self.train_data, self.train_labels, 
                                                channels=self.channels, 
+                                               min_train_masks=1,
                                                save_path=save_path, 
                                                nimg_per_epoch=8,
                                                learning_rate = self.training_params['learning_rate'], 
