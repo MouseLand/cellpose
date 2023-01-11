@@ -88,7 +88,7 @@ To upgrade cellpose (package [here](https://pypi.org/project/cellpose/)), run th
 python -m pip install cellpose --upgrade
 ~~~
 
-Note you will always have to run `conda activate cellpose` before you run cellpose. If you want to run jupyter notebooks in this environment, then also `conda install jupyter` and `python -m pip install matplotlib`.
+Note you will always have to run `conda activate cellpose` before you run cellpose. If you want to run jupyter notebooks in this environment, then also `python -m pip install notebook` and `python -m pip install matplotlib`.
 
 You can also try to install cellpose and the GUI dependencies from your base environment using the command
 
