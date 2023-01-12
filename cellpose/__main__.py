@@ -129,7 +129,7 @@ def main():
     args = parser.parse_args()
 
     version_str = f"""
-cellpose version: \t{version} 
+cellpose version: \t{version.version} 
 platform:       \t{sys.platform} 
 python version: \t{python_version()} 
 torch version:  \t{torch.__version__}"""
