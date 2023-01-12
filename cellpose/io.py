@@ -6,6 +6,7 @@ import tifffile
 import logging, pathlib, sys
 from tqdm import tqdm
 from pathlib import Path
+from . import version_str
 
 
 try:
@@ -47,6 +48,7 @@ def logger_setup():
                 )
     logger = logging.getLogger(__name__)
     logger.info(f'WRITING LOG OUTPUT TO {log_file}')
+    logger.info(version_str)
     #logger.handlers[1].stream = sys.stdout
 
     return logger, log_file

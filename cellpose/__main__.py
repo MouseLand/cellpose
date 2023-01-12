@@ -1,10 +1,8 @@
 import sys, os, argparse, glob, pathlib, time
-from platform import python_version
 import numpy as np
 from natsort import natsorted
 from tqdm import tqdm
-import torch
-from cellpose import utils, models, io, core, version
+from cellpose import utils, models, io, core, version_str
 
 try:
     from cellpose.gui import gui 
@@ -128,11 +126,7 @@ def main():
     
     args = parser.parse_args()
 
-    version_str = f"""
-cellpose version: \t{version} 
-platform:       \t{sys.platform} 
-python version: \t{python_version()} 
-torch version:  \t{torch.__version__}"""
+    
     if args.version:
         print(version_str)
         return
@@ -162,8 +156,6 @@ torch version:  \t{torch.__version__}"""
             print('>>>> !NEW LOGGING SETUP! To see cellpose progress, set --verbose')
             print('No --verbose => no progress or info printed')
             logger = logging.getLogger(__name__)
-
-        logger.info(version_str)
 
         use_gpu = False
         channels = [args.chan, args.chan2]
