@@ -168,7 +168,7 @@ class MainW(QMainWindow):
 
         pg.setConfigOptions(imageAxisOrder="row-major")
         self.setGeometry(50, 50, 1200, 1000)
-        self.setWindowTitle(f"cellpose v{version.version}")
+        self.setWindowTitle(f"cellpose v{version}")
         self.cp_path = os.path.dirname(os.path.realpath(__file__))
         app_icon = QtGui.QIcon()
         icon_path = pathlib.Path.home().joinpath('.cellpose', 'logo.png')
