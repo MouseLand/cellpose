@@ -550,6 +550,8 @@ def resize_image(img0, Ly=None, Lx=None, rsz=None, interpolation=cv2.INTER_LINEA
     # no_channels useful for z-stacks, sot he third dimension is not treated as a channel
     # but if this is called for grayscale images, they first become [Ly,Lx,2] so ndim=3 but 
     if (img0.ndim>2 and no_channels) or (img0.ndim==4 and not no_channels):
+        if Ly==0 or Lx==0:
+            raise ValueError('anisotropy too high / low -- not enough pixels to resize to ratio')
         if no_channels:
             imgs = np.zeros((img0.shape[0], Ly, Lx), np.float32)
         else:
