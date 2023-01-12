@@ -79,6 +79,7 @@ def assign_device(use_torch=True, gpu=False, device=0):
         try:
             device = torch.device('mps')
             gpu=True
+            cpu=False
             core_logger.info('>>>> using GPU')
         except:
             cpu = True 
