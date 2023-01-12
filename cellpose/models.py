@@ -661,6 +661,7 @@ class CellposeModel(UnetModel):
                 if stitch_threshold > 0 and nimg > 1:
                     models_logger.info(f'stitching {nimg} planes using stitch_threshold={stitch_threshold:0.3f} to make 3D masks')
                     masks = utils.stitch3D(masks, stitch_threshold=stitch_threshold)
+                    masks = utils.fill_holes_and_remove_small_masks(masks, min_size=min_size)
             
             flow_time = time.time() - tic
             if nimg > 1:

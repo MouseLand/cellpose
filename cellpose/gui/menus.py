@@ -45,6 +45,12 @@ def mainmenu(parent):
     parent.saveOutlines.triggered.connect(lambda: io._save_outlines(parent))
     file_menu.addAction(parent.saveOutlines)
     parent.saveOutlines.setEnabled(False)
+
+    parent.saveFlows = QAction("Save &Flows and cellprob as tif", parent)
+    parent.saveFlows.setShortcut("Ctrl+F")
+    parent.saveFlows.triggered.connect(lambda: io._save_flows(parent))
+    file_menu.addAction(parent.saveFlows)
+    parent.saveFlows.setEnabled(False)
     
     parent.saveServer = QAction("Send manually labelled data to server", parent)
     parent.saveServer.triggered.connect(lambda: save_server(parent))

@@ -15,6 +15,7 @@ gui_deps = [
         'pyqtgraph>=0.11.0rc0', 
         'pyqt5', 
         'pyqt5.sip',
+        'superqt',
         'google-cloud-storage'
         ]
 

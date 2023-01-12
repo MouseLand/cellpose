@@ -5,6 +5,8 @@ from tqdm import tqdm, trange
 
 import PyQt5
 from PyQt5 import QtGui, QtCore, Qt, QtWidgets
+from superqt import QRangeSlider
+from qtpy.QtCore import Qt as Qtp
 from PyQt5.QtWidgets import QMainWindow, QApplication, QWidget, QScrollBar, QSlider, QComboBox, QGridLayout, QPushButton, QFrame, QCheckBox, QLabel, QProgressBar, QLineEdit, QMessageBox, QGroupBox
 import pyqtgraph as pg
 from pyqtgraph import GraphicsScene
@@ -14,7 +16,7 @@ from scipy.stats import mode
 import cv2
 
 from . import guiparts, menus, io
-from .. import models, core, dynamics
+from .. import models, core, dynamics, version
 from ..utils import download_url_to_file, masks_to_outlines, diameters 
 from ..io import get_image_files, imsave, imread
 from ..transforms import resize_image, normalize99 #fixed import
@@ -166,7 +168,7 @@ class MainW(QMainWindow):
 
         pg.setConfigOptions(imageAxisOrder="row-major")
         self.setGeometry(50, 50, 1200, 1000)
-        self.setWindowTitle("cellpose")
+        self.setWindowTitle(f"cellpose v{version}")
         self.cp_path = os.path.dirname(os.path.realpath(__file__))
         app_icon = QtGui.QIcon()
         icon_path = pathlib.Path.home().joinpath('.cellpose', 'logo.png')
@@ -609,12 +611,13 @@ class MainW(QMainWindow):
         self.l0.addWidget(self.autobtn, b,0,1,5)
 
         b+=1
-        self.slider = guiparts.RangeSlider(self)
+        self.slider = QRangeSlider(Qtp.Orientation.Horizontal)
         self.slider.setMinimum(0)
         self.slider.setMaximum(255)
-        self.slider.setLow(0)
-        self.slider.setHigh(255)
+        self.slider.setValue([0, 255])
+        #self.slider.setHigh(255)
         self.slider.setTickPosition(QSlider.TicksRight)
+        self.slider.valueChanged.connect(self.level_change)
         self.l0.addWidget(self.slider, b,0,1,9)
 
         b+=1
@@ -693,6 +696,16 @@ class MainW(QMainWindow):
         self.scroll.valueChanged.connect(self.move_in_Z)
         self.l0.addWidget(self.scroll, b,9,1,30)
         return b
+
+    def level_change(self):
+        if self.loaded:
+            sval = self.slider.value()
+            self.ops_plot = {'saturation': sval}
+            self.saturation[self.currentZ] = sval
+            if not self.autobtn.isChecked():
+                for i in range(len(self.saturation)):
+                    self.saturation[i] = sval
+            self.update_plot()
 
     def keyPressEvent(self, event):
         if self.loaded:
@@ -1060,8 +1073,8 @@ class MainW(QMainWindow):
         self.outcolor = [200,200,255,200]
         self.NZ, self.Ly, self.Lx = 1,512,512
         self.saturation = [[0,255] for n in range(self.NZ)]
-        self.slider.setLow(0)
-        self.slider.setHigh(255)
+        self.slider.setValue([0,255])
+        #self.slider.setHigh(255)
         self.slider.show()
         self.currentZ = 0
         self.flows = [[],[],[],[],[[]]]
@@ -1325,8 +1338,7 @@ class MainW(QMainWindow):
         if self.NZ>1 and self.orthobtn.isChecked():
             self.update_ortho()
         
-        self.slider.setLow(self.saturation[self.currentZ][0])
-        self.slider.setHigh(self.saturation[self.currentZ][1])
+        self.slider.setValue([self.saturation[self.currentZ][0], self.saturation[self.currentZ][1]])
         self.win.show()
         self.show()
 
@@ -1822,6 +1834,7 @@ class MainW(QMainWindow):
         self.loadMasks.setEnabled(True)
         self.saveSet.setEnabled(True)
         self.savePNG.setEnabled(True)
+        self.saveFlows.setEnabled(True)
         self.saveServer.setEnabled(True)
         self.saveOutlines.setEnabled(True)
         self.toggle_mask_ops()

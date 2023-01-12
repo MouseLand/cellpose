@@ -577,6 +577,12 @@ def remove_bad_flow_masks(masks, flows, threshold=0.4, use_gpu=False, device=Non
         size [Ly x Lx] or [Lz x Ly x Lx]
     
     """
+    if masks.size > 10000*10000:
+        if masks.size * 20 > torch.cuda.mem_get_info()[0]:
+            dynamics_logger.warning('WARNING: image is very large, not using gpu to compute flows from masks for QC step flow_threshold')
+            dynamics_logger.info('turn off QC step with flow_threshold=0 if too slow')
+        use_gpu = False
+
     merrors, _ = metrics.flow_error(masks, flows, use_gpu, device)
     badi = 1+(merrors>threshold).nonzero()[0]
     masks[np.isin(masks, badi)] = 0

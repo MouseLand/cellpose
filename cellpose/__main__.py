@@ -1,10 +1,10 @@
 import sys, os, argparse, glob, pathlib, time
-import subprocess
-
+from platform import python_version
 import numpy as np
 from natsort import natsorted
 from tqdm import tqdm
-from cellpose import utils, models, io, core
+import torch
+from cellpose import utils, models, io, core, version
 
 try:
     from cellpose.gui import gui 
@@ -25,6 +25,10 @@ import logging
 def main():
     parser = argparse.ArgumentParser(description='cellpose parameters')
 
+    # misc settings
+    parser.add_argument('--version', action='store_true', help='show cellpose version info')
+    parser.add_argument('--verbose', action='store_true', help='show information about running and settings and save to log')
+    
     # settings for CPU vs GPU
     hardware_args = parser.add_argument_group("hardware arguments")
     hardware_args.add_argument('--use_gpu', action='store_true', help='use gpu if torch with cuda installed')
@@ -68,6 +72,7 @@ def main():
     algorithm_args.add_argument('--diameter', required=False, default=30., type=float, 
                         help='cell diameter, if 0 will use the diameter of the training labels used in the model, or with built-in model will estimate diameter for each image')
     algorithm_args.add_argument('--stitch_threshold', required=False, default=0.0, type=float, help='compute masks in 2D then stitch together masks with IoU>0.9 across planes')
+    algorithm_args.add_argument('--min_size', required=False, default=15, type=int, help='minimum number of pixels per mask, can turn off with -1')
     algorithm_args.add_argument('--fast_mode', action='store_true', help='now equivalent to --no_resample; make code run faster by turning off resampling')
     
     algorithm_args.add_argument('--flow_threshold', default=0.4, type=float, help='flow error threshold, 0 turns off this optional QC step. Default: %(default)s')
@@ -121,10 +126,16 @@ def main():
                         default=100, type=int, help='number of epochs to skip between saves. Default: %(default)s')
     training_args.add_argument('--save_each', action='store_true', help='save the model under a different filename per --save_every epoch for later comparsion')
     
-    # misc settings
-    parser.add_argument('--verbose', action='store_true', help='show information about running and settings and save to log')
-    
     args = parser.parse_args()
+
+    version_str = f"""
+cellpose version: \t{version} 
+platform:       \t{sys.platform} 
+python version: \t{python_version()} 
+torch version:  \t{torch.__version__}"""
+    if args.version:
+        print(version_str)
+        return
 
     if args.check_mkl:
         mkl_enabled = models.check_mkl()
@@ -151,6 +162,8 @@ def main():
             print('>>>> !NEW LOGGING SETUP! To see cellpose progress, set --verbose')
             print('No --verbose => no progress or info printed')
             logger = logging.getLogger(__name__)
+
+        logger.info(version_str)
 
         use_gpu = False
         channels = [args.chan, args.chan2]
@@ -250,6 +263,7 @@ def main():
                                 flow_threshold=args.flow_threshold,
                                 cellprob_threshold=args.cellprob_threshold,
                                 stitch_threshold=args.stitch_threshold,
+                                min_size=args.min_size,
                                 invert=args.invert,
                                 batch_size=args.batch_size,
                                 interp=(not args.no_interp),

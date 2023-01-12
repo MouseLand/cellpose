@@ -445,6 +445,15 @@ def _save_png(parent):
         print('GUI_INFO: saving 3D masks to tiff')
         imsave(base + '_cp_masks.tif', parent.cellpix)
 
+def _save_flows(parent):
+    """ save flows and cellprob to tiff """
+    filename = parent.filename
+    base = os.path.splitext(filename)[0]
+    if len(parent.flows) > 0:
+        imsave(base + '_cp_flows.tif', parent.flows[4][:-1])
+        imsave(base + '_cp_cellprob.tif', parent.flows[4][-1])
+        
+
 def _save_outlines(parent):
     filename = parent.filename
     base = os.path.splitext(filename)[0]
