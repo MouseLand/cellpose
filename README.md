@@ -1,5 +1,5 @@
 # <p>  <b>Cellpose </b> </p>
-<img src="https://raw.githubusercontent.com/kevinjohncutler/cellpose/master/cellpose/logo/logo.png?raw=True" width="250" title="cellpose" alt="cellpose" align="right" vspace = "50">
+<img src="http://www.cellpose.org/static/images/logo.png?raw=True" width="250" title="cellpose" alt="cellpose" align="right" vspace = "50">
 
 [![Documentation Status](https://readthedocs.org/projects/cellpose/badge/?version=latest)](https://cellpose.readthedocs.io/en/latest/?badge=latest)
 ![tests](https://github.com/mouseland/cellpose/actions/workflows/test_and_deploy.yml/badge.svg)
@@ -104,20 +104,23 @@ If these suggestions fail, open an issue.
 
 If you plan on running many images, you may want to install a GPU version of *torch* (if it isn't already installed).
 
-To use your NVIDIA GPU with python, you will first need to install the NVIDIA driver for your GPU, check out this [website](https://www.nvidia.com/Download/index.aspx?lang=en-us) to download it. Next we will install the GPU version of torch, but first we need to remove the CPU version:
+To use your NVIDIA GPU with python, you will first need to install the NVIDIA driver for your GPU, check out this [website](https://www.nvidia.com/Download/index.aspx?lang=en-us) to download it. You can also install the CUDA toolkit, or use the pytorch cudatoolkit (installed below with conda). If you have trouble with the below install, we recommend installing the CUDA toolkit yourself, choosing one of the 11.x releases [here](https://developer.nvidia.com/cuda-toolkit-archive).
+
+Next we need to remove the CPU version of torch:
 ~~~
 pip uninstall torch
 ~~~
 
-Follow the instructions [here](https://pytorch.org/get-started/locally/) to determine what torch GPU version to install. The conda install is strongly recommended, and then choose the CUDA version that is supported by your GPU (newer GPUs may need newer CUDA versions > 10.2). For instance this command will install the 11.6 version on Linux and Windows (note the `torchvision` and `torchaudio` commands are removed because cellpose doesn't require them):
+To install the GPU version of torch, follow the instructions [here](https://pytorch.org/get-started/locally/). The conda install is strongly recommended, and then choose the CUDA version that is supported by your GPU (newer GPUs may need newer CUDA versions > 10.2). For instance this command will install the 11.6 version on Linux and Windows (note the `torchvision` and `torchaudio` commands are removed because cellpose doesn't require them):
 ~~~
 conda install pytorch pytorch-cuda=11.6 -c pytorch -c nvidia
 ~~~
 
-To use an older version, like cuda 11.3, use this command:
+If the latest CUDA versions don't work, try an older version like cuda 11.3:
 ~~~
-conda install pytorch==1.12.1 cudatoolkit=11.3 -c pytorch
+conda install pytorch==1.12.0 cudatoolkit=11.3 -c pytorch
 ~~~~
+Info on how to install several older versions is available [here](https://pytorch.org/get-started/previous-versions/). After install you can check `conda list` for `pytorch`, and its version info should have `cuXX.X`, not `cpu`.
 
 ### Installation of github version
 
@@ -199,8 +202,7 @@ pip install cellpose==1.0.2
 
 ### UPDATE v0.7 (Nov 2021)
 
-[Omnipose](https://github.com/kevinjohncutler/omnipose) is now officially available and supported as part of Cellpose. `pip install omnipose` and use the 'omni' flag and models to take advantage of it for long cells! (<i>E.g.</i>, filamentous bacteria.) Omnipose was written by Kevin Cutler ([@kevinjohncutler](https://github.com/kevinjohncutler)). To learn about Omnipose, read the [paper](http://biorxiv.org/content/early/2021/11/04/2021.11.03.467199). If you use Omnipose in your work please cite the Cellpose paper and the Omnipose paper.
-
+Check out [Omnipose](https://github.com/kevinjohncutler/omnipose), an extension of Cellpose for long filamentous bacteria. Omnipose was written by Kevin Cutler ([@kevinjohncutler](https://github.com/kevinjohncutler)). To learn about Omnipose, read the [paper](http://biorxiv.org/content/early/2021/11/04/2021.11.03.467199).
 
 ### UPDATE v0.6 (Dec 2020)
 
