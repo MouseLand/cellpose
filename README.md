@@ -104,15 +104,19 @@ If these suggestions fail, open an issue.
 
 If you plan on running many images, you may want to install a GPU version of *torch* (if it isn't already installed).
 
-Before installing the GPU version, remove the CPU version:
+To use your NVIDIA GPU with python, you will first need to install the NVIDIA driver for your GPU, check out this [website](https://www.nvidia.com/Download/index.aspx?lang=en-us) to download it. Next we will install the GPU version of torch, but first we need to remove the CPU version:
 ~~~
 pip uninstall torch
 ~~~
 
-Follow the instructions [here](https://pytorch.org/get-started/locally/) to determine what version to install. The Anaconda install is strongly recommended, and then choose the CUDA version that is supported by your GPU (newer GPUs may need newer CUDA versions > 10.2). For instance this command will install the 11.3 version on Linux and Windows (note the `torchvision` and `torchaudio` commands are removed because cellpose doesn't require them):
-
+Follow the instructions [here](https://pytorch.org/get-started/locally/) to determine what torch GPU version to install. The conda install is strongly recommended, and then choose the CUDA version that is supported by your GPU (newer GPUs may need newer CUDA versions > 10.2). For instance this command will install the 11.6 version on Linux and Windows (note the `torchvision` and `torchaudio` commands are removed because cellpose doesn't require them):
 ~~~
-conda install pytorch cudatoolkit=11.3 -c pytorch
+conda install pytorch pytorch-cuda=11.6 -c pytorch -c nvidia
+~~~
+
+To use an older version, like cuda 11.3, use this command:
+~~~
+conda install pytorch==1.12.1 cudatoolkit=11.3 -c pytorch
 ~~~~
 
 ### Installation of github version
