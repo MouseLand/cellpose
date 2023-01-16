@@ -15,6 +15,9 @@ Please run `conda list` in your cellpose environment in the terminal / anaconda 
 
 **Run log**
 Please post all command line/notebook output for us to understand the problem. For this please make sure you are running with verbose mode on. So command line, with `--verbose` tag, or in a notebook first run 
+
 ```from cellpose import io 
-logger = io.logger_setup()``` 
+logger = io.logger_setup()
+```
+
 before running any Cellpose functions.
