@@ -123,8 +123,16 @@ def main(*args):
     
     # misc settings
     parser.add_argument('--verbose', action='store_true', help='show information about running and settings and save to log')
+
+    # custom args
+    parser.add_argument('--fold', default=0, type=int, help='the fold which is being processed - used to save the model name')
+    parser.add_argument('--model_save_path', default=[], type=str, help='folder to save the model to')
     
     args = parser.parse_args(args)
+
+    # custom parse
+    model_save_path = args.model_save_path
+    fold = args.fold
 
     if args.check_mkl:
         mkl_enabled = models.check_mkl()
@@ -331,7 +339,9 @@ def main(*args):
                                            learning_rate=args.learning_rate, 
                                            weight_decay=args.weight_decay,
                                            channels=channels,
-                                           save_path=os.path.realpath(args.dir), save_every=args.save_every,
+                                           save_path=os.path.realpath(model_save_path), 
+                                           fold=fold,
+                                           save_every=args.save_every,
                                            save_each=args.save_each,
                                            n_epochs=args.n_epochs,
                                            batch_size=args.batch_size, 

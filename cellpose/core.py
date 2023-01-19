@@ -645,7 +645,7 @@ class UnetModel():
 
     def train(self, train_data, train_labels, train_files=None, 
               test_data=None, test_labels=None, test_files=None,
-              channels=None, normalize=True, save_path=None, save_every=100, save_each=False,
+              channels=None, normalize=True, save_path=None, fold=0, save_every=100, save_each=False,
               learning_rate=0.2, n_epochs=500, momentum=0.9, weight_decay=0.00001, batch_size=8, 
               nimg_per_epoch=None, min_train_masks=5, rescale=False, model_name=None):
         """ train function uses 0-1 mask label and boundary pixels for training """
@@ -691,7 +691,7 @@ class UnetModel():
         val_labels = train_labels[::8]
         del train_data[::8], train_classes[::8], train_labels[::8]
         model_path = self._train_net(train_data, train_classes, test_data, test_classes,
-                                    save_path=save_path, save_every=save_every, save_each=save_each,
+                                    save_path=save_path, fold=fold, save_every=save_every, save_each=save_each,
                                     learning_rate=learning_rate, n_epochs=n_epochs, momentum=momentum, 
                                     weight_decay=weight_decay, SGD=True, batch_size=batch_size, 
                                     nimg_per_epoch=nimg_per_epoch, rescale=rescale, model_name=model_name)
@@ -787,7 +787,7 @@ class UnetModel():
             
     def _train_net(self, train_data, train_labels, 
               test_data=None, test_labels=None,
-              save_path=None, save_every=100, save_each=False,
+              save_path=None, fold=0, save_every=100, save_each=False,
               learning_rate=0.2, n_epochs=500, momentum=0.9, weight_decay=0.00001, 
               SGD=True, batch_size=8, nimg_per_epoch=None, rescale=True, model_name=None): 
         """ train function uses loss function self.loss_fn in models.py"""
@@ -856,7 +856,7 @@ class UnetModel():
 
         if save_path is not None:
             _, file_label = os.path.split(save_path)
-            file_path = os.path.join(save_path, 'models/')
+            file_path = os.path.join(save_path, f'models/{fold}/')
 
             if not os.path.exists(file_path):
                 os.makedirs(file_path)
