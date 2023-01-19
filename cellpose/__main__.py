@@ -22,7 +22,7 @@ except Exception as err:
 import logging
 
 # settings re-grouped a bit
-def main():
+def main(*args):
     parser = argparse.ArgumentParser(description='cellpose parameters')
 
     # settings for CPU vs GPU
@@ -124,7 +124,7 @@ def main():
     # misc settings
     parser.add_argument('--verbose', action='store_true', help='show information about running and settings and save to log')
     
-    args = parser.parse_args()
+    args = parser.parse_args(args)
 
     if args.check_mkl:
         mkl_enabled = models.check_mkl()
