@@ -128,7 +128,12 @@ def main(*args):
     parser.add_argument('--fold', default=0, type=int, help='the fold which is being processed - used to save the model name')
     parser.add_argument('--model_save_path', default=[], type=str, help='folder to save the model to')
     
-    args = parser.parse_args(args)
+    # so can be parsed either command line or as such
+    if len(args) == 0:
+        args = parser.parse_args()
+    else:
+        args = parser.parse_args(args[0])
+
 
     # custom parse
     model_save_path = args.model_save_path
