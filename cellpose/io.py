@@ -7,6 +7,7 @@ import logging, pathlib, sys
 from tqdm import tqdm
 from pathlib import Path
 from . import version_str
+from roifile import ImagejRoi, roiwrite
 
 
 try:
@@ -378,6 +379,28 @@ def save_to_png(images, masks, flows, file_names):
     
     """
     save_masks(images, masks, flows, file_names, png=True)
+
+
+def save_rois(masks, file_name):
+    """ save masks to .roi files in .zip archive for ImageJ/Fiji
+
+    Parameters
+    ----------
+
+    masks: 2D array, int
+        masks output from Cellpose.eval, where 0=NO masks; 1,2,...=mask labels
+
+    file_name: str
+        name to save the .zip file to
+
+    -------
+
+    """
+    outlines = utils.outlines_list(masks)
+    rois = [ImagejRoi.frompoints(outline) for outline in outlines]
+    file_name = os.path.splitext(file_name)[0] + '_rois.zip'
+    roiwrite(file_name, rois)
+
 
 # Now saves flows, masks, etc. to separate folders.
 def save_masks(images, masks, flows, file_names, png=True, tif=False, channels=[0,0],

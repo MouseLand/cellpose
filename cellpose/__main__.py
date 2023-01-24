@@ -20,7 +20,7 @@ except Exception as err:
     
 import logging
 
-
+# settings re-grouped a bit
 def main():
     """ Run cellpose from command line
     """
@@ -178,6 +178,8 @@ def main():
                                   save_flows=args.save_flows,save_outlines=args.save_outlines,
                                   save_ncolor=args.save_ncolor,dir_above=args.dir_above,savedir=args.savedir,
                                   save_txt=args.save_txt,in_folders=args.in_folders)
+                if args.save_rois:
+                    io.save_rois(masks, image_name)
             logger.info('>>>> completed in %0.3f sec'%(time.time()-tic))
         else:
             
