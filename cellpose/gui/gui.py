@@ -1835,6 +1835,7 @@ class MainW(QMainWindow):
         self.saveFlows.setEnabled(True)
         self.saveServer.setEnabled(True)
         self.saveOutlines.setEnabled(True)
+        self.saveROIs.setEnabled(True)
         self.toggle_mask_ops()
 
         self.update_plot()

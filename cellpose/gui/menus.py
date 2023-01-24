@@ -46,6 +46,11 @@ def mainmenu(parent):
     file_menu.addAction(parent.saveOutlines)
     parent.saveOutlines.setEnabled(False)
 
+    parent.saveROIs = QAction("Save outlines as .zip archive of .roi files for ImageJ", parent)
+    parent.saveROIs.triggered.connect(lambda: io._save_rois(parent))
+    file_menu.addAction(parent.saveROIs)
+    parent.saveROIs.setEnabled(False)
+
     parent.saveFlows = QAction("Save &Flows and cellprob as tif", parent)
     parent.saveFlows.setShortcut("Ctrl+F")
     parent.saveFlows.triggered.connect(lambda: io._save_flows(parent))
