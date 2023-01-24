@@ -690,7 +690,7 @@ class CellposeModel(UnetModel):
 
     def train(self, train_data, train_labels, train_files=None, 
               test_data=None, test_labels=None, test_files=None,
-              channels=None, normalize=True, 
+              channels=None, normalize=True, fold=0,
               save_path=None, save_every=100, save_each=False,
               learning_rate=0.2, n_epochs=500, momentum=0.9, SGD=True,
               weight_decay=0.00001, batch_size=8, nimg_per_epoch=None,
@@ -727,6 +727,9 @@ class CellposeModel(UnetModel):
 
             normalize: bool (default, True)
                 normalize data so 0.0=1st percentile and 1.0=99th percentile of image intensities in each channel
+
+            fold: int (default, 0)
+                Fold which is being trained on
 
             save_path: string (default, None)
                 where to save trained model, if None it is not saved
@@ -798,7 +801,7 @@ class CellposeModel(UnetModel):
             models_logger.warning('channels is set to None, input must therefore have nchan channels (default is 2)')
         model_path = self._train_net(train_data, train_flows, 
                                      test_data=test_data, test_labels=test_flows,
-                                     save_path=save_path, save_every=save_every, save_each=save_each,
+                                     save_path=save_path, save_every=save_every, save_each=save_each, fold=fold,
                                      learning_rate=learning_rate, n_epochs=n_epochs, 
                                      momentum=momentum, weight_decay=weight_decay, 
                                      SGD=SGD, batch_size=batch_size, nimg_per_epoch=nimg_per_epoch, 
