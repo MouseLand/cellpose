@@ -457,7 +457,7 @@ def _save_rois(parent):
     """ save masks as rois in .zip file for ImageJ """
     filename = parent.filename
     if parent.NZ == 1:
-        print('GUI_INFO: saving 2D outlines to .zip archive, see docs for info to load into ImageJ')
+        print('GUI_INFO: saving 2D outlines to .zip archive')
         save_rois(parent.cellpix[0], parent.filename)
     else:
         print('ERROR: cannot save 3D outlines')
