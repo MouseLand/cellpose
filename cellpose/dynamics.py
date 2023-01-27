@@ -7,6 +7,7 @@ from tqdm import trange
 from numba import njit, float32, int32, vectorize
 import cv2
 import fastremap
+from packaging import version
 
 import logging
 dynamics_logger = logging.getLogger(__name__)
@@ -579,7 +580,7 @@ def remove_bad_flow_masks(masks, flows, threshold=0.4, use_gpu=False, device=Non
     """
     if masks.size > 10000*10000:
         
-        if torch.__version__ >= '1.10':
+        if version.parse(torch.__version__) >= version.parse('1.10'):
             # for PyTorch version 1.10 and above
             def mem_info():
                 total_mem, used_mem = torch.cuda.mem_get_info()
