@@ -581,7 +581,7 @@ def remove_bad_flow_masks(masks, flows, threshold=0.4, use_gpu=False, device=Non
         
         major_version, minor_version, _ = torch.__version__.split(".")
         
-        if major_version == "1" and int(minor_version) < 10):
+        if major_version == "1" and int(minor_version) < 10:
             # for PyTorch version lower than 1.10
             def mem_info():
                 total_mem = torch.cuda.get_device_properties(0).total_memory
