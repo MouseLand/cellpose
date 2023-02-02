@@ -336,6 +336,17 @@ def main(*args):
                                             style_on=args.style_on,
                                             concatenation=args.concatenation,
                                             nchan=nchan)
+
+            # model no track
+            sd = model.net.state_dict()
+            for (k1, v1) in sd.items():
+                vars = ["running_mean", "running_var", "num_batches_tracked"]
+                #print(type(k1))
+                for var in vars:
+                    if k1.endswith(var):
+                        module = k1.rstrip("." + var)
+                        model.net.get_submodule(module).track_running_stats = False
+
             
             # train segmentation model
             if args.train:

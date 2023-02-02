@@ -221,7 +221,11 @@ class UnetModel():
             styles: list of 1D arrays of length 64, or single 1D array (if do_3D=True)
                 style vector summarizing each image, also used to estimate size of objects in image
 
-        """        
+        """
+        print('here 0')
+        from .io import logger_setup
+        logger, log_file = logger_setup()
+
         x = [transforms.convert_image(xi, channels, channel_axis, z_axis, do_3D, 
                                     normalize, invert, nchan=self.nchan) for xi in x]
         nimg = len(x)
@@ -311,7 +315,10 @@ class UnetModel():
         if self.mkldnn:
             self.net = mkldnn_utils.to_mkldnn(self.net)
         with torch.no_grad():
-            y, style = self.net(X)
+            y, style = self.net(X)    
+        #import matplotlib.pyplot as plt
+        #plt.imshow(X[0,0,:,:], cmap='Greys')
+        #plt.show()    
         del X
         y = self._from_device(y)
         style = self._from_device(style)
@@ -744,6 +751,11 @@ class UnetModel():
         # lbl[0] is mask
         self.net.train()
         y = self.net(X)[0]
+        #print(X.shape)
+        #print(torch.min(X), torch.max(X))
+        #import matplotlib.pyplot as plt
+        #plt.imshow(X[0][0].detach().numpy(), cmap='Greys')
+        #plt.show()
         del X
         loss = self.loss_fn(lbl,y)
         loss.backward()
@@ -757,6 +769,7 @@ class UnetModel():
         self.net.eval()
         with torch.no_grad():
             y, style = self.net(X)
+            print('here')
             del X
             loss = self.loss_fn(lbl,y)
             test_loss = loss.item()
@@ -826,7 +839,10 @@ class UnetModel():
         # compute average cell diameter
         diam_train = np.array([utils.diameters(train_labels[k][0])[0] for k in range(len(train_labels))])
         diam_train_mean = diam_train[diam_train > 0].mean()
+        print('changes !----------------')
+        diam_train_mean = 50
         self.diam_labels = diam_train_mean
+        print("oli manually coded that diam labels have radius of about 50 pixels", self.diam_labels)
         if rescale:
             diam_train[diam_train<5] = 5.
             if test_data is not None:
@@ -837,8 +853,8 @@ class UnetModel():
         else:
             scale_range = 1.0
             
-        core_logger.info(f'>>>> mean of training label mask diameters (saved to model) {diam_train_mean:.3f}')
-        self.net.diam_labels.data = torch.ones(1, device=self.device) * diam_train_mean
+        core_logger.info(f'>>>> changed so this is not true mean of training label mask diameters (saved to model) {diam_train_mean:.3f}')
+        self.net.diam_labels.data = torch.ones(1, device=self.device) * self.diam_labels
 
         nchan = train_data[0].shape[0]
         core_logger.info('>>>> training network with %d channel input <<<<'%nchan)
@@ -888,6 +904,9 @@ class UnetModel():
                 inds = rperm[ibatch:ibatch+batch_size]
                 rsc = diam_train[inds] / self.diam_mean if rescale else np.ones(len(inds), np.float32)
                 # now passing in the full train array, need the labels for distance field
+                #rsc = None
+                scale_range = 1
+                rsc = None
                 imgi, lbl, scale = transforms.random_rotate_and_resize(
                                         [train_data[i] for i in inds], Y=[train_labels[i][0:3] for i in inds],
                                         rescale=rsc, scale_range=scale_range, unet=False)

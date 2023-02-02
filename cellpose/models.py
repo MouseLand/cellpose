@@ -203,7 +203,10 @@ class Cellpose():
 
         diams: list of diameters, or float (if do_3D=True)
 
-        """        
+        """
+        print('heree-----------------------------')
+        from .io import logger_setup
+        logger, log_file = logger_setup()        
 
         tic0 = time.time()
         channels = [0,0] if channels is None else channels # why not just make this a default in the function header?
@@ -372,7 +375,7 @@ class CellposeModel(UnetModel):
             models_logger.info(f'>>>> model diam_mean = {self.diam_mean: .3f} (ROIs rescaled to this size during training)')
             if not builtin:
                 models_logger.info(f'>>>> model diam_labels = {self.diam_labels: .3f} (mean diameter of training ROIs)')
-        
+            print('oli change: this is the lc1 diam labels', self.diam_labels)
         ostr = ['off', 'on']
         self.net_type = 'cellpose_residual_{}_style_{}_concatenation_{}'.format(ostr[residual_on],
                                                                                    ostr[style_on],
@@ -492,6 +495,12 @@ class CellposeModel(UnetModel):
                 style vector summarizing each image, also used to estimate size of objects in image
 
         """
+
+        print('heree pls')
+        
+        from .io import logger_setup
+        logger, log_file = logger_setup()
+
         
         if isinstance(x, list) or x.squeeze().ndim==5:
             masks, styles, flows = [], [], []
@@ -680,10 +689,42 @@ class CellposeModel(UnetModel):
         #print(lbl.shape)
         #print(torch.max(lbl))
         loss = self.criterion2(y[:,2] , lbl)
+        #print("Loss")
+        #y_shape = y[:,2].shape
+        #lbl_shape = lbl.shape
+        import matplotlib.pyplot as plt
+        output = y[:,2]
+        #plt.imshow(torch.sigmoid(output).detach().numpy()[0], cmap='Greys')
+        #output = (output - torch.min(output)) / (
+        #    torch.max(output) - torch.min(output)
+        #)
+        #plt.show()
+        #t.imshow(output.detach().numpy()[0], cmap='Greys')
+        #lt.show()
+        #plt.imshow(lbl.detach().numpy()[0], cmap='Greys')
+        #plt.show()
+        #print(y.shape)
+        #for i in range(4):
+        #    for k in range(3):
+        #        print('i', i, 'k', k)
+        #        print(torch.min(y[i,k,:,:]), torch.max(y[i,k,:,:]))
+        #print(torch.min(lbl), torch.min(y[:,2]))
+        #print(torch.max(lbl), torch.max(y[:,2]))
+        #small = torch.full(lbl.shape, -100)
+        small = torch.where(lbl==1, 1, -100)
+        small = small.type(lbl.dtype)
+        min_loss = self.criterion2(small, lbl)
+        if loss < min_loss:
+            input('Stop')
+            print(min_loss, loss)
+        #print('min loss', self.criterion(lbl, lbl))
+        #print('acc loss', self.criterion(y[:,2] , lbl))
+        #input('Stop')
         # check
         #import matplotlib.pyplot as plt
-        #plt.imshow(y[:,2][0].detach().numpy(), #cmap='Greys', alpha=0.9)
-        #plt.imshow(lbl[0].detach().numpy(), #cmap='Reds', alpha=.4)
+        #print(y.shape)
+        #plt.imshow(y[:,2][0].detach().numpy(), cmap='Greys', alpha=0.9)
+        #plt.imshow(lbl[0].detach().numpy(), cmap='Reds', alpha=.4)
         #plt.show()
         return loss        
 
@@ -896,7 +937,12 @@ class SizeModel():
                 estimated diameters from style alone
 
         """
+
+        print('heree 1')
         
+        from .io import logger_setup
+        logger, log_file = logger_setup()
+
         if isinstance(x, list):
             diams, diams_style = [], []
             nimg = len(x)
