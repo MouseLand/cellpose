@@ -337,7 +337,10 @@ def main(*args):
                                             concatenation=args.concatenation,
                                             nchan=nchan)
 
-            # model no track
+            # batch normalisation normally needs to track these variables
+            # but we don't want to as we are finetuning to our dataset
+            # and i believe it threw the training off using our mean values
+            # TODO try putting this back in see if makes a difference
             sd = model.net.state_dict()
             for (k1, v1) in sd.items():
                 vars = ["running_mean", "running_var", "num_batches_tracked"]
