@@ -314,7 +314,7 @@ class UnetModel():
         if self.mkldnn:
             self.net = mkldnn_utils.to_mkldnn(self.net)
         with torch.no_grad():
-            y, style = self.net(X)     
+            y, style = self.net(X)
         del X
         y = self._from_device(y)
         style = self._from_device(style)
@@ -643,7 +643,6 @@ class UnetModel():
             lbl = lbl[:,0]
         lbl = self._to_device(lbl).long()
         loss = 8 * 1./self.nclasses * self.criterion(y, lbl)
-        # input('test loss')
         return loss
 
     def train(self, train_data, train_labels, train_files=None, 
@@ -844,9 +843,6 @@ class UnetModel():
             core_logger.info('>>>> median diameter set to = %d'%self.diam_mean)
         else:
             scale_range = 1.0
-
-        print(scale_range)
-        input('stop')
             
         core_logger.info(f'>>>> mean of training label mask diameters (oli manually set atm) (saved to model) {diam_train_mean:.3f}')
         self.net.diam_labels.data = torch.ones(1, device=self.device) * diam_train_mean
@@ -867,6 +863,7 @@ class UnetModel():
 
         if save_path is not None:
             _, file_label = os.path.split(save_path)
+            # add fold to model path
             file_path = os.path.join(save_path, f'models/{fold}/')
 
             if not os.path.exists(file_path):
@@ -906,6 +903,8 @@ class UnetModel():
                                         rescale=rsc, scale_range=scale_range, unet=False)
                 # lbl is shape batch x 3 x height x width
                 # lbl[,0,,] is the label/cell probability
+                # changed Y 
+                # set Unet to False
                 if self.unet and lbl.shape[1]>1 and rescale:
                     lbl[:,1] *= scale[:,np.newaxis,np.newaxis]**2#diam_batch[:,np.newaxis,np.newaxis]**2
                 train_loss = self._train_step(imgi, lbl)
@@ -921,12 +920,12 @@ class UnetModel():
                     for ibatch in range(0,len(test_data),batch_size):
                         inds = rperm[ibatch:ibatch+batch_size]
                         rsc = diam_test[inds] / self.diam_mean if rescale else np.ones(len(inds), np.float32)
+                        # changed below in same way as for train above
                         imgi, lbl, scale = transforms.random_rotate_and_resize(
                                         [test_data[i] for i in inds], Y=[test_labels[i][0:3] for i in inds],
                                         rescale=rsc, scale_range=0, unet=False) 
                         if self.unet and lbl.shape[1]>1 and rescale:
                             lbl[:,1] *= scale[:,np.newaxis,np.newaxis]**2
-                            #input('rescaling')
 
                         test_loss = self._test_eval(imgi, lbl)
                         lavgt += test_loss

@@ -617,7 +617,6 @@ class CellposeModel(UnetModel):
                     img = transforms.normalize_img(img, invert=invert)
                 if rescale != 1.0:
                     img = transforms.resize_image(img, rsz=rescale)
-                #np.save('C:/Users/olive/OneDrive - University of Leeds/Project/Code/masters/locpix/sandpit/img_test.npy', img)
                 yf, style = self._run_nets(img, net_avg=net_avg,
                                            augment=augment, tile=tile,
                                            tile_overlap=tile_overlap)
@@ -782,8 +781,6 @@ class CellposeModel(UnetModel):
                                                                                                    test_data, test_labels,
                                                                                                    channels, normalize)
 
-        #print('train labels', len(train_labels))
-        #print('train labels', train_labels[0].shape)
         # check if train_labels have flows
         # if not, flows computed, returned with labels as train_flows[i][0]
         train_flows = dynamics.labels_to_flows(train_labels, files=train_files, use_gpu=self.gpu, device=self.device)
@@ -791,10 +788,11 @@ class CellposeModel(UnetModel):
             test_flows = dynamics.labels_to_flows(test_labels, files=test_files, use_gpu=self.gpu, device=self.device)
         else:
             test_flows = None
-        #print('train flows', len(train_flows))
-        #print('train flows', train_flows[0].shape)
-        #np.testing.assert_equal(train_labels[0], train_flows[0][0])
-        #np.testing.assert_equal(train_labels[1], train_flows[1][0])
+        # train flows is list len batch
+        # train flows[0] is therefore flow for first image
+        # train_flows[i] is shape 4 x 500 x 500
+        # the first channel is the label
+        # i.e. train_flows[1][0] is label for image 1
 
         nmasks = np.array([label[0].max() for label in train_flows])
         nremove = (nmasks < min_train_masks).sum()

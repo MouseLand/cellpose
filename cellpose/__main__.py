@@ -22,6 +22,7 @@ except Exception as err:
 import logging
 
 # settings re-grouped a bit
+# takes arguments so can use in script
 def main(*args):
     parser = argparse.ArgumentParser(description='cellpose parameters')
 
@@ -128,13 +129,11 @@ def main(*args):
     parser.add_argument('--fold', default=0, type=int, help='the fold which is being processed - used to save the model name')
     parser.add_argument('--model_save_path', default=[], type=str, help='folder to save the model to')
     
-    # so can be parsed either command line or as such
+    # so can be parsed either command line or in script
     if len(args) == 0:
         args = parser.parse_args()
     else:
         args = parser.parse_args(args[0])
-
-
     # custom parse
     model_save_path = args.model_save_path
     fold = args.fold
@@ -358,6 +357,7 @@ def main(*args):
                                            learning_rate=args.learning_rate, 
                                            weight_decay=args.weight_decay,
                                            channels=channels,
+                                           # add in custom arguments
                                            save_path=os.path.realpath(model_save_path), 
                                            fold=fold,
                                            save_every=args.save_every,
