@@ -886,6 +886,10 @@ class UnetModel():
         while len(inds_all) < n_epochs * nimg_per_epoch:
             rperm = np.random.permutation(nimg)
             inds_all = np.hstack((inds_all, rperm))
+
+        # test loss
+        running_loss = 1e10
+        save_this_epoch = False
         
         for iepoch in range(self.n_epochs):    
             if SGD:
@@ -931,6 +935,11 @@ class UnetModel():
                         lavgt += test_loss
                         nsum += len(imgi)
 
+                    if lavgt/nsum < running_loss:
+                        running_loss = lavgt/nsum
+                        save_this_epoch = True
+                        print('should save now', running_loss)
+
                     core_logger.info('Epoch %d, Time %4.1fs, Loss %2.4f, Loss Test %2.4f, LR %2.4f'%
                             (iepoch, time.time()-tic, lavg, lavgt/nsum, self.learning_rate[iepoch]))
                 else:
@@ -938,9 +947,10 @@ class UnetModel():
                             (iepoch, time.time()-tic, lavg, self.learning_rate[iepoch]))
                 
                 lavg, nsum = 0, 0
-                            
+
+            # change so saves when loss is lowest on test set           
             if save_path is not None:
-                if iepoch==self.n_epochs-1 or iepoch%save_every==1:
+                if save_this_epoch or iepoch%save_every==1:
                     # save model at the end
                     if save_each: #separate files as model progresses 
                         if model_name is None:
@@ -958,6 +968,8 @@ class UnetModel():
                     ksave += 1
                     core_logger.info(f'saving network parameters to {file_name}')
                     self.net.save_model(file_name)
+                    # reset save_this_epoch
+                    save_this_epoch = False
             else:
                 file_name = save_path
 
