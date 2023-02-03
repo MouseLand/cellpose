@@ -726,6 +726,8 @@ def random_rotate_and_resize(X, Y=None, scale_range=1., xy = (224,224),
             scale[n] = (1-scale_range/2) + scale_range * np.random.rand()
             if rescale is not None:
                 scale[n] *= 1. / rescale[n]
+            # manually set scale to 0.5 for best training - otherwise too small or too large
+            scale[n] = 0.5
             dxy = np.maximum(0, np.array([Lx*scale[n]-xy[1],Ly*scale[n]-xy[0]]))
             dxy = (np.random.rand(2,) - .5) * dxy
 

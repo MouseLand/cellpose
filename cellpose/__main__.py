@@ -22,6 +22,7 @@ except Exception as err:
 import logging
 
 # settings re-grouped a bit
+# takes arguments so can use in script
 def main(*args):
     parser = argparse.ArgumentParser(description='cellpose parameters')
 
@@ -128,13 +129,11 @@ def main(*args):
     parser.add_argument('--fold', default=0, type=int, help='the fold which is being processed - used to save the model name')
     parser.add_argument('--model_save_path', default=[], type=str, help='folder to save the model to')
     
-    # so can be parsed either command line or as such
+    # so can be parsed either command line or in script
     if len(args) == 0:
         args = parser.parse_args()
     else:
         args = parser.parse_args(args[0])
-
-
     # custom parse
     model_save_path = args.model_save_path
     fold = args.fold
@@ -336,6 +335,20 @@ def main(*args):
                                             style_on=args.style_on,
                                             concatenation=args.concatenation,
                                             nchan=nchan)
+
+            # batch normalisation normally needs to track these variables
+            # but we don't want to as we are finetuning to our dataset
+            # and i believe it threw the training off using our mean values
+            # TODO try putting this back in see if makes a difference
+            sd = model.net.state_dict()
+            for (k1, v1) in sd.items():
+                vars = ["running_mean", "running_var", "num_batches_tracked"]
+                #print(type(k1))
+                for var in vars:
+                    if k1.endswith(var):
+                        module = k1.rstrip("." + var)
+                        model.net.get_submodule(module).track_running_stats = False
+
             
             # train segmentation model
             if args.train:
@@ -344,6 +357,7 @@ def main(*args):
                                            learning_rate=args.learning_rate, 
                                            weight_decay=args.weight_decay,
                                            channels=channels,
+                                           # add in custom arguments
                                            save_path=os.path.realpath(model_save_path), 
                                            fold=fold,
                                            save_every=args.save_every,

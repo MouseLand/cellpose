@@ -220,8 +220,11 @@ class UnetModel():
 
             styles: list of 1D arrays of length 64, or single 1D array (if do_3D=True)
                 style vector summarizing each image, also used to estimate size of objects in image
+        """
 
-        """        
+        from .io import logger_setup
+        logger, log_file = logger_setup()
+
         x = [transforms.convert_image(xi, channels, channel_axis, z_axis, do_3D, 
                                     normalize, invert, nchan=self.nchan) for xi in x]
         nimg = len(x)
@@ -640,7 +643,6 @@ class UnetModel():
             lbl = lbl[:,0]
         lbl = self._to_device(lbl).long()
         loss = 8 * 1./self.nclasses * self.criterion(y, lbl)
-        # input('test loss')
         return loss
 
     def train(self, train_data, train_labels, train_files=None, 
@@ -826,6 +828,11 @@ class UnetModel():
         # compute average cell diameter
         diam_train = np.array([utils.diameters(train_labels[k][0])[0] for k in range(len(train_labels))])
         diam_train_mean = diam_train[diam_train > 0].mean()
+        # currently hardcoded in but will need to put somewhere different
+        # rescale makes image too small to perform meaningful training
+        # diam_train doesn't work well with our labels therefore manually set to 50
+        rescale = False
+        diam_train_mean = 50
         self.diam_labels = diam_train_mean
         if rescale:
             diam_train[diam_train<5] = 5.
@@ -837,7 +844,7 @@ class UnetModel():
         else:
             scale_range = 1.0
             
-        core_logger.info(f'>>>> mean of training label mask diameters (saved to model) {diam_train_mean:.3f}')
+        core_logger.info(f'>>>> mean of training label mask diameters (oli manually set atm) (saved to model) {diam_train_mean:.3f}')
         self.net.diam_labels.data = torch.ones(1, device=self.device) * diam_train_mean
 
         nchan = train_data[0].shape[0]
@@ -856,6 +863,7 @@ class UnetModel():
 
         if save_path is not None:
             _, file_label = os.path.split(save_path)
+            # add fold to model path
             file_path = os.path.join(save_path, f'models/{fold}/')
 
             if not os.path.exists(file_path):
@@ -888,11 +896,15 @@ class UnetModel():
                 inds = rperm[ibatch:ibatch+batch_size]
                 rsc = diam_train[inds] / self.diam_mean if rescale else np.ones(len(inds), np.float32)
                 # now passing in the full train array, need the labels for distance field
+                # any scaling affects performance too much therefore set rsc to None
+                rsc = None
                 imgi, lbl, scale = transforms.random_rotate_and_resize(
                                         [train_data[i] for i in inds], Y=[train_labels[i][0:3] for i in inds],
                                         rescale=rsc, scale_range=scale_range, unet=False)
                 # lbl is shape batch x 3 x height x width
                 # lbl[,0,,] is the label/cell probability
+                # changed Y 
+                # set Unet to False
                 if self.unet and lbl.shape[1]>1 and rescale:
                     lbl[:,1] *= scale[:,np.newaxis,np.newaxis]**2#diam_batch[:,np.newaxis,np.newaxis]**2
                 train_loss = self._train_step(imgi, lbl)
@@ -908,12 +920,12 @@ class UnetModel():
                     for ibatch in range(0,len(test_data),batch_size):
                         inds = rperm[ibatch:ibatch+batch_size]
                         rsc = diam_test[inds] / self.diam_mean if rescale else np.ones(len(inds), np.float32)
+                        # changed below in same way as for train above
                         imgi, lbl, scale = transforms.random_rotate_and_resize(
                                         [test_data[i] for i in inds], Y=[test_labels[i][0:3] for i in inds],
                                         rescale=rsc, scale_range=0, unet=False) 
                         if self.unet and lbl.shape[1]>1 and rescale:
                             lbl[:,1] *= scale[:,np.newaxis,np.newaxis]**2
-                            #input('rescaling')
 
                         test_loss = self._test_eval(imgi, lbl)
                         lavgt += test_loss

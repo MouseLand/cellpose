@@ -203,7 +203,9 @@ class Cellpose():
 
         diams: list of diameters, or float (if do_3D=True)
 
-        """        
+        """
+        from .io import logger_setup
+        logger, log_file = logger_setup()        
 
         tic0 = time.time()
         channels = [0,0] if channels is None else channels # why not just make this a default in the function header?
@@ -372,7 +374,6 @@ class CellposeModel(UnetModel):
             models_logger.info(f'>>>> model diam_mean = {self.diam_mean: .3f} (ROIs rescaled to this size during training)')
             if not builtin:
                 models_logger.info(f'>>>> model diam_labels = {self.diam_labels: .3f} (mean diameter of training ROIs)')
-        
         ostr = ['off', 'on']
         self.net_type = 'cellpose_residual_{}_style_{}_concatenation_{}'.format(ostr[residual_on],
                                                                                    ostr[style_on],
@@ -491,7 +492,10 @@ class CellposeModel(UnetModel):
             styles: list of 1D arrays of length 64, or single 1D array (if do_3D=True)
                 style vector summarizing each image, also used to estimate size of objects in image
 
-        """
+        """        
+        from .io import logger_setup
+        logger, log_file = logger_setup()
+
         
         if isinstance(x, list) or x.squeeze().ndim==5:
             masks, styles, flows = [], [], []
@@ -613,7 +617,6 @@ class CellposeModel(UnetModel):
                     img = transforms.normalize_img(img, invert=invert)
                 if rescale != 1.0:
                     img = transforms.resize_image(img, rsz=rescale)
-                #np.save('C:/Users/olive/OneDrive - University of Leeds/Project/Code/masters/locpix/sandpit/img_test.npy', img)
                 yf, style = self._run_nets(img, net_avg=net_avg,
                                            augment=augment, tile=tile,
                                            tile_overlap=tile_overlap)
@@ -675,16 +678,19 @@ class CellposeModel(UnetModel):
         
     def loss_fn(self, lbl, y):
         """ loss function between true labels lbl and prediction y """
+        # modify loss function
         lbl = self._to_device(lbl[:,0])
-        #print(y[:,2].shape)
-        #print(lbl.shape)
-        #print(torch.max(lbl))
         loss = self.criterion2(y[:,2] , lbl)
-        # check
-        #import matplotlib.pyplot as plt
-        #plt.imshow(y[:,2][0].detach().numpy(), #cmap='Greys', alpha=0.9)
-        #plt.imshow(lbl[0].detach().numpy(), #cmap='Reds', alpha=.4)
-        #plt.show()
+        output = y[:,2]
+        
+        # sanity check against minimum possible loss
+        small = torch.where(lbl==1, 1, -100)
+        small = small.type(lbl.dtype)
+        min_loss = self.criterion2(small, lbl)
+        if loss < min_loss:
+            input('Stop')
+            print(min_loss, loss)
+
         return loss        
 
 
@@ -775,8 +781,6 @@ class CellposeModel(UnetModel):
                                                                                                    test_data, test_labels,
                                                                                                    channels, normalize)
 
-        #print('train labels', len(train_labels))
-        #print('train labels', train_labels[0].shape)
         # check if train_labels have flows
         # if not, flows computed, returned with labels as train_flows[i][0]
         train_flows = dynamics.labels_to_flows(train_labels, files=train_files, use_gpu=self.gpu, device=self.device)
@@ -784,10 +788,11 @@ class CellposeModel(UnetModel):
             test_flows = dynamics.labels_to_flows(test_labels, files=test_files, use_gpu=self.gpu, device=self.device)
         else:
             test_flows = None
-        #print('train flows', len(train_flows))
-        #print('train flows', train_flows[0].shape)
-        #np.testing.assert_equal(train_labels[0], train_flows[0][0])
-        #np.testing.assert_equal(train_labels[1], train_flows[1][0])
+        # train flows is list len batch
+        # train flows[0] is therefore flow for first image
+        # train_flows[i] is shape 4 x 500 x 500
+        # the first channel is the label
+        # i.e. train_flows[1][0] is label for image 1
 
         nmasks = np.array([label[0].max() for label in train_flows])
         nremove = (nmasks < min_train_masks).sum()
@@ -895,8 +900,10 @@ class SizeModel():
             diam_style: array, float
                 estimated diameters from style alone
 
-        """
-        
+        """        
+        from .io import logger_setup
+        logger, log_file = logger_setup()
+
         if isinstance(x, list):
             diams, diams_style = [], []
             nimg = len(x)
