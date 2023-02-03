@@ -950,7 +950,7 @@ class UnetModel():
 
             # change so saves when loss is lowest on test set           
             if save_path is not None:
-                if save_this_epoch or iepoch%save_every==1:
+                if save_this_epoch:
                     # save model at the end
                     if save_each: #separate files as model progresses 
                         if model_name is None:
