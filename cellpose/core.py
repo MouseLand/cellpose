@@ -224,7 +224,9 @@ class UnetModel():
 
         """        
         x = [transforms.convert_image(xi, channels, channel_axis, z_axis, do_3D, 
-                                    normalize, invert, nchan=self.nchan) for xi in x]
+                                      nchan=self.nchan) for xi in x]
+        x = [transforms.normalize_img(xi, normalize=normalize, invert=invert) for xi in x]
+        
         nimg = len(x)
         self.batch_size = batch_size
 

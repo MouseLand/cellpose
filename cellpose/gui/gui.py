@@ -15,12 +15,13 @@ import numpy as np
 from scipy.stats import mode
 import cv2
 
-from . import guiparts, menus, io
+from . import guiparts, menus, io, norm
 from .. import models, core, dynamics, version
 from ..utils import download_url_to_file, masks_to_outlines, diameters 
 from ..io import get_image_files, imsave, imread
 from ..transforms import resize_image, normalize99 #fixed import
 from ..plot import disk
+from ..transforms import normalize99_tile, sharpen_img
 
 try:
     import matplotlib.pyplot as plt
@@ -42,7 +43,8 @@ class QHLine(QFrame):
     def __init__(self):
         super(QHLine, self).__init__()
         self.setFrameShape(QFrame.HLine)
-        self.setFrameShadow(QFrame.Sunken)
+        #self.setFrameShadow(QFrame.Sunken)
+        self.setLineWidth(8)
 
 def avg3d(C):
     """ smooth value of c across nearby points
@@ -184,21 +186,37 @@ class MainW(QMainWindow):
         menus.mainmenu(self)
         menus.editmenu(self)
         menus.modelmenu(self)
+        menus.normmenu(self)
         menus.helpmenu(self)
 
         self.setStyleSheet("QMainWindow {background: 'black';}")
-        self.stylePressed = ("QPushButton {Text-align: left; "
-                             "background-color: rgb(150,50,150); "
-                             "border-color: white;"
-                             "color:white;}")
-        self.styleUnpressed = ("QPushButton {Text-align: left; "
-                               "background-color: rgb(50,50,50); "
-                                "border-color: white;"
-                               "color:white;}")
-        self.styleInactive = ("QPushButton {Text-align: left; "
-                              "background-color: rgb(30,30,30); "
-                             "border-color: white;"
-                              "color:rgb(80,80,80);}")
+        self.stylePressed = """QPushButton {Text-align: left; 
+                             background-color: rgb(150,50,150); 
+                             border-color: white;
+                             color:white;}
+                            QToolTip { 
+                           background-color: black; 
+                           color: white; 
+                           border: black solid 1px
+                           }"""
+        self.styleUnpressed = """QPushButton {Text-align: left; 
+                               background-color: rgb(50,50,50);
+                                border-color: white;
+                               color:white;}
+                                QToolTip { 
+                           background-color: black; 
+                           color: white; 
+                           border: black solid 1px
+                           }"""
+        self.styleInactive = """QPushButton {Text-align: left; 
+                             background-color: rgb(30,30,30);
+                             border-color: white;
+                              color:rgb(80,80,80);}
+                               QToolTip { 
+                           background-color: black; 
+                           color: white; 
+                           border: black solid 1px
+                           }"""
         self.loaded = False
 
         # ---- MAIN WIDGET LAYOUT ---- #
@@ -279,86 +297,115 @@ class MainW(QMainWindow):
                            color: white; 
                            border: black solid 1px
                            }"""
+        box_style = """QToolTip { 
+                           background-color: black; 
+                           color: white; 
+                           border: black solid 1px
+                           }"""
         self.boldfont = QtGui.QFont("Arial", 12, QtGui.QFont.Bold)
         self.medfont = QtGui.QFont("Arial", 10)
         self.smallfont = QtGui.QFont("Arial", 8)
-        self.headings = ('color: rgb(150,255,150);')
-        self.dropdowns = ("color: white;"
-                        "background-color: rgb(40,40,40);"
-                        "selection-color: white;"
-                        "selection-background-color: rgb(50,100,50);")
-        self.checkstyle = "color: rgb(190,190,190);"
-
+        self.headings = """QLabel{
+                            color: rgb(150,255,150)
+                            } 
+                         QToolTip { 
+                           background-color: black; 
+                           color: white; 
+                           border: black solid 1px
+                           }"""
+        self.dropdowns = """QComboBox {color: white;
+                        background-color: rgb(40,40,40);}
+                        QComboBox::item:enabled { color: white;
+                        background-color: rgb(40,40,40);
+                        selection-color: white;
+                        selection-background-color: rgb(50,100,50);}
+                        QComboBox::item:!enabled {
+                                background-color: rgb(40,40,40);
+                                color: rgb(100,100,100);
+                            }"""
+        self.checkstyle = """
+                        QCheckBox{color: rgb(140,140,140);
+                         border: none;
+                            }
+                            QToolTip { 
+                           background-color: black; 
+                           color: white; 
+                           border: black solid 1px
+                           }"""
+        
         label = QLabel('Views:')#[\u2191 \u2193]')
         label.setStyleSheet(self.headings)
         label.setFont(self.boldfont)
         self.l0.addWidget(label, 0,0,1,4)
 
-        label = QLabel('[up/down or W/S]')
-        label.setStyleSheet(label_style)
-        label.setFont(self.smallfont)
-        self.l0.addWidget(label, 1,0,1,4)
-
-        
-        b=2
+        b=1
         self.view = 0 # 0=image, 1=flowsXY, 2=flowsZ, 3=cellprob
         self.color = 0 # 0=RGB, 1=gray, 2=R, 3=G, 4=B
         self.RGBDropDown = QComboBox()
         self.RGBDropDown.addItems(["RGB","red=R","green=G","blue=B","gray","spectral"])
         self.RGBDropDown.setFont(self.medfont)
         self.RGBDropDown.currentIndexChanged.connect(self.color_choose)
-        #self.RGBDropDown.setFixedWidth(60)
         self.RGBDropDown.setStyleSheet(self.dropdowns)
+        self.l0.addWidget(self.RGBDropDown, b,0,1,3)
         
-
-        self.l0.addWidget(self.RGBDropDown, b,0,1,4)
-        label = QLabel('[press R / G / B to \n toggle RGB and color ]')
+        label = QLabel('<p>[&uarr; / &darr; or W/S]</p>')
         label.setStyleSheet(label_style)
         label.setFont(self.smallfont)
-        self.l0.addWidget(label, b,4,1,4)
-
-        label = QLabel('[pageup/down]')
+        self.l0.addWidget(label, b,4,1,2)
+        label = QLabel('[R / G / B \n toggles color ]')
         label.setStyleSheet(label_style)
         label.setFont(self.smallfont)
-        self.l0.addWidget(label, b+1,0,1,5)
-        self.RGBChoose = guiparts.RGBRadioButtons(self, b+2,0)
-        
+        self.l0.addWidget(label, b,7,1,2)
 
-        b+=3
+        b+=1
+        self.RGBChoose = QComboBox()
+        self.RGBChoose.addItems(["image", "gradXY", "cellprob", "gradZ", "filtered"])
+        self.RGBChoose.setFont(self.medfont)
+        self.RGBChoose.model().item(4).setEnabled(False)
+        self.RGBChoose.currentIndexChanged.connect(self.update_plot)
+        self.RGBChoose.setStyleSheet(self.dropdowns)
+        self.l0.addWidget(self.RGBChoose, b,0,1,3)
+
+        label = QLabel('[pageup / pagedown]')
+        label.setStyleSheet(label_style)
+        label.setFont(self.smallfont)
+        self.l0.addWidget(label, b,5,1,4)
+        
+        
+        #self.RGBChoose = guiparts.RGBRadioButtons(self, b+2,0)
 
         self.resize = -1
         self.X2 = 0
 
         b+=1
         line = QHLine()
-        line.setStyleSheet('color: white;')
+        line.setStyleSheet('color: white; width: 3px')
         self.l0.addWidget(line, b,0,1,9)
         b+=1
         label = QLabel('Drawing:')
         label.setStyleSheet(self.headings)
         label.setFont(self.boldfont)
-        self.l0.addWidget(label, b,0,1,9)
+        self.l0.addWidget(label, b,0,1,2)
 
-        b+=1
         self.brush_size = 3
         self.BrushChoose = QComboBox()
         self.BrushChoose.addItems(["1","3","5","7","9"])
         self.BrushChoose.currentIndexChanged.connect(self.brush_choose)
-        self.BrushChoose.setFixedWidth(60)
+        #self.BrushChoose.setFixedWidth(60)
         self.BrushChoose.setStyleSheet(self.dropdowns)
         self.BrushChoose.setFont(self.medfont)
-        self.l0.addWidget(self.BrushChoose, b, 2,1,3)
-        label = QLabel('brush size:')
+        self.l0.addWidget(self.BrushChoose, b, 4,1,2)
+        label = QLabel('brushsize:')
         label.setStyleSheet(label_style)
         label.setFont(self.medfont)
-        self.l0.addWidget(label, b,0,1,2)
+        self.l0.addWidget(label, b,2,1,2)
 
         # turn on drawing for 3D
         self.SCheckBox = QCheckBox('single stroke')
         self.SCheckBox.setStyleSheet(self.checkstyle)
         self.SCheckBox.setFont(self.medfont)
         self.SCheckBox.toggled.connect(self.autosave_on)
-        self.l0.addWidget(self.SCheckBox, b,5,1,3)
+        self.l0.addWidget(self.SCheckBox, b,6,1,3)
 
         
         b+=1
@@ -390,7 +437,7 @@ class MainW(QMainWindow):
         label = QLabel('Segmentation:')
         label.setStyleSheet(self.headings)
         label.setFont(self.boldfont)
-        self.l0.addWidget(label, b,0,1,9)
+        self.l0.addWidget(label, b,0,1,5)
         
         # use GPU
         self.useGPU = QCheckBox('use GPU')
@@ -402,27 +449,28 @@ class MainW(QMainWindow):
 
         b+=1
         self.diameter = 30
-        label = QLabel('cell diameter (pixels) (click ENTER):')
+        label = QLabel('cell diameter (pixels):')
         label.setStyleSheet(label_style)
         label.setFont(self.medfont)
         label.setToolTip('you can manually enter the approximate diameter for your cells, \nor press “calibrate” to let the model estimate it. \nThe size is represented by a disk at the bottom of the view window \n(can turn this disk off by unchecking “scale disk on”)')
-        self.l0.addWidget(label, b, 0,1,9)
+        self.l0.addWidget(label, b, 0,1,3)
         self.Diameter = QLineEdit()
+        self.Diameter.setStyleSheet(box_style)
         self.Diameter.setToolTip('you can manually enter the approximate diameter for your cells, \nor press “calibrate” to let the model estimate it. \nThe size is represented by a disk at the bottom of the view window \n(can turn this disk off by unchecking “scale disk on”)')
         self.Diameter.setText(str(self.diameter))
         self.Diameter.setFont(self.medfont)
         self.Diameter.returnPressed.connect(self.compute_scale)
-        self.Diameter.setFixedWidth(50)
-        b+=1
-        self.l0.addWidget(self.Diameter, b,0,1,5)
+        self.Diameter.setFixedWidth(60)
+        self.l0.addWidget(self.Diameter, b,3,1,3)
 
-        # recompute model
+        # compute diameter
         self.SizeButton = QPushButton('  calibrate')
         self.SizeButton.clicked.connect(self.calibrate_size)
-        self.l0.addWidget(self.SizeButton, b,5,1,4)
+        self.l0.addWidget(self.SizeButton, b,6,1,3)
         self.SizeButton.setEnabled(False)
         self.SizeButton.setStyleSheet(self.styleInactive)
         self.SizeButton.setFont(self.boldfont)
+        self.SizeButton.setToolTip('you can manually enter the approximate diameter for your cells, \nor press “calibrate” to let the model estimate it. \nThe size is represented by a disk at the bottom of the view window \n(can turn this disk off by unchecking “scale disk on”)')
 
         ### fast mode
         #self.NetAvg = QComboBox()
@@ -437,7 +485,7 @@ class MainW(QMainWindow):
         self.ChannelChoose = [QComboBox(), QComboBox()]
         self.ChannelChoose[0].addItems(['0: gray', '1: red', '2: green','3: blue'])
         self.ChannelChoose[1].addItems(['0: none', '1: red', '2: green', '3: blue'])
-        cstr = ['chan to segment:', 'chan2 (optional): ']
+        cstr = ['chan to\nsegment:', 'chan2\n(optional): ']
         for i in range(2):
             #self.ChannelChoose[i].setFixedWidth(70)
             self.ChannelChoose[i].setStyleSheet(self.dropdowns)
@@ -451,51 +499,119 @@ class MainW(QMainWindow):
             else:
                 label.setToolTip('if <em>cytoplasm</em> model is chosen, and you also have a nuclear channel, then choose the nuclear channel for this option')
                 self.ChannelChoose[i].setToolTip('if <em>cytoplasm</em> model is chosen, and you also have a nuclear channel, then choose the nuclear channel for this option')
-            self.l0.addWidget(label, b,0,1,5)
-            self.l0.addWidget(self.ChannelChoose[i], b,5,1,4)
-            b+=1
-
+            self.l0.addWidget(label, b,5*i,1,2)
+            self.l0.addWidget(self.ChannelChoose[i], b,5*i+2,1,2)
+            
         # post-hoc paramater tuning
 
         b+=1
-        label = QLabel('flow_threshold:')
+        
+        b0 = 0
+        self.TB = QGroupBox('')
+        self.TB.setStyleSheet("QGroupBox { border: 1px solid gray; color:white; padding: 0px 0px;}")
+        self.TBg = QGridLayout()
+        self.TB.setLayout(self.TBg)
+        label = QLabel('Thresholds')
+        label.setStyleSheet(label_style)
+        #label.setFont(self.medfont)
+        self.TBg.addWidget(label, b0, 0,1,5)
+        label = QLabel('flow:')
         label.setToolTip('threshold on flow error to accept a mask (set higher to get more cells, e.g. in range from (0.1, 3.0), OR set to 0.0 to turn off so no cells discarded);\n press enter to recompute if model already run')
         label.setStyleSheet(label_style)
         label.setFont(self.medfont)
-        self.l0.addWidget(label, b, 0,1,5)
+        self.TBg.addWidget(label, b0, 5,1,2)
         self.flow_threshold = QLineEdit()
+        self.flow_threshold.setStyleSheet(box_style)
         self.flow_threshold.setText('0.4')
         self.flow_threshold.returnPressed.connect(self.compute_cprob)
-        self.flow_threshold.setFixedWidth(70)
-        self.l0.addWidget(self.flow_threshold, b,5,1,4)
+        self.flow_threshold.setFixedWidth(40)
+        self.flow_threshold.setFont(self.medfont)
+        self.TBg.addWidget(self.flow_threshold, b0,7,1,2)
+        self.flow_threshold.setToolTip('threshold on flow error to accept a mask (set higher to get more cells, e.g. in range from (0.1, 3.0), OR set to 0.0 to turn off so no cells discarded);\n press enter to recompute if model already run')
 
-        b+=1
-        label = QLabel('cellprob_threshold:')
+        b0+=1
+        label = QLabel('cellprob:')
         label.setToolTip('threshold on cellprob output to seed cell masks (set lower to include more pixels or higher to include fewer, e.g. in range from (-6, 6)); \n press enter to recompute if model already run')
         label.setStyleSheet(label_style)
         label.setFont(self.medfont)
-        self.l0.addWidget(label, b, 0,1,5)
+        self.TBg.addWidget(label, b0, 5,1,2)
         self.cellprob_threshold = QLineEdit()
+        self.cellprob_threshold.setStyleSheet(box_style)
         self.cellprob_threshold.setText('0.0')
         self.cellprob_threshold.returnPressed.connect(self.compute_cprob)
-        self.cellprob_threshold.setFixedWidth(70)
-        self.l0.addWidget(self.cellprob_threshold, b,5,1,4)
+        self.cellprob_threshold.setFixedWidth(40)
+        self.cellprob_threshold.setFont(self.medfont)
+        self.cellprob_threshold.setToolTip('threshold on cellprob output to seed cell masks (set lower to include more pixels or higher to include fewer, e.g. in range from (-6, 6)); \n press enter to recompute if model already run')
+        self.TBg.addWidget(self.cellprob_threshold, b0,7,1,2)
 
-        b+=1
-        label = QLabel('stitch_threshold:')
+        label = QLabel('3D stitch:')
         label.setToolTip('for 3D volumes, turn on stitch_threshold to stitch masks across planes instead of running cellpose in 3D (see docs for details)')
         label.setStyleSheet(label_style)
         label.setFont(self.medfont)
-        self.l0.addWidget(label, b, 0,1,5)
+        self.TBg.addWidget(label, b0, 1,1,2)
         self.stitch_threshold = QLineEdit()
+        self.stitch_threshold.setStyleSheet(box_style)
         self.stitch_threshold.setText('0.0')
         #self.cellprob_threshold.returnPressed.connect(self.compute_cprob)
-        self.stitch_threshold.setFixedWidth(70)
-        self.l0.addWidget(self.stitch_threshold, b,5,1,4)
+        self.stitch_threshold.setFixedWidth(40)
+        self.stitch_threshold.setFont(self.medfont)
+        self.stitch_threshold.setToolTip('for 3D volumes, turn on stitch_threshold to stitch masks across planes instead of running cellpose in 3D (see docs for details)')
+        self.TBg.addWidget(self.stitch_threshold, b0,3,1,2)
+        
+        self.l0.addWidget(self.TB, b, 0, 1, 9)
+        
+        # NORMALIZATION
+        b0 = 0
+        self.NB = QGroupBox()
+        self.NB.setStyleSheet("QGroupBox { border: 1px solid gray; color:white; padding: 0px 0px;}")
+        self.NBg = QGridLayout()
+        self.NB.setLayout(self.NBg)
+        label = QLabel('Normalization (advanced)')
+        label.setStyleSheet(label_style)
+        #label.setFont(self.medfont)
+        self.NBg.addWidget(label, b0, 0,1,7)
+        self.norm_vals = [1., 99., 0., 0.]
+        self.norm_edits = []
+        labels = ['lower\npercentile', 'upper\npercentile', 'tile_norm', 'sharpen']
+        tooltips = ['pixels at this percentile set to 0',
+                    'pixels at this percentile set to 1',
+                    'set size of tiles to use to normalize image',
+                    'set size of surround filter for sharpening image']
+        b0+=1
+        for p in range(4):
+            label = QLabel(f'{labels[p]}:')
+            label.setToolTip(tooltips[p])
+            label.setStyleSheet(label_style)
+            label.setFont(self.medfont)
+            self.NBg.addWidget(label, b0+p//2, 4*(p%2),1,2)
+            self.norm_edits.append(QLineEdit())
+            self.norm_edits[p].setStyleSheet(box_style)
+            self.norm_edits[p].setText(str(self.norm_vals[p]))
+            self.norm_edits[p].setFixedWidth(40)
+            self.norm_edits[p].setFont(self.medfont)
+            self.NBg.addWidget(self.norm_edits[p], b0+p//2,4*(p%2)+2,1,2)
+            self.norm_edits[p].setToolTip(tooltips[p])
+
+        b0+=2
+        self.norm3D_cb = QCheckBox('norm3D')
+        self.norm3D_cb.setStyleSheet(self.checkstyle)
+        self.norm3D_cb.setFont(self.medfont)
+        self.norm3D_cb.setToolTip('run same normalization across planes')
+        self.NBg.addWidget(self.norm3D_cb, b0,0,1,3)
+
+        self.NormButton = QPushButton(u' compute (optional)')
+        #self.NormButton.clicked.connect(self.compute_norm)
+        self.NBg.addWidget(self.NormButton, b0,4,1,4)
+        self.NormButton.setEnabled(False)
+        self.NormButton.setStyleSheet(self.styleInactive)
+        
+            
+        b+=3
+        self.l0.addWidget(self.NB, b, 0, 1, 9)
 
         b+=1
         self.GB = QGroupBox('model zoo')
-        self.GB.setStyleSheet("QGroupBox { border: 1px solid white; color:white; padding: 10px 0px;}")
+        self.GB.setStyleSheet("QGroupBox { border: 1px solid gray; color:white; padding: 10px 0px;}")
         self.GBg = QGridLayout()
         self.GB.setLayout(self.GBg)
 
@@ -540,8 +656,8 @@ class MainW(QMainWindow):
         self.l0.addWidget(self.GB, b, 0, 2, 9)
 
         b+=2
-        self.CB = QGroupBox('custom models')
-        self.CB.setStyleSheet("QGroupBox { border: 1px solid white; color:white; padding: 10px 0px;}")
+        self.CB = QGroupBox('')
+        self.CB.setStyleSheet("QGroupBox { border: 1px solid gray; color:white; padding: 0px 0px;}")
         self.CBg = QGridLayout()
         self.CB.setLayout(self.CBg)
         tipstr = 'add or train your own models in the "Models" file menu and choose model here'
@@ -565,7 +681,7 @@ class MainW(QMainWindow):
         self.CBg.addWidget(self.ModelChoose, 0,0,1,7)
 
         # compute segmentation w/ custom model
-        self.ModelButton = QPushButton(u'run model')
+        self.ModelButton = QPushButton(u' run model')
         self.ModelButton.clicked.connect(self.compute_model)
         self.CBg.addWidget(self.ModelButton, 0,7,2,2)
         self.ModelButton.setEnabled(False)
@@ -591,9 +707,10 @@ class MainW(QMainWindow):
 
         b+=1
         label = QLabel('Image saturation:')
+        label.setToolTip('NOTE: manually changing the saturation bars does not affect normalization in segmentation')
         label.setStyleSheet(self.headings)
         label.setFont(self.boldfont)
-        self.l0.addWidget(label, b,0,1,9)
+        self.l0.addWidget(label, b,0,1,5)
 
         #b+=1
         #self.autochannelbtn = QCheckBox('renormalize channels')
@@ -603,22 +720,30 @@ class MainW(QMainWindow):
         #self.autochannelbtn.setToolTip('sets channels so that 1st and 99th percentiles at same values, only works for 2D images currently')
         #self.l0.addWidget(self.autochannelbtn, b,0,1,5)
 
-        b+=1
-        self.autobtn = QCheckBox('auto-adjust')
+        self.autobtn = QCheckBox('normalization')
+        self.autobtn.setToolTip('shows images as normalized for segmentation')
         self.autobtn.setStyleSheet(self.checkstyle)
         self.autobtn.setFont(self.medfont)
         self.autobtn.setChecked(True)
-        self.l0.addWidget(self.autobtn, b,0,1,5)
+        self.l0.addWidget(self.autobtn, b,5,1,4)
 
-        b+=1
-        self.slider = QRangeSlider(Qtp.Orientation.Horizontal)
-        self.slider.setMinimum(0)
-        self.slider.setMaximum(255)
-        self.slider.setValue([0, 255])
-        #self.slider.setHigh(255)
-        self.slider.setTickPosition(QSlider.TicksRight)
-        self.slider.valueChanged.connect(self.level_change)
-        self.l0.addWidget(self.slider, b,0,1,9)
+        self.sliders = []
+        colors = [[255,0,0], [0,255,0], [0,0,255], [100,100,100]]
+        names = ['red', 'green', 'blue']
+        for r in range(3):
+            b+=1
+            if r==0:
+                label = QLabel('<font color="gray">gray/</font><br>red')
+            else:
+                label = QLabel(names[r] + ':')
+            label.setStyleSheet(f"color: {names[r]}")
+            self.l0.addWidget(label, b, 0, 1, 2)
+            self.sliders.append(norm.Slider(self, names[r], colors[r]))
+            self.sliders[-1].setMinimum(0)
+            self.sliders[-1].setMaximum(255)
+            self.sliders[-1].setValue([0, 255])
+            self.sliders[-1].setTickPosition(QSlider.TicksRight)
+            self.l0.addWidget(self.sliders[-1], b, 2,1,7)
 
         b+=1
         self.l0.addWidget(QLabel(''),b,0,1,5)
@@ -631,40 +756,41 @@ class MainW(QMainWindow):
         self.hLineOrtho = [pg.InfiniteLine(angle=0, movable=False), pg.InfiniteLine(angle=0, movable=False)]
 
         b+=1
-        self.orthobtn = QCheckBox('orthoviews')
+        self.orthobtn = QCheckBox('ortho')
         self.orthobtn.setStyleSheet(self.checkstyle)
         self.orthobtn.setToolTip('activate orthoviews with 3D image')
         self.orthobtn.setFont(self.medfont)
         self.orthobtn.setChecked(False)
-        self.l0.addWidget(self.orthobtn, b,0,1,5)
+        self.l0.addWidget(self.orthobtn, b,0,1,2)
         self.orthobtn.toggled.connect(self.toggle_ortho)
 
-        label = QLabel('ortho dz:')
+        label = QLabel('dz:')
         label.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
         label.setStyleSheet(label_style)
         label.setFont(self.medfont)
-        self.l0.addWidget(label, b, 4,1,2)
+        self.l0.addWidget(label, b, 2,1,1)
         self.dz = 10
         self.dzedit = QLineEdit()
         self.dzedit.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
         self.dzedit.setText(str(self.dz))
         self.dzedit.returnPressed.connect(self.update_ortho)
-        self.dzedit.setFixedWidth(60)
-        self.l0.addWidget(self.dzedit, b, 6,1,3)
+        self.dzedit.setFixedWidth(40)
+        self.dzedit.setFont(self.medfont)
+        self.l0.addWidget(self.dzedit, b, 3,1,2)
 
-        b+=1
         label = QLabel('z-aspect:')
         label.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
         label.setStyleSheet(label_style)
         label.setFont(self.medfont)
-        self.l0.addWidget(label, b, 4,1,2)
+        self.l0.addWidget(label, b, 5,1,2)
         self.zaspect = 1.0
         self.zaspectedit = QLineEdit()
         self.zaspectedit.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
         self.zaspectedit.setText(str(self.zaspect))
         self.zaspectedit.returnPressed.connect(self.update_ortho)
-        self.zaspectedit.setFixedWidth(60)
-        self.l0.addWidget(self.zaspectedit, b, 6,1,3)
+        self.zaspectedit.setFixedWidth(40)
+        self.zaspectedit.setFont(self.medfont)
+        self.l0.addWidget(self.zaspectedit, b, 7,1,2)
 
         b+=1
         # add z position underneath
@@ -672,13 +798,14 @@ class MainW(QMainWindow):
         label = QLabel('Z:')
         label.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
         label.setStyleSheet(label_style)
-        self.l0.addWidget(label, b, 4,1,2)
+        self.l0.addWidget(label, b, 5,1,2)
         self.zpos = QLineEdit()
         self.zpos.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
         self.zpos.setText(str(self.currentZ))
         self.zpos.returnPressed.connect(self.update_ztext)
-        self.zpos.setFixedWidth(60)
-        self.l0.addWidget(self.zpos, b, 6,1,3)
+        self.zpos.setFixedWidth(40)
+        self.zpos.setFont(self.medfont)
+        self.l0.addWidget(self.zpos, b, 7,1,2)
         
         # scale toggle
         self.scale_on = True
@@ -688,7 +815,7 @@ class MainW(QMainWindow):
         self.ScaleOn.setChecked(True)
         self.ScaleOn.setToolTip('see current diameter as red disk at bottom')
         self.ScaleOn.toggled.connect(self.toggle_scale)
-        self.l0.addWidget(self.ScaleOn, b,0,1,4)
+        self.l0.addWidget(self.ScaleOn, b,0,1,5)
 
         # add scrollbar underneath
         self.scroll = QScrollBar(QtCore.Qt.Horizontal)
@@ -697,14 +824,15 @@ class MainW(QMainWindow):
         self.l0.addWidget(self.scroll, b,9,1,30)
         return b
 
-    def level_change(self):
+    def level_change(self, r):
+        r = ['red', 'green', 'blue'].index(r)
         if self.loaded:
-            sval = self.slider.value()
-            self.ops_plot = {'saturation': sval}
-            self.saturation[self.currentZ] = sval
+            sval = self.sliders[r].value()
+            self.saturation[r][self.currentZ] = sval
             if not self.autobtn.isChecked():
-                for i in range(len(self.saturation)):
-                    self.saturation[i] = sval
+                for r in range(3):
+                    for i in range(len(self.saturation[r])):
+                        self.saturation[r][i] = self.saturation[r][self.currentZ]
             self.update_plot()
 
     def keyPressEvent(self, event):
@@ -759,11 +887,11 @@ class MainW(QMainWindow):
                             updated = True
 
                     elif event.key() == QtCore.Qt.Key_PageDown:
-                        self.view = (self.view+1)%(len(self.RGBChoose.bstr))
-                        self.RGBChoose.button(self.view).setChecked(True)
+                        self.view = (self.view+1)%(5)
+                        self.RGBChoose.setCurrentIndex(self.view)
                     elif event.key() == QtCore.Qt.Key_PageUp:
-                        self.view = (self.view-1)%(len(self.RGBChoose.bstr))
-                        self.RGBChoose.button(self.view).setChecked(True)
+                        self.view = (self.view-1)%(5)
+                        self.RGBChoose.setCurrentIndex(self.view)
 
                 # can change background or stroke size if cell not finished
                 if event.key() == QtCore.Qt.Key_Up or event.key() == QtCore.Qt.Key_W:
@@ -1063,7 +1191,8 @@ class MainW(QMainWindow):
         self.color = 0
         self.RGBDropDown.setCurrentIndex(self.color)
         self.view = 0
-        self.RGBChoose.button(self.view).setChecked(True)
+        self.RGBChoose.setCurrentIndex(0)
+        self.RGBChoose.model().item(4).setEnabled(False)
         self.BrushChoose.setCurrentIndex(1)
         self.SCheckBox.setChecked(True)
         self.SCheckBox.setEnabled(False)
@@ -1072,10 +1201,12 @@ class MainW(QMainWindow):
         self.opacity = 128 # how opaque masks should be
         self.outcolor = [200,200,255,200]
         self.NZ, self.Ly, self.Lx = 1,512,512
-        self.saturation = [[0,255] for n in range(self.NZ)]
-        self.slider.setValue([0,255])
-        #self.slider.setHigh(255)
-        self.slider.show()
+        self.saturation = []
+        for r in range(3):
+            self.saturation.append([[0,255] for n in range(self.NZ)])
+            self.sliders[r].setValue([0,255])
+            self.sliders[r].setEnabled(False)
+            self.sliders[r].show()
         self.currentZ = 0
         self.flows = [[],[],[],[],[[]]]
         self.stack = np.zeros((1,self.Ly,self.Lx,3))
@@ -1288,7 +1419,7 @@ class MainW(QMainWindow):
     def color_choose(self):
         self.color = self.RGBDropDown.currentIndex()
         self.view = 0
-        self.RGBChoose.button(self.view).setChecked(True)
+        self.RGBChoose.setCurrentIndex(self.view)
         self.update_plot()
 
     def update_ztext(self):
@@ -1302,6 +1433,7 @@ class MainW(QMainWindow):
         self.scroll.setValue(self.currentZ)
 
     def update_plot(self):
+        self.view = self.RGBChoose.currentIndex()
         self.Ly, self.Lx, _ = self.stack[self.currentZ].shape
         if self.view==0:
             image = self.stack[self.currentZ]
@@ -1310,19 +1442,31 @@ class MainW(QMainWindow):
                 image = self.stack[self.currentZ,:,:,0]
             if self.color==0:
                 self.img.setImage(image, autoLevels=False, lut=None)
+                if not self.onechan: 
+                    levels = np.array([self.saturation[0][self.currentZ], 
+                                       self.saturation[1][self.currentZ], 
+                                       self.saturation[2][self.currentZ]])
+                    self.img.setLevels(levels)
+                else:
+                    self.img.setLevels(self.saturation[0][self.currentZ])
             elif self.color>0 and self.color<4:
                 if not self.onechan:
                     image = image[:,:,self.color-1]
                 self.img.setImage(image, autoLevels=False, lut=self.cmap[self.color])
+                if not self.onechan:
+                    self.img.setLevels(self.saturation[self.color-1][self.currentZ])
+                else:
+                    self.img.setLevels(self.saturation[0][self.currentZ])
             elif self.color==4:
                 if not self.onechan:
                     image = image.mean(axis=-1)
                 self.img.setImage(image, autoLevels=False, lut=None)
+                self.img.setLevels(self.saturation[0][self.currentZ])
             elif self.color==5:
                 if not self.onechan:
                     image = image.mean(axis=-1)
                 self.img.setImage(image, autoLevels=False, lut=self.cmap[0])
-            self.img.setLevels(self.saturation[self.currentZ])
+                self.img.setLevels(self.saturation[0][self.currentZ])
         else:
             image = np.zeros((self.Ly,self.Lx), np.uint8)
             if len(self.flows)>=self.view-1 and len(self.flows[self.view-1])>0:
@@ -1338,7 +1482,9 @@ class MainW(QMainWindow):
         if self.NZ>1 and self.orthobtn.isChecked():
             self.update_ortho()
         
-        self.slider.setValue([self.saturation[self.currentZ][0], self.saturation[self.currentZ][1]])
+        for r in range(3):
+            self.sliders[r].setValue([self.saturation[r][self.currentZ][0], 
+                                      self.saturation[r][self.currentZ][1]])
         self.win.show()
         self.show()
 
@@ -1563,18 +1709,60 @@ class MainW(QMainWindow):
         if self.outlinesOn:
             self.layerz[self.outpix[self.currentZ]>0] = np.array(self.outcolor).astype(np.uint8)
 
-    def compute_saturation(self):
-        # compute percentiles from stack
-        self.saturation = []
-        print('GUI_INFO: auto-adjust enabled, computing saturation levels')
-        if self.NZ>10:
-            iterator = trange(self.NZ)
+    def compute_saturation(self, return_img=False):
+        percentile = [float(self.norm_edits[0].text()), float(self.norm_edits[1].text())]
+        tile_norm = float(self.norm_edits[2].text())
+        sharpen = float(self.norm_edits[3].text())
+        norm3D = self.norm3D_cb.isChecked()
+
+        # check normalization params
+        if not (percentile[0] >= 0 and percentile[1] > 0 and percentile[0] < 100 and percentile[1] <= 100
+                    and percentile[1] > percentile[0]):
+            print('GUI_ERROR: percentiles need be between 0 and 100, and upper > lower')
+            self.norm_edits[0].setText('1.')
+            self.norm_edits[1].setText('1.')
         else:
-            iterator = range(self.NZ)
-        for n in iterator:
-            self.saturation.append([np.percentile(self.stack[n].astype(np.float32),1),
-                                    np.percentile(self.stack[n].astype(np.float32),99)])
-            
+            percentile = [1., 99.]
+        tile_norm = 0 if tile_norm < 0 else tile_norm 
+        sharpen = 0 if sharpen < 0 else sharpen
+        if tile_norm > self.Ly and tile_norm > self.Lx: 
+            print('GUI_ERROR: tile size (tile_norm) bigger than both image dimensions, disabling')
+            tile_norm = 0
+        
+        if sharpen > 0 or tile_norm > 0:
+            print('GUI_INFO: computing filtered image because sharpen > 0 or tile_norm > 0')
+            print('GUI_WARNING: will use memory to create filtered image -- make sure to have RAM for this')
+            img_norm = self.stack.copy()
+            if sharpen > 0:
+                img_norm = sharpen_img(self.stack, sigma=sharpen, )
+                
+            if tile_norm > 0:
+                img_norm = normalize99_tile(img_norm, bsize=tile_norm, 
+                                            lower=percentile[0], upper=percentile[1], 
+                                            norm3D=norm3D)
+            # convert to 0->255
+            img_norm -= img_norm.min()
+            img_norm /= img_norm.max() 
+            img_norm *= 255
+        else:
+            img_norm = self.stack
+
+        self.saturation = []
+        for c in range(img_norm.shape[-1]):
+            if norm3D:
+                x01 = np.percentile(img_norm[...,c], percentile[0])
+                x99 = np.percentile(img_norm[...,c], percentile[1])
+                self.saturation.append(self.NZ * [x01, x99])
+            else:
+                self.saturation.append([])
+                for z in range(img_norm.shape[0]):
+                    x01 = np.percentile(img_norm[z,:,:,c], percentile[0])
+                    x99 = np.percentile(img_norm[z,:,:,c], percentile[1])
+                    self.saturation[-1].append([x01, x99])
+        if img_norm.shape[-1]==1:
+            self.saturation.append(self.saturation[0])
+            self.saturation.append(self.saturation[0])
+                    
     def chanchoose(self, image):
         if image.ndim > 2 and not self.onechan:
             if self.ChannelChoose[0].currentIndex()==0:
@@ -1838,6 +2026,12 @@ class MainW(QMainWindow):
         self.saveServer.setEnabled(True)
         self.saveOutlines.setEnabled(True)
         self.toggle_mask_ops()
+        print(self.onechan)
+        if self.onechan:
+            self.sliders[0].setEnabled(True)
+        else:
+            for r in range(3):
+                self.sliders[r].setEnabled(True)
 
         self.update_plot()
         self.setWindowTitle(self.filename)

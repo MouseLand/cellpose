@@ -199,13 +199,15 @@ def _initialize_images(parent, image, resize, X2):
     parent.layerz = 255 * np.ones((parent.Ly,parent.Lx,4), 'uint8')
     print(parent.layerz.shape)
     if parent.autobtn.isChecked():
+        print('GUI_INFO: normalization checked: computing saturation levels (and optionally filtered image)')
         parent.compute_saturation()
     elif len(parent.saturation) != parent.NZ:
         parent.saturation = []
-        for n in range(parent.NZ):
-            parent.saturation.append([0, 255])
-        parent.slider.setLow(0)
-        parent.slider.setHigh(255)
+        for r in range(3):
+            parent.saturation.append([])
+            for n in range(parent.NZ):
+                parent.saturation[-1].append([0, 255])
+            parent.sliders[r].setValue([0, 255])
     parent.compute_scale()
     parent.currentZ = int(np.floor(parent.NZ/2))
     parent.scroll.setValue(parent.currentZ)

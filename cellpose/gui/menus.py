@@ -1,6 +1,6 @@
 import PyQt5
 from PyQt5.QtWidgets import QAction
-from . import io
+from . import io, norm
 from .. import models
 from ..io import save_server
 
@@ -113,6 +113,14 @@ def modelmenu(parent):
     openTrainHelp = QAction("Training instructions", parent)
     openTrainHelp.triggered.connect(parent.train_help_window)
     model_menu.addAction(openTrainHelp)
+
+def normmenu(parent):
+    main_menu = parent.menuBar()
+    norm_menu = main_menu.addMenu("&Normalization")
+    parent.setnorm = QAction('Set custom image normalization', parent)
+    parent.setnorm.triggered.connect(lambda: norm._set_norm(parent))
+    parent.setnorm.setEnabled(False)
+    norm_menu.addAction(parent.setnorm)
 
 def helpmenu(parent):
     main_menu = parent.menuBar()

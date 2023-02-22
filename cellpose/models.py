@@ -21,6 +21,11 @@ MODEL_NAMES = ['cyto','nuclei','tissuenet','livecell', 'cyto2', 'general',
 
 MODEL_LIST_PATH = os.fspath(MODEL_DIR.joinpath('gui_models.txt'))
 
+normalize_default = {'lowhigh': None, 'percentile': None, 
+                     'sharpen': 0, 'normalize': True, 
+                     'tile_norm': 0, 'norm3D': False,
+                     'invert': False}
+
 def model_path(model_type, model_index, use_torch=True):
     torch_str = 'torch'
     if model_type=='cyto' or model_type=='cyto2' or model_type=='nuclei':
@@ -102,12 +107,12 @@ class Cellpose():
                             cp_model=self.cp)
         self.sz.model_type = model_type
         
-    def eval(self, x, batch_size=8, channels=None, channel_axis=None, z_axis=None,
-             invert=False, normalize=True, diameter=30., do_3D=False, anisotropy=None,
-             net_avg=False, augment=False, tile=True, tile_overlap=0.1, resample=True, interp=True,
-             flow_threshold=0.4, cellprob_threshold=0.0, min_size=15, stitch_threshold=0.0, 
-             rescale=None, progress=None, model_loaded=False):
-        """ run cellpose and get masks
+    def eval(self, x, batch_size=8, channels=None, channel_axis=None,
+             invert=False, normalize=True, diameter=30., do_3D=False,
+             **kwargs):
+        """ run cellpose size model and mask model and get masks
+
+        see all parameters in CellposeModel eval function
 
         Parameters
         ----------
@@ -129,63 +134,18 @@ class Cellpose():
         channel_axis: int (optional, default None)
             if None, channels dimension is attempted to be automatically determined
 
-        z_axis: int (optional, default None)
-            if None, z dimension is attempted to be automatically determined
-
         invert: bool (optional, default False)
             invert image pixel intensity before running network (if True, image is also normalized)
 
         normalize: bool (optional, default True)
-            normalize data so 0.0=1st percentile and 1.0=99th percentile of image intensities in each channel
+            if True, normalize data so 0.0=1st percentile and 1.0=99th percentile of image intensities in each channel;
+            can also pass dictionary of parameters (see CellposeModel for details)
 
         diameter: float (optional, default 30.)
             if set to None, then diameter is automatically estimated if size model is loaded
 
         do_3D: bool (optional, default False)
             set to True to run 3D segmentation on 4D image input
-
-        anisotropy: float (optional, default None)
-            for 3D segmentation, optional rescaling factor (e.g. set to 2.0 if Z is sampled half as dense as X or Y)
-
-        net_avg: bool (optional, default False)
-            runs the 4 built-in networks and averages them if True, runs one network if False
-
-        augment: bool (optional, default False)
-            tiles image with overlapping tiles and flips overlapped regions to augment
-
-        tile: bool (optional, default True)
-            tiles image to ensure GPU/CPU memory usage limited (recommended)
-
-        tile_overlap: float (optional, default 0.1)
-            fraction of overlap of tiles when computing flows
-
-        resample: bool (optional, default True)
-            run dynamics at original image size (will be slower but create more accurate boundaries)
-
-        interp: bool (optional, default True)
-                interpolate during 2D dynamics (not available in 3D) 
-                (in previous versions it was False)
-
-        flow_threshold: float (optional, default 0.4)
-            flow error threshold (all cells with errors below threshold are kept) (not used for 3D)
-
-        cellprob_threshold: float (optional, default 0.0)
-            all pixels with value above threshold kept for masks, decrease to find more and larger masks
-
-        min_size: int (optional, default 15)
-                minimum number of pixels per mask, can turn off with -1
-
-        stitch_threshold: float (optional, default 0.0)
-            if stitch_threshold>0.0 and not do_3D and equal image sizes, masks are stitched in 3D to return volume segmentation
-
-        rescale: float (optional, default None)
-            if diameter is set to None, and rescale is not None, then rescale is used instead of diameter for resizing image
-
-        progress: pyqt progress bar (optional, default None)
-            to return progress bar status to GUI
-
-        model_loaded: bool (optional, default False)
-            internal variable for determining if model has been loaded, used in __main__.py
 
         Returns
         -------
@@ -213,8 +173,13 @@ class Cellpose():
         if estimate_size and self.pretrained_size is not None and not do_3D and x[0].ndim < 4:
             tic = time.time()
             models_logger.info('~~~ ESTIMATING CELL DIAMETER(S) ~~~')
-            diams, _ = self.sz.eval(x, channels=channels, channel_axis=channel_axis, invert=invert, batch_size=batch_size, 
-                                    augment=augment, tile=tile, normalize=normalize)
+            diams, _ = self.sz.eval(x, 
+                                    channels=channels, 
+                                    channel_axis=channel_axis, 
+                                    batch_size=batch_size, 
+                                    normalize=normalize,
+                                    invert=invert
+                                    )
             rescale = self.diam_mean / np.array(diams)
             diameter = None
             models_logger.info('estimated cell diameter(s) in %0.2f sec'%(time.time()-tic))
@@ -237,28 +202,16 @@ class Cellpose():
         tic = time.time()
         models_logger.info('~~~ FINDING MASKS ~~~')
         masks, flows, styles = self.cp.eval(x, 
-                                            batch_size=batch_size, 
-                                            invert=invert, 
-                                            normalize=normalize,
-                                            diameter=diameter,
-                                            rescale=rescale, 
-                                            anisotropy=anisotropy, 
-                                            channels=channels,
+                                            channels=channels, 
                                             channel_axis=channel_axis, 
-                                            z_axis=z_axis,
-                                            augment=augment, 
-                                            tile=tile, 
-                                            do_3D=do_3D, 
-                                            net_avg=net_avg, 
-                                            progress=progress,
-                                            tile_overlap=tile_overlap,
-                                            resample=resample,
-                                            interp=interp,
-                                            flow_threshold=flow_threshold, 
-                                            cellprob_threshold=cellprob_threshold,
-                                            min_size=min_size, 
-                                            stitch_threshold=stitch_threshold,
-                                            model_loaded=model_loaded)
+                                            batch_size=batch_size, 
+                                            normalize=normalize,
+                                            invert=invert,
+                                            diameter=diams,
+                                            do_3D=do_3D,
+                                            **kwargs
+                                            )
+
         models_logger.info('>>>> TOTAL TIME %0.2f sec'%(time.time()-tic0))
     
         return masks, flows, styles, diams
@@ -379,14 +332,16 @@ class CellposeModel(UnetModel):
                                                                                    ostr[concatenation]
                                                                                  ) 
     
-    def eval(self, x, batch_size=8, channels=None, channel_axis=None, 
-             z_axis=None, normalize=True, invert=False, 
-             rescale=None, diameter=None, do_3D=False, anisotropy=None, net_avg=False, 
-             augment=False, tile=True, tile_overlap=0.1,
-             resample=True, interp=True,
+    def eval(self, x, batch_size=8, resample=True, 
+             channels=None, channel_axis=None, z_axis=None, 
+             normalize=True, invert=False, 
+             rescale=None, diameter=None, 
              flow_threshold=0.4, cellprob_threshold=0.0,
-             compute_masks=True, min_size=15, stitch_threshold=0.0, progress=None,  
-             loop_run=False, model_loaded=False):
+             do_3D=False, anisotropy=None, stitch_threshold=0.0, 
+             min_size=15, 
+             augment=False, tile=True, tile_overlap=0.1, interp=True,
+             compute_masks=True, progress=None,  
+             net_avg=False, loop_run=False, model_loaded=False):
         """
             segment list of images x, or 4D array - Z x nchan x Y x X
 
@@ -398,6 +353,9 @@ class CellposeModel(UnetModel):
             batch_size: int (optional, default 8)
                 number of 224x224 patches to run simultaneously on the GPU
                 (can make smaller or bigger depending on GPU memory usage)
+
+            resample: bool (optional, default True)
+                run dynamics at original image size (will be slower but create more accurate boundaries)
 
             channels: list (optional, default None)
                 list of channels, either of length 2 or of length number of images by 2.
@@ -413,9 +371,17 @@ class CellposeModel(UnetModel):
             z_axis: int (optional, default None)
                 if None, z dimension is attempted to be automatically determined
 
+            
             normalize: bool (default, True)
-                normalize data so 0.0=1st percentile and 1.0=99th percentile of image intensities in each channel
-
+                if True, normalize data so 0.0=1st percentile and 1.0=99th percentile of image intensities in each channel; 
+                can also pass dictionary of parameters (all keys are optional, default values shown): 
+                    - 'lowhigh'=None : pass in normalization values for 0.0 and 1.0 as list [low, high] (if not None, all following parameters ignored)
+                    - 'sharpen'=0 ; sharpen image with high pass filter, recommended to be 1/4-1/8 diameter of cells in pixels
+                    - 'normalize'=True ; run normalization (if False, all following parameters ignored)
+                    - 'percentile'=None : pass in percentiles to use as list [perc_low, perc_high]
+                    - 'tile_norm'=0 ; compute normalization in tiles across image to brighten dark areas, to turn on set to window size in pixels (e.g. 100)
+                    - 'norm3D'=False ; compute normalization across entire z-stack rather than plane-by-plane in stitching mode
+                    
             invert: bool (optional, default False)
                 invert image pixel intensity before running network
 
@@ -444,9 +410,6 @@ class CellposeModel(UnetModel):
 
             tile_overlap: float (optional, default 0.1)
                 fraction of overlap of tiles when computing flows
-
-            resample: bool (optional, default True)
-                run dynamics at original image size (will be slower but create more accurate boundaries)
 
             interp: bool (optional, default True)
                 interpolate during 2D dynamics (not available in 3D) 
@@ -535,10 +498,12 @@ class CellposeModel(UnetModel):
             if not model_loaded and (isinstance(self.pretrained_model, list) and not net_avg and not loop_run):
                 self.net.load_model(self.pretrained_model[0], device=self.device)
                 
-            # reshape image (normalization happens in _run_cp)
+            
+
+            # reshape image
             x = transforms.convert_image(x, channels, channel_axis=channel_axis, z_axis=z_axis,
                                          do_3D=(do_3D or stitch_threshold>0), 
-                                         normalize=False, invert=False, nchan=self.nchan)
+                                         nchan=self.nchan)
             if x.ndim < 4:
                 x = x[np.newaxis,...]
             self.batch_size = batch_size
@@ -548,6 +513,7 @@ class CellposeModel(UnetModel):
             elif rescale is None:
                 diameter = self.diam_labels
                 rescale = self.diam_mean / diameter
+
 
             masks, styles, dP, cellprob, p = self._run_cp(x, 
                                                           compute_masks=compute_masks,
@@ -571,23 +537,42 @@ class CellposeModel(UnetModel):
             flows = [plot.dx_to_circ(dP), dP, cellprob, p]
             return masks, flows, styles
 
-    def _run_cp(self, x, compute_masks=True, normalize=True, invert=False,
+    def _run_cp(self, x, compute_masks=True, normalize=True,
+                invert=False,
                 rescale=1.0, net_avg=False, resample=True,
                 augment=False, tile=True, tile_overlap=0.1,
                 cellprob_threshold=0.0, 
                 flow_threshold=0.4, min_size=15,
                 interp=True, anisotropy=1.0, do_3D=False, stitch_threshold=0.0,
                 ):
-        
+
+        if isinstance(normalize, dict):
+            normalize_params = {*normalize, *normalize_default}
+        elif not isinstance(normalize, bool):
+            raise ValueError('normalize parameter must be a bool or a dict')
+        else:
+            normalize_params = normalize_default
+            normalize_params['normalize'] = normalize
+        normalize_params['invert'] = invert
+
         tic = time.time()
         shape = x.shape
         nimg = shape[0]        
         
         bd, tr = None, None
+
+        # pre-normalize if 3D stack for stitching or do_3D
+        do_normalization = True if normalize_params['normalize'] else False
+        if nimg > 1 and do_normalization and (stitch_threshold or do_3D):
+            # must normalize in 3D if do_3D is True
+            normalize_params['norm3D'] = True if do_3D else normalize_params['norm3D']
+            x = np.asarray(x)
+            x = transforms.normalize_img(x, **normalize_params)
+            # do not normalize again
+            do_normalization = False
+
         if do_3D:
             img = np.asarray(x)
-            if normalize or invert:
-                img = transforms.normalize_img(img, invert=invert)
             yf, styles = self._run_3D(img, rsz=rescale, anisotropy=anisotropy, 
                                       net_avg=net_avg, augment=augment, tile=tile,
                                       tile_overlap=tile_overlap)
@@ -609,8 +594,8 @@ class CellposeModel(UnetModel):
                 
             for i in iterator:
                 img = np.asarray(x[i])
-                if normalize or invert:
-                    img = transforms.normalize_img(img, invert=invert)
+                if do_normalization:
+                    img = transforms.normalize_img(img, **normalize_params)
                 if rescale != 1.0:
                     img = transforms.resize_image(img, rsz=rescale)
                 yf, style = self._run_nets(img, net_avg=net_avg,
