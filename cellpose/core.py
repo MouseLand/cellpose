@@ -8,6 +8,7 @@ import cv2
 from scipy.stats import mode
 import fastremap
 from . import transforms, dynamics, utils, plot, metrics
+import platform
 
 import torch
 #     from GPUtil import showUtilization as gpu_usage #for gpu memory debugging 
@@ -54,7 +55,10 @@ def use_gpu(gpu_number=0, use_torch=True):
 
 def _use_gpu_torch(gpu_number=0):
     try:
-        device = torch.device('cuda:' + str(gpu_number))
+        if platform.processor() == 'arm':
+            device = torch.device('mps')
+        else:
+            device = torch.device('cuda:' + str(gpu_number))
         _ = torch.zeros([1, 2, 3]).to(device)
         core_logger.info('** TORCH CUDA version installed and working. **')
         return True
@@ -63,6 +67,8 @@ def _use_gpu_torch(gpu_number=0):
         return False
 
 def assign_device(use_torch=True, gpu=False, device=0):
+    if platform.processor() == 'arm':
+        device = 'mps'
     mac = False
     cpu = True
     if isinstance(device, str):
@@ -70,7 +76,7 @@ def assign_device(use_torch=True, gpu=False, device=0):
             mac = True 
         else:
             device = int(device)
-    if gpu and use_gpu(use_torch=True):
+    if gpu and use_gpu(use_torch=True) and (not mac):
         device = torch.device(f'cuda:{device}')
         gpu=True
         cpu=False
@@ -114,7 +120,7 @@ class UnetModel():
             sdevice, gpu = assign_device(self.torch, gpu)
         self.device = device if device is not None else sdevice
         if device is not None:
-            device_gpu = self.device.type=='cuda'
+            device_gpu = self.device.type in ['cuda', 'mps']
         self.gpu = gpu if device is None else device_gpu
         if not self.gpu:
             self.mkldnn = check_mkl(True)
