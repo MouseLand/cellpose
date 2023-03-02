@@ -408,7 +408,6 @@ class MainW(QMainWindow):
         self.SCheckBox.toggled.connect(self.autosave_on)
         self.l0.addWidget(self.SCheckBox, b,6,1,3)
 
-        
         b+=1
         # turn off masks
         self.layer_off = False
@@ -568,6 +567,7 @@ class MainW(QMainWindow):
         label.setStyleSheet(label_style)
         label.setFont(self.boldmedfont)
         self.TBg.addWidget(label, b0, 0,1,7)
+
         self.norm_vals = [1., 99., 0., 0.]
         self.norm_edits = []
         labels = ['lower\npercentile', 'upper\npercentile', 'tile_norm', 'sharpen']
@@ -597,9 +597,15 @@ class MainW(QMainWindow):
         self.norm3D_cb.setToolTip('run same normalization across planes')
         self.TBg.addWidget(self.norm3D_cb, b0,0,1,3)
 
+        self.invert_cb = QCheckBox('invert')
+        self.invert_cb.setStyleSheet(self.checkstyle)
+        self.invert_cb.setFont(self.medfont)
+        self.invert_cb.setToolTip('invert image')
+        self.TBg.addWidget(self.invert_cb, b0,3,1,3)
+
         self.NormButton = QPushButton(u' compute (optional)')
         self.NormButton.clicked.connect(self.compute_saturation)
-        self.TBg.addWidget(self.NormButton, b0,4,1,4)
+        self.TBg.addWidget(self.NormButton, b0,6,1,3)
         self.NormButton.setEnabled(False)
         self.NormButton.setStyleSheet(self.styleInactive)
         
@@ -716,8 +722,8 @@ class MainW(QMainWindow):
         #self.autochannelbtn.setToolTip('sets channels so that 1st and 99th percentiles at same values, only works for 2D images currently')
         #self.l0.addWidget(self.autochannelbtn, b,0,1,5)
 
-        self.autobtn = QCheckBox('normalization')
-        self.autobtn.setToolTip('shows images as normalized for segmentation')
+        self.autobtn = QCheckBox('auto-adjust')
+        self.autobtn.setToolTip('sets scale-bars as normalized for segmentation')
         self.autobtn.setStyleSheet(self.checkstyle)
         self.autobtn.setFont(self.medfont)
         self.autobtn.setChecked(True)
@@ -1713,6 +1719,7 @@ class MainW(QMainWindow):
         tile_norm = float(self.norm_edits[2].text())
         sharpen = float(self.norm_edits[3].text())
         norm3D = self.norm3D_cb.isChecked()
+        invert = self.invert_cb.isChecked()
 
         # check normalization params
         if not (percentile[0] >= 0 and percentile[1] > 0 and percentile[0] < 100 and percentile[1] <= 100
@@ -1727,6 +1734,11 @@ class MainW(QMainWindow):
         if tile_norm > self.Ly and tile_norm > self.Lx: 
             print('GUI_ERROR: tile size (tile_norm) bigger than both image dimensions, disabling')
             tile_norm = 0
+
+        self.normalize_params = {'lowhigh': None, 'percentile': percentile, 
+                                    'sharpen': sharpen, 'normalize': True, 
+                                    'tile_norm': tile_norm, 'norm3D': norm3D,
+                                    'invert': invert}
         
         # if grayscale, use gray img
         channels = self.get_channels()
@@ -1755,7 +1767,12 @@ class MainW(QMainWindow):
             self.stack_filtered = img_norm 
             self.ViewDropDown.model().item(4).setEnabled(True)
             self.ViewDropDown.setCurrentIndex(4)
+        elif invert:
+            img_norm = self.stack.copy()
         else:
+            self.ViewDropDown.model().item(4).setEnabled(False)
+            if self.ViewDropDown.currentIndex()==4:
+                self.ViewDropDown.setCurrentIndex(0)
             img_norm = self.stack
 
         self.saturation = []
@@ -1763,13 +1780,27 @@ class MainW(QMainWindow):
             if norm3D:
                 x01 = np.percentile(img_norm[...,c], percentile[0])
                 x99 = np.percentile(img_norm[...,c], percentile[1])
+                if invert: 
+                    x01i = 255. - x99 
+                    x99i = 255. - x01 
+                    x01, x99 = x01i, x99i
                 self.saturation.append(self.NZ * [x01, x99])
             else:
                 self.saturation.append([])
                 for z in range(img_norm.shape[0]):
                     x01 = np.percentile(img_norm[z,:,:,c], percentile[0])
                     x99 = np.percentile(img_norm[z,:,:,c], percentile[1])
+                    if invert: 
+                        x01i = 255. - x99 
+                        x99i = 255. - x01 
+                        x01, x99 = x01i, x99i
                     self.saturation[-1].append([x01, x99])
+        if invert:
+            img_norm = 255. - img_norm
+            self.stack_filtered = img_norm 
+            self.ViewDropDown.model().item(4).setEnabled(True)
+            self.ViewDropDown.setCurrentIndex(4)      
+
         if img_norm.shape[-1]==1:
             self.saturation.append(self.saturation[0])
             self.saturation.append(self.saturation[0])
