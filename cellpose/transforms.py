@@ -198,8 +198,9 @@ def normalize99(Y, lower=1, upper=99, copy=True):
         X[:] = 0
     return X
 
-def normalize99_tile(img, bsize=100, lower=1., upper=99.,
-                     tile_overlap=0.1, norm3D=False, is3D=False):
+def normalize99_tile(img, blocksize=100, lower=1., upper=99.,
+                     tile_overlap=0.1, norm3D=False, smooth3D=1, 
+                     is3D=False):
     """ compute normalization like normalize99 function but in tiles 
     
     Parameters
@@ -207,7 +208,7 @@ def normalize99_tile(img, bsize=100, lower=1., upper=99.,
     img : float32
         array that's (Lz x) x Ly x Lx (x nchan)
 
-    bsize : float (optional, default 100)
+    blocksize : float (optional, default 100)
         size of tiles
 
     tile_overlap: float (optional, default 0.1)
@@ -233,25 +234,25 @@ def normalize99_tile(img, bsize=100, lower=1., upper=99.,
     Lz, Ly, Lx, nchan = img.shape
     
     tile_overlap = min(0.5, max(0.05, tile_overlap))
-    bsizeY, bsizeX = min(bsize, Ly), min(bsize, Lx)
-    bsizeY = np.int32(bsizeY)
-    bsizeX = np.int32(bsizeX)
+    blocksizeY, blocksizeX = min(blocksize, Ly), min(blocksize, Lx)
+    blocksizeY = np.int32(blocksizeY)
+    blocksizeX = np.int32(blocksizeX)
     # tiles overlap by 10% tile size
-    ny = 1 if Ly<=bsize else int(np.ceil((1.+2*tile_overlap) * Ly / bsize))
-    nx = 1 if Lx<=bsize else int(np.ceil((1.+2*tile_overlap) * Lx / bsize))
-    ystart = np.linspace(0, Ly-bsizeY, ny).astype(int)
-    xstart = np.linspace(0, Lx-bsizeX, nx).astype(int)
+    ny = 1 if Ly<=blocksize else int(np.ceil((1.+2*tile_overlap) * Ly / blocksize))
+    nx = 1 if Lx<=blocksize else int(np.ceil((1.+2*tile_overlap) * Lx / blocksize))
+    ystart = np.linspace(0, Ly-blocksizeY, ny).astype(int)
+    xstart = np.linspace(0, Lx-blocksizeX, nx).astype(int)
     ysub = []
     xsub = []
     for j in range(len(ystart)):
         for i in range(len(xstart)):
-            ysub.append([ystart[j], ystart[j]+bsizeY])
-            xsub.append([xstart[i], xstart[i]+bsizeX])
+            ysub.append([ystart[j], ystart[j]+blocksizeY])
+            xsub.append([xstart[i], xstart[i]+blocksizeX])
 
     x01_tiles_z = []
     x99_tiles_z = []
     for z in range(Lz):            
-        IMG = np.zeros((len(ystart), len(xstart),  bsizeY, bsizeX, nchan), 'float32')
+        IMG = np.zeros((len(ystart), len(xstart),  blocksizeY, blocksizeX, nchan), 'float32')
         k = 0
         for j in range(len(ystart)):
             for i in range(len(xstart)):
@@ -282,9 +283,13 @@ def normalize99_tile(img, bsize=100, lower=1., upper=99.,
     x01_tiles_z = np.array(x01_tiles_z)
     x99_tiles_z = np.array(x99_tiles_z)
     # do not smooth over z-axis if not normalizing separately per plane
-    for a in range(int(norm3D), 3):
+    for a in range(2):
         x01_tiles_z = gaussian_filter1d(x01_tiles_z, 1, axis=a)
         x99_tiles_z = gaussian_filter1d(x99_tiles_z, 1, axis=a)
+    if norm3D:
+        smooth3D = 1 if smooth3D==0 else smooth3D
+        x01_tiles_z = gaussian_filter1d(x01_tiles_z, smooth3D, axis=a)
+        x99_tiles_z = gaussian_filter1d(x99_tiles_z, smooth3D, axis=a)
     
     if not norm3D and Lz > 1:
         x01 = np.zeros((len(x01_tiles_z), Ly, Lx, nchan), 'float32')
@@ -318,18 +323,24 @@ def gaussian_kernel(sigma, Ly, Lx, device=torch.device('cpu')):
     kernel /= kernel.sum()
     return kernel
 
-def sharpen_img(img, sigma=8, device=torch.device('cpu'), is3D=False):
-    """ sharpen blurry images with surround subtraction, sigma recommended to be 1/4-1/8 of cell diameter in pixels
+def smooth_sharpen_img(img, smooth_radius=6, sharpen_radius=12, device=torch.device('cpu'), is3D=False):
+    """ sharpen blurry images with surround subtraction and/or smooth noisy images, sigma recommended to be 1/4-1/8 of cell diameter in pixels
 
-    subtracts image filtered with gaussian kernel with sigma
+    sharpen subtracts image filtered with gaussian kernel with sharpen_radius; 
+    set smooth_radius for gaussian smoothing
 
     Parameters
     ----------
     img : float32
         array that's (Lz x) Ly x Lx (x nchan)
 
-    sigma : float (optional, default 8)
-        size of gaussian surround filter, recommended to be 1/4-1/8 of cell diameter
+    smooth_radius : float (optional, default 4)
+        size of gaussian smoothing filter, recommended to be 1/10-1/4 of cell diameter
+        (if also sharpening, should be 2-3x smaller than sharpen_radius)
+
+    sharpen_radius : float (optional, default 10)
+        size of gaussian surround filter, recommended to be 1/8-1/2 of cell diameter
+        (if also smoothing, should be 2-3x larger than smooth_radius)
 
     device: torch.device (optional, default 'cpu')
         device on which to perform sharpening 
@@ -353,8 +364,14 @@ def sharpen_img(img, sigma=8, device=torch.device('cpu'), is3D=False):
     img_sharpen = img_sharpen.unsqueeze(0) if img_sharpen.ndim==3 else img_sharpen
     Lz, Ly, Lx, nchan = img_sharpen.shape
     
-    kernel = -0.5 * gaussian_kernel(sigma, Ly, Lx, device=device)
-    kernel[Ly//2, Lx//2] = 0.5
+    if smooth_radius > 0:
+        kernel = gaussian_kernel(smooth_radius, Ly, Lx, device=device)
+        if sharpen_radius > 0:
+            kernel += -1 * gaussian_kernel(sharpen_radius, Ly, Lx, device=device)
+    elif sharpen_radius > 0:
+        kernel = -1 * gaussian_kernel(sharpen_radius, Ly, Lx, device=device)
+        kernel[Ly//2, Lx//2] = 1
+    
     fhp = fft2(kernel)
     for z in range(Lz):
         for c in range(nchan):
@@ -536,9 +553,10 @@ def reshape(data, channels=[0,0], chan_first=False):
             data = np.transpose(data, (2,0,1))
     return data
 
-def normalize_img(img, normalize=True, invert=False, 
-                  lowhigh=None, sharpen=0, percentile=None,
-                  tile_norm=0, norm3D=False, axis=-1):
+def normalize_img(img, normalize=True, norm3D=False, invert=False, 
+                  lowhigh=None, percentile=None,
+                  sharpen_radius=0, smooth_radius=0,
+                  tile_norm_blocksize=0, tile_norm_smooth3D=1, axis=-1):
     """ normalize each channel of the image so that so that 0.0=1st percentile
     and 1.0=99th percentile of image intensities
 
@@ -585,12 +603,13 @@ def normalize_img(img, normalize=True, invert=False,
         for c in range(nchan):
             img_norm[...,c] = (img_norm[...,c] - lowhigh[0]) / (lowhigh[1] - lowhigh[0])
     else:    
-        if sharpen > 0:
-            img_norm = sharpen_img(img_norm, sigma=sharpen)
+        if sharpen_radius > 0 or smooth_radius > 0:
+            img_norm = smooth_sharpen_img(img_norm, sharpen_radius=sharpen_radius, smooth_radius=smooth_radius)
             
-        if tile_norm > 0:
-            img_norm = normalize99_tile(img_norm, bsize=tile_norm, 
-                                        lower=percentile[0], upper=percentile[1], 
+        if tile_norm_blocksize > 0:
+            img_norm = normalize99_tile(img_norm, blocksize=tile_norm_blocksize, 
+                                        lower=percentile[0], upper=percentile[1],
+                                        smooth3D=tile_norm_smooth3D, 
                                         norm3D=norm3D)
         elif normalize:
             if img_norm.ndim==3 or norm3D:
@@ -604,10 +623,12 @@ def normalize_img(img, normalize=True, invert=False,
                         img_norm[z,:,:,c] = normalize99(img_norm[z,:,:,c],
                                                         lower=percentile[0], upper=percentile[1], 
                                                         copy=False)
-        if (tile_norm > 0 or normalize) and invert:
+        if (tile_norm_blocksize > 0 or normalize) and invert:
             img_norm[...,c] = -1*img_norm[...,c] + 1   
         elif invert:
-            raise ValueError('cannot invert image without normalizing')
+            error_message = 'cannot invert image without normalizing'
+            transforms_logger.critical(error_message)
+            raise ValueError(error_message)
                 
     # move channel axis back to original position
     img_norm = np.moveaxis(img_norm, -1, axis)

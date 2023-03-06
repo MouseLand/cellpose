@@ -18,10 +18,10 @@ import cv2
 from . import guiparts, menus, io, norm
 from .. import models, core, dynamics, version
 from ..utils import download_url_to_file, masks_to_outlines, diameters 
-from ..io import get_image_files, imsave, imread
+from ..io  import get_image_files, imsave, imread
 from ..transforms import resize_image, normalize99 #fixed import
 from ..plot import disk
-from ..transforms import normalize99_tile, sharpen_img
+from ..transforms import normalize99_tile, smooth_sharpen_img
 
 try:
     import matplotlib.pyplot as plt
@@ -1114,7 +1114,7 @@ class MainW(QMainWindow):
             self.imgOrtho[j].autoDownsample = False
 
             self.layerOrtho.append(pg.ImageItem(viewbox=self.pOrtho[j], parent=self))
-            self.layerOrtho[j].setLevels([0,255])
+            self.layerOrtho[j].setLevels([0.,255.])
 
             #self.pOrtho[j].scene().contextMenuItem = self.pOrtho[j]
             self.pOrtho[j].addItem(self.imgOrtho[j])
@@ -1526,28 +1526,43 @@ class MainW(QMainWindow):
                         image = self.stack[zmin:zmax, :, x].transpose(1,0,2)
                     else:
                         image = self.stack[zmin:zmax, y, :]
+                    if self.onechan:
+                        # show single channel
+                        image = image[...,0]
                     if self.color==0:
-                        if self.onechan:
-                            # show single channel
-                            image = image[...,0]
                         self.imgOrtho[j].setImage(image, autoLevels=False, lut=None)
+                        if not self.onechan: 
+                            levels = np.array([self.saturation[0][self.currentZ], 
+                                            self.saturation[1][self.currentZ], 
+                                            self.saturation[2][self.currentZ]])
+                            self.imgOrtho[j].setLevels(levels)
+                        else:
+                            self.imgOrtho[j].setLevels(self.saturation[0][self.currentZ])
                     elif self.color>0 and self.color<4:
-                        image = image[...,self.color-1]
+                        if not self.onechan:
+                            image = image[...,self.color-1]
                         self.imgOrtho[j].setImage(image, autoLevels=False, lut=self.cmap[self.color])
+                        if not self.onechan:
+                            self.imgOrtho[j].setLevels(self.saturation[self.color-1][self.currentZ])
+                        else:
+                            self.imgOrtho[j].setLevels(self.saturation[0][self.currentZ])
                     elif self.color==4:
                         image = image.astype(np.float32).mean(axis=-1).astype(np.uint8)
                         self.imgOrtho[j].setImage(image, autoLevels=False, lut=None)
+                        self.imgOrtho[j].setLevels(self.saturation[0][self.currentZ])
                     elif self.color==5:
                         image = image.astype(np.float32).mean(axis=-1).astype(np.uint8)
                         self.imgOrtho[j].setImage(image, autoLevels=False, lut=self.cmap[0])
-                    self.imgOrtho[j].setLevels(self.saturation[self.currentZ])
+                        self.imgOrtho[j].setLevels(self.saturation[0][self.currentZ])
                 self.pOrtho[0].setAspectLocked(lock=True, ratio=self.zaspect)
                 self.pOrtho[1].setAspectLocked(lock=True, ratio=1./self.zaspect)
 
             else:
                 image = np.zeros((10,10), np.uint8)
-                self.img.setImage(image, autoLevels=False, lut=None)
-                self.img.setLevels([0.0, 255.0])        
+                self.imgOrtho[0].setImage(image, autoLevels=False, lut=None)
+                self.imgOrtho[0].setLevels([0.0, 255.0])        
+                self.imgOrtho[1].setImage(image, autoLevels=False, lut=None)
+                self.imgOrtho[1].setLevels([0.0, 255.0])        
         self.win.show()
         self.show()
 
@@ -1720,15 +1735,15 @@ class MainW(QMainWindow):
         sharpen = float(self.norm_edits[3].text())
         norm3D = self.norm3D_cb.isChecked()
         invert = self.invert_cb.isChecked()
-
+        
         # check normalization params
         if not (percentile[0] >= 0 and percentile[1] > 0 and percentile[0] < 100 and percentile[1] <= 100
                     and percentile[1] > percentile[0]):
             print('GUI_ERROR: percentiles need be between 0 and 100, and upper > lower')
             self.norm_edits[0].setText('1.')
-            self.norm_edits[1].setText('1.')
-        else:
+            self.norm_edits[1].setText('99.')
             percentile = [1., 99.]
+        
         tile_norm = 0 if tile_norm < 0 else tile_norm 
         sharpen = 0 if sharpen < 0 else sharpen
         if tile_norm > self.Ly and tile_norm > self.Lx: 
@@ -1737,7 +1752,7 @@ class MainW(QMainWindow):
 
         self.normalize_params = {'lowhigh': None, 'percentile': percentile, 
                                     'sharpen': sharpen, 'normalize': True, 
-                                    'tile_norm': tile_norm, 'norm3D': norm3D,
+                                    'tile_norm_blocksize': tile_norm, 'norm3D': norm3D,
                                     'invert': invert}
         
         # if grayscale, use gray img
@@ -1754,7 +1769,8 @@ class MainW(QMainWindow):
             print('GUI_WARNING: will use memory to create filtered image -- make sure to have RAM for this')
             img_norm = self.stack.copy()
             if sharpen > 0:
-                img_norm = sharpen_img(self.stack, sigma=sharpen, )
+                #img_norm = sharpen_img(self.stack, sigma=sharpen, )
+                img_norm = smooth_sharpen_img(self.stack, sharpen_sigma=sharpen)
                 
             if tile_norm > 0:
                 img_norm = normalize99_tile(img_norm, bsize=tile_norm, 
@@ -1804,7 +1820,7 @@ class MainW(QMainWindow):
         if img_norm.shape[-1]==1:
             self.saturation.append(self.saturation[0])
             self.saturation.append(self.saturation[0])
-        print(self.saturation[0][0])
+        #print(self.saturation[0][0])
 
         self.autobtn.setChecked(True)
         self.update_plot()

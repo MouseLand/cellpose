@@ -22,8 +22,9 @@ MODEL_NAMES = ['cyto','nuclei','tissuenet','livecell', 'cyto2', 'general',
 MODEL_LIST_PATH = os.fspath(MODEL_DIR.joinpath('gui_models.txt'))
 
 normalize_default = {'lowhigh': None, 'percentile': None, 
-                     'sharpen': 0, 'normalize': True, 
-                     'tile_norm': 0, 'norm3D': False,
+                     'normalize': True, 'norm3D': False,
+                     'sharpen_radius': 0, 'smooth_radius': 0,
+                     'tile_norm_blocksize': 0, 'tile_norm_smooth3D': 1,
                      'invert': False}
 
 def model_path(model_type, model_index, use_torch=True):
@@ -464,9 +465,9 @@ class CellposeModel(UnetModel):
             for i in iterator:
                 maski, flowi, stylei = self.eval(x[i], 
                                                  batch_size=batch_size, 
-                                                 channels=channels[i] if (len(channels)==len(x) and 
+                                                 channels=channels[i] if channels is not None and ((len(channels)==len(x) and 
                                                                           (isinstance(channels[i], list) or isinstance(channels[i], np.ndarray)) and
-                                                                          len(channels[i])==2) else channels, 
+                                                                          len(channels[i])==2)) else channels, 
                                                  channel_axis=channel_axis, 
                                                  z_axis=z_axis, 
                                                  normalize=normalize, 
@@ -498,8 +499,6 @@ class CellposeModel(UnetModel):
             if not model_loaded and (isinstance(self.pretrained_model, list) and not net_avg and not loop_run):
                 self.net.load_model(self.pretrained_model[0], device=self.device)
                 
-            
-
             # reshape image
             x = transforms.convert_image(x, channels, channel_axis=channel_axis, z_axis=z_axis,
                                          do_3D=(do_3D or stitch_threshold>0), 
@@ -547,7 +546,7 @@ class CellposeModel(UnetModel):
                 ):
 
         if isinstance(normalize, dict):
-            normalize_params = {*normalize, *normalize_default}
+            normalize_params = {**normalize, **normalize_default}
         elif not isinstance(normalize, bool):
             raise ValueError('normalize parameter must be a bool or a dict')
         else:
@@ -584,13 +583,13 @@ class CellposeModel(UnetModel):
             tqdm_out = utils.TqdmToLogger(models_logger, level=logging.INFO)
             iterator = trange(nimg, file=tqdm_out) if nimg>1 else range(nimg)
             styles = np.zeros((nimg, self.nbase[-1]), np.float32)
-            if resample:
-                dP = np.zeros((2, nimg, shape[1], shape[2]), np.float32)
-                cellprob = np.zeros((nimg, shape[1], shape[2]), np.float32)
+            #if resample:
+            #    dP = np.zeros((2, nimg, shape[1], shape[2]), np.float32)
+            #    cellprob = np.zeros((nimg, shape[1], shape[2]), np.float32)
                 
-            else:
-                dP = np.zeros((2, nimg, int(shape[1]*rescale), int(shape[2]*rescale)), np.float32)
-                cellprob = np.zeros((nimg, int(shape[1]*rescale), int(shape[2]*rescale)), np.float32)
+            #else:
+            dP = np.zeros((2, nimg, int(shape[1]*rescale), int(shape[2]*rescale)), np.float32)
+            cellprob = np.zeros((nimg, int(shape[1]*rescale), int(shape[2]*rescale)), np.float32)
                 
             for i in iterator:
                 img = np.asarray(x[i])
@@ -601,8 +600,9 @@ class CellposeModel(UnetModel):
                 yf, style = self._run_nets(img, net_avg=net_avg,
                                            augment=augment, tile=tile,
                                            tile_overlap=tile_overlap)
-                if resample:
-                    yf = transforms.resize_image(yf, shape[1], shape[2])
+                ## moving resizing later to reduce memory usage
+                #if resample:
+                #    yf = transforms.resize_image(yf, shape[1], shape[2])
 
                 cellprob[i] = yf[:,:,2]
                 dP[:, i] = yf[:,:,:2].transpose((2,0,1)) 
@@ -632,13 +632,23 @@ class CellposeModel(UnetModel):
                                                     )
             else:
                 masks, p = [], []
-                resize = [shape[1], shape[2]] if not resample else None
+                resize = [shape[1], shape[2]] if (not resample and rescale!=1) else None
+                iterator = trange(nimg, file=tqdm_out) if nimg>1 else range(nimg)
                 for i in iterator:
-                    outputs = dynamics.compute_masks(dP[:,i], cellprob[i], niter=niter, cellprob_threshold=cellprob_threshold,
+                    dPi = dP[:,i] 
+                    cellprobi = cellprob[i]
+                    if resample and rescale!=1:
+                        dPi = transforms.resize_image(dPi, shape[1], shape[2], no_channels=True)
+                        cellprobi = transforms.resize_image(cellprobi, shape[1], shape[2], no_channels=True)    
+
+                    outputs = dynamics.compute_masks(dPi, cellprobi, niter=niter, cellprob_threshold=cellprob_threshold,
                                                          flow_threshold=flow_threshold, interp=interp, resize=resize,
-                                                         use_gpu=self.gpu, device=self.device)
+                                                         min_size=min_size if nimg==1 else -1, use_gpu=self.gpu, device=self.device)
                     masks.append(outputs[0])
-                    p.append(outputs[1])
+                    if nimg == 1:
+                        p.append(outputs[1])
+                        dP = dPi 
+                        cellprob = cellprobi
                     
                 masks = np.array(masks)
                 p = np.array(p)
