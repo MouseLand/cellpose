@@ -352,11 +352,11 @@ class MainW(QMainWindow):
         label = QLabel('<p>[&uarr; / &darr; or W/S]</p>')
         label.setStyleSheet(label_style)
         label.setFont(self.smallfont)
-        self.l0.addWidget(label, b,4,1,2)
+        self.l0.addWidget(label, b,3,1,3)
         label = QLabel('[R / G / B \n toggles color ]')
         label.setStyleSheet(label_style)
         label.setFont(self.smallfont)
-        self.l0.addWidget(label, b,7,1,2)
+        self.l0.addWidget(label, b,6,1,3)
 
         b+=1
         self.ViewDropDown = QComboBox()
@@ -370,7 +370,7 @@ class MainW(QMainWindow):
         label = QLabel('[pageup / pagedown]')
         label.setStyleSheet(label_style)
         label.setFont(self.smallfont)
-        self.l0.addWidget(label, b,5,1,4)
+        self.l0.addWidget(label, b,3,1,5)
         
         
         #self.ViewDropDown = guiparts.RGBRadioButtons(self, b+2,0)
@@ -396,7 +396,7 @@ class MainW(QMainWindow):
         self.BrushChoose.setStyleSheet(self.dropdowns)
         self.BrushChoose.setFont(self.medfont)
         self.l0.addWidget(self.BrushChoose, b, 4,1,2)
-        label = QLabel('brushsize:')
+        label = QLabel('brush\nsize:')
         label.setStyleSheet(label_style)
         label.setFont(self.medfont)
         self.l0.addWidget(label, b,2,1,2)
@@ -455,7 +455,7 @@ class MainW(QMainWindow):
         self.TB.setLayout(self.TBg)
         
         self.diameter = 30
-        label = QLabel('cell diameter (pixels):')
+        label = QLabel('cell diameter\n(pixels):')
         label.setStyleSheet(label_style)
         label.setFont(self.medfont)
         label.setToolTip('you can manually enter the approximate diameter for your cells, \nor press “calibrate” to let the model estimate it. \nThe size is represented by a disk at the bottom of the view window \n(can turn this disk off by unchecking “scale disk on”)')
@@ -466,7 +466,7 @@ class MainW(QMainWindow):
         self.Diameter.setText(str(self.diameter))
         self.Diameter.setFont(self.medfont)
         self.Diameter.returnPressed.connect(self.compute_scale)
-        self.Diameter.setFixedWidth(60)
+        self.Diameter.setFixedWidth(40)
         self.TBg.addWidget(self.Diameter, b0,3,1,3)
 
         # compute diameter
@@ -491,7 +491,7 @@ class MainW(QMainWindow):
         self.ChannelChoose = [QComboBox(), QComboBox()]
         self.ChannelChoose[0].addItems(['0: gray', '1: red', '2: green','3: blue'])
         self.ChannelChoose[1].addItems(['0: none', '1: red', '2: green', '3: blue'])
-        cstr = ['chan to\nsegment:', 'chan2\n(optional): ']
+        cstr = ['chan to segment:', 'chan2 (optional): ']
         for i in range(2):
             #self.ChannelChoose[i].setFixedWidth(70)
             self.ChannelChoose[i].setStyleSheet(self.dropdowns)
@@ -505,12 +505,12 @@ class MainW(QMainWindow):
             else:
                 label.setToolTip('if <em>cytoplasm</em> model is chosen, and you also have a nuclear channel, then choose the nuclear channel for this option')
                 self.ChannelChoose[i].setToolTip('if <em>cytoplasm</em> model is chosen, and you also have a nuclear channel, then choose the nuclear channel for this option')
-            self.TBg.addWidget(label, b0,5*i,1,2)
-            self.TBg.addWidget(self.ChannelChoose[i], b0,5*i+2,1,2)
+            self.TBg.addWidget(label, b0+i, 0, 1, 4)
+            self.TBg.addWidget(self.ChannelChoose[i], b0+i, 4, 1, 5)
             
         # post-hoc paramater tuning
 
-        b0+=1
+        b0+=2
         
         label = QLabel('flow\nthreshold:')
         label.setToolTip('threshold on flow error to accept a mask (set higher to get more cells, e.g. in range from (0.1, 3.0), OR set to 0.0 to turn off so no cells discarded);\n press enter to recompute if model already run')
@@ -541,7 +541,7 @@ class MainW(QMainWindow):
         self.TBg.addWidget(self.cellprob_threshold, b0,6,1,2)
 
         b0+=1
-        label = QLabel('3D stitch_threshold:')
+        label = QLabel('3D stitch\n threshold:')
         label.setToolTip('for 3D volumes, turn on stitch_threshold to stitch masks across planes instead of running cellpose in 3D (see docs for details)')
         label.setStyleSheet(label_style)
         label.setFont(self.medfont)
@@ -556,7 +556,7 @@ class MainW(QMainWindow):
         self.TBg.addWidget(self.stitch_threshold, b0,3,1,2)
         
         #self.l0.addWidget(self.TB, b, 0, 1, 9)
-        
+    
         # NORMALIZATION
         b0 +=1
         #self.NB = QGroupBox()
@@ -605,7 +605,7 @@ class MainW(QMainWindow):
 
         self.NormButton = QPushButton(u' compute (optional)')
         self.NormButton.clicked.connect(self.compute_saturation)
-        self.TBg.addWidget(self.NormButton, b0,6,1,3)
+        self.TBg.addWidget(self.NormButton, b0+1,0,1,5)
         self.NormButton.setEnabled(False)
         self.NormButton.setStyleSheet(self.styleInactive)
         
@@ -661,8 +661,6 @@ class MainW(QMainWindow):
         self.StyleToModel.setFont(self.smallfont)
         self.GBg.addWidget(self.StyleToModel, 2,0,1,10)
 
-        #self.l0.addWidget(self.GB, b, 0, 2, 9)
-
         # choose models
         self.ModelChoose = QComboBox()
         if len(self.model_strings) > 0:
@@ -689,7 +687,7 @@ class MainW(QMainWindow):
         self.ModelButton.setEnabled(False)
         self.ModelButton.setStyleSheet(self.styleInactive)
 
-        self.l0.addWidget(self.GB, b, 0, 1, 9)
+        #self.l0.addWidget(self.GB, b, 0, 1, 9)
         
         b+=1
         self.progress = QProgressBar(self)
