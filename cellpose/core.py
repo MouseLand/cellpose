@@ -653,7 +653,6 @@ class UnetModel():
         """ train function uses 0-1 mask label and boundary pixels for training """
 
         nimg = len(train_data)
-
         train_data, train_labels, test_data, test_labels, run_test = transforms.reshape_train_test(train_data, train_labels,
                                                                                                    test_data, test_labels,
                                                                                                    channels, normalize)

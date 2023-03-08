@@ -715,7 +715,7 @@ class CellposeModel(UnetModel):
             channels: list of ints (default, None)
                 channels to use for training
 
-            normalize: bool (default, True)
+            normalize: bool or dictionary (default, True)
                 normalize data so 0.0=1st percentile and 1.0=99th percentile of image intensities in each channel
 
             save_path: string (default, None)
@@ -755,6 +755,9 @@ class CellposeModel(UnetModel):
                 name of network, otherwise saved with name as params + training start time
 
         """
+        if normalize:
+            models_logger.info(f'>>>> training with image normalization {normalize}')
+        
         train_data, train_labels, test_data, test_labels, run_test = transforms.reshape_train_test(train_data, train_labels,
                                                                                                    test_data, test_labels,
                                                                                                    channels, normalize)

@@ -5,9 +5,9 @@ from tqdm import tqdm, trange
 
 import PyQt5
 from PyQt5 import QtGui, QtCore, Qt, QtWidgets
-from superqt import QRangeSlider
+from superqt import QRangeSlider, QCollapsible
 from qtpy.QtCore import Qt as Qtp
-from PyQt5.QtWidgets import QMainWindow, QApplication, QWidget, QScrollBar, QSlider, QComboBox, QGridLayout, QPushButton, QFrame, QCheckBox, QLabel, QProgressBar, QLineEdit, QMessageBox, QGroupBox
+from PyQt5.QtWidgets import QMainWindow, QApplication, QWidget, QScrollBar, QComboBox, QGridLayout, QPushButton, QFrame, QCheckBox, QLabel, QProgressBar, QLineEdit, QMessageBox, QGroupBox, QScrollArea
 import pyqtgraph as pg
 from pyqtgraph import GraphicsScene
 
@@ -15,13 +15,40 @@ import numpy as np
 from scipy.stats import mode
 import cv2
 
-from . import guiparts, menus, io, norm
+from . import guiparts, menus, io
 from .. import models, core, dynamics, version
 from ..utils import download_url_to_file, masks_to_outlines, diameters 
 from ..io  import get_image_files, imsave, imread
 from ..transforms import resize_image, normalize99 #fixed import
 from ..plot import disk
 from ..transforms import normalize99_tile, smooth_sharpen_img
+
+Horizontal = QtCore.Qt.Orientation.Horizontal
+
+class Slider(QRangeSlider):
+    def __init__(self, parent, name, color):
+        super().__init__(Horizontal)
+        self.setEnabled(False)
+        self.valueChanged.connect(lambda: self.levelChanged(parent))
+        self.name = name
+        self.setStyleSheet(""" QSlider{
+                            background-color: none;
+                            }
+
+                            QSlider::add-page:vertical {
+                            background: none;
+                            border: none;
+                            }
+
+                            QRangeSlider {
+                                qproperty-barColor: #9FCBFF;
+                            }
+                        }""")
+        #self._setBarColor(color)
+        self.show()
+        
+    def levelChanged(self, parent):
+        parent.level_change(self.name)
 
 try:
     import matplotlib.pyplot as plt
@@ -186,7 +213,6 @@ class MainW(QMainWindow):
         menus.mainmenu(self)
         menus.editmenu(self)
         menus.modelmenu(self)
-        menus.normmenu(self)
         menus.helpmenu(self)
 
         self.setStyleSheet("QMainWindow {background: 'black';}")
@@ -221,24 +247,40 @@ class MainW(QMainWindow):
 
         # ---- MAIN WIDGET LAYOUT ---- #
         self.cwidget = QWidget(self)
-        self.l0 = QGridLayout()
-        self.cwidget.setLayout(self.l0)
+        self.lmain = QGridLayout()
+        self.cwidget.setLayout(self.lmain)
         self.setCentralWidget(self.cwidget)
-        self.l0.setVerticalSpacing(6)
+        self.lmain.setVerticalSpacing(6)
 
         self.imask = 0
-
+        self.scrollarea = QScrollArea()
+        self.scrollarea.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOn)
+        #self.scrollarea.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
+        #self.scrollarea.setStyleSheet("""QScrollArea { background: black; }""")
+        self.scrollarea.setWidgetResizable(True)
+        self.swidget = QWidget(self)
+        self.swidget.setStyleSheet("""QWidget { background: black; }""")
+        self.scrollarea.setWidget(self.swidget)
+        self.l0 = QGridLayout() 
+        self.swidget.setLayout(self.l0)
         b = self.make_buttons()
+        self.lmain.addWidget(self.scrollarea, 0, 0, 40, 9)
 
         # ---- drawing area ---- #
         self.win = pg.GraphicsLayoutWidget()
         
-        self.l0.addWidget(self.win, 0, 9, b, 30)
+        self.lmain.addWidget(self.win, 0, 9, 40, 30)
+        # add scrollbar underneath
+        self.scroll = QScrollBar(QtCore.Qt.Horizontal)
+        self.scroll.setMaximum(10)
+        self.scroll.valueChanged.connect(self.move_in_Z)
+        self.lmain.addWidget(self.scroll, 40,9,1,30)
+
         self.win.scene().sigMouseClicked.connect(self.plot_clicked)
         self.win.scene().sigMouseMoved.connect(self.mouse_moved)
         self.make_viewbox()
         self.make_orthoviews()
-        self.l0.setColumnStretch(10, 1)
+        self.lmain.setColumnStretch(10, 1)
         bwrmap = make_bwr()
         self.bwr = bwrmap.getLookupTable(start=0.0, stop=255.0, alpha=False)
         self.cmap = []
@@ -297,7 +339,8 @@ class MainW(QMainWindow):
                            color: white; 
                            border: black solid 1px
                            }"""
-        box_style = """QToolTip { 
+        box_style = """QLineEdit{color:white;    background-color: black; }
+                        QToolTip { 
                            background-color: black; 
                            color: white; 
                            border: black solid 1px
@@ -449,8 +492,11 @@ class MainW(QMainWindow):
         
         b0 = 0
         self.TB = QGroupBox('Settings')
-        self.TB.setFont(self.boldfont)
-        self.TB.setStyleSheet("QGroupBox { border: 1px solid gray; color:white; padding: 10px 0px;}")
+        #self.TB = QCollapsible('Settings')
+        #self.TB.setFont(self.boldfont)
+        #self.TB.setStyleSheet("QGroupBox { border: 1px solid gray; color:white; padding: 10px 0px;}")
+        #self.TB0 = QGroupBox("Settings")
+        #self.TB0.setStyleSheet("QGroupBox { border: 1px solid gray; color:white; padding: 10px 0px;}")
         self.TBg = QGridLayout()
         self.TB.setLayout(self.TBg)
         
@@ -622,10 +668,8 @@ class MainW(QMainWindow):
         self.NormButton.setEnabled(False)
         self.NormButton.setStyleSheet(self.styleInactive)
         
-        #self.TB.setCheckable(True)
-        self.TB.clicked.connect(lambda: self.collapse(self.TB))
- 
         b+=1
+        #self.TB.setContent(self.TB0)
         self.l0.addWidget(self.TB, b, 0, 1, 9)
 
         b+=2
@@ -753,13 +797,12 @@ class MainW(QMainWindow):
                 label = QLabel(names[r] + ':')
             label.setStyleSheet(f"color: {names[r]}")
             self.l0.addWidget(label, b, 0, 1, 2)
-            self.sliders.append(norm.Slider(self, names[r], colors[r]))
-            self.sliders[-1].setMinimum(0)
-            self.sliders[-1].setMaximum(255)
+            self.sliders.append(Slider(self, names[r], colors[r]))
+            self.sliders[-1].setMinimum(-.1)
+            self.sliders[-1].setMaximum(255.1)
             self.sliders[-1].setValue([0, 255])
-            self.sliders[-1].setTickPosition(QSlider.TicksRight)
+            #self.sliders[-1].setTickPosition(QSlider.TicksRight)
             self.l0.addWidget(self.sliders[-1], b, 2,1,7)
-
         b+=1
         self.l0.addWidget(QLabel(''),b,0,1,5)
         self.l0.setRowStretch(b, 1)
@@ -832,27 +875,8 @@ class MainW(QMainWindow):
         self.ScaleOn.toggled.connect(self.toggle_scale)
         self.l0.addWidget(self.ScaleOn, b,0,1,5)
 
-        # add scrollbar underneath
-        self.scroll = QScrollBar(QtCore.Qt.Horizontal)
-        self.scroll.setMaximum(10)
-        self.scroll.valueChanged.connect(self.move_in_Z)
-        self.l0.addWidget(self.scroll, b,9,1,30)
+        
         return b
-
-    def collapse(self, gBox):
-        """ Collapses a QGroupBox """
-        # Find out if the state is on or off
-        gbState = gBox.isChecked()
-        if not gbState:
-            gBox.setFixedHeight(25)
-                    # Set window Height
-            self.setFixedHeight(self.sizeHint().height())
-                
-        else:
-            oSize = gBox.sizeHint()
-            gBox.setFixedHeight(oSize.height())
-                    # Set window Height
-            self.setFixedHeight(self.sizeHint().height())
 
     def level_change(self, r):
         r = ['red', 'green', 'blue'].index(r)
@@ -1895,6 +1919,8 @@ class MainW(QMainWindow):
                 if self.ChannelChoose[1].currentIndex()>0:
                     chanid.append(self.ChannelChoose[1].currentIndex()-1)
                 return image[:,:,chanid]
+        else:
+            return image
 
     def get_model_path(self):
         self.current_model = self.ModelChoose.currentText()
@@ -1963,8 +1989,9 @@ class MainW(QMainWindow):
         
         print('GUI_INFO: name of new model: ' + self.training_params['model_name'])
         self.new_model_path = self.model.train(self.train_data, self.train_labels, 
-                                               channels=self.channels, 
-                                               min_train_masks=1,
+                                               channels=self.channels,
+                                               normalize=self.get_normalize_params(), 
+                                               min_train_masks=0,
                                                save_path=save_path, 
                                                nimg_per_epoch=8,
                                                learning_rate = self.training_params['learning_rate'], 

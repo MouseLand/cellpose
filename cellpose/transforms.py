@@ -695,7 +695,7 @@ def reshape_and_normalize_data(train_data, test_data=None, channels=None, normal
         For instance, to train on grayscale images, input [0,0]. To train on images with cells
         in green and nuclei in blue, input [2,3].
 
-    normalize: bool (optional, True)
+    normalize: bool or dict (optional, True)
         normalize data so 0.0=1st percentile and 1.0=99th percentile of image intensities in each channel, 
         or can pass in normalize_params as a dictionary for "normalize_img" function
 
@@ -731,7 +731,6 @@ def reshape_and_normalize_data(train_data, test_data=None, channels=None, normal
                 else:
                     data[i] = normalize_img(data[i], axis=0)
 
-     
         nchan = [data[i].shape[0] for i in range(nimg)]
     run_test = True
     return train_data, test_data, run_test
