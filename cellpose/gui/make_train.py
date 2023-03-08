@@ -59,6 +59,7 @@ def main():
         img = io.imread(name)
         #print(img.shape)
         Ly,Lx = img.shape[1:3]
+        img = img[8:]
         imgs = img[np.random.permutation(img.shape[0])[:args.nimg_per_tif]]
         for k,img in enumerate(imgs):
             if args.tile_norm:
