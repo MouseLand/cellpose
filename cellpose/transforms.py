@@ -604,7 +604,8 @@ def normalize_img(img, normalize=True, norm3D=False, invert=False,
             img_norm[...,c] = (img_norm[...,c] - lowhigh[0]) / (lowhigh[1] - lowhigh[0])
     else:    
         if sharpen_radius > 0 or smooth_radius > 0:
-            img_norm = smooth_sharpen_img(img_norm, sharpen_radius=sharpen_radius, smooth_radius=smooth_radius)
+            img_norm = smooth_sharpen_img(img_norm, sharpen_radius=sharpen_radius, 
+                                          smooth_radius=smooth_radius)
             
         if tile_norm_blocksize > 0:
             img_norm = normalize99_tile(img_norm, blocksize=tile_norm_blocksize, 

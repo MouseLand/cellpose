@@ -239,7 +239,7 @@ def get_image_files(folder, mask_filter, imf=None, look_one_level_down=False):
     if look_one_level_down:
         folders = natsorted(glob.glob(os.path.join(folder, "*/")))
     folders.append(folder)
-    exts = ['.png', '.jpg', '.jpeg', '.tif', '.tiff']
+    exts = ['.png', '.jpg', '.jpeg', '.tif', '.tiff', '.dax', '.nd2', '.nrrd']
     l0 = 0
     al = 0
     for folder in folders:

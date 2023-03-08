@@ -509,7 +509,7 @@ class MainW(QMainWindow):
             self.TBg.addWidget(self.ChannelChoose[i], b0+i, 4, 1, 5)
             
         # post-hoc paramater tuning
-
+        
         b0+=2
         
         label = QLabel('flow\nthreshold:')
@@ -568,15 +568,20 @@ class MainW(QMainWindow):
         label.setFont(self.boldmedfont)
         self.TBg.addWidget(label, b0, 0,1,7)
 
-        self.norm_vals = [1., 99., 0., 0.]
+        self.norm_vals = [1., 99., 0., 0., 0., 0.]
         self.norm_edits = []
-        labels = ['lower\npercentile', 'upper\npercentile', 'tile_norm', 'sharpen']
+        labels = ['lower\npercentile', 'upper\npercentile', 
+                    'sharpen\nradius', 'smooth\nradius',
+                     'tile_norm\nblocksize', 'tile_norm\nsmooth3D']
         tooltips = ['pixels at this percentile set to 0',
                     'pixels at this percentile set to 1',
+                    'set size of surround-subtraction filter for sharpening image',
+                    'set size of gaussian filter for smoothing image',
                     'set size of tiles to use to normalize image',
-                    'set size of surround filter for sharpening image']
+                    'set amount of smoothing of normalization values across planes'
+                    ]
         b0+=1
-        for p in range(4):
+        for p in range(6):
             label = QLabel(f'{labels[p]}:')
             label.setToolTip(tooltips[p])
             label.setStyleSheet(label_style)
@@ -590,7 +595,7 @@ class MainW(QMainWindow):
             self.TBg.addWidget(self.norm_edits[p], b0+p//2,4*(p%2)+2,1,2)
             self.norm_edits[p].setToolTip(tooltips[p])
 
-        b0+=2
+        b0+=3
         self.norm3D_cb = QCheckBox('norm3D')
         self.norm3D_cb.setStyleSheet(self.checkstyle)
         self.norm3D_cb.setFont(self.medfont)
@@ -603,13 +608,23 @@ class MainW(QMainWindow):
         self.invert_cb.setToolTip('invert image')
         self.TBg.addWidget(self.invert_cb, b0,3,1,3)
 
+        b0+=1
+        self.normalize_cb = QCheckBox('normalize')
+        self.normalize_cb.setStyleSheet(self.checkstyle)
+        self.normalize_cb.setFont(self.medfont)
+        self.normalize_cb.setToolTip('normalize image for cellpose')
+        self.normalize_cb.setChecked(True)
+        self.TBg.addWidget(self.normalize_cb, b0,0,1,4)
+
         self.NormButton = QPushButton(u' compute (optional)')
         self.NormButton.clicked.connect(self.compute_saturation)
-        self.TBg.addWidget(self.NormButton, b0+1,0,1,5)
+        self.TBg.addWidget(self.NormButton, b0,4,1,5)
         self.NormButton.setEnabled(False)
         self.NormButton.setStyleSheet(self.styleInactive)
         
-            
+        #self.TB.setCheckable(True)
+        self.TB.clicked.connect(lambda: self.collapse(self.TB))
+ 
         b+=1
         self.l0.addWidget(self.TB, b, 0, 1, 9)
 
@@ -687,7 +702,7 @@ class MainW(QMainWindow):
         self.ModelButton.setEnabled(False)
         self.ModelButton.setStyleSheet(self.styleInactive)
 
-        #self.l0.addWidget(self.GB, b, 0, 1, 9)
+        self.l0.addWidget(self.GB, b, 0, 1, 9)
         
         b+=1
         self.progress = QProgressBar(self)
@@ -823,6 +838,21 @@ class MainW(QMainWindow):
         self.scroll.valueChanged.connect(self.move_in_Z)
         self.l0.addWidget(self.scroll, b,9,1,30)
         return b
+
+    def collapse(self, gBox):
+        """ Collapses a QGroupBox """
+        # Find out if the state is on or off
+        gbState = gBox.isChecked()
+        if not gbState:
+            gBox.setFixedHeight(25)
+                    # Set window Height
+            self.setFixedHeight(self.sizeHint().height())
+                
+        else:
+            oSize = gBox.sizeHint()
+            gBox.setFixedHeight(oSize.height())
+                    # Set window Height
+            self.setFixedHeight(self.sizeHint().height())
 
     def level_change(self, r):
         r = ['red', 'green', 'blue'].index(r)
@@ -1509,21 +1539,35 @@ class MainW(QMainWindow):
             self.zaspect = max(0.01, min(100., float(self.zaspectedit.text())))
             self.dzedit.setText(str(self.dz))
             self.zaspectedit.setText(str(self.zaspect))
-            self.update_crosshairs()
             if self.dz != dzcurrent:
                 self.pOrtho[0].setXRange(-self.dz/3,self.dz*2 + self.dz/3)
                 self.pOrtho[1].setYRange(-self.dz/3,self.dz*2 + self.dz/3)
-
+            dztot = min(self.NZ, self.dz * 2)
             y = self.yortho
             x = self.xortho
             z = self.currentZ
-            zmin, zmax = max(0, z-self.dz), min(self.NZ, z+self.dz)
-            if self.view==0:
+            if dztot == self.NZ:
+                zmin, zmax = 0, self.NZ 
+            else:
+                if z-self.dz < 0:
+                    zmin = 0
+                    zmax = zmin + self.dz*2
+                elif z+self.dz >= self.NZ: 
+                    zmax = self.NZ 
+                    zmin = zmax - self.dz*2 
+                else:
+                    zmin, zmax = z-self.dz, z+self.dz
+            self.zc = z - zmin
+            self.update_crosshairs()
+            if self.view==0 or self.view==4:
                 for j in range(2):
                     if j==0:
-                        image = self.stack[zmin:zmax, :, x].transpose(1,0,2)
+                        if self.view==0:
+                            image = self.stack[zmin:zmax, :, x].transpose(1,0,2)
+                        else:
+                            image = self.stack_filtered[zmin:zmax, :, x].transpose(1,0,2)
                     else:
-                        image = self.stack[zmin:zmax, y, :]
+                        image = self.stack[zmin:zmax, y, :] if self.view==0 else self.stack_filtered[zmin:zmax, y, :]
                     if self.onechan:
                         # show single channel
                         image = image[...,0]
@@ -1570,11 +1614,10 @@ class MainW(QMainWindow):
         self.vLine.setPos(self.xortho)
         self.hLine.setPos(self.yortho)
         self.vLineOrtho[1].setPos(self.xortho)
-        self.hLineOrtho[1].setPos(self.dz)
-        self.vLineOrtho[0].setPos(self.dz)
+        self.hLineOrtho[1].setPos(self.zc)
+        self.vLineOrtho[0].setPos(self.zc)
         self.hLineOrtho[0].setPos(self.yortho)
             
-
     def add_set(self):
         if len(self.current_point_set) > 0:
             self.current_point_set = np.array(self.current_point_set)
@@ -1727,32 +1770,51 @@ class MainW(QMainWindow):
         if self.outlinesOn:
             self.layerz[self.outpix[self.currentZ]>0] = np.array(self.outcolor).astype(np.uint8)
 
-    def compute_saturation(self, return_img=False):
+    def get_normalize_params(self):
         percentile = [float(self.norm_edits[0].text()), float(self.norm_edits[1].text())]
-        tile_norm = float(self.norm_edits[2].text())
-        sharpen = float(self.norm_edits[3].text())
+        sharpen = float(self.norm_edits[2].text())
+        smooth = float(self.norm_edits[3].text())
+        tile_norm = float(self.norm_edits[4].text())
+        smooth3D = float(self.norm_edits[5].text())
         norm3D = self.norm3D_cb.isChecked()
         invert = self.invert_cb.isChecked()
         
         # check normalization params
         if not (percentile[0] >= 0 and percentile[1] > 0 and percentile[0] < 100 and percentile[1] <= 100
                     and percentile[1] > percentile[0]):
-            print('GUI_ERROR: percentiles need be between 0 and 100, and upper > lower')
+            print('GUI_ERROR: percentiles need be between 0 and 100, and upper > lower, using defaults')
             self.norm_edits[0].setText('1.')
             self.norm_edits[1].setText('99.')
             percentile = [1., 99.]
         
         tile_norm = 0 if tile_norm < 0 else tile_norm 
         sharpen = 0 if sharpen < 0 else sharpen
+        smooth = 0 if smooth < 0 else smooth
+        smooth3D = 0 if smooth3D < 0 else smooth3D
         if tile_norm > self.Ly and tile_norm > self.Lx: 
             print('GUI_ERROR: tile size (tile_norm) bigger than both image dimensions, disabling')
             tile_norm = 0
 
-        self.normalize_params = {'lowhigh': None, 'percentile': percentile, 
-                                    'sharpen': sharpen, 'normalize': True, 
-                                    'tile_norm_blocksize': tile_norm, 'norm3D': norm3D,
+        normalize_params = {'lowhigh': None, 'percentile': percentile, 
+                                    'sharpen_radius': sharpen, 
+                                    'smooth_radius': smooth, 
+                                    'normalize': True, 
+                                    'tile_norm_blocksize': tile_norm, 
+                                    'tile_norm_smooth3D': smooth3D,
+                                    'norm3D': norm3D,
                                     'invert': invert}
-        
+        return normalize_params
+
+    def compute_saturation(self, return_img=False):
+        norm = self.get_normalize_params()
+        sharpen, smooth = norm['sharpen_radius'], norm['smooth_radius']
+        percentile = norm['percentile']
+        tile_norm = norm['tile_norm_blocksize']
+        invert = norm['invert']
+        norm3D = norm['norm3D']
+        smooth3D = norm['tile_norm_smooth3D']
+        tile_norm = norm['tile_norm_blocksize']
+
         # if grayscale, use gray img
         channels = self.get_channels()
         if channels[0] == 0:
@@ -1768,12 +1830,13 @@ class MainW(QMainWindow):
             img_norm = self.stack.copy()
             if sharpen > 0:
                 #img_norm = sharpen_img(self.stack, sigma=sharpen, )
-                img_norm = smooth_sharpen_img(self.stack, sharpen_sigma=sharpen)
+                img_norm = smooth_sharpen_img(self.stack, sharpen_radius=sharpen, 
+                                              smooth_radius=smooth)
                 
             if tile_norm > 0:
-                img_norm = normalize99_tile(img_norm, bsize=tile_norm, 
+                img_norm = normalize99_tile(img_norm, blocksize=tile_norm, 
                                             lower=percentile[0], upper=percentile[1], 
-                                            norm3D=norm3D)
+                                            smooth3D=smooth3D, norm3D=norm3D)
             # convert to 0->255
             img_norm -= img_norm.min()
             img_norm /= img_norm.max() 
@@ -2013,6 +2076,7 @@ class MainW(QMainWindow):
             channels = self.get_channels()
             flow_threshold, cellprob_threshold = self.get_thresholds()
             self.diameter = float(self.Diameter.text())
+            normalize_params = self.get_normalize_params()
             try:
                 masks, flows = self.model.eval(data, 
                                                 channels=channels,
@@ -2020,6 +2084,7 @@ class MainW(QMainWindow):
                                                 cellprob_threshold=cellprob_threshold,
                                                 flow_threshold=flow_threshold,
                                                 do_3D=do_3D,
+                                                normalize=normalize_params,
                                                 stitch_threshold=stitch_threshold, 
                                                 progress=self.progress)[:2]
             except Exception as e:

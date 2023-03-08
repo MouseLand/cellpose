@@ -456,7 +456,6 @@ class CellposeModel(UnetModel):
                 style vector summarizing each image, also used to estimate size of objects in image
 
         """
-        
         if isinstance(x, list) or x.squeeze().ndim==5:
             masks, styles, flows = [], [], []
             tqdm_out = utils.TqdmToLogger(models_logger, level=logging.INFO)
@@ -546,7 +545,7 @@ class CellposeModel(UnetModel):
                 ):
 
         if isinstance(normalize, dict):
-            normalize_params = {**normalize, **normalize_default}
+            normalize_params = {**normalize_default, **normalize}
         elif not isinstance(normalize, bool):
             raise ValueError('normalize parameter must be a bool or a dict')
         else:

@@ -33,9 +33,10 @@ def main():
     
     # algorithm settings
     algorithm_args = parser.add_argument_group("algorithm arguments")
+    algorithm_args.add_argument('--sharpen_radius', required=False, default=0.0, type=float, help='tile normalization')
     algorithm_args.add_argument('--tile_norm', required=False, default=0.0, type=float, help='tile normalization')
     algorithm_args.add_argument('--nimg_per_tif', required=False, default=10, type=int, help='number of slices to save')
-    algorithm_args.add_argument('--crop_size', required=False, default=400, type=int, help='size of random crop to save')
+    algorithm_args.add_argument('--crop_size', required=False, default=512, type=int, help='size of random crop to save')
     
     args = parser.parse_args()
 
@@ -56,12 +57,14 @@ def main():
     for name in image_names:
         name0 = os.path.splitext(os.path.split(name)[-1])[0]
         img = io.imread(name)
-        img = img.reshape(-1, 2,img.shape[-2], img.shape[-1])
-        img = img.transpose(0,2,3,1)
+        #print(img.shape)
         Ly,Lx = img.shape[1:3]
         imgs = img[np.random.permutation(img.shape[0])[:args.nimg_per_tif]]
         for k,img in enumerate(imgs):
-            img = transforms.normalize99_tile(img, bsize=args.tile_norm)
+            if args.tile_norm:
+                img = transforms.normalize99_tile(img, blocksize=args.tile_norm)
+            if args.sharpen_radius:
+                img = transforms.smooth_sharpen_img(img, sharpen_radius=args.sharpen_radius)
             ly = np.random.randint(0, Ly-args.crop_size)
             lx = np.random.randint(0, Lx-args.crop_size)
             io.imsave(os.path.join(args.dir, f'train/{name0}_{k}.tif'), 
