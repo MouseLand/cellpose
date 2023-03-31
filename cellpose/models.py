@@ -1006,15 +1006,15 @@ class SizeModel():
             diam_test = np.array([utils.diameters(lbl)[0] for lbl in test_labels])
         
         # remove images with no masks
+        indices_to_be_removed = []
         for i in range(len(diam_train)):
-            if diam_train[i]==0.0:
-                del train_data[i]
-                del train_labels[i]
-        if run_test:
-            for i in range(len(diam_test)):
-                if diam_test[i]==0.0:
-                    del test_data[i]
-                    del test_labels[i]
+            if diam_train[i] == 0.0:
+                indices_to_be_removed.append(i)
+        indices_to_be_removed.sort(reverse=True)
+        for i in indices_to_be_removed:
+            del train_data[i]
+            del train_labels[i]
+            diam_train = np.delete(diam_train, i)
 
         nimg = len(train_data)
         styles = np.zeros((n_epochs*nimg, 256), np.float32)
@@ -1031,7 +1031,7 @@ class SizeModel():
                 feat = self.cp.network(imgi)[1]
                 styles[inds+nimg*iepoch] = feat
                 diams[inds+nimg*iepoch] = np.log(diam_train[inds]) - np.log(self.diam_mean) + np.log(scale)
-            del feat
+                del feat
             if (iepoch+1)%2==0:
                 models_logger.info('ran %d epochs in %0.3f sec'%(iepoch+1, time.time()-tic))
 
