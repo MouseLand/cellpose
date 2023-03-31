@@ -3,10 +3,17 @@ from pathlib import Path
 from subprocess import check_output, STDOUT
 import os, shutil
 from glob import glob
+import numpy as np
 
 os.environ["KMP_DUPLICATE_LIB_OK"]="TRUE"
 
 
+def test_train_size_model():
+    model = models.Cellpose(model_type='cyto')
+    image_shape = (3, 256, 256)
+    images = [np.ones(image_shape), np.ones(image_shape)]
+    labels = [np.zeros(image_shape), np.ones(image_shape)]
+    model.sz.train(images, labels, n_epochs=2, batch_size=1)
 
 def test_class_train(data_dir):
     train_dir = str(data_dir.joinpath('2D').joinpath('train'))
