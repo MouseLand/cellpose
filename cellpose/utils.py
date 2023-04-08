@@ -288,24 +288,30 @@ def get_mask_stats(masks_true):
 
     # disk for compactness
     rs,dy,dx = circleMask(np.array([100, 100]))
-    rsort = np.sort(rs.flatten())
+    # rsort = np.sort(rs.flatten())
+    rsort = np.sort(rs.ravel())
+
 
     # area for solidity
     npoints = np.unique(masks_true, return_counts=True)[1][1:]
     areas = npoints - mask_perimeters / 2 - 1
-    
-    compactness = np.zeros(masks_true.max())
-    convexity = np.zeros(masks_true.max())
-    solidity = np.zeros(masks_true.max())
-    convex_perimeters = np.zeros(masks_true.max())
-    convex_areas = np.zeros(masks_true.max())
+
+    ic_range = np.arange(1, masks_true.max() + 1)
+    compactness = np.zeros_like(ic_range, dtype=float)
+    convexity = np.zeros_like(ic_range, dtype=float)
+    solidity = np.zeros_like(ic_range, dtype=float)
+    convex_perimeters = np.zeros_like(ic_range, dtype=float)
+    convex_areas = np.zeros_like(ic_range, dtype=float)
+
     for ic in range(masks_true.max()):
         points = np.array(np.nonzero(masks_true==(ic+1))).T
         if len(points)>15 and mask_perimeters[ic] > 0:
             med = np.median(points, axis=0)
             # compute compactness of ROI
             r2 = ((points - med)**2).sum(axis=1)**0.5
-            compactness[ic] = (rsort[:r2.size].mean() + 1e-10) / r2.mean()
+            # compactness[ic] = (rsort[:r2.size].mean() + 1e-10) / r2.mean()
+            compactness[ic] = (np.mean(rsort[:r2.size]) + 1e-10) / np.mean(r2)
+
             try:
                 hull = ConvexHull(points)
                 convex_perimeters[ic] = hull.area
