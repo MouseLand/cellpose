@@ -63,4 +63,3 @@ Cellpose 1.0
    :caption: API Reference:
 
    api
-   cli

@@ -102,6 +102,7 @@ automatically installed with conda/pip if missing):
 -  `scikit-image`_
 -  `natsort`_
 -  `matplotlib`_
+-  `roifile`_
 
 .. _Anaconda: https://www.anaconda.com/download/
 .. _environment.yml: https://github.com/MouseLand/cellpose/blob/master/environment.yml?raw=true
@@ -116,3 +117,4 @@ automatically installed with conda/pip if missing):
 .. _scikit-image: https://scikit-image.org/
 .. _natsort: https://natsort.readthedocs.io/en/master/
 .. _matplotlib: https://matplotlib.org/
+.. _roifile: https://github.com/cgohlke/roifile
