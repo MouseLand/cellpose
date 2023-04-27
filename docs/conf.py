@@ -36,7 +36,8 @@ extensions = [
     "sphinx.ext.intersphinx",
     "sphinx.ext.mathjax",
     "sphinx.ext.viewcode",
-    'sphinx.ext.napoleon']
+    'sphinx.ext.napoleon',
+    'sphinx.ext.sphinxarg.ext']
 #extensions = ['sphinx.ext.autodoc',
 #            'sphinx.ext.mathjax',
 #            'sphinx.ext.viewcode',
@@ -48,7 +49,7 @@ extensions = [
 
 autoapi_dirs = ['../cellpose']
 
-source_suffix='.rst'
+source_suffix = '.rst'
 
 master_doc = 'index'
 
