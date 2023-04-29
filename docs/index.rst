@@ -60,6 +60,7 @@ Cellpose 1.0
    
 
 .. toctree::
-   :caption: API Reference:
+   :caption: Reference:
 
    api
+   cli
