@@ -38,16 +38,24 @@ extensions = [
     "sphinx.ext.viewcode",
     'sphinx.ext.napoleon',
     # 'sphinxcontrib.autoprogram',
-    # 'sphinxarg.ext',
+    'sphinxarg.ext',
 ]
-#extensions = ['sphinx.ext.autodoc',
-#            'sphinx.ext.mathjax',
-#            'sphinx.ext.viewcode',
-#            'sphinx.ext.autosummary',
-#            'sphinx.ext.doctest',
-#            'sphinx.ext.inheritance_diagram',
-#            'autoapi.extension',
-#            'sphinx.ext.napoleon']
+
+autodoc_mock_imports = [
+    "importlib",
+    "torch",
+    "numpy",
+    "tqdm",
+    "scipy",
+    "skimage",
+    "cv2",
+    "matplotlib",
+    "scikit-image",
+    "tifffile",
+    "fastremap",
+    "natsort",
+    "numba",
+]
 
 autoapi_dirs = ['../cellpose']
 
