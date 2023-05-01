@@ -17,13 +17,14 @@ gui_deps = [
         'pyqt5.sip',
         'superqt',
         'google-cloud-storage'
-        ]
+]
 
 docs_deps = [
         'sphinx>=3.0',
         'sphinxcontrib-apidoc',
         'sphinx_rtd_theme',
-      ]
+        'sphinx-argparse',
+]
 
 distributed_deps = [
         'dask',

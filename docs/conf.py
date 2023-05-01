@@ -13,7 +13,8 @@
 # import os
 # import sys
 # sys.path.insert(0, os.path.abspath('.'))
-
+import re
+import os
 
 # -- Project information -----------------------------------------------------
 
@@ -22,7 +23,9 @@ copyright = '2020, Carsen Stringer & Marius Pachitariu'
 author = 'Carsen Stringer & Marius Pachitariu'
 
 # The full version, including alpha/beta/rc tags
-release = '0.7.2'
+release = re.sub('^v', '', os.popen('git describe --tags').read().strip())
+# The short X.Y version.
+version = release
 
 
 # -- General configuration ---------------------------------------------------
@@ -36,19 +39,30 @@ extensions = [
     "sphinx.ext.intersphinx",
     "sphinx.ext.mathjax",
     "sphinx.ext.viewcode",
-    'sphinx.ext.napoleon']
-#extensions = ['sphinx.ext.autodoc',
-#            'sphinx.ext.mathjax',
-#            'sphinx.ext.viewcode',
-#            'sphinx.ext.autosummary',
-#            'sphinx.ext.doctest',
-#            'sphinx.ext.inheritance_diagram',
-#            'autoapi.extension',
-#            'sphinx.ext.napoleon']
+    'sphinx.ext.napoleon',
+    # 'sphinxcontrib.autoprogram',
+    'sphinxarg.ext',
+]
+
+autodoc_mock_imports = [
+    "importlib",
+    "torch",
+    "numpy",
+    "tqdm",
+    "scipy",
+    "skimage",
+    "cv2",
+    "matplotlib",
+    "scikit-image",
+    "tifffile",
+    "fastremap",
+    "natsort",
+    "numba",
+]
 
 autoapi_dirs = ['../cellpose']
 
-source_suffix='.rst'
+source_suffix = '.rst'
 
 master_doc = 'index'
 
