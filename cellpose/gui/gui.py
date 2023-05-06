@@ -72,7 +72,7 @@ def interpZ(mask, zdraw):
     """ find nearby planes and average their values using grid of points
         zfill is in ascending order
     """
-    ifill = np.ones(mask.shape[0], np.bool)
+    ifill = np.ones(mask.shape[0], "bool")
     zall = np.arange(0, mask.shape[0], 1, int)
     ifill[zdraw] = False
     zfill = zall[ifill]
@@ -1437,13 +1437,12 @@ class MainW(QMainWindow):
         # loop over z values
         median = []
         if points.shape[1] < 3:
-            points = np.concatenate((np.zeros((points.shape[0],1), np.int32), points), axis=1)
-
+            points = np.concatenate((np.zeros((points.shape[0],1), "int32"), points), axis=1)
         zdraw = np.unique(points[:,0])
         zrange = np.arange(zdraw.min(), zdraw.max()+1, 1, int)
         zmin = zdraw.min()
-        pix = np.zeros((2,0), np.uint16)
-        mall = np.zeros((len(zrange), self.Ly, self.Lx), np.bool)
+        pix = np.zeros((2,0), "uint16")
+        mall = np.zeros((len(zrange), self.Ly, self.Lx), "bool")
         k=0
         for z in zdraw:
             iz = points[:,0] == z
@@ -1684,8 +1683,7 @@ class MainW(QMainWindow):
             flow_threshold = float(self.flow_threshold.text())
             cellprob_threshold = float(self.cellprob_threshold.text())
             if flow_threshold==0.0 or self.NZ>1:
-                flow_threshold = None
-                
+                flow_threshold = None    
             return flow_threshold, cellprob_threshold
         except Exception as e:
             print('flow threshold or cellprob threshold not a valid number, setting to defaults')

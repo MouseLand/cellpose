@@ -471,47 +471,6 @@ class ViewBoxNoRightDrag(pg.ViewBox):
             self.scaleBy([0.9, 0.9])
         else:
             ev.ignore()
-    
-    def mouseDragEvent(self, ev, axis=None):
-        ## if axis is specified, event will only affect that axis.
-        if self.parent is None or (self.parent is not None and not self.parent.in_stroke):
-            ev.accept()  ## we accept all buttons
-
-            pos = ev.pos()
-            lastPos = ev.lastPos()
-            dif = pos - lastPos
-            dif = dif * -1
-
-            ## Ignore axes if mouse is disabled
-            mouseEnabled = np.array(self.state['mouseEnabled'], dtype=np.float)
-            mask = mouseEnabled.copy()
-            if axis is not None:
-                mask[1-axis] = 0.0
-
-            ## Scale or translate based on mouse button
-            if ev.button() & (QtCore.Qt.LeftButton | QtCore.Qt.MidButton):
-                if self.state['mouseMode'] == pg.ViewBox.RectMode:
-                    if ev.isFinish():  ## This is the final move in the drag; change the view scale now
-                        #print "finish"
-                        self.rbScaleBox.hide()
-                        ax = QtCore.QRectF(Point(ev.buttonDownPos(ev.button())), Point(pos))
-                        ax = self.childGroup.mapRectFromParent(ax)
-                        self.showAxRect(ax)
-                        self.axHistoryPointer += 1
-                        self.axHistory = self.axHistory[:self.axHistoryPointer] + [ax]
-                    else:
-                        ## update shape of scale box
-                        self.updateScaleBox(ev.buttonDownPos(), ev.pos())
-                else:
-                    tr = dif*mask
-                    tr = self.mapToView(tr) - self.mapToView(Point(0,0))
-                    x = tr.x() if mask[0] == 1 else None
-                    y = tr.y() if mask[1] == 1 else None
-
-                    self._resetTarget()
-                    if x is not None or y is not None:
-                        self.translateBy(x=x, y=y)
-                    self.sigRangeChangedManually.emit(self.state['mouseEnabled'])
 
 class ImageDraw(pg.ImageItem):
     """
@@ -589,7 +548,7 @@ class ImageDraw(pg.ImageItem):
                 self.drawAt(ev.pos())
                 if self.is_at_start(ev.pos()):
                     self.end_stroke()
-                    self.parent.in_stroke = False
+                    
         else:
             ev.acceptClicks(QtCore.Qt.RightButton)
             #ev.acceptClicks(QtCore.Qt.LeftButton)
@@ -633,6 +592,7 @@ class ImageDraw(pg.ImageItem):
                 self.parent.add_set()
         if len(self.parent.current_point_set) > 0 and self.parent.autosave:
             self.parent.add_set()
+        self.parent.in_stroke = False
 
     def tabletEvent(self, ev):
         pass
