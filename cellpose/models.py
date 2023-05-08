@@ -609,7 +609,7 @@ class CellposeModel(UnetModel):
                     if i==0:
                         bd = np.zeros_like(cellprob)
                     bd[i] = yf[:,:,3]
-                styles[i] = style
+                styles[i][:len(style)] = style
             del yf, style
         styles = styles.squeeze()
         
