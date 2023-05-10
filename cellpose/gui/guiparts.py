@@ -279,8 +279,14 @@ class HelpWindow(QDialog):
             <li class="has-line-data" data-line-start="12" data-line-end="13">Start draw mask = right-click</li>
             <li class="has-line-data" data-line-start="13" data-line-end="15">End draw mask = right-click, or return to circle at beginning</li>
             </ul>
-            <p class="has-line-data" data-line-start="15" data-line-end="16">Overlaps in masks are NOT allowed. If you draw a mask on top of another mask, it is cropped so that it doesn’t overlap with the old mask. Masks in 2D should be single strokes (single stroke is checked). If you want to draw masks in 3D (experimental), then you can turn this option off and draw a stroke on each plane with the cell and then press ENTER. 3D labelling will fill in planes that you have not labelled so that you do not have to as densely label.</p>
-            <p class="has-line-data" data-line-start="17" data-line-end="18">!NOTE!: The GUI automatically saves after you draw a mask in 2D but NOT after 3D mask drawing and NOT after segmentation. Save in the file menu or with Ctrl+S. The output file is in the same folder as the loaded image with <code>_seg.npy</code> appended.</p>
+            <p class="has-line-data" data-line-start="15" data-line-end="16">Overlaps in masks are NOT allowed. If you \
+            draw a mask on top of another mask, it is cropped so that it doesn’t overlap with the old mask. Masks in 2D \
+            should be single strokes (single stroke is checked). If you want to draw masks in 3D (experimental), then \
+            you can turn this option off and draw a stroke on each plane with the cell and then press ENTER. 3D \
+            labelling will fill in planes that you have not labelled so that you do not have to as densely label.</p>
+            <p class="has-line-data" data-line-start="17" data-line-end="18">!NOTE!: The GUI automatically saves after \
+            you draw a mask in 2D but NOT after 3D mask drawing and NOT after segmentation. Save in the file menu or \
+            with Ctrl+S. The output file is in the same folder as the loaded image with <code>_seg.npy</code> appended.</p>
             <table class="table table-striped table-bordered">
             <br><br>
             FYI there are tooltips throughout the GUI (hover over text to see)
@@ -327,6 +333,18 @@ class HelpWindow(QDialog):
             <tr>
             <td>CTRL+M</td>
             <td>load masks file (must be same size as image with 0 for NO mask, and 1,2,3… for masks)</td>
+            </tr>
+            <tr>
+            <td>CTRL+N</td>
+            <td>save masks as PNG</td>
+            </tr>
+            <tr>
+            <td>CTRL+R</td>
+            <td>save ROIs to native ImageJ ROI format</td>
+            </tr>
+            <tr>
+            <td>CTRL+F</td>
+            <td>save flows to image file</td>
             </tr>
             <tr>
             <td>A/D or LEFT/RIGHT</td>

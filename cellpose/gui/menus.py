@@ -46,7 +46,8 @@ def mainmenu(parent):
     file_menu.addAction(parent.saveOutlines)
     parent.saveOutlines.setEnabled(False)
 
-    parent.saveROIs = QAction("Save outlines as .zip archive of .roi files for ImageJ", parent)
+    parent.saveROIs = QAction("Save outlines as .zip archive of &ROI files for ImageJ", parent)
+    parent.saveROIs.setShortcut("Ctrl+R")
     parent.saveROIs.triggered.connect(lambda: io._save_rois(parent))
     file_menu.addAction(parent.saveROIs)
     parent.saveROIs.setEnabled(False)
