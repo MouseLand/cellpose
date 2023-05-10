@@ -399,6 +399,12 @@ def save_rois(masks, file_name):
     outlines = utils.outlines_list(masks)
     rois = [ImagejRoi.frompoints(outline) for outline in outlines]
     file_name = os.path.splitext(file_name)[0] + '_rois.zip'
+
+    # Delete file if it exists; the roifile lib appends to existing zip files.
+    # If the user removed a mask it will still be in the zip file
+    if os.path.exists(file_name):
+        os.remove(file_name)
+
     roiwrite(file_name, rois)
 
 
