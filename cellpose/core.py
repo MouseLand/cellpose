@@ -539,9 +539,9 @@ class UnetModel():
             nout = self.nclasses + 32*return_conv
             y = np.zeros((IMG.shape[0], nout, ly, lx))
             for k in range(niter):
-                irange = np.arange(batch_size*k, min(IMG.shape[0], batch_size*k+batch_size))
+                irange = slice(batch_size*k, min(IMG.shape[0], batch_size*k+batch_size))
                 y0, style = self.network(IMG[irange], return_conv=return_conv)
-                y[irange] = y0.reshape(len(irange), y0.shape[-3], y0.shape[-2], y0.shape[-1])
+                y[irange] = y0.reshape(irange.stop-irange.start, y0.shape[-3], y0.shape[-2], y0.shape[-1])
                 if k==0:
                     styles = style[0]
                 styles += style.sum(axis=0)
