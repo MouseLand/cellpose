@@ -39,6 +39,7 @@ Set channels to a list with each of these elements, e.g.
 
 On the command line the above would be ``--chan 0 --chan2 0`` or ``--chan 2 --chan2 3``.
 
+.. _diameter:
 Diameter 
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -85,7 +86,7 @@ always set to an array of zeros. Therefore set the first channel as
 
 If the nuclear model isn't working well, try the cytoplasmic model.
 
-Flow threshold (aka model fit threshold in GUI)
+Flow threshold
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Note there is nothing keeping the neural network from predicting 
