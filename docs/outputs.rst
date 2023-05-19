@@ -65,7 +65,31 @@ Or use the function below if running in a notebook
     from cellpose import io
     io.save_to_png(images, masks, flows, image_names)
 
-ROI manager compatible output for ImageJ
+Native ImageJ ROI archive output
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+You can save the outlines of the ROIs in a ImageJ-native ROI archive file. Rather than using the legacy solution below,
+you can use this function to create an ROI archive file that can be opened in directly in ImageJ. Recent versions of
+ImageJ can autodetect the file format. Open in ImageJ using File > Open... and select the file.
+The ROIs will appear in the ROI manager.
+
+To save the outlines using the CLI use the flag ``--save_rois``.
+
+To save the outlines using the API use the ``save_rois`` function in ``io.py``:
+
+This function is also available in the GUI.
+
+::
+
+    from cellpose import io, utils
+
+    # image_name is file name of image
+    # masks is numpy array of masks for image
+    io.save_rois(masks, '<your_filename_string>')
+
+    # the file will be saved as '<your_filename_string>_rois.zip'
+
+
+(Legacy ImageJ Interface) ROI manager compatible output for ImageJ
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 You can save the outlines of ROIs in a text file that's compatible with ImageJ 

@@ -17,5 +17,6 @@ dependencies:
     - tifffile
     - fastremap
     - cellpose
+    - roifile
     
   

@@ -7,7 +7,7 @@ import logging
 import fastremap 
 
 from .. import utils, plot, transforms, models
-from ..io import imread, imsave, outlines_to_text, add_model, remove_model
+from ..io import imread, imsave, outlines_to_text, add_model, remove_model, save_rois
 from ..transforms import normalize99
 
 try:
@@ -452,7 +452,15 @@ def _save_flows(parent):
     if len(parent.flows) > 0:
         imsave(base + '_cp_flows.tif', parent.flows[4][:-1])
         imsave(base + '_cp_cellprob.tif', parent.flows[4][-1])
-        
+
+def _save_rois(parent):
+    """ save masks as rois in .zip file for ImageJ """
+    filename = parent.filename
+    if parent.NZ == 1:
+        print(f'GUI_INFO: saving {parent.cellpix[0].max()} ImageJ ROIs to .zip archive.')
+        save_rois(parent.cellpix[0], parent.filename)
+    else:
+        print('ERROR: cannot save 3D outlines')
 
 def _save_outlines(parent):
     filename = parent.filename
