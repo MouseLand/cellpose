@@ -2,7 +2,7 @@
 <img src="http://www.cellpose.org/static/images/logo.png?raw=True" width="250" title="cellpose" alt="cellpose" align="right" vspace = "50">
 
 [![Documentation Status](https://readthedocs.org/projects/cellpose/badge/?version=latest)](https://cellpose.readthedocs.io/en/latest/?badge=latest)
-[![tests](https://github.com/mouseland/cellpose/actions/workflows/test_and_deploy.yml/badge.svg)
+[![tests](https://github.com/mouseland/cellpose/actions/workflows/test_and_deploy.yml/badge.svg)]
 [![codecov](https://codecov.io/gh/MouseLand/cellpose/branch/main/graph/badge.svg?token=9FFo4zNtYP)](https://codecov.io/gh/MouseLand/cellpose)
 [![PyPI version](https://badge.fury.io/py/cellpose.svg)](https://badge.fury.io/py/cellpose)
 [![Downloads](https://pepy.tech/badge/cellpose)](https://pepy.tech/project/cellpose)
