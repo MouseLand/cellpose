@@ -1,4 +1,4 @@
-from cellpose import io, models, metrics, plot
+from cellpose import io, models, metrics, plot, utils
 from pathlib import Path
 from subprocess import check_output, STDOUT
 import os, shutil
@@ -100,7 +100,31 @@ def test_cli_3D(data_dir, image_names):
             raise ValueError(e)
         compare_masks(data_dir, image_names, '3D', model_type)
         clear_output(data_dir, image_names)
-        
+
+
+def test_outlines_list(data_dir, image_names):
+    """ test both single and multithreaded by comparing them"""
+    clear_output(data_dir, image_names)
+    model_type = 'cyto'
+    channels = [2, 1]
+    image_name = 'rgb_2D.png'
+
+    file_name = str(data_dir.joinpath('2D').joinpath(image_name))
+    img = io.imread(file_name)
+
+    model = models.Cellpose(model_type=model_type)
+    masks, _, _, _ = model.eval(img, diameter=30, channels=channels, net_avg=False)
+    outlines_single = utils.outlines_list(masks, multiprocessing=False)
+    outlines_multi = utils.outlines_list(masks, multiprocessing=True)
+
+    assert len(outlines_single) == len(outlines_multi)
+
+    # due to multiprocessing, the order of the outlines may be different, so we check
+    # that the outlines are the same, but not necessarily in the same order
+    for outline in outlines_single:
+        assert outline in outlines_multi
+
+
 def compare_masks(data_dir, image_names, runtype, model_type):
     """
     Helper function to check if outputs given by a test are exactly the same
