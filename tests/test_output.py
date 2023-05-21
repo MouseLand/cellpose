@@ -119,10 +119,17 @@ def test_outlines_list(data_dir, image_names):
 
     assert len(outlines_single) == len(outlines_multi)
 
-    # due to multiprocessing, the order of the outlines may be different, so we check
-    # that the outlines are the same, but not necessarily in the same order
-    for outline in outlines_single:
-        assert outline in outlines_multi
+    # Check that the outlines are the same, but not necessarily in the same order
+    outlines_matched = [False] * len(outlines_single)
+    for i, outline_single in enumerate(outlines_single):
+        for j, outline_multi in enumerate(outlines_multi):
+            if not outlines_matched[j] and np.array_equal(outline_single, outline_multi):
+                outlines_matched[j] = True
+                break
+        else:
+            assert False, "Outline not found in outlines_multi: {}".format(outline_single)
+
+    assert all(outlines_matched), "Not all outlines in outlines_multi were matched"
 
 
 def compare_masks(data_dir, image_names, runtype, model_type):
