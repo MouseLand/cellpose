@@ -37,7 +37,23 @@ by Peter Sobolewski. From the command line you can choose the Mac device with
 ::
 
    python -m cellpose --dir path --gpu_device mps --use_gpu
-   
+
+AMD GPU ROCm installation
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+As an alternative to the CUDA acceleration for NVIDIA GPUs, you can use the ROCm acceleration for AMD GPUs.
+This is not yet supported on Windows, but is supported on Linux. Installation instructions are `available here
+<https://docs.amd.com/bundle/ROCm-Installation-Guide-v5.5/page/Introduction_to_ROCm_Installation_Guide_for_Linux.html>`_.
+Just like the NVIDIA CUDA installation, you will need to install the ROCm drivers first and then install Cellpose.
+Be warned that the ROCm project is significantly less mature than CUDA, and you may run into issues.
+
+.. warning::
+   The ROCm acceleration is not yet supported on Windows, and is only supported on Linux.
+   If you are on Windows, you will need to use CUDA acceleration.
+
+.. warning::
+   ROCm is significantly less mature than the CUDA acceleration, and you may run into issues.
+
 
 Common issues
 ~~~~~~~~~~~~~~~~~~~~~~~
