@@ -14,7 +14,6 @@ _seg.npy output
 - *filename* : filename of image
 - *img* : image with chosen channels (nchan x Ly x Lx) (if not multiplane)
 - *masks* : each pixel in the image is assigned to an ROI (0 = NO ROI; 1,2,... = ROI labels)
-- *colors* : colors for ROIs
 - *outlines* : outlines of ROIs (0 = NO outline; 1,2,... = outline labels)
 - *chan_choose* : channels that you chose in GUI (0=gray/none, 1=red, 2=green, 3=blue)
 - *ismanual* : element *k* = whether or not mask *k* was manually drawn or computed by the cellpose algorithm
