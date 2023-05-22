@@ -49,6 +49,10 @@ FAQ
     above zero to get everything that cellpose detects. Image post processing is outside the scope
     of cellpose, but you can find additional help at https://forum.image.sc/tag/cellpose.
 
-**Q: asdf**
+**Q: The Cellpose GUI is unresponsive/frozen. Is it broken?**
 
-    asdf
+    Cellpose is likely not broken; it is just busy. Currently, the GUI cannot receive input while computing
+    segmentation. Cellpose is a fairly computationally intensive program and may take a long time
+    to run, depending on computer hardware specifications. Cellpose will take a long time to run on large images.
+    Using hardware with a faster CPU and with more available memory will speed up the process. Using a GPU will
+    also speed up the process, especially if you are training with a large dataset.
