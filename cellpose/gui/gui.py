@@ -1143,6 +1143,12 @@ class MainW(QMainWindow):
             self.layerz[self.cellpix[z]==idx] = np.array([255,255,255,self.opacity])
             self.update_layer()
 
+    def select_cell_multi(self, idx):
+        if idx > 0:
+            z = self.currentZ
+            self.layerz[self.cellpix[z] == idx] = np.array([255, 255, 255, self.opacity])
+            self.update_layer()
+
     def unselect_cell(self):
         if self.selected > 0:
             idx = self.selected
@@ -1175,7 +1181,7 @@ class MainW(QMainWindow):
         # reduce other pixels by -1
         self.cellpix[self.cellpix>idx] -= 1
         self.outpix[self.outpix>idx] -= 1
-        
+
         if self.NZ==1:
             self.removed_cell = [self.ismanual[idx-1], self.cellcolors[idx], np.nonzero(cp), np.nonzero(op)]
             self.redo.setEnabled(True)
@@ -1197,24 +1203,24 @@ class MainW(QMainWindow):
 
 
     def remove_multiple_cells(self):
+        self.unselect_cell()
         self.disable_buttons_removeROIs()
         self.DoneDeleteMultipleROIButton.setStyleSheet(self.styleUnpressed)
         self.DoneDeleteMultipleROIButton.setEnabled(True)
         self.deleting_multiple = True
-        print(f"set delte_multiple to true: {self.deleting_multiple}")
-        self.removing_cells_list.append('42')
-        print(self.deleting_multiple)
 
 
     def done_remove_multiple_cells(self):
         self.deleting_multiple = False
         self.DoneDeleteMultipleROIButton.setStyleSheet(self.styleInactive)
         self.DoneDeleteMultipleROIButton.setEnabled(False)
-        print(f"removing these cells: {self.removing_cells_list}")
-        print(f"set deleting_multiple to false: {self.deleting_multiple}")
+        if self.removing_cells_list:
+            display_remove_list = [i-1 for i in self.removing_cells_list]
+            print(f"GUI_INFO: removing cells: {display_remove_list}")
+            self.remove_cell(self.removing_cells_list)
+            self.removing_cells_list.clear()
+            self.unselect_cell()
         self.enable_buttons()
-
-        self.removing_cells_list.clear()
 
     def merge_cells(self, idx):
         self.prev_selected = self.selected
