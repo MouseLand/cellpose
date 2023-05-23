@@ -1161,17 +1161,25 @@ class MainW(QMainWindow):
                 self.update_layer()
         self.selected = 0
 
+    def unselect_cell_multi(self, idx):
+        z = self.currentZ
+        self.layerz[self.cellpix[z] == idx] = np.append(self.cellcolors[idx], self.opacity)
+        if self.outlinesOn:
+            self.layerz[self.outpix[z] == idx] = np.array(self.outcolor).astype(np.uint8)
+            # [0,0,0,self.opacity])
+        self.update_layer()
+
     def remove_cell(self, idx):
         if isinstance(idx, (int, np.integer)):
             self.remove_single_cell(idx)
         elif isinstance(idx, list):
             for i in idx:
                 # TODO: this funciton updates state on each loop, need to do it at end only
-                # self.remove_single_cell(i)
+                self.remove_single_cell(i)
                 try:
-                    raise NotImplementedError("This function is not yet implemented for multiple cells")
-                except NotImplementedError:
-                    print("This function is not yet implemented for multiple cells")
+                    raise NotImplementedError("remove_cell cannot accept more than 2 cells, currently")
+                except NotImplementedError as e:
+                    print(e)
 
         self.update_layer()
         if self.ncells==0:
