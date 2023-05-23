@@ -1162,6 +1162,24 @@ class MainW(QMainWindow):
         self.selected = 0
 
     def remove_cell(self, idx):
+        if isinstance(idx, (int, np.integer)):
+            self.remove_single_cell(idx)
+        elif isinstance(idx, list):
+            for i in idx:
+                # TODO: this funciton updates state on each loop, need to do it at end only
+                # self.remove_single_cell(i)
+                try:
+                    raise NotImplementedError("This function is not yet implemented for multiple cells")
+                except NotImplementedError:
+                    print("This function is not yet implemented for multiple cells")
+
+        self.update_layer()
+        if self.ncells==0:
+            self.ClearButton.setEnabled(False)
+        if self.NZ==1:
+            io._save_sets(self)
+
+    def remove_single_cell(self, idx):
         # remove from manual array
         self.selected = 0
         if self.NZ > 1:
@@ -1195,11 +1213,7 @@ class MainW(QMainWindow):
         self.ncells -= 1
         print('GUI_INFO: removed cell %d'%(idx-1))
         
-        self.update_layer()
-        if self.ncells==0:
-            self.ClearButton.setEnabled(False)
-        if self.NZ==1:
-            io._save_sets(self)
+
 
 
     def remove_multiple_cells(self):
