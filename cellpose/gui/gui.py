@@ -1171,15 +1171,18 @@ class MainW(QMainWindow):
 
     def remove_cell(self, idx):
         if isinstance(idx, (int, np.integer)):
-            self.remove_single_cell(idx)
-        elif isinstance(idx, list):
-            for i in idx:
-                # TODO: this funciton updates state on each loop, need to do it at end only
-                self.remove_single_cell(i)
+            idx = [idx]
+
+        for i in idx:
+            # TODO: this funciton updates state on each loop, need to do it at end only
+            self.remove_single_cell(i)
+
+            if i > 1:
                 try:
                     raise NotImplementedError("remove_cell cannot accept more than 2 cells, currently")
                 except NotImplementedError as e:
                     print(e)
+                    return
 
         self.update_layer()
         if self.ncells==0:
