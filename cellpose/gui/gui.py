@@ -620,6 +620,22 @@ class MainW(QMainWindow):
         self.slider.valueChanged.connect(self.level_change)
         self.l0.addWidget(self.slider, b,0,1,9)
 
+        b += 1
+        self.DeleteMultipleROIButton = QPushButton('delete multiple ROIs')
+        self.DeleteMultipleROIButton.clicked.connect(self.remove_multiple_cells)
+        self.l0.addWidget(self.DeleteMultipleROIButton, b, 5, 1, 4)
+        self.DeleteMultipleROIButton.setEnabled(False)
+        self.DeleteMultipleROIButton.setStyleSheet(self.styleInactive)
+        self.DeleteMultipleROIButton.setFont(self.boldfont)
+
+        b += 1
+        self.DoneDeleteMultipleROIButton = QPushButton('done')
+        self.DoneDeleteMultipleROIButton.clicked.connect(self.done_remove_multiple_cells)
+        self.l0.addWidget(self.DoneDeleteMultipleROIButton, b, 5, 1, 4)
+        self.DoneDeleteMultipleROIButton.setEnabled(False)
+        self.DoneDeleteMultipleROIButton.setStyleSheet(self.styleInactive)
+        self.DoneDeleteMultipleROIButton.setFont(self.boldfont)
+
         b+=1
         self.l0.addWidget(QLabel(''),b,0,1,5)
         self.l0.setRowStretch(b, 1)
@@ -1092,6 +1108,9 @@ class MainW(QMainWindow):
         self.loaded = False
         self.recompute_masks = False
 
+        self.deleting_multiple = False
+        self.removing_cells_list = []
+
 
     def brush_choose(self):
         self.brush_size = self.BrushChoose.currentIndex()*2 + 1
@@ -1175,6 +1194,27 @@ class MainW(QMainWindow):
             self.ClearButton.setEnabled(False)
         if self.NZ==1:
             io._save_sets(self)
+
+
+    def remove_multiple_cells(self):
+        self.disable_buttons_removeROIs()
+        self.DoneDeleteMultipleROIButton.setStyleSheet(self.styleUnpressed)
+        self.DoneDeleteMultipleROIButton.setEnabled(True)
+        self.deleting_multiple = True
+        print(f"set delte_multiple to true: {self.deleting_multiple}")
+        self.removing_cells_list.append('42')
+        print(self.deleting_multiple)
+
+
+    def done_remove_multiple_cells(self):
+        self.deleting_multiple = False
+        self.DoneDeleteMultipleROIButton.setStyleSheet(self.styleInactive)
+        self.DoneDeleteMultipleROIButton.setEnabled(False)
+        print(f"removing these cells: {self.removing_cells_list}")
+        print(f"set deleting_multiple to false: {self.deleting_multiple}")
+        self.enable_buttons()
+
+        self.removing_cells_list.clear()
 
     def merge_cells(self, idx):
         self.prev_selected = self.selected
@@ -1836,6 +1876,39 @@ class MainW(QMainWindow):
         self.saveServer.setEnabled(True)
         self.saveOutlines.setEnabled(True)
         self.saveROIs.setEnabled(True)
+
+        self.DeleteMultipleROIButton.setStyleSheet(self.styleUnpressed)
+        self.DeleteMultipleROIButton.setEnabled(True)
+
+        self.toggle_mask_ops()
+
+        self.update_plot()
+        self.setWindowTitle(self.filename)
+
+    def disable_buttons_removeROIs(self):
+        if len(self.model_strings) > 0:
+            self.ModelButton.setStyleSheet(self.styleInactive)
+            self.ModelButton.setEnabled(False)
+        self.StyleToModel.setStyleSheet(self.styleInactive)
+        self.StyleToModel.setEnabled(False)
+        for i in range(len(self.StyleButtons)):
+            self.StyleButtons[i].setEnabled(False)
+            self.StyleButtons[i].setStyleSheet(self.styleInactive)
+        self.SizeButton.setEnabled(False)
+        self.SCheckBox.setEnabled(False)
+        self.SizeButton.setStyleSheet(self.styleInactive)
+        self.newmodel.setEnabled(False)
+        self.loadMasks.setEnabled(False)
+        self.saveSet.setEnabled(False)
+        self.savePNG.setEnabled(False)
+        self.saveFlows.setEnabled(False)
+        self.saveServer.setEnabled(False)
+        self.saveOutlines.setEnabled(False)
+        self.saveROIs.setEnabled(False)
+
+        self.DeleteMultipleROIButton.setStyleSheet(self.styleInactive)
+        self.DeleteMultipleROIButton.setEnabled(True)
+
         self.toggle_mask_ops()
 
         self.update_plot()

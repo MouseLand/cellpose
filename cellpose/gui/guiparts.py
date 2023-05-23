@@ -548,8 +548,11 @@ class ImageDraw(pg.ImageItem):
                                 self.parent.remove_cell(idx)
                             elif ev.modifiers() & QtCore.Qt.AltModifier:
                                 self.parent.merge_cells(idx)
-                            elif self.parent.masksOn:
+                            elif self.parent.masksOn and not self.parent.deleting_multiple:
                                 self.parent.unselect_cell()
+                                self.parent.select_cell(idx)
+                            elif self.parent.deleting_multiple:
+                                # todo: is this broken?
                                 self.parent.select_cell(idx)
                         elif self.parent.masksOn:
                             self.parent.unselect_cell()
