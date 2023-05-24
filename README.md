@@ -167,7 +167,7 @@ You can now **drag and drop** any images (*.tif, *.png, *.jpg, *.gif) into the G
 
 ## Step-by-step demo
 
-1. Download the google drive [folder](https://drive.google.com/open?id=18syVlaix8cIlrnNF20pEWKMWUsKx9R9z) and unzip it. These are a subset of the test images from the paper.
+1. Download this [folder](http://cellpose.org/static/images/demo_images.zip) of images and unzip it. These are a subset of the test images from the paper.
 2. Start the GUI with `python -m cellpose`.
 3. Drag an image from the folder into the GUI.
 4. Set the model (in demo all are `cyto`) and the channel you want to segment (in demo all are `green`). Optionally set the second channel if you are segmenting `cyto` and have an available nucleus channel.
