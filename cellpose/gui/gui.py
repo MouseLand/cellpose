@@ -1173,22 +1173,21 @@ class MainW(QMainWindow):
         if isinstance(idx, (int, np.integer)):
             idx = [idx]
 
+        # because the function remove_single_cell updates the state of the cellpix and outpix arrays
+        # by reindexing cells to avoid gaps in the indices, we need to remove the cells in reverse order
+        # so that the indices are correct
+        idx.sort(reverse=True)
         for i in idx:
-            # TODO: this funciton updates state on each loop, need to do it at end only
             self.remove_single_cell(i)
 
-            if i > 1:
-                try:
-                    raise NotImplementedError("remove_cell cannot accept more than 2 cells, currently")
-                except NotImplementedError as e:
-                    print(e)
-                    return
-
-        self.update_layer()
         if self.ncells==0:
             self.ClearButton.setEnabled(False)
         if self.NZ==1:
             io._save_sets(self)
+
+        self.ncells -= len(idx)
+        self.update_layer()
+
 
     def remove_single_cell(self, idx):
         # remove from manual array
@@ -1221,7 +1220,6 @@ class MainW(QMainWindow):
         self.ismanual = np.delete(self.ismanual, idx-1)
         self.cellcolors = np.delete(self.cellcolors, [idx], axis=0)
         del self.zdraw[idx-1]
-        self.ncells -= 1
         print('GUI_INFO: removed cell %d'%(idx-1))
         
 
