@@ -524,9 +524,11 @@ class ImageDraw(pg.ImageItem):
         self.parent.in_stroke = False
 
     def mouseClickEvent(self, ev):
-        if self.parent.masksOn or self.parent.outlinesOn:
-            if  self.parent.loaded and (ev.button() == QtCore.Qt.RightButton or 
-                    ev.modifiers() & QtCore.Qt.ShiftModifier and not ev.double()):
+        if (self.parent.masksOn or self.parent.outlinesOn) and not self.parent.removing_region:
+            is_right_click = ev.button() == QtCore.Qt.RightButton
+            if self.parent.loaded \
+                    and (is_right_click or ev.modifiers() & QtCore.Qt.ShiftModifier and not ev.double())\
+                    and not self.deleting_multiple:
                 if not self.parent.in_stroke:
                     ev.accept()
                     self.create_start(ev.pos())

@@ -620,6 +620,7 @@ class MainW(QMainWindow):
         self.slider.valueChanged.connect(self.level_change)
         self.l0.addWidget(self.slider, b,0,1,9)
 
+        # buttons for deleting multiple cells
         b += 1
         self.DeleteMultipleROIButton = QPushButton('delete multiple')
         self.DeleteMultipleROIButton.clicked.connect(self.delete_multiple_cells)
@@ -1229,12 +1230,13 @@ class MainW(QMainWindow):
         print('GUI_INFO: removed cell %d'%(idx-1))
 
     def remove_region_cells(self):
-        """ make qt ROI and find all the cells in the region.
-        remove all the cells in the region
-        """
-        # get mouse position when click
+        if self.removing_cells_list:
+            for idx in self.removing_cells_list:
+                self.unselect_cell_multi(idx)
+            self.removing_cells_list.clear()
+        self.MakeDeletionRegionButton.setStyleSheet(self.styleInactive)
+        self.MakeDeletionRegionButton.setEnabled(False)
         self.removing_region = True
-        pass
 
 
     def delete_multiple_cells(self):
@@ -1249,17 +1251,22 @@ class MainW(QMainWindow):
 
     def done_remove_multiple_cells(self):
         self.deleting_multiple = False
+        self.removing_region = False
         self.DoneDeleteMultipleROIButton.setStyleSheet(self.styleInactive)
         self.DoneDeleteMultipleROIButton.setEnabled(False)
         self.MakeDeletionRegionButton.setStyleSheet(self.styleInactive)
         self.MakeDeletionRegionButton.setEnabled(False)
         if self.removing_cells_list:
+            self.removing_cells_list = list(set(self.removing_cells_list))
             display_remove_list = [i-1 for i in self.removing_cells_list]
             print(f"GUI_INFO: removing cells: {display_remove_list}")
             self.remove_cell(self.removing_cells_list)
             self.removing_cells_list.clear()
             self.unselect_cell()
         self.enable_buttons()
+
+        # todo: remove roi boxes
+
 
     def merge_cells(self, idx):
         self.prev_selected = self.selected
@@ -1362,7 +1369,7 @@ class MainW(QMainWindow):
                                 self.yortho = y 
                                 self.xortho = x
                                 self.update_ortho()
-        elif self.removing_region:
+        elif self.removing_region and event.button() == QtCore.Qt.LeftButton:
             # make a pyqt roi at the mouse location
             # allow roi size by mouse drag
 
@@ -1371,10 +1378,46 @@ class MainW(QMainWindow):
             y = int(pos.y())
 
             if 0 <= y < self.Ly and 0 <= x < self.Lx:
-                roi = pg.ROI(pos, [10, 10], pen=pg.mkPen('y', width=2), resizable=True, removable=True)
+                roi = pg.RectROI(pos, [10, 10], pen=pg.mkPen('y', width=2), removable=True)
+                roi.sigRemoveRequested.connect(self.remove_roi)
+                roi.sigRegionChangeFinished.connect(self.roi_changed)
                 self.p0.addItem(roi)
+                self.roi_list.append(roi)
 
+    def remove_roi(self, roi):
+        self.p0.removeItem(roi)
 
+    def roi_changed(self, roi):
+        # find the overlapping cells and make them selected
+        pos = roi.pos()
+        size = roi.size()
+        x0 = int(pos.x())
+        y0 = int(pos.y())
+        x1 = int(pos.x()+size.x())
+        y1 = int(pos.y()+size.y())
+        if x0 < 0:
+            x0 = 0
+        if y0 < 0:
+            y0 = 0
+        if x1 > self.Lx:
+            x1 = self.Lx
+        if y1 > self.Ly:
+            y1 = self.Ly
+
+        # find cells in that region
+        cell_idxs = np.unique(self.cellpix[self.currentZ, y0:y1, x0:x1])
+        cell_idxs = np.trim_zeros(cell_idxs)
+        # deselect cells not in region by deselecting all and then selecting the ones in the region
+        if self.removing_cells_list:
+            for idx in self.removing_cells_list:
+                self.unselect_cell_multi(idx)
+                self.removing_cells_list.remove(idx)
+        if cell_idxs.size > 0:
+            for idx in cell_idxs:
+                self.select_cell_multi(idx)
+                self.removing_cells_list.append(idx)
+
+        self.update_layer()
 
     def mouse_moved(self, pos):
         items = self.win.scene().items(pos)
