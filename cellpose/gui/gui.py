@@ -621,17 +621,23 @@ class MainW(QMainWindow):
         self.l0.addWidget(self.slider, b,0,1,9)
 
         b += 1
-        self.DeleteMultipleROIButton = QPushButton('delete multiple ROIs')
-        self.DeleteMultipleROIButton.clicked.connect(self.remove_multiple_cells)
-        self.l0.addWidget(self.DeleteMultipleROIButton, b, 5, 1, 4)
+        self.DeleteMultipleROIButton = QPushButton('delete multiple')
+        self.DeleteMultipleROIButton.clicked.connect(self.delete_multiple_cells)
+        self.l0.addWidget(self.DeleteMultipleROIButton, b, 0, 1, 2)
         self.DeleteMultipleROIButton.setEnabled(False)
         self.DeleteMultipleROIButton.setStyleSheet(self.styleInactive)
         self.DeleteMultipleROIButton.setFont(self.boldfont)
 
-        b += 1
+        self.MakeDeletionRegionButton = QPushButton('select region')
+        self.MakeDeletionRegionButton.clicked.connect(self.remove_region_cells)
+        self.l0.addWidget(self.MakeDeletionRegionButton, b, 2, 1, 3)
+        self.MakeDeletionRegionButton.setEnabled(False)
+        self.MakeDeletionRegionButton.setStyleSheet(self.styleInactive)
+        self.MakeDeletionRegionButton.setFont(self.boldfont)
+
         self.DoneDeleteMultipleROIButton = QPushButton('done')
         self.DoneDeleteMultipleROIButton.clicked.connect(self.done_remove_multiple_cells)
-        self.l0.addWidget(self.DoneDeleteMultipleROIButton, b, 5, 1, 4)
+        self.l0.addWidget(self.DoneDeleteMultipleROIButton, b, 5, 1, 2)
         self.DoneDeleteMultipleROIButton.setEnabled(False)
         self.DoneDeleteMultipleROIButton.setStyleSheet(self.styleInactive)
         self.DoneDeleteMultipleROIButton.setFont(self.boldfont)
@@ -1110,7 +1116,7 @@ class MainW(QMainWindow):
 
         self.deleting_multiple = False
         self.removing_cells_list = []
-
+        self.removing_region = False
 
     def brush_choose(self):
         self.brush_size = self.BrushChoose.currentIndex()*2 + 1
@@ -1221,15 +1227,23 @@ class MainW(QMainWindow):
         self.cellcolors = np.delete(self.cellcolors, [idx], axis=0)
         del self.zdraw[idx-1]
         print('GUI_INFO: removed cell %d'%(idx-1))
-        
+
+    def remove_region_cells(self):
+        """ make qt ROI and find all the cells in the region.
+        remove all the cells in the region
+        """
+        # get mouse position when click
+        self.removing_region = True
+        pass
 
 
-
-    def remove_multiple_cells(self):
+    def delete_multiple_cells(self):
         self.unselect_cell()
         self.disable_buttons_removeROIs()
         self.DoneDeleteMultipleROIButton.setStyleSheet(self.styleUnpressed)
         self.DoneDeleteMultipleROIButton.setEnabled(True)
+        self.MakeDeletionRegionButton.setStyleSheet(self.styleUnpressed)
+        self.MakeDeletionRegionButton.setEnabled(True)
         self.deleting_multiple = True
 
 
@@ -1237,6 +1251,8 @@ class MainW(QMainWindow):
         self.deleting_multiple = False
         self.DoneDeleteMultipleROIButton.setStyleSheet(self.styleInactive)
         self.DoneDeleteMultipleROIButton.setEnabled(False)
+        self.MakeDeletionRegionButton.setStyleSheet(self.styleInactive)
+        self.MakeDeletionRegionButton.setEnabled(False)
         if self.removing_cells_list:
             display_remove_list = [i-1 for i in self.removing_cells_list]
             print(f"GUI_INFO: removing cells: {display_remove_list}")
@@ -1325,7 +1341,9 @@ class MainW(QMainWindow):
         del self.strokes[stroke_ind]
 
     def plot_clicked(self, event):
-        if event.button()==QtCore.Qt.LeftButton and not event.modifiers() & (QtCore.Qt.ShiftModifier | QtCore.Qt.AltModifier):
+        if event.button()==QtCore.Qt.LeftButton \
+                and not event.modifiers() & (QtCore.Qt.ShiftModifier | QtCore.Qt.AltModifier)\
+                and not self.removing_region:
             if event.double():
                 try:
                     self.p0.setYRange(0,self.Ly+self.pr)
@@ -1344,6 +1362,18 @@ class MainW(QMainWindow):
                                 self.yortho = y 
                                 self.xortho = x
                                 self.update_ortho()
+        elif self.removing_region:
+            # make a pyqt roi at the mouse location
+            # allow roi size by mouse drag
+
+            pos = self.p0.mapSceneToView(event.scenePos())
+            x = int(pos.x())
+            y = int(pos.y())
+
+            if 0 <= y < self.Ly and 0 <= x < self.Lx:
+                roi = pg.ROI(pos, [10, 10], pen=pg.mkPen('y', width=2), resizable=True, removable=True)
+                self.p0.addItem(roi)
+
 
 
     def mouse_moved(self, pos):
