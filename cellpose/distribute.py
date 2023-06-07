@@ -38,9 +38,6 @@ def distributed_eval(
 
     Current Limitations
     -------------------
-    Only accepts zarr file inputs. Can be easily generalized to include N5 inputs.
-    Other inputs (CZI, stacks of tiffs) would take more work.
-
     Method for stitching separate segmentations between blocks is pretty simple
     and could be improved.
 
@@ -55,7 +52,9 @@ def distributed_eval(
     Parameters
     ----------
     zarr_path : string
-        Path to zarr file on disk containing image data
+        Array like object that has a shape parameter and supports slicing. Can be
+        in memory (e.g. a numpy array or zarr array backed by ram) or on disk/lazy
+        (e.g. a zarr array backed by data on disk).
 
     blocksize : iterable
         The size of blocks in voxels. E.g. [128, 256, 256]
@@ -156,6 +155,7 @@ def distributed_eval(
 
         # preprocess
         for pp_step in preprocessing_steps:
+            pp_step[1]['coords'] = coords
             image = pp_step[0](image, **pp_step[1])
 
         # segment
