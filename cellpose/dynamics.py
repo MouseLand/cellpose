@@ -1,3 +1,7 @@
+"""
+Copright © 2023 Howard Hughes Medical Institute, Authored by Carsen Stringer and Marius Pachitariu.
+"""
+
 import time, os
 from scipy.ndimage import maximum_filter1d, find_objects
 import torch

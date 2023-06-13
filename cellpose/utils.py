@@ -1,3 +1,7 @@
+"""
+Copright © 2023 Howard Hughes Medical Institute, Authored by Carsen Stringer and Marius Pachitariu.
+"""
+
 import os, warnings, time, tempfile, datetime, pathlib, shutil, subprocess
 from tqdm import tqdm
 from urllib.request import urlopen
