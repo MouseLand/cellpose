@@ -27,7 +27,7 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - name: Set up Python ${{ matrix.python-version }}
-        uses: conda-incubator/setup-miniconda@v2
+        uses: actions/setup-python@v2
         with:
 #           auto-activate-base: true
           python-version: ${{ matrix.python-version }}
