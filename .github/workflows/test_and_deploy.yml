@@ -19,6 +19,7 @@ jobs:
     name: ${{ matrix.platform }} py${{ matrix.python-version }}
     runs-on: ${{ matrix.platform }}
     strategy:
+      fail-fast: false
       matrix:
         platform: [ubuntu-latest, windows-latest, macos-latest]
         python-version: [3.8, 3.9, "3.10"]
@@ -28,11 +29,12 @@ jobs:
       - name: Set up Python ${{ matrix.python-version }}
         uses: conda-incubator/setup-miniconda@v2
         with:
-          auto-activate-base: true
+#           auto-activate-base: true
           python-version: ${{ matrix.python-version }}
       - name: Install dependencies
         shell: bash -l {0}
         run: |
+          python -m pip install --upgrade pip
           python -m pip install tox tox-gh-actions
       # this runs the platform-specific tests declared in tox.ini
       - name: Test with tox
