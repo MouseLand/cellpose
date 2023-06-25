@@ -1118,6 +1118,7 @@ class MainW(QMainWindow):
         self.deleting_multiple = False
         self.removing_cells_list = []
         self.removing_region = False
+        self.remove_roi_obj = None
 
     def brush_choose(self):
         self.brush_size = self.BrushChoose.currentIndex()*2 + 1
@@ -1258,15 +1259,14 @@ class MainW(QMainWindow):
         self.MakeDeletionRegionButton.setEnabled(False)
         if self.removing_cells_list:
             self.removing_cells_list = list(set(self.removing_cells_list))
-            display_remove_list = [i-1 for i in self.removing_cells_list]
+            display_remove_list = [i - 1 for i in self.removing_cells_list]
             print(f"GUI_INFO: removing cells: {display_remove_list}")
             self.remove_cell(self.removing_cells_list)
             self.removing_cells_list.clear()
             self.unselect_cell()
         self.enable_buttons()
 
-        # todo: remove roi boxes
-
+        self.remove_roi(self.remove_roi_obj)
 
     def merge_cells(self, idx):
         self.prev_selected = self.selected
@@ -1369,7 +1369,11 @@ class MainW(QMainWindow):
                                 self.yortho = y 
                                 self.xortho = x
                                 self.update_ortho()
-        elif self.removing_region and event.button() == QtCore.Qt.LeftButton:
+        elif self.removing_region and event.button() == QtCore.Qt.LeftButton \
+                and self.remove_roi_obj is None:
+
+            self.clear_multi_selected_cells()
+
             # make a pyqt roi at the mouse location
             # allow roi size by mouse drag
 
@@ -1382,10 +1386,25 @@ class MainW(QMainWindow):
                 roi.sigRemoveRequested.connect(self.remove_roi)
                 roi.sigRegionChangeFinished.connect(self.roi_changed)
                 self.p0.addItem(roi)
-                self.roi_list.append(roi)
+                self.remove_roi_obj = roi
+
+
+    def clear_multi_selected_cells(self):
+        # unselect all previously selected cells:
+        for idx in self.removing_cells_list:
+            self.unselect_cell_multi(idx)
+        self.removing_cells_list.clear()
+
+    def add_roi(self, roi):
+        self.p0.addItem(roi)
+        self.remove_roi_obj = roi
 
     def remove_roi(self, roi):
+        self.clear_multi_selected_cells()
+        assert roi == self.remove_roi_obj
+        self.remove_roi_obj = None
         self.p0.removeItem(roi)
+        self.removing_region = False
 
     def roi_changed(self, roi):
         # find the overlapping cells and make them selected
@@ -1408,14 +1427,11 @@ class MainW(QMainWindow):
         cell_idxs = np.unique(self.cellpix[self.currentZ, y0:y1, x0:x1])
         cell_idxs = np.trim_zeros(cell_idxs)
         # deselect cells not in region by deselecting all and then selecting the ones in the region
-        if self.removing_cells_list:
-            for idx in self.removing_cells_list:
-                self.unselect_cell_multi(idx)
-                self.removing_cells_list.remove(idx)
-        if cell_idxs.size > 0:
-            for idx in cell_idxs:
-                self.select_cell_multi(idx)
-                self.removing_cells_list.append(idx)
+        self.clear_multi_selected_cells()
+
+        for idx in cell_idxs:
+            self.select_cell_multi(idx)
+            self.removing_cells_list.append(idx)
 
         self.update_layer()
 
