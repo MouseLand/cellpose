@@ -1266,7 +1266,8 @@ class MainW(QMainWindow):
             self.unselect_cell()
         self.enable_buttons()
 
-        self.remove_roi(self.remove_roi_obj)
+        if self.remove_roi_obj is not None:
+            self.remove_roi(self.remove_roi_obj)
 
     def merge_cells(self, idx):
         self.prev_selected = self.selected

@@ -528,7 +528,7 @@ class ImageDraw(pg.ImageItem):
             is_right_click = ev.button() == QtCore.Qt.RightButton
             if self.parent.loaded \
                     and (is_right_click or ev.modifiers() & QtCore.Qt.ShiftModifier and not ev.double())\
-                    and not self.deleting_multiple:
+                    and not self.parent.deleting_multiple:
                 if not self.parent.in_stroke:
                     ev.accept()
                     self.create_start(ev.pos())
