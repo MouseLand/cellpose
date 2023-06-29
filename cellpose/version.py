@@ -1,3 +1,7 @@
+"""
+Copright © 2023 Howard Hughes Medical Institute, Authored by Carsen Stringer and Marius Pachitariu.
+"""
+
 from importlib.metadata import PackageNotFoundError, version
 import sys 
 from platform import python_version

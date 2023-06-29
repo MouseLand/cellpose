@@ -1,3 +1,7 @@
+"""
+Copright © 2023 Howard Hughes Medical Institute, Authored by Carsen Stringer and Marius Pachitariu.
+"""
+
 import sys, os, pathlib, warnings, datetime, tempfile, glob, time
 import gc
 from natsort import natsorted

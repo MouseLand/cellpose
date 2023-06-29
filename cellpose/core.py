@@ -1,3 +1,7 @@
+"""
+Copright © 2023 Howard Hughes Medical Institute, Authored by Carsen Stringer and Marius Pachitariu.
+"""
+
 import os, sys, time, shutil, tempfile, datetime, pathlib, subprocess
 import logging
 import numpy as np

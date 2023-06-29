@@ -1,8 +1,8 @@
 Command line
 ------------------------
 
-See the CLI documentation: :ref:`Cellpose CLI`. A description of the most
-important settings can be found on the :ref:`Settings` page.
+The full list of options and what they do can be found on the Command Line Interface (CLI) documentation
+page: :ref:`Cellpose CLI`. A description of the most important settings can be found on the :ref:`Settings` page.
 
 .. _Command line examples:
 
@@ -28,4 +28,3 @@ estimated:
 
 .. warning:: 
     The path given to ``--dir`` must be an absolute path.
-

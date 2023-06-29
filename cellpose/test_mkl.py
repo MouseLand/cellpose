@@ -1,3 +1,7 @@
+"""
+Copright © 2023 Howard Hughes Medical Institute, Authored by Carsen Stringer and Marius Pachitariu.
+"""
+
 import os, sys
 os.environ["MKLDNN_VERBOSE"]="1"
 import numpy as np
