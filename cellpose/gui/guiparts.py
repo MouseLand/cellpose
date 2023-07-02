@@ -5,7 +5,8 @@ Copright © 2023 Howard Hughes Medical Institute, Authored by Carsen Stringer an
 import PyQt5
 from PyQt5 import QtGui, QtCore, QtWidgets
 from PyQt5.QtGui import QPainter, QPixmap
-from PyQt5.QtWidgets import QApplication, QRadioButton, QWidget, QDialog, QButtonGroup, QSlider, QStyle, QStyleOptionSlider, QGridLayout, QPushButton, QLabel, QLineEdit, QDialogButtonBox, QComboBox, QCheckBox
+from PyQt5.QtWidgets import QApplication, QRadioButton, QWidget, QDialog, QButtonGroup, QSlider, QStyle, \
+    QStyleOptionSlider, QGridLayout, QPushButton, QLabel, QLineEdit, QDialogButtonBox, QComboBox, QCheckBox
 import pyqtgraph as pg
 from pyqtgraph import functions as fn
 from pyqtgraph import Point
@@ -22,11 +23,15 @@ def create_channel_choose():
     for i in range(2):
         ChannelLabels.append(QLabel(cstr[i]))
         if i==0:
-            ChannelLabels[i].setToolTip('this is the channel in which the cytoplasm or nuclei exist that you want to segment')
-            ChannelChoose[i].setToolTip('this is the channel in which the cytoplasm or nuclei exist that you want to segment')
+            ChannelLabels[i].setToolTip('this is the channel in which the cytoplasm or nuclei exist \
+            that you want to segment')
+            ChannelChoose[i].setToolTip('this is the channel in which the cytoplasm or nuclei exist \
+            that you want to segment')
         else:
-            ChannelLabels[i].setToolTip('if <em>cytoplasm</em> model is chosen, and you also have a nuclear channel, then choose the nuclear channel for this option')
-            ChannelChoose[i].setToolTip('if <em>cytoplasm</em> model is chosen, and you also have a nuclear channel, then choose the nuclear channel for this option')
+            ChannelLabels[i].setToolTip('if <em>cytoplasm</em> model is chosen, and you also have a \
+            nuclear channel, then choose the nuclear channel for this option')
+            ChannelChoose[i].setToolTip('if <em>cytoplasm</em> model is chosen, and you also have a \
+            nuclear channel, then choose the nuclear channel for this option')
         
     return ChannelChoose, ChannelLabels
 
@@ -188,63 +193,63 @@ class QuadButton(QPushButton):
         parent.p0.setYRange(self.yrange[0], self.yrange[1])
         parent.show()
 
-def horizontal_slider_style():
-    return """QSlider::groove:horizontal {
-            border: 1px solid #bbb;
-            background: black;
-            height: 10px;
-            border-radius: 4px;
-            }
-
-            QSlider::sub-page:horizontal {
-            background: qlineargradient(x1: 0, y1: 0,    x2: 0, y2: 1,
-                stop: 0 black, stop: 1 rgb(150,255,150));
-            background: qlineargradient(x1: 0, y1: 0.2, x2: 1, y2: 1,
-                stop: 0 black, stop: 1 rgb(150,255,150));
-            border: 1px solid #777;
-            height: 10px;
-            border-radius: 4px;
-            }
-
-            QSlider::add-page:horizontal {
-            background: black;
-            border: 1px solid #777;
-            height: 10px;
-            border-radius: 4px;
-            }
-
-            QSlider::handle:horizontal {
-            background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
-                stop:0 #eee, stop:1 #ccc);
-            border: 1px solid #777;
-            width: 13px;
-            margin-top: -2px;
-            margin-bottom: -2px;
-            border-radius: 4px;
-            }
-
-            QSlider::handle:horizontal:hover {
-            background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
-                stop:0 #fff, stop:1 #ddd);
-            border: 1px solid #444;
-            border-radius: 4px;
-            }
-
-            QSlider::sub-page:horizontal:disabled {
-            background: #bbb;
-            border-color: #999;
-            }
-
-            QSlider::add-page:horizontal:disabled {
-            background: #eee;
-            border-color: #999;
-            }
-
-            QSlider::handle:horizontal:disabled {
-            background: #eee;
-            border: 1px solid #aaa;
-            border-radius: 4px;
-            }"""
+# def horizontal_slider_style():
+#     return """QSlider::groove:horizontal {
+#             border: 1px solid #bbb;
+#             background: black;
+#             height: 10px;
+#             border-radius: 4px;
+#             }
+#
+#             QSlider::sub-page:horizontal {
+#             background: qlineargradient(x1: 0, y1: 0,    x2: 0, y2: 1,
+#                 stop: 0 black, stop: 1 rgb(150,255,150));
+#             background: qlineargradient(x1: 0, y1: 0.2, x2: 1, y2: 1,
+#                 stop: 0 black, stop: 1 rgb(150,255,150));
+#             border: 1px solid #777;
+#             height: 10px;
+#             border-radius: 4px;
+#             }
+#
+#             QSlider::add-page:horizontal {
+#             background: black;
+#             border: 1px solid #777;
+#             height: 10px;
+#             border-radius: 4px;
+#             }
+#
+#             QSlider::handle:horizontal {
+#             background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
+#                 stop:0 #eee, stop:1 #ccc);
+#             border: 1px solid #777;
+#             width: 13px;
+#             margin-top: -2px;
+#             margin-bottom: -2px;
+#             border-radius: 4px;
+#             }
+#
+#             QSlider::handle:horizontal:hover {
+#             background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
+#                 stop:0 #fff, stop:1 #ddd);
+#             border: 1px solid #444;
+#             border-radius: 4px;
+#             }
+#
+#             QSlider::sub-page:horizontal:disabled {
+#             background: #bbb;
+#             border-color: #999;
+#             }
+#
+#             QSlider::add-page:horizontal:disabled {
+#             background: #eee;
+#             border-color: #999;
+#             }
+#
+#             QSlider::handle:horizontal:disabled {
+#             background: #eee;
+#             border: 1px solid #aaa;
+#             border-radius: 4px;
+#             }"""
 
 class ExampleGUI(QDialog):
     def __init__(self, parent=None):
@@ -265,128 +270,16 @@ class ExampleGUI(QDialog):
 class HelpWindow(QDialog):
     def __init__(self, parent=None):
         super(HelpWindow, self).__init__(parent)
-        self.setGeometry(100,50,700,850)
+        self.setGeometry(100, 50, 700, 1000)
         self.setWindowTitle('cellpose help')
         self.win = QWidget(self)
         layout = QGridLayout()
         self.win.setLayout(layout)
-        
-        text = ('''
-            <p class="has-line-data" data-line-start="5" data-line-end="6">Main GUI mouse controls:</p>
-            <ul>
-            <li class="has-line-data" data-line-start="7" data-line-end="8">Pan  = left-click  + drag</li>
-            <li class="has-line-data" data-line-start="8" data-line-end="9">Zoom = scroll wheel (or +/= and - buttons) </li>
-            <li class="has-line-data" data-line-start="9" data-line-end="10">Full view = double left-click</li>
-            <li class="has-line-data" data-line-start="10" data-line-end="11">Select mask = left-click on mask</li>
-            <li class="has-line-data" data-line-start="11" data-line-end="12">Delete mask = Ctrl (or COMMAND on Mac) + left-click</li>
-            <li class="has-line-data" data-line-start="11" data-line-end="12">Merge masks = Alt + left-click (will merge last two)</li>
-            <li class="has-line-data" data-line-start="12" data-line-end="13">Start draw mask = right-click</li>
-            <li class="has-line-data" data-line-start="13" data-line-end="15">End draw mask = right-click, or return to circle at beginning</li>
-            </ul>
-            <p class="has-line-data" data-line-start="15" data-line-end="16">Overlaps in masks are NOT allowed. If you \
-            draw a mask on top of another mask, it is cropped so that it doesn’t overlap with the old mask. Masks in 2D \
-            should be single strokes (single stroke is checked). If you want to draw masks in 3D (experimental), then \
-            you can turn this option off and draw a stroke on each plane with the cell and then press ENTER. 3D \
-            labelling will fill in planes that you have not labelled so that you do not have to as densely label.</p>
-            <p class="has-line-data" data-line-start="17" data-line-end="18">!NOTE!: The GUI automatically saves after \
-            you draw a mask in 2D but NOT after 3D mask drawing and NOT after segmentation. Save in the file menu or \
-            with Ctrl+S. The output file is in the same folder as the loaded image with <code>_seg.npy</code> appended.</p>
-            <table class="table table-striped table-bordered">
-            <br><br>
-            FYI there are tooltips throughout the GUI (hover over text to see)
-            <br>
-            <thead>
-            <tr>
-            <th>Keyboard shortcuts</th>
-            <th>Description</th>
-            </tr>
-            </thead>
-            <tbody>
-            <tr>
-            <td>=/+  button // - button</td>
-            <td>zoom in // zoom out</td>
-            </tr>
-            <tr>
-            <td>CTRL+Z</td>
-            <td>undo previously drawn mask/stroke</td>
-            </tr>
-            <tr>
-            <td>CTRL+Y</td>
-            <td>undo remove mask</td>
-            </tr>
-            <tr>
-            <td>CTRL+0</td>
-            <td>clear all masks</td>
-            </tr>
-            <tr>
-            <td>CTRL+L</td>
-            <td>load image (can alternatively drag and drop image)</td>
-            </tr>
-            <tr>
-            <td>CTRL+S</td>
-            <td>SAVE MASKS IN IMAGE to <code>_seg.npy</code> file</td>
-            </tr>
-            <tr>
-            <td>CTRL+T</td>
-            <td>train model using _seg.npy files in folder
-            </tr>
-            <tr>
-            <td>CTRL+P</td>
-            <td>load <code>_seg.npy</code> file (note: it will load automatically with image if it exists)</td>
-            </tr>
-            <tr>
-            <td>CTRL+M</td>
-            <td>load masks file (must be same size as image with 0 for NO mask, and 1,2,3… for masks)</td>
-            </tr>
-            <tr>
-            <td>CTRL+N</td>
-            <td>save masks as PNG</td>
-            </tr>
-            <tr>
-            <td>CTRL+R</td>
-            <td>save ROIs to native ImageJ ROI format</td>
-            </tr>
-            <tr>
-            <td>CTRL+F</td>
-            <td>save flows to image file</td>
-            </tr>
-            <tr>
-            <td>A/D or LEFT/RIGHT</td>
-            <td>cycle through images in current directory</td>
-            </tr>
-            <tr>
-            <td>W/S or UP/DOWN</td>
-            <td>change color (RGB/gray/red/green/blue)</td>
-            </tr>
-            <tr>
-            <td>R / G / B </td>
-            <td>toggle between RGB and Red or Green or Blue</td>
-            </tr>
-            <tr>
-            <td>PAGE-UP / PAGE-DOWN</td>
-            <td>change to flows and cell prob views (if segmentation computed)</td>
-            </tr>
-            <tr>
-            <td>X</td>
-            <td>turn masks ON or OFF</td>
-            </tr>
-            <tr>
-            <td>Z</td>
-            <td>toggle outlines ON or OFF</td>
-            </tr>
-            <tr>
-            <td>, / .</td>
-            <td>increase / decrease brush size for drawing masks</td>
-            </tr>
-            </tbody>
-            </table>
-            <p class="has-line-data" data-line-start="36" data-line-end="37"><strong>Segmentation options (2D only) </strong></p>
-            <p class="has-line-data" data-line-start="38" data-line-end="39">SIZE: you can manually enter the approximate diameter for your cells, or press “calibrate” to let the model estimate it. The size is represented by a disk at the bottom of the view window (can turn this disk of by unchecking “scale disk on”).</p>
-            <p class="has-line-data" data-line-start="40" data-line-end="41">use GPU: if you have specially installed the cuda version of mxnet, then you can activate this, but it won’t give huge speedups when running single 2D images in the GUI.</p>
-            <p class="has-line-data" data-line-start="42" data-line-end="43">MODEL: there is a <em>cytoplasm</em> model and a <em>nuclei</em> model, choose what you want to segment</p>
-            <p class="has-line-data" data-line-start="44" data-line-end="45">CHAN TO SEG: this is the channel in which the cytoplasm or nuclei exist</p>
-            <p class="has-line-data" data-line-start="46" data-line-end="47">CHAN2 (OPT): if <em>cytoplasm</em> model is chosen, then choose the nuclear channel for this option</p>
-            ''')
+
+        text_file = pathlib.Path(__file__).parent.joinpath('guihelpwindowtext.html')
+        with open(str(text_file.resolve()), 'r') as f:
+            text = f.read()
+
         label = QLabel(text)
         label.setFont(QtGui.QFont("Arial", 8))
         label.setWordWrap(True)
@@ -402,19 +295,11 @@ class TrainHelpWindow(QDialog):
         self.win = QWidget(self)
         layout = QGridLayout()
         self.win.setLayout(layout)
-        
-        text = ('''
-            Check out this <a href="https://youtu.be/3Y1VKcxjNy4">video</a> to learn the process.
-            <ol>
-                <li>Drag and drop an image from a folder of images with a similar style (like similar cell types).</li>
-                <li>Run the built-in models on one of the images using the "model zoo" and find the one that works best for your data. Make sure that if you have a nuclear channel you have selected it for CHAN2.</li>
-                <li>Fix the labelling by drawing new ROIs (right-click) and deleting incorrect ones (CTRL+click). The GUI autosaves any manual changes (but does not autosave after running the model, for that click CTRL+S). The segmentation is saved in a "_seg.npy" file.</li>
-                <li> Go to the "Models" menu in the File bar at the top and click "Train new model..." or use shortcut CTRL+T. </li>
-                <li> Choose the pretrained model to start the training from (the model you used in #2), and type in the model name that you want to use. The other parameters should work well in general for most data types. Then click OK. </li>
-                <li> The model will train (much faster if you have a GPU) and then auto-run on the next image in the folder. Next you can repeat #3-#5 as many times as is necessary. </li>
-                <li> The trained model is available to use in the future in the GUI in the "custom model" section and is saved in your image folder. </li>
-            </ol>
-            ''')
+
+        text_file = pathlib.Path(__file__).parent.joinpath('guitrainhelpwindowtext.html')
+        with open(str(text_file.resolve()), 'r') as f:
+            text = f.read()
+
         label = QLabel(text)
         label.setFont(QtGui.QFont("Arial", 8))
         label.setWordWrap(True)
