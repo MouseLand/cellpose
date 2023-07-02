@@ -1197,13 +1197,13 @@ class MainW(QMainWindow):
         idx.sort(reverse=True)
         for i in idx:
             self.remove_single_cell(i)
+        self.ncells -= len(idx) # _save_sets uses ncells
 
         if self.ncells==0:
             self.ClearButton.setEnabled(False)
         if self.NZ==1:
             io._save_sets(self)
 
-        self.ncells -= len(idx)
         self.update_layer()
 
 
