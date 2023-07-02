@@ -628,25 +628,31 @@ class MainW(QMainWindow):
         b += 1
         self.DeleteMultipleROIButton = QPushButton('delete multiple')
         self.DeleteMultipleROIButton.clicked.connect(self.delete_multiple_cells)
-        self.l0.addWidget(self.DeleteMultipleROIButton, b, 0, 1, 2)
+        self.l0.addWidget(self.DeleteMultipleROIButton, b, 0, 1, 2) #r, c, rowspan, colspan
         self.DeleteMultipleROIButton.setEnabled(False)
         self.DeleteMultipleROIButton.setStyleSheet(self.styleInactive)
-        self.DeleteMultipleROIButton.setFont(self.boldfont)
+        self.DeleteMultipleROIButton.setFont(self.medfont)
 
         self.MakeDeletionRegionButton = QPushButton('select region')
         self.MakeDeletionRegionButton.clicked.connect(self.remove_region_cells)
-        self.l0.addWidget(self.MakeDeletionRegionButton, b, 2, 1, 3)
+        self.l0.addWidget(self.MakeDeletionRegionButton, b, 2, 1, 2)
         self.MakeDeletionRegionButton.setEnabled(False)
         self.MakeDeletionRegionButton.setStyleSheet(self.styleInactive)
-        self.MakeDeletionRegionButton.setFont(self.boldfont)
+        self.MakeDeletionRegionButton.setFont(self.medfont)
 
         self.DoneDeleteMultipleROIButton = QPushButton('done')
         self.DoneDeleteMultipleROIButton.clicked.connect(self.done_remove_multiple_cells)
-        self.l0.addWidget(self.DoneDeleteMultipleROIButton, b, 5, 1, 2)
+        self.l0.addWidget(self.DoneDeleteMultipleROIButton, b, 4, 1, 2)
         self.DoneDeleteMultipleROIButton.setEnabled(False)
         self.DoneDeleteMultipleROIButton.setStyleSheet(self.styleInactive)
-        self.DoneDeleteMultipleROIButton.setFont(self.boldfont)
+        self.DoneDeleteMultipleROIButton.setFont(self.medfont)
 
+        self.CancelDeleteMultipleROIButton = QPushButton('cancel')
+        self.CancelDeleteMultipleROIButton.clicked.connect(self.cancel_remove_multiple)
+        self.l0.addWidget(self.CancelDeleteMultipleROIButton, b, 6, 1, 1)
+        self.CancelDeleteMultipleROIButton.setEnabled(False)
+        self.CancelDeleteMultipleROIButton.setStyleSheet(self.styleInactive)
+        self.CancelDeleteMultipleROIButton.setFont(self.medfont)
         b+=1
         self.l0.addWidget(QLabel(''),b,0,1,5)
         self.l0.setRowStretch(b, 1)
@@ -1243,6 +1249,24 @@ class MainW(QMainWindow):
         self.MakeDeletionRegionButton.setEnabled(False)
         self.removing_region = True
 
+        self.clear_multi_selected_cells()
+
+        # make roi region here in center of view, making ROI half the size of the view
+        roi_width = self.p0.viewRect().width() / 2
+        x_loc = self.p0.viewRect().x() + (roi_width / 2)
+        roi_height = self.p0.viewRect().height() / 2
+        y_loc = self.p0.viewRect().y() + (roi_height / 2)
+
+        pos = [x_loc, y_loc]
+        roi = pg.RectROI(pos, [roi_width, roi_height], pen=pg.mkPen('y', width=2), removable=True)
+        roi.sigRemoveRequested.connect(self.remove_roi)
+        roi.sigRegionChangeFinished.connect(self.roi_changed)
+        self.p0.addItem(roi)
+        self.remove_roi_obj = roi
+        self.roi_changed(roi)
+
+
+
 
     def delete_multiple_cells(self):
         self.unselect_cell()
@@ -1251,6 +1275,8 @@ class MainW(QMainWindow):
         self.DoneDeleteMultipleROIButton.setEnabled(True)
         self.MakeDeletionRegionButton.setStyleSheet(self.styleUnpressed)
         self.MakeDeletionRegionButton.setEnabled(True)
+        self.CancelDeleteMultipleROIButton.setEnabled(True)
+        self.CancelDeleteMultipleROIButton.setStyleSheet(self.styleUnpressed)
         self.deleting_multiple = True
 
 
@@ -1261,6 +1287,9 @@ class MainW(QMainWindow):
         self.DoneDeleteMultipleROIButton.setEnabled(False)
         self.MakeDeletionRegionButton.setStyleSheet(self.styleInactive)
         self.MakeDeletionRegionButton.setEnabled(False)
+        self.CancelDeleteMultipleROIButton.setStyleSheet(self.styleInactive)
+        self.CancelDeleteMultipleROIButton.setEnabled(False)
+
         if self.removing_cells_list:
             self.removing_cells_list = list(set(self.removing_cells_list))
             display_remove_list = [i - 1 for i in self.removing_cells_list]
@@ -1374,24 +1403,10 @@ class MainW(QMainWindow):
                                 self.yortho = y 
                                 self.xortho = x
                                 self.update_ortho()
-        elif self.removing_region and event.button() == QtCore.Qt.LeftButton \
-                and self.remove_roi_obj is None:
 
-            self.clear_multi_selected_cells()
-
-            # make a pyqt roi at the mouse location
-            # allow roi size by mouse drag
-
-            pos = self.p0.mapSceneToView(event.scenePos())
-            x = int(pos.x())
-            y = int(pos.y())
-
-            if 0 <= y < self.Ly and 0 <= x < self.Lx:
-                roi = pg.RectROI(pos, [10, 10], pen=pg.mkPen('y', width=2), removable=True)
-                roi.sigRemoveRequested.connect(self.remove_roi)
-                roi.sigRegionChangeFinished.connect(self.roi_changed)
-                self.p0.addItem(roi)
-                self.remove_roi_obj = roi
+    def cancel_remove_multiple(self):
+        self.clear_multi_selected_cells()
+        self.done_remove_multiple_cells()
 
 
     def clear_multi_selected_cells(self):
