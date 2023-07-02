@@ -60,6 +60,25 @@ ENTER.
     3D labelling will fill in unlabelled z-planes so that you do not
     have to densely label, for example you can skip some planes.
 
+Bulk Mask Deletion
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+..
+    image:: images/cellpose_delete-multiple-demo.gif
+    :width: 600
+
+Clicking the 'delete multiple' button will allow you to select and
+delete multiple masks at once. Masks can be deselected by clicking
+on them again. Once you have selected all the masks you want to delete,
+click the 'done' button to delete them.
+
+Alternatively, you can create a rectangular region to delete a regions of masks
+by clicking the 'delete multiple' button, and then moving and/or resizing
+the region to select the masks you want to delete. Once you have selected
+the masks you want to delete, click the 'done' button to delete them.
+
+At any point in the process, you can click the 'cancel' button to cancel
+the bulk deletion.
+
 
 Segmentation options
 ~~~~~~~~~~~~~~~~~~~~~~~~
