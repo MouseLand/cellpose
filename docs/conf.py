@@ -42,6 +42,7 @@ extensions = [
     'sphinx.ext.napoleon',
     # 'sphinxcontrib.autoprogram',
     'sphinxarg.ext',
+    'nbsphinx',
 ]
 
 autodoc_mock_imports = [
@@ -61,11 +62,15 @@ autodoc_mock_imports = [
 ]
 
 autoapi_dirs = ['../cellpose']
-
 source_suffix = '.rst'
-
 master_doc = 'index'
 
+# notebook settings
+jupyter_execute_notebooks = "auto"
+nbsphinx_execute = 'never'
+nbsphinx_allow_errors = True
+
+source_suffix = [".rst", ".md"]
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
