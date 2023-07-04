@@ -89,7 +89,7 @@ This function is also available in the GUI.
 
 
 (Legacy ImageJ Interface) ROI manager compatible output for ImageJ
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 You can save the outlines of ROIs in a text file that's compatible with ImageJ 
 ROI Manager in the GUI File menu.

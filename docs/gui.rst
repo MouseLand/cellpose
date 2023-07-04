@@ -54,7 +54,10 @@ in 2D should be single strokes (if *single_stroke* is checked).
 
 If you want to draw masks in 3D, then you can turn *single_stroke*
 option off and draw a stroke on each plane with the cell and then press
-ENTER. 
+ENTER.
+
+.. image:: https://www.cellpose.org/static/images/cellpose_gui.png
+    :width: 600
 
 .. note::
     3D labelling will fill in unlabelled z-planes so that you do not
@@ -62,10 +65,6 @@ ENTER.
 
 Bulk Mask Deletion
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-..
-    image:: images/cellpose_delete-multiple-demo.gif
-    :width: 600
-
 Clicking the 'delete multiple' button will allow you to select and
 delete multiple masks at once. Masks can be deselected by clicking
 on them again. Once you have selected all the masks you want to delete,
@@ -78,6 +77,9 @@ the masks you want to delete, click the 'done' button to delete them.
 
 At any point in the process, you can click the 'cancel' button to cancel
 the bulk deletion.
+
+.. image:: https://www.cellpose.org/static/images/cellpose_delete_demo.gif
+    :width: 600
 
 
 Segmentation options

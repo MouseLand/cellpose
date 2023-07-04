@@ -8,7 +8,7 @@ See the :ref:`cpclass` for all run options.
 
 Here is an example of calling the Cellpose class and
 running a list of images for reference:
-::
+::code-block::
     from cellpose import models
     from cellpose.io import imread
 
@@ -17,7 +17,7 @@ running a list of images for reference:
 
     files = ['img0.tif', 'img1.tif']
     imgs = [imread(f) for f in files]
-    masks, flows, styles, diams = model.eval(imgs, diameter=None, channels=[0,0], 
+    masks, flows, styles, diams = model.eval(imgs, diameter=None, channels=[0,0],
                                              flow_threshold=0.4, do_3D=False)
 
 You can make lists of channels/diameter for each image, or set the same channels/diameter for all images
@@ -39,7 +39,9 @@ Set channels to a list with each of these elements, e.g.
 
 On the command line the above would be ``--chan 0 --chan2 0`` or ``--chan 2 --chan2 3``.
 
+
 .. _diameter:
+
 Diameter 
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
