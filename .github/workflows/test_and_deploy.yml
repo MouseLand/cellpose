@@ -29,7 +29,8 @@ jobs:
       - uses: conda-incubator/setup-miniconda@v2
         with:
           miniconda-version: "latest"
-          activate-environment: base
+          auto-activate-base: true
+          activate-environment: ""
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v4
         with:
