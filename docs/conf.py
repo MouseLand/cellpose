@@ -65,7 +65,8 @@ autoapi_dirs = ['../cellpose']
 source_suffix = '.rst'
 master_doc = 'index'
 
-# notebook settings
+# notebook settings (nbsphinx)
+# FYI nbsphinx can't find notebooks outside the docs directory; https://github.com/spatialaudio/nbsphinx/issues/170
 jupyter_execute_notebooks = "auto"
 nbsphinx_execute = 'never'
 nbsphinx_allow_errors = True
