@@ -476,9 +476,17 @@ def _save_outlines(parent):
     else:
         print('ERROR: cannot save 3D outlines')
     
+def _save_sets_with_check(parent):
+    """ Save masks and update *_seg.npy file. Use this function when saving should be optional
+     based on the disableAutosave checkbox. Otherwise, use _save_sets """
+    if not parent.disableAutosave.isChecked():
+        _save_sets(parent)
+
 
 def _save_sets(parent):
-    """ save masks to *_seg.npy """
+    """ save masks to *_seg.npy. This function should be used when saving
+    is forced, e.g. when clicking the save button. Otherwise, use _save_sets_with_check
+    """
     filename = parent.filename
     base = os.path.splitext(filename)[0]
     flow_threshold, cellprob_threshold = parent.get_thresholds()

@@ -1178,7 +1178,7 @@ class MainW(QMainWindow):
         if self.ncells==0:
             self.ClearButton.setEnabled(False)
         if self.NZ==1:
-            io._save_sets(self)
+            io._save_sets_with_check(self)
 
     def merge_cells(self, idx):
         self.prev_selected = self.selected
@@ -1210,7 +1210,7 @@ class MainW(QMainWindow):
             self.remove_cell(self.selected)
             print('GUI_INFO: merged two cells')
             self.update_layer()
-            io._save_sets(self)
+            io._save_sets_with_check(self)
             self.undo.setEnabled(False)      
             self.redo.setEnabled(False)    
 
@@ -1228,7 +1228,7 @@ class MainW(QMainWindow):
             self.zdraw.append([])
             print('>>> added back removed cell')
             self.update_layer()
-            io._save_sets(self)
+            io._save_sets_with_check(self)
             self.removed_cell = []
             self.redo.setEnabled(False)
 
@@ -1431,7 +1431,7 @@ class MainW(QMainWindow):
                     self.ismanual = np.append(self.ismanual, True)
                     if self.NZ==1:
                         # only save after each cell if single image
-                        io._save_sets(self)
+                        io._save_sets_with_check(self)
             self.current_stroke = []
             self.strokes = []
             self.current_point_set = []
