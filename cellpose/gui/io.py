@@ -504,16 +504,12 @@ def _save_sets(parent):
                  'cellprob_threshold': cellprob_threshold
                  })
     else:
-        image = parent.chanchoose(parent.stack[parent.currentZ].copy())
-        if image.ndim < 4:
-            image = image[np.newaxis,...]
         np.save(base + '_seg.npy',
                 {'outlines': parent.outpix.squeeze(),
                  'colors': parent.cellcolors[1:],
                  'masks': parent.cellpix.squeeze(),
                  'chan_choose': [parent.ChannelChoose[0].currentIndex(),
                                  parent.ChannelChoose[1].currentIndex()],
-                 'img': image.squeeze(),
                  'filename': parent.filename,
                  'flows': parent.flows,
                  'ismanual': parent.ismanual,
