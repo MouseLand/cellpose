@@ -48,7 +48,7 @@ def main():
                 print('GUI ERROR: %s'%GUI_ERROR)
                 if GUI_IMPORT:
                     print('GUI FAILED: GUI dependencies may not be installed, to install, run')
-                    print('     pip install cellpose[gui]')
+                    print('     pip install "cellpose[gui]"')
             else:
                 gui.run()
 
