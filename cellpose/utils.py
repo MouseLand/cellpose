@@ -5,11 +5,18 @@ from urllib.parse import urlparse
 import cv2
 from scipy.ndimage import find_objects, gaussian_filter, generate_binary_structure, label, maximum_filter1d, binary_fill_holes
 from scipy.spatial import ConvexHull
+from scipy.stats import gmean
 import numpy as np
 import colorsys
 import io
 
 from . import metrics
+
+try:
+    from skimage.morphology import remove_small_holes
+    SKIMAGE_ENABLED = True
+except:
+    SKIMAGE_ENABLED = False
 
 class TqdmToLogger(io.StringIO):
     """
@@ -52,6 +59,8 @@ def download_url_to_file(url, dst, progress=True):
             Default: True
     """
     file_size = None
+    import ssl
+    ssl._create_default_https_context = ssl._create_unverified_context
     u = urlopen(url)
     meta = u.info()
     if hasattr(meta, 'getheaders'):
@@ -192,7 +201,7 @@ def masks_to_outlines(masks):
     """
     if masks.ndim > 3 or masks.ndim < 2:
         raise ValueError('masks_to_outlines takes 2D or 3D array, not %dD array'%masks.ndim)
-    outlines = np.zeros(masks.shape, np.bool)
+    outlines = np.zeros(masks.shape, bool)
     
     if masks.ndim==3:
         for i in range(masks.shape[0]):
@@ -344,20 +353,33 @@ def get_masks_unet(output, cell_threshold=0, boundary_threshold=0):
 def stitch3D(masks, stitch_threshold=0.25):
     """ stitch 2D masks into 3D volume with stitch_threshold on IOU """
     mmax = masks[0].max()
+    empty = 0
+    
     for i in range(len(masks)-1):
         iou = metrics._intersection_over_union(masks[i+1], masks[i])[1:,1:]
-        iou[iou < stitch_threshold] = 0.0
-        iou[iou < iou.max(axis=0)] = 0.0
-        istitch = iou.argmax(axis=1) + 1
-        ino = np.nonzero(iou.max(axis=1)==0.0)[0]
-        istitch[ino] = np.arange(mmax+1, mmax+len(ino)+1, 1, int)
-        mmax += len(ino)
-        istitch = np.append(np.array(0), istitch)
-        masks[i+1] = istitch[masks[i+1]]
+        if not iou.size and empty == 0:
+            masks[i+1] = masks[i+1]
+            mmax = masks[i+1].max()
+        elif not iou.size and not empty == 0:
+            icount = masks[i+1].max()
+            istitch = np.arange(mmax+1, mmax + icount+1, 1, int)
+            mmax += icount
+            istitch = np.append(np.array(0), istitch)
+            masks[i+1] = istitch[masks[i+1]]
+        else:
+            iou[iou < stitch_threshold] = 0.0
+            iou[iou < iou.max(axis=0)] = 0.0
+            istitch = iou.argmax(axis=1) + 1
+            ino = np.nonzero(iou.max(axis=1)==0.0)[0]
+            istitch[ino] = np.arange(mmax+1, mmax+len(ino)+1, 1, int)
+            mmax += len(ino)
+            istitch = np.append(np.array(0), istitch)
+            masks[i+1] = istitch[masks[i+1]]
+            empty = 1
+            
     return masks
 
 def diameters(masks):
-    """ get median 'diameter' of masks """
     _, counts = np.unique(np.int32(masks), return_counts=True)
     counts = counts[1:]
     md = np.median(counts**0.5)
@@ -383,11 +405,6 @@ def size_distribution(masks):
     counts = np.unique(masks, return_counts=True)[1][1:]
     return np.percentile(counts, 25) / np.percentile(counts, 75)
 
-def normalize99(img):
-    X = img.copy()
-    X = (X - np.percentile(X, 1)) / (np.percentile(X, 99) - np.percentile(X, 1))
-    return X
-
 def process_cells(M0, npix=20):
     unq, ic = np.unique(M0, return_counts=True)
     for j in range(len(unq)):
@@ -395,11 +412,12 @@ def process_cells(M0, npix=20):
             M0[M0==unq[j]] = 0
     return M0
 
-
 def fill_holes_and_remove_small_masks(masks, min_size=15):
     """ fill holes in masks (2D/3D) and discard masks smaller than min_size (2D)
     
     fill holes in each mask using scipy.ndimage.morphology.binary_fill_holes
+
+    (might have issues at borders between cells, todo: check and fix)
     
     Parameters
     ----------------
@@ -420,8 +438,10 @@ def fill_holes_and_remove_small_masks(masks, min_size=15):
         size [Ly x Lx] or [Lz x Ly x Lx]
     
     """
+        
     if masks.ndim > 3 or masks.ndim < 2:
-        raise ValueError('fill_holes_and_remove_small_masks takes 2D or 3D array, not %dD array'%masks.ndim)
+        raise ValueError('masks_to_outlines takes 2D or 3D array, not %dD array'%masks.ndim)
+    
     slices = find_objects(masks)
     j = 0
     for i,slc in enumerate(slices):
@@ -430,11 +450,11 @@ def fill_holes_and_remove_small_masks(masks, min_size=15):
             npix = msk.sum()
             if min_size > 0 and npix < min_size:
                 masks[slc][msk] = 0
-            else:    
+            elif npix > 0:   
                 if msk.ndim==3:
                     for k in range(msk.shape[0]):
                         msk[k] = binary_fill_holes(msk[k])
-                else:
+                else:          
                     msk = binary_fill_holes(msk)
                 masks[slc][msk] = (j+1)
                 j+=1

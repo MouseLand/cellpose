@@ -2,9 +2,57 @@ import os
 import numpy as np
 import cv2
 from scipy.ndimage import gaussian_filter
-import scipy
+from . import utils, io, transforms
 
-from . import utils, io
+try:
+    import matplotlib
+    MATPLOTLIB_ENABLED = True 
+except:
+    MATPLOTLIB_ENABLED = False
+
+try:
+    from skimage import color
+    from skimage.segmentation import find_boundaries
+    SKIMAGE_ENABLED = True 
+except:
+    SKIMAGE_ENABLED = False
+
+# modified to use sinebow color
+def dx_to_circ(dP,transparency=False,mask=None):
+    """ dP is 2 x Y x X => 'optic' flow representation 
+    
+    Parameters
+    -------------
+    
+    dP: 2xLyxLx array
+        Flow field components [dy,dx]
+        
+    transparency: bool, default False
+        magnitude of flow controls opacity, not lightness (clear background)
+        
+    mask: 2D array 
+        Multiplies each RGB component to suppress noise
+    
+    """
+    
+    dP = np.array(dP)
+    mag = np.clip(transforms.normalize99(np.sqrt(np.sum(dP**2,axis=0))), 0, 1.)
+    angles = np.arctan2(dP[1], dP[0])+np.pi
+    a = 2
+    r = ((np.cos(angles)+1)/a)
+    g = ((np.cos(angles+2*np.pi/3)+1)/a)
+    b =((np.cos(angles+4*np.pi/3)+1)/a)
+    
+    if transparency:
+        im = np.stack((r,g,b,mag),axis=-1)
+    else:
+        im = np.stack((r*mag,g*mag,b*mag),axis=-1)
+        
+    if mask is not None and transparency and dP.shape[0]<3:
+        im[:,:,-1] *= mask
+        
+    im = (np.clip(im, 0, 1) * 255).astype(np.uint8)
+    return im
 
 def show_segmentation(fig, img, maski, flowi, channels=[0,0], file_name=None):
     """ plot segmentation results (like on website)
@@ -32,10 +80,17 @@ def show_segmentation(fig, img, maski, flowi, channels=[0,0], file_name=None):
 
     file_name: str (optional, default None)
         file name of image, if file_name is not None, figure panels are saved
+        
+    seg_norm: bool (optional, default False)
+        improve cell visibility under labels
+        
 
     """
+    if not MATPLOTLIB_ENABLED:
+        raise ImportError("matplotlib not installed, install with 'pip install matplotlib'")
     ax = fig.add_subplot(1,4,1)
     img0 = img.copy()
+
     if img0.shape[0] < 4:
         img0 = np.transpose(img0, (1,2,0))
     if img0.shape[-1] < 3 or img0.ndim < 3:
@@ -48,15 +103,15 @@ def show_segmentation(fig, img, maski, flowi, channels=[0,0], file_name=None):
     ax.axis('off')
 
     outlines = utils.masks_to_outlines(maski)
+
     overlay = mask_overlay(img0, maski)
 
     ax = fig.add_subplot(1,4,2)
     outX, outY = np.nonzero(outlines)
     imgout= img0.copy()
-    imgout[outX, outY] = np.array([255,75,75])
+    imgout[outX, outY] = np.array([255,0,0]) # pure red
+
     ax.imshow(imgout)
-    #for o in outpix:
-    #    ax.plot(o[:,0], o[:,1], color=[1,0,0], lw=1)
     ax.set_title('predicted outlines')
     ax.axis('off')
 
@@ -145,15 +200,14 @@ def mask_overlay(img, masks, colors=None):
         img = img.astype(np.float32).mean(axis=-1)
     else:
         img = img.astype(np.float32)
-    img = utils.normalize99(img)
-    img -= img.min()
-    img /= img.max()
+    
     HSV = np.zeros((img.shape[0], img.shape[1], 3), np.float32)
-    HSV[:,:,2] = np.clip(img*1.5, 0, 1.0)
+    HSV[:,:,2] = np.clip((img / 255. if img.max() > 1 else img) * 1.5, 0, 1)
+    hues = np.linspace(0, 1, masks.max()+1)[np.random.permutation(masks.max())]
     for n in range(int(masks.max())):
         ipix = (masks==n+1).nonzero()
         if colors is None:
-            HSV[ipix[0],ipix[1],0] = np.random.rand()
+            HSV[ipix[0],ipix[1],0] = hues[n]
         else:
             HSV[ipix[0],ipix[1],0] = colors[n,0]
         HSV[ipix[0],ipix[1],1] = 1.0
@@ -172,7 +226,7 @@ def image_to_rgb(img0, channels=[0,0]):
         img = img.mean(axis=-1)[:,:,np.newaxis]
     for i in range(img.shape[-1]):
         if np.ptp(img[:,:,i])>0:
-            img[:,:,i] = utils.normalize99(img[:,:,i])
+            img[:,:,i] = np.clip(transforms.normalize99(img[:,:,i]), 0, 1)
             img[:,:,i] = np.clip(img[:,:,i], 0, 1)
     img *= 255
     img = np.uint8(img)
@@ -205,3 +259,23 @@ def disk(med, r, Ly, Lx):
     y = yy[inds].flatten()
     x = xx[inds].flatten()
     return y,x
+
+def outline_view(img0,maski,color=[1,0,0], mode='inner'):
+    """
+    Generates a red outline overlay onto image. 
+    """
+#     img0 = utils.rescale(img0)
+    if len(img0.shape)<3:
+#         img0 = image_to_rgb(img0) broken, transposing some images...
+        img0 = np.stack([img0]*3,axis=-1)
+    
+    if SKIMAGE_ENABLED:
+        outlines = find_boundaries(maski,mode=mode) #not using masks_to_outlines as that gives border 'outlines'
+    else:
+        outlines = utils.masks_to_outlines(maski,mode=mode) #not using masks_to_outlines as that gives border 'outlines'
+    outY, outX = np.nonzero(outlines)
+    imgout = img0.copy()
+#     imgout[outY, outX] = np.array([255,0,0]) #pure red
+    imgout[outY, outX] = np.array(color)
+
+    return imgout
