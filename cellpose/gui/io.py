@@ -15,8 +15,8 @@ from ..io import imread, imsave, outlines_to_text, add_model, remove_model, save
 from ..transforms import normalize99
 
 try:
-    import PyQt5
-    from PyQt5.QtWidgets import QFileDialog
+    import qtpy
+    from qtpy.QtWidgets import QFileDialog
     GUI = True
 except:
     GUI = False
