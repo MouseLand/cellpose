@@ -91,6 +91,8 @@ def get_arg_parser():
                                 help='anisotropy of volume in 3D')
     algorithm_args.add_argument('--exclude_on_edges', action='store_true',
                                 help='discard masks which touch edges of image')
+    algorithm_args.add_argument('--augment', action='store_true',
+                                help='tiles image with overlapping tiles and flips overlapped regions to augment')
 
     # output settings
     output_args = parser.add_argument_group("Output Arguments")

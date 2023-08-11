@@ -153,8 +153,9 @@ def main():
             for image_name in tqdm(image_names, file=tqdm_out):
                 image = io.imread(image_name)
                 out = model.eval(image, channels=channels, diameter=diameter,
-                                do_3D=args.do_3D, net_avg=(not args.fast_mode or args.net_avg),
-                                augment=False,
+                                do_3D=args.do_3D,
+                                net_avg=(not args.fast_mode or args.net_avg),
+                                augment=args.augment,
                                 resample=(not args.no_resample and not args.fast_mode),
                                 flow_threshold=args.flow_threshold,
                                 cellprob_threshold=args.cellprob_threshold,
