@@ -248,7 +248,8 @@ def main():
                                            save_each=args.save_each,
                                            n_epochs=args.n_epochs,
                                            batch_size=args.batch_size, 
-                                           min_train_masks=args.min_train_masks)
+                                           min_train_masks=args.min_train_masks,
+                                           model_name=args.model_name_out)
                 model.pretrained_model = cpmodel_path
                 logger.info('>>>> model trained and saved to %s'%cpmodel_path)
 
