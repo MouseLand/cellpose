@@ -1,7 +1,3 @@
-"""
-Copright © 2023 Howard Hughes Medical Institute, Authored by Carsen Stringer and Marius Pachitariu.
-"""
-
 import sys, os, pathlib, warnings, datetime, tempfile, glob, time
 import gc
 from natsort import natsorted
@@ -25,6 +21,10 @@ from ..utils import download_url_to_file, masks_to_outlines, diameters
 from ..io import get_image_files, imsave, imread
 from ..transforms import resize_image, normalize99 #fixed import
 from ..plot import disk
+
+from scipy.ndimage import find_objects
+import diplib as dip
+from PIL import Image
 
 try:
     import matplotlib.pyplot as plt
@@ -1124,6 +1124,27 @@ class MainW(QMainWindow):
         self.prev_selected = self.selected
         self.selected = idx
         if self.selected > 0:
+            np.set_printoptions(threshold=sys.maxsize)
+
+            slices = find_objects(self.cellpix[0].astype(int))
+            si = slices[idx - 1]
+            sr,sc = si
+            mask = (self.cellpix[0][sr, sc] == (idx)).astype(np.uint8)
+            
+            mask_shape = mask.shape
+            for i in range(0, mask_shape[0]):
+                for j in range(0, mask_shape[1]):
+                    mask[i][j] = 255 if mask[i][j] > 0 else 0 
+            
+            mask = np.pad(mask, 1, mode='constant')
+            print("OBJECT #: ", idx)
+            im = Image.fromarray(mask)
+            im.save("hola.jpg")
+
+            labels = dip.Label(mask[:, :] > 0)
+            msr = dip.MeasurementTool.Measure(labels, features=["Perimeter", "Size", "Roundness", "Circularity"])
+            print(msr)
+
             z = self.currentZ
             self.layerz[self.cellpix[z]==idx] = np.array([255,255,255,self.opacity])
             self.update_layer()
@@ -1749,6 +1770,7 @@ class MainW(QMainWindow):
         self.compute_model(model_name=model_type)
             
     def compute_model(self, model_name=None):
+        print("LOOK compute_model")
         self.progress.setValue(0)
         try:
             tic=time.time()

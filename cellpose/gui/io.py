@@ -1,7 +1,3 @@
-"""
-Copright © 2023 Howard Hughes Medical Institute, Authored by Carsen Stringer and Marius Pachitariu.
-"""
-
 import os, datetime, gc, warnings, glob, shutil, copy
 from natsort import natsorted
 import numpy as np
