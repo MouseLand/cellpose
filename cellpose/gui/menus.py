@@ -2,8 +2,8 @@
 Copright © 2023 Howard Hughes Medical Institute, Authored by Carsen Stringer and Marius Pachitariu.
 """
 
-import PyQt5
-from PyQt5.QtWidgets import QAction
+import qtpy
+from qtpy.QtWidgets import QAction
 from . import io
 from .. import models
 from ..io import save_server

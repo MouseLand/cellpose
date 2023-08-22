@@ -7,11 +7,10 @@ import gc
 from natsort import natsorted
 from tqdm import tqdm, trange
 
-import PyQt5
-from PyQt5 import QtGui, QtCore, Qt, QtWidgets
+from qtpy import QtGui, QtCore, QtWidgets
 from superqt import QRangeSlider
 from qtpy.QtCore import Qt as Qtp
-from PyQt5.QtWidgets import QMainWindow, QApplication, QWidget, QScrollBar, QSlider, QComboBox, QGridLayout, QPushButton, QFrame, QCheckBox, QLabel, QProgressBar, QLineEdit, QMessageBox, QGroupBox
+from qtpy.QtWidgets import QMainWindow, QApplication, QWidget, QScrollBar, QSlider, QComboBox, QGridLayout, QPushButton, QFrame, QCheckBox, QLabel, QProgressBar, QLineEdit, QMessageBox, QGroupBox
 import pyqtgraph as pg
 from pyqtgraph import GraphicsScene
 

@@ -14,8 +14,9 @@ install_deps = ['numpy>=1.20.0', 'scipy', 'natsort',
 
 gui_deps = [
         'pyqtgraph>=0.11.0rc0', 
-        'pyqt5', 
-        'pyqt5.sip',
+        "pyqt6",
+        "pyqt6.sip",
+        'qtpy',
         'superqt',
         'google-cloud-storage'
 ]
@@ -39,6 +40,29 @@ try:
     major_version, minor_version, _ = torch.__version__.split(".")
     if major_version == "2" or int(minor_version) >= 6:
         install_deps.remove("torch>=1.6")
+except:
+    pass
+
+try:
+    import PyQt5
+    gui_deps.remove("pyqt6")
+    gui_deps.remove("pyqt6.sip")
+    gui_deps.append("pyqt5")
+    gui_deps.append("pyqt5.sip")
+except:
+    pass
+
+try:
+    import PySide2
+    gui_deps.remove("pyqt6")
+    gui_deps.remove("pyqt6.sip")
+except:
+    pass
+
+try:
+    import PySide6
+    gui_deps.remove("pyqt6")
+    gui_deps.remove("pyqt6.sip")
 except:
     pass
 
