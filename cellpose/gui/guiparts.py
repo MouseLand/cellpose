@@ -2,11 +2,9 @@
 Copright © 2023 Howard Hughes Medical Institute, Authored by Carsen Stringer and Marius Pachitariu.
 """
 
-import PyQt5
-from PyQt5 import QtGui, QtCore, QtWidgets
-from PyQt5.QtGui import QPainter, QPixmap
-from PyQt5.QtWidgets import QApplication, QRadioButton, QWidget, QDialog, QButtonGroup, QSlider, QStyle, \
-    QStyleOptionSlider, QGridLayout, QPushButton, QLabel, QLineEdit, QDialogButtonBox, QComboBox, QCheckBox
+from qtpy import QtGui, QtCore, QtWidgets
+from qtpy.QtGui import QPainter, QPixmap
+from qtpy.QtWidgets import QApplication, QRadioButton, QWidget, QDialog, QButtonGroup, QSlider, QStyle, QStyleOptionSlider, QGridLayout, QPushButton, QLabel, QLineEdit, QDialogButtonBox, QComboBox, QCheckBox
 import pyqtgraph as pg
 from pyqtgraph import functions as fn
 from pyqtgraph import Point
@@ -193,63 +191,63 @@ class QuadButton(QPushButton):
         parent.p0.setYRange(self.yrange[0], self.yrange[1])
         parent.show()
 
-# def horizontal_slider_style():
-#     return """QSlider::groove:horizontal {
-#             border: 1px solid #bbb;
-#             background: black;
-#             height: 10px;
-#             border-radius: 4px;
-#             }
-#
-#             QSlider::sub-page:horizontal {
-#             background: qlineargradient(x1: 0, y1: 0,    x2: 0, y2: 1,
-#                 stop: 0 black, stop: 1 rgb(150,255,150));
-#             background: qlineargradient(x1: 0, y1: 0.2, x2: 1, y2: 1,
-#                 stop: 0 black, stop: 1 rgb(150,255,150));
-#             border: 1px solid #777;
-#             height: 10px;
-#             border-radius: 4px;
-#             }
-#
-#             QSlider::add-page:horizontal {
-#             background: black;
-#             border: 1px solid #777;
-#             height: 10px;
-#             border-radius: 4px;
-#             }
-#
-#             QSlider::handle:horizontal {
-#             background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
-#                 stop:0 #eee, stop:1 #ccc);
-#             border: 1px solid #777;
-#             width: 13px;
-#             margin-top: -2px;
-#             margin-bottom: -2px;
-#             border-radius: 4px;
-#             }
-#
-#             QSlider::handle:horizontal:hover {
-#             background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
-#                 stop:0 #fff, stop:1 #ddd);
-#             border: 1px solid #444;
-#             border-radius: 4px;
-#             }
-#
-#             QSlider::sub-page:horizontal:disabled {
-#             background: #bbb;
-#             border-color: #999;
-#             }
-#
-#             QSlider::add-page:horizontal:disabled {
-#             background: #eee;
-#             border-color: #999;
-#             }
-#
-#             QSlider::handle:horizontal:disabled {
-#             background: #eee;
-#             border: 1px solid #aaa;
-#             border-radius: 4px;
-#             }"""
+def horizontal_slider_style():
+    return """QSlider::groove:horizontal {
+            border: 1px solid #bbb;
+            background: black;
+            height: 10px;
+            border-radius: 4px;
+            }
+
+            QSlider::sub-page:horizontal {
+            background: qlineargradient(x1: 0, y1: 0,    x2: 0, y2: 1,
+                stop: 0 black, stop: 1 rgb(150,255,150));
+            background: qlineargradient(x1: 0, y1: 0.2, x2: 1, y2: 1,
+                stop: 0 black, stop: 1 rgb(150,255,150));
+            border: 1px solid #777;
+            height: 10px;
+            border-radius: 4px;
+            }
+
+            QSlider::add-page:horizontal {
+            background: black;
+            border: 1px solid #777;
+            height: 10px;
+            border-radius: 4px;
+            }
+
+            QSlider::handle:horizontal {
+            background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
+                stop:0 #eee, stop:1 #ccc);
+            border: 1px solid #777;
+            width: 13px;
+            margin-top: -2px;
+            margin-bottom: -2px;
+            border-radius: 4px;
+            }
+
+            QSlider::handle:horizontal:hover {
+            background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
+                stop:0 #fff, stop:1 #ddd);
+            border: 1px solid #444;
+            border-radius: 4px;
+            }
+
+            QSlider::sub-page:horizontal:disabled {
+            background: #bbb;
+            border-color: #999;
+            }
+
+            QSlider::add-page:horizontal:disabled {
+            background: #eee;
+            border-color: #999;
+            }
+
+            QSlider::handle:horizontal:disabled {
+            background: #eee;
+            border: 1px solid #aaa;
+            border-radius: 4px;
+            }"""
 
 class ExampleGUI(QDialog):
     def __init__(self, parent=None):
@@ -394,7 +392,7 @@ class ImageDraw(pg.ImageItem):
     for controlling the levels and lookup table used to display the image.
     """
 
-    sigImageChanged = QtCore.pyqtSignal()
+    sigImageChanged = QtCore.Signal()
 
     def __init__(self, image=None, viewbox=None, parent=None, **kargs):
         super(ImageDraw, self).__init__()

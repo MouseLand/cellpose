@@ -15,8 +15,8 @@ from roifile import ImagejRoi, roiwrite
 
 
 try:
-    from PyQt5 import QtGui, QtCore, Qt, QtWidgets
-    from PyQt5.QtWidgets import QMessageBox
+    from qtpy import QtGui, QtCore, Qt, QtWidgets
+    from qtpy.QtWidgets import QMessageBox
     GUI = True
 except:
     GUI = False

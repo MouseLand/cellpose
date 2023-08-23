@@ -14,7 +14,7 @@ on:
       - main
   workflow_dispatch:
 
-jobs:
+jobs:          
   test:
     name: ${{ matrix.platform }} py${{ matrix.python-version }}
     runs-on: ${{ matrix.platform }}

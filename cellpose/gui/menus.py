@@ -2,8 +2,8 @@
 Copright © 2023 Howard Hughes Medical Institute, Authored by Carsen Stringer and Marius Pachitariu.
 """
 
-import PyQt5
-from PyQt5.QtWidgets import QAction
+import qtpy
+from qtpy.QtWidgets import QAction
 from . import io
 from .. import models
 from ..io import save_server
@@ -20,7 +20,11 @@ def mainmenu(parent):
     parent.autoloadMasks = QAction("Autoload masks from _masks.tif file", parent, checkable=True)
     parent.autoloadMasks.setChecked(False)
     file_menu.addAction(parent.autoloadMasks)
-    
+
+    parent.disableAutosave = QAction("Disable autosave _seg.npy file", parent, checkable=True)
+    parent.disableAutosave.setChecked(False)
+    file_menu.addAction(parent.disableAutosave)
+
     parent.loadMasks = QAction("Load &masks (*.tif, *.png, *.jpg)", parent)
     parent.loadMasks.setShortcut("Ctrl+M")
     parent.loadMasks.triggered.connect(lambda: io._load_masks(parent))

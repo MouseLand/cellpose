@@ -48,7 +48,7 @@ def main():
                 print('GUI ERROR: %s'%GUI_ERROR)
                 if GUI_IMPORT:
                     print('GUI FAILED: GUI dependencies may not be installed, to install, run')
-                    print('     pip install cellpose[gui]')
+                    print('     pip install "cellpose[gui]"')
             else:
                 gui.run()
 
@@ -153,8 +153,9 @@ def main():
             for image_name in tqdm(image_names, file=tqdm_out):
                 image = io.imread(image_name)
                 out = model.eval(image, channels=channels, diameter=diameter,
-                                do_3D=args.do_3D, net_avg=(not args.fast_mode or args.net_avg),
-                                augment=False,
+                                do_3D=args.do_3D,
+                                net_avg=(not args.fast_mode or args.net_avg),
+                                augment=args.augment,
                                 resample=(not args.no_resample and not args.fast_mode),
                                 flow_threshold=args.flow_threshold,
                                 cellprob_threshold=args.cellprob_threshold,
@@ -247,7 +248,8 @@ def main():
                                            save_each=args.save_each,
                                            n_epochs=args.n_epochs,
                                            batch_size=args.batch_size, 
-                                           min_train_masks=args.min_train_masks)
+                                           min_train_masks=args.min_train_masks,
+                                           model_name=args.model_name_out)
                 model.pretrained_model = cpmodel_path
                 logger.info('>>>> model trained and saved to %s'%cpmodel_path)
 

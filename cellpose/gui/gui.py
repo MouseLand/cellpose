@@ -7,11 +7,10 @@ import gc
 from natsort import natsorted
 from tqdm import tqdm, trange
 
-import PyQt5
-from PyQt5 import QtGui, QtCore, Qt, QtWidgets
+from qtpy import QtGui, QtCore, QtWidgets
 from superqt import QRangeSlider
 from qtpy.QtCore import Qt as Qtp
-from PyQt5.QtWidgets import QMainWindow, QApplication, QWidget, QScrollBar, QSlider, QComboBox, QGridLayout, QPushButton, QFrame, QCheckBox, QLabel, QProgressBar, QLineEdit, QMessageBox, QGroupBox
+from qtpy.QtWidgets import QMainWindow, QApplication, QWidget, QScrollBar, QSlider, QComboBox, QGridLayout, QPushButton, QFrame, QCheckBox, QLabel, QProgressBar, QLineEdit, QMessageBox, QGroupBox
 import pyqtgraph as pg
 from pyqtgraph import GraphicsScene
 
@@ -1227,7 +1226,7 @@ class MainW(QMainWindow):
         # reduce other pixels by -1
         self.cellpix[self.cellpix>idx] -= 1
         self.outpix[self.outpix>idx] -= 1
-
+        
         if self.NZ==1:
             self.removed_cell = [self.ismanual[idx-1], self.cellcolors[idx], np.nonzero(cp), np.nonzero(op)]
             self.redo.setEnabled(True)
@@ -1332,7 +1331,7 @@ class MainW(QMainWindow):
             self.remove_cell(self.selected)
             print('GUI_INFO: merged two cells')
             self.update_layer()
-            io._save_sets(self)
+            io._save_sets_with_check(self)
             self.undo.setEnabled(False)      
             self.redo.setEnabled(False)    
 
@@ -1350,7 +1349,7 @@ class MainW(QMainWindow):
             self.zdraw.append([])
             print('>>> added back removed cell')
             self.update_layer()
-            io._save_sets(self)
+            io._save_sets_with_check(self)
             self.removed_cell = []
             self.redo.setEnabled(False)
 
@@ -1605,7 +1604,7 @@ class MainW(QMainWindow):
                     self.ismanual = np.append(self.ismanual, True)
                     if self.NZ==1:
                         # only save after each cell if single image
-                        io._save_sets(self)
+                        io._save_sets_with_check(self)
             self.current_stroke = []
             self.strokes = []
             self.current_point_set = []
