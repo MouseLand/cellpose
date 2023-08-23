@@ -91,6 +91,8 @@ def get_arg_parser():
                                 help='anisotropy of volume in 3D')
     algorithm_args.add_argument('--exclude_on_edges', action='store_true',
                                 help='discard masks which touch edges of image')
+    algorithm_args.add_argument('--augment', action='store_true',
+                                help='tiles image with overlapping tiles and flips overlapped regions to augment')
 
     # output settings
     output_args = parser.add_argument_group("Output Arguments")
@@ -152,5 +154,8 @@ def get_arg_parser():
                                help='number of epochs to skip between saves. Default: %(default)s')
     training_args.add_argument('--save_each', action='store_true',
                                help='save the model under a different filename per --save_every epoch for later comparsion')
+    training_args.add_argument('--model_name_out', default=None, type=str,
+                               help='Name of model to save as, defaults to name describing model architecture. '
+                                    'Model is saved in the folder specified by --dir in models subfolder.')
 
     return parser
