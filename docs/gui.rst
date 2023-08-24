@@ -152,6 +152,12 @@ Keyboard shortcuts
 | CTRL+M              | load masks file (must be same size as image   |
 |                     | with 0 for NO mask, and 1,2,3... for masks)   |
 +---------------------+-----------------------------------------------+
+| CTRL+N              | save masks as PNG                             |
++---------------------+-----------------------------------------------+
+| CTRL+R              | save ROIs to native ImageJ ROI format         |
++---------------------+-----------------------------------------------+
+| CTRL+F              | save flows to image file                      |
++---------------------+-----------------------------------------------+
 | A/D or LEFT/RIGHT   | cycle through images in current directory     |
 +---------------------+-----------------------------------------------+
 | W/S or UP/DOWN      | change color (RGB/gray/red/green/blue)        |

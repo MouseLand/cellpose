@@ -1,13 +1,16 @@
+"""
+Copright © 2023 Howard Hughes Medical Institute, Authored by Carsen Stringer and Marius Pachitariu.
+"""
+
 import sys, os, pathlib, warnings, datetime, tempfile, glob, time
 import gc
 from natsort import natsorted
 from tqdm import tqdm, trange
 
-import PyQt5
-from PyQt5 import QtGui, QtCore, Qt, QtWidgets
-from superqt import QRangeSlider, QCollapsible
+from qtpy import QtGui, QtCore, QtWidgets
+from superqt import QRangeSlider
 from qtpy.QtCore import Qt as Qtp
-from PyQt5.QtWidgets import QMainWindow, QApplication, QWidget, QScrollBar, QComboBox, QGridLayout, QPushButton, QFrame, QCheckBox, QLabel, QProgressBar, QLineEdit, QMessageBox, QGroupBox, QScrollArea
+from qtpy.QtWidgets import QMainWindow, QApplication, QWidget, QScrollBar, QSlider, QComboBox, QGridLayout, QPushButton, QFrame, QCheckBox, QLabel, QProgressBar, QLineEdit, QMessageBox, QGroupBox
 import pyqtgraph as pg
 from pyqtgraph import GraphicsScene
 
@@ -93,7 +96,7 @@ def interpZ(mask, zdraw):
     """ find nearby planes and average their values using grid of points
         zfill is in ascending order
     """
-    ifill = np.ones(mask.shape[0], np.bool)
+    ifill = np.ones(mask.shape[0], "bool")
     zall = np.arange(0, mask.shape[0], 1, int)
     ifill[zdraw] = False
     zfill = zall[ifill]
@@ -1300,7 +1303,7 @@ class MainW(QMainWindow):
         if self.ncells==0:
             self.ClearButton.setEnabled(False)
         if self.NZ==1:
-            io._save_sets(self)
+            io._save_sets_with_check(self)
 
     def merge_cells(self, idx):
         self.prev_selected = self.selected
@@ -1332,7 +1335,7 @@ class MainW(QMainWindow):
             self.remove_cell(self.selected)
             print('GUI_INFO: merged two cells')
             self.update_layer()
-            io._save_sets(self)
+            io._save_sets_with_check(self)
             self.undo.setEnabled(False)      
             self.redo.setEnabled(False)    
 
@@ -1350,7 +1353,7 @@ class MainW(QMainWindow):
             self.zdraw.append([])
             print('>>> added back removed cell')
             self.update_layer()
-            io._save_sets(self)
+            io._save_sets_with_check(self)
             self.removed_cell = []
             self.redo.setEnabled(False)
 
@@ -1596,7 +1599,7 @@ class MainW(QMainWindow):
                     self.ismanual = np.append(self.ismanual, True)
                     if self.NZ==1:
                         # only save after each cell if single image
-                        io._save_sets(self)
+                        io._save_sets_with_check(self)
             self.current_stroke = []
             self.strokes = []
             self.current_point_set = []
@@ -1606,13 +1609,12 @@ class MainW(QMainWindow):
         # loop over z values
         median = []
         if points.shape[1] < 3:
-            points = np.concatenate((np.zeros((points.shape[0],1), np.int32), points), axis=1)
-
+            points = np.concatenate((np.zeros((points.shape[0],1), "int32"), points), axis=1)
         zdraw = np.unique(points[:,0])
         zrange = np.arange(zdraw.min(), zdraw.max()+1, 1, int)
         zmin = zdraw.min()
-        pix = np.zeros((2,0), np.uint16)
-        mall = np.zeros((len(zrange), self.Ly, self.Lx), np.bool)
+        pix = np.zeros((2,0), "uint16")
+        mall = np.zeros((len(zrange), self.Ly, self.Lx), "bool")
         k=0
         for z in zdraw:
             iz = points[:,0] == z
@@ -1964,8 +1966,7 @@ class MainW(QMainWindow):
             flow_threshold = float(self.flow_threshold.text())
             cellprob_threshold = float(self.cellprob_threshold.text())
             if flow_threshold==0.0 or self.NZ>1:
-                flow_threshold = None
-                
+                flow_threshold = None    
             return flow_threshold, cellprob_threshold
         except Exception as e:
             print('flow threshold or cellprob threshold not a valid number, setting to defaults')
@@ -2121,7 +2122,7 @@ class MainW(QMainWindow):
         self.saveFlows.setEnabled(True)
         self.saveServer.setEnabled(True)
         self.saveOutlines.setEnabled(True)
-        self.saveOutlines.setEnabled(True)
+        self.saveROIs.setEnabled(True)
         self.toggle_mask_ops()
         print(self.onechan)
         if self.onechan:

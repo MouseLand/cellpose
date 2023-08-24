@@ -14,7 +14,6 @@ _seg.npy output
 - *filename* : filename of image
 - *img* : image with chosen channels (nchan x Ly x Lx) (if not multiplane)
 - *masks* : each pixel in the image is assigned to an ROI (0 = NO ROI; 1,2,... = ROI labels)
-- *colors* : colors for ROIs
 - *outlines* : outlines of ROIs (0 = NO outline; 1,2,... = outline labels)
 - *chan_choose* : channels that you chose in GUI (0=gray/none, 1=red, 2=green, 3=blue)
 - *ismanual* : element *k* = whether or not mask *k* was manually drawn or computed by the cellpose algorithm
@@ -65,7 +64,31 @@ Or use the function below if running in a notebook
     from cellpose import io
     io.save_to_png(images, masks, flows, image_names)
 
-ROI manager compatible output for ImageJ
+Native ImageJ ROI archive output
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+You can save the outlines of the ROIs in a ImageJ-native ROI archive file. Rather than using the legacy solution below,
+you can use this function to create an ROI archive file that can be opened in directly in ImageJ. Recent versions of
+ImageJ can autodetect the file format. Open in ImageJ using File > Open... and select the file.
+The ROIs will appear in the ROI manager.
+
+To save the outlines using the CLI use the flag ``--save_rois``.
+
+To save the outlines using the API use the ``save_rois`` function in ``io.py``:
+
+This function is also available in the GUI.
+
+::
+
+    from cellpose import io, utils
+
+    # image_name is file name of image
+    # masks is numpy array of masks for image
+    io.save_rois(masks, '<your_filename_string>')
+
+    # the file will be saved as '<your_filename_string>_rois.zip'
+
+
+(Legacy ImageJ Interface) ROI manager compatible output for ImageJ
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 You can save the outlines of ROIs in a text file that's compatible with ImageJ 

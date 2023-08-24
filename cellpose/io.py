@@ -1,3 +1,7 @@
+"""
+Copright © 2023 Howard Hughes Medical Institute, Authored by Carsen Stringer and Marius Pachitariu.
+"""
+
 import os, datetime, gc, warnings, glob, shutil
 from natsort import natsorted
 import numpy as np
@@ -8,11 +12,12 @@ from tqdm import tqdm
 from pathlib import Path
 import re
 from . import version_str
+from roifile import ImagejRoi, roiwrite
 
 
 try:
-    from PyQt5 import QtGui, QtCore, Qt, QtWidgets
-    from PyQt5.QtWidgets import QMessageBox
+    from qtpy import QtGui, QtCore, Qt, QtWidgets
+    from qtpy.QtWidgets import QMessageBox
     GUI = True
 except:
     GUI = False
@@ -453,6 +458,34 @@ def save_to_png(images, masks, flows, file_names):
     
     """
     save_masks(images, masks, flows, file_names, png=True)
+
+
+def save_rois(masks, file_name):
+    """ save masks to .roi files in .zip archive for ImageJ/Fiji
+
+    Parameters
+    ----------
+
+    masks: 2D array, int
+        masks output from Cellpose.eval, where 0=NO masks; 1,2,...=mask labels
+
+    file_name: str
+        name to save the .zip file to
+
+    -------
+
+    """
+    outlines = utils.outlines_list(masks)
+    rois = [ImagejRoi.frompoints(outline) for outline in outlines]
+    file_name = os.path.splitext(file_name)[0] + '_rois.zip'
+
+    # Delete file if it exists; the roifile lib appends to existing zip files.
+    # If the user removed a mask it will still be in the zip file
+    if os.path.exists(file_name):
+        os.remove(file_name)
+
+    roiwrite(file_name, rois)
+
 
 # Now saves flows, masks, etc. to separate folders.
 def save_masks(images, masks, flows, file_names, png=True, tif=False, channels=[0,0],

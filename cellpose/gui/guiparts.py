@@ -1,7 +1,10 @@
-import PyQt5
-from PyQt5 import QtGui, QtCore, QtWidgets
-from PyQt5.QtGui import QPainter, QPixmap
-from PyQt5.QtWidgets import QApplication, QRadioButton, QWidget, QDialog, QButtonGroup, QSlider, QStyle, QStyleOptionSlider, QGridLayout, QPushButton, QLabel, QLineEdit, QDialogButtonBox, QComboBox, QCheckBox
+"""
+Copright © 2023 Howard Hughes Medical Institute, Authored by Carsen Stringer and Marius Pachitariu.
+"""
+
+from qtpy import QtGui, QtCore, QtWidgets
+from qtpy.QtGui import QPainter, QPixmap
+from qtpy.QtWidgets import QApplication, QRadioButton, QWidget, QDialog, QButtonGroup, QSlider, QStyle, QStyleOptionSlider, QGridLayout, QPushButton, QLabel, QLineEdit, QDialogButtonBox, QComboBox, QCheckBox
 import pyqtgraph as pg
 from pyqtgraph import functions as fn
 from pyqtgraph import Point
@@ -314,8 +317,14 @@ class HelpWindow(QDialog):
             <li class="has-line-data" data-line-start="12" data-line-end="13">Start draw mask = right-click</li>
             <li class="has-line-data" data-line-start="13" data-line-end="15">End draw mask = right-click, or return to circle at beginning</li>
             </ul>
-            <p class="has-line-data" data-line-start="15" data-line-end="16">Overlaps in masks are NOT allowed. If you draw a mask on top of another mask, it is cropped so that it doesn’t overlap with the old mask. Masks in 2D should be single strokes (single stroke is checked). If you want to draw masks in 3D (experimental), then you can turn this option off and draw a stroke on each plane with the cell and then press ENTER. 3D labelling will fill in planes that you have not labelled so that you do not have to as densely label.</p>
-            <p class="has-line-data" data-line-start="17" data-line-end="18">!NOTE!: The GUI automatically saves after you draw a mask in 2D but NOT after 3D mask drawing and NOT after segmentation. Save in the file menu or with Ctrl+S. The output file is in the same folder as the loaded image with <code>_seg.npy</code> appended.</p>
+            <p class="has-line-data" data-line-start="15" data-line-end="16">Overlaps in masks are NOT allowed. If you \
+            draw a mask on top of another mask, it is cropped so that it doesn’t overlap with the old mask. Masks in 2D \
+            should be single strokes (single stroke is checked). If you want to draw masks in 3D (experimental), then \
+            you can turn this option off and draw a stroke on each plane with the cell and then press ENTER. 3D \
+            labelling will fill in planes that you have not labelled so that you do not have to as densely label.</p>
+            <p class="has-line-data" data-line-start="17" data-line-end="18">!NOTE!: The GUI automatically saves after \
+            you draw a mask in 2D but NOT after 3D mask drawing and NOT after segmentation. Save in the file menu or \
+            with Ctrl+S. The output file is in the same folder as the loaded image with <code>_seg.npy</code> appended.</p>
             <table class="table table-striped table-bordered">
             <br><br>
             FYI there are tooltips throughout the GUI (hover over text to see)
@@ -362,6 +371,18 @@ class HelpWindow(QDialog):
             <tr>
             <td>CTRL+M</td>
             <td>load masks file (must be same size as image with 0 for NO mask, and 1,2,3… for masks)</td>
+            </tr>
+            <tr>
+            <td>CTRL+N</td>
+            <td>save masks as PNG</td>
+            </tr>
+            <tr>
+            <td>CTRL+R</td>
+            <td>save ROIs to native ImageJ ROI format</td>
+            </tr>
+            <tr>
+            <td>CTRL+F</td>
+            <td>save flows to image file</td>
             </tr>
             <tr>
             <td>A/D or LEFT/RIGHT</td>
@@ -506,47 +527,6 @@ class ViewBoxNoRightDrag(pg.ViewBox):
             self.scaleBy([0.9, 0.9])
         else:
             ev.ignore()
-    
-    def mouseDragEvent(self, ev, axis=None):
-        ## if axis is specified, event will only affect that axis.
-        if self.parent is None or (self.parent is not None and not self.parent.in_stroke):
-            ev.accept()  ## we accept all buttons
-
-            pos = ev.pos()
-            lastPos = ev.lastPos()
-            dif = pos - lastPos
-            dif = dif * -1
-
-            ## Ignore axes if mouse is disabled
-            mouseEnabled = np.array(self.state['mouseEnabled'], dtype=np.float)
-            mask = mouseEnabled.copy()
-            if axis is not None:
-                mask[1-axis] = 0.0
-
-            ## Scale or translate based on mouse button
-            if ev.button() & (QtCore.Qt.LeftButton | QtCore.Qt.MidButton):
-                if self.state['mouseMode'] == pg.ViewBox.RectMode:
-                    if ev.isFinish():  ## This is the final move in the drag; change the view scale now
-                        #print "finish"
-                        self.rbScaleBox.hide()
-                        ax = QtCore.QRectF(Point(ev.buttonDownPos(ev.button())), Point(pos))
-                        ax = self.childGroup.mapRectFromParent(ax)
-                        self.showAxRect(ax)
-                        self.axHistoryPointer += 1
-                        self.axHistory = self.axHistory[:self.axHistoryPointer] + [ax]
-                    else:
-                        ## update shape of scale box
-                        self.updateScaleBox(ev.buttonDownPos(), ev.pos())
-                else:
-                    tr = dif*mask
-                    tr = self.mapToView(tr) - self.mapToView(Point(0,0))
-                    x = tr.x() if mask[0] == 1 else None
-                    y = tr.y() if mask[1] == 1 else None
-
-                    self._resetTarget()
-                    if x is not None or y is not None:
-                        self.translateBy(x=x, y=y)
-                    self.sigRangeChangedManually.emit(self.state['mouseEnabled'])
 
 class ImageDraw(pg.ImageItem):
     """
@@ -563,7 +543,7 @@ class ImageDraw(pg.ImageItem):
     for controlling the levels and lookup table used to display the image.
     """
 
-    sigImageChanged = QtCore.pyqtSignal()
+    sigImageChanged = QtCore.Signal()
 
     def __init__(self, image=None, viewbox=None, parent=None, **kargs):
         super(ImageDraw, self).__init__()
@@ -624,7 +604,7 @@ class ImageDraw(pg.ImageItem):
                 self.drawAt(ev.pos())
                 if self.is_at_start(ev.pos()):
                     self.end_stroke()
-                    self.parent.in_stroke = False
+                    
         else:
             ev.acceptClicks(QtCore.Qt.RightButton)
             #ev.acceptClicks(QtCore.Qt.LeftButton)
@@ -668,6 +648,7 @@ class ImageDraw(pg.ImageItem):
                 self.parent.add_set()
         if len(self.parent.current_point_set) > 0 and self.parent.autosave:
             self.parent.add_set()
+        self.parent.in_stroke = False
 
     def tabletEvent(self, ev):
         pass

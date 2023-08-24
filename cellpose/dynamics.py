@@ -1,3 +1,7 @@
+"""
+Copright © 2023 Howard Hughes Medical Institute, Authored by Carsen Stringer and Marius Pachitariu.
+"""
+
 import time, os
 from scipy.ndimage import maximum_filter1d, find_objects
 import torch
@@ -577,7 +581,7 @@ def remove_bad_flow_masks(masks, flows, threshold=0.4, use_gpu=False, device=Non
         size [Ly x Lx] or [Lz x Ly x Lx]
     
     """
-    if masks.size > 10000*10000:
+    if masks.size > 10000*10000 and use_gpu:
         
         major_version, minor_version, _ = torch.__version__.split(".")
         
