@@ -14,8 +14,8 @@ def test_normalize_img(data_dir):
     img_norm = normalize_img(img, norm3D=True)
     assert img_norm.shape == img.shape
 
-    img_norm = normalize_img(img, norm3D=True, tile_norm=25)
+    img_norm = normalize_img(img, norm3D=True, tile_norm_blocksize=25)
     assert img_norm.shape == img.shape
 
-    img_norm = normalize_img(img, norm3D=False, sharpen=8)
+    img_norm = normalize_img(img, norm3D=False, sharpen_radius=8)
     assert img_norm.shape == img.shape
