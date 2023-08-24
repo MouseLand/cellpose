@@ -33,21 +33,10 @@ class Slider(QRangeSlider):
         self.name = name
         
         self.setStyleSheet(""" QSlider{
-                             background-color: none;
+                             background-color: transparent;
                              }
         """
         )
-        #                     QSlider::add-page:vertical {
-        #                     background: none;
-        #                     border: none;
-        #                     }
-
-        #                     QRangeSlider {
-        #                         qproperty-barColor: #9FCBFF;
-        #                     }
-        #                 }""")
-        
-        #self._setBarColor(color)
         self.show()
         
     def levelChanged(self, parent):
@@ -232,47 +221,13 @@ class MainW(QMainWindow):
                             background-color: rgb(40,40,40);
                             color: rgb(100,100,100);
                         }
+        QScrollArea > QWidget > QWidget
+                {
+                    background: transparent;
+                    border: none;
+                    margin: 0px 0px 0px 0px;
+                } 
         """)
-        #QLineEdit { border: 1px solid gray; color: white }
-
-        # QCheckBox{ color: rgb(140,140,140);
-        #                   border: none;
-        #                      }
-
-        # label_style = """QLabel{
-        #                     color: white
-        #                     } 
-        #                  QToolTip { 
-        #                    background-color: black; 
-        #                    color: white; 
-        #                    border: black solid 1px
-        #                    }"""
-        # box_style = """QLineEdit{color:white;    background-color: black; }
-        #                 QToolTip { 
-        #                    background-color: black; 
-        #                    color: white; 
-        #                    border: black solid 1px
-        #                    }"""
-        
-        # self.dropdowns = """QComboBox {color: white;
-        #                 background-color: rgb(40,40,40);}
-        #                 QComboBox::item:enabled { color: white;
-        #                 background-color: rgb(40,40,40);
-        #                 selection-color: white;
-        #                 selection-background-color: rgb(50,100,50);}
-        #                 QComboBox::item:!enabled {
-        #                         background-color: rgb(40,40,40);
-        #                         color: rgb(100,100,100);
-        #                     }"""
-        # self.checkstyle = """
-        #                 QCheckBox{color: rgb(140,140,140);
-        #                  border: none;
-        #                     }
-        #                     QToolTip { 
-        #                    background-color: black; 
-        #                    color: white; 
-        #                    border: black solid 1px
-        #                    }"""
         
 
         menus.mainmenu(self)
@@ -324,6 +279,7 @@ class MainW(QMainWindow):
         self.cwidget.setLayout(self.lmain)
         self.setCentralWidget(self.cwidget)
         self.lmain.setVerticalSpacing(0)
+        self.lmain.setContentsMargins(0,0,0,10)
 
         self.imask = 0
         self.scrollarea = QScrollArea()
@@ -468,15 +424,14 @@ class MainW(QMainWindow):
         label = QLabel('brush\nsize:')
         label.setFont(self.medfont)
         self.l0.addWidget(label, b,2,1,2)
-
         
-        b+=1
         # turn on drawing for 3D
-        self.SCheckBox = QCheckBox('single stroke')
+        self.SCheckBox = QCheckBox('single\nstroke')
         self.SCheckBox.setFont(self.medfont)
         self.SCheckBox.toggled.connect(self.autosave_on)
-        self.l0.addWidget(self.SCheckBox, b,0,1,3)
+        self.l0.addWidget(self.SCheckBox, b,6,1,3)
 
+        b+=1
         # turn off masks
         self.layer_off = False
         self.masksOn = True
@@ -484,13 +439,13 @@ class MainW(QMainWindow):
         self.MCheckBox.setFont(self.medfont)
         self.MCheckBox.setChecked(True)
         self.MCheckBox.toggled.connect(self.toggle_masks)
-        self.l0.addWidget(self.MCheckBox, b,3,1,3)
+        self.l0.addWidget(self.MCheckBox, b,0,1,4)
 
         # turn off outlines
         self.outlinesOn = False # turn off by default
         self.OCheckBox = QCheckBox('outlines on [Z]')
         self.OCheckBox.setFont(self.medfont)
-        self.l0.addWidget(self.OCheckBox, b,6,1,3)
+        self.l0.addWidget(self.OCheckBox, b,4,1,4)
         
         self.OCheckBox.setChecked(False)
         self.OCheckBox.toggled.connect(self.toggle_masks) 
@@ -534,24 +489,16 @@ class MainW(QMainWindow):
         self.Diameter.setFont(self.medfont)
         self.Diameter.returnPressed.connect(self.compute_scale)
         self.Diameter.setFixedWidth(40)
-        self.TBg.addWidget(self.Diameter, b0,3,1,3)
+        self.TBg.addWidget(self.Diameter, b0,3,1,2)
 
         # compute diameter
-        self.SizeButton = QPushButton('  calibrate')
+        self.SizeButton = QPushButton(' calibrate')
         self.SizeButton.clicked.connect(self.calibrate_size)
-        self.TBg.addWidget(self.SizeButton, b0,6,1,3)
+        self.TBg.addWidget(self.SizeButton, b0,5,1,4)
         self.SizeButton.setEnabled(False)
         #self.SizeButton.setStyleSheet(self.styleInactive)
         self.SizeButton.setFont(self.boldfont)
         self.SizeButton.setToolTip('you can manually enter the approximate diameter for your cells, \nor press “calibrate” to let the model estimate it. \nThe size is represented by a disk at the bottom of the view window \n(can turn this disk off by unchecking “scale disk on”)')
-
-        ### fast mode
-        #self.NetAvg = QComboBox()
-        #self.NetAvg.addItems(['average 4 nets', 'run 1 net', '+ turn off resample (fast)'])
-        #self.NetAvg.setFont(self.medfont)
-        #self.NetAvg.setToolTip('average 4 different fit networks (default); run 1 network (faster); or run 1 net + turn off resample (fast)')
-        #self.l0.addWidget(self.NetAvg, b,5,1,4)
-
         
         b0+=1
         # choose channel
@@ -692,9 +639,12 @@ class MainW(QMainWindow):
                 'livecell model\n(non-commercial use only)',
                 'cellpose cyto2 model']
         self.StyleButtons = []
+        jj = 0
         for j in range(len(self.net_text)):
             self.StyleButtons.append(guiparts.ModelButton(self, self.net_text[j], self.net_text[j]))
-            self.GBg.addWidget(self.StyleButtons[-1], 0,2*j,1,2)
+            w = 1 if j==4 else 2
+            self.GBg.addWidget(self.StyleButtons[-1], 0,jj,1,w)
+            jj += w
             if j < 4:
                 self.StyleButtons[-1].setFixedWidth(45)
             else:
@@ -1877,7 +1827,9 @@ class MainW(QMainWindow):
                     x01i = 255. - x99 
                     x99i = 255. - x01 
                     x01, x99 = x01i, x99i
-                self.saturation.append(self.NZ * [x01, x99])
+                self.saturation.append([])
+                for n in range(self.NZ):
+                    self.saturation[-1].append([x01, x99])
             else:
                 self.saturation.append([])
                 for z in range(img_norm.shape[0]):
@@ -1897,8 +1849,7 @@ class MainW(QMainWindow):
         if img_norm.shape[-1]==1:
             self.saturation.append(self.saturation[0])
             self.saturation.append(self.saturation[0])
-        #print(self.saturation[0][0])
-
+        
         self.autobtn.setChecked(True)
         self.update_plot()
 
@@ -2096,6 +2047,7 @@ class MainW(QMainWindow):
             flow_threshold, cellprob_threshold = self.get_thresholds()
             self.diameter = float(self.Diameter.text())
             normalize_params = self.get_normalize_params()
+            print(normalize_params)
             try:
                 masks, flows = self.model.eval(data, 
                                                 channels=channels,
