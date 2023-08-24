@@ -31,19 +31,22 @@ class Slider(QRangeSlider):
         self.setEnabled(False)
         self.valueChanged.connect(lambda: self.levelChanged(parent))
         self.name = name
+        
         self.setStyleSheet(""" QSlider{
-                            background-color: none;
-                            }
+                             background-color: none;
+                             }
+        """
+        )
+        #                     QSlider::add-page:vertical {
+        #                     background: none;
+        #                     border: none;
+        #                     }
 
-                            QSlider::add-page:vertical {
-                            background: none;
-                            border: none;
-                            }
-
-                            QRangeSlider {
-                                qproperty-barColor: #9FCBFF;
-                            }
-                        }""")
+        #                     QRangeSlider {
+        #                         qproperty-barColor: #9FCBFF;
+        #                     }
+        #                 }""")
+        
         #self._setBarColor(color)
         self.show()
         
@@ -178,6 +181,9 @@ def run():
     app_icon.addFile(icon_path, QtCore.QSize(64, 64))
     app_icon.addFile(icon_path, QtCore.QSize(256, 256))
     app.setWindowIcon(app_icon)
+    app.setStyle("Fusion")
+    app.setPalette(guiparts.DarkPalette())
+    #app.setStyleSheet("QLineEdit { color: yellow }")
 
     # models.download_model_weights() # does not exist
     MainW(image=None)
@@ -210,12 +216,79 @@ class MainW(QMainWindow):
         app_icon.addFile(icon_path, QtCore.QSize(256, 256))
         self.setWindowIcon(app_icon)
 
+        self.setStyleSheet("""
+        QToolTip { 
+                            background-color: black; 
+                            color: white; 
+                            border: black solid 1px
+                            }
+        QComboBox {color: white;
+                    background-color: rgb(40,40,40);}
+                    QComboBox::item:enabled { color: white;
+                    background-color: rgb(40,40,40);
+                    selection-color: white;
+                    selection-background-color: rgb(50,100,50);}
+                    QComboBox::item:!enabled {
+                            background-color: rgb(40,40,40);
+                            color: rgb(100,100,100);
+                        }
+        """)
+        #QLineEdit { border: 1px solid gray; color: white }
+
+        # QCheckBox{ color: rgb(140,140,140);
+        #                   border: none;
+        #                      }
+
+        # label_style = """QLabel{
+        #                     color: white
+        #                     } 
+        #                  QToolTip { 
+        #                    background-color: black; 
+        #                    color: white; 
+        #                    border: black solid 1px
+        #                    }"""
+        # box_style = """QLineEdit{color:white;    background-color: black; }
+        #                 QToolTip { 
+        #                    background-color: black; 
+        #                    color: white; 
+        #                    border: black solid 1px
+        #                    }"""
+        
+        # self.dropdowns = """QComboBox {color: white;
+        #                 background-color: rgb(40,40,40);}
+        #                 QComboBox::item:enabled { color: white;
+        #                 background-color: rgb(40,40,40);
+        #                 selection-color: white;
+        #                 selection-background-color: rgb(50,100,50);}
+        #                 QComboBox::item:!enabled {
+        #                         background-color: rgb(40,40,40);
+        #                         color: rgb(100,100,100);
+        #                     }"""
+        # self.checkstyle = """
+        #                 QCheckBox{color: rgb(140,140,140);
+        #                  border: none;
+        #                     }
+        #                     QToolTip { 
+        #                    background-color: black; 
+        #                    color: white; 
+        #                    border: black solid 1px
+        #                    }"""
+        
+
         menus.mainmenu(self)
         menus.editmenu(self)
         menus.modelmenu(self)
         menus.helpmenu(self)
 
-        self.setStyleSheet("QMainWindow {background: 'black';}")
+        self.headings = """QLabel{
+                            color: rgb(150,255,150)
+                            } 
+                         QToolTip { 
+                           background-color: black; 
+                           color: white; 
+                           border: black solid 1px
+                           }"""
+        
         self.stylePressed = """QPushButton {Text-align: left; 
                              background-color: rgb(150,50,150); 
                              border-color: white;
@@ -250,22 +323,23 @@ class MainW(QMainWindow):
         self.lmain = QGridLayout()
         self.cwidget.setLayout(self.lmain)
         self.setCentralWidget(self.cwidget)
-        self.lmain.setVerticalSpacing(6)
+        self.lmain.setVerticalSpacing(0)
 
         self.imask = 0
         self.scrollarea = QScrollArea()
         self.scrollarea.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOn)
         #self.scrollarea.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
-        #self.scrollarea.setStyleSheet("""QScrollArea { background: black; }""")
+        self.scrollarea.setStyleSheet("""QScrollArea { border: none }""")
         self.scrollarea.setWidgetResizable(True)
         self.swidget = QWidget(self)
-        self.swidget.setStyleSheet("""QWidget { background: black; }""")
+        #self.swidget.setStyleSheet("""QWidget { background: black; }""")
         self.scrollarea.setWidget(self.swidget)
         self.l0 = QGridLayout() 
         self.swidget.setLayout(self.l0)
         b = self.make_buttons()
         self.lmain.addWidget(self.scrollarea, 0, 0, 40, 9)
 
+        
         # ---- drawing area ---- #
         self.win = pg.GraphicsLayoutWidget()
         
@@ -297,7 +371,7 @@ class MainW(QMainWindow):
         else:
             np.random.seed(42) # make colors stable
             self.colormap = ((np.random.rand(1000000,3)*0.8+0.1)*255).astype(np.uint8)
-        self.reset()
+        #self.reset()
 
         self.is_stack = True # always loading images of same FOV
         # if called with image, load it
@@ -331,51 +405,10 @@ class MainW(QMainWindow):
         EG.show()
 
     def make_buttons(self):
-        label_style = """QLabel{
-                            color: white
-                            } 
-                         QToolTip { 
-                           background-color: black; 
-                           color: white; 
-                           border: black solid 1px
-                           }"""
-        box_style = """QLineEdit{color:white;    background-color: black; }
-                        QToolTip { 
-                           background-color: black; 
-                           color: white; 
-                           border: black solid 1px
-                           }"""
         self.boldfont = QtGui.QFont("Arial", 11, QtGui.QFont.Bold)
         self.boldmedfont = QtGui.QFont("Arial", 9, QtGui.QFont.Bold)
         self.medfont = QtGui.QFont("Arial", 9)
         self.smallfont = QtGui.QFont("Arial", 8)
-        self.headings = """QLabel{
-                            color: rgb(150,255,150)
-                            } 
-                         QToolTip { 
-                           background-color: black; 
-                           color: white; 
-                           border: black solid 1px
-                           }"""
-        self.dropdowns = """QComboBox {color: white;
-                        background-color: rgb(40,40,40);}
-                        QComboBox::item:enabled { color: white;
-                        background-color: rgb(40,40,40);
-                        selection-color: white;
-                        selection-background-color: rgb(50,100,50);}
-                        QComboBox::item:!enabled {
-                                background-color: rgb(40,40,40);
-                                color: rgb(100,100,100);
-                            }"""
-        self.checkstyle = """
-                        QCheckBox{color: rgb(140,140,140);
-                         border: none;
-                            }
-                            QToolTip { 
-                           background-color: black; 
-                           color: white; 
-                           border: black solid 1px
-                           }"""
         
         label = QLabel('Views:')#[\u2191 \u2193]')
         label.setStyleSheet(self.headings)
@@ -389,15 +422,12 @@ class MainW(QMainWindow):
         self.RGBDropDown.addItems(["RGB","red=R","green=G","blue=B","gray","spectral"])
         self.RGBDropDown.setFont(self.medfont)
         self.RGBDropDown.currentIndexChanged.connect(self.color_choose)
-        self.RGBDropDown.setStyleSheet(self.dropdowns)
         self.l0.addWidget(self.RGBDropDown, b,0,1,3)
         
         label = QLabel('<p>[&uarr; / &darr; or W/S]</p>')
-        label.setStyleSheet(label_style)
         label.setFont(self.smallfont)
         self.l0.addWidget(label, b,3,1,3)
         label = QLabel('[R / G / B \n toggles color ]')
-        label.setStyleSheet(label_style)
         label.setFont(self.smallfont)
         self.l0.addWidget(label, b,6,1,3)
 
@@ -407,14 +437,11 @@ class MainW(QMainWindow):
         self.ViewDropDown.setFont(self.medfont)
         self.ViewDropDown.model().item(4).setEnabled(False)
         self.ViewDropDown.currentIndexChanged.connect(self.update_plot)
-        self.ViewDropDown.setStyleSheet(self.dropdowns)
         self.l0.addWidget(self.ViewDropDown, b,0,1,3)
 
         label = QLabel('[pageup / pagedown]')
-        label.setStyleSheet(label_style)
         label.setFont(self.smallfont)
         self.l0.addWidget(label, b,3,1,5)
-        
         
         #self.ViewDropDown = guiparts.RGBRadioButtons(self, b+2,0)
 
@@ -436,38 +463,34 @@ class MainW(QMainWindow):
         self.BrushChoose.addItems(["1","3","5","7","9"])
         self.BrushChoose.currentIndexChanged.connect(self.brush_choose)
         #self.BrushChoose.setFixedWidth(60)
-        self.BrushChoose.setStyleSheet(self.dropdowns)
         self.BrushChoose.setFont(self.medfont)
         self.l0.addWidget(self.BrushChoose, b, 4,1,2)
         label = QLabel('brush\nsize:')
-        label.setStyleSheet(label_style)
         label.setFont(self.medfont)
         self.l0.addWidget(label, b,2,1,2)
 
+        
+        b+=1
         # turn on drawing for 3D
         self.SCheckBox = QCheckBox('single stroke')
-        self.SCheckBox.setStyleSheet(self.checkstyle)
         self.SCheckBox.setFont(self.medfont)
         self.SCheckBox.toggled.connect(self.autosave_on)
-        self.l0.addWidget(self.SCheckBox, b,6,1,3)
+        self.l0.addWidget(self.SCheckBox, b,0,1,3)
 
-        b+=1
         # turn off masks
         self.layer_off = False
         self.masksOn = True
         self.MCheckBox = QCheckBox('MASKS ON [X]')
-        self.MCheckBox.setStyleSheet(self.checkstyle)
         self.MCheckBox.setFont(self.medfont)
         self.MCheckBox.setChecked(True)
         self.MCheckBox.toggled.connect(self.toggle_masks)
-        self.l0.addWidget(self.MCheckBox, b,0,1,5)
+        self.l0.addWidget(self.MCheckBox, b,3,1,3)
 
         # turn off outlines
         self.outlinesOn = False # turn off by default
         self.OCheckBox = QCheckBox('outlines on [Z]')
-        self.OCheckBox.setStyleSheet(self.checkstyle)
         self.OCheckBox.setFont(self.medfont)
-        self.l0.addWidget(self.OCheckBox, b,5,1,4)
+        self.l0.addWidget(self.OCheckBox, b,6,1,3)
         
         self.OCheckBox.setChecked(False)
         self.OCheckBox.toggled.connect(self.toggle_masks) 
@@ -476,6 +499,7 @@ class MainW(QMainWindow):
         line = QHLine()
         line.setStyleSheet('color: white;')
         self.l0.addWidget(line, b,0,1,9)
+        
         b+=1
         label = QLabel('Segmentation:')
         label.setStyleSheet(self.headings)
@@ -484,30 +508,27 @@ class MainW(QMainWindow):
         
         # use GPU
         self.useGPU = QCheckBox('use GPU')
-        self.useGPU.setStyleSheet(self.checkstyle)
         self.useGPU.setFont(self.medfont)
         self.useGPU.setToolTip('if you have specially installed the <i>cuda</i> version of torch, then you can activate this')
         self.check_gpu()
-        self.l0.addWidget(self.useGPU, b,5,1,4)
+        self.l0.addWidget(self.useGPU, b,5,1,3)
         
         b0 = 0
         self.TB = QGroupBox('Settings')
-        #self.TB = QCollapsible('Settings')
-        #self.TB.setFont(self.boldfont)
-        #self.TB.setStyleSheet("QGroupBox { border: 1px solid gray; color:white; padding: 10px 0px;}")
-        #self.TB0 = QGroupBox("Settings")
-        #self.TB0.setStyleSheet("QGroupBox { border: 1px solid gray; color:white; padding: 10px 0px;}")
         self.TBg = QGridLayout()
         self.TB.setLayout(self.TBg)
         
+        self.TB.setFont(self.boldfont)
+        self.TB.setStyleSheet("""QGroupBox 
+                        { border: 1px solid gray; color:white; padding: 10px 0px;}            
+                        """)
+
         self.diameter = 30
         label = QLabel('cell diameter\n(pixels):')
-        label.setStyleSheet(label_style)
         label.setFont(self.medfont)
         label.setToolTip('you can manually enter the approximate diameter for your cells, \nor press “calibrate” to let the model estimate it. \nThe size is represented by a disk at the bottom of the view window \n(can turn this disk off by unchecking “scale disk on”)')
         self.TBg.addWidget(label, b0, 0,1,3)
         self.Diameter = QLineEdit()
-        self.Diameter.setStyleSheet(box_style)
         self.Diameter.setToolTip('you can manually enter the approximate diameter for your cells, \nor press “calibrate” to let the model estimate it. \nThe size is represented by a disk at the bottom of the view window \n(can turn this disk off by unchecking “scale disk on”)')
         self.Diameter.setText(str(self.diameter))
         self.Diameter.setFont(self.medfont)
@@ -520,7 +541,7 @@ class MainW(QMainWindow):
         self.SizeButton.clicked.connect(self.calibrate_size)
         self.TBg.addWidget(self.SizeButton, b0,6,1,3)
         self.SizeButton.setEnabled(False)
-        self.SizeButton.setStyleSheet(self.styleInactive)
+        #self.SizeButton.setStyleSheet(self.styleInactive)
         self.SizeButton.setFont(self.boldfont)
         self.SizeButton.setToolTip('you can manually enter the approximate diameter for your cells, \nor press “calibrate” to let the model estimate it. \nThe size is represented by a disk at the bottom of the view window \n(can turn this disk off by unchecking “scale disk on”)')
 
@@ -540,10 +561,8 @@ class MainW(QMainWindow):
         cstr = ['chan to segment:', 'chan2 (optional): ']
         for i in range(2):
             #self.ChannelChoose[i].setFixedWidth(70)
-            self.ChannelChoose[i].setStyleSheet(self.dropdowns)
             self.ChannelChoose[i].setFont(self.medfont)
             label = QLabel(cstr[i])
-            label.setStyleSheet(label_style)
             label.setFont(self.medfont)
             if i==0:
                 label.setToolTip('this is the channel in which the cytoplasm or nuclei exist that you want to segment')
@@ -560,11 +579,9 @@ class MainW(QMainWindow):
         
         label = QLabel('flow\nthreshold:')
         label.setToolTip('threshold on flow error to accept a mask (set higher to get more cells, e.g. in range from (0.1, 3.0), OR set to 0.0 to turn off so no cells discarded);\n press enter to recompute if model already run')
-        label.setStyleSheet(label_style)
         label.setFont(self.medfont)
         self.TBg.addWidget(label, b0, 0,1,2)
         self.flow_threshold = QLineEdit()
-        self.flow_threshold.setStyleSheet(box_style)
         self.flow_threshold.setText('0.4')
         self.flow_threshold.returnPressed.connect(self.compute_cprob)
         self.flow_threshold.setFixedWidth(40)
@@ -574,11 +591,9 @@ class MainW(QMainWindow):
 
         label = QLabel('cellprob\nthreshold:')
         label.setToolTip('threshold on cellprob output to seed cell masks (set lower to include more pixels or higher to include fewer, e.g. in range from (-6, 6)); \n press enter to recompute if model already run')
-        label.setStyleSheet(label_style)
         label.setFont(self.medfont)
         self.TBg.addWidget(label, b0, 4,1,2)
         self.cellprob_threshold = QLineEdit()
-        self.cellprob_threshold.setStyleSheet(box_style)
         self.cellprob_threshold.setText('0.0')
         self.cellprob_threshold.returnPressed.connect(self.compute_cprob)
         self.cellprob_threshold.setFixedWidth(40)
@@ -589,11 +604,9 @@ class MainW(QMainWindow):
         b0+=1
         label = QLabel('3D stitch\n threshold:')
         label.setToolTip('for 3D volumes, turn on stitch_threshold to stitch masks across planes instead of running cellpose in 3D (see docs for details)')
-        label.setStyleSheet(label_style)
         label.setFont(self.medfont)
         self.TBg.addWidget(label, b0, 0,1,3)
         self.stitch_threshold = QLineEdit()
-        self.stitch_threshold.setStyleSheet(box_style)
         self.stitch_threshold.setText('0.0')
         #self.cellprob_threshold.returnPressed.connect(self.compute_cprob)
         self.stitch_threshold.setFixedWidth(40)
@@ -605,12 +618,7 @@ class MainW(QMainWindow):
     
         # NORMALIZATION
         b0 +=1
-        #self.NB = QGroupBox()
-        #self.NB.setStyleSheet("QGroupBox { border: 1px solid gray; color:white; padding: 0px 0px;}")
-        #self.NBg = QGridLayout()
-        #self.NB.setLayout(self.TBg)
         label = QLabel('Normalization (advanced):')
-        label.setStyleSheet(label_style)
         label.setFont(self.boldmedfont)
         self.TBg.addWidget(label, b0, 0,1,7)
 
@@ -630,11 +638,9 @@ class MainW(QMainWindow):
         for p in range(6):
             label = QLabel(f'{labels[p]}:')
             label.setToolTip(tooltips[p])
-            label.setStyleSheet(label_style)
             label.setFont(self.medfont)
             self.TBg.addWidget(label, b0+p//2, 4*(p%2),1,2)
             self.norm_edits.append(QLineEdit())
-            self.norm_edits[p].setStyleSheet(box_style)
             self.norm_edits[p].setText(str(self.norm_vals[p]))
             self.norm_edits[p].setFixedWidth(40)
             self.norm_edits[p].setFont(self.medfont)
@@ -643,20 +649,17 @@ class MainW(QMainWindow):
 
         b0+=3
         self.norm3D_cb = QCheckBox('norm3D')
-        self.norm3D_cb.setStyleSheet(self.checkstyle)
         self.norm3D_cb.setFont(self.medfont)
         self.norm3D_cb.setToolTip('run same normalization across planes')
         self.TBg.addWidget(self.norm3D_cb, b0,0,1,3)
 
         self.invert_cb = QCheckBox('invert')
-        self.invert_cb.setStyleSheet(self.checkstyle)
         self.invert_cb.setFont(self.medfont)
         self.invert_cb.setToolTip('invert image')
         self.TBg.addWidget(self.invert_cb, b0,3,1,3)
 
         b0+=1
         self.normalize_cb = QCheckBox('normalize')
-        self.normalize_cb.setStyleSheet(self.checkstyle)
         self.normalize_cb.setFont(self.medfont)
         self.normalize_cb.setToolTip('normalize image for cellpose')
         self.normalize_cb.setChecked(True)
@@ -666,7 +669,7 @@ class MainW(QMainWindow):
         self.NormButton.clicked.connect(self.compute_saturation)
         self.TBg.addWidget(self.NormButton, b0,4,1,5)
         self.NormButton.setEnabled(False)
-        self.NormButton.setStyleSheet(self.styleInactive)
+        #self.NormButton.setStyleSheet(self.styleInactive)
         
         b+=1
         #self.TB.setContent(self.TB0)
@@ -676,8 +679,7 @@ class MainW(QMainWindow):
         self.GB = QGroupBox('Model zoo')
         self.GB.setFont(self.boldfont)
         self.GB.setStyleSheet("""QGroupBox 
-                        { border: 1px solid gray; color:white; padding: 10px 0px;}
-                                        
+                        { border: 1px solid gray; color:white; padding: 10px 0px;}            
                         """)
         self.GBg = QGridLayout()
         self.GB.setLayout(self.GBg)
@@ -714,11 +716,12 @@ class MainW(QMainWindow):
             self.StyleButtons[-1].setToolTip(nett[j])
 
         self.StyleToModel = QPushButton(' compute style and run suggested model')
-        self.StyleToModel.setStyleSheet(self.styleInactive)
+        self.StyleToModel.setEnabled(False)
+        #self.StyleToModel.setStyleSheet(self.styleInactive)
         self.StyleToModel.clicked.connect(self.suggest_model)
         self.StyleToModel.setToolTip(' uses general cp2 model to compute style and runs suggested model based on style')
         self.StyleToModel.setFont(self.smallfont)
-        self.GBg.addWidget(self.StyleToModel, 2,0,1,10)
+        self.GBg.addWidget(self.StyleToModel, 2,0,1,9)
 
         # choose models
         self.ModelChoose = QComboBox()
@@ -729,22 +732,21 @@ class MainW(QMainWindow):
         else:
             self.ModelChoose.addItems(['or select custom model'])
             current_index = 0
-        self.ModelChoose.setFixedWidth(220)
-        self.ModelChoose.setStyleSheet(self.dropdowns)
+        self.ModelChoose.setFixedWidth(180)
         self.ModelChoose.setFont(self.medfont)
         self.ModelChoose.setCurrentIndex(current_index)
         tipstr = 'add or train your own models in the "Models" file menu and choose model here'
         self.ModelChoose.setToolTip(tipstr)
         self.ModelChoose.activated.connect(self.model_choose)
         
-        self.GBg.addWidget(self.ModelChoose, 3,0,1,7)
+        self.GBg.addWidget(self.ModelChoose, 3,0,1,6)
 
         # compute segmentation w/ custom model
         self.ModelButton = QPushButton(u' run model')
         self.ModelButton.clicked.connect(self.compute_model)
-        self.GBg.addWidget(self.ModelButton, 3,7,2,2)
+        self.GBg.addWidget(self.ModelButton, 3,6,1,3)
         self.ModelButton.setEnabled(False)
-        self.ModelButton.setStyleSheet(self.styleInactive)
+        #self.ModelButton.setStyleSheet(self.styleInactive)
 
         self.l0.addWidget(self.GB, b, 0, 1, 9)
         
@@ -754,7 +756,6 @@ class MainW(QMainWindow):
         self.l0.addWidget(self.progress, b,0,1,6)
 
         self.roi_count = QLabel('0 ROIs')
-        self.roi_count.setStyleSheet('color: white;')
         self.roi_count.setFont(self.boldfont)
         self.roi_count.setAlignment(QtCore.Qt.AlignRight)
         self.l0.addWidget(self.roi_count, b,6,1,3)
@@ -771,17 +772,8 @@ class MainW(QMainWindow):
         label.setFont(self.boldfont)
         self.l0.addWidget(label, b,0,1,5)
 
-        #b+=1
-        #self.autochannelbtn = QCheckBox('renormalize channels')
-        #self.autochannelbtn.setStyleSheet(self.checkstyle)
-        #self.autochannelbtn.setFont(self.medfont)
-        #self.autochannelbtn.setChecked(True)
-        #self.autochannelbtn.setToolTip('sets channels so that 1st and 99th percentiles at same values, only works for 2D images currently')
-        #self.l0.addWidget(self.autochannelbtn, b,0,1,5)
-
         self.autobtn = QCheckBox('auto-adjust')
         self.autobtn.setToolTip('sets scale-bars as normalized for segmentation')
-        self.autobtn.setStyleSheet(self.checkstyle)
         self.autobtn.setFont(self.medfont)
         self.autobtn.setChecked(True)
         self.l0.addWidget(self.autobtn, b,5,1,4)
@@ -815,7 +807,6 @@ class MainW(QMainWindow):
 
         b+=1
         self.orthobtn = QCheckBox('ortho')
-        self.orthobtn.setStyleSheet(self.checkstyle)
         self.orthobtn.setToolTip('activate orthoviews with 3D image')
         self.orthobtn.setFont(self.medfont)
         self.orthobtn.setChecked(False)
@@ -824,7 +815,6 @@ class MainW(QMainWindow):
 
         label = QLabel('dz:')
         label.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
-        label.setStyleSheet(label_style)
         label.setFont(self.medfont)
         self.l0.addWidget(label, b, 2,1,1)
         self.dz = 10
@@ -838,7 +828,6 @@ class MainW(QMainWindow):
 
         label = QLabel('z-aspect:')
         label.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
-        label.setStyleSheet(label_style)
         label.setFont(self.medfont)
         self.l0.addWidget(label, b, 5,1,2)
         self.zaspect = 1.0
@@ -855,7 +844,6 @@ class MainW(QMainWindow):
         self.currentZ = 0
         label = QLabel('Z:')
         label.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
-        label.setStyleSheet(label_style)
         self.l0.addWidget(label, b, 5,1,2)
         self.zpos = QLineEdit()
         self.zpos.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
@@ -1862,8 +1850,12 @@ class MainW(QMainWindow):
                                             lower=percentile[0], upper=percentile[1], 
                                             smooth3D=smooth3D, norm3D=norm3D)
             # convert to 0->255
-            img_norm -= img_norm.min()
-            img_norm /= img_norm.max() 
+            img_norm_min = img_norm.min()
+            img_norm_max = img_norm.max()
+            for c in range(img_norm.shape[-1]):
+                if np.ptp(img_norm[...,c]) > 1e-3:
+                    img_norm[...,c] -= img_norm_min
+                    img_norm[...,c] /= img_norm_max
             img_norm *= 255
             self.stack_filtered = img_norm 
             self.ViewDropDown.model().item(4).setEnabled(True)
@@ -2159,18 +2151,17 @@ class MainW(QMainWindow):
 
     def enable_buttons(self):
         if len(self.model_strings) > 0:
-            self.ModelButton.setStyleSheet(self.styleUnpressed)
             self.ModelButton.setEnabled(True)
-        self.StyleToModel.setStyleSheet(self.styleUnpressed)
+        #self.StyleToModel.setStyleSheet(self.styleUnpressed)
         self.StyleToModel.setEnabled(True)
         for i in range(len(self.StyleButtons)):
             self.StyleButtons[i].setEnabled(True)
-            self.StyleButtons[i].setStyleSheet(self.styleUnpressed)
+            #self.StyleButtons[i].setStyleSheet(self.styleUnpressed)
         self.SizeButton.setEnabled(True)
         self.SCheckBox.setEnabled(True)
-        self.SizeButton.setStyleSheet(self.styleUnpressed)
+        #self.SizeButton.setStyleSheet(self.styleUnpressed)
         self.NormButton.setEnabled(True)
-        self.NormButton.setStyleSheet(self.styleUnpressed)
+        #self.NormButton.setStyleSheet(self.styleUnpressed)
         self.newmodel.setEnabled(True)
         self.loadMasks.setEnabled(True)
         self.saveSet.setEnabled(True)
