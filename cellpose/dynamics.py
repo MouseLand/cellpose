@@ -762,6 +762,7 @@ def compute_masks(dP, cellprob, p=None, niter=200,
             if recast:
                 mask = mask.astype(np.uint32)
             Ly,Lx = mask.shape
+            p = np.array([transforms.resize_image(pi, Ly, Lx, interpolation=cv2.INTER_NEAREST) for pi in p])
         elif mask.max() < 2**16:
             mask = mask.astype(np.uint16)
 
