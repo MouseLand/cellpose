@@ -1,4 +1,4 @@
-from cellpose import io, models, metrics, plot
+from cellpose import io, models, metrics, plot, utils
 from pathlib import Path
 from subprocess import check_output, STDOUT
 import os, shutil
@@ -100,7 +100,38 @@ def test_cli_3D(data_dir, image_names):
             raise ValueError(e)
         compare_masks(data_dir, image_names, '3D', model_type)
         clear_output(data_dir, image_names)
-        
+
+
+def test_outlines_list(data_dir, image_names):
+    """ test both single and multithreaded by comparing them"""
+    clear_output(data_dir, image_names)
+    model_type = 'cyto'
+    channels = [2, 1]
+    image_name = 'rgb_2D.png'
+
+    file_name = str(data_dir.joinpath('2D').joinpath(image_name))
+    img = io.imread(file_name)
+
+    model = models.Cellpose(model_type=model_type)
+    masks, _, _, _ = model.eval(img, diameter=30, channels=channels, net_avg=False)
+    outlines_single = utils.outlines_list(masks, multiprocessing=False)
+    outlines_multi = utils.outlines_list(masks, multiprocessing=True)
+
+    assert len(outlines_single) == len(outlines_multi)
+
+    # Check that the outlines are the same, but not necessarily in the same order
+    outlines_matched = [False] * len(outlines_single)
+    for i, outline_single in enumerate(outlines_single):
+        for j, outline_multi in enumerate(outlines_multi):
+            if not outlines_matched[j] and np.array_equal(outline_single, outline_multi):
+                outlines_matched[j] = True
+                break
+        else:
+            assert False, "Outline not found in outlines_multi: {}".format(outline_single)
+
+    assert all(outlines_matched), "Not all outlines in outlines_multi were matched"
+
+
 def compare_masks(data_dir, image_names, runtype, model_type):
     """
     Helper function to check if outputs given by a test are exactly the same

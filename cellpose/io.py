@@ -1,4 +1,8 @@
-import os, datetime, gc, warnings, glob
+"""
+Copright © 2023 Howard Hughes Medical Institute, Authored by Carsen Stringer and Marius Pachitariu.
+"""
+
+import os, datetime, gc, warnings, glob, shutil
 from natsort import natsorted
 import numpy as np
 import cv2
@@ -6,10 +10,13 @@ import tifffile
 import logging, pathlib, sys
 from tqdm import tqdm
 from pathlib import Path
+from . import version_str
+from roifile import ImagejRoi, roiwrite
+
 
 try:
-    from PyQt5 import QtGui, QtCore, Qt, QtWidgets
-    from PyQt5.QtWidgets import QMessageBox
+    from qtpy import QtGui, QtCore, Qt, QtWidgets
+    from qtpy.QtWidgets import QMessageBox
     GUI = True
 except:
     GUI = False
@@ -46,6 +53,7 @@ def logger_setup():
                 )
     logger = logging.getLogger(__name__)
     logger.info(f'WRITING LOG OUTPUT TO {log_file}')
+    logger.info(version_str)
     #logger.handlers[1].stream = sys.stdout
 
     return logger, log_file
@@ -66,7 +74,9 @@ def outlines_to_text(base, outlines):
             f.write('\n')
 
 def imread(filename):
-    ext = os.path.splitext(filename)[-1]
+    """ read in image with tif or image file type supported by cv2 """
+    # ensure that extension check is not case sensitive
+    ext = os.path.splitext(filename)[-1].lower()
     if ext== '.tif' or ext=='.tiff':
         with tifffile.TiffFile(filename) as tif:
             ltif = len(tif.pages)
@@ -108,11 +118,40 @@ def imread(filename):
             io_logger.critical('ERROR: could not read masks from file, %s'%e)
             return None
 
+def remove_model(filename, delete=False):
+    """ remove model from .cellpose custom model list """
+    filename = os.path.split(filename)[-1]
+    from . import models
+    model_strings = models.get_user_models()
+    if len(model_strings) > 0:
+        with open(models.MODEL_LIST_PATH, 'w') as textfile:
+            for fname in model_strings:
+                textfile.write(fname + '\n')
+    else:
+        # write empty file
+        textfile = open(models.MODEL_LIST_PATH, 'w')
+        textfile.close()
+    print(f'{filename} removed from custom model list')
+    if delete:
+        os.remove(os.fspath(models.MODEL_DIR.joinpath(fname)))
+        print('model deleted')
+
+def add_model(filename):
+    """ add model to .cellpose models folder to use with GUI or CLI """
+    from . import models
+    fname = os.path.split(filename)[-1]
+    try:
+        shutil.copyfile(filename, os.fspath(models.MODEL_DIR.joinpath(fname)))
+    except shutil.SameFileError:
+        pass
+    print(f'{filename} copied to models folder {os.fspath(models.MODEL_DIR)}')
+    with open(models.MODEL_LIST_PATH, 'a') as textfile:
+        textfile.write(fname + '\n')
 
 def imsave(filename, arr):
-    ext = os.path.splitext(filename)[-1]
+    ext = os.path.splitext(filename)[-1].lower()
     if ext== '.tif' or ext=='.tiff':
-        tifffile.imsave(filename, arr)
+        tifffile.imwrite(filename, arr)
     else:
         if len(arr.shape)>2:
             arr = cv2.cvtColor(arr, cv2.COLOR_BGR2RGB)
@@ -130,13 +169,23 @@ def get_image_files(folder, mask_filter, imf=None, look_one_level_down=False):
     if look_one_level_down:
         folders = natsorted(glob.glob(os.path.join(folder, "*/")))
     folders.append(folder)
-
+    exts = ['.png', '.jpg', '.jpeg', '.tif', '.tiff']
+    l0 = 0
+    al = 0
     for folder in folders:
-        image_names.extend(glob.glob(folder + '/*%s.png'%imf))
-        image_names.extend(glob.glob(folder + '/*%s.jpg'%imf))
-        image_names.extend(glob.glob(folder + '/*%s.jpeg'%imf))
-        image_names.extend(glob.glob(folder + '/*%s.tif'%imf))
-        image_names.extend(glob.glob(folder + '/*%s.tiff'%imf))
+        all_files = glob.glob(folder + '/*')
+        al += len(all_files)
+        for ext in exts:
+            image_names.extend(glob.glob(folder + f'/*{imf}{ext}'))
+            image_names.extend(glob.glob(folder + f'/*{imf}{ext.upper()}'))
+        l0 += len(image_names)
+    
+    # return error if no files found
+    if al==0:
+        raise ValueError('ERROR: no files in --dir folder ')
+    elif l0==0:
+        raise ValueError("ERROR: no images in --dir folder with extensions '.png', '.jpg', '.jpeg', '.tif', '.tiff'")
+
     image_names = natsorted(image_names)
     imn = []
     for im in image_names:
@@ -149,9 +198,13 @@ def get_image_files(folder, mask_filter, imf=None, look_one_level_down=False):
             imn.append(im)
     image_names = imn
 
-    if len(image_names)==0:
-        raise ValueError('ERROR: no images in --dir folder')
+    # remove duplicates
+    image_names = [*set(image_names)]
+    image_names = natsorted(image_names)
     
+    if len(image_names)==0:
+        raise ValueError('ERROR: no images in --dir folder without _masks or _flows ending')
+        
     return image_names
         
 def get_label_files(image_names, mask_filter, imf=None):
@@ -331,6 +384,34 @@ def save_to_png(images, masks, flows, file_names):
     """
     save_masks(images, masks, flows, file_names, png=True)
 
+
+def save_rois(masks, file_name):
+    """ save masks to .roi files in .zip archive for ImageJ/Fiji
+
+    Parameters
+    ----------
+
+    masks: 2D array, int
+        masks output from Cellpose.eval, where 0=NO masks; 1,2,...=mask labels
+
+    file_name: str
+        name to save the .zip file to
+
+    -------
+
+    """
+    outlines = utils.outlines_list(masks)
+    rois = [ImagejRoi.frompoints(outline) for outline in outlines]
+    file_name = os.path.splitext(file_name)[0] + '_rois.zip'
+
+    # Delete file if it exists; the roifile lib appends to existing zip files.
+    # If the user removed a mask it will still be in the zip file
+    if os.path.exists(file_name):
+        os.remove(file_name)
+
+    roiwrite(file_name, rois)
+
+
 # Now saves flows, masks, etc. to separate folders.
 def save_masks(images, masks, flows, file_names, png=True, tif=False, channels=[0,0],
                suffix='',save_flows=False, save_outlines=False, save_ncolor=False, 
@@ -343,7 +424,7 @@ def save_masks(images, masks, flows, file_names, png=True, tif=False, channels=[
 
     if png and matplotlib installed, full segmentation figure is saved to file_names[k]+'_cp.png'
 
-    only tif option works for 3D data
+    only tif option works for 3D data, and only tif option works for empty masks
     
     Parameters
     -------------
@@ -380,7 +461,16 @@ def save_masks(images, masks, flows, file_names, png=True, tif=False, channels=[
     
     if masks.ndim > 2 and not tif:
         raise ValueError('cannot save 3D outputs as PNG, use tif option instead')
-#     base = os.path.splitext(file_names)[0]
+    
+    if masks.max() == 0:
+        io_logger.warning('no masks found, will not save PNG or outlines')
+        if not tif:
+            return
+        else:
+            png = False 
+            save_outlines=False 
+            save_flows=False
+            save_txt=False
     
     if savedir is None: 
         if dir_above:

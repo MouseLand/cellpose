@@ -1,4 +1,9 @@
-from PyQt5.QtWidgets import QAction
+"""
+Copright © 2023 Howard Hughes Medical Institute, Authored by Carsen Stringer and Marius Pachitariu.
+"""
+
+import qtpy
+from qtpy.QtWidgets import QAction
 from . import io
 from .. import models
 from ..io import save_server
@@ -15,7 +20,11 @@ def mainmenu(parent):
     parent.autoloadMasks = QAction("Autoload masks from _masks.tif file", parent, checkable=True)
     parent.autoloadMasks.setChecked(False)
     file_menu.addAction(parent.autoloadMasks)
-    
+
+    parent.disableAutosave = QAction("Disable autosave _seg.npy file", parent, checkable=True)
+    parent.disableAutosave.setChecked(False)
+    file_menu.addAction(parent.disableAutosave)
+
     parent.loadMasks = QAction("Load &masks (*.tif, *.png, *.jpg)", parent)
     parent.loadMasks.setShortcut("Ctrl+M")
     parent.loadMasks.triggered.connect(lambda: io._load_masks(parent))
@@ -33,7 +42,7 @@ def mainmenu(parent):
     file_menu.addAction(parent.saveSet)
     parent.saveSet.setEnabled(False)
 
-    parent.savePNG = QAction("Save masks as P&NG", parent)
+    parent.savePNG = QAction("Save masks as P&NG/tif", parent)
     parent.savePNG.setShortcut("Ctrl+N")
     parent.savePNG.triggered.connect(lambda: io._save_png(parent))
     file_menu.addAction(parent.savePNG)
@@ -44,6 +53,18 @@ def mainmenu(parent):
     parent.saveOutlines.triggered.connect(lambda: io._save_outlines(parent))
     file_menu.addAction(parent.saveOutlines)
     parent.saveOutlines.setEnabled(False)
+
+    parent.saveROIs = QAction("Save outlines as .zip archive of &ROI files for ImageJ", parent)
+    parent.saveROIs.setShortcut("Ctrl+R")
+    parent.saveROIs.triggered.connect(lambda: io._save_rois(parent))
+    file_menu.addAction(parent.saveROIs)
+    parent.saveROIs.setEnabled(False)
+
+    parent.saveFlows = QAction("Save &Flows and cellprob as tif", parent)
+    parent.saveFlows.setShortcut("Ctrl+F")
+    parent.saveFlows.triggered.connect(lambda: io._save_flows(parent))
+    file_menu.addAction(parent.saveFlows)
+    parent.saveFlows.setEnabled(False)
     
     parent.saveServer = QAction("Send manually labelled data to server", parent)
     parent.saveServer.triggered.connect(lambda: save_server(parent))

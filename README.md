@@ -1,10 +1,11 @@
 # <p>  <b>Cellpose </b> </p>
-<img src="https://raw.githubusercontent.com/kevinjohncutler/cellpose/master/cellpose/logo/logo.png?raw=True" width="250" title="cellpose" alt="cellpose" align="right" vspace = "50">
+<img src="http://www.cellpose.org/static/images/logo.png?raw=True" width="250" title="cellpose" alt="cellpose" align="right" vspace = "50">
 
 [![Documentation Status](https://readthedocs.org/projects/cellpose/badge/?version=latest)](https://cellpose.readthedocs.io/en/latest/?badge=latest)
 ![tests](https://github.com/mouseland/cellpose/actions/workflows/test_and_deploy.yml/badge.svg)
-[![Coverage Status](https://coveralls.io/repos/github/MouseLand/cellpose/badge.svg?branch=master)](https://coveralls.io/github/MouseLand/cellpose?branch=master)
+[![codecov](https://codecov.io/gh/MouseLand/cellpose/branch/main/graph/badge.svg?token=9FFo4zNtYP)](https://codecov.io/gh/MouseLand/cellpose)
 [![PyPI version](https://badge.fury.io/py/cellpose.svg)](https://badge.fury.io/py/cellpose)
+[![Downloads](https://pepy.tech/badge/cellpose)](https://pepy.tech/project/cellpose)
 [![Downloads](https://pepy.tech/badge/cellpose/month)](https://pepy.tech/project/cellpose)
 [![Python version](https://img.shields.io/pypi/pyversions/cellpose)](https://pypistats.org/packages/cellpose)
 [![Licence: GPL v3](https://img.shields.io/github/license/MouseLand/cellpose)](https://github.com/MouseLand/cellpose/blob/master/LICENSE)
@@ -15,17 +16,32 @@
 [![GitHub stars](https://img.shields.io/github/stars/MouseLand/cellpose?style=social)](https://github.com/MouseLand/cellpose/)
 [![GitHub forks](https://img.shields.io/github/forks/MouseLand/cellpose?style=social)](https://github.com/MouseLand/cellpose/)
 
-A generalist algorithm for cell and nucleus segmentation. 
+A generalist algorithm for cell and nucleus segmentation (v1.0) that can be optimized for your own data (v2.0). 
 
-Cellpose was written by Carsen Stringer and Marius Pachitariu. To learn about Cellpose 1.0, read the [paper](https://t.co/kBMXmPp3Yn?amp=1) or watch the [talk](https://t.co/JChCsTD0SK?amp=1). For support, please open an [issue](https://github.com/MouseLand/cellpose/issues). If you use Cellpose in your work please cite the paper. Please find the detailed documentation at <span style="font-size:larger;">[cellpose.readthedocs.io](https://cellpose.readthedocs.io/en/latest/)</span>.
+Cellpose was written by Carsen Stringer and Marius Pachitariu. To learn about Cellpose 2.0 (human-in-the-loop), read the [paper](https://www.nature.com/articles/s41592-022-01663-4) or watch the [talk](https://www.youtube.com/watch?v=3ydtAhfq6H0). To learn about Cellpose 1.0, read the [paper](https://t.co/kBMXmPp3Yn?amp=1) or watch the [talk](https://t.co/JChCsTD0SK?amp=1). For support, please open an [issue](https://github.com/MouseLand/cellpose/issues). 
 
-If you want to improve Cellpose for yourself and for everyone else, please consider contributing manual segmentations for a few of your images via the built-in GUI interface (see instructions below). 
 
-### :star2: UPDATE v2.0 (April 2022) :star2:
+Please see install instructions [below](README.md/#Installation), and also check out the detailed documentation at [**cellpose.readthedocs.io**](https://cellpose.readthedocs.io/en/latest/) for more information.
 
-Cellpose 2.0 now allows human-in-the-loop training of models! Check out the twitter [thread](https://twitter.com/marius10p/status/1511415409047650307?s=20&t=umTVIG1CFKIWHYMrQqFKyQ) and [preprint](https://www.biorxiv.org/content/10.1101/2022.04.01.486764v1) for details.
+### CITATION
 
-Read how to use it yourself in the [docs](https://cellpose.readthedocs.io/en/latest/gui.html#training-your-own-cellpose-model), and check out the full human-in-the-loop [video](https://youtu.be/3Y1VKcxjNy4).
+**If you use Cellpose 1 or 2, please cite the Cellpose 1.0 [paper](https://t.co/kBMXmPp3Yn?amp=1):**  
+Stringer, C., Wang, T., Michaelos, M., & Pachitariu, M. (2021). Cellpose: a generalist algorithm for cellular segmentation. <em>Nature methods, 18</em>(1), 100-106.
+
+**If you use the new human-in-the-loop training or use the new cyto2, livecell, or tissuenet models, please also cite the Cellpose 2.0 [paper](https://www.nature.com/articles/s41592-022-01663-4):**  
+Pachitariu, M. & Stringer, C. (2022). Cellpose 2.0: how to train your own model. <em>Nature methods</em>, 1-8.
+
+:triangular_flag_on_post: the new tissuenet and livecell models (`tissuenet`, `TN1`, `TN2`, `TN3`, `livecell`, `LC1`, `LC2`, `LC3` and `LC4`)  were trained using data under a **CC-BY-NC** license, so these models are **non-commercial use only**.
+
+### :star2: v2.0 (April 2022) :star2:
+
+Cellpose 2.0 now allows human-in-the-loop training of models! To learn more...
+* Check out the twitter [thread](https://twitter.com/marius10p/status/1511415409047650307?s=20&t=umTVIG1CFKIWHYMrQqFKyQ) for an overview.
+* Check out the [paper](https://www.nature.com/articles/s41592-022-01663-4) for more details on the algorithm and the performance. Also, there's a short review of the paper available [here](https://www.nature.com/articles/s41592-022-01664-3).
+* Watch the short intro [talk](https://www.youtube.com/watch?v=3ydtAhfq6H0) and watch the longer [tutorial talk](https://youtu.be/5qANHWoubZU) which goes through running Cellpose 2.0 in the GUI and a jupyter notebook.
+* Check out the full human-in-the-loop [video](https://youtu.be/3Y1VKcxjNy4). 
+* Check out the colab notebook to get cloud access to a GPU to train your models or run your custom models: [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/MouseLand/cellpose/blob/main/notebooks/run_cellpose_2.ipynb).
+* See how to use it yourself in the [docs](https://cellpose.readthedocs.io/en/latest/gui.html#training-your-own-cellpose-model) and also check out the help info in the `Models` menu in the GUI.
 
 Results of human-in-the-loop
 
@@ -61,12 +77,12 @@ If you have an older `cellpose` environment you can remove it with `conda env re
 
 If you are using a GPU, make sure its drivers and the cuda libraries are correctly installed.
 
-1. Install an [Anaconda](https://www.anaconda.com/download/) distribution of Python -- Choose **Python 3.8** and your operating system. Note you might need to use an anaconda prompt if you did not add anaconda to the path.
-2. Open an anaconda prompt / command prompt with `conda` for **python 3** in the path
-3. Create a new environment with `conda create --name cellpose python=3.8`.
+1. Install an [Anaconda](https://www.anaconda.com/products/distribution) distribution of Python. Note you might need to use an anaconda prompt if you did not add anaconda to the path.
+2. Open an anaconda prompt / command prompt which has `conda` for **python 3** in the path
+3. Create a new environment with `conda create --name cellpose python=3.8`. We recommend python 3.8, but python 3.9 and 3.10 will likely work as well.
 4. To activate this new environment, run `conda activate cellpose`
 5. To install the minimal version of cellpose, run `python -m pip install cellpose`.  
-6. To install cellpose, omnipose and the GUI, run `python -m pip install cellpose[all]`. If you're on a zsh server, you may need to use ' ' around the cellpose[all] call: `python -m pip install 'cellpose[all]'.
+6. To install cellpose and the GUI, run `python -m pip install cellpose[gui]`. If you're on a zsh server, you may need to use ' ' around the cellpose[gui] call: `python -m pip install 'cellpose[gui]'`.
 
 To upgrade cellpose (package [here](https://pypi.org/project/cellpose/)), run the following in the environment:
 
@@ -74,12 +90,12 @@ To upgrade cellpose (package [here](https://pypi.org/project/cellpose/)), run th
 python -m pip install cellpose --upgrade
 ~~~
 
-Note you will always have to run `conda activate cellpose` before you run cellpose. If you want to run jupyter notebooks in this environment, then also `conda install jupyter` and `python -m pip install matplotlib`.
+Note you will always have to run `conda activate cellpose` before you run cellpose. If you want to run jupyter notebooks in this environment, then also `python -m pip install notebook` and `python -m pip install matplotlib`.
 
-You can also try to install cellpose, omnipose and the GUI dependencies from your base environment using the command
+You can also try to install cellpose and the GUI dependencies from your base environment using the command
 
 ~~~~sh
-python -m pip install cellpose[all]
+python -m pip install cellpose[gui]
 ~~~~
 
 If you have **issues** with installation, see the [docs](https://cellpose.readthedocs.io/en/latest/installation.html) for more details. You can also use the cellpose environment file included in the repository and create a cellpose environment with `conda env create -f environment.yml` which may solve certain dependency issues.
@@ -90,16 +106,23 @@ If these suggestions fail, open an issue.
 
 If you plan on running many images, you may want to install a GPU version of *torch* (if it isn't already installed).
 
-Before installing the GPU version, remove the CPU version:
+To use your NVIDIA GPU with python, you will first need to install the NVIDIA driver for your GPU, check out this [website](https://www.nvidia.com/Download/index.aspx?lang=en-us) to download it. You can also install the CUDA toolkit, or use the pytorch cudatoolkit (installed below with conda). If you have trouble with the below install, we recommend installing the CUDA toolkit yourself, choosing one of the 11.x releases [here](https://developer.nvidia.com/cuda-toolkit-archive).
+
+Next we need to remove the CPU version of torch:
 ~~~
 pip uninstall torch
 ~~~
 
-Follow the instructions [here](https://pytorch.org/get-started/locally/) to determine what version to install. The Anaconda install is strongly recommended, and then choose the CUDA version that is supported by your GPU (newer GPUs may need newer CUDA versions > 10.2). For instance this command will install the 11.3 version on Linux and Windows (note the `torchvision` and `torchaudio` commands are removed because cellpose doesn't require them):
-
+To install the GPU version of torch, follow the instructions [here](https://pytorch.org/get-started/locally/). The conda install is strongly recommended, and then choose the CUDA version that is supported by your GPU (newer GPUs may need newer CUDA versions > 10.2). For instance this command will install the 11.6 version on Linux and Windows (note the `torchvision` and `torchaudio` commands are removed because cellpose doesn't require them):
 ~~~
-conda install pytorch cudatoolkit=11.3 -c pytorch
+conda install pytorch pytorch-cuda=11.6 -c pytorch -c nvidia
+~~~
+
+If the latest CUDA versions don't work, try an older version like cuda 11.3:
+~~~
+conda install pytorch==1.12.0 cudatoolkit=11.3 -c pytorch
 ~~~~
+Info on how to install several older versions is available [here](https://pytorch.org/get-started/previous-versions/). After install you can check `conda list` for `pytorch`, and its version info should have `cuXX.X`, not `cpu`.
 
 ### Installation of github version
 
@@ -115,8 +138,8 @@ If you want edit ability to the code, in the github repository folder, run `pip 
 You can quickly try out Cellpose on the [website](https://www.cellpose.org) first (some features disabled). 
 
 You can also run Cellpose in google colab with a GPU: 
-* a code-based notebook: [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/MouseLand/cellpose/blob/master/notebooks/run_cellpose_GPU.ipynb)
-* a more user-friendly notebook for 2D segmentation written by [@pr4deepr](https://github.com/pr4deepr): [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/MouseLand/cellpose/blob/master/notebooks/Cellpose_cell_segmentation_2D_prediction_only.ipynb)
+* a code-based notebook: [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/MouseLand/cellpose/blob/main/notebooks/run_cellpose_GPU.ipynb)
+* a more user-friendly notebook for 2D segmentation written by [@pr4deepr](https://github.com/pr4deepr): [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/MouseLand/cellpose/blob/main/notebooks/Cellpose_cell_segmentation_2D_prediction_only.ipynb)
 * a user-friendly [ZeroCostDL4Mic](https://github.com/HenriquesLab/ZeroCostDL4Mic) notebook that includes training cellpose models, written by [@guijacquemet](https://github.com/guijacquemet): [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/HenriquesLab/ZeroCostDL4Mic/blob/master/Colab_notebooks/Beta%20notebooks/Cellpose_2D_ZeroCostDL4Mic.ipynb)
 
 The colab notebooks are recommended if you have issues with MKL or run speed on your local computer (and are running 3D volumes). Colab does not allow you to run the GUI, but you can save `*_seg.npy` files in colab that you can download and open in the GUI.
@@ -144,13 +167,15 @@ You can now **drag and drop** any images (*.tif, *.png, *.jpg, *.gif) into the G
 
 ## Step-by-step demo
 
-1. Download the google drive [folder](https://drive.google.com/open?id=18syVlaix8cIlrnNF20pEWKMWUsKx9R9z) and unzip it. These are a subset of the test images from the paper.
+1. Download this [folder](http://cellpose.org/static/images/demo_images.zip) of images and unzip it. These are a subset of the test images from the paper.
 2. Start the GUI with `python -m cellpose`.
 3. Drag an image from the folder into the GUI.
 4. Set the model (in demo all are `cyto`) and the channel you want to segment (in demo all are `green`). Optionally set the second channel if you are segmenting `cyto` and have an available nucleus channel.
-5. Click the `calibrate` button to estimate the size of the objects in the image. Alternatively you can set the `cell diameter` by hand and press ENTER. You will see the size you set as a red disk at the bottom left of the image.
+5. Click the `calibrate` button to estimate the size of the objects in the image. Alternatively (RECOMMENDED) you can set the `cell diameter` by hand and press ENTER. You will see the size you set as a red disk at the bottom left of the image.
 6. Click the `run segmentation` button. If MASKS ON is checked, you should see masks drawn on the image.
 7. Now you can click the LEFT/RIGHT arrow keys to move through the folder and segment another image.
+
+To draw ROIs on the image you can right-click then hover to complete the ROI (do not right-click and drag). To remove ROIs left-click while holding down CTRL. See more details [here](https://cellpose.readthedocs.io/en/latest/gui.html).
 
 On the demo images each of these steps should run in less than a few seconds on a standard laptop or desktop (with mkl working).
 
@@ -181,8 +206,7 @@ pip install cellpose==1.0.2
 
 ### UPDATE v0.7 (Nov 2021)
 
-[Omnipose](https://github.com/kevinjohncutler/omnipose) is now officially available and supported as part of Cellpose. `pip install omnipose` and use the 'omni' flag and models to take advantage of it for long cells! (<i>E.g.</i>, filamentous bacteria.) Omnipose was written by Kevin Cutler ([@kevinjohncutler](https://github.com/kevinjohncutler)). To learn about Omnipose, read the [paper](http://biorxiv.org/content/early/2021/11/04/2021.11.03.467199). If you use Omnipose in your work please cite the Cellpose paper and the Omnipose paper.
-
+Check out [Omnipose](https://github.com/kevinjohncutler/omnipose), an extension of Cellpose for long filamentous bacteria. Omnipose was written by Kevin Cutler ([@kevinjohncutler](https://github.com/kevinjohncutler)). To learn about Omnipose, read the [paper](http://biorxiv.org/content/early/2021/11/04/2021.11.03.467199).
 
 ### UPDATE v0.6 (Dec 2020)
 

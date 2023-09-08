@@ -1,3 +1,7 @@
+"""
+Copright © 2023 Howard Hughes Medical Institute, Authored by Carsen Stringer and Marius Pachitariu.
+"""
+
 import os, sys, time, shutil, tempfile, datetime, pathlib, subprocess
 import logging
 import numpy as np
@@ -63,11 +67,29 @@ def _use_gpu_torch(gpu_number=0):
         return False
 
 def assign_device(use_torch=True, gpu=False, device=0):
+    mac = False
+    cpu = True
+    if isinstance(device, str):
+        if device=='mps':
+            mac = True 
+        else:
+            device = int(device)
     if gpu and use_gpu(use_torch=True):
         device = torch.device(f'cuda:{device}')
         gpu=True
+        cpu=False
         core_logger.info('>>>> using GPU')
-    else:
+    elif mac:
+        try:
+            device = torch.device('mps')
+            gpu=True
+            cpu=False
+            core_logger.info('>>>> using GPU')
+        except:
+            cpu = True 
+            gpu = False
+
+    if cpu:
         device = torch.device('cpu')
         core_logger.info('>>>> using CPU')
         gpu=False
@@ -125,7 +147,7 @@ class UnetModel():
                                         diam_mean=diam_mean).to(self.device)
         
         if pretrained_model is not None and isinstance(pretrained_model, str):
-            self.net.load_model(pretrained_model, cpu=(not self.gpu))
+            self.net.load_model(pretrained_model, device=self.device)
 
     def eval(self, x, batch_size=8, channels=None, channels_last=False, invert=False, normalize=True,
              rescale=None, do_3D=False, anisotropy=None, net_avg=False, augment=False,
@@ -225,7 +247,7 @@ class UnetModel():
         if isinstance(self.pretrained_model, list):
             model_path = self.pretrained_model[0]
             if not net_avg:
-                self.net.load_model(self.pretrained_model[0])
+                self.net.load_model(self.pretrained_model[0], device=self.device)
         else:
             model_path = self.pretrained_model
 
@@ -295,6 +317,7 @@ class UnetModel():
             self.net = mkldnn_utils.to_mkldnn(self.net)
         with torch.no_grad():
             y, style = self.net(X)
+        del X
         y = self._from_device(y)
         style = self._from_device(style)
         if return_conv:
@@ -345,7 +368,7 @@ class UnetModel():
                                      bsize=bsize, return_conv=return_conv)
         else:  
             for j in range(len(self.pretrained_model)):
-                self.net.load_model(self.pretrained_model[j], cpu=(not self.gpu))
+                self.net.load_model(self.pretrained_model[j], device=self.device)
                 y0, style = self._run_net(img, augment=augment, tile=tile, 
                                           tile_overlap=tile_overlap, bsize=bsize,
                                           return_conv=return_conv)
@@ -520,9 +543,9 @@ class UnetModel():
             nout = self.nclasses + 32*return_conv
             y = np.zeros((IMG.shape[0], nout, ly, lx))
             for k in range(niter):
-                irange = np.arange(batch_size*k, min(IMG.shape[0], batch_size*k+batch_size))
+                irange = slice(batch_size*k, min(IMG.shape[0], batch_size*k+batch_size))
                 y0, style = self.network(IMG[irange], return_conv=return_conv)
-                y[irange] = y0.reshape(len(irange), y0.shape[-3], y0.shape[-2], y0.shape[-1])
+                y[irange] = y0.reshape(irange.stop-irange.start, y0.shape[-3], y0.shape[-2], y0.shape[-1])
                 if k==0:
                     styles = style[0]
                 styles += style.sum(axis=0)
@@ -724,6 +747,7 @@ class UnetModel():
         #else:
         self.net.train()
         y = self.net(X)[0]
+        del X
         loss = self.loss_fn(lbl,y)
         loss.backward()
         train_loss = loss.item()
@@ -736,6 +760,7 @@ class UnetModel():
         self.net.eval()
         with torch.no_grad():
             y, style = self.net(X)
+            del X
             loss = self.loss_fn(lbl,y)
             test_loss = loss.item()
             test_loss *= len(x)

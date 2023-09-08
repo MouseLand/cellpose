@@ -2,24 +2,31 @@ import setuptools
 from setuptools import setup
 
 install_deps = ['numpy>=1.20.0', 'scipy', 'natsort',
-                'tifffile', 'tqdm', 'numba', 
+                'tifffile', 'tqdm', 
+                'numba>=0.53.0', 
+                'llvmlite',
                 'torch>=1.6',
                 'opencv-python-headless',
-                'fastremap'
+                'fastremap',
+                'imagecodecs',
+                'roifile',
                 ]
 
 gui_deps = [
         'pyqtgraph>=0.11.0rc0', 
-        'pyqt5', 
-        'pyqt5.sip',
+        "pyqt6",
+        "pyqt6.sip",
+        'qtpy',
+        'superqt',
         'google-cloud-storage'
-        ]
+]
 
 docs_deps = [
         'sphinx>=3.0',
         'sphinxcontrib-apidoc',
         'sphinx_rtd_theme',
-      ]
+        'sphinx-argparse',
+]
 
 distributed_deps = [
         'dask',
@@ -33,9 +40,32 @@ distributed_deps = [
 try:
     import torch
     a = torch.ones(2, 3)
-    version = int(torch.__version__[2])
-    if version >= 6:
-        install_deps.remove('torch')
+    major_version, minor_version, _ = torch.__version__.split(".")
+    if major_version == "2" or int(minor_version) >= 6:
+        install_deps.remove("torch>=1.6")
+except:
+    pass
+
+try:
+    import PyQt5
+    gui_deps.remove("pyqt6")
+    gui_deps.remove("pyqt6.sip")
+    gui_deps.append("pyqt5")
+    gui_deps.append("pyqt5.sip")
+except:
+    pass
+
+try:
+    import PySide2
+    gui_deps.remove("pyqt6")
+    gui_deps.remove("pyqt6.sip")
+except:
+    pass
+
+try:
+    import PySide6
+    gui_deps.remove("pyqt6")
+    gui_deps.remove("pyqt6.sip")
 except:
     pass
 

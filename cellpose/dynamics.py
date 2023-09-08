@@ -1,7 +1,10 @@
+"""
+Copright © 2023 Howard Hughes Medical Institute, Authored by Carsen Stringer and Marius Pachitariu.
+"""
+
 import time, os
-from scipy.ndimage.filters import maximum_filter1d
+from scipy.ndimage import maximum_filter1d, find_objects
 import torch
-import scipy.ndimage
 import numpy as np
 import tifffile
 from tqdm import trange
@@ -77,14 +80,15 @@ def _extend_centers_gpu(neighbors, centers, isneighbor, Ly, Lx, n_iter=200, devi
         Tneigh = T[:, pt[:,:,0], pt[:,:,1]]
         Tneigh *= isneigh
         T[:, pt[0,:,0], pt[0,:,1]] = Tneigh.mean(axis=1)
-    
+    del meds, isneigh, Tneigh
     T = torch.log(1.+ T)
     # gradient positions
     grads = T[:, pt[[2,1,4,3],:,0], pt[[2,1,4,3],:,1]]
+    del pt
     dy = grads[:,0] - grads[:,1]
     dx = grads[:,2] - grads[:,3]
-
-    mu_torch = np.stack((dy.cpu().squeeze(), dx.cpu().squeeze()), axis=-2)
+    del grads
+    mu_torch = np.stack((dy.cpu().squeeze(0), dx.cpu().squeeze(0)), axis=-2)
     return mu_torch
 
 
@@ -125,7 +129,7 @@ def masks_to_flows_gpu(masks, device=None):
     neighbors = np.stack((neighborsY, neighborsX), axis=-1)
 
     # get mask centers
-    slices = scipy.ndimage.find_objects(masks)
+    slices = find_objects(masks)
     
     centers = np.zeros((masks.max(), 2), 'int')
     for i,si in enumerate(slices):
@@ -188,7 +192,7 @@ def masks_to_flows_cpu(masks, device=None):
     mu_c = np.zeros((Ly, Lx), np.float64)
     
     nmask = masks.max()
-    slices = scipy.ndimage.find_objects(masks)
+    slices = find_objects(masks)
     dia = utils.diameters(masks)[0]
     s2 = (.15 * dia)**2
     for i,si in enumerate(slices):
@@ -319,7 +323,7 @@ def labels_to_flows(labels, files=None, use_gpu=False, device=None, redo_flows=F
         if files is not None:
             for flow, file in zip(flows, files):
                 file_name = os.path.splitext(file)[0]
-                tifffile.imsave(file_name+'_flows.tif', flow)
+                tifffile.imwrite(file_name+'_flows.tif', flow)
     else:
         dynamics_logger.info('flows precomputed')
         flows = [labels[n].astype(np.float32) for n in range(nimg)]
@@ -577,6 +581,27 @@ def remove_bad_flow_masks(masks, flows, threshold=0.4, use_gpu=False, device=Non
         size [Ly x Lx] or [Lz x Ly x Lx]
     
     """
+    if masks.size > 10000*10000 and use_gpu:
+        
+        major_version, minor_version, _ = torch.__version__.split(".")
+        
+        if major_version == "1" and int(minor_version) < 10:
+            # for PyTorch version lower than 1.10
+            def mem_info():
+                total_mem = torch.cuda.get_device_properties(0).total_memory
+                used_mem = torch.cuda.memory_allocated()
+                return total_mem, used_mem
+        else:
+            # for PyTorch version 1.10 and above
+            def mem_info():
+                total_mem, used_mem = torch.cuda.mem_get_info()
+                return total_mem, used_mem
+        
+        if masks.size * 20 > mem_info()[0]:
+            dynamics_logger.warning('WARNING: image is very large, not using gpu to compute flows from masks for QC step flow_threshold')
+            dynamics_logger.info('turn off QC step with flow_threshold=0 if too slow')
+        use_gpu = False
+
     merrors, _ = metrics.flow_error(masks, flows, use_gpu, device)
     badi = 1+(merrors>threshold).nonzero()[0]
     masks[np.isin(masks, badi)] = 0

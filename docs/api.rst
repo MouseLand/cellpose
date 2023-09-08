@@ -47,4 +47,36 @@ Plot functions
 .. automodule:: cellpose.plot
    :members:
 
+I/O functions
+~~~~~~~~~~~~~~~~~~
+
+.. automodule:: cellpose.io
+   :members:
+
+Utils functions
+~~~~~~~~~~~~~~~~~~
+
+.. automodule:: cellpose.utils
+   :members:
+
+Network classes
+~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: cellpose.resnet_torch
+   :members:
+
+
+Core functions
+~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: cellpose.core
+   :members:
+
+All models functions
+~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: cellpose.models
+   :members:
+
+
 

@@ -11,7 +11,8 @@ The quickest way to start is to open the GUI from a command line terminal. You m
 
 The first time cellpose runs it downloads the latest available trained model weights from the website.
 
-You can **drag and drop** images (.tif, .png, .jpg, .gif) into the GUI and run Cellpose, and/or manually segment them. When the GUI is processing, you will see the progress bar fill up and during this time you cannot click on anything in the GUI. For more information about what the GUI is doing you can look at the terminal/prompt you opened the GUI with. For example data, See [website](http://www.cellpose.org). For best accuracy and runtime performance, resize images so cells are less than 100 pixels across. 
+You can **drag and drop** images (.tif, .png, .jpg, .gif) into the GUI and run Cellpose, and/or manually segment them. When the GUI is processing, you will see the progress bar fill up and during this time you cannot click on anything in the GUI. For more information about what the GUI is doing you can look at the terminal/prompt you opened the GUI with. 
+For example data, see `cellpose website <https://www.cellpose.org>`_. For best accuracy and runtime performance, resize images so cells are less than 100 pixels across. 
 
 For multi-channel, multi-Z tiff's, the expected format is Z x channels x Ly x Lx.
 
@@ -53,9 +54,11 @@ in 2D should be single strokes (if *single_stroke* is checked).
 
 If you want to draw masks in 3D, then you can turn *single_stroke*
 option off and draw a stroke on each plane with the cell and then press
-ENTER (cellpose 1.0 only currently). 
-3D labelling will fill in unlabelled z-planes so that you do not
-have to as densely label.
+ENTER. 
+
+.. note::
+    3D labelling will fill in unlabelled z-planes so that you do not
+    have to densely label, for example you can skip some planes.
 
 
 Segmentation options
@@ -86,6 +89,25 @@ Check out this `video <https://youtu.be/3Y1VKcxjNy4>`_ to learn the process.
 5. Choose the pretrained model to start the training from (the model you used in #2), and type in the model name that you want to use. The other parameters should work well in general for most data types. Then click OK.
 6. The model will train (much faster if you have a GPU) and then auto-run on the next image in the folder. Next you can repeat #3-#5 as many times as is necessary.
 7. The trained model is available to use in the future in the GUI in the "custom model" section and is saved in your image folder.
+
+If you have **3D** data, please save random XY, YZ and XZ slices through your 3D data, 
+ideally sufficiently spaced from each other so the information each slice has is 
+distinct. Then put these slices into a folder and start the human-in-the-loop training. 
+You can then use the new custom model on new 3D data. 
+
+.. note::
+    You can only start training with one of the built-in Cellpose models or from scratch. 
+    When you start training from a built-in model or from scratch each time, then you are training 
+    the network on all the previously labelled images in the folder and weighting them equally in 
+    your training set. 
+
+    If you restart from a previous retraining, you are biasing the network towards the earlier 
+    images it has already been trained on. Conversely, if you have created a custom model 
+    with different images, and you retrain that model, then you are downweighting the images 
+    that you have already trained on and excluded from your new training set. Therefore, we recommend having all images 
+    that you want to be trained for the same model in the same folder so they are all used.
+
+See the Models doc for info on the new model zoo and suggestion mode.
 
 Contributing training data
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -129,6 +151,12 @@ Keyboard shortcuts
 +---------------------+-----------------------------------------------+
 | CTRL+M              | load masks file (must be same size as image   |
 |                     | with 0 for NO mask, and 1,2,3... for masks)   |
++---------------------+-----------------------------------------------+
+| CTRL+N              | save masks as PNG                             |
++---------------------+-----------------------------------------------+
+| CTRL+R              | save ROIs to native ImageJ ROI format         |
++---------------------+-----------------------------------------------+
+| CTRL+F              | save flows to image file                      |
 +---------------------+-----------------------------------------------+
 | A/D or LEFT/RIGHT   | cycle through images in current directory     |
 +---------------------+-----------------------------------------------+

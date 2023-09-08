@@ -1,7 +1,7 @@
 In a notebook 
 -----------------------
 
-See `settings <settings.html>`__ for more information on run settings.
+See :ref:`Settings` for more information on run settings.
 
 ::
 

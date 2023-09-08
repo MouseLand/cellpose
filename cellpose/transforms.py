@@ -1,6 +1,11 @@
+"""
+Copright © 2023 Howard Hughes Medical Institute, Authored by Carsen Stringer and Marius Pachitariu.
+"""
+
 import numpy as np
 import warnings
 import cv2
+import torch
 
 import logging
 transforms_logger = logging.getLogger(__name__)
@@ -240,7 +245,13 @@ def convert_image(x, channels, channel_axis=None, z_axis=None,
                   do_3D=False, normalize=True, invert=False,
                   nchan=2):
     """ return image with z first, channels last and normalized intensities """
-        
+
+    # check if image is a torch array instead of numpy array
+    # converts torch to numpy
+    if torch.is_tensor(x):
+        transforms_logger.warning('torch array used as input, converting to numpy')
+        x = x.cpu().numpy()
+    
     # squeeze image, and if channel_axis or z_axis given, transpose image
     if x.ndim > 3:
         to_squeeze = np.array([int(isq) for isq,s in enumerate(x.shape) if s==1])
@@ -543,6 +554,8 @@ def resize_image(img0, Ly=None, Lx=None, rsz=None, interpolation=cv2.INTER_LINEA
     # no_channels useful for z-stacks, sot he third dimension is not treated as a channel
     # but if this is called for grayscale images, they first become [Ly,Lx,2] so ndim=3 but 
     if (img0.ndim>2 and no_channels) or (img0.ndim==4 and not no_channels):
+        if Ly==0 or Lx==0:
+            raise ValueError('anisotropy too high / low -- not enough pixels to resize to ratio')
         if no_channels:
             imgs = np.zeros((img0.shape[0], Ly, Lx), np.float32)
         else:

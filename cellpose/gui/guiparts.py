@@ -1,6 +1,10 @@
-from PyQt5 import QtGui, QtCore, QtWidgets
-from PyQt5.QtGui import QPainter, QPixmap
-from PyQt5.QtWidgets import QApplication, QRadioButton, QWidget, QDialog, QButtonGroup, QSlider, QStyle, QStyleOptionSlider, QGridLayout, QPushButton, QLabel, QLineEdit, QDialogButtonBox, QComboBox, QCheckBox
+"""
+Copright © 2023 Howard Hughes Medical Institute, Authored by Carsen Stringer and Marius Pachitariu.
+"""
+
+from qtpy import QtGui, QtCore, QtWidgets
+from qtpy.QtGui import QPainter, QPixmap
+from qtpy.QtWidgets import QApplication, QRadioButton, QWidget, QDialog, QButtonGroup, QSlider, QStyle, QStyleOptionSlider, QGridLayout, QPushButton, QLabel, QLineEdit, QDialogButtonBox, QComboBox, QCheckBox
 import pyqtgraph as pg
 from pyqtgraph import functions as fn
 from pyqtgraph import Point
@@ -36,12 +40,15 @@ class ModelButton(QPushButton):
         self.model_name = model_name
         
     def press(self, parent):
+        for i in range(len(parent.StyleButtons)):
+            parent.StyleButtons[i].setStyleSheet(parent.styleUnpressed)
+        self.setStyleSheet(parent.stylePressed)
         parent.compute_model(self.model_name)
 
 class TrainWindow(QDialog):
     def __init__(self, parent, model_strings):
         super().__init__(parent)
-        self.setGeometry(100,100,600,300)
+        self.setGeometry(100,100,900,350)
         self.setWindowTitle('train settings')
         self.win = QWidget(self)
         self.l0 = QGridLayout()
@@ -85,16 +92,17 @@ class TrainWindow(QDialog):
             self.l0.addWidget(qlabel, i+yoff,0,1,1)
             self.edits.append(QLineEdit())
             self.edits[-1].setText(str(parent.training_params[label]))
+            self.edits[-1].setFixedWidth(200)
             self.l0.addWidget(self.edits[-1], i+yoff, 1,1,1)
 
         yoff+=len(labels)
 
         yoff+=1
-        qlabel = QLabel('(to remove files, click cancel then remove from folder and reopen train window)')
-        self.l0.addWidget(qlabel, yoff,0,1,4)
+        qlabel = QLabel('(to remove files, click cancel then remove \nfrom folder and reopen train window)')
+        self.l0.addWidget(qlabel, yoff,0,2,4)
 
         # click button
-        yoff+=1
+        yoff+=2
         QBtn = QDialogButtonBox.Ok | QDialogButtonBox.Cancel
         self.buttonBox = QDialogButtonBox(QBtn)
         self.buttonBox.accepted.connect(lambda: self.accept(parent))
@@ -274,8 +282,14 @@ class HelpWindow(QDialog):
             <li class="has-line-data" data-line-start="12" data-line-end="13">Start draw mask = right-click</li>
             <li class="has-line-data" data-line-start="13" data-line-end="15">End draw mask = right-click, or return to circle at beginning</li>
             </ul>
-            <p class="has-line-data" data-line-start="15" data-line-end="16">Overlaps in masks are NOT allowed. If you draw a mask on top of another mask, it is cropped so that it doesn’t overlap with the old mask. Masks in 2D should be single strokes (single stroke is checked). If you want to draw masks in 3D (experimental), then you can turn this option off and draw a stroke on each plane with the cell and then press ENTER. 3D labelling will fill in planes that you have not labelled so that you do not have to as densely label.</p>
-            <p class="has-line-data" data-line-start="17" data-line-end="18">!NOTE!: The GUI automatically saves after you draw a mask in 2D but NOT after 3D mask drawing and NOT after segmentation. Save in the file menu or with Ctrl+S. The output file is in the same folder as the loaded image with <code>_seg.npy</code> appended.</p>
+            <p class="has-line-data" data-line-start="15" data-line-end="16">Overlaps in masks are NOT allowed. If you \
+            draw a mask on top of another mask, it is cropped so that it doesn’t overlap with the old mask. Masks in 2D \
+            should be single strokes (single stroke is checked). If you want to draw masks in 3D (experimental), then \
+            you can turn this option off and draw a stroke on each plane with the cell and then press ENTER. 3D \
+            labelling will fill in planes that you have not labelled so that you do not have to as densely label.</p>
+            <p class="has-line-data" data-line-start="17" data-line-end="18">!NOTE!: The GUI automatically saves after \
+            you draw a mask in 2D but NOT after 3D mask drawing and NOT after segmentation. Save in the file menu or \
+            with Ctrl+S. The output file is in the same folder as the loaded image with <code>_seg.npy</code> appended.</p>
             <table class="table table-striped table-bordered">
             <br><br>
             FYI there are tooltips throughout the GUI (hover over text to see)
@@ -322,6 +336,18 @@ class HelpWindow(QDialog):
             <tr>
             <td>CTRL+M</td>
             <td>load masks file (must be same size as image with 0 for NO mask, and 1,2,3… for masks)</td>
+            </tr>
+            <tr>
+            <td>CTRL+N</td>
+            <td>save masks as PNG</td>
+            </tr>
+            <tr>
+            <td>CTRL+R</td>
+            <td>save ROIs to native ImageJ ROI format</td>
+            </tr>
+            <tr>
+            <td>CTRL+F</td>
+            <td>save flows to image file</td>
             </tr>
             <tr>
             <td>A/D or LEFT/RIGHT</td>
@@ -433,7 +459,7 @@ class RGBRadioButtons(QButtonGroup):
                 button.setChecked(True)
             self.addButton(button, b)
             button.toggled.connect(lambda: self.btnpress(parent))
-            self.parent.l0.addWidget(button, row+b,col,1,3)
+            self.parent.l0.addWidget(button, row,col+2*b,1,2)
         self.setExclusive(True)
         #self.buttons.
 
@@ -466,47 +492,6 @@ class ViewBoxNoRightDrag(pg.ViewBox):
             self.scaleBy([0.9, 0.9])
         else:
             ev.ignore()
-    
-    def mouseDragEvent(self, ev, axis=None):
-        ## if axis is specified, event will only affect that axis.
-        if self.parent is None or (self.parent is not None and not self.parent.in_stroke):
-            ev.accept()  ## we accept all buttons
-
-            pos = ev.pos()
-            lastPos = ev.lastPos()
-            dif = pos - lastPos
-            dif = dif * -1
-
-            ## Ignore axes if mouse is disabled
-            mouseEnabled = np.array(self.state['mouseEnabled'], dtype=np.float)
-            mask = mouseEnabled.copy()
-            if axis is not None:
-                mask[1-axis] = 0.0
-
-            ## Scale or translate based on mouse button
-            if ev.button() & (QtCore.Qt.LeftButton | QtCore.Qt.MidButton):
-                if self.state['mouseMode'] == pg.ViewBox.RectMode:
-                    if ev.isFinish():  ## This is the final move in the drag; change the view scale now
-                        #print "finish"
-                        self.rbScaleBox.hide()
-                        ax = QtCore.QRectF(Point(ev.buttonDownPos(ev.button())), Point(pos))
-                        ax = self.childGroup.mapRectFromParent(ax)
-                        self.showAxRect(ax)
-                        self.axHistoryPointer += 1
-                        self.axHistory = self.axHistory[:self.axHistoryPointer] + [ax]
-                    else:
-                        ## update shape of scale box
-                        self.updateScaleBox(ev.buttonDownPos(), ev.pos())
-                else:
-                    tr = dif*mask
-                    tr = self.mapToView(tr) - self.mapToView(Point(0,0))
-                    x = tr.x() if mask[0] == 1 else None
-                    y = tr.y() if mask[1] == 1 else None
-
-                    self._resetTarget()
-                    if x is not None or y is not None:
-                        self.translateBy(x=x, y=y)
-                    self.sigRangeChangedManually.emit(self.state['mouseEnabled'])
 
 class ImageDraw(pg.ImageItem):
     """
@@ -523,7 +508,7 @@ class ImageDraw(pg.ImageItem):
     for controlling the levels and lookup table used to display the image.
     """
 
-    sigImageChanged = QtCore.pyqtSignal()
+    sigImageChanged = QtCore.Signal()
 
     def __init__(self, image=None, viewbox=None, parent=None, **kargs):
         super(ImageDraw, self).__init__()
@@ -543,8 +528,8 @@ class ImageDraw(pg.ImageItem):
 
     def mouseClickEvent(self, ev):
         if self.parent.masksOn or self.parent.outlinesOn:
-            if  self.parent.loaded and (ev.button()==QtCore.Qt.RightButton or 
-                    ev.modifiers() == QtCore.Qt.ShiftModifier and not ev.double()):
+            if  self.parent.loaded and (ev.button() == QtCore.Qt.RightButton or 
+                    ev.modifiers() & QtCore.Qt.ShiftModifier and not ev.double()):
                 if not self.parent.in_stroke:
                     ev.accept()
                     self.create_start(ev.pos())
@@ -558,13 +543,13 @@ class ImageDraw(pg.ImageItem):
             elif not self.parent.in_stroke:
                 y,x = int(ev.pos().y()), int(ev.pos().x())
                 if y>=0 and y<self.parent.Ly and x>=0 and x<self.parent.Lx:
-                    if ev.button()==QtCore.Qt.LeftButton and not ev.double():
+                    if ev.button() == QtCore.Qt.LeftButton and not ev.double():
                         idx = self.parent.cellpix[self.parent.currentZ][y,x]
                         if idx > 0:
-                            if ev.modifiers()==QtCore.Qt.ControlModifier:
+                            if ev.modifiers() & QtCore.Qt.ControlModifier:
                                 # delete mask selected
                                 self.parent.remove_cell(idx)
-                            elif ev.modifiers()==QtCore.Qt.AltModifier:
+                            elif ev.modifiers() & QtCore.Qt.AltModifier:
                                 self.parent.merge_cells(idx)
                             elif self.parent.masksOn:
                                 self.parent.unselect_cell()
@@ -577,14 +562,14 @@ class ImageDraw(pg.ImageItem):
         return
 
     def hoverEvent(self, ev):
-        QtWidgets.QApplication.setOverrideCursor(QtCore.Qt.CrossCursor)
+        #QtWidgets.QApplication.setOverrideCursor(QtCore.Qt.CrossCursor)
         if self.parent.in_stroke:
             if self.parent.in_stroke:
                 # continue stroke if not at start
                 self.drawAt(ev.pos())
                 if self.is_at_start(ev.pos()):
                     self.end_stroke()
-                    self.parent.in_stroke = False
+                    
         else:
             ev.acceptClicks(QtCore.Qt.RightButton)
             #ev.acceptClicks(QtCore.Qt.LeftButton)
@@ -628,6 +613,7 @@ class ImageDraw(pg.ImageItem):
                 self.parent.add_set()
         if len(self.parent.current_point_set) > 0 and self.parent.autosave:
             self.parent.add_set()
+        self.parent.in_stroke = False
 
     def tabletEvent(self, ev):
         pass
@@ -636,7 +622,7 @@ class ImageDraw(pg.ImageItem):
         #print(ev.pressure())
 
     def drawAt(self, pos, ev=None):
-        mask = self.greenmask
+        mask = self.strokemask
         set = self.parent.current_point_set
         stroke = self.parent.current_stroke
         pos = [int(pos.y()), int(pos.x())]
@@ -691,202 +677,4 @@ class ImageDraw(pg.ImageItem):
         offmask = np.zeros((bs,bs,1))
         opamask = 100 * kernel[:,:,np.newaxis]
         self.redmask = np.concatenate((onmask,offmask,offmask,onmask), axis=-1)
-        self.greenmask = np.concatenate((onmask,offmask,onmask,opamask), axis=-1)
-
-
-class RangeSlider(QSlider):
-    """ A slider for ranges.
-
-        This class provides a dual-slider for ranges, where there is a defined
-        maximum and minimum, as is a normal slider, but instead of having a
-        single slider value, there are 2 slider values.
-
-        This class emits the same signals as the QSlider base class, with the
-        exception of valueChanged
-
-        Found this slider here: https://www.mail-archive.com/pyqt@riverbankcomputing.com/msg22889.html
-        and modified it
-    """
-    def __init__(self, parent=None, *args):
-        super(RangeSlider, self).__init__(*args)
-
-        self._low = self.minimum()
-        self._high = self.maximum()
-
-        self.pressed_control = QStyle.SC_None
-        self.hover_control = QStyle.SC_None
-        self.click_offset = 0
-
-        self.setOrientation(QtCore.Qt.Horizontal)
-        self.setTickPosition(QSlider.TicksRight)
-        self.setStyleSheet(\
-                "QSlider::handle:horizontal {\
-                background-color: white;\
-                border: 1px solid #5c5c5c;\
-                border-radius: 0px;\
-                border-color: black;\
-                height: 8px;\
-                width: 6px;\
-                margin: -8px 2; \
-                }")
-
-
-        #self.opt = QStyleOptionSlider()
-        #self.opt.orientation=QtCore.Qt.Vertical
-        #self.initStyleOption(self.opt)
-        # 0 for the low, 1 for the high, -1 for both
-        self.active_slider = 0
-        self.parent = parent
-
-    def level_change(self):
-        if self.parent is not None:
-            if self.parent.loaded:
-                self.parent.ops_plot = {'saturation': [self._low, self._high]}
-                self.parent.saturation[self.parent.currentZ] = [self._low, self._high]
-                self.parent.update_plot()
-
-    def low(self):
-        return self._low
-
-    def setLow(self, low):
-        self._low = low
-        self.update()
-
-    def high(self):
-        return self._high
-
-    def setHigh(self, high):
-        self._high = high
-        self.update()
-
-    def paintEvent(self, event):
-        # based on http://qt.gitorious.org/qt/qt/blobs/master/src/gui/widgets/qslider.cpp
-        painter = QPainter(self)
-        style = QApplication.style()
-
-        for i, value in enumerate([self._low, self._high]):
-            opt = QStyleOptionSlider()
-            self.initStyleOption(opt)
-
-            # Only draw the groove for the first slider so it doesn't get drawn
-            # on top of the existing ones every time
-            if i == 0:
-                opt.subControls = QStyle.SC_SliderHandle#QStyle.SC_SliderGroove | QStyle.SC_SliderHandle
-            else:
-                opt.subControls = QStyle.SC_SliderHandle
-
-            if self.tickPosition() != self.NoTicks:
-                opt.subControls |= QStyle.SC_SliderTickmarks
-
-            if self.pressed_control:
-                opt.activeSubControls = self.pressed_control
-                opt.state |= QStyle.State_Sunken
-            else:
-                opt.activeSubControls = self.hover_control
-
-            opt.sliderPosition = value
-            opt.sliderValue = value
-            style.drawComplexControl(QStyle.CC_Slider, opt, painter, self)
-
-
-    def mousePressEvent(self, event):
-        event.accept()
-
-        style = QApplication.style()
-        button = event.button()
-        # In a normal slider control, when the user clicks on a point in the
-        # slider's total range, but not on the slider part of the control the
-        # control would jump the slider value to where the user clicked.
-        # For this control, clicks which are not direct hits will slide both
-        # slider parts
-        if button:
-            opt = QStyleOptionSlider()
-            self.initStyleOption(opt)
-
-            self.active_slider = -1
-
-            for i, value in enumerate([self._low, self._high]):
-                opt.sliderPosition = value
-                hit = style.hitTestComplexControl(style.CC_Slider, opt, event.pos(), self)
-                if hit == style.SC_SliderHandle:
-                    self.active_slider = i
-                    self.pressed_control = hit
-
-                    self.triggerAction(self.SliderMove)
-                    self.setRepeatAction(self.SliderNoAction)
-                    self.setSliderDown(True)
-
-                    break
-
-            if self.active_slider < 0:
-                self.pressed_control = QStyle.SC_SliderHandle
-                self.click_offset = self.__pixelPosToRangeValue(self.__pick(event.pos()))
-                self.triggerAction(self.SliderMove)
-                self.setRepeatAction(self.SliderNoAction)
-        else:
-            event.ignore()
-
-    def mouseMoveEvent(self, event):
-        if self.pressed_control != QStyle.SC_SliderHandle:
-            event.ignore()
-            return
-
-        event.accept()
-        new_pos = self.__pixelPosToRangeValue(self.__pick(event.pos()))
-        opt = QStyleOptionSlider()
-        self.initStyleOption(opt)
-
-        if self.active_slider < 0:
-            offset = new_pos - self.click_offset
-            self._high += offset
-            self._low += offset
-            if self._low < self.minimum():
-                diff = self.minimum() - self._low
-                self._low += diff
-                self._high += diff
-            if self._high > self.maximum():
-                diff = self.maximum() - self._high
-                self._low += diff
-                self._high += diff
-        elif self.active_slider == 0:
-            if new_pos >= self._high:
-                new_pos = self._high - 1
-            self._low = new_pos
-        else:
-            if new_pos <= self._low:
-                new_pos = self._low + 1
-            self._high = new_pos
-
-        self.click_offset = new_pos
-        self.update()
-
-    def mouseReleaseEvent(self, event):
-        self.level_change()
-
-    def __pick(self, pt):
-        if self.orientation() == QtCore.Qt.Horizontal:
-            return pt.x()
-        else:
-            return pt.y()
-
-
-    def __pixelPosToRangeValue(self, pos):
-        opt = QStyleOptionSlider()
-        self.initStyleOption(opt)
-        style = QApplication.style()
-
-        gr = style.subControlRect(style.CC_Slider, opt, style.SC_SliderGroove, self)
-        sr = style.subControlRect(style.CC_Slider, opt, style.SC_SliderHandle, self)
-
-        if self.orientation() == QtCore.Qt.Horizontal:
-            slider_length = sr.width()
-            slider_min = gr.x()
-            slider_max = gr.right() - slider_length + 1
-        else:
-            slider_length = sr.height()
-            slider_min = gr.y()
-            slider_max = gr.bottom() - slider_length + 1
-
-        return style.sliderValueFromPosition(self.minimum(), self.maximum(),
-                                             pos-slider_min, slider_max-slider_min,
-                                             opt.upsideDown)
+        self.strokemask = np.concatenate((onmask,offmask,onmask,opamask), axis=-1)

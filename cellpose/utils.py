@@ -1,3 +1,7 @@
+"""
+Copright © 2023 Howard Hughes Medical Institute, Authored by Carsen Stringer and Marius Pachitariu.
+"""
+
 import os, warnings, time, tempfile, datetime, pathlib, shutil, subprocess
 from tqdm import tqdm
 from urllib.request import urlopen
@@ -9,6 +13,7 @@ from scipy.stats import gmean
 import numpy as np
 import colorsys
 import io
+from multiprocessing import Pool, cpu_count
 
 from . import metrics
 
@@ -219,7 +224,15 @@ def masks_to_outlines(masks):
                 outlines[vr, vc] = 1
         return outlines
 
-def outlines_list(masks):
+def outlines_list(masks, multiprocessing=True):
+    """ get outlines of masks as a list to loop over for plotting
+    This function is a wrapper for outlines_list_single and outlines_list_multi """
+    if multiprocessing:
+        return outlines_list_multi(masks)
+    else:
+        return outlines_list_single(masks)
+
+def outlines_list_single(masks):
     """ get outlines of masks as a list to loop over for plotting """
     outpix=[]
     for n in np.unique(masks)[1:]:
@@ -234,6 +247,27 @@ def outlines_list(masks):
             else:
                 outpix.append(np.zeros((0,2)))
     return outpix
+
+def outlines_list_multi(masks, num_processes=None):
+    """ get outlines of masks as a list to loop over for plotting """
+    if num_processes is None:
+        num_processes = cpu_count()
+
+    unique_masks = np.unique(masks)[1:]
+    with Pool(processes=num_processes) as pool:
+        outpix = pool.map(get_outline_multi, [(masks, n) for n in unique_masks])
+    return outpix
+
+def get_outline_multi(args):
+    masks, n = args
+    mn = masks == n
+    if mn.sum() > 0:
+        contours = cv2.findContours(mn.astype(np.uint8), mode=cv2.RETR_EXTERNAL, method=cv2.CHAIN_APPROX_NONE)
+        contours = contours[-2]
+        cmax = np.argmax([c.shape[0] for c in contours])
+        pix = contours[cmax].astype(int).squeeze()
+        return pix if len(pix) > 4 else np.zeros((0, 2))
+    return np.zeros((0, 2))
 
 def get_perimeter(points):
     """ perimeter of points - npoints x ndim """

@@ -1,3 +1,7 @@
+"""
+Copright © 2023 Howard Hughes Medical Institute, Authored by Carsen Stringer and Marius Pachitariu.
+"""
+
 import sys, os, argparse, time
 import numpy as np
 from glob import glob
@@ -281,7 +285,7 @@ def train_general_net(root, style_path,
     nout = 3
     net = resnet_torch.CPnet(nbase=nbase, nout=nout, sz=3).to(device)
     if pretrained_model is not None:
-        net.load_model(pretrained_model)
+        net.load_model(pretrained_model, device=device)
     optimizer = torch.optim.SGD(net.parameters(), 
                                 lr = learning_rate, 
                                 weight_decay = weight_decay, 

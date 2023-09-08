@@ -1,3 +1,7 @@
+"""
+Copright © 2023 Howard Hughes Medical Institute, Authored by Carsen Stringer and Marius Pachitariu.
+"""
+
 import os, sys, time, shutil, tempfile, datetime, pathlib, subprocess
 from pathlib import Path
 import numpy as np
@@ -16,8 +20,10 @@ _MODEL_DIR_ENV = os.environ.get("CELLPOSE_LOCAL_MODELS_PATH")
 _MODEL_DIR_DEFAULT = pathlib.Path.home().joinpath('.cellpose', 'models')
 MODEL_DIR = pathlib.Path(_MODEL_DIR_ENV) if _MODEL_DIR_ENV else _MODEL_DIR_DEFAULT
 
-MODEL_NAMES = ['cyto','nuclei','tissuenet','livecell', 'cyto2',
+MODEL_NAMES = ['cyto','nuclei','tissuenet','livecell', 'cyto2', 'general',
                 'CP', 'CPx', 'TN1', 'TN2', 'TN3', 'LC1', 'LC2', 'LC3', 'LC4']
+
+MODEL_LIST_PATH = os.fspath(MODEL_DIR.joinpath('gui_models.txt'))
 
 def model_path(model_type, model_index, use_torch=True):
     torch_str = 'torch'
@@ -42,10 +48,9 @@ def cache_model_path(basename):
     return cached_file
 
 def get_user_models():
-    model_list_path = os.fspath(MODEL_DIR.joinpath('gui_models.txt'))
     model_strings = []
-    if os.path.exists(model_list_path):
-        with open(model_list_path, 'r') as textfile:
+    if os.path.exists(MODEL_LIST_PATH):
+        with open(MODEL_LIST_PATH, 'r') as textfile:
             lines = [line.rstrip() for line in textfile]
             if len(lines) > 0:
                 model_strings.extend(lines)
@@ -365,7 +370,7 @@ class CellposeModel(UnetModel):
         self.unet = False
         self.pretrained_model = pretrained_model
         if self.pretrained_model:
-            self.net.load_model(self.pretrained_model[0], cpu=(not self.gpu))
+            self.net.load_model(self.pretrained_model[0], device=self.device)
             self.diam_mean = self.net.diam_mean.data.cpu().numpy()[0]
             self.diam_labels = self.net.diam_labels.data.cpu().numpy()[0]
             models_logger.info(f'>>>> model diam_mean = {self.diam_mean: .3f} (ROIs rescaled to this size during training)')
@@ -532,7 +537,7 @@ class CellposeModel(UnetModel):
         
         else:
             if not model_loaded and (isinstance(self.pretrained_model, list) and not net_avg and not loop_run):
-                self.net.load_model(self.pretrained_model[0], cpu=(not self.gpu))
+                self.net.load_model(self.pretrained_model[0], device=self.device)
                 
             # reshape image (normalization happens in _run_cp)
             x = transforms.convert_image(x, channels, channel_axis=channel_axis, z_axis=z_axis,
@@ -660,6 +665,7 @@ class CellposeModel(UnetModel):
                 if stitch_threshold > 0 and nimg > 1:
                     models_logger.info(f'stitching {nimg} planes using stitch_threshold={stitch_threshold:0.3f} to make 3D masks')
                     masks = utils.stitch3D(masks, stitch_threshold=stitch_threshold)
+                    masks = utils.fill_holes_and_remove_small_masks(masks, min_size=min_size)
             
             flow_time = time.time() - tic
             if nimg > 1:
@@ -995,7 +1001,7 @@ class SizeModel():
                                                                                                    channels, normalize)
         if isinstance(self.cp.pretrained_model, list):
             cp_model_path = self.cp.pretrained_model[0]
-            self.cp.net.load_model(cp_model_path, cpu=(not self.cp.gpu))
+            self.cp.net.load_model(cp_model_path, device=self.cp.device)
         else:
             cp_model_path = self.cp.pretrained_model
         

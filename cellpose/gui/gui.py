@@ -1,18 +1,25 @@
+"""
+Copright © 2023 Howard Hughes Medical Institute, Authored by Carsen Stringer and Marius Pachitariu.
+"""
+
 import sys, os, pathlib, warnings, datetime, tempfile, glob, time
 import gc
 from natsort import natsorted
 from tqdm import tqdm, trange
 
-from PyQt5 import QtGui, QtCore, Qt, QtWidgets
-from PyQt5.QtWidgets import QMainWindow, QApplication, QWidget, QScrollBar, QSlider, QComboBox, QGridLayout, QPushButton, QFrame, QCheckBox, QLabel, QProgressBar, QLineEdit, QMessageBox, QGroupBox
+from qtpy import QtGui, QtCore, QtWidgets
+from superqt import QRangeSlider
+from qtpy.QtCore import Qt as Qtp
+from qtpy.QtWidgets import QMainWindow, QApplication, QWidget, QScrollBar, QSlider, QComboBox, QGridLayout, QPushButton, QFrame, QCheckBox, QLabel, QProgressBar, QLineEdit, QMessageBox, QGroupBox
 import pyqtgraph as pg
 from pyqtgraph import GraphicsScene
 
 import numpy as np
+from scipy.stats import mode
 import cv2
 
 from . import guiparts, menus, io
-from .. import models, core, dynamics
+from .. import models, core, dynamics, version
 from ..utils import download_url_to_file, masks_to_outlines, diameters 
 from ..io import get_image_files, imsave, imread
 from ..transforms import resize_image, normalize99 #fixed import
@@ -23,7 +30,6 @@ try:
     MATPLOTLIB = True
 except:
     MATPLOTLIB = False
-
 
 try:
     from google.cloud import storage
@@ -69,7 +75,7 @@ def interpZ(mask, zdraw):
     """ find nearby planes and average their values using grid of points
         zfill is in ascending order
     """
-    ifill = np.ones(mask.shape[0], np.bool)
+    ifill = np.ones(mask.shape[0], "bool")
     zall = np.arange(0, mask.shape[0], 1, int)
     ifill[zdraw] = False
     zfill = zall[ifill]
@@ -125,13 +131,18 @@ def run():
     app = QApplication(sys.argv)
     icon_path = pathlib.Path.home().joinpath('.cellpose', 'logo.png')
     guip_path = pathlib.Path.home().joinpath('.cellpose', 'cellpose_gui.png')
+    style_path = pathlib.Path.home().joinpath('.cellpose', 'style_choice.npy')
     if not icon_path.is_file():
         cp_dir = pathlib.Path.home().joinpath('.cellpose')
         cp_dir.mkdir(exist_ok=True)
         print('downloading logo')
         download_url_to_file('https://www.cellpose.org/static/images/cellpose_transparent.png', icon_path, progress=True)
     if not guip_path.is_file():
+        print('downloading help window image')
         download_url_to_file('https://www.cellpose.org/static/images/cellpose_gui.png', guip_path, progress=True)
+    if not style_path.is_file():
+        print('downloading style classifier')
+        download_url_to_file('https://www.cellpose.org/static/models/style_choice.npy', style_path, progress=True)
     icon_path = str(icon_path.resolve())
     app_icon = QtGui.QIcon()
     app_icon.addFile(icon_path, QtCore.QSize(16, 16))
@@ -160,7 +171,7 @@ class MainW(QMainWindow):
 
         pg.setConfigOptions(imageAxisOrder="row-major")
         self.setGeometry(50, 50, 1200, 1000)
-        self.setWindowTitle("cellpose")
+        self.setWindowTitle(f"cellpose v{version}")
         self.cp_path = os.path.dirname(os.path.realpath(__file__))
         app_icon = QtGui.QIcon()
         icon_path = pathlib.Path.home().joinpath('.cellpose', 'logo.png')
@@ -180,7 +191,7 @@ class MainW(QMainWindow):
 
         self.setStyleSheet("QMainWindow {background: 'black';}")
         self.stylePressed = ("QPushButton {Text-align: left; "
-                             "background-color: rgb(100,50,100); "
+                             "background-color: rgb(150,50,150); "
                              "border-color: white;"
                              "color:white;}")
         self.styleUnpressed = ("QPushButton {Text-align: left; "
@@ -291,15 +302,10 @@ class MainW(QMainWindow):
         label.setFont(self.smallfont)
         self.l0.addWidget(label, 1,0,1,4)
 
-        label = QLabel('[pageup/down]')
-        label.setStyleSheet(label_style)
-        label.setFont(self.smallfont)
-        self.l0.addWidget(label, 1,5,1,5)
-
+        
         b=2
         self.view = 0 # 0=image, 1=flowsXY, 2=flowsZ, 3=cellprob
         self.color = 0 # 0=RGB, 1=gray, 2=R, 3=G, 4=B
-        self.RGBChoose = guiparts.RGBRadioButtons(self, b,5)
         self.RGBDropDown = QComboBox()
         self.RGBDropDown.addItems(["RGB","red=R","green=G","blue=B","gray","spectral"])
         self.RGBDropDown.setFont(self.medfont)
@@ -312,7 +318,14 @@ class MainW(QMainWindow):
         label = QLabel('[press R / G / B to \n toggle RGB and color ]')
         label.setStyleSheet(label_style)
         label.setFont(self.smallfont)
-        self.l0.addWidget(label, b+1,0,1,4)
+        self.l0.addWidget(label, b,4,1,4)
+
+        label = QLabel('[pageup/down]')
+        label.setStyleSheet(label_style)
+        label.setFont(self.smallfont)
+        self.l0.addWidget(label, b+1,0,1,5)
+        self.RGBChoose = guiparts.RGBRadioButtons(self, b+2,0)
+        
 
         b+=3
 
@@ -381,6 +394,14 @@ class MainW(QMainWindow):
         label.setStyleSheet(self.headings)
         label.setFont(self.boldfont)
         self.l0.addWidget(label, b,0,1,9)
+        
+        # use GPU
+        self.useGPU = QCheckBox('use GPU')
+        self.useGPU.setStyleSheet(self.checkstyle)
+        self.useGPU.setFont(self.medfont)
+        self.useGPU.setToolTip('if you have specially installed the <i>cuda</i> version of torch, then you can activate this')
+        self.check_gpu()
+        self.l0.addWidget(self.useGPU, b,5,1,4)
 
         b+=1
         self.diameter = 30
@@ -405,26 +426,6 @@ class MainW(QMainWindow):
         self.SizeButton.setEnabled(False)
         self.SizeButton.setStyleSheet(self.styleInactive)
         self.SizeButton.setFont(self.boldfont)
-
-        # scale toggle
-        b+=1
-        self.scale_on = True
-        self.ScaleOn = QCheckBox('scale disk on')
-        self.ScaleOn.setFont(self.medfont)
-        self.ScaleOn.setStyleSheet('color: red;')
-        self.ScaleOn.setChecked(True)
-        self.ScaleOn.setToolTip('see current diameter as red disk at bottom')
-        self.ScaleOn.toggled.connect(self.toggle_scale)
-        self.l0.addWidget(self.ScaleOn, b,0,1,5)
-
-        # use GPU
-        #b+=1
-        self.useGPU = QCheckBox('use GPU')
-        self.useGPU.setStyleSheet(self.checkstyle)
-        self.useGPU.setFont(self.medfont)
-        self.useGPU.setToolTip('if you have specially installed the <i>cuda</i> version of torch, then you can activate this')
-        self.check_gpu()
-        self.l0.addWidget(self.useGPU, b,5,1,4)
 
         ### fast mode
         #self.NetAvg = QComboBox()
@@ -468,7 +469,7 @@ class MainW(QMainWindow):
         self.flow_threshold = QLineEdit()
         self.flow_threshold.setText('0.4')
         self.flow_threshold.returnPressed.connect(self.compute_cprob)
-        self.flow_threshold.setFixedWidth(60)
+        self.flow_threshold.setFixedWidth(70)
         self.l0.addWidget(self.flow_threshold, b,5,1,4)
 
         b+=1
@@ -480,8 +481,20 @@ class MainW(QMainWindow):
         self.cellprob_threshold = QLineEdit()
         self.cellprob_threshold.setText('0.0')
         self.cellprob_threshold.returnPressed.connect(self.compute_cprob)
-        self.cellprob_threshold.setFixedWidth(60)
+        self.cellprob_threshold.setFixedWidth(70)
         self.l0.addWidget(self.cellprob_threshold, b,5,1,4)
+
+        b+=1
+        label = QLabel('stitch_threshold:')
+        label.setToolTip('for 3D volumes, turn on stitch_threshold to stitch masks across planes instead of running cellpose in 3D (see docs for details)')
+        label.setStyleSheet(label_style)
+        label.setFont(self.medfont)
+        self.l0.addWidget(label, b, 0,1,5)
+        self.stitch_threshold = QLineEdit()
+        self.stitch_threshold.setText('0.0')
+        #self.cellprob_threshold.returnPressed.connect(self.compute_cprob)
+        self.stitch_threshold.setFixedWidth(70)
+        self.l0.addWidget(self.stitch_threshold, b,5,1,4)
 
         b+=1
         self.GB = QGroupBox('model zoo')
@@ -490,15 +503,15 @@ class MainW(QMainWindow):
         self.GB.setLayout(self.GBg)
 
         # compute segmentation with general models
-        net_text = ['cyto','nuclei','tissuenet','livecell', 'cyto2']
+        self.net_text = ['cyto','nuclei','tissuenet','livecell', 'cyto2']
         nett = ['cellpose cyto model', 
                 'cellpose nuclei model',
-                'tissuenet cell model',
-                'livecell model',
+                'tissuenet cell model\n(non-commercial use only)',
+                'livecell model\n(non-commercial use only)',
                 'cellpose cyto2 model']
         self.StyleButtons = []
-        for j in range(len(net_text)):
-            self.StyleButtons.append(guiparts.ModelButton(self, net_text[j], net_text[j]))
+        for j in range(len(self.net_text)):
+            self.StyleButtons.append(guiparts.ModelButton(self, self.net_text[j], self.net_text[j]))
             self.GBg.addWidget(self.StyleButtons[-1], 0,2*j,1,2)
             if j < 4:
                 self.StyleButtons[-1].setFixedWidth(45)
@@ -507,16 +520,25 @@ class MainW(QMainWindow):
             self.StyleButtons[-1].setToolTip(nett[j])
 
         # compute segmentation with style model
-        net_text = ['CP', 'CPx', 'TN1', 'TN2', 'TN3', #'TN-p','TN-gi','TN-i',
-                    'LC1', 'LC2', 'LC3', 'LC4', #'LC-g','LC-e','LC-r','LC-n',
-                    ]
-        nett = ['cellpose cyto fluorescent', 'cellpose other', 'tissuenet 1', 'tissuenet 2', 'tissuenet 3',
-                'livecell A172 + SKOV3', 'livecell various', 'livecell BV2 + SkBr3', 'livecell SHSY5Y']
+        self.net_text.extend(['CP', 'CPx', 'TN1', 'TN2', 'TN3', #'TN-p','TN-gi','TN-i',
+                         'LC1', 'LC2', 'LC3', 'LC4', #'LC-g','LC-e','LC-r','LC-n',
+                        ])
+        nett = ['cellpose cyto fluorescent', 'cellpose other', 'tissuenet 1\n(non-commercial use only)', 
+                'tissuenet 2\n(non-commercial use only)', 'tissuenet 3\n(non-commercial use only)',
+                'livecell A172 + SKOV3\n(non-commercial use only)', 'livecell various\n(non-commercial use only)', 
+                'livecell BV2 + SkBr3\n(non-commercial use only)', 'livecell SHSY5Y\n(non-commercial use only)']
         for j in range(9):
-            self.StyleButtons.append(guiparts.ModelButton(self, net_text[j], net_text[j]))
+            self.StyleButtons.append(guiparts.ModelButton(self, self.net_text[j+5], self.net_text[j+5]))
             self.GBg.addWidget(self.StyleButtons[-1], 1,j,1,1)
             self.StyleButtons[-1].setFixedWidth(22)
             self.StyleButtons[-1].setToolTip(nett[j])
+
+        self.StyleToModel = QPushButton(' compute style and run suggested model')
+        self.StyleToModel.setStyleSheet(self.styleInactive)
+        self.StyleToModel.clicked.connect(self.suggest_model)
+        self.StyleToModel.setToolTip(' uses general cp2 model to compute style and runs suggested model based on style')
+        self.StyleToModel.setFont(self.smallfont)
+        self.GBg.addWidget(self.StyleToModel, 2,0,1,10)
 
         self.l0.addWidget(self.GB, b, 0, 2, 9)
 
@@ -545,7 +567,7 @@ class MainW(QMainWindow):
         
         self.CBg.addWidget(self.ModelChoose, 0,0,1,7)
 
-        # recompute segmentation
+        # compute segmentation w/ custom model
         self.ModelButton = QPushButton(u'run model')
         self.ModelButton.clicked.connect(self.compute_model)
         self.CBg.addWidget(self.ModelButton, 0,7,2,2)
@@ -557,7 +579,13 @@ class MainW(QMainWindow):
         b+=1
         self.progress = QProgressBar(self)
         self.progress.setStyleSheet('color: gray;')
-        self.l0.addWidget(self.progress, b,0,1,9)
+        self.l0.addWidget(self.progress, b,0,1,5)
+
+        self.roi_count = QLabel('0 ROIs')
+        self.roi_count.setStyleSheet('color: white;')
+        self.roi_count.setFont(self.boldfont)
+        self.roi_count.setAlignment(QtCore.Qt.AlignRight)
+        self.l0.addWidget(self.roi_count, b,5,1,3)
 
         b+=1
         line = QHLine()
@@ -586,12 +614,13 @@ class MainW(QMainWindow):
         self.l0.addWidget(self.autobtn, b,0,1,5)
 
         b+=1
-        self.slider = guiparts.RangeSlider(self)
+        self.slider = QRangeSlider(Qtp.Orientation.Horizontal)
         self.slider.setMinimum(0)
         self.slider.setMaximum(255)
-        self.slider.setLow(0)
-        self.slider.setHigh(255)
+        self.slider.setValue([0, 255])
+        #self.slider.setHigh(255)
         self.slider.setTickPosition(QSlider.TicksRight)
+        self.slider.valueChanged.connect(self.level_change)
         self.l0.addWidget(self.slider, b,0,1,9)
 
         b+=1
@@ -653,6 +682,16 @@ class MainW(QMainWindow):
         self.zpos.returnPressed.connect(self.update_ztext)
         self.zpos.setFixedWidth(60)
         self.l0.addWidget(self.zpos, b, 6,1,3)
+        
+        # scale toggle
+        self.scale_on = True
+        self.ScaleOn = QCheckBox('scale disk on')
+        self.ScaleOn.setFont(self.medfont)
+        self.ScaleOn.setStyleSheet('color: rgb(150,50,150);')
+        self.ScaleOn.setChecked(True)
+        self.ScaleOn.setToolTip('see current diameter as red disk at bottom')
+        self.ScaleOn.toggled.connect(self.toggle_scale)
+        self.l0.addWidget(self.ScaleOn, b,0,1,4)
 
         # add scrollbar underneath
         self.scroll = QScrollBar(QtCore.Qt.Horizontal)
@@ -661,12 +700,20 @@ class MainW(QMainWindow):
         self.l0.addWidget(self.scroll, b,9,1,30)
         return b
 
+    def level_change(self):
+        if self.loaded:
+            sval = self.slider.value()
+            self.ops_plot = {'saturation': sval}
+            self.saturation[self.currentZ] = sval
+            if not self.autobtn.isChecked():
+                for i in range(len(self.saturation)):
+                    self.saturation[i] = sval
+            self.update_plot()
+
     def keyPressEvent(self, event):
         if self.loaded:
             #self.p0.setMouseEnabled(x=True, y=True)
-            if (event.modifiers() != QtCore.Qt.ControlModifier and
-                event.modifiers() != QtCore.Qt.ShiftModifier and
-                event.modifiers() != QtCore.Qt.AltModifier) and not self.in_stroke:
+            if not (event.modifiers() & (QtCore.Qt.ControlModifier | QtCore.Qt.ShiftModifier | QtCore.Qt.AltModifier) or self.in_stroke):
                 updated = False
                 if len(self.current_point_set) > 0:
                     if event.key() == QtCore.Qt.Key_Return:
@@ -674,10 +721,12 @@ class MainW(QMainWindow):
                     if self.NZ>1:
                         if event.key() == QtCore.Qt.Key_Left:
                             self.currentZ = max(0,self.currentZ-1)
-                            self.zpos.setText(str(self.currentZ))
+                            self.scroll.setValue(self.currentZ)
+                            updated = True
                         elif event.key() == QtCore.Qt.Key_Right:
                             self.currentZ = min(self.NZ-1, self.currentZ+1)
-                            self.zpos.setText(str(self.currentZ))
+                            self.scroll.setValue(self.currentZ)
+                            updated = True
                 else:
                     if event.key() == QtCore.Qt.Key_X:
                         self.MCheckBox.toggle()
@@ -756,11 +805,6 @@ class MainW(QMainWindow):
                     self.brush_choose()
                 if not updated:
                     self.update_plot()
-                elif event.modifiers() == QtCore.Qt.ControlModifier:
-                    if event.key() == QtCore.Qt.Key_Z:
-                        self.undo_action()
-                    if event.key() == QtCore.Qt.Key_0:
-                        self.clear_all()
         if event.key() == QtCore.Qt.Key_Minus or event.key() == QtCore.Qt.Key_Equal:
             self.p0.keyPressEvent(event)
 
@@ -894,6 +938,7 @@ class MainW(QMainWindow):
             self.currentZ = min(self.NZ, max(0, int(self.scroll.value())))
             self.zpos.setText(str(self.currentZ))
             self.update_plot()
+            self.draw_layer()
             self.update_layer()
             
             
@@ -905,6 +950,7 @@ class MainW(QMainWindow):
             border=[100, 100, 100],
             invertY=True
         )
+        self.p0.setCursor(QtCore.Qt.CrossCursor)
         self.brush_size=3
         self.win.addItem(self.p0, 0, 0, rowspan=1, colspan=1)
         self.p0.setMenuEnabled(False)
@@ -1030,14 +1076,13 @@ class MainW(QMainWindow):
         self.outcolor = [200,200,255,200]
         self.NZ, self.Ly, self.Lx = 1,512,512
         self.saturation = [[0,255] for n in range(self.NZ)]
-        self.slider.setLow(0)
-        self.slider.setHigh(255)
+        self.slider.setValue([0,255])
+        #self.slider.setHigh(255)
         self.slider.show()
         self.currentZ = 0
         self.flows = [[],[],[],[],[[]]]
         self.stack = np.zeros((1,self.Ly,self.Lx,3))
         # masks matrix
-        self.layers = 0*np.ones((1,self.Ly,self.Lx,4), np.uint8)
         self.layerz = 0*np.ones((self.Ly,self.Lx,4), np.uint8)
         # image matrix with a scale disk
         self.radii = 0*np.ones((self.Ly,self.Lx,4), np.uint8)
@@ -1066,8 +1111,6 @@ class MainW(QMainWindow):
     def clear_all(self):
         self.prev_selected = 0
         self.selected = 0
-        #self.layers_undo, self.cellpix_undo, self.outpix_undo = [],[],[]
-        self.layers = 0*np.ones((self.NZ,self.Ly,self.Lx,4), np.uint8)
         self.layerz = 0*np.ones((self.Ly,self.Lx,4), np.uint8)
         self.cellpix = np.zeros((self.NZ,self.Ly,self.Lx), np.uint32)
         self.outpix = np.zeros((self.NZ,self.Ly,self.Lx), np.uint32)
@@ -1082,8 +1125,6 @@ class MainW(QMainWindow):
         if self.selected > 0:
             z = self.currentZ
             self.layerz[self.cellpix[z]==idx] = np.array([255,255,255,self.opacity])
-            #if self.outlinesOn:
-            #    self.layers[self.outpix==idx] = np.array(self.outcolor)
             self.update_layer()
 
     def unselect_cell(self):
@@ -1136,7 +1177,7 @@ class MainW(QMainWindow):
         if self.ncells==0:
             self.ClearButton.setEnabled(False)
         if self.NZ==1:
-            io._save_sets(self)
+            io._save_sets_with_check(self)
 
     def merge_cells(self, idx):
         self.prev_selected = self.selected
@@ -1168,7 +1209,7 @@ class MainW(QMainWindow):
             self.remove_cell(self.selected)
             print('GUI_INFO: merged two cells')
             self.update_layer()
-            io._save_sets(self)
+            io._save_sets_with_check(self)
             self.undo.setEnabled(False)      
             self.redo.setEnabled(False)    
 
@@ -1186,18 +1227,18 @@ class MainW(QMainWindow):
             self.zdraw.append([])
             print('>>> added back removed cell')
             self.update_layer()
-            io._save_sets(self)
+            io._save_sets_with_check(self)
             self.removed_cell = []
             self.redo.setEnabled(False)
 
 
-    def remove_stroke(self, delete_points=True):
+    def remove_stroke(self, delete_points=True, stroke_ind=-1):
         #self.current_stroke = get_unique_points(self.current_stroke)
-        stroke = np.array(self.strokes[-1])
-        inZ = stroke[0,0]==self.currentZ
+        stroke = np.array(self.strokes[stroke_ind])
         cZ = self.currentZ
+        inZ = stroke[0,0]==cZ
         if inZ:
-            outpix = self.outpix[self.currentZ, stroke[:,1],stroke[:,2]]>0
+            outpix = self.outpix[cZ, stroke[:,1],stroke[:,2]]>0
             self.layerz[stroke[~outpix,1],stroke[~outpix,2]] = np.array([0,0,0,0])
             cellpix = self.cellpix[cZ, stroke[:,1], stroke[:,2]]
             ccol = self.cellcolors.copy()
@@ -1213,12 +1254,12 @@ class MainW(QMainWindow):
                 self.layerz[stroke[outpix,1],stroke[outpix,2]] = np.array(self.outcolor)
             if delete_points:
                 self.current_point_set = self.current_point_set[:-1*(stroke[:,-1]==1).sum()]
-            del self.strokes[-1]
             self.update_layer()
+            
+        del self.strokes[stroke_ind]
 
     def plot_clicked(self, event):
-        if event.button()==QtCore.Qt.LeftButton and (event.modifiers() != QtCore.Qt.ShiftModifier and
-                    event.modifiers() != QtCore.Qt.AltModifier):
+        if event.button()==QtCore.Qt.LeftButton and not event.modifiers() & (QtCore.Qt.ShiftModifier | QtCore.Qt.AltModifier):
             if event.double():
                 try:
                     self.p0.setYRange(0,self.Ly+self.pr)
@@ -1242,14 +1283,9 @@ class MainW(QMainWindow):
     def mouse_moved(self, pos):
         items = self.win.scene().items(pos)
         #for x in items:
-        #    if x==self.p0:
-        #        mousePoint = self.p0.mapSceneToView(pos)
-        #        if self.orthobtn.isChecked():
-        #            self.vLine.setPos(mousePoint.x())
-        #            self.hLine.setPos(mousePoint.y())
-            #else:
-            #    QtWidgets.QApplication.restoreOverrideCursor()
-                #QtWidgets.QApplication.setOverrideCursor(QtCore.Qt.DefaultCursor)
+        #    if not x==self.p0:
+        #        QtWidgets.QApplication.restoreOverrideCursor()
+        #        QtWidgets.QApplication.setOverrideCursor(QtCore.Qt.DefaultCursor)
 
 
     def color_choose(self):
@@ -1305,17 +1341,20 @@ class MainW(QMainWindow):
         if self.NZ>1 and self.orthobtn.isChecked():
             self.update_ortho()
         
-        self.slider.setLow(self.saturation[self.currentZ][0])
-        self.slider.setHigh(self.saturation[self.currentZ][1])
+        self.slider.setValue([self.saturation[self.currentZ][0], self.saturation[self.currentZ][1]])
         self.win.show()
         self.show()
 
     def update_layer(self):
         if self.masksOn or self.outlinesOn:
-            self.draw_layer()
+            #self.draw_layer()
             self.layer.setImage(self.layerz, autoLevels=False)
+        self.update_roi_count()
         self.win.show()
         self.show()
+
+    def update_roi_count(self):
+        self.roi_count.setText(f'{self.ncells} ROIs')
 
     def update_ortho(self):
         if self.NZ>1 and self.orthobtn.isChecked():
@@ -1391,7 +1430,7 @@ class MainW(QMainWindow):
                     self.ismanual = np.append(self.ismanual, True)
                     if self.NZ==1:
                         # only save after each cell if single image
-                        io._save_sets(self)
+                        io._save_sets_with_check(self)
             self.current_stroke = []
             self.strokes = []
             self.current_point_set = []
@@ -1401,13 +1440,12 @@ class MainW(QMainWindow):
         # loop over z values
         median = []
         if points.shape[1] < 3:
-            points = np.concatenate((np.zeros((points.shape[0],1), np.int32), points), axis=1)
-
+            points = np.concatenate((np.zeros((points.shape[0],1), "int32"), points), axis=1)
         zdraw = np.unique(points[:,0])
         zrange = np.arange(zdraw.min(), zdraw.max()+1, 1, int)
         zmin = zdraw.min()
-        pix = np.zeros((2,0), np.uint16)
-        mall = np.zeros((len(zrange), self.Ly, self.Lx), np.bool)
+        pix = np.zeros((2,0), "uint16")
+        mall = np.zeros((len(zrange), self.Ly, self.Lx), "bool")
         k=0
         for z in zdraw:
             iz = points[:,0] == z
@@ -1486,14 +1524,17 @@ class MainW(QMainWindow):
     def compute_scale(self):
         self.diameter = float(self.Diameter.text())
         self.pr = int(float(self.Diameter.text()))
-        radii = np.zeros((self.Ly+self.pr,self.Lx), np.uint8)
-        self.radii = np.zeros((self.Ly+self.pr,self.Lx,4), np.uint8)
-        yy,xx = disk([self.Ly+self.pr/2-1, self.pr/2+1],
-                            self.pr/2, self.Ly+self.pr, self.Lx)
-        self.radii[yy,xx,0] = 255
-        self.radii[yy,xx,-1] = 255#self.opacity * (radii>0)
+        self.radii_padding = int(self.pr*1.25)
+        self.radii = np.zeros((self.Ly+self.radii_padding,self.Lx,4), np.uint8)
+        yy,xx = disk([self.Ly+self.radii_padding/2-1, self.pr/2+1],
+                            self.pr/2, self.Ly+self.radii_padding, self.Lx)
+        # rgb(150,50,150)
+        self.radii[yy,xx,0] = 150
+        self.radii[yy,xx,1] = 50
+        self.radii[yy,xx,2] = 150
+        self.radii[yy,xx,3] = 255
         self.update_plot()
-        self.p0.setYRange(0,self.Ly+self.pr)
+        self.p0.setYRange(0,self.Ly+self.radii_padding)
         self.p0.setXRange(0,self.Lx)
         self.win.show()
         self.show()
@@ -1506,10 +1547,18 @@ class MainW(QMainWindow):
 
     def draw_layer(self):
         if self.masksOn:
+            self.layerz = np.zeros((self.Ly,self.Lx,4), np.uint8)
             self.layerz[...,:3] = self.cellcolors[self.cellpix[self.currentZ],:]
             self.layerz[...,3] = self.opacity * (self.cellpix[self.currentZ]>0).astype(np.uint8)
             if self.selected>0:
                 self.layerz[self.cellpix[self.currentZ]==self.selected] = np.array([255,255,255,self.opacity])
+            cZ = self.currentZ
+            stroke_z = np.array([s[0][0] for s in self.strokes])
+            inZ = np.nonzero(stroke_z == cZ)[0]
+            if len(inZ) > 0:
+                for i in inZ:
+                    stroke = np.array(self.strokes[i])
+                    self.layerz[stroke[:,1], stroke[:,2]] = np.array([255,0,255,100])
         else:
             self.layerz[...,3] = 0
 
@@ -1563,11 +1612,6 @@ class MainW(QMainWindow):
             
     def add_model(self):
         io._add_model(self)
-        #a_list = ["abc", "def", "ghi"]
-        #textfile = open("a_file.txt", "w")
-        #for element in a_list:
-        #    textfile.write(element + "\n")
-        #textfile.close()
         return
 
     def remove_model(self):
@@ -1612,6 +1656,7 @@ class MainW(QMainWindow):
         print('GUI_INFO: name of new model: ' + self.training_params['model_name'])
         self.new_model_path = self.model.train(self.train_data, self.train_labels, 
                                                channels=self.channels, 
+                                               min_train_masks=1,
                                                save_path=save_path, 
                                                nimg_per_epoch=8,
                                                learning_rate = self.training_params['learning_rate'], 
@@ -1641,8 +1686,7 @@ class MainW(QMainWindow):
             flow_threshold = float(self.flow_threshold.text())
             cellprob_threshold = float(self.cellprob_threshold.text())
             if flow_threshold==0.0 or self.NZ>1:
-                flow_threshold = None
-                
+                flow_threshold = None    
             return flow_threshold, cellprob_threshold
         except Exception as e:
             print('flow threshold or cellprob threshold not a valid number, setting to defaults')
@@ -1676,6 +1720,33 @@ class MainW(QMainWindow):
             io._masks_to_gui(self, maski, outlines=None)
             self.show()
 
+    def suggest_model(self, model_name=None):
+        logger.info('computing styles with 2D image...')
+        data = self.stack[self.NZ//2].copy()
+        styles_gt = np.load(os.fspath(pathlib.Path.home().joinpath('.cellpose', 'style_choice.npy')), 
+                            allow_pickle=True).item()
+        train_styles, train_labels, label_models = styles_gt['train_styles'], styles_gt['leiden_labels'], styles_gt['label_models']
+        self.diameter = float(self.Diameter.text())
+        self.current_model = 'general'
+        channels = self.get_channels()
+        model = models.CellposeModel(model_type='general', gpu=self.useGPU.isChecked())
+        styles = model.eval(data, 
+                            channels=channels, 
+                            diameter=self.diameter, 
+                            compute_masks=False)[-1]
+
+        n_neighbors = 5
+        dists = ((train_styles - styles)**2).sum(axis=1)**0.5
+        neighbor_labels = train_labels[dists.argsort()[:n_neighbors]]
+        label = mode(neighbor_labels)[0][0]
+        model_type = label_models[label]
+        logger.info(f'style suggests model {model_type}')
+        ind = self.net_text.index(model_type)
+        for i in range(len(self.net_text)):
+            self.StyleButtons[i].setStyleSheet(self.styleUnpressed)
+        self.StyleButtons[ind].setStyleSheet(self.stylePressed)
+        self.compute_model(model_name=model_type)
+            
     def compute_model(self, model_name=None):
         self.progress.setValue(0)
         try:
@@ -1685,8 +1756,11 @@ class MainW(QMainWindow):
             self.initialize_model(model_name)
             self.progress.setValue(10)
             do_3D = False
+            stitch_threshold = False
             if self.NZ > 1:
-                do_3D = True
+                stitch_threshold = float(self.stitch_threshold.text())
+                stitch_threshold = 0 if stitch_threshold <= 0 or stitch_threshold > 1 else stitch_threshold
+                do_3D = True if stitch_threshold==0 else False
                 data = self.stack.copy()
             else:
                 data = self.stack[0].copy()
@@ -1699,7 +1773,8 @@ class MainW(QMainWindow):
                                                 diameter=self.diameter,
                                                 cellprob_threshold=cellprob_threshold,
                                                 flow_threshold=flow_threshold,
-                                                do_3D=do_3D, 
+                                                do_3D=do_3D,
+                                                stitch_threshold=stitch_threshold, 
                                                 progress=self.progress)[:2]
             except Exception as e:
                 print('NET ERROR: %s'%e)
@@ -1712,12 +1787,12 @@ class MainW(QMainWindow):
             #    flows = flows[0]
             self.flows[0] = flows[0].copy() #RGB flow
             self.flows[1] = (np.clip(normalize99(flows[2].copy()), 0, 1) * 255).astype(np.uint8) #dist/prob
-            if not do_3D:
+            if not do_3D and not stitch_threshold > 0:
                 masks = masks[np.newaxis,...]
                 self.flows[0] = resize_image(self.flows[0], masks.shape[-2], masks.shape[-1],
                                                         interpolation=cv2.INTER_NEAREST)
                 self.flows[1] = resize_image(self.flows[1], masks.shape[-2], masks.shape[-1])
-            if not do_3D:
+            if not do_3D and not stitch_threshold > 0:
                 self.flows[2] = np.zeros(masks.shape[1:], dtype=np.uint8)
                 self.flows = [self.flows[n][np.newaxis,...] for n in range(len(self.flows))]
             else:
@@ -1737,8 +1812,10 @@ class MainW(QMainWindow):
             io._masks_to_gui(self, masks, outlines=None)
             self.progress.setValue(100)
 
-            if not do_3D:
+            if not do_3D and not stitch_threshold > 0:
                 self.recompute_masks = True
+            else:
+                self.recompute_masks = False
         except Exception as e:
             print('ERROR: %s'%e)
 
@@ -1746,17 +1823,22 @@ class MainW(QMainWindow):
         if len(self.model_strings) > 0:
             self.ModelButton.setStyleSheet(self.styleUnpressed)
             self.ModelButton.setEnabled(True)
+        self.StyleToModel.setStyleSheet(self.styleUnpressed)
+        self.StyleToModel.setEnabled(True)
         for i in range(len(self.StyleButtons)):
             self.StyleButtons[i].setEnabled(True)
             self.StyleButtons[i].setStyleSheet(self.styleUnpressed)
         self.SizeButton.setEnabled(True)
+        self.SCheckBox.setEnabled(True)
         self.SizeButton.setStyleSheet(self.styleUnpressed)
         self.newmodel.setEnabled(True)
         self.loadMasks.setEnabled(True)
         self.saveSet.setEnabled(True)
         self.savePNG.setEnabled(True)
+        self.saveFlows.setEnabled(True)
         self.saveServer.setEnabled(True)
         self.saveOutlines.setEnabled(True)
+        self.saveROIs.setEnabled(True)
         self.toggle_mask_ops()
 
         self.update_plot()
@@ -1764,4 +1846,3 @@ class MainW(QMainWindow):
 
     def toggle_mask_ops(self):
         self.toggle_removals()
-        
