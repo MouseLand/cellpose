@@ -5,7 +5,7 @@ from dask import delayed
 from dask.distributed import wait
 import dask.array as da
 from ClusterWrap.decorator import cluster
-import CircuitSeeker.utility as ut
+import bigstream.utility as ut
 from cellpose import models
 from cellpose.io import logger_setup
 import dask_image.ndmeasure._utils._label as label
