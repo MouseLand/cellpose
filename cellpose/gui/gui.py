@@ -247,6 +247,7 @@ class MainW(QMainWindow):
         # if called with image, load it
         if image is not None:
             self.filename = image
+            self.px_to = 0
             io._load_image(self, self.filename)
 
         # training settings
@@ -1142,8 +1143,10 @@ class MainW(QMainWindow):
             im.save("hola.jpg")
 
             labels = dip.Label(mask[:, :] > 0)
-            msr = dip.MeasurementTool.Measure(labels, features=["Perimeter", "Size", "Roundness", "Circularity"])
+            msr = dip.MeasurementTool.Measure(labels, features=["Perimeter", "Size", "Roundness", "Circularity", "Center"])
             print(msr)
+            print("Size in px: ", msr[1]["Size"][0])
+            print("Size in μm: ", msr[1]["Size"][0] * pow(self.px_to, 2))
 
             z = self.currentZ
             self.layerz[self.cellpix[z]==idx] = np.array([255,255,255,self.opacity])

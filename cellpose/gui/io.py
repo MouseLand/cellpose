@@ -93,6 +93,14 @@ def _get_train_set(image_names):
             train_labels.append(masks)
     return train_data, train_labels, train_files
 
+def _estimate_image_size(parent, filename):
+    # 152px = 100μm for 10x
+    # 302px = 100μm for 20x
+    if "10x" in filename:
+        parent.px_to = (float)(100/152)
+    elif "20x" in filename:
+        parent.px_to = (float)(100/302)
+
 def _load_image(parent, filename=None, load_seg=True):
     """ load image with filename; if None, open QFileDialog """
     if filename is None:
@@ -126,6 +134,7 @@ def _load_image(parent, filename=None, load_seg=True):
         parent.reset()
         parent.filename = filename
         filename = os.path.split(parent.filename)[-1]
+        _estimate_image_size(parent, filename)
         _initialize_images(parent, image, resize=parent.resize, X2=0)
         parent.clear_all()
         parent.loaded = True
