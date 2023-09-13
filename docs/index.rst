@@ -23,8 +23,8 @@ Cellpose 2.0
 Cellpose 1.0 
 
 - `paper <https://www.biorxiv.org/content/10.1101/2020.02.02.931238v1>`_ on biorxiv (see figure 1 below) and in `nature methods <https://t.co/kBMXmPp3Yn?amp=1>`_
-- twitter `thread`_
-- Marius's `talk`_
+- twitter `thread <https://twitter.com/computingnature/status/1224477812763119617>`_
+- Marius's `talk <https://www.youtube.com/watch?v=7y9d4VIKiS8>`_
 
 .. image:: _static/fig1.PNG
     :width: 1200px
@@ -32,9 +32,7 @@ Cellpose 1.0
     :alt: fig1
 
 .. _cellpose.org: http://www.cellpose.org
-.. _thread: https://twitter.com/computingnature/status/1224477812763119617
 .. _issue: https://github.com/MouseLand/cellpose/issues
-.. _talk: https://www.youtube.com/watch?v=7y9d4VIKiS8
 .. _pypi: https://pypi.org/project/cellpose/
 
 
