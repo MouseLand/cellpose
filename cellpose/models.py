@@ -655,7 +655,7 @@ class CellposeModel(UnetModel):
                 for i in iterator:
                     outputs = dynamics.compute_masks(dP[:,i], cellprob[i], niter=niter, cellprob_threshold=cellprob_threshold,
                                                          flow_threshold=flow_threshold, interp=interp, resize=resize, 
-                                                         min_size=min_size if stitch_threshold==0 or nimg==1 else None,
+                                                         min_size=min_size if stitch_threshold==0 or nimg==1 else -1, # turn off for 3D stitching
                                                          use_gpu=self.gpu, device=self.device)
                     masks.append(outputs[0])
                     p.append(outputs[1])
