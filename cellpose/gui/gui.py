@@ -381,9 +381,47 @@ class MainW(QMainWindow):
         self.OCheckBox.setStyleSheet(self.checkstyle)
         self.OCheckBox.setFont(self.medfont)
         self.l0.addWidget(self.OCheckBox, b,5,1,4)
-        
         self.OCheckBox.setChecked(False)
         self.OCheckBox.toggled.connect(self.toggle_masks) 
+
+        # buttons for deleting multiple cells
+        b += 1
+        label = QLabel('Delete ROIs:')
+        label.setStyleSheet(label_style)
+        label.setFont(self.medfont)
+        self.l0.addWidget(label, b, 0,1,3)
+        b+=1
+        self.DeleteMultipleROIButton = QPushButton('delete multiple')
+        self.DeleteMultipleROIButton.clicked.connect(self.delete_multiple_cells)
+        self.l0.addWidget(self.DeleteMultipleROIButton, b, 0, 1, 2) #r, c, rowspan, colspan
+        self.DeleteMultipleROIButton.setEnabled(False)
+        self.DeleteMultipleROIButton.setStyleSheet(self.styleInactive)
+        self.DeleteMultipleROIButton.setFont(self.smallfont)
+        self.DeleteMultipleROIButton.setFixedWidth(75)
+
+        self.MakeDeletionRegionButton = QPushButton('select region')
+        self.MakeDeletionRegionButton.clicked.connect(self.remove_region_cells)
+        self.l0.addWidget(self.MakeDeletionRegionButton, b, 2, 1, 3)
+        self.MakeDeletionRegionButton.setEnabled(False)
+        self.MakeDeletionRegionButton.setStyleSheet(self.styleInactive)
+        self.MakeDeletionRegionButton.setFont(self.smallfont)
+        self.MakeDeletionRegionButton.setFixedWidth(75)
+
+        self.DoneDeleteMultipleROIButton = QPushButton('done')
+        self.DoneDeleteMultipleROIButton.clicked.connect(self.done_remove_multiple_cells)
+        self.l0.addWidget(self.DoneDeleteMultipleROIButton, b, 5, 1, 2)
+        self.DoneDeleteMultipleROIButton.setEnabled(False)
+        self.DoneDeleteMultipleROIButton.setStyleSheet(self.styleInactive)
+        self.DoneDeleteMultipleROIButton.setFont(self.smallfont)
+        self.DoneDeleteMultipleROIButton.setFixedWidth(40)
+
+        self.CancelDeleteMultipleROIButton = QPushButton('cancel')
+        self.CancelDeleteMultipleROIButton.clicked.connect(self.cancel_remove_multiple)
+        self.l0.addWidget(self.CancelDeleteMultipleROIButton, b, 7, 1, 2)
+        self.CancelDeleteMultipleROIButton.setEnabled(False)
+        self.CancelDeleteMultipleROIButton.setStyleSheet(self.styleInactive)
+        self.CancelDeleteMultipleROIButton.setFont(self.smallfont)
+        self.CancelDeleteMultipleROIButton.setFixedWidth(40)
         
         b+=1
         line = QHLine()
@@ -623,35 +661,6 @@ class MainW(QMainWindow):
         self.slider.valueChanged.connect(self.level_change)
         self.l0.addWidget(self.slider, b,0,1,9)
 
-        # buttons for deleting multiple cells
-        b += 1
-        self.DeleteMultipleROIButton = QPushButton('delete multiple')
-        self.DeleteMultipleROIButton.clicked.connect(self.delete_multiple_cells)
-        self.l0.addWidget(self.DeleteMultipleROIButton, b, 0, 1, 2) #r, c, rowspan, colspan
-        self.DeleteMultipleROIButton.setEnabled(False)
-        self.DeleteMultipleROIButton.setStyleSheet(self.styleInactive)
-        self.DeleteMultipleROIButton.setFont(self.medfont)
-
-        self.MakeDeletionRegionButton = QPushButton('select region')
-        self.MakeDeletionRegionButton.clicked.connect(self.remove_region_cells)
-        self.l0.addWidget(self.MakeDeletionRegionButton, b, 2, 1, 2)
-        self.MakeDeletionRegionButton.setEnabled(False)
-        self.MakeDeletionRegionButton.setStyleSheet(self.styleInactive)
-        self.MakeDeletionRegionButton.setFont(self.medfont)
-
-        self.DoneDeleteMultipleROIButton = QPushButton('done')
-        self.DoneDeleteMultipleROIButton.clicked.connect(self.done_remove_multiple_cells)
-        self.l0.addWidget(self.DoneDeleteMultipleROIButton, b, 4, 1, 2)
-        self.DoneDeleteMultipleROIButton.setEnabled(False)
-        self.DoneDeleteMultipleROIButton.setStyleSheet(self.styleInactive)
-        self.DoneDeleteMultipleROIButton.setFont(self.medfont)
-
-        self.CancelDeleteMultipleROIButton = QPushButton('cancel')
-        self.CancelDeleteMultipleROIButton.clicked.connect(self.cancel_remove_multiple)
-        self.l0.addWidget(self.CancelDeleteMultipleROIButton, b, 6, 1, 1)
-        self.CancelDeleteMultipleROIButton.setEnabled(False)
-        self.CancelDeleteMultipleROIButton.setStyleSheet(self.styleInactive)
-        self.CancelDeleteMultipleROIButton.setFont(self.medfont)
         b+=1
         self.l0.addWidget(QLabel(''),b,0,1,5)
         self.l0.setRowStretch(b, 1)
