@@ -48,17 +48,32 @@ Main GUI mouse controls (works in all views):
 -  Start draw mask = right-click
 -  End draw mask = right-click, or return to circle at beginning
 
+Drawing masks 
+~~~~~~~~~~~~~~~~~~~~~~
+
+Masks are started with right-click, then hover your mouse (do not hold it down), 
+and return it to the red circle to complete the mask. The mask should now be completed.
+
 Overlaps in masks are NOT allowed. If you draw a mask on top of another
 mask, it is cropped so that it doesn't overlap with the old mask. Masks
 in 2D should be single strokes (if *single_stroke* is checked).
 
 If you want to draw masks in 3D, then you can turn *single_stroke*
 option off and draw a stroke on each plane with the cell and then press
-ENTER. 
+ENTER. You can also draw multiple strokes on the same plane for 
+complex cell shapes, but do not do this in 2D if you plan to train a cellpose model 
+(the cell flows will not work correctly).
 
 .. note::
     3D labelling will fill in unlabelled z-planes so that you do not
-    have to densely label, for example you can skip some planes.
+    have to densely label, for example you can skip some planes, and the 
+    cell will be interpolated between planes.
+
+After each mask is drawn in 2D, it is saved to the ``_seg.npy``. If this is slow (for 
+large images), this "autosave" option can be turned off in the "File" menu 
+("Disable autosave _seg.npy file"). In 3D, 
+the mask is never auto-saved, instead save masks by clicking CTRL+S, or "Save" in the 
+"File" menu.
 
 
 Segmentation options

@@ -569,7 +569,6 @@ class ImageDraw(pg.ImageItem):
                 self.drawAt(ev.pos())
                 if self.is_at_start(ev.pos()):
                     self.end_stroke()
-                    
         else:
             ev.acceptClicks(QtCore.Qt.RightButton)
             #ev.acceptClicks(QtCore.Qt.LeftButton)
@@ -607,11 +606,11 @@ class ImageDraw(pg.ImageItem):
             self.parent.stroke_appended = True
             self.parent.current_stroke = np.array(self.parent.current_stroke)
             ioutline = self.parent.current_stroke[:,3]==1
-            self.parent.current_point_set.extend(list(self.parent.current_stroke[ioutline]))
+            self.parent.current_point_set.append(list(self.parent.current_stroke[ioutline]))
             self.parent.current_stroke = []
             if self.parent.autosave:
                 self.parent.add_set()
-        if len(self.parent.current_point_set) > 0 and self.parent.autosave:
+        if len(self.parent.current_point_set) and len(self.parent.current_point_set[0]) > 0 and self.parent.autosave:
             self.parent.add_set()
         self.parent.in_stroke = False
 
@@ -623,7 +622,6 @@ class ImageDraw(pg.ImageItem):
 
     def drawAt(self, pos, ev=None):
         mask = self.strokemask
-        set = self.parent.current_point_set
         stroke = self.parent.current_stroke
         pos = [int(pos.y()), int(pos.x())]
         dk = self.drawKernel
