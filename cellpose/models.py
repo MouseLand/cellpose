@@ -654,7 +654,8 @@ class CellposeModel(UnetModel):
                 resize = [shape[1], shape[2]] if not resample else None
                 for i in iterator:
                     outputs = dynamics.compute_masks(dP[:,i], cellprob[i], niter=niter, cellprob_threshold=cellprob_threshold,
-                                                         flow_threshold=flow_threshold, interp=interp, resize=resize, min_size=min_size,
+                                                         flow_threshold=flow_threshold, interp=interp, resize=resize, 
+                                                         min_size=min_size if stitch_threshold==0 or nimg==1 else None,
                                                          use_gpu=self.gpu, device=self.device)
                     masks.append(outputs[0])
                     p.append(outputs[1])
