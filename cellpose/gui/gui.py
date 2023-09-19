@@ -1210,7 +1210,7 @@ class MainW(QMainWindow):
         if self.ncells==0:
             self.ClearButton.setEnabled(False)
         if self.NZ==1:
-            io._save_sets(self)
+            io._save_sets_with_check(self)
 
         self.update_layer()
 
