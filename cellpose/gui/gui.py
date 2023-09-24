@@ -1672,7 +1672,7 @@ class MainW(QMainWindow):
             self.draw_mask(z, ars, acs, vrs, vcs, color)
 
             median.append(np.array([np.median(ars), np.median(acs)]))
-            mall[z-zmin, ar, ac] = True
+            mall[z-zmin, ars, acs] = True
             pix = np.append(pix, np.vstack((ars, acs)), axis=-1)
 
         mall = mall[:, pix[0].min():pix[0].max()+1, pix[1].min():pix[1].max()+1].astype(np.float32)
@@ -1694,6 +1694,7 @@ class MainW(QMainWindow):
                 vr, vc = vr+ymin, vc+xmin
                 ar, ac = ar+ymin, ac+xmin
                 self.draw_mask(z+zmin, ar, ac, vr, vc, color)
+            
         self.zdraw.append(zdraw)
         if self.NZ==1:
             d = datetime.datetime.now()
