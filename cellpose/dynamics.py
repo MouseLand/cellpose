@@ -166,6 +166,123 @@ def masks_to_flows_gpu(masks, device=None):
     return mu0, mu_c
 
 
+def _extend_centers_gpu_3d(neighbors, centers, isneighbor, Lz, Ly, Lx, n_iter=200, device=torch.device('cuda')):
+    """ runs diffusion on GPU to generate flows for training images or quality control
+    
+    neighbors is 9 x pixels in masks, 
+    centers are mask centers, 
+    isneighbor is valid neighbor boolean 9 x pixels
+    
+    """
+    if device is not None:
+        device = device
+    nimg = neighbors.shape[0] // 7
+    pt = torch.from_numpy(neighbors).to(device)
+    
+    T = torch.zeros((nimg,Lz,Ly,Lx), dtype=torch.double, device=device)
+    meds = torch.from_numpy(centers.astype(int)).to(device).long()
+    isneigh = torch.from_numpy(isneighbor).to(device)
+    for i in range(n_iter):
+        T[:, meds[:,0], meds[:,1], meds[:,2]] +=1
+        Tneigh = T[:, pt[...,0], pt[...,1], pt[...,2]]
+        Tneigh *= isneigh
+        T[:, pt[0,:,0], pt[0,:,1], pt[0,:,2]] = Tneigh.mean(axis=1)
+    del meds, isneigh, Tneigh
+    T = torch.log(1.+ T)
+    # gradient positions
+    grads = T[:, pt[1:,:,0], pt[1:,:,1], pt[1:,:,2]]
+    del pt
+    dz = grads[:,0] - grads[:,1]
+    dy = grads[:,2] - grads[:,3]
+    dx = grads[:,4] - grads[:,5]
+    del grads
+    mu_torch = np.stack((dz.cpu().squeeze(0), dy.cpu().squeeze(0), dx.cpu().squeeze(0)), axis=-2)
+    return mu_torch
+
+
+def masks_to_flows_gpu_3d(masks, device=None):
+    """ convert masks to flows using diffusion from center pixel
+    Center of masks where diffusion starts is defined using COM
+    Parameters
+    -------------
+    masks: int, 2D or 3D array
+        labelled masks 0=NO masks; 1,2,...=mask labels
+    Returns
+    -------------
+    mu: float, 3D or 4D array 
+        flows in Y = mu[-2], flows in X = mu[-1].
+        if masks are 3D, flows in Z = mu[0].
+    mu_c: float, 2D or 3D array
+        for each pixel, the distance to the center of the mask 
+        in which it resides 
+    """
+    if device is None:
+        device = torch.device('cuda')
+
+    
+    Lz0, Ly0, Lx0 = masks.shape
+    Lz, Ly, Lx = Lz0+2, Ly0+2, Lx0+2
+
+    masks_padded = np.zeros((Lz, Ly, Lx), np.int64)
+    masks_padded[1:-1, 1:-1, 1:-1] = masks
+
+    # get mask pixel neighbors
+    z, y, x = np.nonzero(masks_padded)
+    neighborsZ = np.stack((z, z+1, z-1,
+                            z, z, 
+                            z, z))
+    neighborsY = np.stack((y, y, y,
+                           y+1, y-1, 
+                           y, y), axis=0)
+    neighborsX = np.stack((x, x, x, 
+                           x, x,
+                           x+1, x-1), axis=0)
+
+    neighbors = np.stack((neighborsZ, neighborsY, neighborsX), axis=-1)
+
+    # get mask centers
+    slices = find_objects(masks)
+    
+    centers = np.zeros((masks.max(), 3), 'int')
+    for i,si in enumerate(slices):
+        if si is not None:
+            sz, sy, sx = si
+            #lz, ly, lx = sr.stop - sr.start + 1, sc.stop - sc.start + 1
+            zi, yi, xi = np.nonzero(masks[sz, sy, sx] == (i+1))
+            zi = zi.astype(np.int32) + 1 # add padding
+            yi = yi.astype(np.int32) + 1 # add padding
+            xi = xi.astype(np.int32) + 1 # add padding
+            zmed = np.median(zi)
+            ymed = np.median(yi)
+            xmed = np.median(xi)
+            imin = np.argmin((zi-zmed)**2 + (xi-xmed)**2 + (yi-ymed)**2)
+            zmed = zi[imin]
+            ymed = yi[imin]
+            xmed = xi[imin]
+            centers[i,0] = zmed + sz.start 
+            centers[i,1] = ymed + sy.start 
+            centers[i,2] = xmed + sx.start
+
+    # get neighbor validator (not all neighbors are in same mask)
+    neighbor_masks = masks_padded[neighbors[:,:,0], neighbors[:,:,1], neighbors[:,:,2]]
+    isneighbor = neighbor_masks == neighbor_masks[0]
+    ext = np.array([[sz.stop - sz.start + 1, 
+                     sy.stop - sy.start + 1, 
+                     sx.stop - sx.start + 1] for sz, sy, sx in slices])
+    n_iter = 6 * (ext.sum(axis=1)).max()
+
+    # run diffusion
+    mu = _extend_centers_gpu_3d(neighbors, centers, isneighbor, Lz, Ly, Lx, 
+                             n_iter=n_iter, device=device)
+    # normalize
+    mu /= (1e-20 + (mu**2).sum(axis=0)**0.5)
+
+    # put into original image
+    mu0 = np.zeros((3, Lz0, Ly0, Lx0))
+    mu0[:, z-1, y-1, x-1] = mu
+    mu_c = np.zeros_like(mu0)
+    return mu0, mu_c
+
 
 def masks_to_flows_cpu(masks, device=None):
     """ convert masks to flows using diffusion from center pixel

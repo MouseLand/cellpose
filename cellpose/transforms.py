@@ -670,7 +670,7 @@ def _image_resizer(img, resize=512, to_uint8=False):
     return img
 
 
-def random_rotate_and_resize(X, Y=None, scale_range=1., xy = (224,224), 
+def random_rotate_and_resize(X, Y=None, scale_range=1., xy = (224,224), do_3D=False,
                              do_flip=True, rescale=None, unet=False, random_per_image=True):
     """ augmentation by random rotation and resizing
         X and Y are lists or arrays of length nimg, with dims channels x Ly x Lx (channels optional)
@@ -706,11 +706,15 @@ def random_rotate_and_resize(X, Y=None, scale_range=1., xy = (224,224),
     """
     scale_range = max(0, min(2, float(scale_range)))
     nimg = len(X)
-    if X[0].ndim>2:
+    if X[0].ndim > 2:
         nchan = X[0].shape[0]
     else:
         nchan = 1
-    imgi  = np.zeros((nimg, nchan, xy[0], xy[1]), np.float32)
+    if do_3D and X[0].ndim > 3:
+        shape = (X[0].shape[-3], xy[0], xy[1])
+    else:
+        shape = (xy[0], xy[1])
+    imgi  = np.zeros((nimg, nchan, *shape), np.float32)
 
     lbl = []
     if Y is not None:
@@ -718,7 +722,7 @@ def random_rotate_and_resize(X, Y=None, scale_range=1., xy = (224,224),
             nt = Y[0].shape[0]
         else:
             nt = 1
-        lbl = np.zeros((nimg, nt, xy[0], xy[1]), np.float32)
+        lbl = np.zeros((nimg, nt, *shape), np.float32)
 
     scale = np.ones(nimg, np.float32)
     
@@ -755,23 +759,30 @@ def random_rotate_and_resize(X, Y=None, scale_range=1., xy = (224,224),
             if Y is not None:
                 labels = labels[..., ::-1]
                 if nt > 1 and not unet:
-                    labels[2] = -labels[2]
+                    labels[-1] = -labels[-1]
 
         for k in range(nchan):
-            I = cv2.warpAffine(img[k], M, (xy[1],xy[0]), flags=cv2.INTER_LINEAR)
-            imgi[n,k] = I
+            if do_3D:
+                for z in range(shape[0]):
+                    I = cv2.warpAffine(img[k,z], M, (xy[1],xy[0]), flags=cv2.INTER_LINEAR)
+                    imgi[n,k,z] = I
+            else:
+                I = cv2.warpAffine(img[k], M, (xy[1],xy[0]), flags=cv2.INTER_LINEAR)
+                imgi[n,k] = I
 
         if Y is not None:
             for k in range(nt):
-                if k==0:
-                    lbl[n,k] = cv2.warpAffine(labels[k], M, (xy[1],xy[0]), flags=cv2.INTER_NEAREST)
+                flag = cv2.INTER_NEAREST if k==0 else cv2.INTER_LINEAR
+                if do_3D:
+                    for z in range(shape[0]):
+                        lbl[n,k,z] = cv2.warpAffine(labels[k,z], M, (xy[1],xy[0]), flags=flag)
                 else:
-                    lbl[n,k] = cv2.warpAffine(labels[k], M, (xy[1],xy[0]), flags=cv2.INTER_LINEAR)
+                    lbl[n,k] = cv2.warpAffine(labels[k], M, (xy[1],xy[0]), flags=flag)
 
             if nt > 1 and not unet:
-                v1 = lbl[n,2].copy()
-                v2 = lbl[n,1].copy()
-                lbl[n,1] = (-v1 * np.sin(-theta) + v2*np.cos(-theta))
-                lbl[n,2] = (v1 * np.cos(-theta) + v2*np.sin(-theta))
+                v1 = lbl[n,-1].copy()
+                v2 = lbl[n,-2].copy()
+                lbl[n,-2] = (-v1 * np.sin(-theta) + v2*np.cos(-theta))
+                lbl[n,-1] = (v1 * np.cos(-theta) + v2*np.sin(-theta))
 
     return imgi, lbl, scale

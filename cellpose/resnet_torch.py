@@ -13,26 +13,27 @@ import datetime
 
 from . import transforms, io, dynamics, utils
 
-sz = 3
+#conv_layer = nn.Conv3d
+#batch_norm = nn.BatchNorm3d
+#max_pool = nn.MaxPool3d
+#avg_pool = F.avg_pool3d
 
-def convbatchrelu(in_channels, out_channels, sz):
-    return nn.Sequential(
-        nn.Conv2d(in_channels, out_channels, sz, padding=sz//2),
-        nn.BatchNorm2d(out_channels, eps=1e-5),
-        nn.ReLU(inplace=True),
-    )  
+conv_layer = nn.Conv2d
+batch_norm = nn.BatchNorm2d
+max_pool = nn.MaxPool2d
+avg_pool = F.avg_pool2d
 
 def batchconv(in_channels, out_channels, sz):
     return nn.Sequential(
-        nn.BatchNorm2d(in_channels, eps=1e-5),
+        batch_norm(in_channels, eps=1e-5),
         nn.ReLU(inplace=True),
-        nn.Conv2d(in_channels, out_channels, sz, padding=sz//2),
+        conv_layer(in_channels, out_channels, sz, padding=sz//2),
     )  
 
 def batchconv0(in_channels, out_channels, sz):
     return nn.Sequential(
-        nn.BatchNorm2d(in_channels, eps=1e-5),
-        nn.Conv2d(in_channels, out_channels, sz, padding=sz//2),
+        batch_norm(in_channels, eps=1e-5),
+        conv_layer(in_channels, out_channels, sz, padding=sz//2),
     )  
 
 class resdown(nn.Module):
@@ -70,7 +71,7 @@ class downsample(nn.Module):
     def __init__(self, nbase, sz, residual_on=True):
         super().__init__()
         self.down = nn.Sequential()
-        self.maxpool = nn.MaxPool2d(2, 2)
+        self.maxpool = max_pool(2, stride=2) #nn.MaxPool2d(2, 2)
         for n in range(len(nbase)-1):
             if residual_on:
                 self.down.add_module('res_down_%d'%n, resdown(nbase[n], nbase[n+1], sz))
@@ -105,11 +106,13 @@ class batchconvstyle(nn.Module):
             else:
                 x = x + y
         feat = self.full(style)
+        for k in range(len(x.shape[2:])):
+            feat = feat.unsqueeze(-1)
         if mkldnn:
             x = x.to_dense()
-            y = (x + feat.unsqueeze(-1).unsqueeze(-1)).to_mkldnn()
+            y = (x + feat).to_mkldnn()
         else:
-            y = x + feat.unsqueeze(-1).unsqueeze(-1)
+            y = x + feat
         y = self.conv(y)
         return y
     
@@ -147,10 +150,10 @@ class make_style(nn.Module):
 
     def forward(self, x0):
         #style = self.pool_all(x0)
-        style = F.avg_pool2d(x0, kernel_size=(x0.shape[-2],x0.shape[-1]))
+        style = avg_pool(x0, kernel_size=x0.shape[2:])
         style = self.flatten(style)
         style = style / torch.sum(style**2, axis=1, keepdim=True)**.5
-
+        
         return style
     
 class upsample(nn.Module):
