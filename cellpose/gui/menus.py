@@ -120,6 +120,16 @@ def modelmenu(parent):
     openTrainHelp.triggered.connect(parent.train_help_window)
     model_menu.addAction(openTrainHelp)
 
+def masksmenu(parent):
+    main_menu = parent.menuBar()
+    masks_menu = main_menu.addMenu("&Masks")
+    parent.main_masks_menu = masks_menu
+
+def imagesmenu(parent):
+    main_menu = parent.menuBar()
+    images_menu = main_menu.addMenu("&Images")
+    parent.main_images_menu = images_menu
+
 def helpmenu(parent):
     main_menu = parent.menuBar()
     help_menu = main_menu.addMenu("&Help")
@@ -128,7 +138,7 @@ def helpmenu(parent):
     openHelp.setShortcut("Ctrl+H")
     openHelp.triggered.connect(parent.help_window)
     help_menu.addAction(openHelp)
-    
+
     openGUI = QAction("&GUI layout", parent)
     openGUI.setShortcut("Ctrl+G")
     openGUI.triggered.connect(parent.gui_window)

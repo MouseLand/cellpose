@@ -23,7 +23,7 @@ def create_channel_choose():
         else:
             ChannelLabels[i].setToolTip('if <em>cytoplasm</em> model is chosen, and you also have a nuclear channel, then choose the nuclear channel for this option')
             ChannelChoose[i].setToolTip('if <em>cytoplasm</em> model is chosen, and you also have a nuclear channel, then choose the nuclear channel for this option')
-        
+
     return ChannelChoose, ChannelLabels
 
 class ModelButton(QPushButton):
@@ -35,7 +35,7 @@ class ModelButton(QPushButton):
         self.setFont(parent.smallfont)
         self.clicked.connect(lambda: self.press(parent))
         self.model_name = model_name
-        
+
     def press(self, parent):
         for i in range(len(parent.StyleButtons)):
             parent.StyleButtons[i].setStyleSheet(parent.styleUnpressed)
@@ -54,7 +54,7 @@ class TrainWindow(QDialog):
         yoff = 0
         qlabel = QLabel('train model w/ images + _seg.npy in current folder >>')
         qlabel.setFont(QtGui.QFont("Arial", 10, QtGui.QFont.Bold))
-        
+
         qlabel.setAlignment(QtCore.Qt.AlignVCenter)
         self.l0.addWidget(qlabel, yoff,0,1,2)
 
@@ -525,7 +525,7 @@ class ImageDraw(pg.ImageItem):
 
     def mouseClickEvent(self, ev):
         if self.parent.masksOn or self.parent.outlinesOn:
-            if  self.parent.loaded and (ev.button() == QtCore.Qt.RightButton or 
+            if self.parent.loaded and (ev.button() == QtCore.Qt.RightButton or 
                     ev.modifiers() & QtCore.Qt.ShiftModifier and not ev.double()):
                 if not self.parent.in_stroke:
                     ev.accept()
@@ -540,7 +540,7 @@ class ImageDraw(pg.ImageItem):
             elif not self.parent.in_stroke:
                 y,x = int(ev.pos().y()), int(ev.pos().x())
                 if y>=0 and y<self.parent.Ly and x>=0 and x<self.parent.Lx:
-                    if ev.button() == QtCore.Qt.LeftButton and not ev.double():
+                    if ev.button() == QtCore.Qt.LeftButton and not ev.double() and self.parent.currentImageMask == "":
                         idx = self.parent.cellpix[self.parent.currentZ][y,x]
                         if idx > 0:
                             if ev.modifiers() & QtCore.Qt.ControlModifier:

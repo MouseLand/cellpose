@@ -7,7 +7,7 @@ import PyQt5
 from PyQt5 import QtGui, QtCore, Qt, QtWidgets
 from superqt import QRangeSlider
 from qtpy.QtCore import Qt as Qtp
-from PyQt5.QtWidgets import QMainWindow, QApplication, QWidget, QScrollBar, QSlider, QComboBox, QGridLayout, QPushButton, QFrame, QCheckBox, QLabel, QProgressBar, QLineEdit, QMessageBox, QGroupBox
+from PyQt5.QtWidgets import QMainWindow, QMenu, QAction, QApplication, QWidget, QScrollBar, QSlider, QComboBox, QGridLayout, QPushButton, QFrame, QCheckBox, QLabel, QProgressBar, QLineEdit, QMessageBox, QGroupBox
 import pyqtgraph as pg
 from pyqtgraph import GraphicsScene
 
@@ -23,8 +23,9 @@ from ..transforms import resize_image, normalize99 #fixed import
 from ..plot import disk
 
 from scipy.ndimage import find_objects
+from scipy import ndimage
 import diplib as dip
-from PIL import Image
+from PIL import Image, ImageDraw
 
 try:
     import matplotlib.pyplot as plt
@@ -185,9 +186,15 @@ class MainW(QMainWindow):
         app_icon.addFile(icon_path, QtCore.QSize(256, 256))
         self.setWindowIcon(app_icon)
 
+        self.main_masks_menu = None # Pointer to masks menu
+        self.main_images_menu = None # Pointer to images menu
+        self.temp_masks = []
+
         menus.mainmenu(self)
         menus.editmenu(self)
         menus.modelmenu(self)
+        menus.masksmenu(self)
+        menus.imagesmenu(self)
         menus.helpmenu(self)
 
         self.setStyleSheet("QMainWindow {background: 'black';}")
@@ -385,7 +392,7 @@ class MainW(QMainWindow):
         self.l0.addWidget(self.OCheckBox, b,5,1,4)
         
         self.OCheckBox.setChecked(False)
-        self.OCheckBox.toggled.connect(self.toggle_masks) 
+        self.OCheckBox.toggled.connect(self.toggle_masks)
         
         b+=1
         line = QHLine()
@@ -551,7 +558,7 @@ class MainW(QMainWindow):
         self.CB.setLayout(self.CBg)
         tipstr = 'add or train your own models in the "Models" file menu and choose model here'
         self.CB.setToolTip(tipstr)
-        
+
         # choose models
         self.ModelChoose = QComboBox()
         if len(self.model_strings) > 0:
@@ -577,7 +584,61 @@ class MainW(QMainWindow):
         self.ModelButton.setStyleSheet(self.styleInactive)
 
         self.l0.addWidget(self.CB, b, 0, 1, 9)
-        
+
+        ## NEW
+        b+=1
+        self.MB = QGroupBox('metrics')
+        self.MB.setStyleSheet("QGroupBox { border: 1px solid white; color:white; padding: 10px 0px;}")
+        self.MBg = QGridLayout()
+        self.MB.setLayout(self.MBg)
+        self.currentImageMask = ""
+        self.indexCytoMask = -1
+        self.indexNucleusMask = -1
+
+        # select metrics to calculate
+        self.calcSize = True
+        self.SMCheckBox = QCheckBox('Size')
+        self.SMCheckBox.setStyleSheet(self.checkstyle)
+        self.SMCheckBox.setFont(self.medfont)
+        self.SMCheckBox.setChecked(False)
+        self.SMCheckBox.setEnabled(False)
+        self.SMCheckBox.toggled.connect(self.toggle_masks)
+        tipstr = 'Area of the cell in μm2'
+        self.SMCheckBox.setToolTip(tipstr)
+        self.MBg.addWidget(self.SMCheckBox, 0, 0, 1, 7)
+
+        self.calcRound = True
+        self.RMCheckBox = QCheckBox('Roundness')
+        self.RMCheckBox.setStyleSheet(self.checkstyle)
+        self.RMCheckBox.setFont(self.medfont)
+        self.RMCheckBox.setChecked(False)
+        self.RMCheckBox.setEnabled(False)
+        self.RMCheckBox.toggled.connect(self.toggle_masks)
+        tipstr = 'Closer to 1 means more like a circle'
+        self.RMCheckBox.setToolTip(tipstr)
+        self.MBg.addWidget(self.RMCheckBox, 0, 5, 1, 7)
+
+        self.calcRatio = True
+        self.RTCheckBox = QCheckBox('Ratio')
+        self.RTCheckBox.setStyleSheet(self.checkstyle)
+        self.RTCheckBox.setFont(self.medfont)
+        self.RTCheckBox.setChecked(False)
+        self.RTCheckBox.setEnabled(False)
+        self.RTCheckBox.toggled.connect(self.toggle_masks)
+        tipstr = 'Ratio between cyto and nucleus'
+        self.RTCheckBox.setToolTip(tipstr)
+        self.MBg.addWidget(self.RTCheckBox, 1, 0, 1, 7)
+
+        # calculate the selected metrics
+        self.CalculateButton = QPushButton(u'calculate')
+        self.CalculateButton.clicked.connect(self.calculate_metrics)
+        self.MBg.addWidget(self.CalculateButton, 0, 10, 1, 2)
+        self.CalculateButton.setEnabled(False)
+        self.CalculateButton.setStyleSheet(self.styleInactive)
+
+        self.l0.addWidget(self.MB, b, 0, 1, 9)
+        ##
+
         b+=1
         self.progress = QProgressBar(self)
         self.progress.setStyleSheet('color: gray;')
@@ -626,7 +687,7 @@ class MainW(QMainWindow):
         self.l0.addWidget(self.slider, b,0,1,9)
 
         b+=1
-        self.l0.addWidget(QLabel(''),b,0,1,5)
+        self.l0.addWidget(QLabel(''), b, 0, 1, 5)
         self.l0.setRowStretch(b, 1)
 
         # cross-hair
@@ -918,10 +979,22 @@ class MainW(QMainWindow):
             self.masksOn = True
         else:
             self.masksOn = False
+        
         if self.OCheckBox.isChecked():
             self.outlinesOn = True
         else:
             self.outlinesOn = False
+
+        if self.SMCheckBox.isChecked():
+            self.calcSize = True
+        else:
+            self.calcSize = False
+
+        if self.RMCheckBox.isChecked():
+            self.calcRound = True
+        else:
+            self.calcRound = False
+        
         if not self.masksOn and not self.outlinesOn:
             self.p0.removeItem(self.layer)
             self.layer_off = True
@@ -930,6 +1003,7 @@ class MainW(QMainWindow):
                 self.p0.addItem(self.layer)
             self.draw_layer()
             self.update_layer()
+        
         if self.loaded:
             self.update_plot()
             self.update_layer()
@@ -1131,20 +1205,37 @@ class MainW(QMainWindow):
             si = slices[idx - 1]
             sr,sc = si
             mask = (self.cellpix[0][sr, sc] == (idx)).astype(np.uint8)
+            tmp_cellpix = np.copy(self.cellpix[0])
+            tmp_cellpix[idx != self.cellpix[0]] = 0
+            tmp_cellpix[idx == self.cellpix[0]] = 255
             
             mask_shape = mask.shape
             for i in range(0, mask_shape[0]):
                 for j in range(0, mask_shape[1]):
                     mask[i][j] = 255 if mask[i][j] > 0 else 0 
             
+            mask = tmp_cellpix.astype(np.uint8)  # KILL ME
+
             mask = np.pad(mask, 1, mode='constant')
-            print("OBJECT #: ", idx)
             im = Image.fromarray(mask)
-            im.save("hola.jpg")
+            im.save("hola1.jpg")
+
+            Zlabeled, Nlabels = ndimage.label(mask)
+            label_size = [(Zlabeled == label).sum() for label in range(Nlabels + 1)]
+            for label,size in enumerate(label_size): print("label %s is %s pixels in size" % (label,size))
+
+            # now remove the labels
+            for label, size in enumerate(label_size):
+                if size < 5:
+                    mask[Zlabeled == label] = 0
+
+            im = Image.fromarray(mask)
+            im.save("hola2.jpg")
 
             labels = dip.Label(mask[:, :] > 0)
             msr = dip.MeasurementTool.Measure(labels, features=["Perimeter", "Size", "Roundness", "Circularity", "Center"])
             print(msr)
+            print("IDX: ", idx)
             print("Size in px: ", msr[1]["Size"][0])
             print("Size in μm: ", msr[1]["Size"][0] * pow(self.px_to, 2))
 
@@ -1575,6 +1666,7 @@ class MainW(QMainWindow):
             self.layerz = np.zeros((self.Ly,self.Lx,4), np.uint8)
             self.layerz[...,:3] = self.cellcolors[self.cellpix[self.currentZ],:]
             self.layerz[...,3] = self.opacity * (self.cellpix[self.currentZ]>0).astype(np.uint8)
+
             if self.selected>0:
                 self.layerz[self.cellpix[self.currentZ]==self.selected] = np.array([255,255,255,self.opacity])
             cZ = self.currentZ
@@ -1628,7 +1720,7 @@ class MainW(QMainWindow):
                 self.current_model_path = models.model_path(self.current_model, 0)
             else:
                 self.current_model_path = os.fspath(models.MODEL_DIR.joinpath(self.current_model))
-            if self.current_model=='cyto':
+            if self.current_model=='cyto': 
                 self.model = models.Cellpose(gpu=self.useGPU.isChecked(), 
                                              model_type=self.current_model)
             else:
@@ -1737,7 +1829,7 @@ class MainW(QMainWindow):
             
             self.masksOn = True
             self.MCheckBox.setChecked(True)
-            # self.outlinesOn = True #should not turn outlines back on by default; masks make sense though 
+            # self.outlinesOn = True #should not turn outlines back on by default; masks make sense though
             # self.OCheckBox.setChecked(True)
             if maski.ndim<3:
                 maski = maski[np.newaxis,...]
@@ -1771,9 +1863,8 @@ class MainW(QMainWindow):
             self.StyleButtons[i].setStyleSheet(self.styleUnpressed)
         self.StyleButtons[ind].setStyleSheet(self.stylePressed)
         self.compute_model(model_name=model_type)
-            
+
     def compute_model(self, model_name=None):
-        print("LOOK compute_model")
         self.progress.setValue(0)
         try:
             tic=time.time()
@@ -1826,16 +1917,17 @@ class MainW(QMainWindow):
             if len(flows)>2: 
                 self.flows.append(flows[3].squeeze()) #p 
                 self.flows.append(np.concatenate((flows[1], flows[2][np.newaxis,...]), axis=0)) #dP, dist/prob
-                
+
             logger.info('%d cells found with model in %0.3f sec'%(len(np.unique(masks)[1:]), time.time()-tic))
             self.progress.setValue(80)
             z=0
             self.masksOn = True
             self.MCheckBox.setChecked(True)
-            # self.outlinesOn = True #again, this option should persist and not get toggled by another GUI action 
+            # self.outlinesOn = True #again, this option should persist and not get toggled by another GUI action
             # self.OCheckBox.setChecked(True)
 
             io._masks_to_gui(self, masks, outlines=None)
+            self.save_temp_output(masks=masks, model_name=model_name)
             self.progress.setValue(100)
 
             if not do_3D and not stitch_threshold > 0:
@@ -1844,6 +1936,32 @@ class MainW(QMainWindow):
                 self.recompute_masks = False
         except Exception as e:
             print('ERROR: %s'%e)
+
+    def save_temp_output(self, masks="", image="", model_name=""):
+        d = datetime.datetime.now()
+
+        if image == "":
+            mask_names = [mask_name[0] for mask_name in self.temp_masks if model_name in mask_name[0] and mask_name[0][len(model_name)] == "_"]
+            new_mask_names = model_name + "_" + str(len(mask_names) + 1)
+            subMenu = self.main_masks_menu.addMenu("&" + new_mask_names)
+
+            cytoAction = QAction("Select as cyto mask (or main)", self)
+            cytoAction.triggered.connect(lambda checked, subMenu=subMenu, curr_index=len(self.temp_masks): self.select_mask(subMenu, 'cyto', curr_index))
+
+            nucleiAction = QAction("Select as nucleus mask", self)
+            nucleiAction.triggered.connect(lambda checked, subMenu=subMenu, curr_index=len(self.temp_masks): self.select_mask(subMenu, 'nucleus', curr_index))
+
+            subMenu.addAction(cytoAction)
+            subMenu.addAction(nucleiAction)
+
+            self.temp_masks.append((new_mask_names, masks[-1]))
+        elif masks == "":
+            if self.indexCytoMask > -1:
+                newImage = QAction(model_name + " " + self.temp_masks[self.indexCytoMask][0], self)
+                newImage.triggered.connect(lambda checked, image=image, name=model_name: self.select_image(image, name))
+                self.main_images_menu.addAction(newImage)
+
+        logger.info(str(model_name) + " mask stored temporarily")
 
     def enable_buttons(self):
         if len(self.model_strings) > 0:
@@ -1872,3 +1990,189 @@ class MainW(QMainWindow):
 
     def toggle_mask_ops(self):
         self.toggle_removals()
+
+    def create_colormap_mask(self, mask):
+        colormap = ((np.random.rand(1000000,3)*0.8+0.1)*255).astype(np.uint8)
+        tmp_mask = np.copy(mask).astype(np.uint8)
+
+        colors = colormap[:tmp_mask.max(), :3]
+        cellcolors = np.concatenate((np.array([[255,255,255]]), colors), axis=0).astype(np.uint8)
+
+        layerz = np.zeros((mask.shape[0], mask.shape[1], 4), np.uint8)
+
+        new_tmp_mask = tmp_mask[np.newaxis,...]
+
+        layerz[...,:3] = cellcolors[new_tmp_mask[0],:]
+        layerz[...,3] = 128 * (new_tmp_mask[0]>0).astype(np.uint8)
+
+        return layerz
+
+    def image_labeling(self, im_mask="", im_labels="", coords=""):
+        im_mask_labeled = im_mask.copy()
+        
+        I1 = ImageDraw.Draw(im_mask_labeled)
+        
+        for idx in range(0, len(coords)):
+            if im_labels == "":
+                label_value = str(idx + 1)
+            else:
+                label_value = str(im_labels[idx])
+
+            I1.text((coords[idx][0], coords[idx][1]), label_value, 
+                    anchor="mb", 
+                    fill=(255, 255, 255))
+
+        return im_mask_labeled
+
+    def mask_indexing(self, im_mask, coords):
+        im_mask_labeled = im_mask.copy()
+        
+        I1 = ImageDraw.Draw(im_mask_labeled)
+        
+        for idx in range(0, len(coords)):
+            I1.text((coords[idx][0], coords[idx][1]), str(idx + 1), 
+                    anchor="mb", 
+                    fill=(255, 255, 255))
+
+        return im_mask_labeled
+
+    def size_labeling(self, im_mask, size_values, coords):
+        im_mask_labeled = im_mask.copy()
+        
+        I1 = ImageDraw.Draw(im_mask_labeled)
+        
+        for idx in range(0, len(coords)):
+            I1.text((coords[idx][0], coords[idx][1]), str(size_values[idx]), 
+                    anchor="mb", 
+                    fill=(255, 255, 255))
+
+        return im_mask_labeled
+
+    def create_colormap(mask_cyto, mask_nuclei):
+        # Cyto colormap
+        layerz_cyto = create_colormap_mask(mask_cyto)
+        im_cyto = Image.fromarray(layerz_cyto)
+
+        # Nuclei colormap
+        layerz_nuclei = create_colormap_mask(mask_nuclei)
+        im_nuclei = Image.fromarray(layerz_nuclei)
+
+        # Overlap colormap
+        layerz_overlap = np.copy(layerz_cyto).astype(np.uint8)
+        for idxi in range(0, layerz_overlap.shape[0]):
+            for idxj in range(0, layerz_overlap.shape[1]):
+                if (layerz_cyto[idxi][idxj] != [255, 255, 255, 0]).all() and (layerz_nuclei[idxi][idxj] != [255, 255, 255, 0]).all():
+                    layerz_overlap[idxi][idxj] = [255, 0, 0, 128]
+        im_overlap = Image.fromarray(layerz_overlap)
+        
+        return im_cyto, im_nuclei, im_overlap
+
+    def colormap_masks(masks_cyto, masks_nuclei, cyto_coords, nuclei_coords, file_name):
+        cyto_colormaps = []
+        nuclei_colormaps = []
+        overlap_colormaps = []
+        
+        for idx in tqdm(range(len(masks_cyto)), desc="Creating colormaps"):
+            im_cyto, im_nuclei, im_overlap = create_colormap(masks_cyto[idx], masks_nuclei[idx])
+            
+            cyto_colormaps.append(im_cyto)
+            im_cyto_indexed = self.image_labeling(im_mask=im_cyto, im_labels="", coords=cyto_coords[idx])
+            im_cyto_indexed.save(output_path + file_name[idx] + '/' + "cyto_" + str(idx + 1) + "_colormap.png")
+            
+            nuclei_colormaps.append(im_nuclei)
+            im_nuclei_indexed = self.image_labeling(im_mask=im_nuclei, im_labels="", coords=cyto_coords[idx])
+            im_nuclei_indexed.save(output_path + file_name[idx] + '/' + "nuclei_" + str(idx + 1) + "_colormap.png")
+            
+            overlap_colormaps.append(im_overlap)
+            im_overlap.save(output_path + file_name[idx] + '/' + "overlap_" + str(idx + 1) + "_colormap.png")
+
+        return cyto_colormaps, nuclei_colormaps, overlap_colormaps
+
+    def calculate_metrics(self):
+        print("WEEEEEE")
+
+        masks_img = self.temp_masks[-1][1]
+        px_to_mm = (float)(100/302)
+
+        custom_features = ["Center"]
+        if self.calcSize:
+            custom_features.append("Size")
+        if self.calcRound:
+            custom_features.append("Roundness")
+
+        slices = ndimage.find_objects(masks_img.astype(int))
+        center_coords = []
+        size_cells = []
+        round_cells = []
+
+        for idx, si in enumerate(slices):
+            mask_tmp = np.copy(masks_img).astype(np.uint8)
+            mask_tmp[(idx + 1) != masks_img] = 0
+            mask_tmp[(idx + 1) == masks_img] = 255
+
+            mask = np.pad(mask_tmp, 1, mode='constant')
+
+            ####
+            Zlabeled, Nlabels = ndimage.label(mask)
+            label_size = [(Zlabeled == label).sum() for label in range(Nlabels + 1)]
+
+            # Remove the labels
+            for label, size in enumerate(label_size):
+                if size < 5:
+                    mask[Zlabeled == label] = 0
+            ####
+
+            labels = dip.Label(mask > 0)
+            msr = dip.MeasurementTool.Measure(labels, features=custom_features)
+            center_coords.append([round(msr[1]["Center"][0], 2), 
+                                round(msr[1]["Center"][1], 2)])
+            if self.calcSize:
+                size_cells.append(round(msr[1]["Size"][0] * pow(px_to_mm, 2), 2))
+            if self.calcRound:
+                round_cells.append(round(msr[1]["Roundness"][0], 2))
+
+        # Cells colormap
+        layerz_cell = self.create_colormap_mask(masks_img)
+        im_cell = Image.fromarray(layerz_cell)
+
+        # im_cell_indexed = self.mask_indexing(im_cell, center_coords)
+        # self.save_temp_output(image=im_cell_indexed, model_name="indexed")
+
+        im_cell_size_labeled = self.image_labeling(im_mask=im_cell, im_labels=size_cells, coords=center_coords)
+        self.save_temp_output(image=im_cell_size_labeled, model_name="size")
+
+        im_cell_round_labeled = self.image_labeling(im_mask=im_cell, im_labels=round_cells, coords=center_coords)
+        self.save_temp_output(image=im_cell_round_labeled, model_name="roundness")
+
+        # im_cell_indexed.save("_colormap.png")
+        print("DONE!")
+
+        return size_cells, center_coords
+
+    def select_mask(self, menu_output, cell_type, curr_index):
+        if cell_type == "cyto":
+            if self.indexCytoMask != -1:
+                curr_selected_mask = menu_output.parentWidget().findChildren(QMenu)[self.indexCytoMask]
+                curr_selected_mask.setIcon(QtGui.QIcon())
+            self.indexCytoMask = curr_index
+        elif cell_type == "nucleus":
+            if self.indexNucleusMask != -1:
+                curr_selected_mask = menu_output.parentWidget().findChildren(QMenu)[self.indexNucleusMask]
+                curr_selected_mask.setIcon(QtGui.QIcon())
+            self.indexNucleusMask = curr_index
+        menu_output.setIcon(QtGui.QIcon('/home/mellamoarroz/.cellpose/' + cell_type + '.png'))
+
+        # self.RTCheckBox.setEnabled(self.indexCytoMask > -1 and self.indexNucleusMask > -1)
+        self.SMCheckBox.setEnabled(self.indexCytoMask > -1)
+        self.RMCheckBox.setEnabled(self.indexCytoMask > -1)
+        self.CalculateButton.setStyleSheet(self.styleUnpressed if self.indexCytoMask > -1 else self.styleInactive)
+        self.CalculateButton.setEnabled(self.indexCytoMask > -1)
+
+    def select_image(self, img_layer, name):
+        if self.currentImageMask != name:
+            self.layer.setImage(np.asarray(img_layer), autoLevels=False)
+            self.currentImageMask = name
+        else:
+            self.update_layer()
+            self.currentImageMask = ""
+        print("WEEEEEE 3")
