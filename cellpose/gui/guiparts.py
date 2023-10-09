@@ -11,6 +11,41 @@ from pyqtgraph import Point
 import numpy as np
 import pathlib, os
 
+class DarkPalette(QtGui.QPalette):
+    """Class that inherits from pyqtgraph.QtGui.QPalette and renders dark colours for the application."""
+
+    def __init__(self):
+        QtGui.QPalette.__init__(self)
+        self.setup()
+
+    def setup(self):
+        self.setColor(QtGui.QPalette.Window, QtGui.QColor(53, 50, 47))
+        self.setColor(QtGui.QPalette.WindowText, QtGui.QColor(255, 255, 255))
+        self.setColor(QtGui.QPalette.Base, QtGui.QColor(30, 27, 24))
+        self.setColor(QtGui.QPalette.AlternateBase, QtGui.QColor(53, 50, 47))
+        self.setColor(QtGui.QPalette.ToolTipBase, QtGui.QColor(255, 255, 255))
+        self.setColor(QtGui.QPalette.ToolTipText, QtGui.QColor(255, 255, 255))
+        self.setColor(QtGui.QPalette.Text, QtGui.QColor(255, 255, 255))
+        self.setColor(QtGui.QPalette.Button, QtGui.QColor(53, 50, 47))
+        self.setColor(QtGui.QPalette.ButtonText, QtGui.QColor(255, 255, 255))
+        self.setColor(QtGui.QPalette.BrightText, QtGui.QColor(255, 0, 0))
+        self.setColor(QtGui.QPalette.Link, QtGui.QColor(42, 130, 218))
+        self.setColor(QtGui.QPalette.Highlight, QtGui.QColor(42, 130, 218))
+        self.setColor(QtGui.QPalette.HighlightedText, QtGui.QColor(0, 0, 0))
+        self.setColor(
+            QtGui.QPalette.Disabled, QtGui.QPalette.Text, QtGui.QColor(128, 128, 128)
+        )
+        self.setColor(
+            QtGui.QPalette.Disabled,
+            QtGui.QPalette.ButtonText,
+            QtGui.QColor(128, 128, 128),
+        )
+        self.setColor(
+            QtGui.QPalette.Disabled,
+            QtGui.QPalette.WindowText,
+            QtGui.QColor(128, 128, 128),
+        )
+
 def create_channel_choose():
     # choose channel
     ChannelChoose = [QComboBox(), QComboBox()]
@@ -37,16 +72,16 @@ class ModelButton(QPushButton):
     def __init__(self, parent, model_name, text):
         super().__init__()
         self.setEnabled(False)
-        self.setStyleSheet(parent.styleInactive)
+        #self.setStyleSheet(parent.styleInactive)
         self.setText(text)
         self.setFont(parent.smallfont)
         self.clicked.connect(lambda: self.press(parent))
         self.model_name = model_name
         
     def press(self, parent):
-        for i in range(len(parent.StyleButtons)):
-            parent.StyleButtons[i].setStyleSheet(parent.styleUnpressed)
-        self.setStyleSheet(parent.stylePressed)
+        #for i in range(len(parent.StyleButtons)):
+        #    parent.StyleButtons[i].setStyleSheet(parent.styleUnpressed)
+        #self.setStyleSheet(parent.stylePressed)
         parent.compute_model(self.model_name)
 
 class TrainWindow(QDialog):
@@ -170,7 +205,7 @@ class QuadButton(QPushButton):
         super(QuadButton,self).__init__(parent)
         self.setText(Text)
         self.setCheckable(True)
-        self.setStyleSheet(parent.styleUnpressed)
+        #self.setStyleSheet(parent.styleUnpressed)
         self.setFont(QtGui.QFont("Arial", 8, QtGui.QFont.Bold))
         self.resize(self.minimumSizeHint())
         self.setMaximumWidth(22)
@@ -180,10 +215,10 @@ class QuadButton(QPushButton):
         self.show()
 
     def press(self, parent, bid):
-        for b in range(9):
-            if parent.quadbtns.button(b).isEnabled():
-                parent.quadbtns.button(b).setStyleSheet(parent.styleUnpressed)
-        self.setStyleSheet(parent.stylePressed)
+        #for b in range(9):
+            #if parent.quadbtns.button(b).isEnabled():
+            #    parent.quadbtns.button(b).setStyleSheet(parent.styleUnpressed)
+        #self.setStyleSheet(parent.stylePressed)
         self.xrange = np.array([self.xpos-.2, self.xpos+1.2]) * parent.Lx/3
         self.yrange = np.array([self.ypos-.2, self.ypos+1.2]) * parent.Ly/3
         # change the zoom

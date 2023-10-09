@@ -248,6 +248,23 @@ def outlines_list_single(masks):
                 outpix.append(np.zeros((0,2)))
     return outpix
 
+def dilate_masks(masks, n_iter=5):
+    """ dilate masks by n_iter pixels """
+    dilated_masks = masks.copy()
+    for n in range(n_iter):
+        # define the structuring element to use for dilation
+        kernel = np.ones((3,3), "uint8") 
+        # find the distance to each mask (distances are zero within masks)
+        dist_transform = cv2.distanceTransform((dilated_masks==0).astype("uint8"), cv2.DIST_L2, 5)
+        # dilate each mask and assign to it the pixels along the border of the mask
+        # (does not allow dilation into other masks since dist_transform is zero there)
+        for i in range(1, np.max(masks)+1):
+            mask = (dilated_masks==i).astype("uint8")
+            dilated_mask = cv2.dilate(mask, kernel, iterations=1)
+            dilated_mask = np.logical_and(dist_transform<2, dilated_mask)
+            dilated_masks[dilated_mask > 0] = i
+    return dilated_masks
+
 def outlines_list_multi(masks, num_processes=None):
     """ get outlines of masks as a list to loop over for plotting """
     if num_processes is None:

@@ -228,7 +228,9 @@ class UnetModel():
 
         """        
         x = [transforms.convert_image(xi, channels, channel_axis, z_axis, do_3D, 
-                                    normalize, invert, nchan=self.nchan) for xi in x]
+                                      nchan=self.nchan) for xi in x]
+        x = [transforms.normalize_img(xi, normalize=normalize, invert=invert) for xi in x]
+        
         nimg = len(x)
         self.batch_size = batch_size
 
@@ -658,7 +660,6 @@ class UnetModel():
         """ train function uses 0-1 mask label and boundary pixels for training """
 
         nimg = len(train_data)
-
         train_data, train_labels, test_data, test_labels, run_test = transforms.reshape_train_test(train_data, train_labels,
                                                                                                    test_data, test_labels,
                                                                                                    channels, normalize)

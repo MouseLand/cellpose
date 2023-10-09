@@ -70,7 +70,6 @@ def main():
         else:
             imf = None
 
-
         # Check with user if they REALLY mean to run without saving anything 
         if not (args.train or args.train_size):
             saving_something = args.save_png or args.save_tif or args.save_flows or args.save_ncolor or args.save_txt
