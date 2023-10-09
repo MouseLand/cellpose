@@ -10,42 +10,35 @@ from torch import optim
 import torch.nn.functional as F
 import datetime
 
-
 from . import transforms, io, dynamics, utils
 
-#conv_layer = nn.Conv3d
-#batch_norm = nn.BatchNorm3d
-#max_pool = nn.MaxPool3d
-#avg_pool = F.avg_pool3d
-
-conv_layer = nn.Conv2d
-batch_norm = nn.BatchNorm2d
-max_pool = nn.MaxPool2d
-avg_pool = F.avg_pool2d
-
-def batchconv(in_channels, out_channels, sz):
+def batchconv(in_channels, out_channels, sz, conv_3D=False):
+    conv_layer = nn.Conv3d if conv_3D else nn.Conv2d
+    batch_norm = nn.BatchNorm3d if conv_3D else nn.BatchNorm2d
     return nn.Sequential(
         batch_norm(in_channels, eps=1e-5),
         nn.ReLU(inplace=True),
         conv_layer(in_channels, out_channels, sz, padding=sz//2),
     )  
 
-def batchconv0(in_channels, out_channels, sz):
+def batchconv0(in_channels, out_channels, sz, conv_3D=False):
+    conv_layer = nn.Conv3d if conv_3D else nn.Conv2d
+    batch_norm = nn.BatchNorm3d if conv_3D else nn.BatchNorm2d
     return nn.Sequential(
         batch_norm(in_channels, eps=1e-5),
         conv_layer(in_channels, out_channels, sz, padding=sz//2),
     )  
 
 class resdown(nn.Module):
-    def __init__(self, in_channels, out_channels, sz):
+    def __init__(self, in_channels, out_channels, sz, conv_3D=False):
         super().__init__()
         self.conv = nn.Sequential()
-        self.proj  = batchconv0(in_channels, out_channels, 1)
+        self.proj  = batchconv0(in_channels, out_channels, 1, conv_3D)
         for t in range(4):
             if t==0:
-                self.conv.add_module('conv_%d'%t, batchconv(in_channels, out_channels, sz))
+                self.conv.add_module('conv_%d'%t, batchconv(in_channels, out_channels, sz, conv_3D))
             else:
-                self.conv.add_module('conv_%d'%t, batchconv(out_channels, out_channels, sz))
+                self.conv.add_module('conv_%d'%t, batchconv(out_channels, out_channels, sz, conv_3D))
                 
     def forward(self, x):
         x = self.proj(x) + self.conv[1](self.conv[0](x))
@@ -53,14 +46,14 @@ class resdown(nn.Module):
         return x
 
 class convdown(nn.Module):
-    def __init__(self, in_channels, out_channels, sz):
+    def __init__(self, in_channels, out_channels, sz, conv_3D=False):
         super().__init__()
         self.conv = nn.Sequential()
         for t in range(2):
             if t==0:
-                self.conv.add_module('conv_%d'%t, batchconv(in_channels, out_channels, sz))
+                self.conv.add_module('conv_%d'%t, batchconv(in_channels, out_channels, sz, conv_3D))
             else:
-                self.conv.add_module('conv_%d'%t, batchconv(out_channels, out_channels, sz))
+                self.conv.add_module('conv_%d'%t, batchconv(out_channels, out_channels, sz, conv_3D))
                 
     def forward(self, x):
         x = self.conv[0](x)
@@ -68,15 +61,15 @@ class convdown(nn.Module):
         return x
 
 class downsample(nn.Module):
-    def __init__(self, nbase, sz, residual_on=True):
+    def __init__(self, nbase, sz, residual_on=True, conv_3D=False):
         super().__init__()
         self.down = nn.Sequential()
-        self.maxpool = max_pool(2, stride=2) #nn.MaxPool2d(2, 2)
+        self.maxpool = nn.MaxPool3d(2, stride=2) if conv_3D else nn.MaxPool2d(2, stride=2)
         for n in range(len(nbase)-1):
             if residual_on:
-                self.down.add_module('res_down_%d'%n, resdown(nbase[n], nbase[n+1], sz))
+                self.down.add_module('res_down_%d'%n, resdown(nbase[n], nbase[n+1], sz, conv_3D))
             else:
-                self.down.add_module('conv_down_%d'%n, convdown(nbase[n], nbase[n+1], sz))
+                self.down.add_module('conv_down_%d'%n, convdown(nbase[n], nbase[n+1], sz, conv_3D))
             
     def forward(self, x):
         xd = []
@@ -89,14 +82,15 @@ class downsample(nn.Module):
         return xd
     
 class batchconvstyle(nn.Module):
-    def __init__(self, in_channels, out_channels, style_channels, sz, concatenation=False):
+    def __init__(self, in_channels, out_channels, style_channels, sz, 
+                 concatenation=False, conv_3D=False):
         super().__init__()
         self.concatenation = concatenation
         if concatenation:
-            self.conv = batchconv(in_channels*2, out_channels, sz)
+            self.conv = batchconv(in_channels*2, out_channels, sz, conv_3D)
             self.full = nn.Linear(style_channels, out_channels*2)
         else:
-            self.conv = batchconv(in_channels, out_channels, sz)
+            self.conv = batchconv(in_channels, out_channels, sz, conv_3D)
             self.full = nn.Linear(style_channels, out_channels)
         
     def forward(self, style, x, mkldnn=False, y=None):
@@ -117,13 +111,14 @@ class batchconvstyle(nn.Module):
         return y
     
 class resup(nn.Module):
-    def __init__(self, in_channels, out_channels, style_channels, sz, concatenation=False):
+    def __init__(self, in_channels, out_channels, style_channels, sz, 
+                 concatenation=False, conv_3D=False):
         super().__init__()
         self.conv = nn.Sequential()
-        self.conv.add_module('conv_0', batchconv(in_channels, out_channels, sz))
-        self.conv.add_module('conv_1', batchconvstyle(out_channels, out_channels, style_channels, sz, concatenation=concatenation))
-        self.conv.add_module('conv_2', batchconvstyle(out_channels, out_channels, style_channels, sz))
-        self.conv.add_module('conv_3', batchconvstyle(out_channels, out_channels, style_channels, sz))
+        self.conv.add_module('conv_0', batchconv(in_channels, out_channels, sz, conv_3D))
+        self.conv.add_module('conv_1', batchconvstyle(out_channels, out_channels, style_channels, sz, concatenation=concatenation, conv_3D=conv_3D))
+        self.conv.add_module('conv_2', batchconvstyle(out_channels, out_channels, style_channels, sz, conv_3D=conv_3D))
+        self.conv.add_module('conv_3', batchconvstyle(out_channels, out_channels, style_channels, sz, conv_3D=conv_3D))
         self.proj  = batchconv0(in_channels, out_channels, 1)
 
     def forward(self, x, y, style, mkldnn=False):
@@ -132,42 +127,44 @@ class resup(nn.Module):
         return x
     
 class convup(nn.Module):
-    def __init__(self, in_channels, out_channels, style_channels, sz, concatenation=False):
+    def __init__(self, in_channels, out_channels, style_channels, sz, 
+                 concatenation=False, conv_3D=False):
         super().__init__()
         self.conv = nn.Sequential()
-        self.conv.add_module('conv_0', batchconv(in_channels, out_channels, sz))
-        self.conv.add_module('conv_1', batchconvstyle(out_channels, out_channels, style_channels, sz, concatenation=concatenation))
+        self.conv.add_module('conv_0', batchconv(in_channels, out_channels, sz, conv_3D))
+        self.conv.add_module('conv_1', batchconvstyle(out_channels, out_channels, style_channels, sz, 
+                                                concatenation=concatenation, conv_3D=conv_3D))
         
     def forward(self, x, y, style, mkldnn=False):
         x = self.conv[1](style, self.conv[0](x), y=y)
         return x
     
 class make_style(nn.Module):
-    def __init__(self):
+    def __init__(self, conv_3D=False):
         super().__init__()
-        #self.pool_all = nn.AvgPool2d(28)
         self.flatten = nn.Flatten()
+        self.avg_pool = F.avg_pool3d if conv_3D else F.avg_pool2d
 
     def forward(self, x0):
-        #style = self.pool_all(x0)
-        style = avg_pool(x0, kernel_size=x0.shape[2:])
+        style = self.avg_pool(x0, kernel_size=x0.shape[2:])
         style = self.flatten(style)
         style = style / torch.sum(style**2, axis=1, keepdim=True)**.5
         
         return style
     
 class upsample(nn.Module):
-    def __init__(self, nbase, sz, residual_on=True, concatenation=False):
+    def __init__(self, nbase, sz, residual_on=True, 
+                 concatenation=False, conv_3D=False):
         super().__init__()
         self.upsampling = nn.Upsample(scale_factor=2, mode='nearest')
         self.up = nn.Sequential()
         for n in range(1,len(nbase)):
             if residual_on:
                 self.up.add_module('res_up_%d'%(n-1), 
-                    resup(nbase[n], nbase[n-1], nbase[-1], sz, concatenation))
+                    resup(nbase[n], nbase[n-1], nbase[-1], sz, concatenation, conv_3D))
             else:
                 self.up.add_module('conv_up_%d'%(n-1), 
-                    convup(nbase[n], nbase[n-1], nbase[-1], sz, concatenation))
+                    convup(nbase[n], nbase[n-1], nbase[-1], sz, concatenation, conv_3D))
 
     def forward(self, style, xd, mkldnn=False):
         x = self.up[-1](xd[-1], xd[-1], style, mkldnn=mkldnn)
@@ -183,7 +180,7 @@ class CPnet(nn.Module):
     def __init__(self, nbase, nout, sz,
                 residual_on=True, style_on=True, 
                 concatenation=False, mkldnn=False,
-                diam_mean=30.):
+                conv_3D=False, diam_mean=30.):
         super(CPnet, self).__init__()
         self.nbase = nbase
         self.nout = nout
@@ -191,13 +188,15 @@ class CPnet(nn.Module):
         self.residual_on = residual_on
         self.style_on = style_on
         self.concatenation = concatenation
+        self.conv_3D = conv_3D
         self.mkldnn = mkldnn if mkldnn is not None else False
-        self.downsample = downsample(nbase, sz, residual_on=residual_on)
+        self.downsample = downsample(nbase, sz, residual_on=residual_on, conv_3D=conv_3D)
         nbaseup = nbase[1:]
         nbaseup.append(nbaseup[-1])
-        self.upsample = upsample(nbaseup, sz, residual_on=residual_on, concatenation=concatenation)
-        self.make_style = make_style()
-        self.output = batchconv(nbaseup[0], nout, 1)
+        self.upsample = upsample(nbaseup, sz, residual_on=residual_on, 
+                                 concatenation=concatenation, conv_3D=conv_3D)
+        self.make_style = make_style(conv_3D=conv_3D)
+        self.output = batchconv(nbaseup[0], nout, 1, conv_3D=conv_3D)
         self.diam_mean = nn.Parameter(data=torch.ones(1) * diam_mean, requires_grad=False)
         self.diam_labels = nn.Parameter(data=torch.ones(1) * diam_mean, requires_grad=False)
         self.style_on = style_on
@@ -234,6 +233,7 @@ class CPnet(nn.Module):
                           self.style_on,
                           self.concatenation,
                           self.mkldnn,
+                          self.conv_3D,
                           self.diam_mean)
             state_dict = torch.load(filename, map_location=torch.device('cpu'))
         self.load_state_dict(dict([(name, param) for name, param in state_dict.items()]), strict=False)

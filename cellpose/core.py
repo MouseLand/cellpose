@@ -426,9 +426,12 @@ class UnetModel():
             imgs = np.transpose(imgs, (0,3,1,2)) 
             detranspose = (0,2,3,1)
             return_conv = False
-        else:
+        elif imgs.ndim==3:
             # make image nchan x Ly x Lx for net
             imgs = np.transpose(imgs, (2,0,1))
+            detranspose = (1,2,0)
+        elif imgs.ndim==2:
+            imgs = imgs[np.newaxis,:,:]
             detranspose = (1,2,0)
 
         # pad image for net so Ly and Lx are divisible by 4
@@ -792,7 +795,8 @@ class UnetModel():
               test_data=None, test_labels=None,
               save_path=None, save_every=100, save_each=False,
               learning_rate=0.2, n_epochs=500, momentum=0.9, weight_decay=0.00001, 
-              SGD=True, batch_size=8, nimg_per_epoch=None, rescale=True, model_name=None): 
+              SGD=True, batch_size=8, nimg_per_epoch=None, diameter=None,
+              rescale=True, z_masking=False, model_name=None): 
         """ train function uses loss function self.loss_fn in models.py"""
         
         d = datetime.datetime.now()
@@ -827,18 +831,24 @@ class UnetModel():
         nimg = len(train_data)
 
         # compute average cell diameter
-        diam_train = np.array([utils.diameters(train_labels[k][0])[0] for k in range(len(train_labels))])
-        diam_train_mean = diam_train[diam_train > 0].mean()
-        self.diam_labels = diam_train_mean
-        if rescale:
-            diam_train[diam_train<5] = 5.
-            if test_data is not None:
-                diam_test = np.array([utils.diameters(test_labels[k][0])[0] for k in range(len(test_labels))])
-                diam_test[diam_test<5] = 5.
-            scale_range = 0.5
+        scale_range = 0.5 if rescale else 1.0
+        if diameter is None:
+            diam_train = np.array([utils.diameters(train_labels[k][0])[0] for k in range(len(train_labels))])
+            diam_train_mean = diam_train[diam_train > 0].mean()
+            self.diam_labels = diam_train_mean
+            if rescale:
+                diam_train[diam_train<5] = 5.
+                if test_data is not None:
+                    diam_test = np.array([utils.diameters(test_labels[k][0])[0] for k in range(len(test_labels))])
+                    diam_test[diam_test<5] = 5.
+                core_logger.info('>>>> median diameter set to = %d'%self.diam_mean)
+        elif rescale:
+            diam_train_mean = diameter
+            self.diam_labels = diameter
             core_logger.info('>>>> median diameter set to = %d'%self.diam_mean)
-        else:
-            scale_range = 1.0
+            diam_train = diameter * np.ones(len(train_labels), "float32")
+            if test_data is not None:
+                diam_test = diameter * np.ones(len(test_labels), "float32")
             
         core_logger.info(f'>>>> mean of training label mask diameters (saved to model) {diam_train_mean:.3f}')
         self.net.diam_labels.data = torch.ones(1, device=self.device) * diam_train_mean
@@ -896,6 +906,15 @@ class UnetModel():
                                         rescale=rsc, scale_range=scale_range, unet=self.unet)
                 if self.unet and lbl.shape[1]>1 and rescale:
                     lbl[:,1] *= scale[:,np.newaxis,np.newaxis]**2#diam_batch[:,np.newaxis,np.newaxis]**2
+                if z_masking:
+                    nc = imgi.shape[1]
+                    nb = imgi.shape[0]
+                    ncmin = (np.random.rand(nb)>0.25) * (np.random.randint(nc//2 - 1, size=nb))
+                    ncmax = nc - (np.random.rand(nb)>0.25) * (np.random.randint(nc//2 - 1, size=nb))
+                    for b in range(nb):
+                        imgi[b, :ncmin[b]] = 0
+                        imgi[b, ncmax[b]:] = 0
+
                 train_loss = self._train_step(imgi, lbl)
                 lavg += train_loss
                 nsum += len(imgi) 
