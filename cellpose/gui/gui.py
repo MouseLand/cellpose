@@ -344,7 +344,8 @@ class MainW(QMainWindow):
                                 'learning_rate': 0.1, 
                                 'weight_decay': 0.0001, 
                                 'n_epochs': 100,
-                                'model_name': 'CP' + d.strftime("_%Y%m%d_%H%M%S")
+                                'model_name': 'CP' + d.strftime("_%Y%m%d_%H%M%S"),
+                                'diameter': None,
                                }
 
         self.setAcceptDrops(True)
@@ -456,7 +457,6 @@ class MainW(QMainWindow):
         # buttons for deleting multiple cells
         b += 1
         label = QLabel('Delete ROIs:')
-        label.setStyleSheet(label_style)
         label.setFont(self.medfont)
         self.l0.addWidget(label, b, 0,1,3)
         b+=1
@@ -2136,8 +2136,9 @@ class MainW(QMainWindow):
                                                learning_rate = self.training_params['learning_rate'], 
                                                weight_decay = self.training_params['weight_decay'], 
                                                n_epochs = self.training_params['n_epochs'],
+                                               diameter = self.training_params['diameter'],
                                                model_name = self.training_params['model_name'])
-        diam_labels = self.model.diam_labels.copy()
+        diam_labels = self.model.diam_labels #.copy()
         # run model on next image 
         io._add_model(self, self.new_model_path, load_model=False)
         self.new_model_ind = len(self.model_strings)
@@ -2317,6 +2318,11 @@ class MainW(QMainWindow):
         self.saveServer.setEnabled(True)
         self.saveOutlines.setEnabled(True)
         self.saveROIs.setEnabled(True)
+        if self.onechan:
+            self.sliders[0].setEnabled(True)
+        else:
+            for r in range(3):
+                self.sliders[r].setEnabled(True)
 
         self.DeleteMultipleROIButton.setStyleSheet(self.styleUnpressed)
         self.DeleteMultipleROIButton.setEnabled(True)

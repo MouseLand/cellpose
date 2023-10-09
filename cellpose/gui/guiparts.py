@@ -137,11 +137,15 @@ class TrainWindow(QDialog):
         yoff+=len(labels)
 
         yoff+=1
+        self.diam_checkbox = QCheckBox(f"fix diameter to {parent.diameter:.2f}")
+        self.l0.addWidget(self.diam_checkbox, yoff,0,2,4)
+
+        yoff+=2
         qlabel = QLabel('(to remove files, click cancel then remove \nfrom folder and reopen train window)')
         self.l0.addWidget(qlabel, yoff,0,2,4)
 
         # click button
-        yoff+=2
+        yoff+=3
         QBtn = QDialogButtonBox.Ok | QDialogButtonBox.Cancel
         self.buttonBox = QDialogButtonBox(QBtn)
         self.buttonBox.accepted.connect(lambda: self.accept(parent))
@@ -181,7 +185,8 @@ class TrainWindow(QDialog):
                                  'learning_rate': float(self.edits[0].text()), 
                                  'weight_decay': float(self.edits[1].text()), 
                                  'n_epochs':  int(self.edits[2].text()),
-                                 'model_name': self.edits[3].text()
+                                 'model_name': self.edits[3].text(),
+                                 'diameter': parent.diameter if self.diam_checkbox.isChecked() else None,
                                  }
         self.done(1)
         
