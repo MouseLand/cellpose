@@ -381,9 +381,47 @@ class MainW(QMainWindow):
         self.OCheckBox.setStyleSheet(self.checkstyle)
         self.OCheckBox.setFont(self.medfont)
         self.l0.addWidget(self.OCheckBox, b,5,1,4)
-        
         self.OCheckBox.setChecked(False)
         self.OCheckBox.toggled.connect(self.toggle_masks) 
+
+        # buttons for deleting multiple cells
+        b += 1
+        label = QLabel('Delete ROIs:')
+        label.setStyleSheet(label_style)
+        label.setFont(self.medfont)
+        self.l0.addWidget(label, b, 0,1,3)
+        b+=1
+        self.DeleteMultipleROIButton = QPushButton('delete multiple')
+        self.DeleteMultipleROIButton.clicked.connect(self.delete_multiple_cells)
+        self.l0.addWidget(self.DeleteMultipleROIButton, b, 0, 1, 2) #r, c, rowspan, colspan
+        self.DeleteMultipleROIButton.setEnabled(False)
+        self.DeleteMultipleROIButton.setStyleSheet(self.styleInactive)
+        self.DeleteMultipleROIButton.setFont(self.smallfont)
+        self.DeleteMultipleROIButton.setFixedWidth(75)
+
+        self.MakeDeletionRegionButton = QPushButton('select region')
+        self.MakeDeletionRegionButton.clicked.connect(self.remove_region_cells)
+        self.l0.addWidget(self.MakeDeletionRegionButton, b, 2, 1, 3)
+        self.MakeDeletionRegionButton.setEnabled(False)
+        self.MakeDeletionRegionButton.setStyleSheet(self.styleInactive)
+        self.MakeDeletionRegionButton.setFont(self.smallfont)
+        self.MakeDeletionRegionButton.setFixedWidth(75)
+
+        self.DoneDeleteMultipleROIButton = QPushButton('done')
+        self.DoneDeleteMultipleROIButton.clicked.connect(self.done_remove_multiple_cells)
+        self.l0.addWidget(self.DoneDeleteMultipleROIButton, b, 5, 1, 2)
+        self.DoneDeleteMultipleROIButton.setEnabled(False)
+        self.DoneDeleteMultipleROIButton.setStyleSheet(self.styleInactive)
+        self.DoneDeleteMultipleROIButton.setFont(self.smallfont)
+        self.DoneDeleteMultipleROIButton.setFixedWidth(40)
+
+        self.CancelDeleteMultipleROIButton = QPushButton('cancel')
+        self.CancelDeleteMultipleROIButton.clicked.connect(self.cancel_remove_multiple)
+        self.l0.addWidget(self.CancelDeleteMultipleROIButton, b, 7, 1, 2)
+        self.CancelDeleteMultipleROIButton.setEnabled(False)
+        self.CancelDeleteMultipleROIButton.setStyleSheet(self.styleInactive)
+        self.CancelDeleteMultipleROIButton.setFont(self.smallfont)
+        self.CancelDeleteMultipleROIButton.setFixedWidth(40)
         
         b+=1
         line = QHLine()
@@ -1095,6 +1133,10 @@ class MainW(QMainWindow):
         self.loaded = False
         self.recompute_masks = False
 
+        self.deleting_multiple = False
+        self.removing_cells_list = []
+        self.removing_region = False
+        self.remove_roi_obj = None
 
     def brush_choose(self):
         self.brush_size = self.BrushChoose.currentIndex()*2 + 1
@@ -1127,6 +1169,12 @@ class MainW(QMainWindow):
             self.layerz[self.cellpix[z]==idx] = np.array([255,255,255,self.opacity])
             self.update_layer()
 
+    def select_cell_multi(self, idx):
+        if idx > 0:
+            z = self.currentZ
+            self.layerz[self.cellpix[z] == idx] = np.array([255, 255, 255, self.opacity])
+            self.update_layer()
+
     def unselect_cell(self):
         if self.selected > 0:
             idx = self.selected
@@ -1139,7 +1187,35 @@ class MainW(QMainWindow):
                 self.update_layer()
         self.selected = 0
 
+    def unselect_cell_multi(self, idx):
+        z = self.currentZ
+        self.layerz[self.cellpix[z] == idx] = np.append(self.cellcolors[idx], self.opacity)
+        if self.outlinesOn:
+            self.layerz[self.outpix[z] == idx] = np.array(self.outcolor).astype(np.uint8)
+            # [0,0,0,self.opacity])
+        self.update_layer()
+
     def remove_cell(self, idx):
+        if isinstance(idx, (int, np.integer)):
+            idx = [idx]
+
+        # because the function remove_single_cell updates the state of the cellpix and outpix arrays
+        # by reindexing cells to avoid gaps in the indices, we need to remove the cells in reverse order
+        # so that the indices are correct
+        idx.sort(reverse=True)
+        for i in idx:
+            self.remove_single_cell(i)
+        self.ncells -= len(idx) # _save_sets uses ncells
+
+        if self.ncells==0:
+            self.ClearButton.setEnabled(False)
+        if self.NZ==1:
+            io._save_sets_with_check(self)
+
+        self.update_layer()
+
+
+    def remove_single_cell(self, idx):
         # remove from manual array
         self.selected = 0
         if self.NZ > 1:
@@ -1170,14 +1246,69 @@ class MainW(QMainWindow):
         self.ismanual = np.delete(self.ismanual, idx-1)
         self.cellcolors = np.delete(self.cellcolors, [idx], axis=0)
         del self.zdraw[idx-1]
-        self.ncells -= 1
         print('GUI_INFO: removed cell %d'%(idx-1))
-        
-        self.update_layer()
-        if self.ncells==0:
-            self.ClearButton.setEnabled(False)
-        if self.NZ==1:
-            io._save_sets_with_check(self)
+
+    def remove_region_cells(self):
+        if self.removing_cells_list:
+            for idx in self.removing_cells_list:
+                self.unselect_cell_multi(idx)
+            self.removing_cells_list.clear()
+        self.MakeDeletionRegionButton.setStyleSheet(self.styleInactive)
+        self.MakeDeletionRegionButton.setEnabled(False)
+        self.removing_region = True
+
+        self.clear_multi_selected_cells()
+
+        # make roi region here in center of view, making ROI half the size of the view
+        roi_width = self.p0.viewRect().width() / 2
+        x_loc = self.p0.viewRect().x() + (roi_width / 2)
+        roi_height = self.p0.viewRect().height() / 2
+        y_loc = self.p0.viewRect().y() + (roi_height / 2)
+
+        pos = [x_loc, y_loc]
+        roi = pg.RectROI(pos, [roi_width, roi_height], pen=pg.mkPen('y', width=2), removable=True)
+        roi.sigRemoveRequested.connect(self.remove_roi)
+        roi.sigRegionChangeFinished.connect(self.roi_changed)
+        self.p0.addItem(roi)
+        self.remove_roi_obj = roi
+        self.roi_changed(roi)
+
+
+
+
+    def delete_multiple_cells(self):
+        self.unselect_cell()
+        self.disable_buttons_removeROIs()
+        self.DoneDeleteMultipleROIButton.setStyleSheet(self.styleUnpressed)
+        self.DoneDeleteMultipleROIButton.setEnabled(True)
+        self.MakeDeletionRegionButton.setStyleSheet(self.styleUnpressed)
+        self.MakeDeletionRegionButton.setEnabled(True)
+        self.CancelDeleteMultipleROIButton.setEnabled(True)
+        self.CancelDeleteMultipleROIButton.setStyleSheet(self.styleUnpressed)
+        self.deleting_multiple = True
+
+
+    def done_remove_multiple_cells(self):
+        self.deleting_multiple = False
+        self.removing_region = False
+        self.DoneDeleteMultipleROIButton.setStyleSheet(self.styleInactive)
+        self.DoneDeleteMultipleROIButton.setEnabled(False)
+        self.MakeDeletionRegionButton.setStyleSheet(self.styleInactive)
+        self.MakeDeletionRegionButton.setEnabled(False)
+        self.CancelDeleteMultipleROIButton.setStyleSheet(self.styleInactive)
+        self.CancelDeleteMultipleROIButton.setEnabled(False)
+
+        if self.removing_cells_list:
+            self.removing_cells_list = list(set(self.removing_cells_list))
+            display_remove_list = [i - 1 for i in self.removing_cells_list]
+            print(f"GUI_INFO: removing cells: {display_remove_list}")
+            self.remove_cell(self.removing_cells_list)
+            self.removing_cells_list.clear()
+            self.unselect_cell()
+        self.enable_buttons()
+
+        if self.remove_roi_obj is not None:
+            self.remove_roi(self.remove_roi_obj)
 
     def merge_cells(self, idx):
         self.prev_selected = self.selected
@@ -1253,13 +1384,16 @@ class MainW(QMainWindow):
             if self.outlinesOn:
                 self.layerz[stroke[outpix,1],stroke[outpix,2]] = np.array(self.outcolor)
             if delete_points:
-                self.current_point_set = self.current_point_set[:-1*(stroke[:,-1]==1).sum()]
+               # self.current_point_set = self.current_point_set[:-1*(stroke[:,-1]==1).sum()]
+               del self.current_point_set[stroke_ind]
             self.update_layer()
             
         del self.strokes[stroke_ind]
 
     def plot_clicked(self, event):
-        if event.button()==QtCore.Qt.LeftButton and not event.modifiers() & (QtCore.Qt.ShiftModifier | QtCore.Qt.AltModifier):
+        if event.button()==QtCore.Qt.LeftButton \
+                and not event.modifiers() & (QtCore.Qt.ShiftModifier | QtCore.Qt.AltModifier)\
+                and not self.removing_region:
             if event.double():
                 try:
                     self.p0.setYRange(0,self.Ly+self.pr)
@@ -1279,6 +1413,56 @@ class MainW(QMainWindow):
                                 self.xortho = x
                                 self.update_ortho()
 
+    def cancel_remove_multiple(self):
+        self.clear_multi_selected_cells()
+        self.done_remove_multiple_cells()
+
+
+    def clear_multi_selected_cells(self):
+        # unselect all previously selected cells:
+        for idx in self.removing_cells_list:
+            self.unselect_cell_multi(idx)
+        self.removing_cells_list.clear()
+
+    def add_roi(self, roi):
+        self.p0.addItem(roi)
+        self.remove_roi_obj = roi
+
+    def remove_roi(self, roi):
+        self.clear_multi_selected_cells()
+        assert roi == self.remove_roi_obj
+        self.remove_roi_obj = None
+        self.p0.removeItem(roi)
+        self.removing_region = False
+
+    def roi_changed(self, roi):
+        # find the overlapping cells and make them selected
+        pos = roi.pos()
+        size = roi.size()
+        x0 = int(pos.x())
+        y0 = int(pos.y())
+        x1 = int(pos.x()+size.x())
+        y1 = int(pos.y()+size.y())
+        if x0 < 0:
+            x0 = 0
+        if y0 < 0:
+            y0 = 0
+        if x1 > self.Lx:
+            x1 = self.Lx
+        if y1 > self.Ly:
+            y1 = self.Ly
+
+        # find cells in that region
+        cell_idxs = np.unique(self.cellpix[self.currentZ, y0:y1, x0:x1])
+        cell_idxs = np.trim_zeros(cell_idxs)
+        # deselect cells not in region by deselecting all and then selecting the ones in the region
+        self.clear_multi_selected_cells()
+
+        for idx in cell_idxs:
+            self.select_cell_multi(idx)
+            self.removing_cells_list.append(idx)
+
+        self.update_layer()
 
     def mouse_moved(self, pos):
         items = self.win.scene().items(pos)
@@ -1416,10 +1600,9 @@ class MainW(QMainWindow):
 
     def add_set(self):
         if len(self.current_point_set) > 0:
-            self.current_point_set = np.array(self.current_point_set)
             while len(self.strokes) > 0:
                 self.remove_stroke(delete_points=False)
-            if len(self.current_point_set) > 8:
+            if len(self.current_point_set[0]) > 8:
                 color = self.colormap[self.ncells,:3]
                 median = self.add_mask(points=self.current_point_set, color=color)
                 if median is not None:
@@ -1436,51 +1619,61 @@ class MainW(QMainWindow):
             self.current_point_set = []
             self.update_layer()
 
-    def add_mask(self, points=None, color=(100,200,50)):
+    def add_mask(self, points=None, color=(100,200,50), dense=True):
+        # points is list of strokes
+        
+        points_all = np.concatenate(points, axis=0)
+
         # loop over z values
         median = []
-        if points.shape[1] < 3:
-            points = np.concatenate((np.zeros((points.shape[0],1), "int32"), points), axis=1)
-        zdraw = np.unique(points[:,0])
+        zdraw = np.unique(points_all[:,0])
         zrange = np.arange(zdraw.min(), zdraw.max()+1, 1, int)
         zmin = zdraw.min()
         pix = np.zeros((2,0), "uint16")
         mall = np.zeros((len(zrange), self.Ly, self.Lx), "bool")
         k=0
         for z in zdraw:
-            iz = points[:,0] == z
-            vr = points[iz,1]
-            vc = points[iz,2]
-            # get points inside drawn points
-            mask = np.zeros((np.ptp(vr)+4, np.ptp(vc)+4), np.uint8)
-            pts = np.stack((vc-vc.min()+2,vr-vr.min()+2), axis=-1)[:,np.newaxis,:]
-            mask = cv2.fillPoly(mask, [pts], (255,0,0))
-            ar, ac = np.nonzero(mask)
-            ar, ac = ar+vr.min()-2, ac+vc.min()-2
-            # get dense outline
-            contours = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
-            pvc, pvr = contours[-2][0].squeeze().T            
-            vr, vc = pvr + vr.min() - 2, pvc + vc.min() - 2
-            # concatenate all points
-            ar, ac = np.hstack((np.vstack((vr, vc)), np.vstack((ar, ac))))
-            # if these pixels are overlapping with another cell, reassign them
-            ioverlap = self.cellpix[z][ar, ac] > 0
-            if (~ioverlap).sum() < 8:
-                print('ERROR: cell too small without overlaps, not drawn')
-                return None
-            elif ioverlap.sum() > 0:
-                ar, ac = ar[~ioverlap], ac[~ioverlap]
-                # compute outline of new mask
-                mask = np.zeros((np.ptp(ar)+4, np.ptp(ac)+4), np.uint8)
-                mask[ar-ar.min()+2, ac-ac.min()+2] = 1
-                contours = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
-                pvc, pvr = contours[-2][0].squeeze().T            
-                vr, vc = pvr + ar.min() - 2, pvc + ac.min() - 2
-            self.draw_mask(z, ar, ac, vr, vc, color)
+            ars, acs, vrs, vcs = np.zeros(0, "int"), np.zeros(0, "int"), np.zeros(0, "int"), np.zeros(0, "int")
+            for stroke in points:
+                stroke = np.concatenate(stroke, axis=0).reshape(-1, 4)
+                iz = stroke[:,0] == z
+                vr = stroke[iz,1]
+                vc = stroke[iz,2]
+                if iz.sum() > 0:
+                    # get points inside drawn points
+                    mask = np.zeros((np.ptp(vr)+4, np.ptp(vc)+4), np.uint8)
+                    pts = np.stack((vc-vc.min()+2,vr-vr.min()+2), axis=-1)[:,np.newaxis,:]
+                    mask = cv2.fillPoly(mask, [pts], (255,0,0))
+                    ar, ac = np.nonzero(mask)
+                    ar, ac = ar+vr.min()-2, ac+vc.min()-2
+                    # get dense outline
+                    contours = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+                    pvc, pvr = contours[-2][0].squeeze().T            
+                    vr, vc = pvr + vr.min() - 2, pvc + vc.min() - 2
+                    # concatenate all points
+                    ar, ac = np.hstack((np.vstack((vr, vc)), np.vstack((ar, ac))))
+                    # if these pixels are overlapping with another cell, reassign them
+                    ioverlap = self.cellpix[z][ar, ac] > 0
+                    if (~ioverlap).sum() < 8:
+                        print('ERROR: cell too small without overlaps, not drawn')
+                        return None
+                    elif ioverlap.sum() > 0:
+                        ar, ac = ar[~ioverlap], ac[~ioverlap]
+                        # compute outline of new mask
+                        mask = np.zeros((np.ptp(ar)+4, np.ptp(ac)+4), np.uint8)
+                        mask[ar-ar.min()+2, ac-ac.min()+2] = 1
+                        contours = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+                        pvc, pvr = contours[-2][0].squeeze().T            
+                        vr, vc = pvr + ar.min() - 2, pvc + ac.min() - 2
+                    ars = np.concatenate((ars, ar), axis=0)
+                    acs = np.concatenate((acs, ac), axis=0)
+                    vrs = np.concatenate((vrs, vr), axis=0)
+                    vcs = np.concatenate((vcs, vc), axis=0)
+            self.draw_mask(z, ars, acs, vrs, vcs, color)
 
-            median.append(np.array([np.median(ar), np.median(ac)]))
-            mall[z-zmin, ar, ac] = True
-            pix = np.append(pix, np.vstack((ar, ac)), axis=-1)
+            median.append(np.array([np.median(ars), np.median(acs)]))
+            mall[z-zmin, ars, acs] = True
+            pix = np.append(pix, np.vstack((ars, acs)), axis=-1)
 
         mall = mall[:, pix[0].min():pix[0].max()+1, pix[1].min():pix[1].max()+1].astype(np.float32)
         ymin, xmin = pix[0].min(), pix[1].min()
@@ -1501,6 +1694,7 @@ class MainW(QMainWindow):
                 vr, vc = vr+ymin, vc+xmin
                 ar, ac = ar+ymin, ac+xmin
                 self.draw_mask(z+zmin, ar, ac, vr, vc, color)
+            
         self.zdraw.append(zdraw)
         if self.NZ==1:
             d = datetime.datetime.now()
@@ -1514,12 +1708,12 @@ class MainW(QMainWindow):
         self.cellpix[z, vr, vc] = idx
         self.cellpix[z, ar, ac] = idx
         self.outpix[z, vr, vc] = idx
-        self.layerz[ar, ac, :3] = color
-        if self.masksOn:
-            self.layerz[ar, ac, -1] = self.opacity
-        if self.outlinesOn:
-            self.layerz[vr, vc] = np.array(self.outcolor)
-
+        if z==self.currentZ:
+            self.layerz[ar, ac, :3] = color
+            if self.masksOn:
+                self.layerz[ar, ac, -1] = self.opacity
+            if self.outlinesOn:
+                self.layerz[vr, vc] = np.array(self.outcolor)
 
     def compute_scale(self):
         self.diameter = float(self.Diameter.text())
@@ -1839,6 +2033,39 @@ class MainW(QMainWindow):
         self.saveServer.setEnabled(True)
         self.saveOutlines.setEnabled(True)
         self.saveROIs.setEnabled(True)
+
+        self.DeleteMultipleROIButton.setStyleSheet(self.styleUnpressed)
+        self.DeleteMultipleROIButton.setEnabled(True)
+
+        self.toggle_mask_ops()
+
+        self.update_plot()
+        self.setWindowTitle(self.filename)
+
+    def disable_buttons_removeROIs(self):
+        if len(self.model_strings) > 0:
+            self.ModelButton.setStyleSheet(self.styleInactive)
+            self.ModelButton.setEnabled(False)
+        self.StyleToModel.setStyleSheet(self.styleInactive)
+        self.StyleToModel.setEnabled(False)
+        for i in range(len(self.StyleButtons)):
+            self.StyleButtons[i].setEnabled(False)
+            self.StyleButtons[i].setStyleSheet(self.styleInactive)
+        self.SizeButton.setEnabled(False)
+        self.SCheckBox.setEnabled(False)
+        self.SizeButton.setStyleSheet(self.styleInactive)
+        self.newmodel.setEnabled(False)
+        self.loadMasks.setEnabled(False)
+        self.saveSet.setEnabled(False)
+        self.savePNG.setEnabled(False)
+        self.saveFlows.setEnabled(False)
+        self.saveServer.setEnabled(False)
+        self.saveOutlines.setEnabled(False)
+        self.saveROIs.setEnabled(False)
+
+        self.DeleteMultipleROIButton.setStyleSheet(self.styleInactive)
+        self.DeleteMultipleROIButton.setEnabled(True)
+
         self.toggle_mask_ops()
 
         self.update_plot()

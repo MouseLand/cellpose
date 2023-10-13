@@ -1,0 +1,151 @@
+<qt>
+    <p class="has-line-data" data-line-start="5" data-line-end="6">
+        <b>Main GUI mouse controls:</b>
+    </p>
+    <ul>
+        <li class="has-line-data" data-line-start="7" data-line-end="8">Pan = left-click + drag</li>
+        <li class="has-line-data" data-line-start="8" data-line-end="9">Zoom = scroll wheel (or +/= and - buttons)</li>
+        <li class="has-line-data" data-line-start="9" data-line-end="10">Full view = double left-click</li>
+        <li class="has-line-data" data-line-start="10" data-line-end="11">Select mask = left-click on mask</li>
+        <li class="has-line-data" data-line-start="11" data-line-end="12">Delete mask = Ctrl (or COMMAND on Mac) +
+            left-click
+        </li>
+        <li class="has-line-data" data-line-start="11" data-line-end="12">Merge masks = Alt + left-click (will merge
+            last two)
+        </li>
+        <li class="has-line-data" data-line-start="12" data-line-end="13">Start draw mask = right-click</li>
+        <li class="has-line-data" data-line-start="13" data-line-end="15">End draw mask = right-click, or return to
+            circle at beginning
+        </li>
+    </ul>
+    <p class="has-line-data" data-line-start="15" data-line-end="16">Overlaps in masks are NOT allowed. If you
+        draw a mask on top of another mask, it is cropped so that it doesn’t overlap with the old mask. Masks in 2D
+        should be single strokes (single stroke is checked). If you want to draw masks in 3D (experimental), then
+        you can turn this option off and draw a stroke on each plane with the cell and then press ENTER. 3D
+        labelling will fill in planes that you have not labelled so that you do not have to as densely label.
+    </p>
+    <p class="has-line-data" data-line-start="17" data-line-end="18"> <b>!NOTE!:</b> The GUI automatically saves after
+        you draw a mask in 2D but NOT after 3D mask drawing and NOT after segmentation. Save in the file menu or
+        with Ctrl+S. The output file is in the same folder as the loaded image with <code>_seg.npy</code> appended.
+    </p>
+
+    <p class="has-line-data" data-line-start="19" data-line-end="20"> <b>Bulk Mask Deletion</b>
+        Clicking the 'delete multiple' button will allow you to select and delete multiple masks at once.
+        Masks can be deselected by clicking on them again. Once you have selected all the masks you want to delete,
+        click the 'done' button to delete them.
+        <br>
+        <br>
+        Alternatively, you can create a rectangular region to delete a regions of masks by clicking the
+        'delete multiple' button, and then moving and/or resizing the region to select the masks you want to delete.
+        Once you have selected the masks you want to delete, click the 'done' button to delete them.
+        <br>
+        <br>
+        At any point in the process, you can click the 'cancel' button to cancel the bulk deletion.
+    </p>
+    <hr>
+    <table class="table table-striped table-bordered">
+        <br>
+        <br>
+        FYI there are tooltips throughout the GUI (hover over text to see)
+        <br>
+        <thead>
+        <tr>
+            <th>Keyboard shortcuts</th>
+            <th>Description</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr>
+            <td>=/+ button // - button</td>
+            <td>zoom in // zoom out</td>
+        </tr>
+        <tr>
+            <td>CTRL+Z</td>
+            <td>undo previously drawn mask/stroke</td>
+        </tr>
+        <tr>
+            <td>CTRL+Y</td>
+            <td>undo remove mask</td>
+        </tr>
+        <tr>
+            <td>CTRL+0</td>
+            <td>clear all masks</td>
+        </tr>
+        <tr>
+            <td>CTRL+L</td>
+            <td>load image (can alternatively drag and drop image)</td>
+        </tr>
+        <tr>
+            <td>CTRL+S</td>
+            <td>SAVE MASKS IN IMAGE to <code>_seg.npy</code> file</td>
+        </tr>
+        <tr>
+            <td>CTRL+T</td>
+            <td>train model using _seg.npy files in folder
+        </tr>
+        <tr>
+            <td>CTRL+P</td>
+            <td>load <code>_seg.npy</code> file (note: it will load automatically with image if it exists)</td>
+        </tr>
+        <tr>
+            <td>CTRL+M</td>
+            <td>load masks file (must be same size as image with 0 for NO mask, and 1,2,3… for masks)</td>
+        </tr>
+        <tr>
+            <td>CTRL+N</td>
+            <td>save masks as PNG</td>
+        </tr>
+        <tr>
+            <td>CTRL+R</td>
+            <td>save ROIs to native ImageJ ROI format</td>
+        </tr>
+        <tr>
+            <td>CTRL+F</td>
+            <td>save flows to image file</td>
+        </tr>
+        <tr>
+            <td>A/D or LEFT/RIGHT</td>
+            <td>cycle through images in current directory</td>
+        </tr>
+        <tr>
+            <td>W/S or UP/DOWN</td>
+            <td>change color (RGB/gray/red/green/blue)</td>
+        </tr>
+        <tr>
+            <td>R / G / B</td>
+            <td>toggle between RGB and Red or Green or Blue</td>
+        </tr>
+        <tr>
+            <td>PAGE-UP / PAGE-DOWN</td>
+            <td>change to flows and cell prob views (if segmentation computed)</td>
+        </tr>
+        <tr>
+            <td>X</td>
+            <td>turn masks ON or OFF</td>
+        </tr>
+        <tr>
+            <td>Z</td>
+            <td>toggle outlines ON or OFF</td>
+        </tr>
+        <tr>
+            <td>, / .</td>
+            <td>increase / decrease brush size for drawing masks</td>
+        </tr>
+        </tbody>
+    </table>
+    <p class="has-line-data" data-line-start="36" data-line-end="37"><strong>Segmentation options \
+        (2D only) </strong></p>
+    <p class="has-line-data" data-line-start="38" data-line-end="39">SIZE: you can manually enter the \
+        approximate diameter for your cells, or press “calibrate” to let the model estimate it. The size is \
+        represented by a disk at the bottom of the view window (can turn this disk of by unchecking \
+        “scale disk on”).</p>
+    <p class="has-line-data" data-line-start="40" data-line-end="41">use GPU: if you have specially \
+        installed the cuda version of mxnet, then you can activate this, but it won’t give huge speedups when \
+        running single 2D images in the GUI.</p>
+    <p class="has-line-data" data-line-start="42" data-line-end="43">MODEL: there is a <em>cytoplasm</em> \
+        model and a <em>nuclei</em> model, choose what you want to segment</p>
+    <p class="has-line-data" data-line-start="44" data-line-end="45">CHAN TO SEG: this is the channel in \
+        which the cytoplasm or nuclei exist</p>
+    <p class="has-line-data" data-line-start="46" data-line-end="47">CHAN2 (OPT): if <em>cytoplasm</em> model \
+        is chosen, then choose the nuclear channel for this option</p>
+</qt>
