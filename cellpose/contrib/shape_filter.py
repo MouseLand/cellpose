@@ -11,6 +11,13 @@ def fit_ellipse(mask):
     mean = np.mean(coords[mask], axis=0)
     cov = np.cov(coords[mask], rowvar=False)
 
+    # we need the inverse later, let's check it now in case its singular
+    try:
+        cov_inv = np.linalg.inv(cov)
+    except np.linalg.LinAlgError:
+        # a bad shaped mask is a bad ellipse fit
+        return 0
+
     # determine prob threshold to get gaussian ellipse of equal volume to mask
     radii = np.sqrt(np.linalg.eigvalsh(cov))
     norm = (2 * np.pi)**1.5 * np.prod(radii**2)**0.5
@@ -19,7 +26,7 @@ def fit_ellipse(mask):
 
     # create gaussian ellipse at mean, oriented with cov, and equal volume to mask
     diff = coords - mean
-    exp = np.einsum('...i,i...', diff, np.einsum('ij,xyzj', np.linalg.inv(cov), diff))
+    exp = np.einsum('...i,i...', diff, np.einsum('ij,xyzj', cov_inv, diff))
     return ( (np.exp( -0.5 * exp ) / norm) >= threshold )
 
 
@@ -46,9 +53,22 @@ def distributed_mask_ellipse_iou(
     def wrap_mask_ellipse_iou(start_index, box_list):
         scores = []
         for iii, box in enumerate(box_list):
+
+            # get binary mask
             index = start_index + iii + 1
             mask = (masks[box] == index)
-            scores.append(mask_ellipse_iou(mask))
+
+            # mask should be at least 2 voxels along each axis
+            if np.sum(mask) < 2**mask.ndim:
+                scores.append(0)
+
+            # mask should have data along every axis
+            elif np.any(np.array([a.stop - a.start for a in box]) < 2):
+                scores.append(0)
+
+            # get score
+            else:
+                scores.append(mask_ellipse_iou(mask))
         return scores
 
     # map all batches, reformat to a single list

@@ -198,6 +198,8 @@ def distributed_eval(
         #    in binary instead of decimal, then split into two 16 bit chunks
         #    then max number of blocks and max number of cells per block
         #    are both 2**16
+        # TODO: don't use ravel_multi_index - use the index of coords in block_coords
+        #       this will start at one and increment - still globally unique, much more efficient
         unique, unique_inverse = np.unique(segmentation, return_inverse=True)
         p = str(np.ravel_multi_index(block_index, nblocks))
         remap = [np.uint32(p+str(x).zfill(5)) for x in range(len(unique))]
@@ -225,6 +227,11 @@ def distributed_eval(
         preprocess_and_segment, block_coords,
     ))
     results = {a:b for a, b in results}
+
+    # TODO: this function really has 3 very different sections, segmentation, reduction, relabeling
+    #       segmentation needs lots of gpus, reduction is local, relabeling needs lots of cpus
+    #       I should be dynamically adjusting the cluster resources during these periods to avoid waste
+
     print('REDUCE STEP, SHOULD TAKE 5-10 MINUTES')
 
     # find face adjacency pairs
@@ -253,10 +260,20 @@ def distributed_eval(
     new_labeling = np.arange(len(unique), dtype=np.uint32)[unique_inverse]
     print('REDUCTION COMPLETE')
 
+    # define relabeling function
+    np.save(temporary_directory.name + '/new_labeling.npy', new_labeling)
+    def relabel_block(block):
+        new_labeling = np.load(temporary_directory.name + '/new_labeling.npy')
+        return new_labeling[block]
+
     # execute mergers and relabeling, write result to disk
-    new_labeling_da = da.from_array(new_labeling, chunks=-1)
     segmentation_da = da.from_zarr(output_zarr)
-    relabeled = label.relabel_blocks(segmentation_da, new_labeling_da)
+    relabeled = da.map_blocks(
+        relabel_block,
+        segmentation_da,
+        dtype=np.uint32,
+        chunks=segmentation_da.chunks,
+    )
     da.to_zarr(relabeled, write_path)
 
     # merge boxes

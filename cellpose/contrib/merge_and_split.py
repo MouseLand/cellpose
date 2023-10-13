@@ -9,6 +9,8 @@ import zarr
 from ClusterWrap.decorator import cluster
 from skimage.feature import peak_local_max
 from skimage.segmentation import watershed
+import tempfile
+import os
 
 
 def merge_small_segments(
@@ -152,7 +154,6 @@ def split_large_segments(
 
         
 
-
 @cluster
 def relabel_segments(
     masks,
@@ -160,13 +161,26 @@ def relabel_segments(
     write_path,
     cluster=None,
     cluster_kwargs={},
+    temporary_directory=None,
 ):
     """
     """
 
+    temporary_directory = tempfile.TemporaryDirectory(
+        prefix='.', dir=temporary_directory or os.getcwd(),
+    )
+    np.save(temporary_directory.name + '/new_labeling.npy', new_labeling)
+    def relabel_block(block):
+        new_labeling = np.load(temporary_directory.name + '/new_labeling.npy')
+        return new_labeling[block]
+
     masks_da = da.from_zarr(masks)
-    new_labeling_da = da.from_array(new_labeling, chunks=-1)
-    relabeled = label.relabel_blocks(masks_da, new_labeling_da)
+    relabeled = da.map_blocks(
+        relabel_block,
+        masks_da,
+        dtype=np.uint32,
+        chunks=masks_da.chunks,
+    )
     da.to_zarr(relabeled, write_path)
     return zarr.open(write_path, mode='r+')
 
