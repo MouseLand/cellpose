@@ -732,7 +732,7 @@ def resize_and_compute_masks(dP, cellprob, p=None, niter=200,
 
     if resize is not None:
         mask = transforms.resize_image(mask, resize[0], resize[1], interpolation=cv2.INTER_NEAREST)
-        p = transforms.resize_image(p, resize[0], resize[1], interpolation=cv2.INTER_NEAREST)
+        p = np.array([transforms.resize_image(pi, resize[0], resize[1], interpolation=cv2.INTER_NEAREST) for pi in p])
 
     return mask, p
 
