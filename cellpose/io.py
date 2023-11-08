@@ -415,7 +415,7 @@ def save_rois(masks, file_name):
 # Now saves flows, masks, etc. to separate folders.
 def save_masks(images, masks, flows, file_names, png=True, tif=False, channels=[0,0],
                suffix='',save_flows=False, save_outlines=False, save_ncolor=False, 
-               dir_above=False, in_folders=False, savedir=None, save_txt=True):
+               dir_above=False, in_folders=False, savedir=None, save_txt=False, save_mpl=False):
     """ save masks + nicely plotted segmentation image to png and/or tiff
 
     if png, masks[k] for images[k] are saved to file_names[k]+'_cp_masks.png'
@@ -449,6 +449,10 @@ def save_masks(images, masks, flows, file_names, png=True, tif=False, channels=[
         ncolor is a 4 (or 5, if 4 takes too long) index version of the labels that
         is way easier to visualize than having hundreds of unique colors that may
         be similar and touch. Any color map can be applied to it (0,1,2,3,4,...).
+
+    save_mpl: bool
+        If True, saves a matplotlib figure of the original image/segmentation/flows. Does not work for 3D.
+        This takes a long time for large images. Default is False.
     
     """
 
@@ -456,7 +460,7 @@ def save_masks(images, masks, flows, file_names, png=True, tif=False, channels=[
         for image, mask, flow, file_name in zip(images, masks, flows, file_names):
             save_masks(image, mask, flow, file_name, png=png, tif=tif, suffix=suffix,dir_above=dir_above,
                        save_flows=save_flows,save_outlines=save_outlines,save_ncolor=save_ncolor,
-                       savedir=savedir,save_txt=save_txt,in_folders=in_folders)
+                       savedir=savedir,save_txt=save_txt,in_folders=in_folders, save_mpl=save_mpl)
         return
     
     if masks.ndim > 2 and not tif:
@@ -517,8 +521,10 @@ def save_masks(images, masks, flows, file_names, png=True, tif=False, channels=[
         for ext in exts:
             
             imsave(os.path.join(maskdir,basename + '_cp_masks' + suffix + ext), masks)
-            
-    if png and MATPLOTLIB and not min(images.shape) > 3:
+
+    if save_mpl and png and MATPLOTLIB and not min(images.shape) > 3:
+        # Make and save original/segmentation/flows image
+
         img = images.copy()
         if img.ndim<3:
             img = img[:,:,np.newaxis]

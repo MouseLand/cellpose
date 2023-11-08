@@ -118,6 +118,9 @@ def get_arg_parser():
                              help='whether or not to save minimal "n-color" masks (disabled by default')
     output_args.add_argument('--save_txt', action='store_true',
                              help='flag to enable txt outlines for ImageJ (disabled by default)')
+    output_args.add_argument('--save_mpl', action='store_true',
+                             help='save a figure of image/mask/flows using matplotlib (disabled by default). '
+                                  'This is slow, especially with large images.')
 
     # training settings
     training_args = parser.add_argument_group("Training Arguments")
