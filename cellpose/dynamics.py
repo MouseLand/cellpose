@@ -718,11 +718,29 @@ def get_masks(p, iscell=None, rpad=20):
     M0 = np.reshape(M0, shape0)
     return M0
 
+def resize_and_compute_masks(dP, cellprob, p=None, niter=200,
+                                cellprob_threshold=0.0,
+                                flow_threshold=0.4, interp=True, do_3D=False,
+                                min_size=15, resize=None,
+                                use_gpu=False, device=None):
+    """ compute masks using dynamics from dP, cellprob, and boundary """
+    mask, p = compute_masks(dP, cellprob, p=p, niter=niter,
+                            cellprob_threshold=cellprob_threshold,
+                            flow_threshold=flow_threshold, interp=interp,
+                            do_3D=do_3D, min_size=min_size,
+                            use_gpu=use_gpu, device=device)
+
+    if resize is not None:
+        mask = transforms.resize_image(mask, resize[0], resize[1], interpolation=cv2.INTER_NEAREST)
+        p = np.array([transforms.resize_image(pi, resize[0], resize[1], interpolation=cv2.INTER_NEAREST) for pi in p])
+
+    return mask, p
+
+
 def compute_masks(dP, cellprob, p=None, niter=200, 
                    cellprob_threshold=0.0,
                    flow_threshold=0.4, interp=True, do_3D=False, 
-                   min_size=15, resize=None, 
-                   use_gpu=False,device=None):
+                   min_size=15, use_gpu=False,device=None):
     """ compute masks using dynamics from dP, cellprob, and boundary """
     
     cp_mask = cellprob > cellprob_threshold 
@@ -734,7 +752,7 @@ def compute_masks(dP, cellprob, p=None, niter=200,
                                             use_gpu=use_gpu, device=device)
             if inds is None:
                 dynamics_logger.info('No cell pixels found.')
-                shape = resize if resize is not None else cellprob.shape
+                shape = cellprob.shape
                 mask = np.zeros(shape, np.uint16)
                 p = np.zeros((len(shape), *shape), np.uint16)
                 return mask, p
@@ -744,31 +762,27 @@ def compute_masks(dP, cellprob, p=None, niter=200,
             
         # flow thresholding factored out of get_masks
         if not do_3D:
-            shape0 = p.shape[1:]
             if mask.max()>0 and flow_threshold is not None and flow_threshold > 0:
                 # make sure labels are unique at output of get_masks
                 mask = remove_bad_flow_masks(mask, dP, threshold=flow_threshold, use_gpu=use_gpu, device=device)
         
-        if resize is not None:
-            #if verbose:
-            #    dynamics_logger.info(f'resizing output with resize = {resize}')
-            if mask.max() > 2**16-1:
-                recast = True
-                mask = mask.astype(np.float32)
-            else:
-                recast = False
-                mask = mask.astype(np.uint16)
-            mask = transforms.resize_image(mask, resize[0], resize[1], interpolation=cv2.INTER_NEAREST)
-            if recast:
-                mask = mask.astype(np.uint32)
-            Ly,Lx = mask.shape
-        elif mask.max() < 2**16:
+        if mask.max() > 2**16-1:
+            recast = True
+            mask = mask.astype(np.float32)
+        else:
+            recast = False
+            mask = mask.astype(np.uint16)
+
+        if recast:
+            mask = mask.astype(np.uint32)
+
+        if mask.max() < 2**16:
             mask = mask.astype(np.uint16)
 
     else: # nothing to compute, just make it compatible
         dynamics_logger.info('No cell pixels found.')
-        shape = resize if resize is not None else cellprob.shape
-        mask = np.zeros(shape, np.uint16)
+        shape = cellprob.shape
+        mask = np.zeros(cellprob.shape, np.uint16)
         p = np.zeros((len(shape), *shape), np.uint16)
         return mask, p
 
