@@ -642,7 +642,7 @@ class CellposeModel(UnetModel):
             tic=time.time()
             niter = 200 if (do_3D and not resample) else (1 / rescale * 200)
             if do_3D:
-                masks, p = dynamics.compute_masks(dP, cellprob, niter=niter, 
+                masks, p = dynamics.resize_and_compute_masks(dP, cellprob, niter=niter,
                                                       cellprob_threshold=cellprob_threshold,
                                                       flow_threshold=flow_threshold,
                                                       interp=interp, do_3D=do_3D, min_size=min_size,
@@ -653,7 +653,7 @@ class CellposeModel(UnetModel):
                 masks, p = [], []
                 resize = [shape[1], shape[2]] if not resample else None
                 for i in iterator:
-                    outputs = dynamics.compute_masks(dP[:,i], cellprob[i], niter=niter, cellprob_threshold=cellprob_threshold,
+                    outputs = dynamics.resize_and_compute_masks(dP[:,i], cellprob[i], niter=niter, cellprob_threshold=cellprob_threshold,
                                                          flow_threshold=flow_threshold, interp=interp, resize=resize, 
                                                          min_size=min_size if stitch_threshold==0 or nimg==1 else -1, # turn off for 3D stitching
                                                          use_gpu=self.gpu, device=self.device)
