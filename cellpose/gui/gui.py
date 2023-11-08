@@ -1897,7 +1897,7 @@ class MainW(QMainWindow):
             else:
                 logger.info('computing masks with cell prob=%0.3f, flow error threshold=%0.3f'%
                         (cellprob_threshold, flow_threshold))
-            maski = dynamics.compute_masks(self.flows[4][:-1], 
+            maski = dynamics.resize_and_compute_masks(self.flows[4][:-1], 
                                             self.flows[4][-1],
                                             p=self.flows[3].copy(),
                                             cellprob_threshold=cellprob_threshold,
