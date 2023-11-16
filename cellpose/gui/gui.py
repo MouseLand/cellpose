@@ -189,6 +189,7 @@ class MainW(QMainWindow):
         self.main_masks_menu = None # Pointer to masks menu
         self.main_images_menu = None # Pointer to images menu
         self.temp_masks = []
+        self.selected_model = None
 
         menus.mainmenu(self)
         menus.editmenu(self)
@@ -994,6 +995,11 @@ class MainW(QMainWindow):
             self.calcRound = True
         else:
             self.calcRound = False
+
+        if self.RTCheckBox.isChecked():
+            self.calcRatio = True
+        else:
+            self.calcRatio = False
         
         if not self.masksOn and not self.outlinesOn:
             self.p0.removeItem(self.layer)
@@ -1187,7 +1193,7 @@ class MainW(QMainWindow):
     def clear_all(self):
         self.prev_selected = 0
         self.selected = 0
-        self.layerz = 0*np.ones((self.Ly,self.Lx,4), np.uint8)
+        self.layerz = 0 * np.ones((self.Ly,self.Lx,4), np.uint8)
         self.cellpix = np.zeros((self.NZ,self.Ly,self.Lx), np.uint32)
         self.outpix = np.zeros((self.NZ,self.Ly,self.Lx), np.uint32)
         self.cellcolors = np.array([255,255,255])[np.newaxis,:]
@@ -1871,6 +1877,7 @@ class MainW(QMainWindow):
             self.clear_all()
             self.flows = [[],[],[]]
             self.initialize_model(model_name)
+            self.selected_model = model_name # New
             self.progress.setValue(10)
             do_3D = False
             stitch_threshold = False
@@ -1927,7 +1934,8 @@ class MainW(QMainWindow):
             # self.OCheckBox.setChecked(True)
 
             io._masks_to_gui(self, masks, outlines=None)
-            self.save_temp_output(masks=masks, model_name=model_name)
+            self.keepMask.setEnabled(True)
+            # self.save_temp_output(masks=masks, model_name=model_name)
             self.progress.setValue(100)
 
             if not do_3D and not stitch_threshold > 0:
@@ -1939,10 +1947,11 @@ class MainW(QMainWindow):
 
     def save_temp_output(self, masks="", image="", model_name=""):
         d = datetime.datetime.now()
+        temp_output_name = self.selected_model if model_name == "" else model_name
 
         if image == "":
-            mask_names = [mask_name[0] for mask_name in self.temp_masks if model_name in mask_name[0] and mask_name[0][len(model_name)] == "_"]
-            new_mask_names = model_name + "_" + str(len(mask_names) + 1)
+            mask_names = [mask_name[0] for mask_name in self.temp_masks if temp_output_name in mask_name[0] and mask_name[0][len(temp_output_name)] == "_"]
+            new_mask_names = temp_output_name + "_" + str(len(mask_names) + 1)
             subMenu = self.main_masks_menu.addMenu("&" + new_mask_names)
 
             cytoAction = QAction("Select as cyto mask (or main)", self)
@@ -1954,14 +1963,15 @@ class MainW(QMainWindow):
             subMenu.addAction(cytoAction)
             subMenu.addAction(nucleiAction)
 
-            self.temp_masks.append((new_mask_names, masks[-1]))
-        elif masks == "":
+            self.temp_masks.append((new_mask_names, self.cellpix[-1])) # masks[-1]
+        else: # elif masks == "":
             if self.indexCytoMask > -1:
-                newImage = QAction(model_name + " " + self.temp_masks[self.indexCytoMask][0], self)
-                newImage.triggered.connect(lambda checked, image=image, name=model_name: self.select_image(image, name))
+                full_name = temp_output_name + " " + self.temp_masks[self.indexCytoMask][0]
+                newImage = QAction(full_name, self)
+                newImage.triggered.connect(lambda checked, image=image, name=full_name: self.select_image(image, name))
                 self.main_images_menu.addAction(newImage)
 
-        logger.info(str(model_name) + " mask stored temporarily")
+        logger.info(str(temp_output_name) + " mask stored temporarily")
 
     def enable_buttons(self):
         if len(self.model_strings) > 0:
@@ -1983,10 +1993,37 @@ class MainW(QMainWindow):
         self.saveServer.setEnabled(True)
         self.saveOutlines.setEnabled(True)
         self.saveROIs.setEnabled(True)
+        self.keepMask.setEnabled(False) # New
         self.toggle_mask_ops()
 
         self.update_plot()
         self.setWindowTitle(self.filename)
+
+    def disable_buttons(self):
+        self.ModelButton.setStyleSheet(self.styleInactive)
+        self.ModelButton.setEnabled(False)
+        
+        self.StyleToModel.setStyleSheet(self.styleInactive)
+        self.StyleToModel.setEnabled(False)
+
+        for i in range(len(self.StyleButtons)):
+            self.StyleButtons[i].setEnabled(False)
+            self.StyleButtons[i].setStyleSheet(self.styleInactive)
+        self.SizeButton.setEnabled(False)
+        self.SCheckBox.setEnabled(False)
+        self.SizeButton.setStyleSheet(self.styleInactive)
+        self.newmodel.setEnabled(False)
+        self.loadMasks.setEnabled(False)
+        self.saveSet.setEnabled(False)
+        self.savePNG.setEnabled(False)
+        self.saveFlows.setEnabled(False)
+        self.saveServer.setEnabled(False)
+        self.saveOutlines.setEnabled(False)
+        self.saveROIs.setEnabled(False)
+        self.toggle_mask_ops()
+
+        self.update_plot()
+        self.setWindowTitle("Labeling mode")
 
     def toggle_mask_ops(self):
         self.toggle_removals()
@@ -2067,32 +2104,92 @@ class MainW(QMainWindow):
         
         return im_cyto, im_nuclei, im_overlap
 
-    def colormap_masks(masks_cyto, masks_nuclei, cyto_coords, nuclei_coords, file_name):
-        cyto_colormaps = []
-        nuclei_colormaps = []
-        overlap_colormaps = []
-        
-        for idx in tqdm(range(len(masks_cyto)), desc="Creating colormaps"):
-            im_cyto, im_nuclei, im_overlap = create_colormap(masks_cyto[idx], masks_nuclei[idx])
-            
-            cyto_colormaps.append(im_cyto)
-            im_cyto_indexed = self.image_labeling(im_mask=im_cyto, im_labels="", coords=cyto_coords[idx])
-            im_cyto_indexed.save(output_path + file_name[idx] + '/' + "cyto_" + str(idx + 1) + "_colormap.png")
-            
-            nuclei_colormaps.append(im_nuclei)
-            im_nuclei_indexed = self.image_labeling(im_mask=im_nuclei, im_labels="", coords=cyto_coords[idx])
-            im_nuclei_indexed.save(output_path + file_name[idx] + '/' + "nuclei_" + str(idx + 1) + "_colormap.png")
-            
-            overlap_colormaps.append(im_overlap)
-            im_overlap.save(output_path + file_name[idx] + '/' + "overlap_" + str(idx + 1) + "_colormap.png")
+    def find_overlap(self, cyto_mask, nuclei_mask, cyto_nuclei_indices):
+        count = 0
+        for idxi in range(0, cyto_mask.shape[0]):
+            for idxj in range(0, cyto_mask.shape[1]):
+                if cyto_mask[idxi][idxj] == cyto_nuclei_indices[0] and nuclei_mask[idxi][idxj] == cyto_nuclei_indices[1]:
+                    count += 1
+        return count
 
-        return cyto_colormaps, nuclei_colormaps, overlap_colormaps
+    def matched_indices(self, cyto_mask, nuclei_mask, cyto_size, nuclei_size, main_coords):
+        tmp_cyto = np.copy(cyto_mask) #.astype(np.uint8)
+        tmp_nuclei = np.copy(nuclei_mask) #.astype(np.uint8)
+        tmp_coords = np.copy(main_coords)
+
+        indices_cyto_nuclei = set()
+
+        # Remove duplicates
+        for idxi in range(0, tmp_cyto.shape[0]):
+            for idxj in range(0, tmp_cyto.shape[1]):
+                if tmp_cyto[idxi][idxj] != 0 and tmp_nuclei[idxi][idxj] != 0:
+                    indices_cyto_nuclei.add((tmp_cyto[idxi][idxj], tmp_nuclei[idxi][idxj]))
+
+        indices_cyto_nuclei = list(indices_cyto_nuclei)
+        indices_cyto_nuclei.sort()
+
+        # Assure 1 cyto for 1 nuclei
+        n = len(indices_cyto_nuclei)
+        cnt = 0
+
+        while cnt < n - 1:
+            if indices_cyto_nuclei[cnt][0] == indices_cyto_nuclei[cnt + 1][0]:
+                to_del = (self.find_overlap(tmp_cyto, tmp_nuclei, indices_cyto_nuclei[cnt]) > 
+                          self.find_overlap(tmp_cyto, tmp_nuclei, indices_cyto_nuclei[cnt + 1])) * 1
+                # print("to_del: ", indices_cyto_nuclei[cnt][0])
+                del indices_cyto_nuclei[cnt + to_del]
+                n = n - 1
+            else:
+                cnt = cnt + 1
+        
+        cyto_nuclei_ratio = [round(cyto_size[index_cyto_nuclei[0] - 1] / nuclei_size[index_cyto_nuclei[1] - 1], 2) for index_cyto_nuclei in indices_cyto_nuclei]
+        tmp_coords = [tmp_coords[index_cyto_nuclei[0] - 1] for index_cyto_nuclei in indices_cyto_nuclei]
+
+        return cyto_nuclei_ratio, tmp_coords, indices_cyto_nuclei
+
+    def get_metrics(self, mask, custom_features, px_mm):
+        slices = ndimage.find_objects(mask.astype(int))
+        center_coords = []
+        size_cells = []
+        round_cells = []
+
+        for idx, si in enumerate(slices):
+            mask_tmp = np.copy(mask).astype(np.uint8)
+            mask_tmp[(idx + 1) != mask] = 0
+            mask_tmp[(idx + 1) == mask] = 255
+
+            padded_mask = np.pad(mask_tmp, 1, mode='constant')
+
+            ####
+            Zlabeled, Nlabels = ndimage.label(padded_mask)
+            label_size = [(Zlabeled == label).sum() for label in range(Nlabels + 1)]
+
+            # Remove the labels with size < 5
+            for label, size in enumerate(label_size):
+                if size < 5:
+                    padded_mask[Zlabeled == label] = 0
+            ####
+
+            labels = dip.Label(padded_mask > 0)
+            msr = dip.MeasurementTool.Measure(labels, features=custom_features)
+            center_coords.append([round(msr[1]["Center"][0], 2), 
+                                round(msr[1]["Center"][1], 2)])
+            if self.calcSize:
+                size_cells.append(round(msr[1]["Size"][0] * pow(px_mm, 2), 2))
+            if self.calcRound:
+                round_cells.append(round(msr[1]["Roundness"][0], 2))
+
+        return size_cells, round_cells, center_coords
 
     def calculate_metrics(self):
-        print("WEEEEEE")
-
-        masks_img = self.temp_masks[-1][1]
+        main_masks_img = self.temp_masks[self.indexCytoMask][1] # self.temp_masks[-1][1]
+        secondary_masks_img = self.temp_masks[self.indexNucleusMask][1]
         px_to_mm = (float)(100/302)
+
+        # Create results dir
+        results_dir = self.filename.split(".png")[0]
+        if not os.path.exists(results_dir):
+            os.makedirs(results_dir)
 
         custom_features = ["Center"]
         if self.calcSize:
@@ -2100,54 +2197,61 @@ class MainW(QMainWindow):
         if self.calcRound:
             custom_features.append("Roundness")
 
-        slices = ndimage.find_objects(masks_img.astype(int))
-        center_coords = []
-        size_cells = []
-        round_cells = []
+        size_cells_main, round_cells_main, center_coords_main = self.get_metrics(main_masks_img, custom_features, px_to_mm)
+        if self.calcRatio:
+            size_cells_secondary, round_cells_secondary, center_coords_secondary = self.get_metrics(secondary_masks_img, custom_features, px_to_mm)
+            ratio_cells, center_coords_ratio, indices_cyto_nuclei = self.matched_indices(main_masks_img, secondary_masks_img, size_cells_main, size_cells_secondary, center_coords_main)
 
-        for idx, si in enumerate(slices):
-            mask_tmp = np.copy(masks_img).astype(np.uint8)
-            mask_tmp[(idx + 1) != masks_img] = 0
-            mask_tmp[(idx + 1) == masks_img] = 255
-
-            mask = np.pad(mask_tmp, 1, mode='constant')
-
-            ####
-            Zlabeled, Nlabels = ndimage.label(mask)
-            label_size = [(Zlabeled == label).sum() for label in range(Nlabels + 1)]
-
-            # Remove the labels
-            for label, size in enumerate(label_size):
-                if size < 5:
-                    mask[Zlabeled == label] = 0
-            ####
-
-            labels = dip.Label(mask > 0)
-            msr = dip.MeasurementTool.Measure(labels, features=custom_features)
-            center_coords.append([round(msr[1]["Center"][0], 2), 
-                                round(msr[1]["Center"][1], 2)])
-            if self.calcSize:
-                size_cells.append(round(msr[1]["Size"][0] * pow(px_to_mm, 2), 2))
-            if self.calcRound:
-                round_cells.append(round(msr[1]["Roundness"][0], 2))
-
+        layerz_cell = self.create_colormap_mask(main_masks_img)
         # Cells colormap
-        layerz_cell = self.create_colormap_mask(masks_img)
         im_cell = Image.fromarray(layerz_cell)
 
-        # im_cell_indexed = self.mask_indexing(im_cell, center_coords)
-        # self.save_temp_output(image=im_cell_indexed, model_name="indexed")
+        out_csv = []
+        out_name = ""
 
-        im_cell_size_labeled = self.image_labeling(im_mask=im_cell, im_labels=size_cells, coords=center_coords)
-        self.save_temp_output(image=im_cell_size_labeled, model_name="size")
+        main_colormap_mask = Image.fromarray(self.create_colormap_mask(main_masks_img))
+        im_main_masks = self.mask_indexing(main_colormap_mask, center_coords_main)
+        im_main_masks.save(results_dir + "/" + "main_mask_colormap.png")
+        if self.calcSize:
+            im_cell_size_labeled = self.image_labeling(im_mask=im_cell, im_labels=size_cells_main, coords=center_coords_main)
+            self.save_temp_output(image=im_cell_size_labeled, model_name="size")
+            im_cell_size_labeled.save(results_dir + "/" + "size.png")
+            out_csv = size_cells_main
+            out_name = "size"
+        if self.calcRound:
+            im_cell_round_labeled = self.image_labeling(im_mask=im_cell, im_labels=round_cells_main, coords=center_coords_main)
+            self.save_temp_output(image=im_cell_round_labeled, model_name="roundness")
+            im_cell_round_labeled.save(results_dir + "/" + "roundness.png")
+            out_csv = round_cells_main if not self.calcSize else [[out_csv[idx], round_cell] for idx, round_cell in enumerate(round_cells_main)]
+            out_name = "roundness" if not self.calcSize else out_name + "_roundness"
 
-        im_cell_round_labeled = self.image_labeling(im_mask=im_cell, im_labels=round_cells, coords=center_coords)
-        self.save_temp_output(image=im_cell_round_labeled, model_name="roundness")
+        # Saving size &| roundness info
+        np.savetxt(results_dir + "/" + self.filename.split('/')[-1].split(".png")[0] + "_" + out_name + ".csv",
+            out_csv,
+            delimiter =", ",
+            fmt ='% s')
+
+        if self.calcRatio:
+            secondary_colormap_mask = Image.fromarray(self.create_colormap_mask(secondary_masks_img))
+            im_secondary_masks = self.mask_indexing(secondary_colormap_mask, center_coords_secondary)
+            im_secondary_masks.save(results_dir + "/" + "secondary_mask_colormap.png")
+
+            im_cell_ratio_labeled = self.image_labeling(im_mask=im_cell, im_labels=ratio_cells, coords=center_coords_ratio)
+            self.save_temp_output(image=im_cell_ratio_labeled, model_name="ratio")
+            im_cell_ratio_labeled.save(results_dir + "/" + "ratio.png")
+            out_csv = [[index_cyto_nuclei[0], index_cyto_nuclei[1], ratio_cells[idx]] for idx, index_cyto_nuclei in enumerate(indices_cyto_nuclei)]
+            out_name = "ratio"
+
+        # Saving ratio info
+        np.savetxt(results_dir + "/" + self.filename.split('/')[-1].split(".png")[0] + "_" + out_name + ".csv",
+            out_csv,
+            delimiter =", ",
+            fmt ='% s')
 
         # im_cell_indexed.save("_colormap.png")
         print("DONE!")
 
-        return size_cells, center_coords
+        return size_cells_main, center_coords_main
 
     def select_mask(self, menu_output, cell_type, curr_index):
         if cell_type == "cyto":
@@ -2155,14 +2259,16 @@ class MainW(QMainWindow):
                 curr_selected_mask = menu_output.parentWidget().findChildren(QMenu)[self.indexCytoMask]
                 curr_selected_mask.setIcon(QtGui.QIcon())
             self.indexCytoMask = curr_index
+            self.indexNucleusMask = -1 if self.indexNucleusMask == curr_index else self.indexNucleusMask
         elif cell_type == "nucleus":
             if self.indexNucleusMask != -1:
                 curr_selected_mask = menu_output.parentWidget().findChildren(QMenu)[self.indexNucleusMask]
                 curr_selected_mask.setIcon(QtGui.QIcon())
             self.indexNucleusMask = curr_index
+            self.indexCytoMask = -1 if self.indexCytoMask == curr_index else self.indexCytoMask
         menu_output.setIcon(QtGui.QIcon('/home/mellamoarroz/.cellpose/' + cell_type + '.png'))
 
-        # self.RTCheckBox.setEnabled(self.indexCytoMask > -1 and self.indexNucleusMask > -1)
+        self.RTCheckBox.setEnabled(self.indexCytoMask > -1 and self.indexNucleusMask > -1)
         self.SMCheckBox.setEnabled(self.indexCytoMask > -1)
         self.RMCheckBox.setEnabled(self.indexCytoMask > -1)
         self.CalculateButton.setStyleSheet(self.styleUnpressed if self.indexCytoMask > -1 else self.styleInactive)

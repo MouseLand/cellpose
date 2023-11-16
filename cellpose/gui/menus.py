@@ -123,6 +123,12 @@ def modelmenu(parent):
 def masksmenu(parent):
     main_menu = parent.menuBar()
     masks_menu = main_menu.addMenu("&Masks")
+
+    parent.keepMask = QAction("Save mask temporarily", parent)
+    parent.keepMask.triggered.connect(parent.save_temp_output)
+    parent.keepMask.setEnabled(False)
+    masks_menu.addAction(parent.keepMask)
+
     parent.main_masks_menu = masks_menu
 
 def imagesmenu(parent):
