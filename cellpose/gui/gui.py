@@ -1208,12 +1208,12 @@ class MainW(QMainWindow):
             np.set_printoptions(threshold=sys.maxsize)
 
             slices = find_objects(self.cellpix[0].astype(int))
-            si = slices[idx - 1]
+            si = slices[self.selected - 1]
             sr,sc = si
-            mask = (self.cellpix[0][sr, sc] == (idx)).astype(np.uint8)
+            mask = (self.cellpix[0][sr, sc] == (self.selected)).astype(np.uint8)
             tmp_cellpix = np.copy(self.cellpix[0])
-            tmp_cellpix[idx != self.cellpix[0]] = 0
-            tmp_cellpix[idx == self.cellpix[0]] = 255
+            tmp_cellpix[self.selected != self.cellpix[0]] = 0
+            tmp_cellpix[self.selected == self.cellpix[0]] = 255
             
             mask_shape = mask.shape
             for i in range(0, mask_shape[0]):
@@ -1241,12 +1241,12 @@ class MainW(QMainWindow):
             labels = dip.Label(mask[:, :] > 0)
             msr = dip.MeasurementTool.Measure(labels, features=["Perimeter", "Size", "Roundness", "Circularity", "Center"])
             print(msr)
-            print("IDX: ", idx)
+            print("IDX: ", self.selected)
             print("Size in px: ", msr[1]["Size"][0])
             print("Size in μm: ", msr[1]["Size"][0] * pow(self.px_to, 2))
 
             z = self.currentZ
-            self.layerz[self.cellpix[z]==idx] = np.array([255,255,255,self.opacity])
+            self.layerz[self.cellpix[z]==self.selected] = np.array([255,255,255,self.opacity])
             self.update_layer()
 
     def unselect_cell(self):
@@ -2187,7 +2187,7 @@ class MainW(QMainWindow):
         px_to_mm = (float)(100/302)
 
         # Create results dir
-        results_dir = self.filename.split(".png")[0]
+        results_dir = os.path.splitext(self.filename)[0]
         if not os.path.exists(results_dir):
             os.makedirs(results_dir)
 
