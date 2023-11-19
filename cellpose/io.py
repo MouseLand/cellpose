@@ -400,8 +400,10 @@ def save_rois(masks, file_name):
     -------
 
     """
-    outlines = utils.outlines_list(masks)
-    rois = [ImagejRoi.frompoints(outline) for outline in outlines]
+    nonempty_outlines = [outline for outline in outlines if len(outline)!=0]
+    if len(outlines)!=len(nonempty_outlines):
+        print(f"empty outlines found, saving {len(nonempty_outlines)} ImageJ ROIs to .zip archive.")
+    rois = [ImagejRoi.frompoints(outline) for outline in nonempty_outlines]
     file_name = os.path.splitext(file_name)[0] + '_rois.zip'
 
     # Delete file if it exists; the roifile lib appends to existing zip files.
