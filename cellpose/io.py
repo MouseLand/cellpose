@@ -400,6 +400,7 @@ def save_rois(masks, file_name):
     -------
 
     """
+    outlines = utils.outlines_list(masks)
     nonempty_outlines = [outline for outline in outlines if len(outline)!=0]
     if len(outlines)!=len(nonempty_outlines):
         print(f"empty outlines found, saving {len(nonempty_outlines)} ImageJ ROIs to .zip archive.")
