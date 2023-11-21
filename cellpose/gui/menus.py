@@ -129,6 +129,11 @@ def masksmenu(parent):
     parent.keepMask.setEnabled(False)
     masks_menu.addAction(parent.keepMask)
 
+    parent.saveMasks = QAction("Save labeled mask", parent)
+    parent.saveMasks.triggered.connect(parent.save_labeled_masks)
+    parent.saveMasks.setEnabled(False)
+    masks_menu.addAction(parent.saveMasks)
+
     parent.main_masks_menu = masks_menu
 
 def imagesmenu(parent):

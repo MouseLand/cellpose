@@ -1210,17 +1210,17 @@ class MainW(QMainWindow):
             slices = find_objects(self.cellpix[0].astype(int))
             si = slices[self.selected - 1]
             sr,sc = si
-            mask = (self.cellpix[0][sr, sc] == (self.selected)).astype(np.uint8)
+            # mask = (self.cellpix[0][sr, sc] == (self.selected)).astype(np.uint8)
             tmp_cellpix = np.copy(self.cellpix[0])
             tmp_cellpix[self.selected != self.cellpix[0]] = 0
             tmp_cellpix[self.selected == self.cellpix[0]] = 255
-            
-            mask_shape = mask.shape
-            for i in range(0, mask_shape[0]):
-                for j in range(0, mask_shape[1]):
-                    mask[i][j] = 255 if mask[i][j] > 0 else 0 
-            
-            mask = tmp_cellpix.astype(np.uint8)  # KILL ME
+
+            # mask_shape = mask.shape
+            # for i in range(0, mask_shape[0]):
+            #     for j in range(0, mask_shape[1]):
+            #         mask[i][j] = 255 if mask[i][j] > 0 else 0 
+
+            mask = tmp_cellpix.astype(np.uint8)
 
             mask = np.pad(mask, 1, mode='constant')
             im = Image.fromarray(mask)
@@ -1935,6 +1935,7 @@ class MainW(QMainWindow):
 
             io._masks_to_gui(self, masks, outlines=None)
             self.keepMask.setEnabled(True)
+            self.saveMasks.setEnabled(True)
             # self.save_temp_output(masks=masks, model_name=model_name)
             self.progress.setValue(100)
 
@@ -1973,6 +1974,29 @@ class MainW(QMainWindow):
 
         logger.info(str(temp_output_name) + " mask stored temporarily")
 
+    def save_labeled_masks(self):
+        """ save masks to *_mask.jpg """
+
+        # Create results dir
+        results_dir = os.path.splitext(self.filename)[0]
+        if not os.path.exists(results_dir):
+            os.makedirs(results_dir)
+            labels_dir = results_dir + '/labels'
+            if not os.path.exists(labels_dir):
+                os.makedirs(labels_dir)
+
+        slices = find_objects(self.cellpix[0].astype(int))
+        for idx in range(self.cellpix[0].max()):
+            tmp_cellpix = np.copy(self.cellpix[0])
+            tmp_cellpix[idx + 1 != self.cellpix[0]] = 0
+            tmp_cellpix[idx + 1 == self.cellpix[0]] = 255
+
+            mask = tmp_cellpix.astype(np.uint8)
+
+            im = Image.fromarray(mask)
+            label_name = labels_dir + '/' + str(idx + 1) + '.png'
+            im.save(label_name)
+
     def enable_buttons(self):
         if len(self.model_strings) > 0:
             self.ModelButton.setStyleSheet(self.styleUnpressed)
@@ -1994,6 +2018,7 @@ class MainW(QMainWindow):
         self.saveOutlines.setEnabled(True)
         self.saveROIs.setEnabled(True)
         self.keepMask.setEnabled(False) # New
+        self.saveMasks.setEnabled(False) # New
         self.toggle_mask_ops()
 
         self.update_plot()

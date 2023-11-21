@@ -4,7 +4,7 @@ import numpy as np
 import cv2
 import tifffile
 import logging
-import fastremap 
+import fastremap
 
 from .. import utils, plot, transforms, models
 from ..io import imread, imsave, outlines_to_text, add_model, remove_model, save_rois
@@ -475,12 +475,11 @@ def _save_outlines(parent):
     filename = parent.filename
     base = os.path.splitext(filename)[0]
     if parent.NZ==1:
-        print('GUI_INFO: saving 2D outlines to text file, see docs for info to load into ImageJ')    
+        print('GUI_INFO: saving 2D outlines to text file, see docs for info to load into ImageJ')
         outlines = utils.outlines_list(parent.cellpix[0])
         outlines_to_text(base, outlines)
     else:
         print('ERROR: cannot save 3D outlines')
-    
 
 def _save_sets(parent):
     """ save masks to *_seg.npy """
