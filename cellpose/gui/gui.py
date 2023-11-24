@@ -1979,11 +1979,12 @@ class MainW(QMainWindow):
 
         # Create results dir
         results_dir = os.path.splitext(self.filename)[0]
+        labels_dir = results_dir + '/labels'
+
         if not os.path.exists(results_dir):
             os.makedirs(results_dir)
-            labels_dir = results_dir + '/labels'
-            if not os.path.exists(labels_dir):
-                os.makedirs(labels_dir)
+        if not os.path.exists(labels_dir):
+            os.makedirs(labels_dir)
 
         slices = find_objects(self.cellpix[0].astype(int))
         for idx in range(self.cellpix[0].max()):
