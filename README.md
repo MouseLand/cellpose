@@ -124,11 +124,17 @@ conda install pytorch==1.12.0 cudatoolkit=11.3 -c pytorch
 ~~~~
 Info on how to install several older versions is available [here](https://pytorch.org/get-started/previous-versions/). After install you can check `conda list` for `pytorch`, and its version info should have `cuXX.X`, not `cpu`.
 
-### Installation of github version
+### Installation of github version (THIS IS THE WAY TO INSTALL THIS FORK UNTIL WE HAVE A SEPARATE PIP PACKAGE)
 
 Follow steps from above to install the dependencies. Then run 
 ~~~
-pip install git+https://www.github.com/mouseland/cellpose.git
+pip install git+https://www.github.com/ITMO-MMRM-lab/cellpose.git
+pip install diplib
+pip install Pillow
+pip install PyQt5
+pip install superqt
+pip install pyqtgraph
+
 ~~~
 
 If you want edit ability to the code, in the github repository folder, run `pip install -e .`. If you want to go back to the pip version of cellpose, then say `pip install cellpose`.
