@@ -1,7 +1,7 @@
 """
 Copright © 2023 Howard Hughes Medical Institute, Authored by Carsen Stringer and Marius Pachitariu.
 """
-
+import logging
 import os, warnings, time, tempfile, datetime, pathlib, shutil, subprocess
 from tqdm import tqdm
 from urllib.request import urlopen
@@ -224,9 +224,23 @@ def masks_to_outlines(masks):
                 outlines[vr, vc] = 1
         return outlines
 
-def outlines_list(masks, multiprocessing=True):
+def outlines_list(masks, multiprocessing_threshold=1000, multiprocessing=None):
     """ get outlines of masks as a list to loop over for plotting
-    This function is a wrapper for outlines_list_single and outlines_list_multi """
+    This function is a wrapper for outlines_list_single and outlines_list_multi
+
+    Multiprocessing is disabled for Windows"""
+
+    # default to use multiprocessing if few_masks, but allow user to override
+    if multiprocessing is None:
+        few_masks = np.max(masks) < multiprocessing_threshold
+        multiprocessing = few_masks
+
+    # disable multiprocessing for Windows
+    if os.name == 'nt':
+        if multiprocessing:
+            logging.getLogger(__name__).warning('Multiprocessing is disabled for Windows')
+        multiprocessing = False
+
     if multiprocessing:
         return outlines_list_multi(masks)
     else:
