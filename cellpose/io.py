@@ -140,13 +140,12 @@ def add_model(filename):
     """ add model to .cellpose models folder to use with GUI or CLI """
     from . import models
     fname = os.path.split(filename)[-1]
-    overwrite = False
     try:
         shutil.copyfile(filename, os.fspath(models.MODEL_DIR.joinpath(fname)))
     except shutil.SameFileError:
-        overwrite = True
+        pass
     print(f'{filename} copied to models folder {os.fspath(models.MODEL_DIR)}')
-    if not overwrite:
+    if fname not in models.get_user_models():
         with open(models.MODEL_LIST_PATH, 'a') as textfile:
             textfile.write(fname + '\n')
 
