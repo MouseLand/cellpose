@@ -10,6 +10,7 @@ from pyqtgraph import functions as fn
 from pyqtgraph import Point
 import numpy as np
 import pathlib, os
+from ..models import get_user_models
 
 def create_channel_choose():
     # choose channel
@@ -69,6 +70,7 @@ class TrainWindow(QDialog):
         yoff+=1
         self.ModelChoose = QComboBox()
         self.ModelChoose.addItems(model_strings)
+        self.ModelChoose.addItems(get_user_models())
         self.ModelChoose.addItems(['scratch']) 
         self.ModelChoose.setFixedWidth(150)
         self.ModelChoose.setCurrentIndex(parent.training_params['model_index'])
