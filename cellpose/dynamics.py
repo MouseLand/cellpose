@@ -583,7 +583,7 @@ def remove_bad_flow_masks(masks, flows, threshold=0.4, use_gpu=False, device=Non
     """
     if masks.size > 10000*10000 and use_gpu:
         
-        major_version, minor_version, _ = torch.__version__.split(".")
+        major_version, minor_version = torch.__version__.split(".")[:2]
         
         if major_version == "1" and int(minor_version) < 10:
             # for PyTorch version lower than 1.10
