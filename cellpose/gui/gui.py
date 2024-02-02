@@ -189,6 +189,7 @@ class MainW(QMainWindow):
         self.main_masks_menu = None # Pointer to masks menu
         self.main_images_menu = None # Pointer to images menu
         self.temp_masks = []
+        self.px_to_mm = 0.0
         self.selected_model = None
 
         menus.mainmenu(self)
@@ -255,7 +256,6 @@ class MainW(QMainWindow):
         # if called with image, load it
         if image is not None:
             self.filename = image
-            self.px_to = 0
             io._load_image(self, self.filename)
 
         # training settings
@@ -444,6 +444,17 @@ class MainW(QMainWindow):
         #self.NetAvg.setToolTip('average 4 different fit networks (default); run 1 network (faster); or run 1 net + turn off resample (fast)')
         #self.l0.addWidget(self.NetAvg, b,5,1,4)
 
+        b+=1
+        label = QLabel('Length in μm:')
+        label.setToolTip('Micrometers(μm) per pixel, *.tif file')
+        label.setStyleSheet(label_style)
+        label.setFont(self.medfont)
+        self.l0.addWidget(label, b, 0,1,5)
+        self.pixTomicro = QLineEdit()
+        self.pixTomicro.setText('0.0')
+        self.pixTomicro.editingFinished.connect(self.update_px_to_mm)
+        self.pixTomicro.setFixedWidth(70)
+        self.l0.addWidget(self.pixTomicro, b,5,1,4)
         
         b+=1
         # choose channel
@@ -763,6 +774,9 @@ class MainW(QMainWindow):
         self.scroll.valueChanged.connect(self.move_in_Z)
         self.l0.addWidget(self.scroll, b,9,1,30)
         return b
+
+    def update_px_to_mm(self):
+        self.px_to_mm = float(self.pixTomicro.text())
 
     def level_change(self):
         if self.loaded:
@@ -1242,8 +1256,8 @@ class MainW(QMainWindow):
             msr = dip.MeasurementTool.Measure(labels, features=["Perimeter", "Size", "Roundness", "Circularity", "Center"])
             print(msr)
             print("IDX: ", self.selected)
-            print("Size in px: ", msr[1]["Size"][0])
-            print("Size in μm: ", msr[1]["Size"][0] * pow(self.px_to, 2))
+            print("Size in px: ", msr[1]["SolidArea"][0])
+            print("Size in μm: ", round(msr[1]["SolidArea"][0] * pow(self.px_to_mm, 2), 2))
 
             z = self.currentZ
             self.layerz[self.cellpix[z]==self.selected] = np.array([255,255,255,self.opacity])
@@ -1699,7 +1713,7 @@ class MainW(QMainWindow):
         for n in iterator:
             self.saturation.append([np.percentile(self.stack[n].astype(np.float32),1),
                                     np.percentile(self.stack[n].astype(np.float32),99)])
-            
+
     def chanchoose(self, image):
         if image.ndim > 2 and not self.onechan:
             if self.ChannelChoose[0].currentIndex()==0:
@@ -1955,10 +1969,10 @@ class MainW(QMainWindow):
             new_mask_names = temp_output_name + "_" + str(len(mask_names) + 1)
             subMenu = self.main_masks_menu.addMenu("&" + new_mask_names)
 
-            cytoAction = QAction("Select as cyto mask (or main)", self)
+            cytoAction = QAction("Select as main mask (cytoplasm)", self)
             cytoAction.triggered.connect(lambda checked, subMenu=subMenu, curr_index=len(self.temp_masks): self.select_mask(subMenu, 'cyto', curr_index))
 
-            nucleiAction = QAction("Select as nucleus mask", self)
+            nucleiAction = QAction("Select as secondary mask (nucleus)", self)
             nucleiAction.triggered.connect(lambda checked, subMenu=subMenu, curr_index=len(self.temp_masks): self.select_mask(subMenu, 'nucleus', curr_index))
 
             subMenu.addAction(cytoAction)
@@ -2167,13 +2181,13 @@ class MainW(QMainWindow):
                 n = n - 1
             else:
                 cnt = cnt + 1
-        
+
         cyto_nuclei_ratio = [round(cyto_size[index_cyto_nuclei[0] - 1] / nuclei_size[index_cyto_nuclei[1] - 1], 2) for index_cyto_nuclei in indices_cyto_nuclei]
         tmp_coords = [tmp_coords[index_cyto_nuclei[0] - 1] for index_cyto_nuclei in indices_cyto_nuclei]
 
         return cyto_nuclei_ratio, tmp_coords, indices_cyto_nuclei
 
-    def get_metrics(self, mask, custom_features, px_mm):
+    def get_metrics(self, mask, custom_features):
         slices = ndimage.find_objects(mask.astype(int))
         center_coords = []
         size_cells = []
@@ -2201,21 +2215,54 @@ class MainW(QMainWindow):
             center_coords.append([round(msr[1]["Center"][0], 2), 
                                 round(msr[1]["Center"][1], 2)])
             if self.calcSize:
-                size_cells.append(round(msr[1]["Size"][0] * pow(px_mm, 2), 2))
+                size_cells.append(round(msr[1]["SolidArea"][0] * pow(self.px_to_mm, 2), 2))
             if self.calcRound:
                 round_cells.append(round(msr[1]["Roundness"][0], 2))
 
         return size_cells, round_cells, center_coords
 
+    def save_metrics(self, masks_img, center_coords, metric_cells, metric_name, out_csv, out_name, out_dir):
+        layerz_cell = self.create_colormap_mask(masks_img)
+        im_cell = Image.fromarray(layerz_cell)
+
+        # Colormap img
+        colormap_mask = Image.fromarray(self.create_colormap_mask(masks_img))
+        im_masks = self.mask_indexing(colormap_mask, center_coords)
+        im_masks.save(out_dir + "/" + "mask_colormap.png")
+
+        # for metric in metric_cells:
+        # Metric img
+        im_cell_size_labeled = self.image_labeling(im_mask=im_cell, im_labels=metric_cells, coords=center_coords)
+        self.save_temp_output(image=im_cell_size_labeled, model_name=metric_name)
+        im_cell_size_labeled.save(out_dir + "/" + metric_name + ".png")
+        out_csv = round_cells_main if not self.calcSize else [[out_csv[idx], round_cell] for idx, round_cell in enumerate(round_cells_main)]
+
+        # Metric csv
+        np.savetxt(out_dir + "/" + self.filename.split('/')[-1].split(".png")[0] + "_" + out_name + ".csv",
+            out_csv,
+            delimiter =", ",
+            fmt ='% s')
+
+        return out_csv
+
     def calculate_metrics(self):
         main_masks_img = self.temp_masks[self.indexCytoMask][1] # self.temp_masks[-1][1]
         secondary_masks_img = self.temp_masks[self.indexNucleusMask][1]
-        px_to_mm = (float)(100/302)
+        comparison = main_masks_img == secondary_masks_img
+        comparison = comparison.all()
+        print("Are they equal?: ", comparison)
 
         # Create results dir
         results_dir = os.path.splitext(self.filename)[0]
+        primary_results_dir = results_dir + "/primary"
+        secondary_results_dir = results_dir + "/secondary"
+
         if not os.path.exists(results_dir):
             os.makedirs(results_dir)
+        if not os.path.exists(primary_results_dir):
+            os.makedirs(primary_results_dir)
+        if not os.path.exists(secondary_results_dir) and not comparison:
+            os.makedirs(secondary_results_dir)
 
         custom_features = ["Center"]
         if self.calcSize:
@@ -2223,59 +2270,62 @@ class MainW(QMainWindow):
         if self.calcRound:
             custom_features.append("Roundness")
 
-        size_cells_main, round_cells_main, center_coords_main = self.get_metrics(main_masks_img, custom_features, px_to_mm)
+        size_cells_main, round_cells_main, center_coords_main = self.get_metrics(main_masks_img, custom_features)
         if self.calcRatio:
-            size_cells_secondary, round_cells_secondary, center_coords_secondary = self.get_metrics(secondary_masks_img, custom_features, px_to_mm)
+            size_cells_secondary, round_cells_secondary, center_coords_secondary = self.get_metrics(secondary_masks_img, custom_features)
             ratio_cells, center_coords_ratio, indices_cyto_nuclei = self.matched_indices(main_masks_img, secondary_masks_img, size_cells_main, size_cells_secondary, center_coords_main)
 
-        layerz_cell = self.create_colormap_mask(main_masks_img)
-        # Cells colormap
-        im_cell = Image.fromarray(layerz_cell)
+        main_cell_size_csv = self.save_metrics(main_masks_img, center_coords_main, size_cells_main, "size", [], "size", primary_results_dir)
+        main_cell_roundness_csv = self.save_metrics(main_masks_img, center_coords_main, size_cells_main, "size", main_cell_size_csv, "size", primary_results_dir)
 
-        out_csv = []
-        out_name = ""
+        # layerz_cell = self.create_colormap_mask(main_masks_img)
+        # # Cells colormap
+        # im_cell = Image.fromarray(layerz_cell)
 
-        main_colormap_mask = Image.fromarray(self.create_colormap_mask(main_masks_img))
-        im_main_masks = self.mask_indexing(main_colormap_mask, center_coords_main)
-        im_main_masks.save(results_dir + "/" + "main_mask_colormap.png")
-        if self.calcSize:
-            im_cell_size_labeled = self.image_labeling(im_mask=im_cell, im_labels=size_cells_main, coords=center_coords_main)
-            self.save_temp_output(image=im_cell_size_labeled, model_name="size")
-            im_cell_size_labeled.save(results_dir + "/" + "size.png")
-            out_csv = size_cells_main
-            out_name = "size"
-        if self.calcRound:
-            im_cell_round_labeled = self.image_labeling(im_mask=im_cell, im_labels=round_cells_main, coords=center_coords_main)
-            self.save_temp_output(image=im_cell_round_labeled, model_name="roundness")
-            im_cell_round_labeled.save(results_dir + "/" + "roundness.png")
-            out_csv = round_cells_main if not self.calcSize else [[out_csv[idx], round_cell] for idx, round_cell in enumerate(round_cells_main)]
-            out_name = "roundness" if not self.calcSize else out_name + "_roundness"
+        # out_csv = []
+        # out_name = ""
 
-        # Saving size &| roundness info
-        np.savetxt(results_dir + "/" + self.filename.split('/')[-1].split(".png")[0] + "_" + out_name + ".csv",
-            out_csv,
-            delimiter =", ",
-            fmt ='% s')
+        # main_colormap_mask = Image.fromarray(self.create_colormap_mask(main_masks_img))
+        # im_main_masks = self.mask_indexing(main_colormap_mask, center_coords_main)
+        # im_main_masks.save(primary_results_dir + "/" + "main_mask_colormap.png")
+        # if self.calcSize:
+        #     im_cell_size_labeled = self.image_labeling(im_mask=im_cell, im_labels=size_cells_main, coords=center_coords_main)
+        #     self.save_temp_output(image=im_cell_size_labeled, model_name="size")
+        #     im_cell_size_labeled.save(primary_results_dir + "/" + "size.png")
+        #     out_csv = size_cells_main
+        #     out_name = "size"
+        # if self.calcRound:
+        #     im_cell_round_labeled = self.image_labeling(im_mask=im_cell, im_labels=round_cells_main, coords=center_coords_main)
+        #     self.save_temp_output(image=im_cell_round_labeled, model_name="roundness")
+        #     im_cell_round_labeled.save(primary_results_dir + "/" + "roundness.png")
+        #     out_csv = round_cells_main if not self.calcSize else [[out_csv[idx], round_cell] for idx, round_cell in enumerate(round_cells_main)]
+        #     out_name = "roundness" if not self.calcSize else out_name + "_roundness"
 
-        if self.calcRatio:
-            secondary_colormap_mask = Image.fromarray(self.create_colormap_mask(secondary_masks_img))
-            im_secondary_masks = self.mask_indexing(secondary_colormap_mask, center_coords_secondary)
-            im_secondary_masks.save(results_dir + "/" + "secondary_mask_colormap.png")
+        # # Saving size &| roundness info
+        # np.savetxt(primary_results_dir + "/" + self.filename.split('/')[-1].split(".png")[0] + "_" + out_name + ".csv",
+        #     out_csv,
+        #     delimiter =", ",
+        #     fmt ='% s')
 
-            im_cell_ratio_labeled = self.image_labeling(im_mask=im_cell, im_labels=ratio_cells, coords=center_coords_ratio)
-            self.save_temp_output(image=im_cell_ratio_labeled, model_name="ratio")
-            im_cell_ratio_labeled.save(results_dir + "/" + "ratio.png")
-            out_csv = [[index_cyto_nuclei[0], index_cyto_nuclei[1], ratio_cells[idx]] for idx, index_cyto_nuclei in enumerate(indices_cyto_nuclei)]
-            out_name = "ratio"
+        # if self.calcRatio:
+        #     secondary_colormap_mask = Image.fromarray(self.create_colormap_mask(secondary_masks_img))
+        #     im_secondary_masks = self.mask_indexing(secondary_colormap_mask, center_coords_secondary)
+        #     im_secondary_masks.save(results_dir + "/" + "secondary_mask_colormap.png")
 
-        # Saving ratio info
-        np.savetxt(results_dir + "/" + self.filename.split('/')[-1].split(".png")[0] + "_" + out_name + ".csv",
-            out_csv,
-            delimiter =", ",
-            fmt ='% s')
+        #     im_cell_ratio_labeled = self.image_labeling(im_mask=im_cell, im_labels=ratio_cells, coords=center_coords_ratio)
+        #     self.save_temp_output(image=im_cell_ratio_labeled, model_name="ratio")
+        #     im_cell_ratio_labeled.save(results_dir + "/" + "ratio.png")
+        #     out_csv = [[index_cyto_nuclei[0], index_cyto_nuclei[1], ratio_cells[idx]] for idx, index_cyto_nuclei in enumerate(indices_cyto_nuclei)]
+        #     out_name = "ratio"
 
-        # im_cell_indexed.save("_colormap.png")
-        print("DONE!")
+        #     # Saving ratio info
+        #     np.savetxt(results_dir + "/" + self.filename.split('/')[-1].split(".png")[0] + "_" + out_name + ".csv",
+        #         out_csv,
+        #         delimiter =", ",
+        #         fmt ='% s')
+
+        # # im_cell_indexed.save("_colormap.png")
+        # print("DONE!")
 
         return size_cells_main, center_coords_main
 

@@ -5,6 +5,7 @@ import cv2
 import tifffile
 import logging
 import fastremap
+import xml.etree.ElementTree as ET
 
 from .. import utils, plot, transforms, models
 from ..io import imread, imsave, outlines_to_text, add_model, remove_model, save_rois
@@ -93,13 +94,24 @@ def _get_train_set(image_names):
             train_labels.append(masks)
     return train_data, train_labels, train_files
 
-def _estimate_image_size(parent, filename):
-    # 152px = 100μm for 10x
-    # 302px = 100μm for 20x
-    if "10x" in filename:
-        parent.px_to = (float)(100/152)
-    elif "20x" in filename:
-        parent.px_to = (float)(100/302)
+def _get_image_size(parent, filename):
+    path_root = os.path.split(parent.filename)[0]
+    file_name = os.path.split(parent.filename)[-1].split("_ch00.tif")[0]
+
+    try:
+        root = ET.parse(path_root + '/MetaData/' + file_name + "_Properties.xml").getroot()
+        mm_lengths = root.findall('Image/ImageDescription/Dimensions/DimensionDescription')
+        # ratio1 = float(mm_lengths[0].get('NumberOfElements').replace(',','')) / float(mm_lengths[0].get('Length').replace(',',''))  # pix/mm
+        ratio1 = float(mm_lengths[0].get('Length').replace(',','')) / float(mm_lengths[0].get('NumberOfElements').replace(',',''))  # mm/pix
+        ratio1 = round(ratio1, 3)
+        # ratio2 = float(mm_lengths[1].get('NumberOfElements').replace(',','')) / float(mm_lengths[1].get('Length').replace(',',''))
+
+        parent.px_to_mm = ratio1
+        parent.pixTomicro.setText(str(ratio1))
+    except Exception as e:
+        print('ERROR: No metadata file available')
+        print(f'ERROR: {e}')
+
 
 def _load_image(parent, filename=None, load_seg=True):
     """ load image with filename; if None, open QFileDialog """
@@ -133,8 +145,8 @@ def _load_image(parent, filename=None, load_seg=True):
     if parent.loaded:
         parent.reset()
         parent.filename = filename
-        filename = os.path.split(parent.filename)[-1]
-        _estimate_image_size(parent, filename)
+        # filename = os.path.split(parent.filename)[-1]
+        _get_image_size(parent, filename)
         _initialize_images(parent, image, resize=parent.resize, X2=0)
         parent.clear_all()
         parent.loaded = True
@@ -202,7 +214,7 @@ def _initialize_images(parent, image, resize, X2):
     if parent.stack.ndim < 4:
         parent.onechan=True
         parent.stack = parent.stack[:,:,:,np.newaxis]
-    
+
     parent.imask=0
     parent.Ly, parent.Lx = parent.stack.shape[1:3]
     parent.layerz = 255 * np.ones((parent.Ly,parent.Lx,4), 'uint8')
