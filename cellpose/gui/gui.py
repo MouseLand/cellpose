@@ -946,6 +946,8 @@ class MainW(QMainWindow):
         files = [u.toLocalFile() for u in event.mimeData().urls()]
         if os.path.splitext(files[0])[-1] == '.npy':
             io._load_seg(self, filename=files[0])
+        elif os.path.isdir(files[0]) and os.path.basename(files[0]) == 'suite2p':
+            io._load_suite2p(self, pathname=files[0])
         else:
             io._load_image(self, filename=files[0])
 
