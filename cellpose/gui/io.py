@@ -248,13 +248,15 @@ def _load_seg(parent, filename=None, image=None, image_file=None):
                     found_image = True
         if found_image:
             try:
+                print(parent.filename)
                 image = imread(parent.filename)
             except:
                 parent.loaded = False
                 found_image = False
                 print('ERROR: cannot find image file, loading from npy')
         if not found_image:
-            parent.filename = filename[:-11]
+            parent.filename = filename[:-8]
+            print(parent.filename)
             if 'img' in dat:
                 image = dat['img']
             else:
