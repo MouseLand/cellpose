@@ -179,7 +179,7 @@ def main():
                     io.save_masks(image, masks, flows, image_name, png=args.save_png, tif=args.save_tif,
                                   save_flows=args.save_flows,save_outlines=args.save_outlines,
                                   save_ncolor=args.save_ncolor,dir_above=args.dir_above,savedir=args.savedir,
-                                  save_txt=args.save_txt,in_folders=args.in_folders)
+                                  save_txt=args.save_txt,in_folders=args.in_folders, save_mpl=args.save_mpl)
                 if args.save_rois:
                     io.save_rois(masks, image_name)
             logger.info('>>>> completed in %0.3f sec'%(time.time()-tic))

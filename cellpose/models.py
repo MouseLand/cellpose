@@ -106,7 +106,7 @@ class Cellpose():
         self.cp.model_type = model_type
         
         # size model not used for bacterial model
-        self.pretrained_size = size_model_path(model_type, self.torch)
+        self.pretrained_size = size_model_path(model_type)
         self.sz = SizeModel(device=self.device, pretrained_size=self.pretrained_size,
                             cp_model=self.cp)
         self.sz.model_type = model_type
@@ -607,7 +607,7 @@ class CellposeModel():
             niter0 = 200 if (do_3D and not resample) else (1 / rescale * 200)
             niter = niter0 if niter is None else niter
             if do_3D:
-                masks, p = dynamics.compute_masks(dP, cellprob, niter=niter, 
+                masks, p = dynamics.resize_and_compute_masks(dP, cellprob, niter=niter,
                                                       cellprob_threshold=cellprob_threshold,
                                                       flow_threshold=flow_threshold,
                                                       interp=interp, do_3D=do_3D, min_size=min_size,
@@ -619,21 +619,12 @@ class CellposeModel():
                 resize = [shape[1], shape[2]] if (not resample and rescale!=1) else None
                 iterator = trange(nimg, file=tqdm_out, mininterval=30) if nimg>1 else range(nimg)
                 for i in iterator:
-                    dPi = dP[:,i] 
-                    cellprobi = cellprob[i]
-                    if resample and rescale!=1:
-                        dPi = transforms.resize_image(dPi, shape[1], shape[2], no_channels=True)
-                        cellprobi = transforms.resize_image(cellprobi, shape[1], shape[2], no_channels=True)    
-
-                    outputs = dynamics.compute_masks(dPi, cellprobi, niter=niter, cellprob_threshold=cellprob_threshold,
-                                                         flow_threshold=flow_threshold, interp=interp, resize=resize,
-                                                         min_size=min_size if nimg==1 else -1, 
+                    outputs = dynamics.resize_and_compute_masks(dP[:,i], cellprob[i], niter=niter, cellprob_threshold=cellprob_threshold,
+                                                         flow_threshold=flow_threshold, interp=interp, resize=resize, 
+                                                         min_size=min_size if stitch_threshold==0 or nimg==1 else -1, # turn off for 3D stitching
                                                          device=self.device if self.gpu else None)
                     masks.append(outputs[0])
-                    if nimg == 1:
-                        p.append(outputs[1])
-                        dP = dPi 
-                        cellprob = cellprobi
+                    p.append(outputs[1])
                     
                 masks = np.array(masks)
                 p = np.array(p)
