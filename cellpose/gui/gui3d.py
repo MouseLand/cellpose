@@ -1,5 +1,5 @@
 """
-Copright © 2023 Howard Hughes Medical Institute, Authored by Carsen Stringer and Marius Pachitariu.
+Copyright © 2023 Howard Hughes Medical Institute, Authored by Carsen Stringer and Marius Pachitariu.
 """
 
 import sys, os, pathlib, warnings, datetime, time
@@ -13,14 +13,14 @@ import numpy as np
 from scipy.stats import mode
 import cv2
 
-from . import guiparts, menus, io
+from . import guiparts_old, menus, io
 from .. import models, core, dynamics, version
 from ..utils import download_url_to_file, masks_to_outlines, diameters 
 from ..io  import get_image_files, imsave, imread
 from ..transforms import resize_image, normalize99 #fixed import
 from ..plot import disk
 from ..transforms import normalize99_tile, smooth_sharpen_img
-from .gui import MainW
+from .gui_old import MainW
 
 try:
     import matplotlib.pyplot as plt
@@ -105,7 +105,7 @@ def run(image=None):
     app_icon.addFile(icon_path, QtCore.QSize(256, 256))
     app.setWindowIcon(app_icon)
     app.setStyle("Fusion")
-    app.setPalette(guiparts.DarkPalette())
+    app.setPalette(guiparts_old.DarkPalette())
     #app.setStyleSheet("QLineEdit { color: yellow }")
 
     # models.download_model_weights() # does not exist

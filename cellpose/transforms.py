@@ -1,5 +1,5 @@
 """
-Copright © 2023 Howard Hughes Medical Institute, Authored by Carsen Stringer and Marius Pachitariu.
+Copyright © 2023 Howard Hughes Medical Institute, Authored by Carsen Stringer and Marius Pachitariu.
 """
 
 import numpy as np
@@ -582,6 +582,7 @@ def normalize_img(img, normalize=True, norm3D=False, invert=False,
         normalized image of same size
 
     """
+    
     if img.ndim<3:
         error_message = 'Image needs to have at least 3 dimensions'
         transforms_logger.critical(error_message)
@@ -637,6 +638,7 @@ def normalize_img(img, normalize=True, norm3D=False, invert=False,
                 
     # move channel axis back to original position
     img_norm = np.moveaxis(img_norm, -1, axis)
+    
     return img_norm
 
 def reshape_train_test(train_data, train_labels, test_data, test_labels, channels, normalize=True):
@@ -795,7 +797,7 @@ def resize_image(img0, Ly=None, Lx=None, rsz=None, interpolation=cv2.INTER_LINEA
         imgs = cv2.resize(img0, (Lx, Ly), interpolation=interpolation)
     return imgs
 
-def pad_image_ND(img0, div=16, extra = 1):
+def pad_image_ND(img0, div=16, extra=1, min_size=None):
     """ pad image for test-time so that its dimensions are a multiple of 16 (2D or 3D)
 
     Parameters
@@ -819,10 +821,16 @@ def pad_image_ND(img0, div=16, extra = 1):
         xrange of pixels in I corresponding to img0
 
     """
-    Lpad = int(div * np.ceil(img0.shape[-2]/div) - img0.shape[-2])
+    if min_size is None or img0.shape[-2] >= min_size[-2]:
+        Lpad = int(div * np.ceil(img0.shape[-2]/div) - img0.shape[-2])
+    else:
+        Lpad = min_size[-2] - img0.shape[-2]
     xpad1 = extra*div//2 + Lpad//2
     xpad2 = extra*div//2 + Lpad - Lpad//2
-    Lpad = int(div * np.ceil(img0.shape[-1]/div) - img0.shape[-1])
+    if min_size is None or img0.shape[-1] >= min_size[-1]:
+        Lpad = int(div * np.ceil(img0.shape[-1]/div) - img0.shape[-1])
+    else:
+        Lpad = min_size[-1] - img0.shape[-1]
     ypad1 = extra*div//2 + Lpad//2
     ypad2 = extra*div//2+Lpad - Lpad//2
 
@@ -836,6 +844,7 @@ def pad_image_ND(img0, div=16, extra = 1):
     Ly, Lx = img0.shape[-2:]
     ysub = np.arange(xpad1, xpad1+Ly)
     xsub = np.arange(ypad1, ypad1+Lx)
+    
     return I, ysub, xsub
 
 def normalize_field(mu):
@@ -900,7 +909,8 @@ def _image_resizer(img, resize=512, to_uint8=False):
 
 
 def random_rotate_and_resize(X, Y=None, scale_range=1., xy = (224,224), do_3D=False,
-                             do_flip=True, rescale=None, unet=False, random_per_image=True):
+                             do_flip=True, rotate=True,
+                             rescale=None, unet=False, random_per_image=True):
     """ augmentation by random rotation and resizing
         X and Y are lists or arrays of length nimg, with dims channels x Ly x Lx (channels optional)
         Parameters
@@ -961,7 +971,7 @@ def random_rotate_and_resize(X, Y=None, scale_range=1., xy = (224,224), do_3D=Fa
         if random_per_image or n==0:
             # generate random augmentation parameters
             flip = np.random.rand()>.5
-            theta = np.random.rand() * np.pi * 2
+            theta = np.random.rand() * np.pi * 2 if rotate else 0.
             scale[n] = (1-scale_range/2) + scale_range * np.random.rand()
             if rescale is not None:
                 scale[n] *= 1. / rescale[n]

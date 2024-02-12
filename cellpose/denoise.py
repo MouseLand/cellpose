@@ -1,3 +1,7 @@
+"""
+Copyright © 2023 Howard Hughes Medical Institute, Authored by Carsen Stringer and Marius Pachitariu.
+"""
+
 import os, time, datetime
 import numpy as np
 from scipy.stats import mode

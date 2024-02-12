@@ -1,5 +1,5 @@
 """
-Copright © 2023 Howard Hughes Medical Institute, Authored by Carsen Stringer and Marius Pachitariu.
+Copyright © 2023 Howard Hughes Medical Institute, Authored by Carsen Stringer and Marius Pachitariu.
 """
 
 from qtpy import QtGui, QtCore, QtWidgets
@@ -11,17 +11,79 @@ from pyqtgraph import Point
 import numpy as np
 import pathlib, os
 
+def stylesheet():
+    return """
+        QToolTip { 
+                            background-color: black; 
+                            color: white; 
+                            border: black solid 1px
+                            }
+        QComboBox {color: white;
+                    background-color: rgb(40,40,40);}
+                    QComboBox::item:enabled { color: white;
+                    background-color: rgb(40,40,40);
+                    selection-color: white;
+                    selection-background-color: rgb(50,100,50);}
+                    QComboBox::item:!enabled {
+                            background-color: rgb(40,40,40);
+                            color: rgb(100,100,100);
+                        }
+        QScrollArea > QWidget > QWidget
+                {
+                    background: transparent;
+                    border: none;
+                    margin: 0px 0px 0px 0px;
+                } 
+                           
+        QGroupBox 
+            { border: 1px solid white; color: rgb(255,255,255);
+                           border-radius: 6px;
+                            margin-top: 8px;
+                            padding: 0px 0px;}            
+                           
+        QPushButton:pressed {Text-align: left; 
+                             background-color: rgb(150,50,150); 
+                             border-color: white;
+                             color:white;}
+                            QToolTip { 
+                           background-color: black; 
+                           color: white; 
+                           border: black solid 1px
+                           }
+        QPushButton:!pressed {Text-align: left; 
+                               background-color: rgb(50,50,50);
+                                border-color: white;
+                               color:white;}
+                                QToolTip { 
+                           background-color: black; 
+                           color: white; 
+                           border: black solid 1px
+                           }
+        QPushButton:disabled {Text-align: left; 
+                             background-color: rgb(30,30,30);
+                             border-color: white;
+                              color:rgb(80,80,80);}
+                               QToolTip { 
+                           background-color: black; 
+                           color: white; 
+                           border: black solid 1px
+                           }
+                        
+        """
+
 class DarkPalette(QtGui.QPalette):
-    """Class that inherits from pyqtgraph.QtGui.QPalette and renders dark colours for the application."""
+    """Class that inherits from pyqtgraph.QtGui.QPalette and renders dark colours for the application.
+    (from pykilosort/kilosort4)
+    """
 
     def __init__(self):
         QtGui.QPalette.__init__(self)
         self.setup()
 
     def setup(self):
-        self.setColor(QtGui.QPalette.Window, QtGui.QColor(53, 50, 47))
+        self.setColor(QtGui.QPalette.Window, QtGui.QColor(40, 40, 40))
         self.setColor(QtGui.QPalette.WindowText, QtGui.QColor(255, 255, 255))
-        self.setColor(QtGui.QPalette.Base, QtGui.QColor(30, 27, 24))
+        self.setColor(QtGui.QPalette.Base, QtGui.QColor(34, 27, 24))
         self.setColor(QtGui.QPalette.AlternateBase, QtGui.QColor(53, 50, 47))
         self.setColor(QtGui.QPalette.ToolTipBase, QtGui.QColor(255, 255, 255))
         self.setColor(QtGui.QPalette.ToolTipText, QtGui.QColor(255, 255, 255))
@@ -72,17 +134,25 @@ class ModelButton(QPushButton):
     def __init__(self, parent, model_name, text):
         super().__init__()
         self.setEnabled(False)
-        #self.setStyleSheet(parent.styleInactive)
         self.setText(text)
-        self.setFont(parent.smallfont)
+        self.setFont(parent.medfont)
         self.clicked.connect(lambda: self.press(parent))
-        self.model_name = model_name
+        self.model_name = model_name if "cyto3" not in model_name else "cyto3"
         
     def press(self, parent):
-        #for i in range(len(parent.StyleButtons)):
-        #    parent.StyleButtons[i].setStyleSheet(parent.styleUnpressed)
-        #self.setStyleSheet(parent.stylePressed)
-        parent.compute_model(self.model_name)
+        parent.compute_segmentation(model_name=self.model_name)
+
+class DenoiseButton(QPushButton):
+    def __init__(self, parent, text):
+        super().__init__()
+        self.setEnabled(False)
+        self.model_type = text
+        self.setText("  " + text)
+        self.setFont(parent.medfont)
+        self.clicked.connect(lambda: self.press(parent))
+        
+    def press(self, parent):
+        parent.compute_denoise_model(model_type=self.model_type)
 
 class TrainWindow(QDialog):
     def __init__(self, parent, model_strings):
@@ -189,106 +259,7 @@ class TrainWindow(QDialog):
                                  'diameter': parent.diameter if self.diam_checkbox.isChecked() else None,
                                  }
         self.done(1)
-        
-def make_quadrants(parent, yp):
-    """ make quadrant buttons """
-    parent.quadbtns = QButtonGroup(parent)
-    for b in range(9):
-        btn = QuadButton(b, ' '+str(b+1), parent)
-        parent.quadbtns.addButton(btn, b)
-        parent.l0.addWidget(btn, yp + parent.quadbtns.button(b).ypos, 5+parent.quadbtns.button(b).xpos, 1, 1)
-        btn.setEnabled(True)
-        b += 1
-    parent.quadbtns.setExclusive(True)
-
-class QuadButton(QPushButton):
-    """ custom QPushButton class for quadrant plotting
-        requires buttons to put into a QButtonGroup (parent.quadbtns)
-         allows only 1 button to pressed at a time
-    """
-    def __init__(self, bid, Text, parent=None):
-        super(QuadButton,self).__init__(parent)
-        self.setText(Text)
-        self.setCheckable(True)
-        #self.setStyleSheet(parent.styleUnpressed)
-        self.setFont(QtGui.QFont("Arial", 8, QtGui.QFont.Bold))
-        self.resize(self.minimumSizeHint())
-        self.setMaximumWidth(22)
-        self.xpos = bid%3
-        self.ypos = int(np.floor(bid/3))
-        self.clicked.connect(lambda: self.press(parent, bid))
-        self.show()
-
-    def press(self, parent, bid):
-        #for b in range(9):
-            #if parent.quadbtns.button(b).isEnabled():
-            #    parent.quadbtns.button(b).setStyleSheet(parent.styleUnpressed)
-        #self.setStyleSheet(parent.stylePressed)
-        self.xrange = np.array([self.xpos-.2, self.xpos+1.2]) * parent.Lx/3
-        self.yrange = np.array([self.ypos-.2, self.ypos+1.2]) * parent.Ly/3
-        # change the zoom
-        parent.p0.setXRange(self.xrange[0], self.xrange[1])
-        parent.p0.setYRange(self.yrange[0], self.yrange[1])
-        parent.show()
-
-def horizontal_slider_style():
-    return """QSlider::groove:horizontal {
-            border: 1px solid #bbb;
-            background: black;
-            height: 10px;
-            border-radius: 4px;
-            }
-
-            QSlider::sub-page:horizontal {
-            background: qlineargradient(x1: 0, y1: 0,    x2: 0, y2: 1,
-                stop: 0 black, stop: 1 rgb(150,255,150));
-            background: qlineargradient(x1: 0, y1: 0.2, x2: 1, y2: 1,
-                stop: 0 black, stop: 1 rgb(150,255,150));
-            border: 1px solid #777;
-            height: 10px;
-            border-radius: 4px;
-            }
-
-            QSlider::add-page:horizontal {
-            background: black;
-            border: 1px solid #777;
-            height: 10px;
-            border-radius: 4px;
-            }
-
-            QSlider::handle:horizontal {
-            background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
-                stop:0 #eee, stop:1 #ccc);
-            border: 1px solid #777;
-            width: 13px;
-            margin-top: -2px;
-            margin-bottom: -2px;
-            border-radius: 4px;
-            }
-
-            QSlider::handle:horizontal:hover {
-            background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
-                stop:0 #fff, stop:1 #ddd);
-            border: 1px solid #444;
-            border-radius: 4px;
-            }
-
-            QSlider::sub-page:horizontal:disabled {
-            background: #bbb;
-            border-color: #999;
-            }
-
-            QSlider::add-page:horizontal:disabled {
-            background: #eee;
-            border-color: #999;
-            }
-
-            QSlider::handle:horizontal:disabled {
-            background: #eee;
-            border: 1px solid #aaa;
-            border-radius: 4px;
-            }"""
-
+   
 class ExampleGUI(QDialog):
     def __init__(self, parent=None):
         super(ExampleGUI, self).__init__(parent)

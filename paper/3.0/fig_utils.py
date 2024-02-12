@@ -1,3 +1,6 @@
+"""
+Copyright © 2023 Howard Hughes Medical Institute, Authored by Carsen Stringer and Marius Pachitariu.
+"""
 import string
 import matplotlib
 import matplotlib.pyplot as plt

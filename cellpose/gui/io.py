@@ -1,5 +1,5 @@
 """
-Copright © 2023 Howard Hughes Medical Institute, Authored by Carsen Stringer and Marius Pachitariu.
+Copyright © 2023 Howard Hughes Medical Institute, Authored by Carsen Stringer and Marius Pachitariu.
 """
 
 import os, datetime, gc, warnings, glob, shutil, copy
@@ -12,7 +12,7 @@ import fastremap
 
 from .. import utils, plot, transforms, models
 from ..io import imread, imsave, outlines_to_text, add_model, remove_model, save_rois
-from ..transforms import normalize99
+from ..transforms import normalize99, resize_image
 
 try:
     import qtpy
@@ -97,7 +97,7 @@ def _get_train_set(image_names):
             train_labels.append(masks)
     return train_data, train_labels, train_files
 
-def _load_image(parent, filename=None, load_seg=True):
+def _load_image(parent, filename=None, load_seg=True, load_3D=False):
     """ load image with filename; if None, open QFileDialog """
     if filename is None:
         name = QFileDialog.getOpenFileName(
@@ -108,11 +108,11 @@ def _load_image(parent, filename=None, load_seg=True):
     load_mask = False
     if load_seg:
         if os.path.isfile(manual_file) and not parent.autoloadMasks.isChecked():
-            _load_seg(parent, manual_file, image=imread(filename), image_file=filename)
+            _load_seg(parent, manual_file, image=imread(filename), image_file=filename, load_3D=load_3D)
             return
         elif os.path.isfile(os.path.splitext(filename)[0]+'_manual.npy'):
             manual_file = os.path.splitext(filename)[0]+'_manual.npy'
-            _load_seg(parent, manual_file, image=imread(filename), image_file=filename)
+            _load_seg(parent, manual_file, image=imread(filename), image_file=filename, load_3D=load_3D)
             return
         elif parent.autoloadMasks.isChecked():
             mask_file = os.path.splitext(filename)[0]+'_masks'+os.path.splitext(filename)[-1]
@@ -130,76 +130,85 @@ def _load_image(parent, filename=None, load_seg=True):
         parent.reset()
         parent.filename = filename
         filename = os.path.split(parent.filename)[-1]
-        _initialize_images(parent, image, resize=parent.resize, X2=0)
+        _initialize_images(parent, image, load_3D=load_3D)
         parent.clear_all()
         parent.loaded = True
         parent.enable_buttons()
         if load_mask:
             _load_masks(parent, filename=mask_file)
             
-
-
-def _initialize_images(parent, image, resize, X2):
+def _initialize_images(parent, image, load_3D=False):
     """ format image for GUI """
-    parent.onechan=False
-    if image.ndim > 3:
-        # make tiff Z x channels x W x H
-        if image.shape[0]<4:
-            # tiff is channels x Z x W x H
-            image = np.transpose(image, (1,0,2,3))
-        elif image.shape[-1]<4:
-            # tiff is Z x W x H x channels
-            image = np.transpose(image, (0,3,1,2))
-        # fill in with blank channels to make 3 channels
-        if image.shape[1] < 3:
-            shape = image.shape
-            image = np.concatenate((image,
-                            np.zeros((shape[0], 3-shape[1], shape[2], shape[3]), dtype=np.uint8)), axis=1)
-            if 3-shape[1]>1:
-                parent.onechan=True
-        image = np.transpose(image, (0,2,3,1))
+    parent.nchan = 3
+    if image.ndim > 4:
+        image = image.squeeze()
+        if image.ndim > 4:
+            raise ValueError("cannot load 4D stack, reduce dimensions")
+    elif image.ndim==1:
+        raise ValueError("cannot load 1D stack, increase dimensions")
+
+    if image.ndim==4:
+        if not load_3D:
+            raise ValueError("cannot load 3D stack, run 'python -m cellpose --Zstack' for 3D GUI")
+        else:
+            # make tiff Z x channels x W x H
+            if image.shape[0] < 4:
+                # tiff is channels x Z x W x H
+                image = image.transpose((1,2,3,0))
+            image = np.transpose(image, (0,2,3,1))
     elif image.ndim==3:
-        if image.shape[0] < 5:
-            image = np.transpose(image, (1,2,0))
-        if image.shape[-1] < 3:
-            shape = image.shape
-            #if parent.autochannelbtn.isChecked():
-            #    image = normalize99(image) * 255
-            image = np.concatenate((image,np.zeros((shape[0], shape[1], 3-shape[2]),dtype=type(image[0,0,0]))), axis=-1)
-            if 3-shape[2]>1:
-                parent.onechan=True
-            image = image[np.newaxis,...]
-        elif image.shape[-1]<5 and image.shape[-1]>2:
-            image = image[:,:,:3]
-            #if parent.autochannelbtn.isChecked():
-            #    image = normalize99(image) * 255
-            image = image[np.newaxis,...]
+        if not load_3D:
+            # assume smallest dimension is channels and put last
+            c = np.array(image.shape).argmin()
+            image = image.transpose(((c+1)%3,(c+2)%3,c))
+        elif load_3D:
+            # assume smallest dimension is Z and put first
+            z = np.array(image.shape).argmin()
+            image = image.transpose((z, (z+1)%3,(z+2)%3))
+            image = image[..., np.newaxis]
+    elif image.ndim==2:
+        if not load_3D:
+            image = image[...,np.newaxis]
+        else:
+            raise ValueError("cannot load 2D stack in 3D mode, run 'python -m cellpose' for 2D GUI")
+
+    if image.shape[-1] > 3:
+        print("WARNING: image has more than 3 channels, keeping only first 3")
+        image = image[...,:3]
+    elif image.shape[-1]==2:
+        # fill in with blank channels to make 3 channels
+        shape = image.shape
+        image = np.concatenate((image,
+                    np.zeros((*shape[:-1], 3-shape[-1]), dtype=np.uint8)), axis=1)
+        parent.nchan = 2
+    elif image.shape[-1] == 1:
+        parent.nchan = 1
+    
+    parent.stack = image
+    if load_3D:
+        parent.NZ = len(parent.stack)
+        parent.scroll.setMaximum(parent.NZ-1)
     else:
-        image = image[np.newaxis,...]
+        parent.NZ = 1
+        parent.stack = parent.stack[np.newaxis,...]
     
     img_min = image.min() 
     img_max = image.max()
-    parent.stack = image
-    parent.NZ = len(parent.stack)
-    parent.scroll.setMaximum(parent.NZ-1)
     parent.stack = parent.stack.astype(np.float32)
     parent.stack -= img_min
     if img_max > img_min + 1e-3:
         parent.stack /= (img_max - img_min)
     parent.stack *= 255
-    if parent.NZ>1:
+    
+    if load_3D:
         print('GUI_INFO: converted to float and normalized values to 0.0->255.0')
+    
     del image
     gc.collect()
 
-    #parent.stack = list(parent.stack)
-
-    if parent.stack.ndim < 4:
-        parent.onechan=True
-        parent.stack = parent.stack[:,:,:,np.newaxis]
-    
     parent.imask=0
-    parent.Ly, parent.Lx = parent.stack.shape[1:3]
+    parent.Ly, parent.Lx = parent.stack.shape[-3:-1]
+    parent.Ly0, parent.Lx0 = parent.stack.shape[-3:-1]
     parent.layerz = 255 * np.ones((parent.Ly,parent.Lx,4), 'uint8')
     print(parent.layerz.shape)
     if parent.autobtn.isChecked():
@@ -213,12 +222,17 @@ def _initialize_images(parent, image, resize, X2):
                 parent.saturation[-1].append([0, 255])
             parent.sliders[r].setValue([0, 255])
     parent.compute_scale()
-    parent.currentZ = int(np.floor(parent.NZ/2))
-    parent.scroll.setValue(parent.currentZ)
-    parent.zpos.setText(str(parent.currentZ))
     parent.track_changes = []
 
-def _load_seg(parent, filename=None, image=None, image_file=None):
+    if load_3D:
+        parent.currentZ = int(np.floor(parent.NZ/2))
+        parent.scroll.setValue(parent.currentZ)
+        parent.zpos.setText(str(parent.currentZ))
+    else:
+        parent.currentZ = 0
+        
+
+def _load_seg(parent, filename=None, image=None, image_file=None, load_3D=False):
     """ load *_seg.npy with filename; if None, open QFileDialog """
     if filename is None:
         name = QFileDialog.getOpenFileName(
@@ -265,18 +279,7 @@ def _load_seg(parent, filename=None, image=None, image_file=None):
     else:
         parent.filename = image_file
     
-    if 'X2' in dat:
-        parent.X2 = dat['X2']
-    else:
-        parent.X2 = 0
-    if 'resize' in dat:
-        parent.resize = dat['resize']
-    elif 'img' in dat:
-        if max(image.shape) > max(dat['img'].shape):
-            parent.resize = max(dat['img'].shape)
-    else:
-        parent.resize = -1
-    _initialize_images(parent, image, resize=parent.resize, X2=parent.X2)
+    _initialize_images(parent, image, load_3D=load_3D)
     if 'chan_choose' in dat:
         parent.ChannelChoose[0].setCurrentIndex(dat['chan_choose'][0])
         parent.ChannelChoose[1].setCurrentIndex(dat['chan_choose'][1])
@@ -295,9 +298,6 @@ def _load_seg(parent, filename=None, image=None, image_file=None):
                     parent.cellcolors = np.append(parent.cellcolors, color[np.newaxis,:], axis=0)
                     parent.ncells+=1
         else:
-            if dat['masks'].ndim==2:
-                dat['masks'] = dat['masks'][np.newaxis,:,:]
-                dat['outlines'] = dat['outlines'][np.newaxis,:,:]
             if dat['masks'].min()==-1:
                 dat['masks'] += 1
                 dat['outlines'] += 1
@@ -309,7 +309,12 @@ def _load_seg(parent, filename=None, image=None, image_file=None):
             parent.cellpix = dat['masks']
             parent.outpix = dat['outlines']
             parent.cellcolors = np.append(parent.cellcolors, colors, axis=0)
-            
+
+            if parent.cellpix.ndim==2:
+                parent.cellpix = parent.cellpix[np.newaxis,:,:]
+            if parent.outpix.ndim==2:
+                parent.outpix = parent.outpix[np.newaxis,:,:]
+
             parent.draw_layer()
             if 'est_diam' in dat:
                 parent.Diameter.setText('%0.1f'%dat['est_diam'])
@@ -405,35 +410,53 @@ def _masks_to_gui(parent, masks, outlines=None):
     fastremap.renumber(masks, in_place=True)
     masks = masks.reshape(shape)
     masks = masks.astype(np.uint16) if masks.max()<2**16-1 else masks.astype(np.uint32)
-    parent.cellpix = masks
+    if parent.upsampled:
+        parent.cellpix_resize = masks.copy()
+        parent.cellpix_orig = cv2.resize(masks.squeeze(), (parent.Lx0, parent.Ly0), 
+                                         interpolation=cv2.INTER_NEAREST)[np.newaxis,:,:]
+        parent.resize = True
+        parent.cellpix = parent.cellpix_resize.copy()
+    else:
+        parent.cellpix = masks
     if parent.cellpix.ndim == 2:
         parent.cellpix = parent.cellpix[np.newaxis,:,:]
+            
     print(f'GUI_INFO: {masks.max()} masks found')
 
     # get outlines
     if outlines is None: # parent.outlinesOn
-        parent.outpix = np.zeros_like(masks)
+        parent.outpix = np.zeros_like(parent.cellpix)
+        if parent.upsampled:
+            parent.outpix_orig = np.zeros_like(parent.cellpix_orig)
         for z in range(parent.NZ):
-            outlines = utils.masks_to_outlines(masks[z])
-            parent.outpix[z] = outlines * masks[z]
+            outlines = utils.masks_to_outlines(parent.cellpix[z])
+            parent.outpix[z] = outlines * parent.cellpix[z]
+            if parent.upsampled:
+                outlines = utils.masks_to_outlines(parent.cellpix_orig[z])
+                parent.outpix_orig[z] = outlines * parent.cellpix_orig[z]
             if z%50==0 and parent.NZ > 1:
                 print('GUI_INFO: plane %d outlines processed'%z)
+        if parent.upsampled:
+            parent.outpix_resize = parent.outpix.copy() 
     else:
         parent.outpix = outlines
         shape = parent.outpix.shape
         _,parent.outpix = np.unique(parent.outpix, return_inverse=True)
         parent.outpix = np.reshape(parent.outpix, shape)
 
+    if parent.outpix.ndim==2:
+        parent.outpix = parent.outpix[np.newaxis,:,:]
+
     parent.ncells = parent.cellpix.max()
     colors = parent.colormap[:parent.ncells, :3]
     print('GUI_INFO: creating cellcolors and drawing masks')
     parent.cellcolors = np.concatenate((np.array([[255,255,255]]), colors), axis=0).astype(np.uint8)
-    parent.draw_layer()
     if parent.ncells>0:
         parent.toggle_mask_ops()
     parent.ismanual = np.zeros(parent.ncells, bool)
     parent.zdraw = list(-1*np.ones(parent.ncells, np.int16))
-    parent.update_layer()
+    
+    parent.ViewDropDown.setCurrentIndex(3)
     parent.update_plot()
 
 def _save_png(parent):

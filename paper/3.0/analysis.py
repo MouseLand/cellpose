@@ -1,3 +1,6 @@
+"""
+Copyright © 2023 Howard Hughes Medical Institute, Authored by Carsen Stringer and Marius Pachitariu.
+"""
 import numpy as np
 import matplotlib.pyplot as plt 
 from scipy.ndimage import gaussian_filter, gaussian_filter1d

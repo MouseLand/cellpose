@@ -1,3 +1,7 @@
+"""
+Copyright © 2023 Howard Hughes Medical Institute, Authored by Carsen Stringer and Marius Pachitariu.
+"""
+
 import os
 from cellpose import io, metrics, transforms, denoise, models, plot
 import torch

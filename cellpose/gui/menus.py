@@ -1,5 +1,5 @@
 """
-Copright © 2023 Howard Hughes Medical Institute, Authored by Carsen Stringer and Marius Pachitariu.
+Copyright © 2023 Howard Hughes Medical Institute, Authored by Carsen Stringer and Marius Pachitariu.
 """
 
 import qtpy
@@ -18,7 +18,7 @@ def mainmenu(parent):
     file_menu.addAction(loadImg)
 
     parent.autoloadMasks = QAction("Autoload masks from _masks.tif file", parent, checkable=True)
-    parent.autoloadMasks.setChecked(False)
+    parent.autoloadMasks.setChecked(True)
     file_menu.addAction(parent.autoloadMasks)
 
     parent.disableAutosave = QAction("Disable autosave _seg.npy file", parent, checkable=True)

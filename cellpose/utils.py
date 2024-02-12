@@ -1,18 +1,16 @@
 """
-Copright © 2023 Howard Hughes Medical Institute, Authored by Carsen Stringer and Marius Pachitariu.
+Copyright © 2023 Howard Hughes Medical Institute, Authored by Carsen Stringer and Marius Pachitariu.
 """
 
-import os, warnings, time, tempfile, datetime, pathlib, shutil, subprocess
+import os, tempfile, shutil, logging, io
 from tqdm import tqdm
 from urllib.request import urlopen
-from urllib.parse import urlparse
 import cv2
 from scipy.ndimage import find_objects, gaussian_filter, generate_binary_structure, label, maximum_filter1d, binary_fill_holes
 from scipy.spatial import ConvexHull
-from scipy.stats import gmean
 import numpy as np
 import colorsys
-import io
+import fastremap
 from multiprocessing import Pool, cpu_count
 
 from . import metrics
@@ -431,7 +429,8 @@ def stitch3D(masks, stitch_threshold=0.25):
     return masks
 
 def diameters(masks):
-    _, counts = np.unique(np.int32(masks), return_counts=True)
+    #_, counts = np.unique(np.int32(masks), return_counts=True)
+    uniq, counts = fastremap.unique(masks.astype("int32"), return_counts=True)
     counts = counts[1:]
     md = np.median(counts**0.5)
     if np.isnan(md):
