@@ -3,7 +3,7 @@ Copright © 2023 Howard Hughes Medical Institute, Authored by Carsen Stringer an
 """
 import logging
 import os, warnings, time, tempfile, datetime, pathlib, shutil, subprocess
-from tqdm import tqdm
+from tqdm import tqdm, trange
 from urllib.request import urlopen
 from urllib.parse import urlparse
 import cv2
@@ -403,7 +403,7 @@ def stitch3D(masks, stitch_threshold=0.25):
     mmax = masks[0].max()
     empty = 0
     
-    for i in range(len(masks)-1):
+    for i in trange(len(masks)-1):
         iou = metrics._intersection_over_union(masks[i+1], masks[i])[1:,1:]
         if not iou.size and empty == 0:
             masks[i+1] = masks[i+1]
