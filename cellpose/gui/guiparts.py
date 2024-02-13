@@ -315,56 +315,6 @@ class TrainHelpWindow(QDialog):
         layout.addWidget(label, 0, 0, 1, 1)
         self.show()
 
-
-class TypeRadioButtons(QButtonGroup):
-    def __init__(self, parent=None, row=0, col=0):
-        super(TypeRadioButtons, self).__init__()
-        parent.color = 0
-        self.parent = parent
-        self.bstr = self.parent.cell_types
-        for b in range(len(self.bstr)):
-            button = QRadioButton(self.bstr[b])
-            button.setStyleSheet('color: rgb(190,190,190);')
-            button.setFont(QtGui.QFont("Arial", 10))
-            if b==0:
-                button.setChecked(True)
-            self.addButton(button, b)
-            button.toggled.connect(lambda: self.btnpress(parent))
-            self.parent.l0.addWidget(button, row+b,col,1,2)
-        self.setExclusive(True)
-        #self.buttons.
-
-    def btnpress(self, parent):
-       b = self.checkedId()
-       self.parent.cell_type = b
-
-class RGBRadioButtons(QButtonGroup):
-    def __init__(self, parent=None, row=0, col=0):
-        super(RGBRadioButtons, self).__init__()
-        parent.color = 0
-        self.parent = parent
-        self.bstr = ["image", "gradXY", "cellprob", "gradZ"]
-        #self.buttons = QButtonGroup()
-        self.dropdown = []
-        for b in range(len(self.bstr)):
-            button = QRadioButton(self.bstr[b])
-            button.setStyleSheet('color: white;')
-            button.setFont(QtGui.QFont("Arial", 10))
-            if b==0:
-                button.setChecked(True)
-            self.addButton(button, b)
-            button.toggled.connect(lambda: self.btnpress(parent))
-            self.parent.l0.addWidget(button, row,col+2*b,1,2)
-        self.setExclusive(True)
-        #self.buttons.
-
-    def btnpress(self, parent):
-       b = self.checkedId()
-       self.parent.view = b
-       if self.parent.loaded:
-           self.parent.update_plot()
-
-
 class ViewBoxNoRightDrag(pg.ViewBox):
     def __init__(self, parent=None, border=None, lockAspect=False, enableMouse=True, invertY=False, enableMenu=True, name=None, invertX=False):
         pg.ViewBox.__init__(self, None, border, lockAspect, enableMouse,

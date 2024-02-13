@@ -358,6 +358,7 @@ def cyto3_comparisons(folder):
             
             imgs = [io.imread(tif) for tif in tifs]
             flows = [io.imread(str(tif)[:-4]+"_flows.tif") for tif in tifs]
+            masks = [flow[0].astype("uint16") for flow in flows]
             
             if f=="cyto2":
                 imgs = imgs[:68]

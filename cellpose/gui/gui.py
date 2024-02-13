@@ -416,13 +416,13 @@ class MainW(QMainWindow):
         self.Diameter.setFont(self.medfont)
         self.Diameter.returnPressed.connect(self.update_scale)
         self.Diameter.setFixedWidth(50)
-        self.segBoxG.addWidget(self.Diameter, b0,3,1,3)
+        self.segBoxG.addWidget(self.Diameter, b0,4,1,3)
 
         # compute diameter
         self.SizeButton = QPushButton(' calibrate')
         self.setFont(self.medfont)
         self.SizeButton.clicked.connect(self.calibrate_size)
-        self.segBoxG.addWidget(self.SizeButton, b0,6,1,3)
+        self.segBoxG.addWidget(self.SizeButton, b0,7,1,2)
         self.SizeButton.setFixedWidth(55)
         self.SizeButton.setEnabled(False)
         self.SizeButton.setToolTip('you can manually enter the approximate diameter for your cells, \nor press “calibrate” to let the model estimate it. \nThe size is represented by a disk at the bottom of the view window \n(can turn this disk off by unchecking “scale disk on”)')
@@ -513,6 +513,7 @@ class MainW(QMainWindow):
                 ]
         b0+=1
         self.ModelChooseB = QComboBox()
+        self.ModelChooseB.setFont(self.medfont)
         self.ModelChooseB.addItems(["dataset-specific models"])
         self.ModelChooseB.addItems(nett)
         self.ModelChooseB.setFixedWidth(140)
@@ -523,6 +524,7 @@ class MainW(QMainWindow):
 
         # compute segmentation w/ cp model
         self.ModelButtonB = QPushButton(u'   run model')
+        self.ModelButtonB.setFont(self.medfont)
         self.ModelButtonB.clicked.connect(lambda: self.compute_segmentation(custom=False))
         self.segBoxG.addWidget(self.ModelButtonB, b0, 5, 1, 4)
         self.ModelButtonB.setEnabled(False)
@@ -530,6 +532,7 @@ class MainW(QMainWindow):
         b0+=1
         # choose models
         self.ModelChooseC = QComboBox()
+        self.ModelChooseC.setFont(self.medfont)
         current_index = 0
         self.ModelChooseC.addItems(['custom models'])
         if len(self.model_strings) > 0:
@@ -543,6 +546,7 @@ class MainW(QMainWindow):
 
         # compute segmentation w/ custom model
         self.ModelButtonC = QPushButton(u'   run custom model')
+        self.ModelButtonC.setFont(self.medfont)
         self.ModelButtonC.clicked.connect(lambda: self.compute_segmentation(custom=True))
         self.segBoxG.addWidget(self.ModelButtonC, b0, 5, 1, 4)
         self.ModelButtonC.setEnabled(False)
@@ -564,16 +568,17 @@ class MainW(QMainWindow):
         self.l0.addWidget(self.denoiseBox, b, 0, 1, 9)
 
         b0 = 0
-        self.denoiseBoxG.addWidget(QLabel(""))
+        #self.denoiseBoxG.addWidget(QLabel(""))
 
         # DENOISING
-        b0+=1
+        #b0+=1
         label = QLabel('Cellpose3 model type:')
         label.setToolTip("choose model type and click [denoise], [deblur], or [upsample]")
         label.setFont(self.medfont)
         self.denoiseBoxG.addWidget(label, b0, 0,1,4)
         
         self.DenoiseChoose = QComboBox()
+        self.DenoiseChoose.setFont(self.medfont)
         self.DenoiseChoose.addItems(["one-click", "nuclei"])
         self.DenoiseChoose.setFixedWidth(100)
         tipstr = "choose model type and click [denoise], [deblur], or [upsample]"
