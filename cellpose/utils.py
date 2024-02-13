@@ -1,8 +1,9 @@
 """
 Copyright © 2023 Howard Hughes Medical Institute, Authored by Carsen Stringer and Marius Pachitariu.
 """
-import os, tempfile, shutil, logging, io
-from tqdm import tqdm
+import logging
+import os, tempfile, shutil, io
+from tqdm import tqdm, trange
 from urllib.request import urlopen
 import cv2
 from scipy.ndimage import find_objects, gaussian_filter, generate_binary_structure, label, maximum_filter1d, binary_fill_holes
@@ -417,7 +418,7 @@ def stitch3D(masks, stitch_threshold=0.25):
     mmax = masks[0].max()
     empty = 0
     
-    for i in range(len(masks)-1):
+    for i in trange(len(masks)-1):
         iou = metrics._intersection_over_union(masks[i+1], masks[i])[1:,1:]
         if not iou.size and empty == 0:
             masks[i+1] = masks[i+1]
