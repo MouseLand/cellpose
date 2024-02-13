@@ -145,8 +145,9 @@ def add_model(filename):
     except shutil.SameFileError:
         pass
     print(f'{filename} copied to models folder {os.fspath(models.MODEL_DIR)}')
-    with open(models.MODEL_LIST_PATH, 'a') as textfile:
-        textfile.write(fname + '\n')
+    if fname not in models.get_user_models():
+        with open(models.MODEL_LIST_PATH, 'a') as textfile:
+            textfile.write(fname + '\n')
 
 def imsave(filename, arr):
     ext = os.path.splitext(filename)[-1].lower()
