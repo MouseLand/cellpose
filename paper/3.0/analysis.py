@@ -334,14 +334,14 @@ def cyto3_comparisons(folder):
     
     net_types = ["generalist", "specialist", 
                 "transformer"]
-    for net_type in net_types:
+    for net_type in net_types[:1]:
         if net_type=="generalist":
             seg_model = models.Cellpose(gpu=True, model_type="cyto3")
         elif net_type=="transformer":
             seg_model = models.CellposeModel(gpu=True, pretrained_model=None)
             pretrained_model = "/home/carsen/.cellpose/models/transformer_cp3"
             seg_model.net = Transformer(pretrained_model=pretrained_model, decoder="MAnet").to(device)
-        for f in folders:
+        for f in folders[4:]:
             if net_type=="specialist":
                 seg_model = models.CellposeModel(gpu=True, model_type=f"{f}_cp3")
 
@@ -358,7 +358,6 @@ def cyto3_comparisons(folder):
             
             imgs = [io.imread(tif) for tif in tifs]
             flows = [io.imread(str(tif)[:-4]+"_flows.tif") for tif in tifs]
-            masks = [flow[0].astype("uint16") for flow in flows]
             
             if f=="cyto2":
                 imgs = imgs[:68]
@@ -369,9 +368,9 @@ def cyto3_comparisons(folder):
             dat["masks"] = masks
             dat["files"] = tifs
             out = seg_model.eval(imgs, diameter=diams, channels=channels, 
-                                                            tile_overlap=0.5, flow_threshold=0.4, 
-                                                            augment=True, bsize=224,
-                                                            niter=2000 if f=="bact_phase" else None)
+                                    tile_overlap=0.5, flow_threshold=0.4, 
+                                    augment=True, bsize=224,
+                                    niter=2000 if f=="bact_phase" else None)
             if len(out)==3:
                 masks_pred, flows_pred, styles = out 
             else:
@@ -383,7 +382,7 @@ def cyto3_comparisons(folder):
             dat["performance"] = [ap, tp, fp, fn]
             dat["diams"] = diams
                     
-            np.save(f"/media/carsen/ssd4/datasets_cellpose/{f}_{net_type}_masks.npy", dat)
+            #np.save(f"/media/carsen/ssd4/datasets_cellpose/{f}_{net_type}_masks.npy", dat)
 
 if __name__ == '__main__':
     # folder with folders images_cyto2 and images_nuclei for those datasets

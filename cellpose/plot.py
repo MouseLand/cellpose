@@ -101,7 +101,7 @@ def show_segmentation(fig, img, maski, flowi, channels=[0,0], file_name=None):
         img0 = image_to_rgb(img0, channels=channels)
     else:
         if img0.max()<=50.0:
-            img0 = np.uint8(np.clip(img0*255, 0, 1))
+            img0 = np.uint8(np.clip(img0, 0, 1) * 255)
     ax.imshow(img0)
     ax.set_title('original image')
     ax.axis('off')

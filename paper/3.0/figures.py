@@ -1272,7 +1272,7 @@ def load_seg_generalist(folder):
             [63,70,0], [9,50,26], [31,17,10]]
 
     net_types = ["generalist", "specialist", 
-                "franken", "transformer", "orig"]
+                "transformer"]
     apcs = []
     for net_type in net_types:
         apc = []
@@ -1361,15 +1361,15 @@ def suppfig_generalist(folder, save_fig=True):
                 ax.text(0.5, 1.05, titlesi[i+(i>4)] if i!=4 else "YeaZ", 
                 ha="center", transform=ax.transAxes,fontsize="medium")
 
-    lss = ["-", "--", "-", "-"]
-    cols = ["k", 0.35*np.ones(3), [0,0,1], [0,0,1]]
+    lss = ["-", "--", "-"]
+    cols = ["k", 0.35*np.ones(3), [0,0,1]]
     lws = [1.5, 1.5, 1, 2]
     net_types = ["super-\n   generalist", "dataset-\n   specific", "adaptive-net", "transformer"]
     legstrn = [u"\u2013 %s"%net_types[k] for k in range(len(net_types))]
     legstrn[1] = f"-- {net_types[1]}"
-    legstrn[2] += "-net"
-    theight = [1, 3, 0, 0]
-    zorder = [10, 20, 0, 0]
+    #legstrn[2] += "-net"
+    theight = [1, 3, 0]
+    zorder = [10, 20, 0]
 
     grid1 = matplotlib.gridspec.GridSpecFromSubplotSpec(1, 9, 
                                                             subplot_spec=grid[-2:, :], 
@@ -1380,7 +1380,7 @@ def suppfig_generalist(folder, save_fig=True):
         pos = ax.get_position().bounds
         ax.set_position([pos[0]+0.035*(i>0) +0.02 - (i-1)*0.005, pos[1]+0.03, 
                         pos[2]-0.015, pos[3]*0.54]) 
-        for j in [0, 1, 3]:
+        for j in [0, 1, 2]:
             ax.plot(np.arange(0.5, 1.05, 0.05), apcs[j,i].T, lw=lws[j], 
                     color=cols[j], ls=lss[j], alpha=1, zorder=zorder[j])
             if i==0:

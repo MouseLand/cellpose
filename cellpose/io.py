@@ -361,7 +361,7 @@ def load_train_test_data(train_dir, test_dir=None, image_filter=None, mask_filte
 
 
 
-def masks_flows_to_seg(images, masks, flows, diams, file_names, channels=None):
+def masks_flows_to_seg(images, masks, flows, file_names, diams=30., channels=None):
     """ save output of model eval to be loaded in GUI 
 
     can be list output (run on multiple images) or single output (run on single image)
@@ -401,7 +401,7 @@ def masks_flows_to_seg(images, masks, flows, diams, file_names, channels=None):
             channels_img = channels
             if channels_img is not None and len(channels) > 2:
                 channels_img = channels[k]
-            masks_flows_to_seg(image, mask, flow, diam, file_name, channels_img)
+            masks_flows_to_seg(image, mask, flow, file_name, diams=diam, channels=channels_img)
         return
 
     if len(channels)==1:

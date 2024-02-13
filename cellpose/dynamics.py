@@ -656,13 +656,13 @@ def follow_flows(dP, mask=None, niter=200, interp=True, device=None):
                 np.arange(shape[2]), indexing='ij')
         p = np.array(p).astype(np.float32)
         # run dynamics on subset of pixels
-        inds = np.array(np.nonzero(np.abs(dP[0])>1e-3)).astype(np.int32).T
+        inds = np.array(np.nonzero(np.abs(dP).max(axis=0)>1e-3)).astype(np.int32).T
         p = steps3D(p, dP, inds, niter)
     else:
         p = np.meshgrid(np.arange(shape[0]), np.arange(shape[1]), indexing='ij')
         p = np.array(p).astype(np.float32)
 
-        inds = np.array(np.nonzero(np.abs(dP[0])>1e-3)).astype(np.int32).T
+        inds = np.array(np.nonzero(np.abs(dP).max(axis=0)>1e-3)).astype(np.int32).T
         
         if inds.ndim < 2 or inds.shape[0] < 5:
             dynamics_logger.warning('WARNING: no mask pixels found')
@@ -800,9 +800,7 @@ def get_masks(p, iscell=None, rpad=20):
         expand = np.nonzero(np.ones((3,3,3)))
     else:
         expand = np.nonzero(np.ones((3,3)))
-    for e in expand:
-        e = np.expand_dims(e,1)
-
+    
     for iter in range(5):
         for k in range(len(pix)):
             if iter==0:

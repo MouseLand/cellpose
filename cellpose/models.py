@@ -495,7 +495,6 @@ class CellposeModel():
                 diameter = self.diam_labels
                 rescale = self.diam_mean / diameter
 
-
             masks, styles, dP, cellprob, p = self._run_cp(x, 
                                                           compute_masks=compute_masks,
                                                           normalize=normalize,
@@ -566,14 +565,12 @@ class CellposeModel():
             tqdm_out = utils.TqdmToLogger(models_logger, level=logging.INFO)
             iterator = trange(nimg, file=tqdm_out, mininterval=30) if nimg>1 else range(nimg)
             styles = np.zeros((nimg, self.nbase[-1]), np.float32)
-            #if resample:
-            #    dP = np.zeros((2, nimg, shape[1], shape[2]), np.float32)
-            #    cellprob = np.zeros((nimg, shape[1], shape[2]), np.float32)
-                
-            #else:
-            dP = np.zeros((2, nimg, int(shape[1]*rescale), int(shape[2]*rescale)), np.float32)
-            cellprob = np.zeros((nimg, int(shape[1]*rescale), int(shape[2]*rescale)), np.float32)
-                
+            if resample:
+                dP = np.zeros((2, nimg, shape[1], shape[2]), np.float32)
+                cellprob = np.zeros((nimg, shape[1], shape[2]), np.float32)    
+            else:
+                dP = np.zeros((2, nimg, int(shape[1]*rescale), int(shape[2]*rescale)), np.float32)
+                cellprob = np.zeros((nimg, int(shape[1]*rescale), int(shape[2]*rescale)), np.float32)
             for i in iterator:
                 img = np.asarray(x[i])
                 if do_normalization:
@@ -583,9 +580,8 @@ class CellposeModel():
                 yf, style = run_net(self.net, img, bsize=bsize,
                                            augment=augment, tile=tile,
                                            tile_overlap=tile_overlap)
-                ## moving resizing later to reduce memory usage
-                #if resample:
-                #    yf = transforms.resize_image(yf, shape[1], shape[2])
+                if resample:
+                    yf = transforms.resize_image(yf, shape[1], shape[2])
 
                 cellprob[i] = yf[:,:,2]
                 dP[:, i] = yf[:,:,:2].transpose((2,0,1)) 
@@ -628,7 +624,6 @@ class CellposeModel():
                     
                 masks = np.array(masks)
                 p = np.array(p)
-                
                 if stitch_threshold > 0 and nimg > 1:
                     models_logger.info(f'stitching {nimg} planes using stitch_threshold={stitch_threshold:0.3f} to make 3D masks')
                     masks = utils.stitch3D(masks, stitch_threshold=stitch_threshold)
