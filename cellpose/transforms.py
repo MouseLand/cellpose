@@ -262,7 +262,7 @@ def convert_image(x, channels, channel_axis=None, z_axis=None,
         x = x.squeeze()
 
     # put z axis first
-    if z_axis is not None and x.ndim > 2:
+    if z_axis is not None and x.ndim > 2 and z_axis != 0:
         x = move_axis(x, m_axis=z_axis, first=True)
         if channel_axis is not None:
             channel_axis += 1
