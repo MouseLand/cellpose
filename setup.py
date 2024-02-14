@@ -12,6 +12,8 @@ install_deps = ['numpy>=1.20.0', 'scipy', 'natsort',
                 'roifile',
                 ]
 
+image_deps = ['nd2', 'pynrrd']
+
 gui_deps = [
         'pyqtgraph>=0.11.0rc0', 
         "pyqt6",
@@ -95,7 +97,7 @@ setup(
       'docs': docs_deps,
       'gui': gui_deps,
       'distributed': distributed_deps,
-      'all': gui_deps + distributed_deps,
+      'all': gui_deps + distributed_deps + image_deps,
     },
     include_package_data=True,
     classifiers=(

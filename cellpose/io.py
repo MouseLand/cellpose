@@ -1,5 +1,5 @@
 """
-Copright © 2023 Howard Hughes Medical Institute, Authored by Carsen Stringer and Marius Pachitariu.
+Copyright © 2023 Howard Hughes Medical Institute, Authored by Carsen Stringer and Marius Pachitariu.
 """
 
 import os, datetime, gc, warnings, glob, shutil
@@ -10,6 +10,7 @@ import tifffile
 import logging, pathlib, sys
 from tqdm import tqdm
 from pathlib import Path
+import re
 from . import version_str
 from roifile import ImagejRoi, roiwrite
 
@@ -26,6 +27,18 @@ try:
     MATPLOTLIB = True
 except:
     MATPLOTLIB = False
+
+try:
+    import nd2
+    ND2 = True
+except:
+    ND2 = False
+
+try:
+    import nrrd
+    NRRD = True
+except:
+    NRRD = False
 
 try:
     from google.cloud import storage
@@ -73,6 +86,52 @@ def outlines_to_text(base, outlines):
             f.write(xy_str)
             f.write('\n')
 
+def load_dax(filename):
+    ### modified from ZhuangLab github:
+    ### https://github.com/ZhuangLab/storm-analysis/blob/71ae493cbd17ddb97938d0ae2032d97a0eaa76b2/storm_analysis/sa_library/datareader.py#L156
+
+    inf_filename = os.path.splitext(filename)[0] + '.inf'
+    if not os.path.exists(inf_filename):
+        io_logger.critical(f'ERROR: no inf file found for dax file {filename}, cannot load dax without it')
+        return None
+
+    ### get metadata
+    image_height, image_width = None, None
+    # extract the movie information from the associated inf file
+    size_re = re.compile(r'frame dimensions = ([\d]+) x ([\d]+)')
+    length_re = re.compile(r'number of frames = ([\d]+)')
+    endian_re = re.compile(r' (big|little) endian')
+
+    with open(inf_filename, 'r') as inf_file:
+        lines = inf_file.read().split('\n')
+        for line in lines:
+            m = size_re.match(line)
+            if m:
+                image_height = int(m.group(2))
+                image_width = int(m.group(1))
+            m = length_re.match(line)
+            if m:
+                number_frames = int(m.group(1))
+            m = endian_re.search(line)
+            if m:
+                if m.group(1) == "big":
+                    bigendian = 1
+                else:
+                    bigendian = 0
+    # set defaults, warn the user that they couldn't be determined from the inf file.
+    if not image_height:
+        io_logger.warning('could not determine dax image size, assuming 256x256')
+        image_height = 256
+        image_width = 256
+
+    ### load image
+    img = np.memmap(filename, dtype='uint16', shape=(number_frames, image_height, image_width))
+    if bigendian:
+        img = img.byteswap()
+    img = np.array(img)
+
+    return img
+
 def imread(filename):
     """ read in image with tif or image file type supported by cv2 """
     # ensure that extension check is not case sensitive
@@ -100,6 +159,22 @@ def imread(filename):
                     img[i] = page.asarray()
                 img = img.reshape(full_shape)            
         return img
+    elif ext == '.dax':                
+        img = load_dax(filename)
+        return img
+    elif ext == '.nd2':
+        if not ND2:
+            io_logger.critical('ERROR: need to "pip install nd2" to load in .nd2 file')
+            return None
+    elif ext == '.nrrd':
+        if not NRRD:
+            io_logger.critical('ERROR: need to "pip install pynrrd" to load in .nrrd file')
+            return None
+        else:
+            img, metadata = nrrd.read(filename)
+            if img.ndim==3:
+                img = img.transpose(2,0,1)
+            return img
     elif ext != '.npy':
         try:
             img = cv2.imread(filename, -1)#cv2.LOAD_IMAGE_ANYDEPTH)
@@ -170,7 +245,7 @@ def get_image_files(folder, mask_filter, imf=None, look_one_level_down=False):
     if look_one_level_down:
         folders = natsorted(glob.glob(os.path.join(folder, "*/")))
     folders.append(folder)
-    exts = ['.png', '.jpg', '.jpeg', '.tif', '.tiff']
+    exts = ['.png', '.jpg', '.jpeg', '.tif', '.tiff', '.dax', '.nd2', '.nrrd']
     l0 = 0
     al = 0
     for folder in folders:
@@ -255,7 +330,7 @@ def get_label_files(image_names, mask_filter, imf=None):
     return label_names, flow_names
 
 
-def load_images_labels(tdir, mask_filter='_masks', image_filter=None, look_one_level_down=False, unet=False):
+def load_images_labels(tdir, mask_filter='_masks', image_filter=None, look_one_level_down=False):
     image_names = get_image_files(tdir, mask_filter, image_filter, look_one_level_down)
     nimg = len(image_names)
     
@@ -271,33 +346,32 @@ def load_images_labels(tdir, mask_filter='_masks', image_filter=None, look_one_l
             image = imread(image_names[n])
             if label_names is not None:
                 label = imread(label_names[n])
-            if not unet:
-                if flow_names is not None and not unet:
-                    print(flow_names[n])
-                    flow = imread(flow_names[n])
-                    if flow.shape[0]<4:
-                        label = np.concatenate((label[np.newaxis,:,:], flow), axis=0) 
-                    else:
-                        label = flow
+            if flow_names is not None:
+                print(flow_names[n])
+                flow = imread(flow_names[n])
+                if flow.shape[0]<4:
+                    label = np.concatenate((label[np.newaxis,:,:], flow), axis=0) 
+                else:
+                    label = flow
             images.append(image)
             labels.append(label)
             k+=1
     io_logger.info(f'{k} / {nimg} images in {tdir} folder have labels')
     return images, labels, image_names
 
-def load_train_test_data(train_dir, test_dir=None, image_filter=None, mask_filter='_masks', unet=False, look_one_level_down=False):
-    images, labels, image_names = load_images_labels(train_dir, mask_filter, image_filter, look_one_level_down, unet)
+def load_train_test_data(train_dir, test_dir=None, image_filter=None, mask_filter='_masks', look_one_level_down=False):
+    images, labels, image_names = load_images_labels(train_dir, mask_filter, image_filter, look_one_level_down)
                     
     # testing data
     test_images, test_labels, test_image_names = None, None, None
     if test_dir is not None:
-        test_images, test_labels, test_image_names = load_images_labels(test_dir, mask_filter, image_filter, look_one_level_down, unet)
+        test_images, test_labels, test_image_names = load_images_labels(test_dir, mask_filter, image_filter, look_one_level_down)
 
     return images, labels, image_names, test_images, test_labels, test_image_names
 
 
 
-def masks_flows_to_seg(images, masks, flows, diams, file_names, channels=None):
+def masks_flows_to_seg(images, masks, flows, file_names, diams=30., channels=None):
     """ save output of model eval to be loaded in GUI 
 
     can be list output (run on multiple images) or single output (run on single image)
@@ -337,7 +411,7 @@ def masks_flows_to_seg(images, masks, flows, diams, file_names, channels=None):
             channels_img = channels
             if channels_img is not None and len(channels) > 2:
                 channels_img = channels[k]
-            masks_flows_to_seg(image, mask, flow, diam, file_name, channels_img)
+            masks_flows_to_seg(image, mask, flow, file_name, diams=diam, channels=channels_img)
         return
 
     if len(channels)==1:

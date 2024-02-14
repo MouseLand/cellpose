@@ -1,18 +1,16 @@
 """
-Copright © 2023 Howard Hughes Medical Institute, Authored by Carsen Stringer and Marius Pachitariu.
+Copyright © 2023 Howard Hughes Medical Institute, Authored by Carsen Stringer and Marius Pachitariu.
 """
 import logging
-import os, warnings, time, tempfile, datetime, pathlib, shutil, subprocess
+import os, tempfile, shutil, io
 from tqdm import tqdm, trange
 from urllib.request import urlopen
-from urllib.parse import urlparse
 import cv2
 from scipy.ndimage import find_objects, gaussian_filter, generate_binary_structure, label, maximum_filter1d, binary_fill_holes
 from scipy.spatial import ConvexHull
-from scipy.stats import gmean
 import numpy as np
 import colorsys
-import io
+import fastremap
 from multiprocessing import Pool, cpu_count
 
 from . import metrics
@@ -262,6 +260,23 @@ def outlines_list_single(masks):
                 outpix.append(np.zeros((0,2)))
     return outpix
 
+def dilate_masks(masks, n_iter=5):
+    """ dilate masks by n_iter pixels """
+    dilated_masks = masks.copy()
+    for n in range(n_iter):
+        # define the structuring element to use for dilation
+        kernel = np.ones((3,3), "uint8") 
+        # find the distance to each mask (distances are zero within masks)
+        dist_transform = cv2.distanceTransform((dilated_masks==0).astype("uint8"), cv2.DIST_L2, 5)
+        # dilate each mask and assign to it the pixels along the border of the mask
+        # (does not allow dilation into other masks since dist_transform is zero there)
+        for i in range(1, np.max(masks)+1):
+            mask = (dilated_masks==i).astype("uint8")
+            dilated_mask = cv2.dilate(mask, kernel, iterations=1)
+            dilated_mask = np.logical_and(dist_transform<2, dilated_mask)
+            dilated_masks[dilated_mask > 0] = i
+    return dilated_masks
+
 def outlines_list_multi(masks, num_processes=None):
     """ get outlines of masks as a list to loop over for plotting """
     if num_processes is None:
@@ -428,7 +443,8 @@ def stitch3D(masks, stitch_threshold=0.25):
     return masks
 
 def diameters(masks):
-    _, counts = np.unique(np.int32(masks), return_counts=True)
+    #_, counts = np.unique(np.int32(masks), return_counts=True)
+    uniq, counts = fastremap.unique(masks.astype("int32"), return_counts=True)
     counts = counts[1:]
     md = np.median(counts**0.5)
     if np.isnan(md):

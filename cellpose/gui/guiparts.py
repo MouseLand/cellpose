@@ -1,5 +1,5 @@
 """
-Copright © 2023 Howard Hughes Medical Institute, Authored by Carsen Stringer and Marius Pachitariu.
+Copyright © 2023 Howard Hughes Medical Institute, Authored by Carsen Stringer and Marius Pachitariu.
 """
 
 from qtpy import QtGui, QtCore, QtWidgets
@@ -10,6 +10,103 @@ from pyqtgraph import functions as fn
 from pyqtgraph import Point
 import numpy as np
 import pathlib, os
+
+def stylesheet():
+    return """
+        QToolTip { 
+                            background-color: black; 
+                            color: white; 
+                            border: black solid 1px
+                            }
+        QComboBox {color: white;
+                    background-color: rgb(40,40,40);}
+                    QComboBox::item:enabled { color: white;
+                    background-color: rgb(40,40,40);
+                    selection-color: white;
+                    selection-background-color: rgb(50,100,50);}
+                    QComboBox::item:!enabled {
+                            background-color: rgb(40,40,40);
+                            color: rgb(100,100,100);
+                        }
+        QScrollArea > QWidget > QWidget
+                {
+                    background: transparent;
+                    border: none;
+                    margin: 0px 0px 0px 0px;
+                } 
+                           
+        QGroupBox 
+            { border: 1px solid white; color: rgb(255,255,255);
+                           border-radius: 6px;
+                            margin-top: 8px;
+                            padding: 0px 0px;}            
+                           
+        QPushButton:pressed {Text-align: center; 
+                             background-color: rgb(150,50,150); 
+                             border-color: white;
+                             color:white;}
+                            QToolTip { 
+                           background-color: black; 
+                           color: white; 
+                           border: black solid 1px
+                           }
+        QPushButton:!pressed {Text-align: center; 
+                               background-color: rgb(50,50,50);
+                                border-color: white;
+                               color:white;}
+                                QToolTip { 
+                           background-color: black; 
+                           color: white; 
+                           border: black solid 1px
+                           }
+        QPushButton:disabled {Text-align: center; 
+                             background-color: rgb(30,30,30);
+                             border-color: white;
+                              color:rgb(80,80,80);}
+                               QToolTip { 
+                           background-color: black; 
+                           color: white; 
+                           border: black solid 1px
+                           }
+                        
+        """
+
+class DarkPalette(QtGui.QPalette):
+    """Class that inherits from pyqtgraph.QtGui.QPalette and renders dark colours for the application.
+    (from pykilosort/kilosort4)
+    """
+
+    def __init__(self):
+        QtGui.QPalette.__init__(self)
+        self.setup()
+
+    def setup(self):
+        self.setColor(QtGui.QPalette.Window, QtGui.QColor(40, 40, 40))
+        self.setColor(QtGui.QPalette.WindowText, QtGui.QColor(255, 255, 255))
+        self.setColor(QtGui.QPalette.Base, QtGui.QColor(34, 27, 24))
+        self.setColor(QtGui.QPalette.AlternateBase, QtGui.QColor(53, 50, 47))
+        self.setColor(QtGui.QPalette.ToolTipBase, QtGui.QColor(255, 255, 255))
+        self.setColor(QtGui.QPalette.ToolTipText, QtGui.QColor(255, 255, 255))
+        self.setColor(QtGui.QPalette.Text, QtGui.QColor(255, 255, 255))
+        self.setColor(QtGui.QPalette.Button, QtGui.QColor(53, 50, 47))
+        self.setColor(QtGui.QPalette.ButtonText, QtGui.QColor(255, 255, 255))
+        self.setColor(QtGui.QPalette.BrightText, QtGui.QColor(255, 0, 0))
+        self.setColor(QtGui.QPalette.Link, QtGui.QColor(42, 130, 218))
+        self.setColor(QtGui.QPalette.Highlight, QtGui.QColor(42, 130, 218))
+        self.setColor(QtGui.QPalette.HighlightedText, QtGui.QColor(0, 0, 0))
+        self.setColor(
+            QtGui.QPalette.Disabled, QtGui.QPalette.Text, QtGui.QColor(128, 128, 128)
+        )
+        self.setColor(
+            QtGui.QPalette.Disabled,
+            QtGui.QPalette.ButtonText,
+            QtGui.QColor(128, 128, 128),
+        )
+        self.setColor(
+            QtGui.QPalette.Disabled,
+            QtGui.QPalette.WindowText,
+            QtGui.QColor(128, 128, 128),
+        )
 
 def create_channel_choose():
     # choose channel
@@ -37,18 +134,40 @@ class ModelButton(QPushButton):
     def __init__(self, parent, model_name, text):
         super().__init__()
         self.setEnabled(False)
-        self.setStyleSheet(parent.styleInactive)
         self.setText(text)
-        self.setFont(parent.smallfont)
+        self.setFont(parent.boldfont)
         self.clicked.connect(lambda: self.press(parent))
-        self.model_name = model_name
+        self.model_name = model_name if "cyto3" not in model_name else "cyto3"
         
     def press(self, parent):
-        for i in range(len(parent.StyleButtons)):
-            parent.StyleButtons[i].setStyleSheet(parent.styleUnpressed)
-        self.setStyleSheet(parent.stylePressed)
-        parent.compute_model(self.model_name)
+        parent.compute_segmentation(model_name=self.model_name)
 
+class DenoiseButton(QPushButton):
+    def __init__(self, parent, text):
+        super().__init__()
+        self.setEnabled(False)
+        self.model_type = text
+        self.setText(text)
+        self.setFont(parent.medfont)
+        self.clicked.connect(lambda: self.press(parent))
+        
+    def press(self, parent):
+        if self.model_type=="filter":
+            parent.restore = "filter"
+            normalize_params = parent.get_normalize_params()
+            if (normalize_params["sharpen_radius"]==0 and normalize_params["smooth_radius"]==0 and 
+                normalize_params["tile_norm_blocksize"]==0):
+                print("GUI_ERROR: no filtering settings on (use custom filter settings)")
+                parent.restore = None
+                return
+            parent.restore = self.model_type
+            parent.compute_saturation()
+        elif self.model_type!="none":
+            parent.compute_denoise_model(model_type=self.model_type)
+        else:
+            parent.clear_restore()
+        parent.set_restore_button()
+        
 class TrainWindow(QDialog):
     def __init__(self, parent, model_strings):
         super().__init__(parent)
@@ -102,11 +221,16 @@ class TrainWindow(QDialog):
         yoff+=len(labels)
 
         yoff+=1
+        self.use_norm = QCheckBox(f"use restored/filtered image")
+        self.use_norm.setChecked(True)
+        #self.l0.addWidget(self.use_norm, yoff, 0, 2, 4)
+
+        yoff+=2
         qlabel = QLabel('(to remove files, click cancel then remove \nfrom folder and reopen train window)')
         self.l0.addWidget(qlabel, yoff,0,2,4)
 
         # click button
-        yoff+=2
+        yoff+=3
         QBtn = QDialogButtonBox.Ok | QDialogButtonBox.Cancel
         self.buttonBox = QDialogButtonBox(QBtn)
         self.buttonBox.accepted.connect(lambda: self.accept(parent))
@@ -146,109 +270,11 @@ class TrainWindow(QDialog):
                                  'learning_rate': float(self.edits[0].text()), 
                                  'weight_decay': float(self.edits[1].text()), 
                                  'n_epochs':  int(self.edits[2].text()),
-                                 'model_name': self.edits[3].text()
+                                 'model_name': self.edits[3].text(),
+                                 #'use_norm': True if self.use_norm.isChecked() else False,
                                  }
         self.done(1)
-        
-def make_quadrants(parent, yp):
-    """ make quadrant buttons """
-    parent.quadbtns = QButtonGroup(parent)
-    for b in range(9):
-        btn = QuadButton(b, ' '+str(b+1), parent)
-        parent.quadbtns.addButton(btn, b)
-        parent.l0.addWidget(btn, yp + parent.quadbtns.button(b).ypos, 5+parent.quadbtns.button(b).xpos, 1, 1)
-        btn.setEnabled(True)
-        b += 1
-    parent.quadbtns.setExclusive(True)
-
-class QuadButton(QPushButton):
-    """ custom QPushButton class for quadrant plotting
-        requires buttons to put into a QButtonGroup (parent.quadbtns)
-         allows only 1 button to pressed at a time
-    """
-    def __init__(self, bid, Text, parent=None):
-        super(QuadButton,self).__init__(parent)
-        self.setText(Text)
-        self.setCheckable(True)
-        self.setStyleSheet(parent.styleUnpressed)
-        self.setFont(QtGui.QFont("Arial", 8, QtGui.QFont.Bold))
-        self.resize(self.minimumSizeHint())
-        self.setMaximumWidth(22)
-        self.xpos = bid%3
-        self.ypos = int(np.floor(bid/3))
-        self.clicked.connect(lambda: self.press(parent, bid))
-        self.show()
-
-    def press(self, parent, bid):
-        for b in range(9):
-            if parent.quadbtns.button(b).isEnabled():
-                parent.quadbtns.button(b).setStyleSheet(parent.styleUnpressed)
-        self.setStyleSheet(parent.stylePressed)
-        self.xrange = np.array([self.xpos-.2, self.xpos+1.2]) * parent.Lx/3
-        self.yrange = np.array([self.ypos-.2, self.ypos+1.2]) * parent.Ly/3
-        # change the zoom
-        parent.p0.setXRange(self.xrange[0], self.xrange[1])
-        parent.p0.setYRange(self.yrange[0], self.yrange[1])
-        parent.show()
-
-def horizontal_slider_style():
-    return """QSlider::groove:horizontal {
-            border: 1px solid #bbb;
-            background: black;
-            height: 10px;
-            border-radius: 4px;
-            }
-
-            QSlider::sub-page:horizontal {
-            background: qlineargradient(x1: 0, y1: 0,    x2: 0, y2: 1,
-                stop: 0 black, stop: 1 rgb(150,255,150));
-            background: qlineargradient(x1: 0, y1: 0.2, x2: 1, y2: 1,
-                stop: 0 black, stop: 1 rgb(150,255,150));
-            border: 1px solid #777;
-            height: 10px;
-            border-radius: 4px;
-            }
-
-            QSlider::add-page:horizontal {
-            background: black;
-            border: 1px solid #777;
-            height: 10px;
-            border-radius: 4px;
-            }
-
-            QSlider::handle:horizontal {
-            background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
-                stop:0 #eee, stop:1 #ccc);
-            border: 1px solid #777;
-            width: 13px;
-            margin-top: -2px;
-            margin-bottom: -2px;
-            border-radius: 4px;
-            }
-
-            QSlider::handle:horizontal:hover {
-            background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
-                stop:0 #fff, stop:1 #ddd);
-            border: 1px solid #444;
-            border-radius: 4px;
-            }
-
-            QSlider::sub-page:horizontal:disabled {
-            background: #bbb;
-            border-color: #999;
-            }
-
-            QSlider::add-page:horizontal:disabled {
-            background: #eee;
-            border-color: #999;
-            }
-
-            QSlider::handle:horizontal:disabled {
-            background: #eee;
-            border: 1px solid #aaa;
-            border-radius: 4px;
-            }"""
-
+   
 class ExampleGUI(QDialog):
     def __init__(self, parent=None):
         super(ExampleGUI, self).__init__(parent)
@@ -303,56 +329,6 @@ class TrainHelpWindow(QDialog):
         label.setWordWrap(True)
         layout.addWidget(label, 0, 0, 1, 1)
         self.show()
-
-
-class TypeRadioButtons(QButtonGroup):
-    def __init__(self, parent=None, row=0, col=0):
-        super(TypeRadioButtons, self).__init__()
-        parent.color = 0
-        self.parent = parent
-        self.bstr = self.parent.cell_types
-        for b in range(len(self.bstr)):
-            button = QRadioButton(self.bstr[b])
-            button.setStyleSheet('color: rgb(190,190,190);')
-            button.setFont(QtGui.QFont("Arial", 10))
-            if b==0:
-                button.setChecked(True)
-            self.addButton(button, b)
-            button.toggled.connect(lambda: self.btnpress(parent))
-            self.parent.l0.addWidget(button, row+b,col,1,2)
-        self.setExclusive(True)
-        #self.buttons.
-
-    def btnpress(self, parent):
-       b = self.checkedId()
-       self.parent.cell_type = b
-
-class RGBRadioButtons(QButtonGroup):
-    def __init__(self, parent=None, row=0, col=0):
-        super(RGBRadioButtons, self).__init__()
-        parent.color = 0
-        self.parent = parent
-        self.bstr = ["image", "gradXY", "cellprob", "gradZ"]
-        #self.buttons = QButtonGroup()
-        self.dropdown = []
-        for b in range(len(self.bstr)):
-            button = QRadioButton(self.bstr[b])
-            button.setStyleSheet('color: white;')
-            button.setFont(QtGui.QFont("Arial", 10))
-            if b==0:
-                button.setChecked(True)
-            self.addButton(button, b)
-            button.toggled.connect(lambda: self.btnpress(parent))
-            self.parent.l0.addWidget(button, row,col+2*b,1,2)
-        self.setExclusive(True)
-        #self.buttons.
-
-    def btnpress(self, parent):
-       b = self.checkedId()
-       self.parent.view = b
-       if self.parent.loaded:
-           self.parent.update_plot()
-
 
 class ViewBoxNoRightDrag(pg.ViewBox):
     def __init__(self, parent=None, border=None, lockAspect=False, enableMouse=True, invertY=False, enableMenu=True, name=None, invertX=False):
@@ -462,6 +438,7 @@ class ImageDraw(pg.ImageItem):
                 # continue stroke if not at start
                 self.drawAt(ev.pos())
                 if self.is_at_start(ev.pos()):
+                    #self.parent.in_stroke = False
                     self.end_stroke()
         else:
             ev.acceptClicks(QtCore.Qt.RightButton)
@@ -507,7 +484,7 @@ class ImageDraw(pg.ImageItem):
         if len(self.parent.current_point_set) and len(self.parent.current_point_set[0]) > 0 and self.parent.autosave:
             self.parent.add_set()
         self.parent.in_stroke = False
-
+        
     def tabletEvent(self, ev):
         pass
         #print(ev.device())

@@ -1,5 +1,5 @@
 """
-Copright © 2023 Howard Hughes Medical Institute, Authored by Carsen Stringer and Marius Pachitariu.
+Copyright © 2023 Howard Hughes Medical Institute, Authored by Carsen Stringer and Marius Pachitariu.
 """
 import numpy as np
 from . import utils, dynamics
@@ -248,7 +248,7 @@ def _true_positive(iou, th):
     tp = match_ok.sum()
     return tp
 
-def flow_error(maski, dP_net, use_gpu=False, device=None):
+def flow_error(maski, dP_net, device=None):
     """ error in flows from predicted masks vs flows predicted by network run on image
 
     This function serves to benchmark the quality of masks, it works as follows
@@ -282,7 +282,7 @@ def flow_error(maski, dP_net, use_gpu=False, device=None):
         return
 
     # flows predicted from estimated masks
-    dP_masks = dynamics.masks_to_flows(maski, use_gpu=use_gpu, device=device)
+    dP_masks = dynamics.masks_to_flows(maski, device=device)
     # difference between predicted flows vs mask flows
     flow_errors=np.zeros(maski.max())
     for i in range(dP_masks.shape[0]):

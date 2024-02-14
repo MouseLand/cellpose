@@ -1,5 +1,5 @@
 """
-Copright © 2023 Howard Hughes Medical Institute, Authored by Carsen Stringer and Marius Pachitariu and Michael Rariden.
+Copyright © 2023 Howard Hughes Medical Institute, Authored by Carsen Stringer and Marius Pachitariu and Michael Rariden.
 """
 
 import argparse
@@ -19,6 +19,8 @@ def get_arg_parser():
     parser.add_argument('--version', action='store_true', help='show cellpose version info')
     parser.add_argument('--verbose', action='store_true',
                         help='show information about running and settings and save to log')
+    parser.add_argument('--Zstack', action='store_true',
+                            help='run GUI in 3D mode')
 
     # settings for CPU vs GPU
     hardware_args = parser.add_argument_group("Hardware Arguments")
@@ -58,16 +60,11 @@ def get_arg_parser():
                             help='model to use for running or starting training')
     model_args.add_argument('--add_model', required=False, default=None, type=str,
                             help='model path to copy model to hidden .cellpose folder for using in GUI/CLI')
-    model_args.add_argument('--unet', action='store_true', help='run standard unet instead of cellpose flow output')
-    model_args.add_argument('--nclasses', default=3, type=int,
-                            help='if running unet, choose 2 or 3; cellpose always uses 3')
-
+    
     # algorithm settings
     algorithm_args = parser.add_argument_group("Algorithm Arguments")
     algorithm_args.add_argument('--no_resample', action='store_true',
                                 help="disable dynamics on full image (makes algorithm faster for images with large diameters)")
-    algorithm_args.add_argument('--net_avg', action='store_true',
-                                help='run 4 networks instead of 1 and average results')
     algorithm_args.add_argument('--no_interp', action='store_true',
                                 help='do not interpolate when running dynamics (was default)')
     algorithm_args.add_argument('--no_norm', action='store_true', help='do not normalize images (normalize=False)')
@@ -79,9 +76,7 @@ def get_arg_parser():
                                 help='compute masks in 2D then stitch together masks with IoU>0.9 across planes')
     algorithm_args.add_argument('--min_size', required=False, default=15, type=int,
                                 help='minimum number of pixels per mask, can turn off with -1')
-    algorithm_args.add_argument('--fast_mode', action='store_true',
-                                help='now equivalent to --no_resample; make code run faster by turning off resampling')
-
+    
     algorithm_args.add_argument('--flow_threshold', default=0.4, type=float,
                                 help='flow error threshold, 0 turns off this optional QC step. Default: %(default)s')
     algorithm_args.add_argument('--cellprob_threshold', default=0, type=float,
@@ -145,18 +140,11 @@ def get_arg_parser():
     training_args.add_argument('--min_train_masks',
                                default=5, type=int,
                                help='minimum number of masks a training image must have to be used. Default: %(default)s')
-    training_args.add_argument('--residual_on',
-                               default=1, type=int, help='use residual connections')
-    training_args.add_argument('--style_on',
-                               default=1, type=int, help='use style vector')
-    training_args.add_argument('--concatenation',
-                               default=0, type=int,
-                               help='concatenate downsampled layers with upsampled layers (off by default which means they are added)')
+    training_args.add_argument('--SGD',
+                               default=1, type=int, help='use SGD')
     training_args.add_argument('--save_every',
                                default=100, type=int,
                                help='number of epochs to skip between saves. Default: %(default)s')
-    training_args.add_argument('--save_each', action='store_true',
-                               help='save the model under a different filename per --save_every epoch for later comparsion')
     training_args.add_argument('--model_name_out', default=None, type=str,
                                help='Name of model to save as, defaults to name describing model architecture. '
                                     'Model is saved in the folder specified by --dir in models subfolder.')

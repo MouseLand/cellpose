@@ -1,16 +1,16 @@
 """
-Copright © 2023 Howard Hughes Medical Institute, Authored by Carsen Stringer and Marius Pachitariu.
+Copyright © 2023 Howard Hughes Medical Institute, Authored by Carsen Stringer and Marius Pachitariu.
 """
 
 import sys, os, glob, pathlib, time
 import numpy as np
 from natsort import natsorted
 from tqdm import tqdm
-from cellpose import utils, models, io, core, version_str
+from cellpose import utils, models, io, version_str, train
 from cellpose.cli import get_arg_parser
 
 try:
-    from cellpose.gui import gui 
+    from cellpose.gui import gui3d, gui
     GUI_ENABLED = True 
 except ImportError as err:
     GUI_ERROR = err
@@ -50,14 +50,17 @@ def main():
                     print('GUI FAILED: GUI dependencies may not be installed, to install, run')
                     print('     pip install "cellpose[gui]"')
             else:
-                gui.run()
+                if args.Zstack:
+                    gui3d.run()
+                else:
+                    gui.run()
 
     else:
         if args.verbose:
             from .io import logger_setup
             logger, log_file = logger_setup()
         else:
-            print('>>>> !NEW LOGGING SETUP! To see cellpose progress, set --verbose')
+            print('>>>> !LOGGING OFF BY DEFAULT! To see cellpose progress, set --verbose')
             print('No --verbose => no progress or info printed')
             logger = logging.getLogger(__name__)
 
@@ -69,7 +72,6 @@ def main():
             imf = args.img_filter
         else:
             imf = None
-
 
         # Check with user if they REALLY mean to run without saving anything 
         if not (args.train or args.train_size):
@@ -91,12 +93,11 @@ def main():
             if ~np.any([model_type == s for s in all_models]):
                 model_type = 'cyto'
                 logger.warning('pretrained model has incorrect path')
-
             if model_type=='nuclei':
                 szmean = 17. 
             else:
                 szmean = 30.
-        builtin_size = model_type == 'cyto' or model_type == 'cyto2' or model_type == 'nuclei'
+        builtin_size = model_type == 'cyto' or model_type == 'cyto2' or model_type == 'nuclei' or model_type=="cyto3"
         
         if len(args.image_path) > 0 and (args.train or args.train_size):
             raise ValueError('ERROR: cannot train model with single image input')
@@ -122,17 +123,14 @@ def main():
              
             # handle built-in model exceptions; bacterial ones get no size model 
             if builtin_size:
-                model = models.Cellpose(gpu=gpu, device=device, model_type=model_type, 
-                                                net_avg=(not args.fast_mode or args.net_avg))
-                
+                model = models.Cellpose(gpu=gpu, device=device, model_type=model_type)                
             else:
                 if args.all_channels:
                     channels = None  
                 pretrained_model = None if model_type is not None else pretrained_model
                 model = models.CellposeModel(gpu=gpu, device=device, 
                                              pretrained_model=pretrained_model,
-                                             model_type=model_type,
-                                             net_avg=False)
+                                             model_type=model_type)
             
             # handle diameters
             if args.diameter==0:
@@ -154,9 +152,8 @@ def main():
                 image = io.imread(image_name)
                 out = model.eval(image, channels=channels, diameter=diameter,
                                 do_3D=args.do_3D,
-                                net_avg=(not args.fast_mode or args.net_avg),
                                 augment=args.augment,
-                                resample=(not args.no_resample and not args.fast_mode),
+                                resample=(not args.no_resample),
                                 flow_threshold=args.flow_threshold,
                                 cellprob_threshold=args.cellprob_threshold,
                                 stitch_threshold=args.stitch_threshold,
@@ -167,8 +164,7 @@ def main():
                                 normalize=(not args.no_norm),
                                 channel_axis=args.channel_axis,
                                 z_axis=args.z_axis,
-                                anisotropy=args.anisotropy,
-                                model_loaded=True)
+                                anisotropy=args.anisotropy)
                 masks, flows = out[:2]
                 if len(out) > 3:
                     diams = out[-1]
@@ -177,7 +173,7 @@ def main():
                 if args.exclude_on_edges:
                     masks = utils.remove_edge_masks(masks)
                 if not args.no_npy:
-                    io.masks_flows_to_seg(image, masks, flows, diams, image_name, channels)
+                    io.masks_flows_to_seg(image, masks, flows, image_name, channels=channels, diams=diams)
                 if saving_something:
                     io.save_masks(image, masks, flows, image_name, png=args.save_png, tif=args.save_tif,
                                   save_flows=args.save_flows,save_outlines=args.save_outlines,
@@ -189,7 +185,7 @@ def main():
         else:
             
             test_dir = None if len(args.test_dir)==0 else args.test_dir
-            output = io.load_train_test_data(args.dir, test_dir, imf, args.mask_filter, args.unet, args.look_one_level_down)
+            output = io.load_train_test_data(args.dir, test_dir, imf, args.mask_filter, args.look_one_level_down)
             images, labels, image_names, test_images, test_labels, image_names_test = output
 
             # training with all channels
@@ -202,7 +198,6 @@ def main():
                 channels = None 
             else:
                 nchan = 2 
-
             
             # model path
             szmean = args.diam_mean
@@ -213,39 +208,26 @@ def main():
                     raise ValueError(error_message)
                 pretrained_model = False
                 logger.info('>>>> training from scratch')
-            
             if args.train:
                 logger.info('>>>> during training rescaling images to fixed diameter of %0.1f pixels'%args.diam_mean)
                 
             # initialize model
-            if args.unet:
-                model = core.UnetModel(device=device,
-                                        pretrained_model=pretrained_model, 
-                                        diam_mean=szmean,
-                                        residual_on=args.residual_on,
-                                        style_on=args.style_on,
-                                        concatenation=args.concatenation,
-                                        nclasses=args.nclasses,
-                                        nchan=nchan)
-            else:
-                model = models.CellposeModel(device=device,
-                                            pretrained_model=pretrained_model if model_type is None else None,
-                                            model_type=model_type, 
-                                            diam_mean=szmean,
-                                            residual_on=args.residual_on,
-                                            style_on=args.style_on,
-                                            concatenation=args.concatenation,
-                                            nchan=nchan)
+            model = models.CellposeModel(device=device,
+                                         pretrained_model=pretrained_model if model_type is None else None,
+                                         model_type=model_type, 
+                                         diam_mean=szmean,
+                                         nchan=nchan)
             
             # train segmentation model
             if args.train:
-                cpmodel_path = model.train(images, labels, train_files=image_names,
+                cpmodel_path = train.train_seg(model.net, images, labels, train_files=image_names,
                                            test_data=test_images, test_labels=test_labels, test_files=image_names_test,
                                            learning_rate=args.learning_rate, 
                                            weight_decay=args.weight_decay,
                                            channels=channels,
-                                           save_path=os.path.realpath(args.dir), save_every=args.save_every,
-                                           save_each=args.save_each,
+                                           save_path=os.path.realpath(args.dir), 
+                                           save_every=args.save_every,
+                                           SGD=args.SGD,
                                            n_epochs=args.n_epochs,
                                            batch_size=args.batch_size, 
                                            min_train_masks=args.min_train_masks,
@@ -259,13 +241,12 @@ def main():
                 masks = [lbl[0] for lbl in labels]
                 test_masks = [lbl[0] for lbl in test_labels] if test_labels is not None else test_labels
                 # data has already been normalized and reshaped
-                sz_model.train(images, masks, test_images, test_masks, 
-                                channels=None, normalize=False,
+                sz_model.params = train.train_size(model.net, model.pretrained_model, images, masks, test_images, test_masks, 
+                                channels=channels, 
                                     batch_size=args.batch_size)
                 if test_images is not None:
                     predicted_diams, diams_style = sz_model.eval(test_images, 
-                                                                    channels=None,
-                                                                    normalize=False)
+                                                                    channels=channels)
                     ccs = np.corrcoef(diams_style, np.array([utils.diameters(lbl)[0] for lbl in test_masks]))[0,1]
                     cc = np.corrcoef(predicted_diams, np.array([utils.diameters(lbl)[0] for lbl in test_masks]))[0,1]
                     logger.info('style test correlation: %0.4f; final test correlation: %0.4f'%(ccs,cc))

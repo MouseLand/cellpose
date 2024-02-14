@@ -2,8 +2,7 @@ def test_cellpose_imports_without_error():
     import cellpose
     from cellpose import models, core
     model = models.CellposeModel()
-    model = core.UnetModel()
-
+    
 def test_model_zoo_imports_without_error():
     from cellpose import models 
     for model_name in models.MODEL_NAMES:
@@ -25,6 +24,6 @@ def test_model_dir():
     os.environ["CELLPOSE_LOCAL_MODELS_PATH"] = os.fspath(pathlib.Path.home().joinpath('.cellpose'))
 
     from cellpose import models
-    model = models.CellposeModel(net_avg=False, pretrained_model='cyto')
+    model = models.CellposeModel(pretrained_model='cyto3')
     masks = model.eval(np.random.randn(224,224))[0]
     assert masks.shape==(224,224)
