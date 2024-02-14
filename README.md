@@ -16,12 +16,19 @@
 [![GitHub stars](https://img.shields.io/github/stars/MouseLand/cellpose?style=social)](https://github.com/MouseLand/cellpose/)
 [![GitHub forks](https://img.shields.io/github/forks/MouseLand/cellpose?style=social)](https://github.com/MouseLand/cellpose/)
 
-A generalist algorithm for cell and nucleus segmentation (v1.0) that can be optimized for your own data (v2.0). 
+A generalist algorithm for cell and nucleus segmentation (v1.0) that can be optimized for your own data (v2.0) and (**NEW**) perform image restoration (v3.0).
 
-Cellpose was written by Carsen Stringer and Marius Pachitariu. To learn about Cellpose 2.0 (human-in-the-loop), read the [paper](https://www.nature.com/articles/s41592-022-01663-4) or watch the [talk](https://www.youtube.com/watch?v=3ydtAhfq6H0). To learn about Cellpose 1.0, read the [paper](https://t.co/kBMXmPp3Yn?amp=1) or watch the [talk](https://t.co/JChCsTD0SK?amp=1). For support, please open an [issue](https://github.com/MouseLand/cellpose/issues). 
-
+Cellpose was written by Carsen Stringer and Marius Pachitariu. To learn about Cellpose3 (image restoration), read the [paper](https://www.biorxiv.org/content/10.1101/2024.02.10.579780v1). To learn about Cellpose 2.0 (human-in-the-loop), read the [paper](https://www.nature.com/articles/s41592-022-01663-4) or watch the [talk](https://www.youtube.com/watch?v=3ydtAhfq6H0). To learn about Cellpose 1.0, read the [paper](https://t.co/kBMXmPp3Yn?amp=1) or watch the [talk](https://t.co/JChCsTD0SK?amp=1). For support, please open an [issue](https://github.com/MouseLand/cellpose/issues). 
 
 Please see install instructions [below](README.md/#Installation), and also check out the detailed documentation at [**cellpose.readthedocs.io**](https://cellpose.readthedocs.io/en/latest/) for more information.
+
+### :star2: v3 (Feb 2024) :star2:
+
+Cellpose3 enables image restoration in the GUI and the API (CLI support and example notebooks coming soon!) To learn more...
+* Check out the paper [thread](https://neuromatch.social/@computingnature/111932247922392030).
+* Check out the [paper](https://www.biorxiv.org/content/10.1101/2024.02.10.579780v1).
+
+Try out the new `cyto3` super-generalist Cellpose model with `model_type="cyto3"`. There are some Cellpose API changes from v2.0 which will be documented soon.
 
 ### CITATION
 
@@ -35,14 +42,6 @@ Pachitariu, M. & Stringer, C. (2022). Cellpose 2.0: how to train your own model.
 Stringer, C. & Pachitariu, M. (2024). Cellpose3: one-click image restoration for improved segmentation. <em>bioRxiv</em>.
 
 :triangular_flag_on_post: All models in Cellpose, except `yeast_BF_cp3`, `yeast_PhC_cp3`, and `deepbacs_cp3`, are trained on some amount of data that is **CC-BY-NC**. The Cellpose annotated dataset is also CC-BY-NC.
-
-### :star2: v3 (Feb 2024) :star2:
-
-Cellpose3 enables image restoration in the GUI and the API (CLI support and example notebooks coming soon!) To learn more...
-* Check out the paper [thread]().
-* Check out the [paper](https://www.biorxiv.org/content/10.1101/2024.02.10.579780v1).
-
-Try out the new `cyto3` super-generalist Cellpose model with `model_type="cyto3"`. There are some Cellpose API changes from v2.0 which will be documented soon.
 
 ### :star2: v2.0 (April 2022) :star2:
 
