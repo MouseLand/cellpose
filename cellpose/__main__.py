@@ -4,7 +4,7 @@ Copyright © 2023 Howard Hughes Medical Institute, Authored by Carsen Stringer a
 
 import sys, os, glob, pathlib, time
 import numpy as np
-from cellpose.gui import gui_old
+from cellpose.gui import gui
 from natsort import natsorted
 from tqdm import tqdm
 from cellpose import utils, models, io, version_str, train

@@ -489,6 +489,7 @@ class MainW(QMainWindow):
         b0+=1
         self.segaBox = QCollapsible("additional settings")
         self.segaBox.setFont(self.medfont)
+        self.segaBox._toggle_btn.setFont(self.medfont)
         self.segaBoxG = QGridLayout()
         _content = QWidget()
         _content.setLayout(self.segaBoxG)
@@ -675,7 +676,7 @@ class MainW(QMainWindow):
         b0+=1
         # FILTERING
         self.filtBox = QCollapsible("custom filter settings")
-        self.filtBox.setFont(self.medfont)
+        self.filtBox._toggle_btn.setFont(self.medfont)
         self.filtBoxG = QGridLayout()
         _content = QWidget()
         _content.setLayout(self.filtBoxG)

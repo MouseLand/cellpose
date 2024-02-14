@@ -31,7 +31,7 @@ Stringer, C., Wang, T., Michaelos, M., & Pachitariu, M. (2021). Cellpose: a gene
 **If you use the new human-in-the-loop training, please also cite the Cellpose 2.0 [paper](https://www.nature.com/articles/s41592-022-01663-4):**  
 Pachitariu, M. & Stringer, C. (2022). Cellpose 2.0: how to train your own model. <em>Nature methods</em>, 1-8.
 
-**If you use the restoration models, please also cite the Cellpose3 [paper]():**
+**If you use the restoration models, please also cite the Cellpose3 [paper](https://www.biorxiv.org/content/10.1101/2024.02.10.579780v1):**
 Stringer, C. & Pachitariu, M. (2024). Cellpose3: one-click image restoration for improved segmentation. <em>bioRxiv</em>.
 
 :triangular_flag_on_post: All models in Cellpose, except `yeast_BF_cp3`, `yeast_PhC_cp3`, and `deepbacs_cp3`, are trained on some amount of data that is **CC-BY-NC**. The Cellpose annotated dataset is also CC-BY-NC.
@@ -40,7 +40,7 @@ Stringer, C. & Pachitariu, M. (2024). Cellpose3: one-click image restoration for
 
 Cellpose3 enables image restoration in the GUI and the API (CLI support and example notebooks coming soon!) To learn more...
 * Check out the paper [thread]().
-* Check out the [paper]().
+* Check out the [paper](https://www.biorxiv.org/content/10.1101/2024.02.10.579780v1).
 
 Try out the new `cyto3` super-generalist Cellpose model with `model_type="cyto3"`. There are some Cellpose API changes from v2.0 which will be documented soon.
 
