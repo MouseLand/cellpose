@@ -371,7 +371,7 @@ def run_3D(net, imgs, rsz=1.0, anisotropy=None,
         xsl = transforms.resize_image(xsl, rsz=rescaling[p])  
         # per image
         core_logger.info('running %s: %d planes of size (%d, %d)'%(sstr[p], shape[0], shape[1], shape[2]))
-        y, style = run_net(xsl, augment=augment, tile=tile, 
+        y, style = run_net(net, xsl, augment=augment, tile=tile, 
                                     bsize=bsize, tile_overlap=tile_overlap)
         y = transforms.resize_image(y, shape[1], shape[2])    
         yf[p] = y.transpose(ipm[p])

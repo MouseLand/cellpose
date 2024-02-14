@@ -18,7 +18,7 @@ def mainmenu(parent):
     file_menu.addAction(loadImg)
 
     parent.autoloadMasks = QAction("Autoload masks from _masks.tif file", parent, checkable=True)
-    parent.autoloadMasks.setChecked(True)
+    parent.autoloadMasks.setChecked(False)
     file_menu.addAction(parent.autoloadMasks)
 
     parent.disableAutosave = QAction("Disable autosave _seg.npy file", parent, checkable=True)

@@ -330,7 +330,7 @@ def get_label_files(image_names, mask_filter, imf=None):
     return label_names, flow_names
 
 
-def load_images_labels(tdir, mask_filter='_masks', image_filter=None, look_one_level_down=False, unet=False):
+def load_images_labels(tdir, mask_filter='_masks', image_filter=None, look_one_level_down=False):
     image_names = get_image_files(tdir, mask_filter, image_filter, look_one_level_down)
     nimg = len(image_names)
     
@@ -346,27 +346,26 @@ def load_images_labels(tdir, mask_filter='_masks', image_filter=None, look_one_l
             image = imread(image_names[n])
             if label_names is not None:
                 label = imread(label_names[n])
-            if not unet:
-                if flow_names is not None and not unet:
-                    print(flow_names[n])
-                    flow = imread(flow_names[n])
-                    if flow.shape[0]<4:
-                        label = np.concatenate((label[np.newaxis,:,:], flow), axis=0) 
-                    else:
-                        label = flow
+            if flow_names is not None:
+                print(flow_names[n])
+                flow = imread(flow_names[n])
+                if flow.shape[0]<4:
+                    label = np.concatenate((label[np.newaxis,:,:], flow), axis=0) 
+                else:
+                    label = flow
             images.append(image)
             labels.append(label)
             k+=1
     io_logger.info(f'{k} / {nimg} images in {tdir} folder have labels')
     return images, labels, image_names
 
-def load_train_test_data(train_dir, test_dir=None, image_filter=None, mask_filter='_masks', unet=False, look_one_level_down=False):
-    images, labels, image_names = load_images_labels(train_dir, mask_filter, image_filter, look_one_level_down, unet)
+def load_train_test_data(train_dir, test_dir=None, image_filter=None, mask_filter='_masks', look_one_level_down=False):
+    images, labels, image_names = load_images_labels(train_dir, mask_filter, image_filter, look_one_level_down)
                     
     # testing data
     test_images, test_labels, test_image_names = None, None, None
     if test_dir is not None:
-        test_images, test_labels, test_image_names = load_images_labels(test_dir, mask_filter, image_filter, look_one_level_down, unet)
+        test_images, test_labels, test_image_names = load_images_labels(test_dir, mask_filter, image_filter, look_one_level_down)
 
     return images, labels, image_names, test_images, test_labels, test_image_names
 

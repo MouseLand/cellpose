@@ -324,7 +324,7 @@ def seg_eval_oneclick(folder):
             dat[f"test_{istr}"] = imgs2
             dat[f"masks_{istr}"] = masks2
             
-            #np.save(root / "noisy_test" / f"test_{noise_type}_generalist_cp3.npy", dat)
+            np.save(root / "noisy_test" / f"test_{noise_type}_generalist_cp3.npy", dat)
 
 def cyto3_comparisons(folder):
     """  diameters computed from generalist model cyto3
@@ -334,14 +334,14 @@ def cyto3_comparisons(folder):
     
     net_types = ["generalist", "specialist", 
                 "transformer"]
-    for net_type in net_types[:1]:
+    for net_type in net_types:
         if net_type=="generalist":
             seg_model = models.Cellpose(gpu=True, model_type="cyto3")
         elif net_type=="transformer":
             seg_model = models.CellposeModel(gpu=True, pretrained_model=None)
             pretrained_model = "/home/carsen/.cellpose/models/transformer_cp3"
             seg_model.net = Transformer(pretrained_model=pretrained_model, decoder="MAnet").to(device)
-        for f in folders[4:]:
+        for f in folders:
             if net_type=="specialist":
                 seg_model = models.CellposeModel(gpu=True, model_type=f"{f}_cp3")
 
@@ -359,7 +359,7 @@ def cyto3_comparisons(folder):
             imgs = [io.imread(tif) for tif in tifs]
             flows = [io.imread(str(tif)[:-4]+"_flows.tif") for tif in tifs]
             masks = [flow[0].astype("uint16") for flow in flows]
-            
+
             if f=="cyto2":
                 imgs = imgs[:68]
                 masks = masks[:68]
@@ -383,7 +383,7 @@ def cyto3_comparisons(folder):
             dat["performance"] = [ap, tp, fp, fn]
             dat["diams"] = diams
                     
-            #np.save(f"/media/carsen/ssd4/datasets_cellpose/{f}_{net_type}_masks.npy", dat)
+            #p.save(f"/media/carsen/ssd4/datasets_cellpose/{f}_{net_type}_masks.npy", dat)
 
 if __name__ == '__main__':
     # folder with folders images_cyto2 and images_nuclei for those datasets

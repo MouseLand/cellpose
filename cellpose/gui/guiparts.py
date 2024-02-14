@@ -41,7 +41,7 @@ def stylesheet():
                             margin-top: 8px;
                             padding: 0px 0px;}            
                            
-        QPushButton:pressed {Text-align: left; 
+        QPushButton:pressed {Text-align: center; 
                              background-color: rgb(150,50,150); 
                              border-color: white;
                              color:white;}
@@ -50,7 +50,7 @@ def stylesheet():
                            color: white; 
                            border: black solid 1px
                            }
-        QPushButton:!pressed {Text-align: left; 
+        QPushButton:!pressed {Text-align: center; 
                                background-color: rgb(50,50,50);
                                 border-color: white;
                                color:white;}
@@ -59,7 +59,7 @@ def stylesheet():
                            color: white; 
                            border: black solid 1px
                            }
-        QPushButton:disabled {Text-align: left; 
+        QPushButton:disabled {Text-align: center; 
                              background-color: rgb(30,30,30);
                              border-color: white;
                               color:rgb(80,80,80);}
@@ -135,7 +135,7 @@ class ModelButton(QPushButton):
         super().__init__()
         self.setEnabled(False)
         self.setText(text)
-        self.setFont(parent.medfont)
+        self.setFont(parent.boldfont)
         self.clicked.connect(lambda: self.press(parent))
         self.model_name = model_name if "cyto3" not in model_name else "cyto3"
         
@@ -147,13 +147,27 @@ class DenoiseButton(QPushButton):
         super().__init__()
         self.setEnabled(False)
         self.model_type = text
-        self.setText("  " + text)
+        self.setText(text)
         self.setFont(parent.medfont)
         self.clicked.connect(lambda: self.press(parent))
         
     def press(self, parent):
-        parent.compute_denoise_model(model_type=self.model_type)
-
+        if self.model_type=="filter":
+            parent.restore = "filter"
+            normalize_params = parent.get_normalize_params()
+            if (normalize_params["sharpen_radius"]==0 and normalize_params["smooth_radius"]==0 and 
+                normalize_params["tile_norm_blocksize"]==0):
+                print("GUI_ERROR: no filtering settings on (use custom filter settings)")
+                parent.restore = None
+                return
+            parent.restore = self.model_type
+            parent.compute_saturation()
+        elif self.model_type!="none":
+            parent.compute_denoise_model(model_type=self.model_type)
+        else:
+            parent.clear_restore()
+        parent.set_restore_button()
+        
 class TrainWindow(QDialog):
     def __init__(self, parent, model_strings):
         super().__init__(parent)
@@ -207,8 +221,9 @@ class TrainWindow(QDialog):
         yoff+=len(labels)
 
         yoff+=1
-        self.diam_checkbox = QCheckBox(f"fix diameter to {parent.diameter:.2f}")
-        self.l0.addWidget(self.diam_checkbox, yoff,0,2,4)
+        self.use_norm = QCheckBox(f"use restored/filtered image")
+        self.use_norm.setChecked(True)
+        #self.l0.addWidget(self.use_norm, yoff, 0, 2, 4)
 
         yoff+=2
         qlabel = QLabel('(to remove files, click cancel then remove \nfrom folder and reopen train window)')
@@ -256,7 +271,7 @@ class TrainWindow(QDialog):
                                  'weight_decay': float(self.edits[1].text()), 
                                  'n_epochs':  int(self.edits[2].text()),
                                  'model_name': self.edits[3].text(),
-                                 'diameter': parent.diameter if self.diam_checkbox.isChecked() else None,
+                                 #'use_norm': True if self.use_norm.isChecked() else False,
                                  }
         self.done(1)
    
@@ -423,6 +438,7 @@ class ImageDraw(pg.ImageItem):
                 # continue stroke if not at start
                 self.drawAt(ev.pos())
                 if self.is_at_start(ev.pos()):
+                    #self.parent.in_stroke = False
                     self.end_stroke()
         else:
             ev.acceptClicks(QtCore.Qt.RightButton)
@@ -468,7 +484,7 @@ class ImageDraw(pg.ImageItem):
         if len(self.parent.current_point_set) and len(self.parent.current_point_set[0]) > 0 and self.parent.autosave:
             self.parent.add_set()
         self.parent.in_stroke = False
-
+        
     def tabletEvent(self, ev):
         pass
         #print(ev.device())

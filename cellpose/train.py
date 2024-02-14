@@ -321,7 +321,7 @@ def train_seg(net, train_data=None, train_labels=None,
     
     # learning rate schedule
     LR = np.linspace(0, learning_rate, 10)
-    LR = np.append(LR, learning_rate*np.ones(n_epochs-10))
+    LR = np.append(LR, learning_rate*np.ones(max(0, n_epochs-10)))
     if n_epochs > 300:
         LR = LR[:-100]
         for i in range(10):
@@ -340,11 +340,11 @@ def train_seg(net, train_data=None, train_labels=None,
     else:
         train_logger.info(f">>> SGD, learning_rate={learning_rate:0.5f}, weight_decay={weight_decay:0.5f}, momentum={momentum:0.3f}")
         optimizer = torch.optim.SGD(net.parameters(), lr=learning_rate, 
-                                    weight_decay=weight_decay, momemntum=momentum)
+                                    weight_decay=weight_decay, momentum=momentum)
 
     t0 = time.time()     
     model_name = f"cellpose_{t0}" if model_name is None else model_name
-    save_path = Path.cwd() if save_path is None else save_path
+    save_path = Path.cwd() if save_path is None else Path(save_path)
     model_path =  save_path / "models" / model_name
     (save_path / "models").mkdir(exist_ok=True)
     
@@ -507,39 +507,40 @@ def train_size(net, pretrained_model, train_data=None, train_labels=None,
 
     train_logger.info('train correlation: %0.4f'%np.corrcoef(y, ypred)[0,1])
         
-    np.random.seed(0)
-    styles_test = np.zeros((nimg_test_per_epoch, 256), np.float32)
-    diams_test = np.zeros((nimg_test_per_epoch,), np.float32)
-    diam_test = np.zeros((nimg_test_per_epoch,), np.float32)
-    if nimg_test != nimg_test_per_epoch:
-        rperm = np.random.choice(np.arange(0, nimg_test), 
-                                size=(nimg_test_per_epoch,), p=test_probs)
-    else:
-        rperm = np.random.permutation(np.arange(0, nimg_test))
-    for ibatch in range(0,nimg_test_per_epoch,batch_size):
-        inds_batch = np.arange(ibatch, min(nimg_test_per_epoch, ibatch+batch_size))
-        inds = rperm[inds_batch]
-        imgs, lbls = _get_batch(inds, data=test_data, labels=test_labels, 
-                                   files=test_files, labels_files=test_labels_files, 
-                                   channels=channels, channel_axis=channel_axis,
-                                   normalize_params=normalize_params)
-        diami = diam_test[inds].copy()
-        imgi,lbl,scale = transforms.random_rotate_and_resize(imgs, Y=lbls, scale_range=1, 
-                                                                xy=(512,512)) 
-        imgi = torch.from_numpy(imgi).to(device)
-        diamt = np.array([utils.diameters(lbl0[0])[0] for lbl0 in lbl])
-        diamt = np.maximum(5., diamt)
-        with torch.no_grad():
-            feat = net(imgi)[1]
-        styles_test[inds_batch] = feat.cpu().numpy()
-        diams_test[inds_batch] = np.log(diami) - np.log(diam_mean) + np.log(scale)
-        diam_test[inds_batch] = diamt
+    if nimg_test:
+        np.random.seed(0)
+        styles_test = np.zeros((nimg_test_per_epoch, 256), np.float32)
+        diams_test = np.zeros((nimg_test_per_epoch,), np.float32)
+        diam_test = np.zeros((nimg_test_per_epoch,), np.float32)
+        if nimg_test != nimg_test_per_epoch:
+            rperm = np.random.choice(np.arange(0, nimg_test), 
+                                    size=(nimg_test_per_epoch,), p=test_probs)
+        else:
+            rperm = np.random.permutation(np.arange(0, nimg_test))
+        for ibatch in range(0,nimg_test_per_epoch,batch_size):
+            inds_batch = np.arange(ibatch, min(nimg_test_per_epoch, ibatch+batch_size))
+            inds = rperm[inds_batch]
+            imgs, lbls = _get_batch(inds, data=test_data, labels=test_labels, 
+                                    files=test_files, labels_files=test_labels_files, 
+                                    channels=channels, channel_axis=channel_axis,
+                                    normalize_params=normalize_params)
+            diami = diam_test[inds].copy()
+            imgi,lbl,scale = transforms.random_rotate_and_resize(imgs, Y=lbls, scale_range=1, 
+                                                                    xy=(512,512)) 
+            imgi = torch.from_numpy(imgi).to(device)
+            diamt = np.array([utils.diameters(lbl0[0])[0] for lbl0 in lbl])
+            diamt = np.maximum(5., diamt)
+            with torch.no_grad():
+                feat = net(imgi)[1]
+            styles_test[inds_batch] = feat.cpu().numpy()
+            diams_test[inds_batch] = np.log(diami) - np.log(diam_mean) + np.log(scale)
+            diam_test[inds_batch] = diamt
 
-    diam_test_pred = np.exp(A @ (styles_test - smean).T + np.log(diam_mean) + ymean)
-    diam_test_pred = np.maximum(5., diam_test_pred)
-    train_logger.info('test correlation: %0.4f'%np.corrcoef(diam_test, diam_test_pred)[0,1])
+        diam_test_pred = np.exp(A @ (styles_test - smean).T + np.log(diam_mean) + ymean)
+        diam_test_pred = np.maximum(5., diam_test_pred)
+        train_logger.info('test correlation: %0.4f'%np.corrcoef(diam_test, diam_test_pred)[0,1])
 
-    pretrained_size = pretrained_model+'_size.npy'
+    pretrained_size = str(pretrained_model) + '_size.npy'
     params = {'A': A, 'smean': smean, 'diam_mean': diam_mean, 'ymean': ymean}
     np.save(pretrained_size, params)
     train_logger.info('model saved to '+pretrained_size)

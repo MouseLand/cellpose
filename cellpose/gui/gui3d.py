@@ -20,7 +20,7 @@ from ..io  import get_image_files, imsave, imread
 from ..transforms import resize_image, normalize99 #fixed import
 from ..plot import disk
 from ..transforms import normalize99_tile, smooth_sharpen_img
-from .gui_old import MainW
+from .gui import MainW
 
 try:
     import matplotlib.pyplot as plt
@@ -117,7 +117,7 @@ def run(image=None):
 class MainW_3d(MainW):
     def __init__(self, image=None, logger=None):
         # MainW init
-        super(MainW_3d, self).__init__(image=None, logger=logger)
+        MainW.__init__(self, image=image, logger=logger)
         
         # turn off single stroke
         self.SCheckBox.setChecked(False)
@@ -139,16 +139,16 @@ class MainW_3d(MainW):
         b = 22
         
         b+=1
-        label = QLabel('3D stitch\n threshold:')
+        label = QLabel('3D stitch threshold:')
         label.setToolTip('for 3D volumes, turn on stitch_threshold to stitch masks across planes instead of running cellpose in 3D (see docs for details)')
         label.setFont(self.medfont)
-        self.TBg.addWidget(label, b, 0,1,3)
+        self.segBoxG.addWidget(label, b, 0,1,6)
         self.stitch_threshold = QLineEdit()
         self.stitch_threshold.setText('0.0')
         self.stitch_threshold.setFixedWidth(40)
         self.stitch_threshold.setFont(self.medfont)
         self.stitch_threshold.setToolTip('for 3D volumes, turn on stitch_threshold to stitch masks across planes instead of running cellpose in 3D (see docs for details)')
-        self.TBg.addWidget(self.stitch_threshold, b,3,1,2)
+        self.segBoxG.addWidget(self.stitch_threshold, b,7,1,2)
 
         b+=1
         self.orthobtn = QCheckBox('ortho')
@@ -203,8 +203,6 @@ class MainW_3d(MainW):
             self.filename = image
             io._load_image(self, self.filename, load_3D=True)
         
-        print(self.loadImg)
-
         self.load_3D = True
     
     def add_mask(self, points=None, color=(100,200,50), dense=True):
@@ -323,7 +321,6 @@ class MainW_3d(MainW):
         self.pOrtho[0].linkView(self.pOrtho[0].YAxis, self.p0)
         self.pOrtho[1].linkView(self.pOrtho[1].XAxis, self.p0)
         
-
     def add_orthoviews(self):
         self.yortho = self.Ly//2
         self.xortho = self.Lx//2

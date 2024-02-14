@@ -1,4 +1,4 @@
-from cellpose import io, models, metrics, plot
+from cellpose import io, models, train, metrics, plot
 from pathlib import Path
 from subprocess import check_output, STDOUT
 import os, shutil
@@ -15,7 +15,7 @@ def test_class_train(data_dir):
     output = io.load_train_test_data(train_dir, mask_filter='_cyto_masks')
     images, labels, image_names, test_images, test_labels, image_names_test = output
     model = models.CellposeModel(pretrained_model=None, diam_mean=30)
-    cpmodel_path = model.train(images, labels, train_files=image_names, 
+    cpmodel_path = train.train_seg(model.net, images, labels, train_files=image_names, 
                                test_data=test_images, test_labels=test_labels, test_files=image_names_test,
                                channels=[2,1], save_path=train_dir, n_epochs=3)
     io.add_model(cpmodel_path)

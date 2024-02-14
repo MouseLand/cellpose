@@ -174,7 +174,7 @@ def main():
                 if args.exclude_on_edges:
                     masks = utils.remove_edge_masks(masks)
                 if not args.no_npy:
-                    io.masks_flows_to_seg(image, masks, flows, diams, image_name, channels)
+                    io.masks_flows_to_seg(image, masks, flows, image_name, channels=channels, diams=diams)
                 if saving_something:
                     io.save_masks(image, masks, flows, image_name, png=args.save_png, tif=args.save_tif,
                                   save_flows=args.save_flows,save_outlines=args.save_outlines,
@@ -186,7 +186,7 @@ def main():
         else:
             
             test_dir = None if len(args.test_dir)==0 else args.test_dir
-            output = io.load_train_test_data(args.dir, test_dir, imf, args.mask_filter, args.unet, args.look_one_level_down)
+            output = io.load_train_test_data(args.dir, test_dir, imf, args.mask_filter, args.look_one_level_down)
             images, labels, image_names, test_images, test_labels, image_names_test = output
 
             # training with all channels
@@ -226,8 +226,8 @@ def main():
                                            learning_rate=args.learning_rate, 
                                            weight_decay=args.weight_decay,
                                            channels=channels,
-                                           save_path=os.path.realpath(args.dir), save_every=args.save_every,
-                                           save_each=args.save_each,
+                                           save_path=os.path.realpath(args.dir), 
+                                           save_every=args.save_every,
                                            SGD=args.SGD,
                                            n_epochs=args.n_epochs,
                                            batch_size=args.batch_size, 
@@ -242,13 +242,12 @@ def main():
                 masks = [lbl[0] for lbl in labels]
                 test_masks = [lbl[0] for lbl in test_labels] if test_labels is not None else test_labels
                 # data has already been normalized and reshaped
-                sz_model.params = train.train_size(model.net, model.net.pretrained_model, images, masks, test_images, test_masks, 
-                                channels=None, normalize=False,
+                sz_model.params = train.train_size(model.net, model.pretrained_model, images, masks, test_images, test_masks, 
+                                channels=channels, 
                                     batch_size=args.batch_size)
                 if test_images is not None:
                     predicted_diams, diams_style = sz_model.eval(test_images, 
-                                                                    channels=None,
-                                                                    normalize=False)
+                                                                    channels=channels)
                     ccs = np.corrcoef(diams_style, np.array([utils.diameters(lbl)[0] for lbl in test_masks]))[0,1]
                     cc = np.corrcoef(predicted_diams, np.array([utils.diameters(lbl)[0] for lbl in test_masks]))[0,1]
                     logger.info('style test correlation: %0.4f; final test correlation: %0.4f'%(ccs,cc))

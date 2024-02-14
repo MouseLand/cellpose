@@ -46,7 +46,7 @@ If you run in a notebook and want to save to a `*_seg.npy` file, run
 ::
 
     from cellpose import io
-    io.masks_flows_to_seg(images, masks, flows, diams, file_name, channels)
+    io.masks_flows_to_seg(images, masks, flows, file_name, channels=channels, diams=diams)
 
 where each of these inputs is a list (as the output of `model.eval` is)
 

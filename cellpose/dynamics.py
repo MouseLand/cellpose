@@ -443,7 +443,7 @@ def labels_to_flows(labels, files=None, device=None, redo_flows=False, niter=Non
         # make sure labels are unique!
         labels = [fastremap.renumber(label, in_place=True)[0] for label in labels]
         iterator = trange if nimg > 1 else range
-        veci = [masks_to_flows(labels[n][0], device=device, niter=niter) for n in iterator(nimg)]
+        veci = [masks_to_flows(labels[n][0].astype(int), device=device, niter=niter) for n in iterator(nimg)]
         
         # concatenate labels, distance transform, vector flows, heat (boundary and mask are computed in augmentations)
         flows = [np.concatenate((labels[n], labels[n]>0.5, veci[n]), axis=0).astype(np.float32)

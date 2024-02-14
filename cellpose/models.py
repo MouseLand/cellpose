@@ -21,8 +21,11 @@ _MODEL_DIR_ENV = os.environ.get("CELLPOSE_LOCAL_MODELS_PATH")
 _MODEL_DIR_DEFAULT = pathlib.Path.home().joinpath('.cellpose', 'models')
 MODEL_DIR = pathlib.Path(_MODEL_DIR_ENV) if _MODEL_DIR_ENV else _MODEL_DIR_DEFAULT
 
-MODEL_NAMES = ['cyto','nuclei','cyto3','tissuenet','livecell', 'cyto2', 'general',
-                'CP', 'CPx', 'TN1', 'TN2', 'TN3', 'LC1', 'LC2', 'LC3', 'LC4']
+MODEL_NAMES = ['cyto3', 'nuclei', 'cyto2_cp3', 
+                'tissuenet_cp3', 'livecell_cp3',
+                'yeast_PhC_cp3', 'yeast_BF_cp3',
+                'bact_phase_cp3', 'bact_fluor_cp3',
+                'deepbacs_cp3', 'cyto2']
 
 MODEL_LIST_PATH = os.fspath(MODEL_DIR.joinpath('gui_models.txt'))
 

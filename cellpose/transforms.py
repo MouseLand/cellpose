@@ -433,7 +433,6 @@ def update_axis(m_axis, to_squeeze, ndim):
 def convert_image(x, channels, channel_axis=None, z_axis=None,
                   do_3D=False, nchan=2):
     """ return image with z first, channels last and normalized intensities """
-
     # check if image is a torch array instead of numpy array
     # converts torch to numpy
     if torch.is_tensor(x):

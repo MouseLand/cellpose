@@ -11,7 +11,6 @@ except:
 
 r_tol, a_tol = 1e-2, 1e-2
 
-
 def clear_output(data_dir, image_names):
     data_dir_2D = data_dir.joinpath('2D')
     data_dir_3D = data_dir.joinpath('2D')
@@ -26,7 +25,7 @@ def clear_output(data_dir, image_names):
         output = name + '_cp_masks' + ext
         if os.path.exists(output):
             os.remove(output)
-
+    
 def test_class_2D(data_dir, image_names):
     clear_output(data_dir, image_names)
     image_name = 'rgb_2D.png'
@@ -37,9 +36,8 @@ def test_class_2D(data_dir, image_names):
     for m,model_type in enumerate(model_types):
         model = models.Cellpose(model_type=model_type)
         masks, flows, _, _ = model.eval(img, diameter=0, cellprob_threshold=0, channels=[chan[m],chan2[m]], 
-                                        net_avg=False, resample=False)
+                                        resample=False)
         io.imsave(str(data_dir.joinpath('2D').joinpath('rgb_2D_cp_masks.png')), masks)
-#         io.imsave('/home/kcutler/DataDrive/cellpose_debug/rgb_2D_cp_masks.png', masks)
         compare_masks(data_dir, [image_name], '2D', model_type)
         clear_output(data_dir, image_names)
         if MATPLOTLIB:
@@ -54,8 +52,8 @@ def test_cyto2_to_seg(data_dir, image_names):
     model_type = 'cyto2'
     model = models.Cellpose(model_type=model_type)
     channels = [2,1]
-    masks, flows, styles, diams = model.eval(imgs, diameter=30, channels=channels, net_avg=False)
-    io.masks_flows_to_seg(imgs, masks, flows, diams, file_names)
+    masks, flows, styles, diams = model.eval(imgs, diameter=30, channels=channels)
+    io.masks_flows_to_seg(imgs, masks, flows, file_names, diams=diams)
 
 def test_class_3D(data_dir, image_names):
     clear_output(data_dir, image_names)
@@ -65,7 +63,7 @@ def test_class_3D(data_dir, image_names):
     chan2 = [0]
     for m,model_type in enumerate(model_types):
         model = models.Cellpose(model_type='nuclei')
-        masks = model.eval(img, do_3D=True, diameter=25, channels=[chan[m],chan2[m]], net_avg=False)[0]
+        masks = model.eval(img, do_3D=True, diameter=25, channels=[chan[m],chan2[m]])[0]
         io.imsave(str(data_dir.joinpath('3D').joinpath('rgb_3D_cp_masks.tif')), masks)
         compare_masks(data_dir, ['rgb_3D.tif'], '3D', model_type)
         clear_output(data_dir, image_names)
@@ -76,7 +74,7 @@ def test_cli_2D(data_dir, image_names):
     chan = [2]
     chan2 = [1]
     for m,model_type in enumerate(model_types):
-        cmd = 'python -m cellpose --dir %s --pretrained_model %s --fast_mode --chan %d --chan2 %d --diameter 0 --no_interp --save_png'%(str(data_dir.joinpath('2D')), model_type, chan[m], chan2[m])
+        cmd = 'python -m cellpose --dir %s --pretrained_model %s --no_resample --chan %d --chan2 %d --diameter 0 --no_interp --save_png'%(str(data_dir.joinpath('2D')), model_type, chan[m], chan2[m])
         try:
             cmd_stdout = check_output(cmd, stderr=STDOUT, shell=True).decode()
             print(cmd_stdout)
@@ -92,7 +90,7 @@ def test_cli_3D(data_dir, image_names):
     chan = [2]
     chan2 = [1]
     for m,model_type in enumerate(model_types):
-        cmd = 'python -m cellpose --dir %s --do_3D --pretrained_model %s --fast_mode --cellprob_threshold 0 --chan %d --chan2 %d --diameter 25 --save_tif'%(str(data_dir.joinpath('3D')), model_type, chan[m], chan2[m])
+        cmd = 'python -m cellpose --dir %s --do_3D --pretrained_model %s --no_resample --cellprob_threshold 0 --chan %d --chan2 %d --diameter 25 --save_tif'%(str(data_dir.joinpath('3D')), model_type, chan[m], chan2[m])
         try:
             cmd_stdout = check_output(cmd, stderr=STDOUT, shell=True).decode()
         except Exception as e:
@@ -113,7 +111,7 @@ def test_outlines_list(data_dir, image_names):
     img = io.imread(file_name)
 
     model = models.Cellpose(model_type=model_type)
-    masks, _, _, _ = model.eval(img, diameter=30, channels=channels, net_avg=False)
+    masks, _, _, _ = model.eval(img, diameter=30, channels=channels)
     outlines_single = utils.outlines_list(masks, multiprocessing=False)
     outlines_multi = utils.outlines_list(masks, multiprocessing=True)
 

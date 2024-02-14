@@ -459,7 +459,7 @@ class DenoiseModel():
             elif rescale is None:
                 rescale = 1.0
 
-            if np.ptp(x[..., -1]) < 1e-3:
+            if np.ptp(x[..., -1]) < 1e-3 or channels[-1]==0:
                 x = x[..., :1]
             for c in range(x.shape[-1]):
                 rescale0 = rescale * 30. / 17. if c==1 else rescale
@@ -518,8 +518,6 @@ class DenoiseModel():
             denoise_logger.info('imgs denoised in %2.2fs'%(net_time))
         
         return imgs.squeeze()
-
-
 
 def train(net, train_data=None, train_labels=None, train_files=None,
               test_data=None, test_labels=None, test_files=None,

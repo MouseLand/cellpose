@@ -10,9 +10,9 @@ import tifffile
 import logging
 import fastremap 
 
-from .. import utils, plot, transforms, models
 from ..io import imread, imsave, outlines_to_text, add_model, remove_model, save_rois
-from ..transforms import normalize99, resize_image
+from ..models import normalize_default, MODEL_DIR, MODEL_LIST_PATH, get_user_models
+from ..utils import masks_to_outlines, outlines_list 
 
 try:
     import qtpy
@@ -26,15 +26,11 @@ try:
     MATPLOTLIB = True
 except:
     MATPLOTLIB = False
-
-NCOLOR = False 
-# WIP to make GUI use N-color masks. Tricky thing is that only the display should be 
-# reduced to N colors; selection and editing should act on unique labels. 
-    
+  
 def _init_model_list(parent):
-    models.MODEL_DIR.mkdir(parents=True, exist_ok=True)
-    parent.model_list_path = models.MODEL_LIST_PATH
-    parent.model_strings = models.get_user_models()
+    MODEL_DIR.mkdir(parents=True, exist_ok=True)
+    parent.model_list_path = MODEL_LIST_PATH
+    parent.model_strings = get_user_models()
     
 def _add_model(parent, filename=None, load_model=True):
     if filename is None:
@@ -44,42 +40,39 @@ def _add_model(parent, filename=None, load_model=True):
         filename = name[0]
     add_model(filename)
     fname = os.path.split(filename)[-1]
-    parent.ModelChoose.addItems([fname])
+    parent.ModelChooseC.addItems([fname])
     parent.model_strings.append(fname)
-    if len(parent.model_strings) > 0:
-        parent.ModelButton.setStyleSheet(parent.styleUnpressed)
-        parent.ModelButton.setEnabled(True)
     
     for ind, model_string in enumerate(parent.model_strings[:-1]):
         if model_string == fname:
             _remove_model(parent, ind=ind+1, verbose=False)
 
-    parent.ModelChoose.setCurrentIndex(len(parent.model_strings))    
+    parent.ModelChooseC.setCurrentIndex(len(parent.model_strings))    
     if load_model:
-        parent.model_choose(len(parent.model_strings))
+        parent.model_choose(custom=True)
 
 def _remove_model(parent, ind=None, verbose=True):
     if ind is None:
-        ind = parent.ModelChoose.currentIndex()
+        ind = parent.ModelChooseC.currentIndex()
     if ind > 0:
         ind -= 1
-        parent.ModelChoose.removeItem(ind+1)
+        parent.ModelChooseC.removeItem(ind+1)
         del parent.model_strings[ind]
         # remove model from txt path
-        modelstr = parent.ModelChoose.currentText()
+        modelstr = parent.ModelChooseC.currentText()
         remove_model(modelstr)
         if len(parent.model_strings) > 0:
-            parent.ModelChoose.setCurrentIndex(len(parent.model_strings))
+            parent.ModelChooseC.setCurrentIndex(len(parent.model_strings))
         else:
-            parent.ModelChoose.setCurrentIndex(0)
-            parent.ModelButton.setStyleSheet(parent.styleInactive)
-            parent.ModelButton.setEnabled(False)
+            parent.ModelChooseC.setCurrentIndex(0)
     else:
         print('ERROR: no model selected to delete')
 
 def _get_train_set(image_names):
     """ get training data and labels for images in current folder image_names"""
     train_data, train_labels, train_files = [], [], []
+    restore = None 
+    normalize_params = normalize_default
     for image_name_full in image_names:
         image_name = os.path.splitext(image_name_full)[0]
         label_name = None
@@ -91,11 +84,19 @@ def _get_train_set(image_names):
                 label_name = image_name + '_seg.npy'
             else:
                 print(f'GUI_INFO: _seg.npy found for {image_name} but masks.ndim!=2')
+            if "img_restore" in dat:
+                data = dat["img_restore"].squeeze()
+                restore = dat["restore"]
+            else:
+                data = imread(image_name_full)
+            normalize_params = dat["normalize_params"] if "normalize_params" in dat else normalize_default
         if label_name is not None:
             train_files.append(image_name_full)
-            train_data.append(imread(image_name_full))
+            train_data.append(data)
             train_labels.append(masks)
-    return train_data, train_labels, train_files
+    if restore:
+        print(f"GUI_INFO: using {restore} images (dat['img_restore'])")
+    return train_data, train_labels, train_files, restore, normalize_params
 
 def _load_image(parent, filename=None, load_seg=True, load_3D=False):
     """ load image with filename; if None, open QFileDialog """
@@ -108,10 +109,6 @@ def _load_image(parent, filename=None, load_seg=True, load_3D=False):
     load_mask = False
     if load_seg:
         if os.path.isfile(manual_file) and not parent.autoloadMasks.isChecked():
-            _load_seg(parent, manual_file, image=imread(filename), image_file=filename, load_3D=load_3D)
-            return
-        elif os.path.isfile(os.path.splitext(filename)[0]+'_manual.npy'):
-            manual_file = os.path.splitext(filename)[0]+'_manual.npy'
             _load_seg(parent, manual_file, image=imread(filename), image_file=filename, load_3D=load_3D)
             return
         elif parent.autoloadMasks.isChecked():
@@ -131,11 +128,11 @@ def _load_image(parent, filename=None, load_seg=True, load_3D=False):
         parent.filename = filename
         filename = os.path.split(parent.filename)[-1]
         _initialize_images(parent, image, load_3D=load_3D)
-        parent.clear_all()
         parent.loaded = True
         parent.enable_buttons()
         if load_mask:
             _load_masks(parent, filename=mask_file)
+
             
 def _initialize_images(parent, image, load_3D=False):
     """ format image for GUI """
@@ -179,7 +176,7 @@ def _initialize_images(parent, image, load_3D=False):
         # fill in with blank channels to make 3 channels
         shape = image.shape
         image = np.concatenate((image,
-                    np.zeros((*shape[:-1], 3-shape[-1]), dtype=np.uint8)), axis=1)
+                    np.zeros((*shape[:-1], 3-shape[-1]), dtype=np.uint8)), axis=-1)
         parent.nchan = 2
     elif image.shape[-1] == 1:
         parent.nchan = 1
@@ -210,10 +207,22 @@ def _initialize_images(parent, image, load_3D=False):
     parent.Ly, parent.Lx = parent.stack.shape[-3:-1]
     parent.Ly0, parent.Lx0 = parent.stack.shape[-3:-1]
     parent.layerz = 255 * np.ones((parent.Ly,parent.Lx,4), 'uint8')
-    print(parent.layerz.shape)
+    if hasattr(parent, "stack_filtered"):
+        parent.Lyr, parent.Lxr = parent.stack_filtered.shape[-3:-1]
+    elif parent.restore and "upsample" in parent.restore:
+        parent.Lyr, parent.Lxr = int(parent.Ly*parent.ratio), int(parent.Lx*parent.ratio)
+    else:
+        parent.Lyr, parent.Lxr = parent.Ly, parent.Lx 
+    parent.clear_all()
+
+    if not hasattr(parent, "stack_filtered") and parent.restore:
+        print("GUI_INFO: no 'img_restore' found, applying current settings")
+        parent.compute_restore()
+    
     if parent.autobtn.isChecked():
-        print('GUI_INFO: normalization checked: computing saturation levels (and optionally filtered image)')
-        parent.compute_saturation()
+        if parent.restore is None:
+            print('GUI_INFO: normalization checked: computing saturation levels (and optionally filtered image)')
+            parent.compute_saturation()
     elif len(parent.saturation) != parent.NZ:
         parent.saturation = []
         for r in range(3):
@@ -230,6 +239,8 @@ def _initialize_images(parent, image, load_3D=False):
         parent.zpos.setText(str(parent.currentZ))
     else:
         parent.currentZ = 0
+
+    
         
 
 def _load_seg(parent, filename=None, image=None, image_file=None, load_3D=False):
@@ -241,6 +252,7 @@ def _load_seg(parent, filename=None, image=None, image_file=None, load_3D=False)
         filename = name[0]
     try:
         dat = np.load(filename, allow_pickle=True).item()
+        # check if there are keys in filename
         dat['outlines']
         parent.loaded = True
     except:
@@ -281,10 +293,26 @@ def _load_seg(parent, filename=None, image=None, image_file=None, load_3D=False)
     else:
         parent.filename = image_file
     
+    if "normalize_params" in dat:
+        parent.restore = None if "restore" not in dat else dat["restore"]
+        print(f"GUI_INFO: restore: {parent.restore}")
+        parent.set_normalize_params(dat["normalize_params"])
+        parent.set_restore_button()
+    
+    if 'img_restore' in dat:
+        parent.stack_filtered = dat["img_restore"]
+        parent.restore = dat["restore"]
+        parent.ViewDropDown.model().item(3).setEnabled(True)
+        parent.view = 3
+        if parent.restore and "upsample" in parent.restore:
+            print(parent.stack_filtered.shape, image.shape)
+            parent.ratio = dat["ratio"]
+    
     _initialize_images(parent, image, load_3D=load_3D)
     if 'chan_choose' in dat:
         parent.ChannelChoose[0].setCurrentIndex(dat['chan_choose'][0])
         parent.ChannelChoose[1].setCurrentIndex(dat['chan_choose'][1])
+
     if 'outlines' in dat:
         if isinstance(dat['outlines'], list):
             # old way of saving files
@@ -308,14 +336,8 @@ def _load_seg(parent, filename=None, image=None, image_file=None, load_3D=False)
                 colors = dat['colors']
             else:
                 colors = parent.colormap[:parent.ncells,:3]
-            parent.cellpix = dat['masks']
-            parent.outpix = dat['outlines']
-            parent.cellcolors = np.append(parent.cellcolors, colors, axis=0)
 
-            if parent.cellpix.ndim==2:
-                parent.cellpix = parent.cellpix[np.newaxis,:,:]
-            if parent.outpix.ndim==2:
-                parent.outpix = parent.outpix[np.newaxis,:,:]
+            _masks_to_gui(parent, dat["masks"], outlines=dat["outlines"], colors=colors)
 
             parent.draw_layer()
             if 'est_diam' in dat:
@@ -331,7 +353,7 @@ def _load_seg(parent, filename=None, image=None, image_file=None, load_3D=False)
         else:
             parent.zdraw = [None for n in range(parent.ncells)]
         parent.loaded = True
-        print(f'GUI_INFO: {parent.ncells} masks found in {filename}')
+        #print(f'GUI_INFO: {parent.ncells} masks found in {filename}')
     else:
         parent.clear_all()
 
@@ -399,12 +421,15 @@ def _load_masks(parent, filename=None):
         return
 
     _masks_to_gui(parent, masks, outlines)
+    if parent.ncells>0:
+        parent.draw_layer()
+        parent.toggle_mask_ops()
     del masks 
     gc.collect()
     parent.update_layer()
     parent.update_plot()
 
-def _masks_to_gui(parent, masks, outlines=None):
+def _masks_to_gui(parent, masks, outlines=None, colors=None):
     """ masks loaded into GUI """
     # get unique values
     shape = masks.shape
@@ -412,54 +437,76 @@ def _masks_to_gui(parent, masks, outlines=None):
     fastremap.renumber(masks, in_place=True)
     masks = masks.reshape(shape)
     masks = masks.astype(np.uint16) if masks.max()<2**16-1 else masks.astype(np.uint32)
-    if parent.upsampled:
+    if parent.restore and "upsample" in parent.restore:
         parent.cellpix_resize = masks.copy()
+        parent.cellpix = parent.cellpix_resize.copy()
         parent.cellpix_orig = cv2.resize(masks.squeeze(), (parent.Lx0, parent.Ly0), 
                                          interpolation=cv2.INTER_NEAREST)[np.newaxis,:,:]
         parent.resize = True
-        parent.cellpix = parent.cellpix_resize.copy()
     else:
         parent.cellpix = masks
     if parent.cellpix.ndim == 2:
         parent.cellpix = parent.cellpix[np.newaxis,:,:]
+        if parent.restore and "upsample" in parent.restore:
+            if parent.cellpix_resize.ndim==2:
+                parent.cellpix_resize = parent.cellpix_resize[np.newaxis, :, :]
+            if parent.cellpix_orig.ndim==2:
+                parent.cellpix_orig = parent.cellpix_orig[np.newaxis, :, :]
             
     print(f'GUI_INFO: {masks.max()} masks found')
 
     # get outlines
     if outlines is None: # parent.outlinesOn
         parent.outpix = np.zeros_like(parent.cellpix)
-        if parent.upsampled:
+        if parent.restore and "upsample" in parent.restore:
             parent.outpix_orig = np.zeros_like(parent.cellpix_orig)
         for z in range(parent.NZ):
-            outlines = utils.masks_to_outlines(parent.cellpix[z])
+            outlines = masks_to_outlines(parent.cellpix[z])
             parent.outpix[z] = outlines * parent.cellpix[z]
-            if parent.upsampled:
-                outlines = utils.masks_to_outlines(parent.cellpix_orig[z])
+            if parent.restore and "upsample" in parent.restore:
+                outlines = masks_to_outlines(parent.cellpix_orig[z])
                 parent.outpix_orig[z] = outlines * parent.cellpix_orig[z]
             if z%50==0 and parent.NZ > 1:
                 print('GUI_INFO: plane %d outlines processed'%z)
-        if parent.upsampled:
+        if parent.restore and "upsample" in parent.restore:
             parent.outpix_resize = parent.outpix.copy() 
     else:
         parent.outpix = outlines
         shape = parent.outpix.shape
-        _,parent.outpix = np.unique(parent.outpix, return_inverse=True)
+        fastremap.renumber(parent.outpix, in_place=True)
         parent.outpix = np.reshape(parent.outpix, shape)
-
+        if parent.restore and "upsample" in parent.restore:
+            parent.outpix_resize = parent.outpix.copy()
+            parent.outpix_orig = np.zeros_like(parent.cellpix_orig)
+            for z in range(parent.NZ):
+                outlines = masks_to_outlines(parent.cellpix_orig[z])
+                parent.outpix_orig[z] = outlines * parent.cellpix_orig[z]
+                if z%50==0 and parent.NZ > 1:
+                    print('GUI_INFO: plane %d outlines processed'%z)
+        
     if parent.outpix.ndim==2:
         parent.outpix = parent.outpix[np.newaxis,:,:]
+        if parent.restore and "upsample" in parent.restore:
+            if parent.outpix_resize.ndim==2:
+                parent.outpix_resize = parent.outpix_resize[np.newaxis, :, :]
+            if parent.outpix_orig.ndim==2:
+                parent.outpix_orig = parent.outpix_orig[np.newaxis, :, :]
 
     parent.ncells = parent.cellpix.max()
-    colors = parent.colormap[:parent.ncells, :3]
+    colors = parent.colormap[:parent.ncells, :3] if colors is None else colors
     print('GUI_INFO: creating cellcolors and drawing masks')
     parent.cellcolors = np.concatenate((np.array([[255,255,255]]), colors), axis=0).astype(np.uint8)
     if parent.ncells>0:
+        parent.draw_layer()
         parent.toggle_mask_ops()
     parent.ismanual = np.zeros(parent.ncells, bool)
     parent.zdraw = list(-1*np.ones(parent.ncells, np.int16))
     
-    parent.ViewDropDown.setCurrentIndex(3)
-    parent.update_plot()
+    if hasattr(parent, "stack_filtered"):
+        parent.ViewDropDown.setCurrentIndex(3)
+        print("set denoised/filtered view")
+    else:
+        parent.ViewDropDown.setCurrentIndex(0)
 
 def _save_png(parent):
     """ save masks to png or tiff (if 3D) """
@@ -498,7 +545,7 @@ def _save_outlines(parent):
     base = os.path.splitext(filename)[0]
     if parent.NZ==1:
         print('GUI_INFO: saving 2D outlines to text file, see docs for info to load into ImageJ')    
-        outlines = utils.outlines_list(parent.cellpix[0])
+        outlines = outlines_list(parent.cellpix[0])
         outlines_to_text(base, outlines)
     else:
         print('ERROR: cannot save 3D outlines')
@@ -531,18 +578,27 @@ def _save_sets(parent):
                  'cellprob_threshold': cellprob_threshold
                  })
     else:
+        dat = {'outlines': parent.outpix.squeeze() if parent.restore is None or not "upsample" in parent.restore else parent.outpix_resize.squeeze(),
+                'colors': parent.cellcolors[1:],
+                'masks': parent.cellpix.squeeze() if parent.restore is None or not "upsample" in parent.restore else parent.cellpix_resize.squeeze(),
+                'chan_choose': [parent.ChannelChoose[0].currentIndex(),
+                                parent.ChannelChoose[1].currentIndex()],
+                'filename': parent.filename,
+                'flows': parent.flows,
+                'ismanual': parent.ismanual,
+                'manual_changes': parent.track_changes,
+                'model_path': parent.current_model_path if hasattr(parent, 'current_model_path') else 0,
+                'flow_threshold': flow_threshold,
+                'cellprob_threshold': cellprob_threshold,
+                'normalize_params': parent.get_normalize_params(),
+                'restore': parent.restore,
+                'ratio': parent.ratio,
+                'diameter': parent.diameter}
+        print(dat["masks"].shape)
+        if parent.restore is not None:
+            dat["img_restore"] = parent.stack_filtered
         np.save(base + '_seg.npy',
-                {'outlines': parent.outpix.squeeze(),
-                 'colors': parent.cellcolors[1:],
-                 'masks': parent.cellpix.squeeze(),
-                 'chan_choose': [parent.ChannelChoose[0].currentIndex(),
-                                 parent.ChannelChoose[1].currentIndex()],
-                 'filename': parent.filename,
-                 'flows': parent.flows,
-                 'ismanual': parent.ismanual,
-                 'manual_changes': parent.track_changes,
-                 'model_path': parent.current_model_path if hasattr(parent, 'current_model_path') else 0,
-                 'flow_threshold': flow_threshold,
-                 'cellprob_threshold': cellprob_threshold})
+                dat)
+        del dat
     #print(parent.point_sets)
     print('GUI_INFO: %d ROIs saved to %s'%(parent.ncells, base + '_seg.npy'))
