@@ -1742,15 +1742,16 @@ class MainW(QMainWindow):
         
     def check_percentile_params(self, percentile):    
         # check normalization params
-        if not (percentile[0] >= 0 and percentile[1] > 0 and percentile[0] < 100 and percentile[1] <= 100
+        if percentile is not None and not (percentile[0] >= 0 and percentile[1] > 0 and percentile[0] < 100 and percentile[1] <= 100
                     and percentile[1] > percentile[0]):
             print('GUI_ERROR: percentiles need be between 0 and 100, and upper > lower, using defaults')
             self.norm_edits[0].setText('1.')
             self.norm_edits[1].setText('99.')
             percentile = [1., 99.]
-        else:
-            self.norm_edits[0].setText(str(percentile[0]))
-            self.norm_edits[1].setText(str(percentile[1]))
+        elif percentile is None:
+            percentile = [1., 99.]
+        self.norm_edits[0].setText(str(percentile[0]))
+        self.norm_edits[1].setText(str(percentile[1]))
         return percentile
 
     def check_filter_params(self, sharpen, smooth, tile_norm, smooth3D, norm3D, invert):
@@ -1967,7 +1968,6 @@ class MainW(QMainWindow):
             model_type = None
             self.logger.info(f'training new model starting from scratch')     
         self.current_model = model_type   
-        
         self.channels = self.get_channels()
         self.logger.info(f'training with chan = {self.ChannelChoose[0].currentText()}, chan2 = {self.ChannelChoose[1].currentText()}')
             
@@ -1980,7 +1980,7 @@ class MainW(QMainWindow):
         self.new_model_path = train.train_seg(self.model.net, train_data=self.train_data, 
                                                 train_labels=self.train_labels, 
                                                channels=self.channels,
-                                               normalize=self.get_normalize_params(), 
+                                               normalize=normalize_params, 
                                                min_train_masks=0,
                                                save_path=save_path, 
                                                nimg_per_epoch=8,
