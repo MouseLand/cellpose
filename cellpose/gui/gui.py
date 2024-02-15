@@ -217,6 +217,7 @@ class MainW(QMainWindow):
             self.colormap = ((np.random.rand(1000000,3)*0.8+0.1)*255).astype(np.uint8)
         self.NZ = 1
         self.restore = None
+        self.ratio = 1.
         self.reset()
 
         # if called with image, load it
