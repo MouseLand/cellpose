@@ -13,7 +13,7 @@ import numpy as np
 from scipy.stats import mode
 import cv2
 
-from . import guiparts_old, menus, io
+from . import guiparts, menus, io
 from .. import models, core, dynamics, version
 from ..utils import download_url_to_file, masks_to_outlines, diameters 
 from ..io  import get_image_files, imsave, imread
