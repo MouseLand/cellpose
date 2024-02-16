@@ -28,7 +28,6 @@ try:
 except:
     MATPLOTLIB = False
 
-
 def avg3d(C):
     """ smooth value of c across nearby points
         (c is center of grid directly below point)
@@ -105,7 +104,7 @@ def run(image=None):
     app_icon.addFile(icon_path, QtCore.QSize(256, 256))
     app.setWindowIcon(app_icon)
     app.setStyle("Fusion")
-    app.setPalette(guiparts_old.DarkPalette())
+    app.setPalette(guiparts.DarkPalette())
     #app.setStyleSheet("QLineEdit { color: yellow }")
 
     # models.download_model_weights() # does not exist
