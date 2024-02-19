@@ -28,6 +28,8 @@ docs_deps = [
         'sphinxcontrib-apidoc',
         'sphinx_rtd_theme',
         'sphinx-argparse',
+        'nbsphinx',
+        'ipython',
 ]
 
 distributed_deps = [

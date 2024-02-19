@@ -57,6 +57,12 @@ Cellpose 1.0
    notebook
    command
    
+.. toctree::
+   :maxdepth: 2
+   :caption: Notebooks:
+
+   ./notebooks/run_cellpose.ipynb
+   ./notebooks/run_cellpose_GPU.ipynb
 
 .. toctree::
    :caption: Reference:
