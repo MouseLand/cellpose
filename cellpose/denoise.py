@@ -425,7 +425,7 @@ class DenoiseModel():
                 denoised images
 
         """
-        if isinstance(x, list) or x.squeeze().ndim==4:
+        if isinstance(x, list) or x.squeeze().ndim==5:
             tqdm_out = utils.TqdmToLogger(denoise_logger, level=logging.INFO)
             nimg = len(x)
             iterator = trange(nimg, file=tqdm_out, mininterval=30) if nimg>1 else range(nimg)
@@ -441,6 +441,8 @@ class DenoiseModel():
                                 diameter=diameter[i] if isinstance(diameter, list) or isinstance(diameter, np.ndarray) else diameter, 
                                 tile=tile, tile_overlap=tile_overlap)
                 imgs.append(imgi)
+            if isinstance(x, np.ndarray):
+                imgs = np.array(imgs)
             return imgs
 
         else:    
@@ -522,7 +524,7 @@ class DenoiseModel():
 def train(net, train_data=None, train_labels=None, train_files=None,
               test_data=None, test_labels=None, test_files=None,
               train_probs=None, test_probs=None,
-              lam=[0., 1., 0.], scale_range=0.5, seg_model_type="cyto2",
+              lam=[1., 1.5, 0.], scale_range=0.5, seg_model_type="cyto2",
               save_path=None, save_every=100, save_each=False,
               poisson=0.7, beta=0.7, blur=0.7, gblur=1.0, iso=True, downsample=0.,
               learning_rate=0.005, n_epochs=500, momentum=0.9, 

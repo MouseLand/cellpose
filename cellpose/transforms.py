@@ -453,6 +453,7 @@ def convert_image(x, channels, channel_axis=None, z_axis=None,
         x = move_axis(x, m_axis=z_axis, first=True)
         if channel_axis is not None:
             channel_axis += 1
+    elif z_axis is not None and z_axis == 0:
         if x.ndim==3:
             x = x[...,np.newaxis]
         

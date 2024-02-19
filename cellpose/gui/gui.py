@@ -638,9 +638,11 @@ class MainW(QMainWindow):
         self.DenoiseButtons = []
         nett = ["filter image (settings below)", "clear restore/filter",
                 "denoise (please set cell diameter first)", "deblur (please set cell diameter first)", 
-                "upsample to 30. diameter (cyto3) or 17. diameter (nuclei) (please set cell diameter first)",
+                "upsample to 30. diameter (cyto3) or 17. diameter (nuclei) (please set cell diameter first) (disabled in 3D)",
                 ]
         self.denoise_text = ["filter", "none", "denoise", "deblur", "upsample"]
+        self.restore = None 
+        self.ratio = 1.
         jj = 3
         for j in range(len(self.denoise_text)):
             self.DenoiseButtons.append(guiparts.DenoiseButton(self, self.denoise_text[j]))
@@ -756,6 +758,8 @@ class MainW(QMainWindow):
                     if event.key() == QtCore.Qt.Key_Return:
                         self.add_set()
                 else:
+                    nviews = self.ViewDropDown.count() - 1 
+                    nviews += int(self.ViewDropDown.model().item(self.ViewDropDown.count()-1).isEnabled())
                     if event.key() == QtCore.Qt.Key_X:
                         self.MCheckBox.toggle()
                     if event.key() == QtCore.Qt.Key_Z:
@@ -765,10 +769,10 @@ class MainW(QMainWindow):
                     elif event.key() == QtCore.Qt.Key_Right or event.key() == QtCore.Qt.Key_D:
                         self.get_next_image()
                     elif event.key() == QtCore.Qt.Key_PageDown:
-                        self.view = (self.view+1)%(4)
+                        self.view = (self.view+1)%(nviews)
                         self.ViewDropDown.setCurrentIndex(self.view)
                     elif event.key() == QtCore.Qt.Key_PageUp:
-                        self.view = (self.view-1)%(4)
+                        self.view = (self.view-1)%(nviews)
                         self.ViewDropDown.setCurrentIndex(self.view)
 
                 # can change background or stroke size if cell not finished
@@ -889,6 +893,8 @@ class MainW(QMainWindow):
             self.StyleButtons[i].setEnabled(True)
         for i in range(len(self.DenoiseButtons)):
             self.DenoiseButtons[i].setEnabled(True)
+        if self.load_3D:
+            self.DenoiseButtons[-1].setEnabled(False)
         self.ModelButtonB.setEnabled(True)
         self.SizeButton.setEnabled(True)
         self.newmodel.setEnabled(True)
@@ -1110,7 +1116,7 @@ class MainW(QMainWindow):
         self.RGBDropDown.setCurrentIndex(self.color)
         self.view = 0
         self.ViewDropDown.setCurrentIndex(0)
-        self.ViewDropDown.model().item(3).setEnabled(False)
+        self.ViewDropDown.model().item(self.ViewDropDown.count()-1).setEnabled(False)
         self.delete_restore()
 
         self.BrushChoose.setCurrentIndex(1)
@@ -1139,8 +1145,8 @@ class MainW(QMainWindow):
     def clear_restore(self):
         """ delete restored imgs and reset settings """
         print("GUI_INFO: clearing restored image")
-        self.ViewDropDown.model().item(3).setEnabled(False)
-        if self.ViewDropDown.currentIndex()==3:
+        self.ViewDropDown.model().item(self.ViewDropDown.count()-1).setEnabled(False)
+        if self.ViewDropDown.currentIndex()==self.ViewDropDown.count()-1:
             self.ViewDropDown.setCurrentIndex(0)
         self.delete_restore()
         self.restore = None
@@ -1477,7 +1483,7 @@ class MainW(QMainWindow):
             self.update_scale()
             self.update_layer()
         
-        if self.view==0 or self.view==3:
+        if self.view==0 or self.view==self.ViewDropDown.count()-1:
             image = self.stack[self.currentZ] if self.view==0 else self.stack_filtered[self.currentZ]
             if self.nchan==1:
                 # show single channel
@@ -1724,8 +1730,9 @@ class MainW(QMainWindow):
             elif key=="none" and self.restore is None:
                 self.DenoiseButtons[i].setStyleSheet(self.stylePressed)
             else:
+                #if self.DenoiseButtons[i].isEnabled():
                 self.DenoiseButtons[i].setStyleSheet(self.styleUnpressed)
-
+                
     def set_normalize_params(self, normalize_params):
         if self.restore!="filter":
             keys = list(normalize_params.keys()).copy()   
@@ -1839,12 +1846,12 @@ class MainW(QMainWindow):
                     img_norm[...,c] /= (img_norm_max - img_norm_min)
             img_norm *= 255
             self.stack_filtered = img_norm 
-            self.ViewDropDown.model().item(3).setEnabled(True)
-            self.ViewDropDown.setCurrentIndex(3)
+            self.ViewDropDown.model().item(self.ViewDropDown.count()-1).setEnabled(True)
+            self.ViewDropDown.setCurrentIndex(self.ViewDropDown.count()-1)
         elif invert:
             img_norm = self.stack.copy()
         else:
-            img_norm = self.stack
+            img_norm = self.stack if self.restore is None or self.restore=="filter" else self.stack_filtered
         
         self.saturation = []
         for c in range(img_norm.shape[-1]):
@@ -1879,8 +1886,8 @@ class MainW(QMainWindow):
         if invert:
             img_norm = 255. - img_norm
             self.stack_filtered = img_norm 
-            self.ViewDropDown.model().item(3).setEnabled(True)
-            self.ViewDropDown.setCurrentIndex(3)      
+            self.ViewDropDown.model().item(self.ViewDropDown.count()-1).setEnabled(True)
+            self.ViewDropDown.setCurrentIndex(self.ViewDropDown.count()-1)      
 
         if img_norm.shape[-1]==1:
             self.saturation.append(self.saturation[0])
@@ -2091,8 +2098,9 @@ class MainW(QMainWindow):
             print("GUI_INFO: normalize_params: ", normalize_params)
             print("GUI_INFO: diameter (before upsampling): ", self.diameter)
             
-            data = self.stack[0].copy() 
-            self.Ly, self.Lx = data.shape[:2]   
+            data = self.stack.copy()
+            print(data.shape)
+            self.Ly, self.Lx = data.shape[-3:-1]   
             if "upsample" in model_name:
                 # get upsampling factor
                 if self.diameter >= diam_up:
@@ -2111,12 +2119,15 @@ class MainW(QMainWindow):
                 self.Lyr, self.Lxr = self.Ly, self.Lx
                 self.Ly0, self.Lx0 = self.Ly, self.Lx
                 
-            img_norm = self.denoise_model.eval(data, channels=channels,
-                                               diameter=self.diameter,
+            img_norm = self.denoise_model.eval(data, channels=channels, z_axis=0,
+                                               channel_axis=3, diameter=self.diameter,
                                                normalize=normalize_params)
+            print(img_norm.shape)
             
             if img_norm.ndim==2:
                 img_norm = img_norm[:,:,np.newaxis]
+            if img_norm.ndim==3:
+                img_norm = img_norm[np.newaxis, ...]
 
             self.progress.setValue(100)
             self.logger.info(f'{model_name} finished in %0.3f sec'%(time.time()-tic))
@@ -2126,20 +2137,30 @@ class MainW(QMainWindow):
             img_norm_min = img_norm.min()
             img_norm_max = img_norm.max()
             chan = [0] if channels[0]==0 else [channels[0]-1, channels[1]-1]
+            self.saturation = [[], [], []]
             for c in range(img_norm.shape[-1]):
                 if np.ptp(img_norm[...,c]) > 1e-3:
                     img_norm[...,c] -= img_norm_min
                     img_norm[...,c] /= (img_norm_max - img_norm_min)
-                x01 = np.percentile(img_norm[:,:,c], percentile[0]) * 255.
-                x99 = np.percentile(img_norm[:,:,c], percentile[1]) * 255.
-                self.saturation[chan[c]][0] = [x01, x99]
+                for z in range(self.NZ):
+                    x01 = np.percentile(img_norm[z,:,:,c], percentile[0]) * 255.
+                    x99 = np.percentile(img_norm[z,:,:,c], percentile[1]) * 255.
+                    self.saturation[chan[c]].append([x01, x99])
+            notchan = np.ones(3, "bool")
+            notchan[np.array(chan)] = False
+            notchan = np.nonzero(notchan)[0]
+            for c in notchan:
+                for z in range(self.NZ):
+                    self.saturation[c].append([0, 255.])
+
             img_norm *= 255.
             self.autobtn.setChecked(True)
 
             # assign to denoised channels
-            self.stack_filtered = np.zeros((1, self.Lyr, self.Lxr, self.stack.shape[-1]), "float32")
+            self.stack_filtered = np.zeros((self.NZ, self.Lyr, self.Lxr, self.stack.shape[-1]), "float32")
             for i,c in enumerate(chan[:img_norm.shape[-1]]):
-                self.stack_filtered[0,:,:,c] = img_norm[:,:,i]
+                for z in range(self.NZ):
+                    self.stack_filtered[z,:,:,c] = img_norm[z,:,:,i]
               
             # make upsampled masks
             if model_type=="upsample":
@@ -2164,8 +2185,8 @@ class MainW(QMainWindow):
             if channels[0]==0:
                 self.RGBDropDown.setCurrentIndex(4)
 
-            self.ViewDropDown.model().item(3).setEnabled(True)
-            self.ViewDropDown.setCurrentIndex(3)    
+            self.ViewDropDown.model().item(self.ViewDropDown.count()-1).setEnabled(True)
+            self.ViewDropDown.setCurrentIndex(self.ViewDropDown.count()-1)    
 
             self.update_plot()
             
@@ -2215,17 +2236,23 @@ class MainW(QMainWindow):
 
             self.progress.setValue(75)
             
-            
             # convert flows to uint8 and resize to original image size
             flows_new = []
             flows_new.append(flows[0].copy()) # RGB flow
-            flows_new.append((np.clip(normalize99(flows[2].copy()), 0, 1) * 255).astype(np.uint8)) # cellprob
+            flows_new.append((np.clip(normalize99(flows[2].copy()), 0, 1) * 255).astype("uint8")) # cellprob
+            if self.load_3D:
+                if stitch_threshold==0.:
+                    flows_new.append((flows[1][0]/10 * 127 + 127).astype("uint8"))
+                else:
+                    flows_new.append(np.zeros(flows[1][0].shape, dtype="uint8"))
+            
             if self.restore and "upsample" in self.restore:
                 self.Ly, self.Lx = self.Lyr, self.Lxr 
-            if flows_new[0].shape[:2] != (self.Ly, self.Lx):
+
+            if flows_new[0].shape[-2:] != (self.Ly, self.Lx):
                 self.flows = []
-                for j in range(2):
-                    self.flows.append(resize_image(self.flows[j], Ly=self.Ly, 
+                for j in range(len(flows_new)):
+                    self.flows.append(resize_image(flows_new[j], Ly=self.Ly, 
                                                     Lx=self.Lx,
                                                     interpolation=cv2.INTER_NEAREST))
             else:
@@ -2234,7 +2261,7 @@ class MainW(QMainWindow):
             # add first axis
             if self.NZ==1:
                 masks = masks[np.newaxis,...]
-            self.flows = [self.flows[n][np.newaxis,...] for n in range(len(self.flows))]
+                self.flows = [self.flows[n][np.newaxis,...] for n in range(len(self.flows))]
                 
             self.logger.info('%d cells found with model in %0.3f sec'%(len(np.unique(masks)[1:]), time.time()-tic))
             self.progress.setValue(80)
