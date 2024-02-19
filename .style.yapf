@@ -1,0 +1,4 @@
+[style]
+based_on_style = google
+split_before_named_assigns = false
+column_limit = 88

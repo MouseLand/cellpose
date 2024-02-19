@@ -10,15 +10,16 @@ from scipy.ndimage import convolve, mean
 
 def mask_ious(masks_true, masks_pred):
     """ return best-matched masks """
-    iou = _intersection_over_union(masks_true, masks_pred)[1:,1:]
+    iou = _intersection_over_union(masks_true, masks_pred)[1:, 1:]
     n_min = min(iou.shape[0], iou.shape[1])
-    costs = -(iou >= 0.5).astype(float) - iou / (2*n_min)
+    costs = -(iou >= 0.5).astype(float) - iou / (2 * n_min)
     true_ind, pred_ind = linear_sum_assignment(costs)
     iout = np.zeros(masks_true.max())
-    iout[true_ind] = iou[true_ind,pred_ind]
-    preds = np.zeros(masks_true.max(), 'int')
-    preds[true_ind] = pred_ind+1
+    iout[true_ind] = iou[true_ind, pred_ind]
+    preds = np.zeros(masks_true.max(), "int")
+    preds[true_ind] = pred_ind + 1
     return iout, preds
+
 
 def boundary_scores(masks_true, masks_pred, scales):
     """ boundary precision / recall / Fscore """
@@ -35,11 +36,11 @@ def boundary_scores(masks_true, masks_pred, scales):
             otrue = convolve(otrue, filt)
             opred = utils.masks_to_outlines(masks_pred[n])
             opred = convolve(opred, filt)
-            tp = np.logical_and(otrue==1, opred==1).sum()
-            fp = np.logical_and(otrue==0, opred==1).sum()
-            fn = np.logical_and(otrue==1, opred==0).sum()
-            precision[j,n] = tp / (tp + fp)
-            recall[j,n] = tp / (tp + fn)
+            tp = np.logical_and(otrue == 1, opred == 1).sum()
+            fp = np.logical_and(otrue == 0, opred == 1).sum()
+            fn = np.logical_and(otrue == 1, opred == 0).sum()
+            precision[j, n] = tp / (tp + fp)
+            recall[j, n] = tp / (tp + fn)
         fscore[j] = 2 * precision[j] * recall[j] / (precision[j] + recall[j])
     return precision, recall, fscore
 
@@ -67,10 +68,10 @@ def aggregated_jaccard_index(masks_true, masks_pred):
         iout, preds = mask_ious(masks_true[n], masks_pred[n])
         inds = np.arange(0, masks_true[n].max(), 1, int)
         overlap = _label_overlap(masks_true[n], masks_pred[n])
-        union = np.logical_or(masks_true[n]>0, masks_pred[n]>0).sum()
-        overlap = overlap[inds[preds>0]+1, preds[preds>0].astype(int)]
+        union = np.logical_or(masks_true[n] > 0, masks_pred[n] > 0).sum()
+        overlap = overlap[inds[preds > 0] + 1, preds[preds > 0].astype(int)]
         aji[n] = overlap.sum() / union
-    return aji 
+    return aji
 
 
 def average_precision(masks_true, masks_pred, threshold=[0.5, 0.75, 0.9]):
@@ -107,30 +108,32 @@ def average_precision(masks_true, masks_pred, threshold=[0.5, 0.75, 0.9]):
         not_list = True
     if not isinstance(threshold, list) and not isinstance(threshold, np.ndarray):
         threshold = [threshold]
-    
-    if len(masks_true) != len(masks_pred):
-        raise ValueError('metrics.average_precision requires len(masks_true)==len(masks_pred)')
 
-    ap  = np.zeros((len(masks_true), len(threshold)), np.float32)
-    tp  = np.zeros((len(masks_true), len(threshold)), np.float32)
-    fp  = np.zeros((len(masks_true), len(threshold)), np.float32)
-    fn  = np.zeros((len(masks_true), len(threshold)), np.float32)
+    if len(masks_true) != len(masks_pred):
+        raise ValueError(
+            "metrics.average_precision requires len(masks_true)==len(masks_pred)")
+
+    ap = np.zeros((len(masks_true), len(threshold)), np.float32)
+    tp = np.zeros((len(masks_true), len(threshold)), np.float32)
+    fp = np.zeros((len(masks_true), len(threshold)), np.float32)
+    fn = np.zeros((len(masks_true), len(threshold)), np.float32)
     n_true = np.array(list(map(np.max, masks_true)))
     n_pred = np.array(list(map(np.max, masks_pred)))
-    
+
     for n in range(len(masks_true)):
         #_,mt = np.reshape(np.unique(masks_true[n], return_index=True), masks_pred[n].shape)
         if n_pred[n] > 0:
             iou = _intersection_over_union(masks_true[n], masks_pred[n])[1:, 1:]
-            for k,th in enumerate(threshold):
-                tp[n,k] = _true_positive(iou, th)
+            for k, th in enumerate(threshold):
+                tp[n, k] = _true_positive(iou, th)
         fp[n] = n_pred[n] - tp[n]
         fn[n] = n_true[n] - tp[n]
-        ap[n] = tp[n] / (tp[n] + fp[n] + fn[n])  
-        
+        ap[n] = tp[n] / (tp[n] + fp[n] + fn[n])
+
     if not_list:
         ap, tp, fp, fn = ap[0], tp[0], fp[0], fn[0]
     return ap, tp, fp, fn
+
 
 @jit(nopython=True)
 def _label_overlap(x, y):
@@ -151,22 +154,23 @@ def _label_overlap(x, y):
         matrix of pixel overlaps of size [x.max()+1, y.max()+1]
     
     """
-    # put label arrays into standard form then flatten them 
-#     x = (utils.format_labels(x)).ravel()
-#     y = (utils.format_labels(y)).ravel()
+    # put label arrays into standard form then flatten them
+    #     x = (utils.format_labels(x)).ravel()
+    #     y = (utils.format_labels(y)).ravel()
     x = x.ravel()
     y = y.ravel()
-    
-    # preallocate a 'contact map' matrix
-    overlap = np.zeros((1+x.max(),1+y.max()), dtype=np.uint)
-    
+
+    # preallocate a "contact map" matrix
+    overlap = np.zeros((1 + x.max(), 1 + y.max()), dtype=np.uint)
+
     # loop over the labels in x and add to the corresponding
     # overlap entry. If label A in x and label B in y share P
     # pixels, then the resulting overlap is P
-    # len(x)=len(y), the number of pixels in the whole image 
+    # len(x)=len(y), the number of pixels in the whole image
     for i in range(len(x)):
-        overlap[x[i],y[i]] += 1
+        overlap[x[i], y[i]] += 1
     return overlap
+
 
 def _intersection_over_union(masks_true, masks_pred):
     """ intersection over union of all mask pairs
@@ -209,6 +213,7 @@ def _intersection_over_union(masks_true, masks_pred):
     iou[np.isnan(iou)] = 0.0
     return iou
 
+
 def _true_positive(iou, th):
     """ true positive at threshold th
     
@@ -232,7 +237,7 @@ def _true_positive(iou, th):
         (2) Define cost matrix; for a given threshold, each element is negative
             the higher the IoU is (perfect IoU is 1, worst is 0). The second term
             gets more negative with higher IoU, but less negative with greater
-            n_min (but that's a constant...)
+            n_min (but that"s a constant...)
         (3) Solve the linear sum assignment problem. The costs array defines the cost
             of matching a true label with a predicted label, so the problem is to 
             find the set of pairings that minimizes this cost. The scipy.optimize
@@ -242,11 +247,12 @@ def _true_positive(iou, th):
 
     """
     n_min = min(iou.shape[0], iou.shape[1])
-    costs = -(iou >= th).astype(float) - iou / (2*n_min)
+    costs = -(iou >= th).astype(float) - iou / (2 * n_min)
     true_ind, pred_ind = linear_sum_assignment(costs)
     match_ok = iou[true_ind, pred_ind] >= th
     tp = match_ok.sum()
     return tp
+
 
 def flow_error(maski, dP_net, device=None):
     """ error in flows from predicted masks vs flows predicted by network run on image
@@ -278,15 +284,16 @@ def flow_error(maski, dP_net, device=None):
     
     """
     if dP_net.shape[1:] != maski.shape:
-        print('ERROR: net flow is not same size as predicted masks')
+        print("ERROR: net flow is not same size as predicted masks")
         return
 
     # flows predicted from estimated masks
     dP_masks = dynamics.masks_to_flows(maski, device=device)
     # difference between predicted flows vs mask flows
-    flow_errors=np.zeros(maski.max())
+    flow_errors = np.zeros(maski.max())
     for i in range(dP_masks.shape[0]):
-        flow_errors += mean((dP_masks[i] - dP_net[i]/5.)**2, maski,
-                            index=np.arange(1, maski.max()+1))
+        flow_errors += mean((dP_masks[i] - dP_net[i] / 5.)**2, maski,
+                            index=np.arange(1,
+                                            maski.max() + 1))
 
     return flow_errors, dP_masks

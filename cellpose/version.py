@@ -3,14 +3,14 @@ Copyright © 2023 Howard Hughes Medical Institute, Authored by Carsen Stringer a
 """
 
 from importlib.metadata import PackageNotFoundError, version
-import sys 
+import sys
 from platform import python_version
-import torch 
+import torch
 
 try:
     version = version("cellpose")
 except PackageNotFoundError:
-    version = 'unknown'
+    version = "unknown"
 
 version_str = f"""
 cellpose version: \t{version} 
