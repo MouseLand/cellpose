@@ -448,15 +448,19 @@ def convert_image(x, channels, channel_axis=None, z_axis=None,
             z_axis = update_axis(z_axis, to_squeeze, x.ndim) if z_axis is not None else z_axis
         x = x.squeeze()
 
+    print(x.shape, z_axis)
+
     # put z axis first
     if z_axis is not None and x.ndim > 2 and z_axis != 0:
         x = move_axis(x, m_axis=z_axis, first=True)
         if channel_axis is not None:
             channel_axis += 1
-    elif z_axis is not None and z_axis == 0:
+        z_axis = 0
+    
+    if z_axis is not None:
         if x.ndim==3:
             x = x[...,np.newaxis]
-        
+
     # put channel axis last
     if channel_axis is not None and x.ndim > 2:
         x = move_axis(x, m_axis=channel_axis, first=False)
