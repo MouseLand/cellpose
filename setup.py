@@ -34,7 +34,10 @@ distributed_deps = [
         'dask',
         'dask_image',
         'scikit-learn',
-]
+        'dask[array]',
+        'dask[delayed]',
+        'ClusterWrap',
+        ]
 
 try:
     import torch
