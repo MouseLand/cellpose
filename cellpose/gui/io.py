@@ -220,7 +220,7 @@ def _initialize_images(parent, image, load_3D=False):
         parent.compute_restore()
     
     if parent.autobtn.isChecked():
-        if parent.restore is None:
+        if parent.restore is None or parent.restore!="filter":
             print('GUI_INFO: normalization checked: computing saturation levels (and optionally filtered image)')
             parent.compute_saturation()
     elif len(parent.saturation) != parent.NZ:
@@ -302,8 +302,8 @@ def _load_seg(parent, filename=None, image=None, image_file=None, load_3D=False)
     if 'img_restore' in dat:
         parent.stack_filtered = dat["img_restore"]
         parent.restore = dat["restore"]
-        parent.ViewDropDown.model().item(3).setEnabled(True)
-        parent.view = 3
+        parent.ViewDropDown.model().item(parent.ViewDropDown.count()-1).setEnabled(True)
+        parent.view = parent.ViewDropDown.count()-1
         if parent.restore and "upsample" in parent.restore:
             print(parent.stack_filtered.shape, image.shape)
             parent.ratio = dat["ratio"]
@@ -371,8 +371,8 @@ def _load_seg(parent, filename=None, image=None, image_file=None, load_3D=False)
         try:
             if parent.flows[0].shape[-3]!=dat['masks'].shape[-2]:
                 Ly, Lx = dat['masks'].shape[-2:]
-                parent.flows[0] = cv2.resize(parent.flows[0].squeeze(), (Lx, Ly), interpolation=cv2.INTER_NEAREST)[np.newaxis,...]
-                parent.flows[1] = cv2.resize(parent.flows[1].squeeze(), (Lx, Ly), interpolation=cv2.INTER_NEAREST)[np.newaxis,...]
+                for i in range(len(parent.flows)):
+                    parent.flows[i] = cv2.resize(parent.flows[i].squeeze(), (Lx, Ly), interpolation=cv2.INTER_NEAREST)[np.newaxis,...]
             if parent.NZ==1:
                 parent.recompute_masks = True
             else:
@@ -503,7 +503,7 @@ def _masks_to_gui(parent, masks, outlines=None, colors=None):
     parent.zdraw = list(-1*np.ones(parent.ncells, np.int16))
     
     if hasattr(parent, "stack_filtered"):
-        parent.ViewDropDown.setCurrentIndex(3)
+        parent.ViewDropDown.setCurrentIndex(parent.ViewDropDown.count()-1)
         print("set denoised/filtered view")
     else:
         parent.ViewDropDown.setCurrentIndex(0)
@@ -564,9 +564,8 @@ def _save_sets(parent):
     filename = parent.filename
     base = os.path.splitext(filename)[0]
     flow_threshold, cellprob_threshold = parent.get_thresholds()
-    if parent.NZ > 1 and parent.is_stack:
-        np.save(base + '_seg.npy',
-                {'outlines': parent.outpix,
+    if parent.NZ > 1:
+        dat =   {'outlines': parent.outpix,
                  'colors': parent.cellcolors[1:],
                  'masks': parent.cellpix,
                  'current_channel': (parent.color-2)%5,
@@ -575,8 +574,15 @@ def _save_sets(parent):
                  'zdraw': parent.zdraw,
                  'model_path': parent.current_model_path if hasattr(parent, 'current_model_path') else 0,
                  'flow_threshold': flow_threshold,
-                 'cellprob_threshold': cellprob_threshold
-                 })
+                 'cellprob_threshold': cellprob_threshold,
+                 'normalize_params': parent.get_normalize_params(),
+                 'restore': parent.restore,
+                 'ratio': parent.ratio,
+                 'diameter': parent.diameter}
+        print(dat["masks"].shape)
+        if parent.restore is not None:
+            dat["img_restore"] = parent.stack_filtered
+        np.save(base + '_seg.npy', dat)
     else:
         dat = {'outlines': parent.outpix.squeeze() if parent.restore is None or not "upsample" in parent.restore else parent.outpix_resize.squeeze(),
                 'colors': parent.cellcolors[1:],
@@ -599,6 +605,6 @@ def _save_sets(parent):
             dat["img_restore"] = parent.stack_filtered
         np.save(base + '_seg.npy',
                 dat)
-        del dat
+    del dat
     #print(parent.point_sets)
     print('GUI_INFO: %d ROIs saved to %s'%(parent.ncells, base + '_seg.npy'))

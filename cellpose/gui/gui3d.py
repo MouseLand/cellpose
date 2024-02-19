@@ -119,6 +119,9 @@ class MainW_3d(MainW):
         # MainW init
         MainW.__init__(self, image=image, logger=logger)
         
+        # add gradZ view
+        self.ViewDropDown.insertItem(3, "gradZ")
+
         # turn off single stroke
         self.SCheckBox.setChecked(False)
 
@@ -504,6 +507,8 @@ class MainW_3d(MainW):
                             self.scroll.setValue(self.currentZ)
                             updated = True
                 else:
+                    nviews = self.ViewDropDown.count() - 1 
+                    nviews += int(self.ViewDropDown.model().item(self.ViewDropDown.count()-1).isEnabled())
                     if event.key() == QtCore.Qt.Key_X:
                         self.MCheckBox.toggle()
                     if event.key() == QtCore.Qt.Key_Z:
@@ -517,10 +522,10 @@ class MainW_3d(MainW):
                         self.scroll.setValue(self.currentZ)
                         updated = True
                     elif event.key() == QtCore.Qt.Key_PageDown:
-                        self.view = (self.view+1)%(5)
+                        self.view = (self.view+1)%(nviews)
                         self.ViewDropDown.setCurrentIndex(self.view)
                     elif event.key() == QtCore.Qt.Key_PageUp:
-                        self.view = (self.view-1)%(5)
+                        self.view = (self.view-1)%(nviews)
                         self.ViewDropDown.setCurrentIndex(self.view)
 
                 # can change background or stroke size if cell not finished
