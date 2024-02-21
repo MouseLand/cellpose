@@ -643,8 +643,7 @@ class DenoiseModel():
                 f">>>> model diam_mean = {self.diam_mean: .3f} (ROIs rescaled to this size during training)"
             )
             if chan2 and builtin:
-                chan2_path = "".join(str(
-                    self.pretrained_model).split("_")[:-1]) + "_nuclei"
+                chan2_path = model_path(self.pretrained_model.stem.split("_")[:-1] + "_nuclei")
                 print(f"loading model for chan2: {os.path.split(str(chan2_path)[-1])}")
                 self.net_chan2 = CPnet(self.nbase, self.nclasses, sz=3,
                                        mkldnn=self.mkldnn, max_pool=True,

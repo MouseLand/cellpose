@@ -5,7 +5,7 @@ def test_cellpose_imports_without_error():
 
 
 def test_model_zoo_imports_without_error():
-    from cellpose import models
+    from cellpose import models, denoise
     for model_name in models.MODEL_NAMES:
         model = models.CellposeModel(model_type=model_name)
 
