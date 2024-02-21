@@ -514,7 +514,7 @@ def convert_image(x, channels, channel_axis=None, z_axis=None, do_3D=False, ncha
 
     else:
         # code above put channels last
-        if x.shape[-1] > nchan:
+        if nchan is not None and x.shape[-1] > nchan:
             transforms_logger.warning(
                 "WARNING: more than %d channels given, use 'channels' input for specifying channels - just using first %d channels to run processing"
                 % (nchan, nchan))
@@ -524,7 +524,7 @@ def convert_image(x, channels, channel_axis=None, z_axis=None, do_3D=False, ncha
             transforms_logger.critical("ERROR: cannot process 4D images in 2D mode")
             raise ValueError("ERROR: cannot process 4D images in 2D mode")
 
-        if x.shape[-1] < nchan:
+        if nchan is not None and x.shape[-1] < nchan:
             x = np.concatenate((x, np.tile(np.zeros_like(x), (1, 1, nchan - 1))),
                                axis=-1)
 

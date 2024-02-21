@@ -60,7 +60,7 @@ def _get_batch(inds, data=None, labels=None, files=None, labels_files=None,
         if channels is not None:
             imgs = [
                 transforms.convert_image(img, channels=channels,
-                                         channel_axis=channel_axis) for img in imgs
+                                         channel_axis=channel_axis, nchan=None) for img in imgs
             ]
             imgs = [img.transpose(2, 0, 1) for img in imgs]
         if normalize_params["normalize"]:
@@ -89,9 +89,9 @@ def _reshape_norm(data, channels=None, channel_axis=None,
     Returns:
         list: List of reshaped and normalized data.
     """
-    if channels is not None:
+    if channels is not None or channel_axis is not None:
         data = [
-            transforms.convert_image(td, channels=channels, channel_axis=channel_axis)
+            transforms.convert_image(td, channels=channels, channel_axis=channel_axis, nchan=None)
             for td in data
         ]
         data = [td.transpose(2, 0, 1) for td in data]
@@ -111,7 +111,7 @@ def _reshape_norm_save(files, channels=None, channel_axis=None,
         td = io.imread(f)
         if channels is not None:
             td = transforms.convert_image(td, channels=channels,
-                                          channel_axis=channel_axis)
+                                          channel_axis=channel_axis, nchan=None)
             td = td.transpose(2, 0, 1)
         if normalize_params["normalize"]:
             td = transforms.normalize_img(td, normalize=normalize_params, axis=0)
@@ -336,7 +336,6 @@ def train_seg(net, train_data=None, train_labels=None, train_files=None,
     Returns:
         Path: path to saved model weights
     """
-
     device = net.device
 
     scale_range = 0.5 if rescale else 1.0

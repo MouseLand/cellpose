@@ -283,9 +283,8 @@ class CellposeModel():
         self.nchan = nchan
         self.nclasses = 3
         nbase = [32, 64, 128, 256]
-        self.nchan = nchan
         self.nbase = [nchan, *nbase]
-
+        
         self.net = CPnet(self.nbase, self.nclasses, sz=3, mkldnn=self.mkldnn,
                          max_pool=True, diam_mean=diam_mean).to(self.device)
 
