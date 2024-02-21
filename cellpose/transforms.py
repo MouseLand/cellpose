@@ -520,9 +520,9 @@ def convert_image(x, channels, channel_axis=None, z_axis=None, do_3D=False, ncha
                 % (nchan, nchan))
             x = x[..., :nchan]
 
-        if not do_3D and x.ndim > 3:
-            transforms_logger.critical("ERROR: cannot process 4D images in 2D mode")
-            raise ValueError("ERROR: cannot process 4D images in 2D mode")
+        #if not do_3D and x.ndim > 3:
+        #    transforms_logger.critical("ERROR: cannot process 4D images in 2D mode")
+        #    raise ValueError("ERROR: cannot process 4D images in 2D mode")
 
         if nchan is not None and x.shape[-1] < nchan:
             x = np.concatenate((x, np.tile(np.zeros_like(x), (1, 1, nchan - 1))),

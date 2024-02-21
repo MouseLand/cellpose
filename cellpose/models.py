@@ -155,6 +155,7 @@ class Cellpose():
 
         tic0 = time.time()
         channels = [0, 0] if channels is None else channels
+        models_logger.warning("channels not specified, using [0,0] (grayscale + no nuclei)")
 
         diam0 = diameter[0] if isinstance(diameter, (np.ndarray, list)) else diameter
         estimate_size = True if (diameter is None or diam0 == 0) else False
@@ -539,6 +540,9 @@ class CellposeModel():
                     masks = utils.stitch3D(masks, stitch_threshold=stitch_threshold)
                     masks = utils.fill_holes_and_remove_small_masks(
                         masks, min_size=min_size)
+                elif nimg > 1:
+                    models_logger.warning("3D stack used, but stitch_threshold=0 and do_3D=False, so masks are made per plane only")
+
 
             flow_time = time.time() - tic
             if nimg > 1:
