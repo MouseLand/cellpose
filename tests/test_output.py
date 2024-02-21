@@ -27,7 +27,6 @@ def clear_output(data_dir, image_names):
         if os.path.exists(output):
             os.remove(output)
 
-
 def test_class_2D(data_dir, image_names):
     clear_output(data_dir, image_names)
     image_name = "rgb_2D.png"

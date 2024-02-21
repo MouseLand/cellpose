@@ -101,24 +101,20 @@ def download_url_to_file(url, dst, progress=True):
 
 
 def distance_to_boundary(masks):
-    """ get distance to boundary of mask pixels
-    
-    Parameters
-    ----------------
+    """Get the distance to the boundary of mask pixels.
 
-    masks: int, 2D or 3D array 
-        size [Ly x Lx] or [Lz x Ly x Lx], 0=NO masks; 1,2,...=mask labels
+    Args:
+        masks (int, 2D or 3D array): The masks array. Size [Ly x Lx] or [Lz x Ly x Lx], where 0 represents no mask and 1, 2, ... represent mask labels.
 
-    Returns
-    ----------------
+    Returns:
+        dist_to_bound (2D or 3D array): The distance to the boundary. Size [Ly x Lx] or [Lz x Ly x Lx].
 
-    dist_to_bound: 2D or 3D array 
-        size [Ly x Lx] or [Lz x Ly x Lx]
+    Raises:
+        ValueError: If the masks array is not 2D or 3D.
 
     """
     if masks.ndim > 3 or masks.ndim < 2:
-        raise ValueError("distance_to_boundary takes 2D or 3D array, not %dD array" %
-                         masks.ndim)
+        raise ValueError("distance_to_boundary takes 2D or 3D array, not %dD array" % masks.ndim)
     dist_to_bound = np.zeros(masks.shape, np.float64)
 
     if masks.ndim == 3:
@@ -131,31 +127,23 @@ def distance_to_boundary(masks):
             if si is not None:
                 sr, sc = si
                 mask = (masks[sr, sc] == (i + 1)).astype(np.uint8)
-                contours = cv2.findContours(mask, cv2.RETR_EXTERNAL,
-                                            cv2.CHAIN_APPROX_NONE)
+                contours = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
                 pvc, pvr = np.concatenate(contours[-2], axis=0).squeeze().T
                 ypix, xpix = np.nonzero(mask)
-                min_dist = ((ypix[:, np.newaxis] - pvr)**2 +
-                            (xpix[:, np.newaxis] - pvc)**2).min(axis=1)
+                min_dist = ((ypix[:, np.newaxis] - pvr)**2 + (xpix[:, np.newaxis] - pvc)**2).min(axis=1)
                 dist_to_bound[ypix + sr.start, xpix + sc.start] = min_dist
         return dist_to_bound
 
 
 def masks_to_edges(masks, threshold=1.0):
-    """ get edges of masks as a 0-1 array 
-    
-    Parameters
-    ----------------
+    """Get edges of masks as a 0-1 array.
 
-    masks: int, 2D or 3D array 
-        size [Ly x Lx] or [Lz x Ly x Lx], 0=NO masks; 1,2,...=mask labels
+    Args:
+        masks (int, 2D or 3D array): Size [Ly x Lx] or [Lz x Ly x Lx], where 0=NO masks and 1,2,...=mask labels.
+        threshold (float, optional): Threshold value for distance to boundary. Defaults to 1.0.
 
-    Returns
-    ----------------
-
-    edges: 2D or 3D array 
-        size [Ly x Lx] or [Lz x Ly x Lx], True pixels are edge pixels
-
+    Returns:
+        edges (2D or 3D array): Size [Ly x Lx] or [Lz x Ly x Lx], where True pixels are edge pixels.
     """
     dist_to_bound = distance_to_boundary(masks)
     edges = (dist_to_bound < threshold) * (masks > 0)
@@ -163,23 +151,14 @@ def masks_to_edges(masks, threshold=1.0):
 
 
 def remove_edge_masks(masks, change_index=True):
-    """ remove masks with pixels on edge of image
-    
-    Parameters
-    ----------------
+    """Removes masks with pixels on the edge of the image.
 
-    masks: int, 2D or 3D array 
-        size [Ly x Lx] or [Lz x Ly x Lx], 0=NO masks; 1,2,...=mask labels
+    Args:
+        masks (int, 2D or 3D array): The masks to be processed. Size [Ly x Lx] or [Lz x Ly x Lx], where 0 represents no mask and 1, 2, ... represent mask labels.
+        change_index (bool, optional): If True, after removing masks, changes the indexing so that there are no missing label numbers. Defaults to True.
 
-    change_index: bool (optional, default True)
-        if True, after removing masks change indexing so no missing label numbers
-
-    Returns
-    ----------------
-
-    outlines: 2D or 3D array 
-        size [Ly x Lx] or [Lz x Ly x Lx], 0=NO masks; 1,2,...=mask labels
-
+    Returns:
+        outlines (2D or 3D array): The processed masks. Size [Ly x Lx] or [Lz x Ly x Lx], where 0 represents no mask and 1, 2, ... represent mask labels.
     """
     slices = find_objects(masks.astype(int))
     for i, si in enumerate(slices):
@@ -200,24 +179,16 @@ def remove_edge_masks(masks, change_index=True):
 
 
 def masks_to_outlines(masks):
-    """ get outlines of masks as a 0-1 array 
-    
-    Parameters
-    ----------------
+    """Get outlines of masks as a 0-1 array.
 
-    masks: int, 2D or 3D array 
-        size [Ly x Lx] or [Lz x Ly x Lx], 0=NO masks; 1,2,...=mask labels
+    Args:
+        masks (int, 2D or 3D array): Size [Ly x Lx] or [Lz x Ly x Lx], where 0=NO masks and 1,2,...=mask labels.
 
-    Returns
-    ----------------
-
-    outlines: 2D or 3D array 
-        size [Ly x Lx] or [Lz x Ly x Lx], True pixels are outlines
-
+    Returns:
+        outlines (2D or 3D array): Size [Ly x Lx] or [Lz x Ly x Lx], where True pixels are outlines.
     """
     if masks.ndim > 3 or masks.ndim < 2:
-        raise ValueError("masks_to_outlines takes 2D or 3D array, not %dD array" %
-                         masks.ndim)
+        raise ValueError("masks_to_outlines takes 2D or 3D array, not %dD array" % masks.ndim)
     outlines = np.zeros(masks.shape, bool)
 
     if masks.ndim == 3:
@@ -230,8 +201,7 @@ def masks_to_outlines(masks):
             if si is not None:
                 sr, sc = si
                 mask = (masks[sr, sc] == (i + 1)).astype(np.uint8)
-                contours = cv2.findContours(mask, cv2.RETR_EXTERNAL,
-                                            cv2.CHAIN_APPROX_NONE)
+                contours = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
                 pvc, pvr = np.concatenate(contours[-2], axis=0).squeeze().T
                 vr, vc = pvr + sr.start, pvc + sc.start
                 outlines[vr, vc] = 1
@@ -239,11 +209,23 @@ def masks_to_outlines(masks):
 
 
 def outlines_list(masks, multiprocessing_threshold=1000, multiprocessing=None):
-    """ get outlines of masks as a list to loop over for plotting
-    This function is a wrapper for outlines_list_single and outlines_list_multi
+    """Get outlines of masks as a list to loop over for plotting.
 
-    Multiprocessing is disabled for Windows"""
+    Args:
+        masks (ndarray): Array of masks.
+        multiprocessing_threshold (int, optional): Threshold for enabling multiprocessing. Defaults to 1000.
+        multiprocessing (bool, optional): Flag to enable multiprocessing. Defaults to None.
 
+    Returns:
+        list: List of outlines.
+
+    Raises:
+        None
+
+    Notes:
+        - This function is a wrapper for outlines_list_single and outlines_list_multi.
+        - Multiprocessing is disabled for Windows.
+    """
     # default to use multiprocessing if few_masks, but allow user to override
     if multiprocessing is None:
         few_masks = np.max(masks) < multiprocessing_threshold
@@ -263,7 +245,15 @@ def outlines_list(masks, multiprocessing_threshold=1000, multiprocessing=None):
 
 
 def outlines_list_single(masks):
-    """ get outlines of masks as a list to loop over for plotting """
+    """Get outlines of masks as a list to loop over for plotting.
+
+    Args:
+        masks (ndarray): masks (0=no cells, 1=first cell, 2=second cell,...)
+
+    Returns:
+        list: List of outlines as pixel coordinates.
+
+    """
     outpix = []
     for n in np.unique(masks)[1:]:
         mn = masks == n
@@ -280,8 +270,55 @@ def outlines_list_single(masks):
     return outpix
 
 
+def outlines_list_multi(masks, num_processes=None):
+    """
+    Get outlines of masks as a list to loop over for plotting.
+
+    Args:
+        masks (ndarray): masks (0=no cells, 1=first cell, 2=second cell,...)
+
+    Returns:
+        list: List of outlines as pixel coordinates.
+    """
+    if num_processes is None:
+        num_processes = cpu_count()
+
+    unique_masks = np.unique(masks)[1:]
+    with Pool(processes=num_processes) as pool:
+        outpix = pool.map(get_outline_multi, [(masks, n) for n in unique_masks])
+    return outpix
+
+def get_outline_multi(args):
+    """Get the outline of a specific mask in a multi-mask image.
+
+    Args:
+        args (tuple): A tuple containing the masks and the mask number.
+
+    Returns:
+        numpy.ndarray: The outline of the specified mask as an array of coordinates.
+
+    """
+    masks, n = args
+    mn = masks == n
+    if mn.sum() > 0:
+        contours = cv2.findContours(mn.astype(np.uint8), mode=cv2.RETR_EXTERNAL,
+                                    method=cv2.CHAIN_APPROX_NONE)
+        contours = contours[-2]
+        cmax = np.argmax([c.shape[0] for c in contours])
+        pix = contours[cmax].astype(int).squeeze()
+        return pix if len(pix) > 4 else np.zeros((0, 2))
+    return np.zeros((0, 2))
+
 def dilate_masks(masks, n_iter=5):
-    """ dilate masks by n_iter pixels """
+    """Dilate masks by n_iter pixels.
+
+    Args:
+        masks (ndarray): Array of masks.
+        n_iter (int, optional): Number of pixels to dilate the masks. Defaults to 5.
+
+    Returns:
+        ndarray: Dilated masks.
+    """
     dilated_masks = masks.copy()
     for n in range(n_iter):
         # define the structuring element to use for dilation
@@ -298,33 +335,17 @@ def dilate_masks(masks, n_iter=5):
             dilated_masks[dilated_mask > 0] = i
     return dilated_masks
 
-
-def outlines_list_multi(masks, num_processes=None):
-    """ get outlines of masks as a list to loop over for plotting """
-    if num_processes is None:
-        num_processes = cpu_count()
-
-    unique_masks = np.unique(masks)[1:]
-    with Pool(processes=num_processes) as pool:
-        outpix = pool.map(get_outline_multi, [(masks, n) for n in unique_masks])
-    return outpix
-
-
-def get_outline_multi(args):
-    masks, n = args
-    mn = masks == n
-    if mn.sum() > 0:
-        contours = cv2.findContours(mn.astype(np.uint8), mode=cv2.RETR_EXTERNAL,
-                                    method=cv2.CHAIN_APPROX_NONE)
-        contours = contours[-2]
-        cmax = np.argmax([c.shape[0] for c in contours])
-        pix = contours[cmax].astype(int).squeeze()
-        return pix if len(pix) > 4 else np.zeros((0, 2))
-    return np.zeros((0, 2))
-
-
 def get_perimeter(points):
-    """ perimeter of points - npoints x ndim """
+    """
+    Calculate the perimeter of a set of points.
+
+    Parameters:
+        points (ndarray): An array of points with shape (npoints, ndim).
+
+    Returns:
+        float: The perimeter of the points.
+
+    """
     if points.shape[0] > 4:
         points = np.append(points, points[:1], axis=0)
         return ((np.diff(points, axis=0)**2).sum(axis=1)**0.5).sum()
@@ -333,9 +354,16 @@ def get_perimeter(points):
 
 
 def get_mask_compactness(masks):
+    """
+    Calculate the compactness of masks.
+    
+    Parameters:
+        masks (ndarray): Binary masks representing objects.
+        
+    Returns:
+        ndarray: Array of compactness values for each mask.
+    """
     perimeters = get_mask_perimeters(masks)
-    #outlines = masks_to_outlines(masks)
-    #perimeters = np.unique(outlines*masks, return_counts=True)[1][1:]
     npoints = np.unique(masks, return_counts=True)[1][1:]
     areas = npoints
     compactness = 4 * np.pi * areas / perimeters**2
@@ -345,15 +373,21 @@ def get_mask_compactness(masks):
 
 
 def get_mask_perimeters(masks):
-    """ get perimeters of masks """
+    """
+    Calculate the perimeters of the given masks.
+
+    Parameters:
+        masks (numpy.ndarray): Binary masks representing objects.
+
+    Returns:
+        numpy.ndarray: Array containing the perimeters of each mask.
+    """
     perimeters = np.zeros(masks.max())
     for n in range(masks.max()):
         mn = masks == (n + 1)
         if mn.sum() > 0:
             contours = cv2.findContours(mn.astype(np.uint8), mode=cv2.RETR_EXTERNAL,
                                         method=cv2.CHAIN_APPROX_NONE)[-2]
-            #cmax = np.argmax([c.shape[0] for c in contours])
-            #perimeters[n] = get_perimeter(contours[cmax].astype(int).squeeze())
             perimeters[n] = np.array(
                 [get_perimeter(c.astype(int).squeeze()) for c in contours]).sum()
 
@@ -361,12 +395,17 @@ def get_mask_perimeters(masks):
 
 
 def circleMask(d0):
-    """ creates array with indices which are the radius of that x,y point
-        inputs:
-            d0 (patch of (-d0,d0+1) over which radius computed
-        outputs:
-            rs: array (2*d0+1,2*d0+1) of radii
-            dx,dy: indices of patch
+    """
+    Creates an array with indices which are the radius of that x,y point.
+
+    Args:
+        d0 (tuple): Patch of (-d0, d0+1) over which radius is computed.
+
+    Returns:
+        tuple: A tuple containing:
+            - rs (ndarray): Array of radii with shape (2*d0[0]+1, 2*d0[1]+1).
+            - dx (ndarray): Indices of the patch along the x-axis.
+            - dy (ndarray): Indices of the patch along the y-axis.
     """
     dx = np.tile(np.arange(-d0[1], d0[1] + 1), (2 * d0[0] + 1, 1))
     dy = np.tile(np.arange(-d0[0], d0[0] + 1), (2 * d0[1] + 1, 1))
@@ -377,6 +416,17 @@ def circleMask(d0):
 
 
 def get_mask_stats(masks_true):
+    """
+    Calculate various statistics for the given binary masks.
+
+    Parameters:
+        masks_true (ndarray): masks (0=no cells, 1=first cell, 2=second cell,...)
+
+    Returns:
+        convexity (ndarray): Convexity values for each mask.
+        solidity (ndarray): Solidity values for each mask.
+        compactness (ndarray): Compactness values for each mask.
+    """
     mask_perimeters = get_mask_perimeters(masks_true)
 
     # disk for compactness
@@ -417,7 +467,17 @@ def get_mask_stats(masks_true):
 
 
 def get_masks_unet(output, cell_threshold=0, boundary_threshold=0):
-    """ create masks using cell probability and cell boundary """
+    """Create masks using cell probability and cell boundary.
+
+    Args:
+        output (ndarray): The output array containing cell probability and cell boundary.
+        cell_threshold (float, optional): The threshold value for cell probability. Defaults to 0.
+        boundary_threshold (float, optional): The threshold value for cell boundary. Defaults to 0.
+
+    Returns:
+        ndarray: The masks representing the segmented cells.
+
+    """
     cells = (output[..., 1] - output[..., 0]) > cell_threshold
     selem = generate_binary_structure(cells.ndim, connectivity=1)
     labels, nlabels = label(cells, selem)
@@ -448,7 +508,16 @@ def get_masks_unet(output, cell_threshold=0, boundary_threshold=0):
 
 
 def stitch3D(masks, stitch_threshold=0.25):
-    """ stitch 2D masks into 3D volume with stitch_threshold on IOU """
+    """
+    Stitch 2D masks into a 3D volume using a stitch_threshold on IOU.
+
+    Args:
+        masks (list or ndarray): List of 2D masks.
+        stitch_threshold (float, optional): Threshold value for stitching. Defaults to 0.25.
+
+    Returns:
+        list: List of stitched 3D masks.
+    """
     mmax = masks[0].max()
     empty = 0
 
@@ -478,7 +547,20 @@ def stitch3D(masks, stitch_threshold=0.25):
 
 
 def diameters(masks):
-    #_, counts = np.unique(np.int32(masks), return_counts=True)
+    """
+    Calculate the diameters of the objects in the given masks.
+
+    Parameters:
+    masks (ndarray): masks (0=no cells, 1=first cell, 2=second cell,...)
+
+    Returns:
+    tuple: A tuple containing the median diameter and an array of diameters for each object.
+
+    Examples:
+    >>> masks = np.array([[0, 1, 1], [1, 0, 0], [1, 1, 0]])
+    >>> diameters(masks)
+    (1.0, array([1.41421356, 1.0, 1.0]))
+    """
     uniq, counts = fastremap.unique(masks.astype("int32"), return_counts=True)
     counts = counts[1:]
     md = np.median(counts**0.5)
@@ -489,6 +571,20 @@ def diameters(masks):
 
 
 def radius_distribution(masks, bins):
+    """
+    Calculate the radius distribution of masks.
+
+    Args:
+        masks (ndarray): masks (0=no cells, 1=first cell, 2=second cell,...)
+        bins (int): Number of bins for the histogram.
+
+    Returns:
+        tuple: A tuple containing:
+            - nb (ndarray): Normalized histogram of radii.
+            - md (float): Median radius.
+            - radii (ndarray): Array of radii.
+
+    """
     unique, counts = np.unique(masks, return_counts=True)
     counts = counts[unique != 0]
     nb, _ = np.histogram((counts**0.5) * 0.5, bins)
@@ -503,43 +599,36 @@ def radius_distribution(masks, bins):
 
 
 def size_distribution(masks):
+    """
+    Calculates the size distribution of masks.
+
+    Args:
+        masks (ndarray): masks (0=no cells, 1=first cell, 2=second cell,...)
+
+    Returns:
+        float: The ratio of the 25th percentile of mask sizes to the 75th percentile of mask sizes.
+    """
     counts = np.unique(masks, return_counts=True)[1][1:]
     return np.percentile(counts, 25) / np.percentile(counts, 75)
 
-
-def process_cells(M0, npix=20):
-    unq, ic = np.unique(M0, return_counts=True)
-    for j in range(len(unq)):
-        if ic[j] < npix:
-            M0[M0 == unq[j]] = 0
-    return M0
-
-
 def fill_holes_and_remove_small_masks(masks, min_size=15):
-    """ fill holes in masks (2D/3D) and discard masks smaller than min_size (2D)
-    
-    fill holes in each mask using scipy.ndimage.morphology.binary_fill_holes
+    """ Fills holes in masks (2D/3D) and discards masks smaller than min_size.
 
-    (might have issues at borders between cells, todo: check and fix)
-    
-    Parameters
-    ----------------
+    This function fills holes in each mask using scipy.ndimage.morphology.binary_fill_holes.
+    It also removes masks that are smaller than the specified min_size.
 
-    masks: int, 2D or 3D array
-        labelled masks, 0=NO masks; 1,2,...=mask labels,
-        size [Ly x Lx] or [Lz x Ly x Lx]
+    Parameters:
+    masks (ndarray): Int, 2D or 3D array of labelled masks.
+        0 represents no mask, while positive integers represent mask labels.
+        The size can be [Ly x Lx] or [Lz x Ly x Lx].
+    min_size (int, optional): Minimum number of pixels per mask.
+        Masks smaller than min_size will be removed.
+        Set to -1 to turn off this functionality. Default is 15.
 
-    min_size: int (optional, default 15)
-        minimum number of pixels per mask, can turn off with -1
-
-    Returns
-    ---------------
-
-    masks: int, 2D or 3D array
-        masks with holes filled and masks smaller than min_size removed, 
-        0=NO masks; 1,2,...=mask labels,
-        size [Ly x Lx] or [Lz x Ly x Lx]
-    
+    Returns:
+    ndarray: Int, 2D or 3D array of masks with holes filled and small masks removed.
+        0 represents no mask, while positive integers represent mask labels.
+        The size is [Ly x Lx] or [Lz x Ly x Lx].
     """
 
     if masks.ndim > 3 or masks.ndim < 2:

@@ -15,7 +15,18 @@ train_logger = logging.getLogger(__name__)
 
 
 def _loss_fn_seg(lbl, y, device):
-    """ loss function between true labels lbl and prediction y """
+    """
+    Calculates the loss function between true labels lbl and prediction y.
+
+    Args:
+        lbl (numpy.ndarray): True labels (cellprob, flowsY, flowsX).
+        y (torch.Tensor): Predicted values (flowsY, flowsX, cellprob).
+        device (torch.device): Device on which the tensors are located.
+
+    Returns:
+        torch.Tensor: Loss value.
+
+    """
     criterion = nn.MSELoss(reduction="mean")
     criterion2 = nn.BCEWithLogitsLoss(reduction="mean")
     veci = 5. * torch.from_numpy(lbl[:, 1:]).to(device)
@@ -28,6 +39,22 @@ def _loss_fn_seg(lbl, y, device):
 
 def _get_batch(inds, data=None, labels=None, files=None, labels_files=None,
                channels=None, channel_axis=None, normalize_params={"normalize": False}):
+    """
+    Get a batch of images and labels.
+
+    Args:
+        inds (list): List of indices indicating which images and labels to retrieve.
+        data (list or None): List of image data. If None, images will be loaded from files.
+        labels (list or None): List of label data. If None, labels will be loaded from files.
+        files (list or None): List of file paths for images.
+        labels_files (list or None): List of file paths for labels.
+        channels (list or None): List of channel indices to extract from images.
+        channel_axis (int or None): Axis along which the channels are located.
+        normalize_params (dict): Dictionary of parameters for image normalization (will be faster, if loading from files to pre-normalize).
+
+    Returns:
+        tuple: A tuple containing two lists: the batch of images and the batch of labels.
+    """
     if data is None:
         imgs = [io.imread(files[i]) for i in inds]
         if channels is not None:
@@ -50,6 +77,18 @@ def _get_batch(inds, data=None, labels=None, files=None, labels_files=None,
 
 def _reshape_norm(data, channels=None, channel_axis=None,
                   normalize_params={"normalize": False}):
+    """
+    Reshapes and normalizes the input data.
+
+    Args:
+        data (list): List of input data.
+        channels (int or list, optional): Number of channels or list of channel indices to keep. Defaults to None.
+        channel_axis (int, optional): Axis along which the channels are located. Defaults to None.
+        normalize_params (dict, optional): Dictionary of normalization parameters. Defaults to {"normalize": False}.
+
+    Returns:
+        list: List of reshaped and normalized data.
+    """
     if channels is not None:
         data = [
             transforms.convert_image(td, channels=channels, channel_axis=channel_axis)
@@ -95,7 +134,31 @@ def _process_train_test(train_data=None, train_labels=None, train_files=None,
                         compute_flows=False, channels=None, channel_axis=None,
                         normalize_params={"normalize": False
                                          }, device=torch.device("cuda")):
+    """
+    Process train and test data.
 
+    Args:
+        train_data (list or None): List of training data arrays.
+        train_labels (list or None): List of training label arrays.
+        train_files (list or None): List of training file paths.
+        train_labels_files (list or None): List of training label file paths.
+        train_probs (ndarray or None): Array of training probabilities.
+        test_data (list or None): List of test data arrays.
+        test_labels (list or None): List of test label arrays.
+        test_files (list or None): List of test file paths.
+        test_labels_files (list or None): List of test label file paths.
+        test_probs (ndarray or None): Array of test probabilities.
+        load_files (bool): Whether to load data from files.
+        min_train_masks (int): Minimum number of masks required for training images.
+        compute_flows (bool): Whether to compute flows.
+        channels (list or None): List of channel indices to use.
+        channel_axis (int or None): Axis of channel dimension.
+        normalize_params (dict): Dictionary of normalization parameters.
+        device (torch.device): Device to use for computation.
+
+    Returns:
+        tuple: A tuple containing the processed train and test data and sampling probabilities and diameters.
+    """
     if train_data is not None and train_labels is not None:
         # if data is loaded
         nimg = len(train_data)
@@ -236,77 +299,42 @@ def train_seg(net, train_data=None, train_labels=None, train_files=None,
               channel_axis=None, normalize=True, compute_flows=False, save_path=None,
               save_every=100, nimg_per_epoch=None, nimg_test_per_epoch=None,
               rescale=True, min_train_masks=5, model_name=None):
-    """ train net with images train_data 
-    
-        Parameters
-        ------------------
+    """
+    Train the network with images for segmentation.
 
-        train_data: list of arrays (2D or 3D)
-            images for training
+    Args:
+        net (object): The network model to train.
+        train_data (List[np.ndarray], optional): List of arrays (2D or 3D) - images for training. Defaults to None.
+        train_labels (List[np.ndarray], optional): List of arrays (2D or 3D) - labels for train_data, where 0=no masks; 1,2,...=mask labels. Defaults to None.
+        train_files (List[str], optional): List of strings - file names for images in train_data (to save flows for future runs). Defaults to None.
+        train_labels_files (List[str], optional): List of strings - file names for labels in train_labels. Defaults to None.
+        train_probs (List[float], optional): List of floats - probabilities for each image to be selected during training. Defaults to None.
+        test_data (List[np.ndarray], optional): List of arrays (2D or 3D) - images for testing. Defaults to None.
+        test_labels (List[np.ndarray], optional): List of arrays (2D or 3D) - labels for test_data, where 0=no masks; 1,2,...=mask labels. Defaults to None.
+        test_files (List[str], optional): List of strings - file names for images in test_data (to save flows for future runs). Defaults to None.
+        test_labels_files (List[str], optional): List of strings - file names for labels in test_labels. Defaults to None.
+        test_probs (List[float], optional): List of floats - probabilities for each image to be selected during testing. Defaults to None.
+        load_files (bool, optional): Boolean - whether to load images and labels from files. Defaults to True.
+        batch_size (int, optional): Integer - number of patches to run simultaneously on the GPU. Defaults to 8.
+        learning_rate (float or List[float], optional): Float or list/np.ndarray - learning rate for training. Defaults to 0.005.
+        n_epochs (int, optional): Integer - number of times to go through the whole training set during training. Defaults to 2000.
+        weight_decay (float, optional): Float - weight decay for the optimizer. Defaults to 1e-5.
+        momentum (float, optional): Float - momentum for the optimizer. Defaults to 0.9.
+        SGD (bool, optional): Boolean - whether to use SGD as optimization instead of RAdam. Defaults to False.
+        channels (List[int], optional): List of ints - channels to use for training. Defaults to None.
+        channel_axis (int, optional): Integer - axis of the channel dimension in the input data. Defaults to None.
+        normalize (bool or dict, optional): Boolean or dictionary - whether to normalize the data. Defaults to True.
+        compute_flows (bool, optional): Boolean - whether to compute flows during training. Defaults to False.
+        save_path (str, optional): String - where to save the trained model. Defaults to None.
+        save_every (int, optional): Integer - save the network every [save_every] epochs. Defaults to 100.
+        nimg_per_epoch (int, optional): Integer - minimum number of images to train on per epoch. Defaults to None.
+        nimg_test_per_epoch (int, optional): Integer - minimum number of images to test on per epoch. Defaults to None.
+        rescale (bool, optional): Boolean - whether or not to rescale images during training. Defaults to True.
+        min_train_masks (int, optional): Integer - minimum number of masks an image must have to use in the training set. Defaults to 5.
+        model_name (str, optional): String - name of the network. Defaults to None.
 
-        train_labels: list of arrays (2D or 3D)
-            labels for train_data, where 0=no masks; 1,2,...=mask labels
-            can include flows as additional images
-
-        train_files: list of strings
-            file names for images in train_data (to save flows for future runs)
-
-        test_data: list of arrays (2D or 3D)
-            images for testing
-
-        test_labels: list of arrays (2D or 3D)
-            labels for test_data, where 0=no masks; 1,2,...=mask labels; 
-            can include flows as additional images
-    
-        test_files: list of strings
-            file names for images in test_data (to save flows for future runs)
-
-        channels: list of ints (default, None)
-            channels to use for training
-
-        normalize: bool or dictionary (default, True)
-            normalize data so 0.0=1st percentile and 1.0=99th percentile of image intensities in each channel
-
-        save_path: string (default, None)
-            where to save trained model, if None it is not saved
-
-        save_every: int (default, 100)
-            save network every [save_every] epochs
-
-        learning_rate: float or list/np.ndarray (default, 0.2)
-            learning rate for training, if list, must be same length as n_epochs
-
-        n_epochs: int (default, 500)
-            how many times to go through whole training set during training
-
-        weight_decay: float (default, 0.00001)
-
-        SGD: bool (default, True) 
-            use SGD as optimization instead of RAdam
-
-        batch_size: int (optional, default 8)
-            number of 224x224 patches to run simultaneously on the GPU
-            (can make smaller or bigger depending on GPU memory usage)
-
-        nimg_per_epoch: int (optional, default None)
-            minimum number of images to train on per epoch, 
-            with a small training set (< 8 images) it may help to set to 8
-
-        rescale: bool (default, True)
-            whether or not to rescale images to diam_mean during training, 
-            if True it assumes you will fit a size model after training or resize your images accordingly,
-            if False it will try to train the model to be scale-invariant (works worse)
-
-        diameter: int (default, None)
-            if not None, fixed diameter that is used to rescale all images 
-            - resize factor is diam_mean / diameter
-
-        min_train_masks: int (default, 5)
-            minimum number of masks an image must have to use in training set
-
-        model_name: str (default, None)
-            name of network, otherwise saved with name as params + training start time
-
+    Returns:
+        Path: path to saved model weights
     """
 
     device = net.device
@@ -451,7 +479,6 @@ def train_seg(net, train_data=None, train_labels=None, train_files=None,
 
     return model_path
 
-
 def train_size(net, pretrained_model, train_data=None, train_labels=None,
                train_files=None, train_labels_files=None, train_probs=None,
                test_data=None, test_labels=None, test_files=None,
@@ -459,7 +486,35 @@ def train_size(net, pretrained_model, train_data=None, train_labels=None,
                min_train_masks=5, channels=None, channel_axis=None, normalize=True,
                nimg_per_epoch=None, nimg_test_per_epoch=None, batch_size=128,
                l2_regularization=1.0, n_epochs=10):
-    """ train size model """
+    """Train the size model.
+
+    Args:
+        net (object): The neural network model.
+        pretrained_model (str): The path to the pretrained model.
+        train_data (numpy.ndarray, optional): The training data. Defaults to None.
+        train_labels (numpy.ndarray, optional): The training labels. Defaults to None.
+        train_files (list, optional): The training file paths. Defaults to None.
+        train_labels_files (list, optional): The training label file paths. Defaults to None.
+        train_probs (numpy.ndarray, optional): The training probabilities. Defaults to None.
+        test_data (numpy.ndarray, optional): The test data. Defaults to None.
+        test_labels (numpy.ndarray, optional): The test labels. Defaults to None.
+        test_files (list, optional): The test file paths. Defaults to None.
+        test_labels_files (list, optional): The test label file paths. Defaults to None.
+        test_probs (numpy.ndarray, optional): The test probabilities. Defaults to None.
+        load_files (bool, optional): Whether to load files. Defaults to True.
+        min_train_masks (int, optional): The minimum number of training masks. Defaults to 5.
+        channels (list, optional): The channels. Defaults to None.
+        channel_axis (int, optional): The channel axis. Defaults to None.
+        normalize (bool or dict, optional): Whether to normalize the data. Defaults to True.
+        nimg_per_epoch (int, optional): The number of images per epoch. Defaults to None.
+        nimg_test_per_epoch (int, optional): The number of test images per epoch. Defaults to None.
+        batch_size (int, optional): The batch size. Defaults to 128.
+        l2_regularization (float, optional): The L2 regularization factor. Defaults to 1.0.
+        n_epochs (int, optional): The number of epochs. Defaults to 10.
+
+    Returns:
+        dict: The trained size model parameters.
+    """
     if isinstance(normalize, dict):
         normalize_params = {**models.normalize_default, **normalize}
     elif not isinstance(normalize, bool):

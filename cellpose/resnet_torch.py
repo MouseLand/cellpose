@@ -184,6 +184,35 @@ class upsample(nn.Module):
 
 
 class CPnet(nn.Module):
+    """
+    CPnet is the Cellpose neural network model used for cell segmentation and image restoration.
+
+    Args:
+        nbase (list): List of integers representing the number of channels in each layer of the downsample path.
+        nout (int): Number of output channels.
+        sz (int): Size of the input image.
+        mkldnn (bool, optional): Whether to use MKL-DNN acceleration. Defaults to False.
+        conv_3D (bool, optional): Whether to use 3D convolution. Defaults to False.
+        max_pool (bool, optional): Whether to use max pooling. Defaults to True.
+        diam_mean (float, optional): Mean diameter of the cells. Defaults to 30.0.
+
+    Attributes:
+        nbase (list): List of integers representing the number of channels in each layer of the downsample path.
+        nout (int): Number of output channels.
+        sz (int): Size of the input image.
+        residual_on (bool): Whether to use residual connections.
+        style_on (bool): Whether to use style transfer.
+        concatenation (bool): Whether to use concatenation.
+        conv_3D (bool): Whether to use 3D convolution.
+        mkldnn (bool): Whether to use MKL-DNN acceleration.
+        downsample (nn.Module): Downsample blocks of the network.
+        upsample (nn.Module): Upsample blocks of the network.
+        make_style (nn.Module): Style module, avgpool's over all spatial positions.
+        output (nn.Module): Output module - batchconv layer.
+        diam_mean (nn.Parameter): Parameter representing the mean diameter to which the cells are rescaled to during training.
+        diam_labels (nn.Parameter): Parameter representing the mean diameter of the cells in the training set (before rescaling).
+
+    """
 
     def __init__(self, nbase, nout, sz, mkldnn=False, conv_3D=False, max_pool=True,
                  diam_mean=30.):
@@ -209,9 +238,24 @@ class CPnet(nn.Module):
 
     @property
     def device(self):
+        """
+        Get the device of the model.
+
+        Returns:
+            torch.device: The device of the model.
+        """
         return next(self.parameters()).device
 
     def forward(self, data):
+        """
+        Forward pass of the CPnet model.
+
+        Args:
+            data (torch.Tensor): Input data.
+
+        Returns:
+            tuple: A tuple containing the output tensor, style tensor, and downsampled tensors.
+        """
         if self.mkldnn:
             data = data.to_mkldnn()
         T0 = self.downsample(data)
@@ -230,9 +274,22 @@ class CPnet(nn.Module):
         return T1, style0, T0
 
     def save_model(self, filename):
+        """
+        Save the model to a file.
+
+        Args:
+            filename (str): The path to the file where the model will be saved.
+        """
         torch.save(self.state_dict(), filename)
 
     def load_model(self, filename, device=None):
+        """
+        Load the model from a file.
+
+        Args:
+            filename (str): The path to the file where the model is saved.
+            device (torch.device, optional): The device to load the model on. Defaults to None.
+        """
         if (device is not None) and (device.type != "cpu"):
             state_dict = torch.load(filename, map_location=device)
         else:

@@ -19,7 +19,7 @@ denoise_logger = logging.getLogger(__name__)
 from cellpose import transforms, resnet_torch, utils, io
 from cellpose.core import run_net
 from cellpose.resnet_torch import CPnet
-from cellpose.models import model_path, normalize_default, assign_device, check_mkl
+from cellpose.models import CellposeModel, model_path, normalize_default, assign_device, check_mkl
 
 MODEL_NAMES = []
 for ctype in ["cyto3", "cyto2", "nuclei"]:
@@ -34,6 +34,7 @@ criterion2 = nn.BCEWithLogitsLoss(reduction="mean")
 
 
 def deterministic(seed=0):
+    """ set random seeds to create test data """
     import random
     torch.manual_seed(seed)
     torch.cuda.manual_seed(seed)
@@ -63,6 +64,14 @@ def loss_fn_seg(lbl, y):
 
 
 def get_sigma(Tdown):
+    """ Calculates the correlation matrices across channels for the perceptual loss.
+
+    Args:
+        Tdown (list): List of tensors output by each downsampling block of network.
+
+    Returns:
+        list: List of correlations for each input tensor.
+    """
     Tnorm = [x - x.mean((-2, -1), keepdim=True) for x in Tdown]
     Tnorm = [x / x.std((-2, -1), keepdim=True) for x in Tnorm]
     Sigma = [
@@ -73,6 +82,16 @@ def get_sigma(Tdown):
 
 
 def imstats(X, net1):
+    """
+    Calculates the image correlation matrices for the perceptual loss.
+
+    Args:
+        X (torch.Tensor): Input image tensor.
+        net1: Cellpose net.
+
+    Returns:
+        list: A list of tensors of correlation matrices.
+    """
     _, _, Tdown = net1(X)
     Sigma = get_sigma(Tdown)
     Sigma = [x.detach() for x in Sigma]
@@ -80,6 +99,17 @@ def imstats(X, net1):
 
 
 def loss_fn_per(img, net1, yl):
+    """
+    Calculates the perceptual loss function for image restoration.
+
+    Args:
+        img (torch.Tensor): Input image tensor (noisy/blurry/downsampled).
+        net1 (torch.nn.Module): Perceptual loss net (Cellpose segmentation net).
+        yl (torch.Tensor): Clean image tensor.
+
+    Returns:
+        torch.Tensor: Mean perceptual loss.
+    """
     Sigma = imstats(img, net1)
     sd = [x.std((1, 2)) + 1e-6 for x in Sigma]
     Sigma_test = get_sigma(yl)
@@ -90,6 +120,20 @@ def loss_fn_per(img, net1, yl):
 
 
 def test_loss(net0, X, net1=None, img=None, lbl=None, lam=[1., 1.5, 0.]):
+    """
+    Calculates the test loss for image restoration tasks.
+
+    Args:
+        net0 (torch.nn.Module): The image restoration network.
+        X (torch.Tensor): The input image tensor.
+        net1 (torch.nn.Module, optional): The segmentation network for segmentation or perceptual loss. Defaults to None.
+        img (torch.Tensor, optional): Clean image tensor for perceptual or reconstruction loss. Defaults to None.
+        lbl (torch.Tensor, optional): The ground truth flows/cellprob tensor for segmentation loss. Defaults to None.
+        lam (list, optional): The weights for different loss components (perceptual, segmentation, reconstruction). Defaults to [1., 1.5, 0.].
+
+    Returns:
+        tuple: A tuple containing the total loss and the perceptual loss.
+    """
     net0.eval()
     if net1 is not None:
         net1.eval()
@@ -110,6 +154,20 @@ def test_loss(net0, X, net1=None, img=None, lbl=None, lam=[1., 1.5, 0.]):
 
 
 def train_loss(net0, X, net1=None, img=None, lbl=None, lam=[1., 1.5, 0.]):
+    """
+    Calculates the train loss for image restoration tasks.
+
+    Args:
+        net0 (torch.nn.Module): The image restoration network.
+        X (torch.Tensor): The input image tensor.
+        net1 (torch.nn.Module, optional): The segmentation network for segmentation or perceptual loss. Defaults to None.
+        img (torch.Tensor, optional): Clean image tensor for perceptual or reconstruction loss. Defaults to None.
+        lbl (torch.Tensor, optional): The ground truth flows/cellprob tensor for segmentation loss. Defaults to None.
+        lam (list, optional): The weights for different loss components (perceptual, segmentation, reconstruction). Defaults to [1., 1.5, 0.].
+
+    Returns:
+        tuple: A tuple containing the total loss and the perceptual loss.
+    """
     net0.train()
     if net1 is not None:
         net1.eval()
@@ -129,6 +187,15 @@ def train_loss(net0, X, net1=None, img=None, lbl=None, lam=[1., 1.5, 0.]):
 
 
 def img_norm(imgi):
+    """
+    Normalizes the input image by subtracting the 1st percentile and dividing by the difference between the 99th and 1st percentiles.
+
+    Args:
+        imgi (torch.Tensor): Input image tensor.
+
+    Returns:
+        torch.Tensor: Normalized image tensor.
+    """
     shape = imgi.shape
     imgi = imgi.reshape(imgi.shape[0], imgi.shape[1], -1)
     perc = torch.quantile(imgi, torch.tensor([0.01, 0.99], device=imgi.device), dim=-1,
@@ -144,7 +211,27 @@ def img_norm(imgi):
 def add_noise(lbl, alpha=4, beta=0.7, poisson=0.7, blur=0.7, gblur=1.0, downsample=0.7,
               ds_max=7, diams=None, pscale=None, iso=True, sigma0=None, sigma1=None,
               ds=None):
-    """ lbl is nimg x nchan x Ly x Lx """
+    """Adds noise to the input image.
+
+    Args:
+        lbl (torch.Tensor): The input image tensor of shape (nimg, nchan, Ly, Lx).
+        alpha (float, optional): The shape parameter of the gamma distribution used for generating poisson noise. Defaults to 4.
+        beta (float, optional): The rate parameter of the gamma distribution used for generating poisson noise. Defaults to 0.7.
+        poisson (float, optional): The probability of adding poisson noise to the image. Defaults to 0.7.
+        blur (float, optional): The probability of adding gaussian blur to the image. Defaults to 0.7.
+        gblur (float, optional): The scale factor for the gaussian blur. Defaults to 1.0.
+        downsample (float, optional): The probability of downsampling the image. Defaults to 0.7.
+        ds_max (int, optional): The maximum downsampling factor. Defaults to 7.
+        diams (torch.Tensor, optional): The diameter of the objects in the image. Defaults to None.
+        pscale (torch.Tensor, optional): The scale factor for the poisson noise, instead of sampling. Defaults to None.
+        iso (bool, optional): Whether to use isotropic gaussian blur. Defaults to True.
+        sigma0 (torch.Tensor, optional): The standard deviation of the gaussian filter for the Y axis, instead of sampling. Defaults to None.
+        sigma1 (torch.Tensor, optional): The standard deviation of the gaussian filter for the X axis, instead of sampling. Defaults to None.
+        ds (torch.Tensor, optional): The downsampling factor for each image, instead of sampling. Defaults to None.
+
+    Returns:
+        torch.Tensor: The noisy image tensor of the same shape as the input image.
+    """
     device = lbl.device
     imgi = torch.zeros_like(lbl)
 
@@ -236,7 +323,33 @@ def random_rotate_and_resize_noise(data, labels=None, diams=None, poisson=0.7, b
                                    ds_max=7, iso=True, rotate=True,
                                    device=torch.device("cuda"), xy=(224, 224),
                                    nchan_noise=1, keep_raw=True):
+    """
+    Applies random rotation, resizing, and noise to the input data.
 
+    Args:
+        data (numpy.ndarray): The input data.
+        labels (numpy.ndarray, optional): The flow and cellprob labels associated with the data. Defaults to None.
+        diams (float, optional): The diameter of the objects. Defaults to None.
+        poisson (float, optional): The Poisson noise probability. Defaults to 0.7.
+        blur (float, optional): The blur probability. Defaults to 0.7.
+        downsample (float, optional): The downsample probability. Defaults to 0.0.
+        beta (float, optional): The beta value for the poisson noise distribution. Defaults to 0.7.
+        gblur (float, optional): The Gaussian blur level. Defaults to 1.0.
+        diam_mean (float, optional): The mean diameter. Defaults to 30.
+        ds_max (int, optional): The maximum downsample value. Defaults to 7.
+        iso (bool, optional): Whether to apply isotropic augmentation. Defaults to True.
+        rotate (bool, optional): Whether to apply rotation augmentation. Defaults to True.
+        device (torch.device, optional): The device to use. Defaults to torch.device("cuda").
+        xy (tuple, optional): The size of the output image. Defaults to (224, 224).
+        nchan_noise (int, optional): The number of channels to add noise to. Defaults to 1.
+        keep_raw (bool, optional): Whether to keep the raw image. Defaults to True.
+
+    Returns:
+        torch.Tensor: The augmented image and augmented noisy/blurry/downsampled version of image.
+        torch.Tensor: The augmented labels.
+        float: The scale factor applied to the image.
+    """
+    
     diams = 30 if diams is None else diams
     random_diam = diam_mean * (2**(2 * np.random.rand(len(data)) - 1))
     random_rsc = diams / random_diam  #/ random_diam
@@ -305,6 +418,17 @@ def random_rotate_and_resize_noise(data, labels=None, diams=None, poisson=0.7, b
 
 
 def one_chan_cellpose(device, model_type="cyto2", pretrained_model=None):
+    """
+    Creates a Cellpose network with a single input channel.
+
+    Args:
+        device (str): The device to run the network on.
+        model_type (str, optional): The type of Cellpose model to use. Defaults to "cyto2".
+        pretrained_model (str, optional): The path to a pretrained model file. Defaults to None.
+
+    Returns:
+        torch.nn.Module: The Cellpose network with a single input channel.
+    """
     if pretrained_model is not None and not os.path.exists(pretrained_model):
         model_type = pretrained_model
         pretrained_model = None
@@ -337,11 +461,136 @@ def one_chan_cellpose(device, model_type="cyto2", pretrained_model=None):
     return net1
 
 
+class CellposeDenoiseModel():
+    """ model to run Cellpose and Image restoration """
+    def __init__(self, gpu=False, pretrained_model=False, model_type=None,
+                 restore_type="denoise_cyto3", chan2_denoise=False, 
+                 device=None):
+
+        self.dn = DenoiseModel(gpu=gpu, model_type=restore_type, 
+                                    chan2=chan2_denoise, device=device)
+        self.cp = CellposeModel(gpu=gpu, model_type=model_type, 
+                                pretrained_model=pretrained_model, device=device)
+
+    def eval(self, x, batch_size=8, channels=None, channel_axis=None, z_axis=None,
+             normalize=True, rescale=None, diameter=None, tile=True, tile_overlap=0.1,
+             resample=True, invert=False, flow_threshold=0.4, cellprob_threshold=0.0, 
+             do_3D=False, anisotropy=None, stitch_threshold=0.0, min_size=15, 
+             niter=None, interp=True):
+        """
+        Restore array or list of images using the image restoration model, and then segment.
+
+        Args:
+            x (list, np.ndarry): can be list of 2D/3D/4D images, or array of 2D/3D/4D images
+            batch_size (int, optional): number of 224x224 patches to run simultaneously on the GPU
+                (can make smaller or bigger depending on GPU memory usage). Defaults to 8.
+            channels (list, optional): list of channels, either of length 2 or of length number of images by 2.
+                First element of list is the channel to segment (0=grayscale, 1=red, 2=green, 3=blue).
+                Second element of list is the optional nuclear channel (0=none, 1=red, 2=green, 3=blue).
+                For instance, to segment grayscale images, input [0,0]. To segment images with cells
+                in green and nuclei in blue, input [2,3]. To segment one grayscale image and one
+                image with cells in green and nuclei in blue, input [[0,0], [2,3]].
+                Defaults to None.
+            channel_axis (int, optional): channel axis in element of list x, or of np.ndarray x. 
+                if None, channels dimension is attempted to be automatically determined. Defaults to None.
+            z_axis  (int, optional): z axis in element of list x, or of np.ndarray x. 
+                if None, z dimension is attempted to be automatically determined. Defaults to None.
+            normalize (bool, optional): if True, normalize data so 0.0=1st percentile and 1.0=99th percentile of image intensities in each channel; 
+                can also pass dictionary of parameters (all keys are optional, default values shown): 
+                    - "lowhigh"=None : pass in normalization values for 0.0 and 1.0 as list [low, high] (if not None, all following parameters ignored)
+                    - "sharpen"=0 ; sharpen image with high pass filter, recommended to be 1/4-1/8 diameter of cells in pixels
+                    - "normalize"=True ; run normalization (if False, all following parameters ignored)
+                    - "percentile"=None : pass in percentiles to use as list [perc_low, perc_high]
+                    - "tile_norm"=0 ; compute normalization in tiles across image to brighten dark areas, to turn on set to window size in pixels (e.g. 100)
+                    - "norm3D"=False ; compute normalization across entire z-stack rather than plane-by-plane in stitching mode.
+                Defaults to True.
+            rescale (float, optional): resize factor for each image, if None, set to 1.0;
+                (only used if diameter is None). Defaults to None.
+            diameter (float, optional):  diameter for each image, 
+                if diameter is None, set to diam_mean or diam_train if available. Defaults to None.
+            tile (bool, optional): tiles image to ensure GPU/CPU memory usage limited (recommended). Defaults to True.
+            tile_overlap (float, optional): fraction of overlap of tiles when computing flows. Defaults to 0.1.
+            resample (bool, optional): run dynamics at original image size (will be slower but create more accurate boundaries). Defaults to True.
+            invert (bool, optional): invert image pixel intensity before running network. Defaults to False.
+            flow_threshold (float, optional): flow error threshold (all cells with errors below threshold are kept) (not used for 3D). Defaults to 0.4.
+            cellprob_threshold (float, optional): all pixels with value above threshold kept for masks, decrease to find more and larger masks. Defaults to 0.0.
+            do_3D (bool, optional): set to True to run 3D segmentation on 3D/4D image input. Defaults to False.
+            anisotropy (float, optional): for 3D segmentation, optional rescaling factor (e.g. set to 2.0 if Z is sampled half as dense as X or Y). Defaults to None.
+            stitch_threshold (float, optional): if stitch_threshold>0.0 and not do_3D, masks are stitched in 3D to return volume segmentation. Defaults to 0.0.
+            min_size (int, optional): all ROIs below this size, in pixels, will be discarded. Defaults to 15.
+            niter (int, optional): number of iterations for dynamics computation. if None, it is set proportional to the diameter. Defaults to None.
+            interp (bool, optional): interpolate during 2D dynamics (not available in 3D) . Defaults to True.
+            
+        Returns:
+            masks (list, np.ndarray): labelled image(s), where 0=no masks; 1,2,...=mask labels
+            flows (list): list of lists: flows[k][0] = XY flow in HSV 0-255; flows[k][1] = XY(Z) flows at each pixel; flows[k][2] = cell probability (if > cellprob_threshold, pixel used for dynamics); flows[k][3] = final pixel locations after Euler integration 
+            styles (list, np.ndarray): style vector summarizing each image of size 256.
+            imgs (list of 2D/3D arrays): Restored images
+        """
+        if isinstance(normalize, dict):
+            normalize_params = {**normalize_default, **normalize}
+        elif not isinstance(normalize, bool):
+            raise ValueError("normalize parameter must be a bool or a dict")
+        else:
+            normalize_params = normalize_default
+            normalize_params["normalize"] = normalize
+        normalize_params["invert"] = invert
+
+        
+        img_restore = self.dn.eval(x, batch_size=batch_size, channels=channels, channel_axis=channel_axis, z_axis=z_axis,
+                                      normalize=normalize_params, rescale=rescale, diameter=diameter, tile=tile, tile_overlap=tile_overlap)
+    
+        # turn off special normalization for segmentation
+        normalize_params = normalize_default
+
+        # change channels for segmentation (denoise model outputs up to 2 channels)
+        channels_new = [0,0] if channels[0] == 0 else [1,2]
+        # change diameter if self.ratio > 1 (upsampled to self.dn.diam_mean)
+        diameter = self.dn.diam_mean if self.dn.ratio > 1 else diameter
+        masks, flows, styles = self.cp.eval(img_restore, batch_size=batch_size, channels=channels_new, channel_axis=-1,
+                                   normalize=normalize_params, rescale=rescale, diameter=diameter,
+                                   tile=tile, tile_overlap=tile_overlap, resample=resample, invert=invert,
+                                   flow_threshold=flow_threshold, cellprob_threshold=cellprob_threshold,
+                                   do_3D=do_3D, anisotropy=anisotropy, stitch_threshold=stitch_threshold,
+                                   min_size=min_size, niter=niter, interp=interp)
+    
+        return masks, flows, styles, img_restore
+
+
 class DenoiseModel():
+    """
+    DenoiseModel class for denoising images using Cellpose denoising model.
+
+    Args:
+        gpu (bool, optional): Whether to use GPU for computation. Defaults to False.
+        pretrained_model (bool or str or Path, optional): Pretrained model to use for denoising.
+            Can be a string or path. Defaults to False.
+        nchan (int, optional): Number of channels in the input images, all Cellpose 3 models were trained with nchan=1. Defaults to 1.
+        model_type (str, optional): Type of pretrained model to use ("denoise_cyto3", "deblur_cyto3", "upsample_cyto3", ...). Defaults to None.
+        chan2 (bool, optional): Whether to use a separate model for the second channel. Defaults to False.
+        diam_mean (float, optional): Mean diameter of the objects in the images. Defaults to 30.0.
+        device (torch.device, optional): Device to use for computation. Defaults to None.
+
+    Attributes:
+        nchan (int): Number of channels in the input images.
+        diam_mean (float): Mean diameter of the objects in the images.
+        net (CPnet): Cellpose network for denoising.
+        pretrained_model (bool or str or Path): Pretrained model path to use for denoising.
+        net_chan2 (CPnet or None): Cellpose network for the second channel, if applicable.
+        net_type (str): Type of the denoising network.
+
+    Methods:
+        eval(x, batch_size=8, channels=None, channel_axis=None, z_axis=None,
+                normalize=True, rescale=None, diameter=None, tile=True, tile_overlap=0.1)
+            Denoise array or list of images using the denoising model.
+
+        _eval(net, x, normalize=True, rescale=None, diameter=None, tile=True,
+                tile_overlap=0.1)
+            Run denoising model on a single channel.
+    """
 
     def __init__(self, gpu=False, pretrained_model=False, nchan=1, model_type=None,
                  chan2=False, diam_mean=30., device=None):
-        self.torch = True
         self.nchan = nchan
         if pretrained_model and (not isinstance(pretrained_model, str) and
                                  not isinstance(pretrained_model, Path)):
@@ -368,7 +617,7 @@ class DenoiseModel():
         # assign network device
         self.mkldnn = None
         if device is None:
-            sdevice, gpu = assign_device(self.torch, gpu)
+            sdevice, gpu = assign_device(use_torch=True, gpu=gpu)
         self.device = device if device is not None else sdevice
         if device is not None:
             device_gpu = self.device.type == "cuda"
@@ -406,60 +655,41 @@ class DenoiseModel():
     def eval(self, x, batch_size=8, channels=None, channel_axis=None, z_axis=None,
              normalize=True, rescale=None, diameter=None, tile=True, tile_overlap=0.1):
         """
-            denoise array or list of image(s), expected order: Z x nchan x Y x X
+        Restore array or list of images using the image restoration model.
 
-            Parameters
-            ----------
-            x: list or array of images
-                can be list of 2D/3D/4D images, or array of 2D/3D/4D images
-
-            batch_size: int (optional, default 8)
-                number of 224x224 patches to run simultaneously on the GPU
-                (can make smaller or bigger depending on GPU memory usage)
-
-            channels: list (optional, default None)
-                list of channels, either of length 2 or of length number of images by 2.
+        Args:
+            x (list, np.ndarry): can be list of 2D/3D/4D images, or array of 2D/3D/4D images
+            batch_size (int, optional): number of 224x224 patches to run simultaneously on the GPU
+                (can make smaller or bigger depending on GPU memory usage). Defaults to 8.
+            channels (list, optional): list of channels, either of length 2 or of length number of images by 2.
                 First element of list is the channel to segment (0=grayscale, 1=red, 2=green, 3=blue).
                 Second element of list is the optional nuclear channel (0=none, 1=red, 2=green, 3=blue).
                 For instance, to segment grayscale images, input [0,0]. To segment images with cells
                 in green and nuclei in blue, input [2,3]. To segment one grayscale image and one
                 image with cells in green and nuclei in blue, input [[0,0], [2,3]].
-
-            channel_axis: int (optional, default None)
-                if None, channels dimension is attempted to be automatically determined
-
-            z_axis: int (optional, default None)
-                if None, z dimension is attempted to be automatically determined
-            
-            normalize: bool (default, True)
-                if True, normalize data so 0.0=1st percentile and 1.0=99th percentile of image intensities in each channel; 
+                Defaults to None.
+            channel_axis (int, optional): channel axis in element of list x, or of np.ndarray x. 
+                if None, channels dimension is attempted to be automatically determined. Defaults to None.
+            z_axis  (int, optional): z axis in element of list x, or of np.ndarray x. 
+                if None, z dimension is attempted to be automatically determined. Defaults to None.
+            normalize (bool, optional): if True, normalize data so 0.0=1st percentile and 1.0=99th percentile of image intensities in each channel; 
                 can also pass dictionary of parameters (all keys are optional, default values shown): 
                     - "lowhigh"=None : pass in normalization values for 0.0 and 1.0 as list [low, high] (if not None, all following parameters ignored)
                     - "sharpen"=0 ; sharpen image with high pass filter, recommended to be 1/4-1/8 diameter of cells in pixels
                     - "normalize"=True ; run normalization (if False, all following parameters ignored)
                     - "percentile"=None : pass in percentiles to use as list [perc_low, perc_high]
                     - "tile_norm"=0 ; compute normalization in tiles across image to brighten dark areas, to turn on set to window size in pixels (e.g. 100)
-                    - "norm3D"=False ; compute normalization across entire z-stack rather than plane-by-plane in stitching mode
-                    
-            diameter: float (optional, default None)
-                diameter for each image, 
-                if diameter is None, set to diam_mean or diam_train if available
-
-            rescale: float (optional, default None)
-                resize factor for each image, if None, set to 1.0;
-                (only used if diameter is None)
-
-            tile: bool (optional, default True)
-                tiles image to ensure GPU/CPU memory usage limited (recommended)
-
-            tile_overlap: float (optional, default 0.1)
-                fraction of overlap of tiles when computing flows
-
-        
-            Returns
-            -------
-            imgs: list of 2D/3D arrays
-                denoised images
+                    - "norm3D"=False ; compute normalization across entire z-stack rather than plane-by-plane in stitching mode.
+                Defaults to True.
+            rescale (float, optional): resize factor for each image, if None, set to 1.0;
+                (only used if diameter is None). Defaults to None.
+            diameter (float, optional):  diameter for each image, 
+                if diameter is None, set to diam_mean or diam_train if available. Defaults to None.
+            tile (bool, optional): tiles image to ensure GPU/CPU memory usage limited (recommended). Defaults to True.
+            tile_overlap (float, optional): fraction of overlap of tiles when computing flows. Defaults to 0.1.
+            
+        Returns:
+            imgs (list of 2D/3D arrays): Restored images
 
         """
         if isinstance(x, list) or x.squeeze().ndim == 5:
@@ -496,6 +726,22 @@ class DenoiseModel():
                 x = x[np.newaxis, ...]
             else:
                 squeeze = False
+
+            # may need to interpolate image before running upsampling
+            self.ratio = 1.
+            if "upsample" in self.pretrained_model:
+                Ly, Lx = x.shape[-3:-1]
+                if diameter is not None and 3 <= diameter < self.diam_mean:
+                    self.ratio = self.diam_mean / diameter
+                    denoise_logger.info(f"upsampling image to {self.diam_mean} pixel diameter ({self.ratio:0.2f} times)"
+                    )
+                    Lyr, Lxr = int(Ly * self.ratio), int(Lx * self.ratio)
+                    x = transforms.resize_image(x, Ly=Lyr, Lx=Lxr)
+                else:
+                    denoise_logger.warning(f"not interpolating image before upsampling because diameter is set >= {self.diam_mean}"
+                    )
+                    #raise ValueError(f"diameter is set to {diameter}, needs to be >=3 and < {self.dn.diam_mean}")
+
             self.batch_size = batch_size
 
             if diameter is not None and diameter > 0:
@@ -505,26 +751,47 @@ class DenoiseModel():
 
             if np.ptp(x[..., -1]) < 1e-3 or channels[-1] == 0:
                 x = x[..., :1]
+            
             for c in range(x.shape[-1]):
                 rescale0 = rescale * 30. / 17. if c == 1 else rescale
                 if c == 0 or self.net_chan2 is None:
-                    x[..., c] = self._eval(self.net, x[..., c:c + 1],
+                    x[..., c] = self._eval(self.net, x[..., c:c + 1], batch_size=batch_size,
                                            normalize=normalize, rescale=rescale0,
                                            tile=tile, tile_overlap=tile_overlap)
                 else:
-                    x[..., c] = self._eval(self.net_chan2, x[..., c:c + 1],
+                    x[..., c] = self._eval(self.net_chan2, x[..., c:c + 1], batch_size=batch_size,
                                            normalize=normalize, rescale=rescale0,
                                            tile=tile, tile_overlap=tile_overlap)
             x = x[0] if squeeze else x
         return x
 
-    def _eval(self, net, x, normalize=True, rescale=None, diameter=None, tile=True,
+    def _eval(self, net, x, batch_size=8, normalize=True, rescale=None, tile=True,
               tile_overlap=0.1):
         """
-            run denoising model on single channel, see args info in eval
+        Run image restoration model on a single channel.
+
+        Args:
+            x (list, np.ndarry): can be list of 2D/3D/4D images, or array of 2D/3D/4D images
+            batch_size (int, optional): number of 224x224 patches to run simultaneously on the GPU
+                (can make smaller or bigger depending on GPU memory usage). Defaults to 8.
+            normalize (bool, optional): if True, normalize data so 0.0=1st percentile and 1.0=99th percentile of image intensities in each channel; 
+                can also pass dictionary of parameters (all keys are optional, default values shown): 
+                    - "lowhigh"=None : pass in normalization values for 0.0 and 1.0 as list [low, high] (if not None, all following parameters ignored)
+                    - "sharpen"=0 ; sharpen image with high pass filter, recommended to be 1/4-1/8 diameter of cells in pixels
+                    - "normalize"=True ; run normalization (if False, all following parameters ignored)
+                    - "percentile"=None : pass in percentiles to use as list [perc_low, perc_high]
+                    - "tile_norm"=0 ; compute normalization in tiles across image to brighten dark areas, to turn on set to window size in pixels (e.g. 100)
+                    - "norm3D"=False ; compute normalization across entire z-stack rather than plane-by-plane in stitching mode.
+                Defaults to True.
+            rescale (float, optional): resize factor for each image, if None, set to 1.0;
+                (only used if diameter is None). Defaults to None.
+            tile (bool, optional): tiles image to ensure GPU/CPU memory usage limited (recommended). Defaults to True.
+            tile_overlap (float, optional): fraction of overlap of tiles when computing flows. Defaults to 0.1.
+            
+        Returns:
+            imgs (list of 2D/3D arrays): Restored images
 
         """
-
         if isinstance(normalize, dict):
             normalize_params = {**normalize_default, **normalize}
         elif not isinstance(normalize, bool):
@@ -551,7 +818,8 @@ class DenoiseModel():
                 img = transforms.resize_image(img, rsz=[rescale, rescale])
                 if img.ndim == 2:
                     img = img[:, :, np.newaxis]
-            yf, style = run_net(net, img, augment=False, tile=tile,
+            yf, style = run_net(net, img, batch_size=batch_size, 
+                                augment=False, tile=tile,
                                 tile_overlap=tile_overlap)
             img = transforms.resize_image(yf, Ly=x.shape[-3], Lx=x.shape[-2])
 

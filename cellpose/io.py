@@ -137,7 +137,23 @@ def load_dax(filename):
 
 
 def imread(filename):
-    """ read in image with tif or image file type supported by cv2 """
+    """
+    Read in an image file with tif or image file type supported by cv2.
+
+    Args:
+        filename (str): The path to the image file.
+
+    Returns:
+        numpy.ndarray: The image data as a NumPy array.
+
+    Raises:
+        None
+
+    Raises an error if the image file format is not supported.
+
+    Examples:
+        >>> img = imread("image.tif")
+    """
     # ensure that extension check is not case sensitive
     ext = os.path.splitext(filename)[-1].lower()
     if ext == ".tif" or ext == ".tiff":
@@ -233,6 +249,16 @@ def add_model(filename):
 
 
 def imsave(filename, arr):
+    """
+    Saves an image array to a file.
+
+    Args:
+        filename (str): The name of the file to save the image to.
+        arr (numpy.ndarray): The image array to be saved.
+
+    Returns:
+        None
+    """
     ext = os.path.splitext(filename)[-1].lower()
     if ext == ".tif" or ext == ".tiff":
         tifffile.imwrite(filename, arr)
@@ -241,12 +267,24 @@ def imsave(filename, arr):
             arr = cv2.cvtColor(arr, cv2.COLOR_BGR2RGB)
         cv2.imwrite(filename, arr)
 
-
-#         skimage.io.imsave(filename, arr.astype()) #cv2 doesn"t handle transparency
-
-
 def get_image_files(folder, mask_filter, imf=None, look_one_level_down=False):
-    """ find all images in a folder and if look_one_level_down all subfolders """
+    """
+    Finds all images in a folder and its subfolders (if specified) with the given file extensions.
+
+    Args:
+        folder (str): The path to the folder to search for images.
+        mask_filter (str): The filter for mask files.
+        imf (str, optional): The additional filter for image files. Defaults to None.
+        look_one_level_down (bool, optional): Whether to search for images in subfolders. Defaults to False.
+
+    Returns:
+        list: A list of image file paths.
+
+    Raises:
+        ValueError: If no files are found in the specified folder.
+        ValueError: If no images are found in the specified folder with the supported file extensions.
+        ValueError: If no images are found in the specified folder without the mask or flow file endings.
+    """
     mask_filters = ["_cp_masks", "_cp_output", "_flows", "_masks", mask_filter]
     image_names = []
     if imf is None:
@@ -301,6 +339,17 @@ def get_image_files(folder, mask_filter, imf=None, look_one_level_down=False):
 
 
 def get_label_files(image_names, mask_filter, imf=None):
+    """
+    Get the label files corresponding to the given image names and mask filter.
+
+    Args:
+        image_names (list): List of image names.
+        mask_filter (str): Mask filter to be applied.
+        imf (str, optional): Image file extension. Defaults to None.
+
+    Returns:
+        tuple: A tuple containing the label file names and flow file names (if present).
+    """
     nimg = len(image_names)
     label_names0 = [os.path.splitext(image_names[n])[0] for n in range(nimg)]
 
@@ -350,6 +399,18 @@ def get_label_files(image_names, mask_filter, imf=None):
 
 def load_images_labels(tdir, mask_filter="_masks", image_filter=None,
                        look_one_level_down=False):
+    """
+    Loads images and corresponding labels from a directory.
+
+    Args:
+        tdir (str): The directory path.
+        mask_filter (str, optional): The filter for mask files. Defaults to "_masks".
+        image_filter (str, optional): The filter for image files. Defaults to None.
+        look_one_level_down (bool, optional): Whether to look for files one level down. Defaults to False.
+
+    Returns:
+        tuple: A tuple containing a list of images, a list of labels, and a list of image names.
+    """
     image_names = get_image_files(tdir, mask_filter, image_filter, look_one_level_down)
     nimg = len(image_names)
 
@@ -379,9 +440,26 @@ def load_images_labels(tdir, mask_filter="_masks", image_filter=None,
     io_logger.info(f"{k} / {nimg} images in {tdir} folder have labels")
     return images, labels, image_names
 
-
 def load_train_test_data(train_dir, test_dir=None, image_filter=None,
                          mask_filter="_masks", look_one_level_down=False):
+    """
+    Loads training and testing data for a Cellpose model.
+
+    Args:
+        train_dir (str): The directory path containing the training data.
+        test_dir (str, optional): The directory path containing the testing data. Defaults to None.
+        image_filter (str, optional): The filter for selecting image files. Defaults to None.
+        mask_filter (str, optional): The filter for selecting mask files. Defaults to "_masks".
+        look_one_level_down (bool, optional): Whether to look for data in subdirectories of train_dir and test_dir. Defaults to False.
+
+    Returns:
+        images (list): A list of training images.
+        labels (list): A list of labels corresponding to the training images.
+        image_names (list): A list of names of the training images.
+        test_images (list, optional): A list of testing images. None if test_dir is not provided.
+        test_labels (list, optional): A list of labels corresponding to the testing images. None if test_dir is not provided.
+        test_image_names (list, optional): A list of names of the testing images. None if test_dir is not provided.
+    """
     images, labels, image_names = load_images_labels(train_dir, mask_filter,
                                                      image_filter, look_one_level_down)
 
@@ -393,35 +471,23 @@ def load_train_test_data(train_dir, test_dir=None, image_filter=None,
 
     return images, labels, image_names, test_images, test_labels, test_image_names
 
-
 def masks_flows_to_seg(images, masks, flows, file_names, diams=30., channels=None):
-    """ save output of model eval to be loaded in GUI 
+    """Save output of model eval to be loaded in GUI.
 
-    can be list output (run on multiple images) or single output (run on single image)
+    Can be list output (run on multiple images) or single output (run on single image).
 
-    saved to file_names[k]+"_seg.npy"
+    Saved to file_names[k]+"_seg.npy".
     
-    Parameters
-    -------------
+    Args:
+        images (list): Images input into cellpose.
+        masks (list): Masks output from Cellpose.eval, where 0=NO masks; 1,2,...=mask labels.
+        flows (list): Flows output from Cellpose.eval.
+        file_names (list, str): Names of files of images.
+        diams (float array): Diameters used to run Cellpose. Defaults to 30.
+        channels (list, int, optional): Channels used to run Cellpose. Defaults to None.
 
-    images: (list of) 2D or 3D arrays
-        images input into cellpose
-
-    masks: (list of) 2D arrays, int
-        masks output from Cellpose.eval, where 0=NO masks; 1,2,...=mask labels
-
-    flows: (list of) list of ND arrays 
-        flows output from Cellpose.eval
-
-    diams: float array
-        diameters used to run Cellpose
-
-    file_names: (list of) str
-        names of files of images
-
-    channels: list of int (optional, default None)
-        channels used to run Cellpose    
-    
+    Returns:
+        None
     """
 
     if channels is None:
@@ -527,17 +593,12 @@ def save_to_png(images, masks, flows, file_names):
 def save_rois(masks, file_name):
     """ save masks to .roi files in .zip archive for ImageJ/Fiji
 
-    Parameters
-    ----------
-
-    masks: 2D array, int
-        masks output from Cellpose.eval, where 0=NO masks; 1,2,...=mask labels
-
-    file_name: str
-        name to save the .zip file to
-
-    -------
-
+    Args:
+        masks (np.ndarray): masks output from Cellpose.eval, where 0=NO masks; 1,2,...=mask labels
+        file_name (str): name to save the .zip file to
+    
+    Returns:
+        None
     """
     outlines = utils.outlines_list(masks)
     rois = [ImagejRoi.frompoints(outline) for outline in outlines]
@@ -551,56 +612,50 @@ def save_rois(masks, file_name):
     roiwrite(file_name, rois)
 
 
-# Now saves flows, masks, etc. to separate folders.
+
 def save_masks(images, masks, flows, file_names, png=True, tif=False, channels=[0, 0],
-               suffix="", save_flows=False, save_outlines=False, save_ncolor=False,
+               suffix="", save_flows=False, save_outlines=False, 
                dir_above=False, in_folders=False, savedir=None, save_txt=False,
                save_mpl=False):
-    """ save masks + nicely plotted segmentation image to png and/or tiff
+    """ Save masks + nicely plotted segmentation image to png and/or tiff.
 
-    if png, masks[k] for images[k] are saved to file_names[k]+"_cp_masks.png"
+    Can save masks, flows to different directories, if in_folders is True.
 
-    if tif, masks[k] for images[k] are saved to file_names[k]+"_cp_masks.tif"
+    If png, masks[k] for images[k] are saved to file_names[k]+"_cp_masks.png".
 
-    if png and matplotlib installed, full segmentation figure is saved to file_names[k]+"_cp.png"
+    If tif, masks[k] for images[k] are saved to file_names[k]+"_cp_masks.tif".
 
-    only tif option works for 3D data, and only tif option works for empty masks
+    If png and matplotlib installed, full segmentation figure is saved to file_names[k]+"_cp.png".
+
+    Only tif option works for 3D data, and only tif option works for empty masks.
+
+    Args:
+        images (list): Images input into cellpose.
+        masks (list): Masks output from Cellpose.eval, where 0=NO masks; 1,2,...=mask labels.
+        flows (list): Flows output from Cellpose.eval.
+        file_names (list, str): Names of files of images.
+        png (bool, optional): Save masks to PNG. Defaults to True.
+        tif (bool, optional): Save masks to TIF. Defaults to False.
+        channels (list, int, optional): Channels used to run Cellpose. Defaults to [0,0].
+        suffix (str, optional): Add name to saved masks. Defaults to "".
+        save_flows (bool, optional): Save flows output from Cellpose.eval. Defaults to False.
+        save_outlines (bool, optional): Save outlines of masks. Defaults to False.
+        dir_above (bool, optional): Save masks/flows in directory above. Defaults to False.
+        in_folders (bool, optional): Save masks/flows in separate folders. Defaults to False.
+        savedir (str, optional): Absolute path where images will be saved. If None, saves to image directory. Defaults to None.
+        save_txt (bool, optional): Save masks as list of outlines for ImageJ. Defaults to False.
+        save_mpl (bool, optional): If True, saves a matplotlib figure of the original image/segmentation/flows. Does not work for 3D.
+                This takes a long time for large images. Defaults to False.
     
-    Parameters
-    -------------
-
-    images: (list of) 2D, 3D or 4D arrays
-        images input into cellpose
-
-    masks: (list of) 2D arrays, int
-        masks output from Cellpose.eval, where 0=NO masks; 1,2,...=mask labels
-
-    flows: (list of) list of ND arrays 
-        flows output from Cellpose.eval
-
-    file_names: (list of) str
-        names of files of images
-        
-    savedir: str
-        absolute path where images will be saved. Default is none (saves to image directory)
-    
-    save_flows, save_outlines, save_ncolor, save_txt: bool
-        Can choose which outputs/views to save.
-        ncolor is a 4 (or 5, if 4 takes too long) index version of the labels that
-        is way easier to visualize than having hundreds of unique colors that may
-        be similar and touch. Any color map can be applied to it (0,1,2,3,4,...).
-
-    save_mpl: bool
-        If True, saves a matplotlib figure of the original image/segmentation/flows. Does not work for 3D.
-        This takes a long time for large images. Default is False.
-    
+    Returns:
+        None
     """
 
     if isinstance(masks, list):
         for image, mask, flow, file_name in zip(images, masks, flows, file_names):
             save_masks(image, mask, flow, file_name, png=png, tif=tif, suffix=suffix,
                        dir_above=dir_above, save_flows=save_flows,
-                       save_outlines=save_outlines, save_ncolor=save_ncolor,
+                       save_outlines=save_outlines, 
                        savedir=savedir, save_txt=save_txt, in_folders=in_folders,
                        save_mpl=save_mpl)
         return
@@ -632,13 +687,11 @@ def save_masks(images, masks, flows, file_names, png=True, tif=False, channels=[
         maskdir = os.path.join(savedir, "masks")
         outlinedir = os.path.join(savedir, "outlines")
         txtdir = os.path.join(savedir, "txt_outlines")
-        ncolordir = os.path.join(savedir, "ncolor_masks")
         flowdir = os.path.join(savedir, "flows")
     else:
         maskdir = savedir
         outlinedir = savedir
         txtdir = savedir
-        ncolordir = savedir
         flowdir = savedir
 
     check_dir(maskdir)
@@ -718,12 +771,9 @@ def save_masks(images, masks, flows, file_names, png=True, tif=False, channels=[
 def save_server(parent=None, filename=None):
     """ Uploads a *_seg.npy file to the bucket.
     
-    Parameters
-    ----------------
-    parent: PyQt.MainWindow (optional, default None)
-        GUI window to grab file info from
-    filename: str (optional, default None)
-        if no GUI, send this file to server
+    Args:
+        parent (PyQt.MainWindow, optional): GUI window to grab file info from. Defaults to None.
+        filename (str, optional): if no GUI, send this file to server. Defaults to None.
     """
     if parent is not None:
         q = QMessageBox.question(

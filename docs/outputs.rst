@@ -62,7 +62,7 @@ Or use the function below if running in a notebook
 ::
 
     from cellpose import io
-    io.save_to_png(images, masks, flows, image_names)
+    io.save_masks(images, masks, flows, image_names, png=True)
 
 Native ImageJ ROI archive output
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

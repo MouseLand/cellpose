@@ -81,40 +81,41 @@ def get_user_models():
 
 
 class Cellpose():
-    """ main model which combines SizeModel and CellposeModel
+    """Main model which combines SizeModel and CellposeModel.
 
-    Parameters
-    ----------
+    Args:
+        gpu (bool, optional): Whether or not to use GPU, will check if GPU available. Defaults to False.
+        model_type (str, optional): Model type. "cyto"=cytoplasm model; "nuclei"=nucleus model; 
+            "cyto2"=cytoplasm model with additional user images; 
+            "cyto3"=super-generalist model; Defaults to "cyto3".
+        device (torch device, optional): Device used for model running / training. Overrides gpu input. Recommended if you want to use a specific GPU (e.g. torch.device("cuda:1")). Defaults to None.
 
-    gpu: bool (optional, default False)
-        whether or not to use GPU, will check if GPU available
-
-    model_type: str (optional, default "cyto")
-        "cyto"=cytoplasm model; "nuclei"=nucleus model; "cyto2"=cytoplasm model with additional user images
-
-    device: torch device (optional, default None)
-        device used for model running / training 
-        (torch.device("cuda") or torch.device("cpu")), overrides gpu input,
-        recommended if you want to use a specific GPU (e.g. torch.device("cuda:1"))
+    Attributes:
+        torch (bool): Flag indicating if torch is available.
+        device (torch device): Device used for model running / training.
+        gpu (bool): Flag indicating if GPU is used.
+        diam_mean (float): Mean diameter for cytoplasm model.
+        cp (CellposeModel): CellposeModel instance.
+        pretrained_size (str): Pretrained size model path.
+        sz (SizeModel): SizeModel instance.
 
     """
 
-    def __init__(self, gpu=False, model_type="cyto", device=None):
+    def __init__(self, gpu=False, model_type="cyto3", device=None):
         super(Cellpose, self).__init__()
-        self.torch = True
 
         # assign device (GPU or CPU)
-        sdevice, gpu = assign_device(self.torch, gpu)
+        sdevice, gpu = assign_device(use_torch=True, gpu=gpu)
         self.device = device if device is not None else sdevice
         self.gpu = gpu
 
-        model_type = "cyto" if model_type is None else model_type
+        model_type = "cyto3" if model_type is None else model_type
 
         self.diam_mean = 30.  #default for any cyto model
         nuclear = "nuclei" in model_type
         if nuclear:
             self.diam_mean = 17.
-        
+
         self.cp = CellposeModel(device=self.device, gpu=self.gpu, model_type=model_type,
                                 diam_mean=self.diam_mean)
         self.cp.model_type = model_type
@@ -127,63 +128,33 @@ class Cellpose():
 
     def eval(self, x, batch_size=8, channels=None, channel_axis=None, invert=False,
              normalize=True, diameter=30., do_3D=False, **kwargs):
-        """ run cellpose size model and mask model and get masks
+        """Run cellpose size model and mask model and get masks.
 
-        see all parameters in CellposeModel eval function
+        Args:
+            x (list or array): List or array of images. Can be list of 2D/3D images, or array of 2D/3D images, or 4D image array.
+            batch_size (int, optional): Number of 224x224 patches to run simultaneously on the GPU. Can make smaller or bigger depending on GPU memory usage. Defaults to 8.
+            channels (list, optional): List of channels, either of length 2 or of length number of images by 2. First element of list is the channel to segment (0=grayscale, 1=red, 2=green, 3=blue). Second element of list is the optional nuclear channel (0=none, 1=red, 2=green, 3=blue). For instance, to segment grayscale images, input [0,0]. To segment images with cells in green and nuclei in blue, input [2,3]. To segment one grayscale image and one image with cells in green and nuclei in blue, input [[0,0], [2,3]]. Defaults to None.
+            channel_axis (int, optional): If None, channels dimension is attempted to be automatically determined. Defaults to None.
+            invert (bool, optional): Invert image pixel intensity before running network (if True, image is also normalized). Defaults to False.
+            normalize (bool, optional): If True, normalize data so 0.0=1st percentile and 1.0=99th percentile of image intensities in each channel; can also pass dictionary of parameters (see CellposeModel for details). Defaults to True.
+            diameter (float, optional): If set to None, then diameter is automatically estimated if size model is loaded. Defaults to 30..
+            do_3D (bool, optional): Set to True to run 3D segmentation on 4D image input. Defaults to False.
 
-        Parameters
-        ----------
-        x: list or array of images
-            can be list of 2D/3D images, or array of 2D/3D images, or 4D image array
-
-        batch_size: int (optional, default 8)
-            number of 224x224 patches to run simultaneously on the GPU
-            (can make smaller or bigger depending on GPU memory usage)
-
-        channels: list (optional, default None)
-            list of channels, either of length 2 or of length number of images by 2.
-            First element of list is the channel to segment (0=grayscale, 1=red, 2=green, 3=blue).
-            Second element of list is the optional nuclear channel (0=none, 1=red, 2=green, 3=blue).
-            For instance, to segment grayscale images, input [0,0]. To segment images with cells
-            in green and nuclei in blue, input [2,3]. To segment one grayscale image and one
-            image with cells in green and nuclei in blue, input [[0,0], [2,3]].
-        
-        channel_axis: int (optional, default None)
-            if None, channels dimension is attempted to be automatically determined
-
-        invert: bool (optional, default False)
-            invert image pixel intensity before running network (if True, image is also normalized)
-
-        normalize: bool (optional, default True)
-            if True, normalize data so 0.0=1st percentile and 1.0=99th percentile of image intensities in each channel;
-            can also pass dictionary of parameters (see CellposeModel for details)
-
-        diameter: float (optional, default 30.)
-            if set to None, then diameter is automatically estimated if size model is loaded
-
-        do_3D: bool (optional, default False)
-            set to True to run 3D segmentation on 4D image input
-
-        Returns
-        -------
-        masks: list of 2D arrays, or single 3D array (if do_3D=True)
-                labelled image, where 0=no masks; 1,2,...=mask labels
-
-        flows: list of lists 2D arrays, or list of 3D arrays (if do_3D=True)
-            flows[k][0] = XY flow in HSV 0-255
-            flows[k][1] = XY flows at each pixel
-            flows[k][2] = cell probability (if > cellprob_threshold, pixel used for dynamics)
-            flows[k][3] = final pixel locations after Euler integration 
-
-        styles: list of 1D arrays of length 256, or single 1D array (if do_3D=True)
-            style vector summarizing each image, also used to estimate size of objects in image
-
-        diams: list of diameters, or float (if do_3D=True)
+        Returns:
+            tuple: Tuple containing masks, flows, styles, and diams.
+                - masks (list of 2D arrays or single 3D array): Labelled image, where 0=no masks; 1,2,...=mask labels.
+                - flows (list of lists 2D arrays or list of 3D arrays): 
+                    - flows[k][0] = XY flow in HSV 0-255
+                    - flows[k][1] = XY flows at each pixel
+                    - flows[k][2] = cell probability (if > cellprob_threshold, pixel used for dynamics)
+                    - flows[k][3] = final pixel locations after Euler integration
+                - styles (list of 1D arrays of length 256 or single 1D array): Style vector summarizing each image, also used to estimate size of objects in image.
+                - diams (list of diameters or float): List of diameters or float (if do_3D=True).
 
         """
 
         tic0 = time.time()
-        channels = [0, 0] if channels is None else channels 
+        channels = [0, 0] if channels is None else channels
 
         diam0 = diameter[0] if isinstance(diameter, (np.ndarray, list)) else diameter
         estimate_size = True if (diameter is None or diam0 == 0) else False
@@ -229,49 +200,44 @@ class Cellpose():
 
 class CellposeModel():
     """
+    Class representing a Cellpose model.
 
-    Parameters
-    -------------------
+    Attributes:
+        torch (bool): Whether or not the torch library is available.
+        diam_mean (float): Mean "diameter" value for the model.
+        builtin (bool): Whether the model is a built-in model or not.
+        device (torch device): Device used for model running / training.
+        mkldnn (None or bool): MKLDNN flag for the model.
+        nchan (int): Number of channels used as input to the network.
+        nclasses (int): Number of classes in the model.
+        nbase (list): List of base values for the model.
+        net (CPnet): Cellpose network.
+        pretrained_model (str or list of strings): Full path to pretrained cellpose model(s).
+        diam_labels (numpy array): Diameter labels of the model.
+        net_type (str): Type of the network.
 
-    gpu: bool (optional, default False)
-        whether or not to save model to GPU, will check if GPU available
+    Methods:
+        __init__(self, gpu=False, pretrained_model=False, model_type=None, diam_mean=30., device=None, nchan=2):
+            Initialize the CellposeModel.
         
-    pretrained_model: str or list of strings (optional, default False)
-        full path to pretrained cellpose model(s), if None or False, no model loaded
-        
-    model_type: str (optional, default None)
-        any model that is available in the GUI, use name in GUI e.g. "livecell" 
-        (can be user-trained or model zoo)
-        
-    diam_mean: float (optional, default 30.)
-        mean "diameter", 30. is built in value for "cyto" model; 17. is built in value for "nuclei" model; 
-        if saved in custom model file (cellpose>=2.0) then it will be loaded automatically and overwrite this value
-        
-    device: torch device (optional, default None)
-        device used for model running / training 
-        (torch.device("cuda") or torch.device("cpu")), overrides gpu input,
-        recommended if you want to use a specific GPU (e.g. torch.device("cuda:1"))
+        eval(self, x, batch_size=8, resample=True, channels=None, channel_axis=None, z_axis=None, normalize=True, invert=False, rescale=None, diameter=None, flow_threshold=0.4, cellprob_threshold=0.0, do_3D=False, anisotropy=None, stitch_threshold=0.0, min_size=15, niter=None, augment=False, tile=True, tile_overlap=0.1, bsize=224, interp=True, compute_masks=True, progress=None):
+            Segment list of images x, or 4D array - Z x nchan x Y x X.
 
-    residual_on: bool (optional, default True)
-        use 4 conv blocks with skip connections per layer instead of 2 conv blocks
-        like conventional u-nets
-
-    style_on: bool (optional, default True)
-        use skip connections from style vector to all upsampling layers
-
-    concatenation: bool (optional, default False)
-        if True, concatentate downsampling block outputs with upsampling block inputs; 
-        default is to add 
-    
-    nchan: int (optional, default 2)
-        number of channels to use as input to network, default is 2 
-        (cyto + nuclei) or (nuclei + zeros)
-    
     """
 
     def __init__(self, gpu=False, pretrained_model=False, model_type=None,
                  diam_mean=30., device=None, nchan=2):
-        self.torch = True
+        """
+        Initialize the CellposeModel.
+
+        Parameters:
+            gpu (bool, optional): Whether or not to save model to GPU, will check if GPU available.
+            pretrained_model (str or list of strings, optional): Full path to pretrained cellpose model(s), if None or False, no model loaded.
+            model_type (str, optional): Any model that is available in the GUI, use name in GUI e.g. "livecell" (can be user-trained or model zoo).
+            diam_mean (float, optional): Mean "diameter", 30. is built-in value for "cyto" model; 17. is built-in value for "nuclei" model; if saved in custom model file (cellpose>=2.0) then it will be loaded automatically and overwrite this value.
+            device (torch device, optional): Device used for model running / training (torch.device("cuda") or torch.device("cpu")), overrides gpu input, recommended if you want to use a specific GPU (e.g. torch.device("cuda:1")).
+            nchan (int, optional): Number of channels to use as input to network, default is 2 (cyto + nuclei) or (nuclei + zeros).
+        """
         self.diam_mean = diam_mean
         builtin = True
 
@@ -305,7 +271,7 @@ class CellposeModel():
         # assign network device
         self.mkldnn = None
         if device is None:
-            sdevice, gpu = assign_device(self.torch, gpu)
+            sdevice, gpu = assign_device(use_torch=True, gpu=gpu)
         self.device = device if device is not None else sdevice
         if device is not None:
             device_gpu = self.device.type == "cuda"
@@ -345,109 +311,58 @@ class CellposeModel():
              stitch_threshold=0.0, min_size=15, niter=None, augment=False, tile=True,
              tile_overlap=0.1, bsize=224, interp=True, compute_masks=True,
              progress=None):
-        """
-            segment list of images x, or 4D array - Z x nchan x Y x X
+        """ segment list of images x, or 4D array - Z x nchan x Y x X
 
-            Parameters
-            ----------
-            x: list or array of images
-                can be list of 2D/3D/4D images, or array of 2D/3D/4D images
-
-            batch_size: int (optional, default 8)
-                number of 224x224 patches to run simultaneously on the GPU
-                (can make smaller or bigger depending on GPU memory usage)
-
-            resample: bool (optional, default True)
-                run dynamics at original image size (will be slower but create more accurate boundaries)
-
-            channels: list (optional, default None)
-                list of channels, either of length 2 or of length number of images by 2.
+        Args:
+            x (list, np.ndarry): can be list of 2D/3D/4D images, or array of 2D/3D/4D images
+            batch_size (int, optional): number of 224x224 patches to run simultaneously on the GPU
+                (can make smaller or bigger depending on GPU memory usage). Defaults to 8.
+            resample (bool, optional): run dynamics at original image size (will be slower but create more accurate boundaries). Defaults to True.
+            channels (list, optional): list of channels, either of length 2 or of length number of images by 2.
                 First element of list is the channel to segment (0=grayscale, 1=red, 2=green, 3=blue).
                 Second element of list is the optional nuclear channel (0=none, 1=red, 2=green, 3=blue).
                 For instance, to segment grayscale images, input [0,0]. To segment images with cells
                 in green and nuclei in blue, input [2,3]. To segment one grayscale image and one
                 image with cells in green and nuclei in blue, input [[0,0], [2,3]].
-
-            channel_axis: int (optional, default None)
-                if None, channels dimension is attempted to be automatically determined
-
-            z_axis: int (optional, default None)
-                if None, z dimension is attempted to be automatically determined
-
-            
-            normalize: bool (default, True)
-                if True, normalize data so 0.0=1st percentile and 1.0=99th percentile of image intensities in each channel; 
+                Defaults to None.
+            channel_axis (int, optional): channel axis in element of list x, or of np.ndarray x. 
+                if None, channels dimension is attempted to be automatically determined. Defaults to None.
+            z_axis  (int, optional): z axis in element of list x, or of np.ndarray x. 
+                if None, z dimension is attempted to be automatically determined. Defaults to None.
+            normalize (bool, optional): if True, normalize data so 0.0=1st percentile and 1.0=99th percentile of image intensities in each channel; 
                 can also pass dictionary of parameters (all keys are optional, default values shown): 
                     - "lowhigh"=None : pass in normalization values for 0.0 and 1.0 as list [low, high] (if not None, all following parameters ignored)
                     - "sharpen"=0 ; sharpen image with high pass filter, recommended to be 1/4-1/8 diameter of cells in pixels
                     - "normalize"=True ; run normalization (if False, all following parameters ignored)
                     - "percentile"=None : pass in percentiles to use as list [perc_low, perc_high]
                     - "tile_norm"=0 ; compute normalization in tiles across image to brighten dark areas, to turn on set to window size in pixels (e.g. 100)
-                    - "norm3D"=False ; compute normalization across entire z-stack rather than plane-by-plane in stitching mode
-                    
-            invert: bool (optional, default False)
-                invert image pixel intensity before running network
+                    - "norm3D"=False ; compute normalization across entire z-stack rather than plane-by-plane in stitching mode.
+                Defaults to True.
+            invert (bool, optional): invert image pixel intensity before running network. Defaults to False.
+            rescale (float, optional): resize factor for each image, if None, set to 1.0;
+                (only used if diameter is None). Defaults to None.
+            diameter (float, optional):  diameter for each image, 
+                if diameter is None, set to diam_mean or diam_train if available. Defaults to None.
+            flow_threshold (float, optional): flow error threshold (all cells with errors below threshold are kept) (not used for 3D). Defaults to 0.4.
+            cellprob_threshold (float, optional): all pixels with value above threshold kept for masks, decrease to find more and larger masks. Defaults to 0.0.
+            do_3D (bool, optional): set to True to run 3D segmentation on 3D/4D image input. Defaults to False.
+            anisotropy (float, optional): for 3D segmentation, optional rescaling factor (e.g. set to 2.0 if Z is sampled half as dense as X or Y). Defaults to None.
+            stitch_threshold (float, optional): if stitch_threshold>0.0 and not do_3D, masks are stitched in 3D to return volume segmentation. Defaults to 0.0.
+            min_size (int, optional): all ROIs below this size, in pixels, will be discarded. Defaults to 15.
+            niter (int, optional): number of iterations for dynamics computation. if None, it is set proportional to the diameter. Defaults to None.
+            augment (bool, optional): tiles image with overlapping tiles and flips overlapped regions to augment. Defaults to False.
+            tile (bool, optional): tiles image to ensure GPU/CPU memory usage limited (recommended). Defaults to True.
+            tile_overlap (float, optional): fraction of overlap of tiles when computing flows. Defaults to 0.1.
+            bsize (int, optional): block size for tiles, recommended to keep at 224, like in training. Defaults to 224.
+            interp (bool, optional): interpolate during 2D dynamics (not available in 3D) . Defaults to True.
+            compute_masks (bool, optional): Whether or not to compute dynamics and return masks. This is set to False when retrieving the styles for the size model. Defaults to True.
+            progress (QProgressBar, optional): pyqt progress bar. Defaults to None.
 
-            diameter: float (optional, default None)
-                diameter for each image, 
-                if diameter is None, set to diam_mean or diam_train if available
-
-            rescale: float (optional, default None)
-                resize factor for each image, if None, set to 1.0;
-                (only used if diameter is None)
-
-            do_3D: bool (optional, default False)
-                set to True to run 3D segmentation on 4D image input
-
-            anisotropy: float (optional, default None)
-                for 3D segmentation, optional rescaling factor (e.g. set to 2.0 if Z is sampled half as dense as X or Y)
-
-            augment: bool (optional, default False)
-                tiles image with overlapping tiles and flips overlapped regions to augment
-
-            tile: bool (optional, default True)
-                tiles image to ensure GPU/CPU memory usage limited (recommended)
-
-            tile_overlap: float (optional, default 0.1)
-                fraction of overlap of tiles when computing flows
-
-            interp: bool (optional, default True)
-                interpolate during 2D dynamics (not available in 3D) 
-                (in previous versions it was False)
-
-            flow_threshold: float (optional, default 0.4)
-                flow error threshold (all cells with errors below threshold are kept) (not used for 3D)
-
-            cellprob_threshold: float (optional, default 0.0) 
-                all pixels with value above threshold kept for masks, decrease to find more and larger masks
-
-            compute_masks: bool (optional, default True)
-                Whether or not to compute dynamics and return masks.
-                This is set to False when retrieving the styles for the size model.
-
-            min_size: int (optional, default 15)
-                minimum number of pixels per mask, can turn off with -1
-
-            stitch_threshold: float (optional, default 0.0)
-                if stitch_threshold>0.0 and not do_3D, masks are stitched in 3D to return volume segmentation
-
-            progress: pyqt progress bar (optional, default None)
-                to return progress bar status to GUI
-
-            Returns
-            -------
-            masks: list of 2D arrays, or single 3D array (if do_3D=True)
-                labelled image, where 0=no masks; 1,2,...=mask labels
-
-            flows: list of lists 2D arrays, or list of 3D arrays (if do_3D=True)
-                flows[k][0] = XY flow in HSV 0-255
-                flows[k][1] = XY flows at each pixel
-                flows[k][2] = cell probability (if > cellprob_threshold, pixel used for dynamics)
-                flows[k][3] = final pixel locations after Euler integration 
-
-            styles: list of 1D arrays of length 64, or single 1D array (if do_3D=True)
-                style vector summarizing each image, also used to estimate size of objects in image
-
+        Returns:
+            masks (list, np.ndarray): labelled image(s), where 0=no masks; 1,2,...=mask labels
+            flows (list): list of lists: flows[k][0] = XY flow in HSV 0-255; flows[k][1] = XY(Z) flows at each pixel; flows[k][2] = cell probability (if > cellprob_threshold, pixel used for dynamics); flows[k][3] = final pixel locations after Euler integration 
+            styles (list, np.ndarray): style vector summarizing each image of size 256.
+            
         """
         if isinstance(x, list) or x.squeeze().ndim == 5:
             masks, styles, flows = [], [], []
@@ -496,50 +411,20 @@ class CellposeModel():
                 rescale = self.diam_mean / diameter
 
             masks, styles, dP, cellprob, p = self._run_cp(
-                x,
-                compute_masks=compute_masks,
-                normalize=normalize,
-                invert=invert,
-                rescale=rescale,
-                resample=resample,
-                augment=augment,
-                tile=tile,
-                tile_overlap=tile_overlap,
-                bsize=bsize,
-                flow_threshold=flow_threshold,
-                cellprob_threshold=cellprob_threshold,
-                interp=interp,
-                min_size=min_size,
-                do_3D=do_3D,
-                anisotropy=anisotropy,
-                niter=niter,
-                stitch_threshold=stitch_threshold,
-            )
+                x, compute_masks=compute_masks, normalize=normalize, invert=invert,
+                rescale=rescale, resample=resample, augment=augment, tile=tile,
+                tile_overlap=tile_overlap, bsize=bsize, flow_threshold=flow_threshold,
+                cellprob_threshold=cellprob_threshold, interp=interp, min_size=min_size,
+                do_3D=do_3D, anisotropy=anisotropy, niter=niter,
+                stitch_threshold=stitch_threshold)
 
             flows = [plot.dx_to_circ(dP), dP, cellprob, p]
             return masks, flows, styles
 
-    def _run_cp(
-        self,
-        x,
-        compute_masks=True,
-        normalize=True,
-        invert=False,
-        niter=None,
-        rescale=1.0,
-        resample=True,
-        augment=False,
-        tile=True,
-        tile_overlap=0.1,
-        cellprob_threshold=0.0,
-        bsize=224,
-        flow_threshold=0.4,
-        min_size=15,
-        interp=True,
-        anisotropy=1.0,
-        do_3D=False,
-        stitch_threshold=0.0,
-    ):
+    def _run_cp(self, x, compute_masks=True, normalize=True, invert=False, niter=None,
+                rescale=1.0, resample=True, augment=False, tile=True, tile_overlap=0.1,
+                cellprob_threshold=0.0, bsize=224, flow_threshold=0.4, min_size=15,
+                interp=True, anisotropy=1.0, do_3D=False, stitch_threshold=0.0):
 
         if isinstance(normalize, dict):
             normalize_params = {**normalize_default, **normalize}
@@ -678,34 +563,45 @@ class CellposeModel():
 
 
 class SizeModel():
-    """ linear regression model for determining the size of objects in image
-        used to rescale before input to cp_model
-        uses styles from cp_model
+    """ 
+    Linear regression model for determining the size of objects in image
+    used to rescale before input to cp_model.
+    Uses styles from cp_model.
 
-        Parameters
-        -------------------
-
-        cp_model: UnetModel or CellposeModel
-            model from which to get styles
-
-        device: torch device (optional, default None)
-            device used for model running / training 
+    Attributes:
+        pretrained_size (str): Path to pretrained size model.
+        cp (UnetModel or CellposeModel): Model from which to get styles.
+        device (torch device): Device used for model running / training 
             (torch.device("cuda") or torch.device("cpu")), overrides gpu input,
-            recommended if you want to use a specific GPU (e.g. torch.device("cuda:1"))
+            recommended if you want to use a specific GPU (e.g. torch.device("cuda:1")).
+        diam_mean (float): Mean diameter of objects.
+        
+    Methods:
+        eval(self, x, channels=None, channel_axis=None, normalize=True, invert=False,
+             augment=False, tile=True, batch_size=8, progress=None, interp=True):
+            Use images x to produce style or use style input to predict size of objects in image.
 
-        pretrained_size: str
-            path to pretrained size model
-            
+    Raises:
+        ValueError: If no pretrained cellpose model is specified, cannot compute size.
     """
 
     def __init__(self, cp_model, device=None, pretrained_size=None, **kwargs):
         super(SizeModel, self).__init__(**kwargs)
+        """ 
+        Initialize size model.
+
+        Args:
+            cp_model (UnetModel or CellposeModel): Model from which to get styles.
+            device (torch device, optional): Device used for model running / training 
+                (torch.device("cuda") or torch.device("cpu")), overrides gpu input,
+                recommended if you want to use a specific GPU (e.g. torch.device("cuda:1")).
+            pretrained_size (str): Path to pretrained size model.
+        """
 
         self.pretrained_size = pretrained_size
         self.cp = cp_model
         self.device = self.cp.device
         self.diam_mean = self.cp.diam_mean
-        self.torch = True
         if pretrained_size is not None:
             self.params = np.load(self.pretrained_size, allow_pickle=True).item()
             self.diam_mean = self.params["diam_mean"]
@@ -716,53 +612,49 @@ class SizeModel():
 
     def eval(self, x, channels=None, channel_axis=None, normalize=True, invert=False,
              augment=False, tile=True, batch_size=8, progress=None, interp=True):
-        """ use images x to produce style or use style input to predict size of objects in image
+        """Use images x to produce style or use style input to predict size of objects in image.
 
-            Object size estimation is done in two steps:
-            1. use a linear regression model to predict size from style in image
-            2. resize image to predicted size and run CellposeModel to get output masks.
-                Take the median object size of the predicted masks as the final predicted size.
+        Object size estimation is done in two steps:
+        1. Use a linear regression model to predict size from style in image.
+        2. Resize image to predicted size and run CellposeModel to get output masks.
+           Take the median object size of the predicted masks as the final predicted size.
 
-            Parameters
-            -------------------
-
+        Parameters:
             x: list or array of images
-                can be list of 2D/3D images, or array of 2D/3D images
+                Can be a list of 2D/3D images or an array of 2D/3D images.
 
             channels: list (optional, default None)
-                list of channels, either of length 2 or of length number of images by 2.
-                First element of list is the channel to segment (0=grayscale, 1=red, 2=green, 3=blue).
-                Second element of list is the optional nuclear channel (0=none, 1=red, 2=green, 3=blue).
+                List of channels, either of length 2 or of length number of images by 2.
+                The first element of the list is the channel to segment (0=grayscale, 1=red, 2=green, 3=blue).
+                The second element of the list is the optional nuclear channel (0=none, 1=red, 2=green, 3=blue).
                 For instance, to segment grayscale images, input [0,0]. To segment images with cells
                 in green and nuclei in blue, input [2,3]. To segment one grayscale image and one
                 image with cells in green and nuclei in blue, input [[0,0], [2,3]].
 
             channel_axis: int (optional, default None)
-                if None, channels dimension is attempted to be automatically determined
+                If None, the channels dimension is attempted to be automatically determined.
 
             normalize: bool (default, True)
-                normalize data so 0.0=1st percentile and 1.0=99th percentile of image intensities in each channel
+                Normalize data so 0.0=1st percentile and 1.0=99th percentile of image intensities in each channel.
 
             invert: bool (optional, default False)
-                invert image pixel intensity before running network
+                Invert image pixel intensity before running the network.
 
             augment: bool (optional, default False)
-                tiles image with overlapping tiles and flips overlapped regions to augment
+                Tile the image with overlapping tiles and flips overlapped regions to augment.
 
             tile: bool (optional, default True)
-                tiles image to ensure GPU/CPU memory usage limited (recommended)
+                Tile the image to ensure GPU/CPU memory usage is limited (recommended).
 
             progress: pyqt progress bar (optional, default None)
-                to return progress bar status to GUI
+                Return progress bar status to GUI.
 
-            Returns
-            -------
+        Returns:
             diam: array, float
-                final estimated diameters from images x or styles style after running both steps
+                Final estimated diameters from images x or styles style after running both steps.
 
             diam_style: array, float
-                estimated diameters from style alone
-
+                Estimated diameters from style alone.
         """
 
         if isinstance(x, list):
@@ -773,20 +665,13 @@ class SizeModel():
                               mininterval=30) if nimg > 1 else range(nimg)
             for i in iterator:
                 diam, diam_style = self.eval(
-                    x[i],
-                    channels=channels[i] if
+                    x[i], channels=channels[i] if
                     (channels is not None and len(channels) == len(x) and
                      (isinstance(channels[i], list) or
-                      isinstance(channels[i], np.ndarray)) and len(channels[i]) == 2)
-                    else channels,
-                    channel_axis=channel_axis,
-                    normalize=normalize,
-                    invert=invert,
-                    augment=augment,
-                    tile=tile,
-                    batch_size=batch_size,
-                    progress=progress,
-                )
+                      isinstance(channels[i], np.ndarray)) and
+                     len(channels[i]) == 2) else channels, channel_axis=channel_axis,
+                    normalize=normalize, invert=invert, augment=augment, tile=tile,
+                    batch_size=batch_size, progress=progress)
                 diams.append(diam)
                 diams_style.append(diam_style)
 
@@ -806,21 +691,11 @@ class SizeModel():
                                         np.isnan(diam_style)) else diam_style
 
         masks = self.cp.eval(
-            x,
-            compute_masks=True,
-            channels=channels,
-            channel_axis=channel_axis,
-            normalize=normalize,
-            invert=invert,
-            augment=augment,
-            tile=tile,
-            batch_size=batch_size,
-            resample=False,
+            x, compute_masks=True, channels=channels, channel_axis=channel_axis,
+            normalize=normalize, invert=invert, augment=augment, tile=tile,
+            batch_size=batch_size, resample=False,
             rescale=self.diam_mean / diam_style if self.diam_mean > 0 else 1,
-            #flow_threshold=0,
-            diameter=None,
-            interp=False,
-        )[0]
+            diameter=None, interp=False)[0]
 
         diam = utils.diameters(masks)[0]
         diam = self.diam_mean if (diam == 0 or np.isnan(diam)) else diam

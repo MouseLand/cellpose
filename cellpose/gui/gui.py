@@ -940,10 +940,9 @@ class MainW(QMainWindow):
 
     def check_gpu(self, torch=True):
         # also decide whether or not to use torch
-        self.torch = torch
         self.useGPU.setChecked(False)
         self.useGPU.setEnabled(False)
-        if self.torch and core.use_gpu(use_torch=True):
+        if core.use_gpu(use_torch=True):
             self.useGPU.setEnabled(True)
             self.useGPU.setChecked(True)
         else:
@@ -1884,8 +1883,8 @@ class MainW(QMainWindow):
             elif key == "none" and self.restore is None:
                 self.DenoiseButtons[i].setStyleSheet(self.stylePressed)
             else:
-                #if self.DenoiseButtons[i].isEnabled():
-                self.DenoiseButtons[i].setStyleSheet(self.styleUnpressed)
+                if self.DenoiseButtons[i].isEnabled():
+                    self.DenoiseButtons[i].setStyleSheet(self.styleUnpressed)
 
     def set_normalize_params(self, normalize_params):
         if self.restore != "filter":
@@ -2294,14 +2293,15 @@ class MainW(QMainWindow):
                     "GUI_WARNING: upsampling image, this will also duplicate mask layer and resize it, will use more RAM"
                 )
                 print(
-                    f"GUI_INFO: upsampling image to 30 pixel diameter ({self.ratio:0.2f} times)"
+                    f"GUI_INFO: upsampling image to {diam_up} pixel diameter ({self.ratio:0.2f} times)"
                 )
                 self.Lyr, self.Lxr = int(self.Ly * self.ratio), int(self.Lx *
                                                                     self.ratio)
                 self.Ly0, self.Lx0 = self.Ly, self.Lx
-                data = resize_image(data, Ly=self.Lyr, Lx=self.Lxr)
-                self.diameter = diam_up
-                self.Diameter.setText(str(diam_up))
+                # moved resize into eval
+                #data = resize_image(data, Ly=self.Lyr, Lx=self.Lxr)
+                #self.diameter = diam_up
+                #self.Diameter.setText(str(diam_up))
             else:
                 self.Lyr, self.Lxr = self.Ly, self.Lx
                 self.Ly0, self.Lx0 = self.Ly, self.Lx
@@ -2310,6 +2310,8 @@ class MainW(QMainWindow):
                                                channel_axis=3, diameter=self.diameter,
                                                normalize=normalize_params)
             print(img_norm.shape)
+            self.diameter = diam_up
+            self.Diameter.setText(str(diam_up))
 
             if img_norm.ndim == 2:
                 img_norm = img_norm[:, :, np.newaxis]
@@ -2438,7 +2440,7 @@ class MainW(QMainWindow):
             if self.restore and "upsample" in self.restore:
                 self.Ly, self.Lx = self.Lyr, self.Lxr
 
-            if flows_new[0].shape[-2:] != (self.Ly, self.Lx):
+            if flows_new[0].shape[-3:-1] != (self.Ly, self.Lx):
                 self.flows = []
                 for j in range(len(flows_new)):
                     self.flows.append(
