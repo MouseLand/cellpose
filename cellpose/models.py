@@ -41,7 +41,6 @@ normalize_default = {
     "invert": False
 }
 
-
 def model_path(model_type, model_index=0):
     torch_str = "torch"
     if model_type == "cyto" or model_type == "cyto2" or model_type == "nuclei":

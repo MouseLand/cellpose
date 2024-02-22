@@ -981,7 +981,7 @@ class MainW(QMainWindow):
             if custom:
                 model_name = self.ModelChooseC.currentText()
             else:
-                model_name = self.ModelChooseB.currentText()
+                model_name = self.net_names[index - 1]
             print(f"GUI_INFO: selected model {model_name}, loading now")
             self.initialize_model(model_name=model_name, custom=custom)
             self.diameter = self.model.diam_labels
