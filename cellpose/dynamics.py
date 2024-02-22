@@ -30,47 +30,45 @@ torch_CPU = torch.device("cpu")
 
 @njit("(float64[:], int32[:], int32[:], int32, int32, int32, int32)", nogil=True)
 def _extend_centers(T, y, x, ymed, xmed, Lx, niter):
-    """ run diffusion from center of mask (ymed, xmed) on mask pixels (y, x)
-    Parameters
-    --------------
-    T: float64, array
-        _ x Lx array that diffusion is run in
-    y: int32, array
-        pixels in y inside mask
-    x: int32, array
-        pixels in x inside mask
-    ymed: int32
-        center of mask in y
-    xmed: int32
-        center of mask in x
-    Lx: int32
-        size of x-dimension of masks
-    niter: int32
-        number of iterations to run diffusion
-    Returns
-    ---------------
-    T: float64, array
-        amount of diffused particles at each pixel
-    """
+    """Run diffusion from the center of the mask on the mask pixels.
 
+    Args:
+        T (numpy.ndarray): Array of shape (Ly * Lx) where diffusion is run.
+        y (numpy.ndarray): Array of y-coordinates of pixels inside the mask.
+        x (numpy.ndarray): Array of x-coordinates of pixels inside the mask.
+        ymed (int): Center of the mask in the y-coordinate.
+        xmed (int): Center of the mask in the x-coordinate.
+        Lx (int): Size of the x-dimension of the masks.
+        niter (int): Number of iterations to run diffusion.
+
+    Returns:
+        numpy.ndarray: Array of shape (Ly * Lx) representing the amount of diffused particles at each pixel.
+    """
     for t in range(niter):
-        T[ymed * Lx + xmed] += 1
-        T[y * Lx +
-          x] = 1 / 9. * (T[y * Lx + x] + T[(y - 1) * Lx + x] + T[(y + 1) * Lx + x] +
-                         T[y * Lx + x - 1] + T[y * Lx + x + 1] +
-                         T[(y - 1) * Lx + x - 1] + T[(y - 1) * Lx + x + 1] +
-                         T[(y + 1) * Lx + x - 1] + T[(y + 1) * Lx + x + 1])
+            T[ymed * Lx + xmed] += 1
+            T[y * Lx +
+                x] = 1 / 9. * (T[y * Lx + x] + T[(y - 1) * Lx + x] + T[(y + 1) * Lx + x] +
+                                                T[y * Lx + x - 1] + T[y * Lx + x + 1] +
+                                                T[(y - 1) * Lx + x - 1] + T[(y - 1) * Lx + x + 1] +
+                                                T[(y + 1) * Lx + x - 1] + T[(y + 1) * Lx + x + 1])
     return T
 
 
 def _extend_centers_gpu(neighbors, meds, isneighbor, shape, n_iter=200,
                         device=torch.device("cuda")):
-    """ runs diffusion on GPU to generate flows for training images or quality control
-    
-    neighbors is 9 x pixels in masks, 
-    centers are mask centers, 
-    isneighbor is valid neighbor boolean 9 x pixels
-    
+    """Runs diffusion on GPU to generate flows for training images or quality control.
+
+    Args:
+        neighbors (torch.Tensor): 9 x pixels in masks.
+        meds (torch.Tensor): Mask centers.
+        isneighbor (torch.Tensor): Valid neighbor boolean 9 x pixels.
+        shape (tuple): Shape of the tensor.
+        n_iter (int, optional): Number of iterations. Defaults to 200.
+        device (torch.device, optional): Device to run the computation on. Defaults to torch.device("cuda").
+
+    Returns:
+        torch.Tensor: Generated flows.
+
     """
     if device is None:
         device = torch.device("cuda")
@@ -79,12 +77,11 @@ def _extend_centers_gpu(neighbors, meds, isneighbor, shape, n_iter=200,
 
     for i in range(n_iter):
         T[meds[:, 0], meds[:, 1]] += 1
-        Tneigh = T[tuple(neighbors)]  #neighbors[0], neighbors[1]]
+        Tneigh = T[tuple(neighbors)]
         Tneigh *= isneighbor
         T[tuple(neighbors[:, 0])] = Tneigh.mean(axis=0)
     del meds, isneighbor, Tneigh
 
-    # gradient positions
     if T.ndim == 2:
         grads = T[neighbors[0, [2, 1, 4, 3]], neighbors[1, [2, 1, 4, 3]]]
         del neighbors
@@ -103,43 +100,19 @@ def _extend_centers_gpu(neighbors, meds, isneighbor, shape, n_iter=200,
             (dz.cpu().squeeze(0), dy.cpu().squeeze(0), dx.cpu().squeeze(0)), axis=-2)
     return mu_torch
 
-
-# def _extend_centers_gpu_3d(neighbors, centers, isneighbor, Lz, Ly, Lx, n_iter=200, device=torch.device("cuda")):
-#     """ runs diffusion on GPU to generate flows for training images or quality control
-
-#     neighbors is 9 x pixels in masks,
-#     centers are mask centers,
-#     isneighbor is valid neighbor boolean 9 x pixels
-
-#     """
-#     if device is not None:
-#         device = device
-#     nimg = neighbors.shape[0] // 7
-#     pt = torch.from_numpy(neighbors).to(device)
-
-#     T = torch.zeros((nimg,Lz,Ly,Lx), dtype=torch.double, device=device)
-#     meds = torch.from_numpy(centers.astype(int)).to(device).long()
-#     isneigh = torch.from_numpy(isneighbor).to(device)
-#     for i in range(n_iter):
-#         T[:, meds[:,0], meds[:,1], meds[:,2]] +=1
-#         Tneigh = T[:, pt[...,0], pt[...,1], pt[...,2]]
-#         Tneigh *= isneigh
-#         T[:, pt[0,:,0], pt[0,:,1], pt[0,:,2]] = Tneigh.mean(axis=1)
-#     del meds, isneigh, Tneigh
-#     T = torch.log(1.+ T)
-#     # gradient positions
-#     grads = T[:, pt[1:,:,0], pt[1:,:,1], pt[1:,:,2]]
-#     del pt
-#     dz = grads[:,0] - grads[:,1]
-#     dy = grads[:,2] - grads[:,3]
-#     dx = grads[:,4] - grads[:,5]
-#     del grads
-#     mu_torch = np.stack((dz.cpu().squeeze(0), dy.cpu().squeeze(0), dx.cpu().squeeze(0)), axis=-2)
-#     return mu_torch
-
-
 @njit(nogil=True)
 def get_centers(masks, slices):
+    """
+    Get the centers of the masks and their extents.
+
+    Args:
+        masks (ndarray): The labeled masks.
+        slices (ndarray): The slices of the masks.
+
+    Returns:
+        ndarray: The centers of the masks.
+        ndarray: The extents of the masks.
+    """
     centers = np.zeros((len(slices), 2), "int32")
     ext = np.zeros((len(slices),), "int32")
     for p in prange(len(slices)):
@@ -160,20 +133,18 @@ def get_centers(masks, slices):
 
 
 def masks_to_flows_gpu(masks, device=None, niter=None):
-    """ convert masks to flows using diffusion from center pixel
-    Center of masks where diffusion starts is defined using COM
-    Parameters
-    -------------
-    masks: int, 2D or 3D array
-        labelled masks 0=NO masks; 1,2,...=mask labels
-    Returns
-    -------------
-    mu: float, 3D or 4D array 
-        flows in Y = mu[-2], flows in X = mu[-1].
-        if masks are 3D, flows in Z = mu[0].
-    mu_c: float, 2D or 3D array
-        for each pixel, the distance to the center of the mask 
-        in which it resides 
+    """Convert masks to flows using diffusion from center pixel.
+
+    Center of masks where diffusion starts is defined using COM.
+
+    Args:
+        masks (int, 2D or 3D array): Labelled masks. 0=NO masks; 1,2,...=mask labels.
+
+    Returns:
+        mu (float, 3D or 4D array): Flows in Y = mu[-2], flows in X = mu[-1].
+            If masks are 3D, flows in Z = mu[0].
+        mu_c (float, 2D or 3D array): For each pixel, the distance to the center of the mask 
+            in which it resides.
     """
     if device is None:
         device = torch.device("cuda")
@@ -222,20 +193,14 @@ def masks_to_flows_gpu(masks, device=None, niter=None):
 
 
 def masks_to_flows_gpu_3d(masks, device=None):
-    """ convert masks to flows using diffusion from center pixel
-    Center of masks where diffusion starts is defined using COM
-    Parameters
-    -------------
-    masks: int, 2D or 3D array
-        labelled masks 0=NO masks; 1,2,...=mask labels
-    Returns
-    -------------
-    mu: float, 3D or 4D array 
-        flows in Y = mu[-2], flows in X = mu[-1].
-        if masks are 3D, flows in Z = mu[0].
-    mu_c: float, 2D or 3D array
-        for each pixel, the distance to the center of the mask 
-        in which it resides 
+    """Convert masks to flows using diffusion from center pixel.
+
+    Args:
+        masks (int, 2D or 3D array): Labelled masks. 0=NO masks; 1,2,...=mask labels.
+
+    Returns:
+        mu (float, 3D or 4D array): Flows in Y = mu[-2], flows in X = mu[-1]. If masks are 3D, flows in Z = mu[0].
+        mu_c (float, 2D or 3D array): For each pixel, the distance to the center of the mask in which it resides.
     """
     if device is None:
         device = torch.device("cuda")
@@ -301,25 +266,18 @@ def masks_to_flows_gpu_3d(masks, device=None):
 
 
 def masks_to_flows_cpu(masks, device=None, niter=None):
-    """ convert masks to flows using diffusion from center pixel
-    Center of masks where diffusion starts is defined to be the 
-    closest pixel to the median of all pixels that is inside the 
-    mask. Result of diffusion is converted into flows by computing
-    the gradients of the diffusion density map. 
-    Parameters
-    -------------
-    masks: int, 2D array
-        labelled masks 0=NO masks; 1,2,...=mask labels
-    Returns
-    -------------
-    mu: float, 3D array 
-        flows in Y = mu[-2], flows in X = mu[-1].
-        if masks are 3D, flows in Z = mu[0].
-    mu_c: float, 2D array
-        for each pixel, the distance to the center of the mask 
-        in which it resides 
-    """
+    """Convert masks to flows using diffusion from center pixel.
 
+    Center of masks where diffusion starts is defined to be the closest pixel to the mean of all pixels that is inside the mask.
+    Result of diffusion is converted into flows by computing the gradients of the diffusion density map.
+
+    Args:
+        masks (int, 2D or 3D array): Labelled masks 0=NO masks; 1,2,...=mask labels
+
+    Returns:
+        mu (float, 3D or 4D array): Flows in Y = mu[-2], flows in X = mu[-1]. If masks are 3D, flows in Z = mu[0].
+        mu_c (float, 2D or 3D array): For each pixel, the distance to the center of the mask in which it resides
+    """
     Ly, Lx = masks.shape
     mu = np.zeros((2, Ly, Lx), np.float64)
 
@@ -355,30 +313,17 @@ def masks_to_flows_cpu(masks, device=None, niter=None):
 
 
 def masks_to_flows(masks, device=None, niter=None):
-    """ convert masks to flows using diffusion from center pixel
+    """Convert masks to flows using diffusion from center pixel.
 
-    Center of masks where diffusion starts is defined to be the 
-    closest pixel to the median of all pixels that is inside the 
-    mask. Result of diffusion is converted into flows by computing
-    the gradients of the diffusion density map. 
+    Center of masks where diffusion starts is defined to be the closest pixel to the mean of all pixels that is inside the mask.
+    Result of diffusion is converted into flows by computing the gradients of the diffusion density map.
 
-    Parameters
-    -------------
+    Args:
+        masks (int, 2D or 3D array): Labelled masks 0=NO masks; 1,2,...=mask labels
 
-    masks: int, 2D or 3D array
-        labelled masks 0=NO masks; 1,2,...=mask labels
-
-    Returns
-    -------------
-
-    mu: float, 3D or 4D array 
-        flows in Y = mu[-2], flows in X = mu[-1].
-        if masks are 3D, flows in Z = mu[0].
-
-    mu_c: float, 2D or 3D array
-        for each pixel, the distance to the center of the mask 
-        in which it resides 
-
+    Returns:
+        mu (float, 3D or 4D array): Flows in Y = mu[-2], flows in X = mu[-1]. If masks are 3D, flows in Z = mu[0].
+        mu_c (float, 2D or 3D array): For each pixel, the distance to the center of the mask in which it resides
     """
     if masks.max() == 0:
         dynamics_logger.warning("empty masks!")

@@ -2,7 +2,7 @@
 Copyright © 2023 Howard Hughes Medical Institute, Authored by Carsen Stringer and Marius Pachitariu.
 """
 
-import sys, os, pathlib, warnings, datetime, time
+import sys, os, pathlib, warnings, datetime, time, copy
 
 from qtpy import QtGui, QtCore
 from superqt import QRangeSlider, QCollapsible
@@ -1887,11 +1887,12 @@ class MainW(QMainWindow):
                     self.DenoiseButtons[i].setStyleSheet(self.styleUnpressed)
 
     def set_normalize_params(self, normalize_params):
+        from cellpose.models import normalize_default
         if self.restore != "filter":
             keys = list(normalize_params.keys()).copy()
             for key in keys:
                 if key != "percentile":
-                    normalize_params.pop(key, None)
+                    normalize_params[key] = normalize_default[key]
         normalize_params = {**normalize_default, **normalize_params}
         percentile = self.check_percentile_params(normalize_params["percentile"])
         out = self.check_filter_params(normalize_params["sharpen_radius"],
@@ -1961,7 +1962,8 @@ class MainW(QMainWindow):
             normalize_params["tile_norm_smooth3D"] = smooth3D
             normalize_params["norm3D"] = norm3D
             normalize_params["invert"] = invert
-
+        
+        from cellpose.models import normalize_default
         normalize_params = {**normalize_default, **normalize_params}
 
         return normalize_params
@@ -2142,7 +2144,10 @@ class MainW(QMainWindow):
         else:
             print("GUI_INFO: training cancelled")
 
-    def train_model(self, restore=None, normalize_params=normalize_default):
+    def train_model(self, restore=None, normalize_params=None):
+        from cellpose.models import normalize_default
+        if normalize_params is None:
+            normalize_params = copy.deepcopy(normalize_default)
         if self.training_params["model_index"] < len(models.MODEL_NAMES):
             model_type = models.MODEL_NAMES[self.training_params["model_index"]]
             self.logger.info(f"training new model starting at model {model_type}")
