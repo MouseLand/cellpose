@@ -140,7 +140,7 @@ class Cellpose():
             do_3D (bool, optional): Set to True to run 3D segmentation on 4D image input. Defaults to False.
 
         Returns:
-            tuple: Tuple containing masks, flows, styles, and diams.
+            tuple containing
                 - masks (list of 2D arrays or single 3D array): Labelled image, where 0=no masks; 1,2,...=mask labels.
                 - flows (list of lists 2D arrays or list of 3D arrays): 
                     - flows[k][0] = XY flow in HSV 0-255

@@ -99,11 +99,12 @@ def make_tiles(imgi, bsize=224, augment=False, tile_overlap=0.1):
         tile_overlap (float, optional): Fraction of overlap of tiles. Defaults to 0.1.
 
     Returns:
-        np.ndarray: Array of shape (ntiles, nchan, bsize, bsize) representing the tiles.
-        list: List of arrays with start and end of tiles in Y of length ntiles.
-        list: List of arrays with start and end of tiles in X of length ntiles.
-        int: Height of the input image.
-        int: Width of the input image.
+        tuple containing
+            - IMG (np.ndarray): Array of shape (ntiles, nchan, bsize, bsize) representing the tiles.
+            - ysub (list): List of arrays with start and end of tiles in Y of length ntiles.
+            - xsub (list): List of arrays with start and end of tiles in X of length ntiles.
+            - Ly (int): Height of the input image.
+            - Lx (int): Width of the input image.
     """
     nchan, Ly, Lx = imgi.shape
     if augment:
@@ -736,10 +737,11 @@ def pad_image_ND(img0, div=16, extra=1, min_size=None):
         extra (int, optional): Extra padding. Defaults to 1.
         min_size (tuple, optional): Minimum size of the image. Defaults to None.
 
-    Returns:
-        ndarray: Padded image.
-        ndarray: Y range of pixels in the padded image corresponding to img0.
-        ndarray: X range of pixels in the padded image corresponding to img0.
+    Returns:   
+        tuple containing 
+            - I (ndarray): Padded image.
+            - ysub (ndarray): Y range of pixels in the padded image corresponding to img0.
+            - xsub (ndarray): X range of pixels in the padded image corresponding to img0.
     """
     if min_size is None or img0.shape[-2] >= min_size[-2]:
         Lpad = int(div * np.ceil(img0.shape[-2] / div) - img0.shape[-2])
@@ -789,9 +791,10 @@ def random_rotate_and_resize(X, Y=None, scale_range=1., xy=(224, 224), do_3D=Fal
         random_per_image (bool, optional): Different random rotate and resize per image. Defaults to True.
 
     Returns:
-        imgi (ND-array, float): Transformed images in array [nimg x nchan x xy[0] x xy[1]].
-        lbl (ND-array, float): Transformed labels in array [nimg x nchan x xy[0] x xy[1]].
-        scale (array, float): Amount each image was resized by.
+        tuple containing
+            - imgi (ND-array, float): Transformed images in array [nimg x nchan x xy[0] x xy[1]].
+            - lbl (ND-array, float): Transformed labels in array [nimg x nchan x xy[0] x xy[1]].
+            - scale (array, float): Amount each image was resized by.
     """
     scale_range = max(0, min(2, float(scale_range)))
     nimg = len(X)

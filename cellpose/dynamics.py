@@ -110,8 +110,9 @@ def get_centers(masks, slices):
         slices (ndarray): The slices of the masks.
 
     Returns:
-        ndarray: The centers of the masks.
-        ndarray: The extents of the masks.
+        tuple containing
+            - centers (ndarray): The centers of the masks.
+            - ext (ndarray): The extents of the masks.
     """
     centers = np.zeros((len(slices), 2), "int32")
     ext = np.zeros((len(slices),), "int32")
