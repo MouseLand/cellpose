@@ -125,14 +125,14 @@ class Cellpose():
                             cp_model=self.cp)
         self.sz.model_type = model_type
 
-    def eval(self, x, batch_size=8, channels=None, channel_axis=None, invert=False,
+    def eval(self, x, batch_size=8, channels=[0,0], channel_axis=None, invert=False,
              normalize=True, diameter=30., do_3D=False, **kwargs):
         """Run cellpose size model and mask model and get masks.
 
         Args:
             x (list or array): List or array of images. Can be list of 2D/3D images, or array of 2D/3D images, or 4D image array.
             batch_size (int, optional): Number of 224x224 patches to run simultaneously on the GPU. Can make smaller or bigger depending on GPU memory usage. Defaults to 8.
-            channels (list, optional): List of channels, either of length 2 or of length number of images by 2. First element of list is the channel to segment (0=grayscale, 1=red, 2=green, 3=blue). Second element of list is the optional nuclear channel (0=none, 1=red, 2=green, 3=blue). For instance, to segment grayscale images, input [0,0]. To segment images with cells in green and nuclei in blue, input [2,3]. To segment one grayscale image and one image with cells in green and nuclei in blue, input [[0,0], [2,3]]. Defaults to None.
+            channels (list, optional): List of channels, either of length 2 or of length number of images by 2. First element of list is the channel to segment (0=grayscale, 1=red, 2=green, 3=blue). Second element of list is the optional nuclear channel (0=none, 1=red, 2=green, 3=blue). For instance, to segment grayscale images, input [0,0]. To segment images with cells in green and nuclei in blue, input [2,3]. To segment one grayscale image and one image with cells in green and nuclei in blue, input [[0,0], [2,3]]. Defaults to [0,0].
             channel_axis (int, optional): If None, channels dimension is attempted to be automatically determined. Defaults to None.
             invert (bool, optional): Invert image pixel intensity before running network (if True, image is also normalized). Defaults to False.
             normalize (bool, optional): If True, normalize data so 0.0=1st percentile and 1.0=99th percentile of image intensities in each channel; can also pass dictionary of parameters (see CellposeModel for details). Defaults to True.
@@ -153,8 +153,7 @@ class Cellpose():
         """
 
         tic0 = time.time()
-        channels = [0, 0] if channels is None else channels
-        models_logger.warning("channels not specified, using [0,0] (grayscale + no nuclei)")
+        models_logger.info(f"channels set to {channels}")
 
         diam0 = diameter[0] if isinstance(diameter, (np.ndarray, list)) else diameter
         estimate_size = True if (diameter is None or diam0 == 0) else False
