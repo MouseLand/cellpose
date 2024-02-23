@@ -107,17 +107,19 @@ Dependencies
 ~~~~~~~~~~~~~~~~~~~~~~
 
 cellpose relies on the following excellent packages (which are
-automatically installed with conda/pip if missing):
+automatically installed with pip if missing):
 
 -  `pytorch`_
 -  `pyqtgraph`_
--  `PyQt5`_
+-  `PyQt5`_ or pyside or PyQt6
 -  `numpy`_ (>=1.16.0)
 -  `numba`_
 -  `scipy`_
--  `scikit-image`_
+-  `tifffile`_
 -  `natsort`_
--  `matplotlib`_
+-  `fastremap`_
+-  `roifile`_
+-  `superqt`_
 
 .. _Anaconda: https://www.anaconda.com/download/
 .. _environment.yml: https://github.com/MouseLand/cellpose/blob/master/environment.yml?raw=true
@@ -129,6 +131,8 @@ automatically installed with conda/pip if missing):
 .. _numpy: http://www.numpy.org/
 .. _numba: http://numba.pydata.org/numba-doc/latest/user/5minguide.html
 .. _scipy: https://www.scipy.org/
-.. _scikit-image: https://scikit-image.org/
+.. _tifffile: https://pypi.org/project/tifffile/
 .. _natsort: https://natsort.readthedocs.io/en/master/
-.. _matplotlib: https://matplotlib.org/
+.. _fastremap: https://github.com/seung-lab/fastremap
+.. _roifile: https://github.com/cgohlke/roifile
+.. _superqt: https://github.com/pyapp-kit/superqt

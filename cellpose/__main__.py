@@ -166,7 +166,7 @@ def main():
                     invert=args.invert, batch_size=args.batch_size,
                     interp=(not args.no_interp), normalize=(not args.no_norm),
                     channel_axis=args.channel_axis, z_axis=args.z_axis,
-                    anisotropy=args.anisotropy)
+                    anisotropy=args.anisotropy, niter=args.niter)
                 masks, flows = out[:2]
                 if len(out) > 3:
                     diams = out[-1]

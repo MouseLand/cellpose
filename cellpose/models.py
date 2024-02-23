@@ -90,7 +90,6 @@ class Cellpose():
         device (torch device, optional): Device used for model running / training. Overrides gpu input. Recommended if you want to use a specific GPU (e.g. torch.device("cuda:1")). Defaults to None.
 
     Attributes:
-        torch (bool): Flag indicating if torch is available.
         device (torch device): Device used for model running / training.
         gpu (bool): Flag indicating if GPU is used.
         diam_mean (float): Mean diameter for cytoplasm model.
@@ -202,7 +201,6 @@ class CellposeModel():
     Class representing a Cellpose model.
 
     Attributes:
-        torch (bool): Whether or not the torch library is available.
         diam_mean (float): Mean "diameter" value for the model.
         builtin (bool): Whether the model is a built-in model or not.
         device (torch device): Device used for model running / training.
@@ -357,9 +355,10 @@ class CellposeModel():
             progress (QProgressBar, optional): pyqt progress bar. Defaults to None.
 
         Returns:
-            masks (list, np.ndarray): labelled image(s), where 0=no masks; 1,2,...=mask labels
-            flows (list): list of lists: flows[k][0] = XY flow in HSV 0-255; flows[k][1] = XY(Z) flows at each pixel; flows[k][2] = cell probability (if > cellprob_threshold, pixel used for dynamics); flows[k][3] = final pixel locations after Euler integration 
-            styles (list, np.ndarray): style vector summarizing each image of size 256.
+            A tuple containing:
+                - masks (list, np.ndarray): labelled image(s), where 0=no masks; 1,2,...=mask labels
+                - flows (list): list of lists: flows[k][0] = XY flow in HSV 0-255; flows[k][1] = XY(Z) flows at each pixel; flows[k][2] = cell probability (if > cellprob_threshold, pixel used for dynamics); flows[k][3] = final pixel locations after Euler integration 
+                - styles (list, np.ndarray): style vector summarizing each image of size 256.
             
         """
         if isinstance(x, list) or x.squeeze().ndim == 5:
@@ -501,7 +500,7 @@ class CellposeModel():
         if compute_masks:
             tic = time.time()
             niter0 = 200 if (do_3D and not resample) else (1 / rescale * 200)
-            niter = niter0 if niter is None else niter
+            niter = niter0 if niter is None or niter==0 else niter
             if do_3D:
                 masks, p = dynamics.resize_and_compute_masks(
                     dP, cellprob, niter=niter, cellprob_threshold=cellprob_threshold,
@@ -552,17 +551,6 @@ class CellposeModel():
             masks, p = np.zeros(0), np.zeros(0)  #pass back zeros if not compute_masks
         return masks, styles, dP, cellprob, p
 
-    def loss_fn(self, lbl, y):
-        """ loss function between true labels lbl and prediction y """
-        veci = 5. * self._to_device(lbl[:, 1:])
-        lbl = self._to_device(lbl[:, 0] > .5).float()
-        loss = self.criterion(y[:, :2], veci)
-        loss /= 2.
-        loss2 = self.criterion2(y[:, 2], lbl)
-        loss = loss + loss2
-        return loss
-
-
 class SizeModel():
     """ 
     Linear regression model for determining the size of objects in image
@@ -612,7 +600,7 @@ class SizeModel():
             raise ValueError(error_message)
 
     def eval(self, x, channels=None, channel_axis=None, normalize=True, invert=False,
-             augment=False, tile=True, batch_size=8, progress=None, interp=True):
+             augment=False, tile=True, batch_size=8, progress=None):
         """Use images x to produce style or use style input to predict size of objects in image.
 
         Object size estimation is done in two steps:
@@ -620,42 +608,38 @@ class SizeModel():
         2. Resize image to predicted size and run CellposeModel to get output masks.
            Take the median object size of the predicted masks as the final predicted size.
 
-        Parameters:
-            x: list or array of images
-                Can be a list of 2D/3D images or an array of 2D/3D images.
-
-            channels: list (optional, default None)
-                List of channels, either of length 2 or of length number of images by 2.
-                The first element of the list is the channel to segment (0=grayscale, 1=red, 2=green, 3=blue).
-                The second element of the list is the optional nuclear channel (0=none, 1=red, 2=green, 3=blue).
+        Args:
+            x (list, np.ndarry): can be list of 2D/3D/4D images, or array of 2D/3D/4D images
+            channels (list, optional): list of channels, either of length 2 or of length number of images by 2.
+                First element of list is the channel to segment (0=grayscale, 1=red, 2=green, 3=blue).
+                Second element of list is the optional nuclear channel (0=none, 1=red, 2=green, 3=blue).
                 For instance, to segment grayscale images, input [0,0]. To segment images with cells
                 in green and nuclei in blue, input [2,3]. To segment one grayscale image and one
                 image with cells in green and nuclei in blue, input [[0,0], [2,3]].
+                Defaults to None.
+            channel_axis (int, optional): channel axis in element of list x, or of np.ndarray x. 
+                if None, channels dimension is attempted to be automatically determined. Defaults to None.
+            normalize (bool, optional): if True, normalize data so 0.0=1st percentile and 1.0=99th percentile of image intensities in each channel; 
+                can also pass dictionary of parameters (all keys are optional, default values shown): 
+                    - "lowhigh"=None : pass in normalization values for 0.0 and 1.0 as list [low, high] (if not None, all following parameters ignored)
+                    - "sharpen"=0 ; sharpen image with high pass filter, recommended to be 1/4-1/8 diameter of cells in pixels
+                    - "normalize"=True ; run normalization (if False, all following parameters ignored)
+                    - "percentile"=None : pass in percentiles to use as list [perc_low, perc_high]
+                    - "tile_norm"=0 ; compute normalization in tiles across image to brighten dark areas, to turn on set to window size in pixels (e.g. 100)
+                    - "norm3D"=False ; compute normalization across entire z-stack rather than plane-by-plane in stitching mode.
+                Defaults to True.
+            invert (bool, optional): Invert image pixel intensity before running network (if True, image is also normalized). Defaults to False.
+            augment (bool, optional): tiles image with overlapping tiles and flips overlapped regions to augment. Defaults to False.
+            tile (bool, optional): tiles image to ensure GPU/CPU memory usage limited (recommended). Defaults to True.
+            batch_size (int, optional): number of 224x224 patches to run simultaneously on the GPU
+                (can make smaller or bigger depending on GPU memory usage). Defaults to 8.
+            progress (QProgressBar, optional): pyqt progress bar. Defaults to None.
 
-            channel_axis: int (optional, default None)
-                If None, the channels dimension is attempted to be automatically determined.
-
-            normalize: bool (default, True)
-                Normalize data so 0.0=1st percentile and 1.0=99th percentile of image intensities in each channel.
-
-            invert: bool (optional, default False)
-                Invert image pixel intensity before running the network.
-
-            augment: bool (optional, default False)
-                Tile the image with overlapping tiles and flips overlapped regions to augment.
-
-            tile: bool (optional, default True)
-                Tile the image to ensure GPU/CPU memory usage is limited (recommended).
-
-            progress: pyqt progress bar (optional, default None)
-                Return progress bar status to GUI.
 
         Returns:
-            diam: array, float
-                Final estimated diameters from images x or styles style after running both steps.
-
-            diam_style: array, float
-                Estimated diameters from style alone.
+            A tuple containing:
+                - diam (np.ndarray): Final estimated diameters from images x or styles style after running both steps.
+                - diam_style (np.ndarray): Estimated diameters from style alone.
         """
 
         if isinstance(x, list):

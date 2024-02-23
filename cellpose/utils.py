@@ -226,11 +226,11 @@ def outlines_list(masks, multiprocessing_threshold=1000, multiprocessing=None):
         - This function is a wrapper for outlines_list_single and outlines_list_multi.
         - Multiprocessing is disabled for Windows.
     """
-    # default to use multiprocessing if few_masks, but allow user to override
+    # default to use multiprocessing if not few_masks, but allow user to override
     if multiprocessing is None:
         few_masks = np.max(masks) < multiprocessing_threshold
-        multiprocessing = few_masks
-
+        multiprocessing = not few_masks
+    
     # disable multiprocessing for Windows
     if os.name == "nt":
         if multiprocessing:

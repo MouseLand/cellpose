@@ -359,6 +359,8 @@ def train_seg(net, train_data=None, train_labels=None, train_files=None,
     (train_data, train_labels, train_files, train_labels_files, train_probs, diam_train,
      test_data, test_labels, test_files, test_labels_files, test_probs, diam_test) = out
 
+    net.diam_labels.data = torch.Tensor([diam_train.mean()]).to(device)
+
     nimg = len(train_data) if train_data is not None else len(train_files)
     nimg_test = len(test_data) if test_data is not None else None
     nimg_test = len(test_files) if test_files is not None else nimg_test

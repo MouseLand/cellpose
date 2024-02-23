@@ -105,6 +105,9 @@ def get_arg_parser():
     algorithm_args.add_argument(
         "--cellprob_threshold", default=0, type=float,
         help="cellprob threshold, default is 0, decrease to find more and larger masks")
+    algorithm_args.add_argument(
+        "--niter", default=0, type=int,
+        help="niter, number of iterations for dynamics for mask creation, default of 0 means it is proportional to diameter, set to a larger number like 2000 for very long ROIs")
 
     algorithm_args.add_argument("--anisotropy", required=False, default=1.0, type=float,
                                 help="anisotropy of volume in 3D")

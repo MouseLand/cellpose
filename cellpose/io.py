@@ -423,12 +423,10 @@ def load_images_labels(tdir, mask_filter="_masks", image_filter=None,
     k = 0
     for n in range(nimg):
         if os.path.isfile(label_names[n]) or os.path.isfile(flow_names[0]):
-            print(image_names[n])
             image = imread(image_names[n])
             if label_names is not None:
                 label = imread(label_names[n])
             if flow_names is not None:
-                print(flow_names[n])
                 flow = imread(flow_names[n])
                 if flow.shape[0] < 4:
                     label = np.concatenate((label[np.newaxis, :, :], flow), axis=0)
