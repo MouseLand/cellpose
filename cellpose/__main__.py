@@ -6,7 +6,7 @@ import sys, os, glob, pathlib, time
 import numpy as np
 from natsort import natsorted
 from tqdm import tqdm
-from cellpose import utils, models, io, version_str, train
+from cellpose import utils, models, io, version_str, train, denoise
 from cellpose.cli import get_arg_parser
 
 try:
@@ -90,9 +90,16 @@ def main():
         else:
             pretrained_model = args.pretrained_model
 
+        restore_type = args.restore_type
+        if restore_type is not None:
+            try:
+                denoise.model_path(restore_type)
+            except Exception as e:
+                raise ValueError("restore_type invalid")
+
         model_type = None
         if pretrained_model and not os.path.exists(pretrained_model):
-            model_type = pretrained_model if pretrained_model is not None else "cyto"
+            model_type = pretrained_model if pretrained_model is not None else "cyto3"
             model_strings = models.get_user_models()
             all_models = models.MODEL_NAMES.copy()
             all_models.extend(model_strings)
@@ -128,7 +135,7 @@ def main():
                 % (nimg, cstr0[channels[0]], cstr1[channels[1]]))
 
             # handle built-in model exceptions; bacterial ones get no size model
-            if builtin_size:
+            if builtin_size and restore_type is not None:
                 model = models.Cellpose(gpu=gpu, device=device, model_type=model_type)
             else:
                 if args.all_channels:

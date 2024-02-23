@@ -69,6 +69,11 @@ def get_arg_parser():
     model_args.add_argument("--pretrained_model", required=False, default="cyto",
                             type=str,
                             help="model to use for running or starting training")
+    model_args.add_argument("--restore_type", required=False, default=None,
+                            type=str,
+                            help="model to use for image restoration")
+    model_args.add_argument("--chan2_restore", action="store_true",
+                               help="use nuclei restore model for second channel")
     model_args.add_argument(
         "--add_model", required=False, default=None, type=str,
         help="model path to copy model to hidden .cellpose folder for using in GUI/CLI")

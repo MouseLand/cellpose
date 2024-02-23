@@ -57,7 +57,7 @@ ensure the channels and diameters are handled properly. See example:
 ::
     from cellpose import denoise
     model = denoise.CellposeDenoiseModel(gpu=True, model_type="cyto3",
-                 restore_type="denoise_cyto3", chan2_denoise=True)
+                 restore_type="denoise_cyto3", chan2_restore=True)
     masks, flows, styles, imgs_dn = model.eval(imgs, channels=[1,2], diameter=50.)             
 
 For more details refer to the API section.
@@ -66,4 +66,4 @@ Command line usage
 ---------------------
 
 These models can be used on the command line with input ``--restore_type`` and flag
-``--chan2_denoise``.
+``--chan2_restore``.

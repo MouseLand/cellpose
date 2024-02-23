@@ -464,11 +464,11 @@ def one_chan_cellpose(device, model_type="cyto2", pretrained_model=None):
 class CellposeDenoiseModel():
     """ model to run Cellpose and Image restoration """
     def __init__(self, gpu=False, pretrained_model=False, model_type=None,
-                 restore_type="denoise_cyto3", chan2_denoise=False, 
+                 restore_type="denoise_cyto3", chan2_restore=False, 
                  device=None):
 
         self.dn = DenoiseModel(gpu=gpu, model_type=restore_type, 
-                                    chan2=chan2_denoise, device=device)
+                                    chan2=chan2_restore, device=device)
         self.cp = CellposeModel(gpu=gpu, model_type=model_type, 
                                 pretrained_model=pretrained_model, device=device)
 
