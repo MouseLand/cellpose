@@ -299,6 +299,9 @@ def _load_seg(parent, filename=None, image=None, image_file=None, load_3D=False)
     else:
         parent.filename = image_file
 
+    parent.restore = None 
+    parent.ratio = 1.
+    
     if "normalize_params" in dat:
         parent.restore = None if "restore" not in dat else dat["restore"]
         print(f"GUI_INFO: restore: {parent.restore}")
@@ -306,7 +309,31 @@ def _load_seg(parent, filename=None, image=None, image_file=None, load_3D=False)
         parent.set_restore_button()
 
     if "img_restore" in dat:
-        parent.stack_filtered = dat["img_restore"]
+        img = dat["img_restore"]
+        img_min = img.min()
+        img_max = img.max()
+        parent.stack_filtered = img.astype("float32")
+        parent.stack_filtered -= img_min
+        if img_max > img_min + 1e-3:
+            parent.stack_filtered /= (img_max - img_min)
+        parent.stack_filtered *= 255
+        if parent.stack_filtered.ndim < 4:
+            parent.stack_filtered = parent.stack_filtered[np.newaxis,...]
+        if parent.stack_filtered.ndim < 4:
+            parent.stack_filtered = parent.stack_filtered[...,np.newaxis]
+        shape = parent.stack_filtered.shape
+        if shape[-1] == 2:
+            if "chan_choose" in dat:
+                channels = np.array(dat["chan_choose"]) - 1
+                img = np.zeros((*shape[:-1], 3), dtype="float32")
+                img[..., channels] = parent.stack_filtered
+                parent.stack_filtered = img
+            else:
+                parent.stack_filtered = np.concatenate(
+                    (parent.stack_filtered, np.zeros((*shape[:-1], 1), dtype="float32")), axis=-1)
+        elif shape[-1] > 3:
+            parent.stack_filtered = parent.stack_filtered[..., :3]
+        
         parent.restore = dat["restore"]
         parent.ViewDropDown.model().item(parent.ViewDropDown.count() -
                                          1).setEnabled(True)
@@ -314,8 +341,11 @@ def _load_seg(parent, filename=None, image=None, image_file=None, load_3D=False)
         if parent.restore and "upsample" in parent.restore:
             print(parent.stack_filtered.shape, image.shape)
             parent.ratio = dat["ratio"]
+        
+    parent.set_restore_button()
 
     _initialize_images(parent, image, load_3D=load_3D)
+    print(parent.stack.shape, parent.stack_filtered.shape)
     if "chan_choose" in dat:
         parent.ChannelChoose[0].setCurrentIndex(dat["chan_choose"][0])
         parent.ChannelChoose[1].setCurrentIndex(dat["chan_choose"][1])

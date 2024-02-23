@@ -469,7 +469,8 @@ def load_train_test_data(train_dir, test_dir=None, image_filter=None,
 
     return images, labels, image_names, test_images, test_labels, test_image_names
 
-def masks_flows_to_seg(images, masks, flows, file_names, diams=30., channels=None):
+def masks_flows_to_seg(images, masks, flows, file_names, diams=30., channels=None,
+                        imgs_restore=None, restore_type=None, ratio=1.):
     """Save output of model eval to be loaded in GUI.
 
     Can be list output (run on multiple images) or single output (run on single image).
@@ -494,13 +495,16 @@ def masks_flows_to_seg(images, masks, flows, file_names, diams=30., channels=Non
     if isinstance(masks, list):
         if not isinstance(diams, (list, np.ndarray)):
             diams = diams * np.ones(len(masks), np.float32)
+        if imgs_restore is None:
+            imgs_restore = [] * len(masks)
         for k, [image, mask, flow, diam,
-                file_name] in enumerate(zip(images, masks, flows, diams, file_names)):
+                file_name, img_restore] in enumerate(zip(images, masks, flows, diams, file_names, imgs_restore)):
             channels_img = channels
             if channels_img is not None and len(channels) > 2:
                 channels_img = channels[k]
             masks_flows_to_seg(image, mask, flow, file_name, diams=diam,
-                               channels=channels_img)
+                               channels=channels_img, imgs_restore=img_restore,
+                               restore_type=restore_type, ratio=ratio)
         return
 
     if len(channels) == 1:
@@ -531,53 +535,30 @@ def masks_flows_to_seg(images, masks, flows, file_names, diams=30., channels=Non
         flowi.append(np.concatenate((flows[1], flows[2][np.newaxis, ...]), axis=0))
     outlines = masks * utils.masks_to_outlines(masks)
     base = os.path.splitext(file_names)[0]
-    if masks.ndim == 3:
-        np.save(
-            base + "_seg.npy", {
-                "outlines":
-                    outlines.astype(np.uint16)
-                    if outlines.max() < 2**16 - 1 else outlines.astype(np.uint32),
-                "masks":
-                    masks.astype(np.uint16)
-                    if outlines.max() < 2**16 - 1 else masks.astype(np.uint32),
-                "chan_choose":
-                    channels,
-                "img":
-                    images,
-                "ismanual":
-                    np.zeros(masks.max(), bool),
-                "filename":
-                    file_names,
-                "flows":
-                    flowi,
-                "est_diam":
-                    diams
-            })
-    else:
-        if images.shape[0] < 8:
-            np.transpose(images, (1, 2, 0))
-        np.save(
-            base + "_seg.npy", {
-                "img":
-                    images,
-                "outlines":
-                    outlines.astype(np.uint16)
-                    if outlines.max() < 2**16 - 1 else outlines.astype(np.uint32),
-                "masks":
-                    masks.astype(np.uint16)
-                    if masks.max() < 2**16 - 1 else masks.astype(np.uint32),
-                "chan_choose":
-                    channels,
-                "ismanual":
-                    np.zeros(masks.max(), bool),
-                "filename":
-                    file_names,
-                "flows":
-                    flowi,
-                "est_diam":
-                    diams
-            })
 
+    dat = {"outlines":
+                outlines.astype(np.uint16)
+                if outlines.max() < 2**16 - 1 else outlines.astype(np.uint32),
+            "masks":
+                masks.astype(np.uint16)
+                if outlines.max() < 2**16 - 1 else masks.astype(np.uint32),
+            "chan_choose":
+                channels,
+            "ismanual":
+                np.zeros(masks.max(), bool),
+            "filename":
+                file_names,
+            "flows":
+                flowi,
+            "diameter":
+                diams
+            }
+    if restore_type is not None and imgs_restore is not None:
+        dat["restore"] = restore_type
+        dat["ratio"] = ratio 
+        dat["img_restore"] = imgs_restore
+
+    np.save(base + "_seg.npy", dat)
 
 def save_to_png(images, masks, flows, file_names):
     """ deprecated (runs io.save_masks with png=True) 

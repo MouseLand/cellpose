@@ -6,7 +6,7 @@ import sys, os, glob, pathlib, time
 import numpy as np
 from natsort import natsorted
 from tqdm import tqdm
-from cellpose import utils, models, io, version_str, train
+from cellpose import utils, models, io, version_str, train, denoise
 from cellpose.cli import get_arg_parser
 
 try:
@@ -90,9 +90,18 @@ def main():
         else:
             pretrained_model = args.pretrained_model
 
+        restore_type = args.restore_type
+        if restore_type is not None:
+            try:
+                denoise.model_path(restore_type)
+            except Exception as e:
+                raise ValueError("restore_type invalid")
+            if args.train or args.train_size:
+                raise ValueError("restore_type cannot be used with training on CLI yet")
+
         model_type = None
         if pretrained_model and not os.path.exists(pretrained_model):
-            model_type = pretrained_model if pretrained_model is not None else "cyto"
+            model_type = pretrained_model if pretrained_model is not None else "cyto3"
             model_strings = models.get_user_models()
             all_models = models.MODEL_NAMES.copy()
             all_models.extend(model_strings)
@@ -127,16 +136,24 @@ def main():
                 ">>>> running cellpose on %d images using chan_to_seg %s and chan (opt) %s"
                 % (nimg, cstr0[channels[0]], cstr1[channels[1]]))
 
-            # handle built-in model exceptions; bacterial ones get no size model
-            if builtin_size:
+            # handle built-in model exceptions
+            if builtin_size and restore_type is None:
                 model = models.Cellpose(gpu=gpu, device=device, model_type=model_type)
             else:
+                builtin_size = False
                 if args.all_channels:
                     channels = None
                 pretrained_model = None if model_type is not None else pretrained_model
-                model = models.CellposeModel(gpu=gpu, device=device,
-                                             pretrained_model=pretrained_model,
-                                             model_type=model_type)
+                if restore_type is None:
+                    model = models.CellposeModel(gpu=gpu, device=device,
+                                                 pretrained_model=pretrained_model,
+                                                 model_type=model_type)
+                else:
+                    model = denoise.CellposeDenoiseModel(gpu=gpu, device=device,
+                                                         pretrained_model=pretrained_model,
+                                                         model_type=model_type, 
+                                                         restore_type=restore_type,
+                                                         chan2_restore=args.chan2_restore)
 
             # handle diameters
             if args.diameter == 0:
@@ -144,9 +161,14 @@ def main():
                     diameter = None
                     logger.info(">>>> estimating diameter for each image")
                 else:
-                    logger.info(
-                        ">>>> not using cyto, cyto2, or nuclei model, cannot auto-estimate diameter"
-                    )
+                    if restore_type is None:
+                        logger.info(
+                            ">>>> not using cyto3, cyto, cyto2, or nuclei model, cannot auto-estimate diameter"
+                        )
+                    else:
+                        logger.info(
+                            ">>>> cannot auto-estimate diameter for image restoration"
+                        )
                     diameter = model.diam_labels
                     logger.info(">>>> using diameter %0.3f for all images" % diameter)
             else:
@@ -168,17 +190,26 @@ def main():
                     channel_axis=args.channel_axis, z_axis=args.z_axis,
                     anisotropy=args.anisotropy, niter=args.niter)
                 masks, flows = out[:2]
-                if len(out) > 3:
+                if len(out) > 3 and restore_type is None:
                     diams = out[-1]
                 else:
                     diams = diameter
+                ratio = 1.
+                if restore_type is not None:
+                    imgs_dn = out[-1]
+                    ratio = diams / model.dn.diam_mean if "upsample" in restore_type else 1.
+                    diams = model.dn.diam_mean if "upsample" in restore_type and model.dn.diam_mean > diams else diams
+                else:
+                    imgs_dn = None
                 if args.exclude_on_edges:
                     masks = utils.remove_edge_masks(masks)
                 if not args.no_npy:
-                    io.masks_flows_to_seg(image, masks, flows, image_name,
-                                          channels=channels, diams=diams)
+                    io.masks_flows_to_seg(image, masks, flows, image_name, imgs_restore=imgs_dn, 
+                                          channels=channels, diams=diams, 
+                                          restore_type=restore_type, ratio=1.)
                 if saving_something:
-                    io.save_masks(image, masks, flows, image_name, png=args.save_png,
+                    io.save_masks(image, masks, flows, image_name, 
+                                  png=args.save_png,
                                   tif=args.save_tif, save_flows=args.save_flows,
                                   save_outlines=args.save_outlines,
                                   dir_above=args.dir_above, savedir=args.savedir,
