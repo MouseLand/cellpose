@@ -17,6 +17,7 @@ DenoiseModel
 Initialize a DenoiseModel with the model_type:
 
 :: 
+
     from cellpose import denoise
     dn = denoise.DenoiseModel(model_type="denoise_cyto3", gpu=True)
 
@@ -26,12 +27,14 @@ using the Cellpose channel format (e.g. ``channels=[1,2]``), or leave
 the size of the objects in your image.
 
 ::
+
     imgs_dn = dn.eval(imgs, channels=None, diameter=50.)
 
 If you have two channels, and the second is a nuclear channel, you can specify to use 
 the nuclei restoration models on the second channel, with ``chan2=True``:
 
 :: 
+
     from cellpose import denoise
     dn = denoise.DenoiseModel(model_type="denoise_cyto3", gpu=True, chan2=True)
     imgs_dn = dn.eval(imgs, channels=[1,2], diameter=50.)
@@ -42,6 +45,7 @@ images, for example, in which the objects are of diameter 10, specify that in th
 function call, and then the model will upsample the image to 30 or 17:
 
 :: 
+
     from cellpose import denoise
     dn = denoise.DenoiseModel(model_type="upsample_cyto3", gpu=True, chan2=True)
     imgs_up = dn.eval(imgs, channels=[1,2], diameter=10.)
@@ -55,6 +59,7 @@ The ``CellposeDenoiseModel`` wraps the CellposeModel and DenoiseModel into one c
 ensure the channels and diameters are handled properly. See example:
 
 ::
+    
     from cellpose import denoise
     model = denoise.CellposeDenoiseModel(gpu=True, model_type="cyto3",
                  restore_type="denoise_cyto3", chan2_restore=True)
