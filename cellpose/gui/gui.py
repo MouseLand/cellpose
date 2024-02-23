@@ -2051,7 +2051,14 @@ class MainW(QMainWindow):
                         self.saturation[-1].append([x01, x99])
             else:
                 for n in range(self.NZ):
-                    self.saturation[-1].append([0, 255])
+                    self.saturation[-1].append([0, 255.])
+        # if only 2 restore channels, add blue
+        if len(self.saturation) < 3:
+            for i in range(3 - len(self.saturation)):
+                self.saturation.append([])
+                for n in range(self.NZ):
+                    self.saturation[-1].append([0, 255.])
+        print(self.saturation[2][self.currentZ])
 
         if invert:
             img_norm = 255. - img_norm
@@ -2407,8 +2414,6 @@ class MainW(QMainWindow):
             channels = self.get_channels()
             if self.restore is not None and self.restore != "filter":
                 data = self.stack_filtered.copy().squeeze()
-                if channels[1] != 0:
-                    channels = [1, 2]  # assuming aligned with denoising
             else:
                 data = self.stack.copy().squeeze()
             flow_threshold, cellprob_threshold = self.get_thresholds()

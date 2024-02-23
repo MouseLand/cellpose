@@ -474,9 +474,9 @@ class CellposeDenoiseModel():
 
     def eval(self, x, batch_size=8, channels=None, channel_axis=None, z_axis=None,
              normalize=True, rescale=None, diameter=None, tile=True, tile_overlap=0.1,
-             resample=True, invert=False, flow_threshold=0.4, cellprob_threshold=0.0, 
-             do_3D=False, anisotropy=None, stitch_threshold=0.0, min_size=15, 
-             niter=None, interp=True):
+             augment=False, resample=True, invert=False, flow_threshold=0.4, 
+             cellprob_threshold=0.0, do_3D=False, anisotropy=None, stitch_threshold=0.0, 
+             min_size=15, niter=None, interp=True):
         """
         Restore array or list of images using the image restoration model, and then segment.
 
@@ -510,6 +510,7 @@ class CellposeDenoiseModel():
                 if diameter is None, set to diam_mean or diam_train if available. Defaults to None.
             tile (bool, optional): tiles image to ensure GPU/CPU memory usage limited (recommended). Defaults to True.
             tile_overlap (float, optional): fraction of overlap of tiles when computing flows. Defaults to 0.1.
+            augment (bool, optional): augment tiles by flipping and averaging for segmentation. Defaults to False.
             resample (bool, optional): run dynamics at original image size (will be slower but create more accurate boundaries). Defaults to True.
             invert (bool, optional): invert image pixel intensity before running network. Defaults to False.
             flow_threshold (float, optional): flow error threshold (all cells with errors below threshold are kept) (not used for 3D). Defaults to 0.4.
@@ -549,7 +550,8 @@ class CellposeDenoiseModel():
         diameter = self.dn.diam_mean if self.dn.ratio > 1 else diameter
         masks, flows, styles = self.cp.eval(img_restore, batch_size=batch_size, channels=channels_new, channel_axis=-1,
                                    normalize=normalize_params, rescale=rescale, diameter=diameter,
-                                   tile=tile, tile_overlap=tile_overlap, resample=resample, invert=invert,
+                                   tile=tile, tile_overlap=tile_overlap, augment=augment, 
+                                   resample=resample, invert=invert,
                                    flow_threshold=flow_threshold, cellprob_threshold=cellprob_threshold,
                                    do_3D=do_3D, anisotropy=anisotropy, stitch_threshold=stitch_threshold,
                                    min_size=min_size, niter=niter, interp=interp)
@@ -644,7 +646,7 @@ class DenoiseModel():
             )
             if chan2 and builtin:
                 chan2_path = model_path(os.path.split(self.pretrained_model)[-1].split("_")[0] + "_nuclei")
-                print(f"loading model for chan2: {os.path.split(str(chan2_path)[-1])}")
+                print(f"loading model for chan2: {os.path.split(str(chan2_path))[-1]}")
                 self.net_chan2 = CPnet(self.nbase, self.nclasses, sz=3,
                                        mkldnn=self.mkldnn, max_pool=True,
                                        diam_mean=17.).to(self.device)
