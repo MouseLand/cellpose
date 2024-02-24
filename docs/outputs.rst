@@ -7,6 +7,7 @@ in a notebook
 when you run
 
 ::
+    
     from cellpose import io, models
     img = io.imread("img.tif")
     masks, flows, styles = models.CellposeModel(model_type='tissuenet_cp3').eval(img, 
@@ -14,10 +15,13 @@ when you run
 
 Internally, the network predicts 3 (or 4) outputs: 
 (flows in Z), flows in Y, flows in X, and cellprob. 
-The predictions the network makes of cellprob are the inputs to a sigmoid 
-centered at zero (1 / (1 + e^-x)), so they vary from around -10 to +10. These are 
-output from the `eval` function as the second variable flows. These flows are turned into cell 
-*masks*, of size (Lz x) Ly x Lx, where each pixel is assigned to an ROI (0 = NO ROI; 1,2,... = ROI labels).
+The predictions the network makes of cellprob are used as inputs to a sigmoid 
+centered at zero (1 / (1 + e^-x)) in the loss function (binary cross-entropy loss), 
+so they vary from around -10 to +10. These are 
+output from the `eval` function as the second variable flows. The Y flows and X flows are used 
+to simulate a dynamical system on the pixels, which is run on only pixels with a 
+``cellprob > cellprob_threshold``. All pixels which converge to the same point are assigned the same 
+label in the *masks* output, of size (Lz x) Ly x Lx (0 = NO ROI; 1,2,... = ROI labels).
 The styles are the sum over pixels of the output of the last downsampling layer of the network.
 
 Cellpose also produces various outputs from the command line and the GUI, which are 
