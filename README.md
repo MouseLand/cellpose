@@ -29,10 +29,11 @@ Cellpose3 enables image restoration in the GUI, API and CLI (saved to `_seg.npy`
 * Check out the paper [thread](https://neuromatch.social/@computingnature/111932247922392030).
 * API documentation [here](https://cellpose.readthedocs.io/en/latest/restore.html)
 * Example google colab notebook for image restoration: [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/MouseLand/cellpose/blob/main/notebooks/run_cellpose3.ipynb).
-* Example google colab notebook with new super-generalist "cyto3" model: [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/MouseLand/cellpose/blob/main/notebooks/run_cyto3.ipynb).
+* Example google colab notebook with new super-generalist "cyto3" model: [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/MouseLand/cellpose/blob/main/notebooks/run_cyto3.ipynb). Try out the new `cyto3` super-generalist Cellpose model with `model_type="cyto3"`.
 
-
-Try out the new `cyto3` super-generalist Cellpose model with `model_type="cyto3"`. There are some Cellpose API changes from v2.0 which will be documented soon.
+denoising             |  deblurring                  |  upsampling
+:-------------------------:|:-------------------------:|:-------------------------:
+<img src="http://www.cellpose.org/static/images/poisson_cp3.gif?raw=True" width="300" title="cellpose denoising" alt="cellpose denoising examples"> | <img src="http://www.cellpose.org/static/images/blur_cp3.gif?raw=True" width="300" title="cellpose deblurring" alt="cellpose deblurring examples"> | <img src="http://www.cellpose.org/static/images/downsample_cp3.gif?raw=True" width="300" title="cellpose upsampling" alt="cellpose upsampling examples" vspace = "50">
 
 ### CITATION
 
