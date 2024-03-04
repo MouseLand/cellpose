@@ -1672,7 +1672,7 @@ class MainW(QMainWindow):
     def update_layer(self):
         if self.masksOn or self.outlinesOn:
             #self.draw_layer()
-            self.layer.setImage(self.layerz, autoLevels=False)
+            self.layer.setImage(self.layerz, autoLevels=False)    
         self.update_roi_count()
         self.win.show()
         self.show()
