@@ -26,19 +26,14 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-      - uses: conda-incubator/setup-miniconda@v2
-        with:
-          miniconda-version: "latest"
-          auto-activate-base: true
-          activate-environment: ""
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install tox tox-gh-actions setuptools
+          python -m pip install tox tox-gh-actions
       # this runs the platform-specific tests declared in tox.ini
       - name: Test with tox
         run: tox
@@ -46,7 +41,7 @@ jobs:
           PLATFORM: ${{ matrix.platform }}
 
       - name: Coverage
-        uses: codecov/codecov-action@v3
+        uses: codecov/codecov-action@v4
 
   deploy:
     # this will run when you have tagged a commit, starting with "v*"
