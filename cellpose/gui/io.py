@@ -141,6 +141,7 @@ def _load_image(parent, filename=None, load_seg=True, load_3D=False):
 
 def _initialize_images(parent, image, load_3D=False):
     """ format image for GUI """
+    load_3D = parent.load_3D if load_3D is False else load_3D
     parent.nchan = 3
     if image.ndim > 4:
         image = image.squeeze()
