@@ -611,7 +611,7 @@ def size_distribution(masks):
     counts = np.unique(masks, return_counts=True)[1][1:]
     return np.percentile(counts, 25) / np.percentile(counts, 75)
 
-def fill_holes_and_remove_small_masks(masks, min_size=15):
+def fill_holes_and_remove_small_masks(masks, min_size=15, fill_holes=True):
     """ Fills holes in masks (2D/3D) and discards masks smaller than min_size.
 
     This function fills holes in each mask using scipy.ndimage.morphology.binary_fill_holes.
@@ -624,6 +624,7 @@ def fill_holes_and_remove_small_masks(masks, min_size=15):
     min_size (int, optional): Minimum number of pixels per mask.
         Masks smaller than min_size will be removed.
         Set to -1 to turn off this functionality. Default is 15.
+    fill_holes (bool, optional): Whether to fill holes in masks. Default is True.
 
     Returns:
     ndarray: Int, 2D or 3D array of masks with holes filled and small masks removed.
@@ -644,11 +645,12 @@ def fill_holes_and_remove_small_masks(masks, min_size=15):
             if min_size > 0 and npix < min_size:
                 masks[slc][msk] = 0
             elif npix > 0:
-                if msk.ndim == 3:
-                    for k in range(msk.shape[0]):
-                        msk[k] = binary_fill_holes(msk[k])
-                else:
-                    msk = binary_fill_holes(msk)
+                if fill_holes:
+                    if msk.ndim == 3:
+                        for k in range(msk.shape[0]):
+                            msk[k] = binary_fill_holes(msk[k])
+                    else:
+                        msk = binary_fill_holes(msk)
                 masks[slc][msk] = (j + 1)
                 j += 1
     return masks

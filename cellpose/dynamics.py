@@ -756,7 +756,7 @@ def get_masks(p, iscell=None, rpad=20):
     return M0
 
 def resize_and_compute_masks(dP, cellprob, p=None, niter=200, cellprob_threshold=0.0,
-                             flow_threshold=0.4, interp=True, do_3D=False, min_size=15,
+                             flow_threshold=0.4, interp=True, do_3D=False, min_size=15, fill_holes=True,
                              resize=None, device=None):
     """Compute masks using dynamics from dP and cellprob, and resizes masks if resize is not None.
 
@@ -770,6 +770,7 @@ def resize_and_compute_masks(dP, cellprob, p=None, niter=200, cellprob_threshold
         interp (bool, optional): Whether to interpolate during dynamics computation. Defaults to True.
         do_3D (bool, optional): Whether to perform mask computation in 3D. Defaults to False.
         min_size (int, optional): The minimum size of the masks. Defaults to 15.
+        fill_holes (bool, optional): Whether to fill holes in the masks. Defaults to True.
         resize (tuple, optional): The desired size for resizing the masks. Defaults to None.
         device (str, optional): The torch device to use for computation. Defaults to None.
 
@@ -779,7 +780,7 @@ def resize_and_compute_masks(dP, cellprob, p=None, niter=200, cellprob_threshold
     mask, p = compute_masks(dP, cellprob, p=p, niter=niter,
                             cellprob_threshold=cellprob_threshold,
                             flow_threshold=flow_threshold, interp=interp, do_3D=do_3D,
-                            min_size=min_size, device=device)
+                            min_size=min_size, fill_holes=fill_holes, device=device)
 
     if resize is not None:
         mask = transforms.resize_image(mask, resize[0], resize[1],
@@ -794,7 +795,7 @@ def resize_and_compute_masks(dP, cellprob, p=None, niter=200, cellprob_threshold
 
 def compute_masks(dP, cellprob, p=None, niter=200, cellprob_threshold=0.0,
                   flow_threshold=0.4, interp=True, do_3D=False, min_size=15,
-                  device=None):
+                  fill_holes=True, device=None):
     """Compute masks using dynamics from dP and cellprob.
 
     Args:
@@ -807,6 +808,7 @@ def compute_masks(dP, cellprob, p=None, niter=200, cellprob_threshold=0.0,
         interp (bool, optional): Whether to interpolate during dynamics computation. Defaults to True.
         do_3D (bool, optional): Whether to perform mask computation in 3D. Defaults to False.
         min_size (int, optional): The minimum size of the masks. Defaults to 15.
+        fill_holes (bool, optional): Whether to fill holes in the masks. Defaults to True.
         device (str, optional): The torch device to use for computation. Defaults to None.
 
     Returns:
@@ -856,7 +858,7 @@ def compute_masks(dP, cellprob, p=None, niter=200, cellprob_threshold=0.0,
         p = np.zeros((len(shape), *shape), np.uint16)
         return mask, p
 
-    mask = utils.fill_holes_and_remove_small_masks(mask, min_size=min_size)
+    mask = utils.fill_holes_and_remove_small_masks(mask, min_size=min_size, fill_holes=fill_holes)
 
     if mask.dtype == np.uint32:
         dynamics_logger.warning(
