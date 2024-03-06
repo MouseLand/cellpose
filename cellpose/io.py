@@ -156,7 +156,7 @@ def imread(filename):
     """
     # ensure that extension check is not case sensitive
     ext = os.path.splitext(filename)[-1].lower()
-    if ext == ".tif" or ext == ".tiff":
+    if ext == ".tif" or ext == ".tiff" or ext == ".flex":
         with tifffile.TiffFile(filename) as tif:
             ltif = len(tif.pages)
             try:
@@ -294,7 +294,7 @@ def get_image_files(folder, mask_filter, imf=None, look_one_level_down=False):
     if look_one_level_down:
         folders = natsorted(glob.glob(os.path.join(folder, "*/")))
     folders.append(folder)
-    exts = [".png", ".jpg", ".jpeg", ".tif", ".tiff", ".dax", ".nd2", ".nrrd"]
+    exts = [".png", ".jpg", ".jpeg", ".tif", ".tiff", ".flex", ".dax", ".nd2", ".nrrd"]
     l0 = 0
     al = 0
     for folder in folders:
@@ -310,7 +310,7 @@ def get_image_files(folder, mask_filter, imf=None, look_one_level_down=False):
         raise ValueError("ERROR: no files in --dir folder ")
     elif l0 == 0:
         raise ValueError(
-            "ERROR: no images in --dir folder with extensions .png, .jpg, .jpeg, .tif, .tiff"
+            "ERROR: no images in --dir folder with extensions .png, .jpg, .jpeg, .tif, .tiff, .flex"
         )
 
     image_names = natsorted(image_names)
