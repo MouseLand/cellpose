@@ -63,8 +63,26 @@ You can also specify the full path to a pretrained model to use:
 
     python -m cellpose --dir ~/images_cyto/test/ --pretrained_model ~/images_cyto/test/model/cellpose_35_0 --save_png
 
+In a notebook, you can train with the `train_seg` function:
+::
+    from cellpose import io, models, train
+    io.logger_setup()
+    
+    output = io.load_train_test_data(train_dir, test_dir, image_filter="_img",
+                                    mask_filter="_masks", look_one_level_down=False)
+    images, labels, image_names, test_images, test_labels, image_names_test = output
 
-Training arguments
+    # e.g. retrain a Cellpose model
+    model = models.CellposeModel(model_type="cyto3")
+    
+    model_path = train.train_seg(model.net, train_data=images, train_labels=labels,
+                                channels=[1,2], normalize=True,
+                                test_data=test_images, test_labels=test_labels,
+                                weight_decay=1e-4, SGD=True, learning_rate=0.1,
+                                n_epochs=100, model_name="my_new_model")
+
+
+Training arguments on the CLI
 
 ::
 
@@ -72,7 +90,8 @@ Training arguments
     --train_size          train size network at end of training
     --test_dir TEST_DIR   folder containing test data (optional)
     --mask_filter MASK_FILTER
-                            end string for masks to run on. Default: _masks
+                            end string for masks to run on. use '_seg.npy' for
+                            manual annotations from the GUI. Default: _masks
     --diam_mean DIAM_MEAN
                             mean diameter to resize cells to during training -- if
                             starting from pretrained models it cannot be changed
@@ -87,14 +106,10 @@ Training arguments
     --min_train_masks MIN_TRAIN_MASKS
                             minimum number of masks a training image must have to
                             be used. Default: 5
-    --residual_on RESIDUAL_ON
-                            use residual connections
-    --style_on STYLE_ON   use style vector
-    --concatenation CONCATENATION
-                            concatenate downsampled layers with upsampled layers
-                            (off by default which means they are added)
+    --SGD SGD             use SGD
     --save_every SAVE_EVERY
                             number of epochs to skip between saves. Default: 100
-    --save_each           save the model under a different filename per
-                            --save_every epoch for later comparsion
-
+    --model_name_out MODEL_NAME_OUT
+                            Name of model to save as, defaults to name describing
+                            model architecture. Model is saved in the folder
+                            specified by --dir in models subfolder.

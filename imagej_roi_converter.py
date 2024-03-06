@@ -16,6 +16,9 @@ imp = IJ.getImage()
 
 textfile = open(file_name, "r")
 for line in textfile:
+    lineText = line.rstrip()
+    if not lineText:
+        continue
     xy = map(int, line.rstrip().split(","))
     X = xy[::2]
     Y = xy[1::2]

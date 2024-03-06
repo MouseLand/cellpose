@@ -7,11 +7,13 @@ See :ref:`Settings` for more information on run settings.
 
     import numpy as np
     import matplotlib.pyplot as plt
-    from cellpose import models
+    from cellpose import models, io
     from cellpose.io import imread 
 
-    # model_type='cyto' or 'nuclei' or 'cyto2'
-    model = models.Cellpose(model_type='cyto')
+    io.logger_setup()
+
+    # model_type='cyto' or 'nuclei' or 'cyto2' or 'cyto3'
+    model = models.Cellpose(model_type='cyto3')
 
     # list of files
     # PUT PATH TO YOUR FILES HERE!
@@ -37,6 +39,11 @@ See :ref:`Settings` for more information on run settings.
     masks, flows, styles, diams = model.eval(imgs, diameter=None, channels=channels)
 
 
-See full notebook at `run_cellpose.ipynb`_. 
+    ### or to run one of the other models, or a custom model, specify a CellposeModel 
+    model = models.CellposeModel(model_type='livecell_cp3')
+
+    masks, flows, styles = model.eval(imgs, diameter=30, channels=[0,0])
+
+See example notebook at `run_cellpose.ipynb`_. 
 
 .. _run_cellpose.ipynb: https://nbviewer.jupyter.org/github/MouseLand/cellpose/blob/master/notebooks/run_cellpose.ipynb

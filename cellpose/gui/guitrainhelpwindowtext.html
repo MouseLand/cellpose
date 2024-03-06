@@ -1,0 +1,25 @@
+<qt>
+    Check out this <a href="https://youtu.be/3Y1VKcxjNy4">video</a> to learn the process.
+    <ol>
+        <li>Drag and drop an image from a folder of images with a similar style (like similar cell types).</li>
+        <li>Run the built-in models on one of the images using the "model zoo" and find the one that works best for your
+            data. Make sure that if you have a nuclear channel you have selected it for CHAN2.
+        </li>
+        <li>Fix the labelling by drawing new ROIs (right-click) and deleting incorrect ones (CTRL+click). The GUI
+            autosaves any manual changes (but does not autosave after running the model, for that click CTRL+S). The
+            segmentation is saved in a "_seg.npy" file.
+        </li>
+        <li> Go to the "Models" menu in the File bar at the top and click "Train new model..." or use shortcut CTRL+T.
+        </li>
+        <li> Choose the pretrained model to start the training from (the model you used in #2), and type in the model
+            name that you want to use. The other parameters should work well in general for most data types. Then click
+            OK.
+        </li>
+        <li> The model will train (much faster if you have a GPU) and then auto-run on the next image in the folder.
+            Next you can repeat #3-#5 as many times as is necessary.
+        </li>
+        <li> The trained model is available to use in the future in the GUI in the "custom model" section and is saved
+            in your image folder.
+        </li>
+    </ol>
+</qt>
