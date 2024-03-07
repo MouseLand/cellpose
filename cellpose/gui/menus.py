@@ -134,7 +134,6 @@ def modelmenu(parent):
     openTrainHelp.triggered.connect(parent.train_help_window)
     model_menu.addAction(openTrainHelp)
 
-<<<<<<< HEAD
 def masksmenu(parent):
     main_menu = parent.menuBar()
     masks_menu = main_menu.addMenu("&Masks")
@@ -155,8 +154,6 @@ def imagesmenu(parent):
     main_menu = parent.menuBar()
     images_menu = main_menu.addMenu("&Images")
     parent.main_images_menu = images_menu
-=======
->>>>>>> upstream/main
 
 def helpmenu(parent):
     main_menu = parent.menuBar()
