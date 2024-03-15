@@ -69,6 +69,8 @@ Mxnet is no longer supported in cellpose. To use mxnet, please use v1.0.2.
 
 # Installation
 
+You can install cellpose using conda or with native python if you have python3.8+ on your machine. 
+
 ## Local installation (< 2 minutes)
 
 ### System requirements
@@ -85,7 +87,7 @@ cellpose relies on the following excellent packages (which are automatically ins
 - [scipy](https://www.scipy.org/)
 - [natsort](https://natsort.readthedocs.io/en/master/)
 
-### Instructions
+### Option 1: Installation Instructions with conda 
 
 If you have an older `cellpose` environment you can remove it with `conda env remove -n cellpose` before creating a new one.
 
@@ -115,6 +117,20 @@ python -m pip install cellpose[gui]
 If you have **issues** with installation, see the [docs](https://cellpose.readthedocs.io/en/latest/installation.html) for more details. You can also use the cellpose environment file included in the repository and create a cellpose environment with `conda env create -f environment.yml` which may solve certain dependency issues.
 
 If these suggestions fail, open an issue.
+
+### Option 2: Installation Instructions with python's venv
+
+Venv ([tutorial](https://docs.python-guide.org/dev/virtualenvs/#lower-level-virtualenv), for those interested) is a built-in tool in python for creating virtual environments. It is a good alternative if you don't want to install conda and already have python3 on your machine. The main difference is that you will need to choose where to install the environment and the packages. Cellpose will then live in this environment and not be accessible from other environments. You will need to navigate to the environment directory and activate it each time before running cellpose. The steps are similar to the conda installation:
+
+If you are using a GPU, make sure its drivers and the cuda libraries are correctly installed.
+
+1. Install python3.8 or later from [python.org](https://www.python.org/downloads/). This will be the version of python that will be used in the environment. You can check your python version with `python --version`.
+2. Navigate to the directory where you want to create the environment and run `python3 -m venv cellpose` to create a new environment called `cellpose`.
+3. Activate the environment with `source cellpose/bin/activate` on Mac/Linux or `cellpose\Scripts\activate` on Windows. A prefix `(cellpose)` should appear in the terminal.
+4. Install cellpose into the `cellpose` venv using pip with `python -m pip install cellpose`.
+5. Install the cellpose GUI, with `python -m pip install cellpose[gui]`. Depending on your terminal software, you may need to use quotes like this: `python -m pip install 'cellpose[gui]'`.
+6. You can now run cellpose from this environment with `python -m cellpose` or `cellpose` if you are in the cellpose directory.
+7. To deactivate the environment, run `deactivate`. 
 
 ### GPU version (CUDA) on Windows or Linux
 
