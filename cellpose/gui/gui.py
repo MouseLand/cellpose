@@ -6,7 +6,7 @@ import sys, os, pathlib, warnings, datetime, time, copy
 
 from qtpy import QtGui, QtCore
 from superqt import QRangeSlider, QCollapsible
-from qtpy.QtWidgets import QScrollArea, QMainWindow, QApplication, QWidget, QScrollBar, QComboBox, QGridLayout, QPushButton, QFrame, QCheckBox, QLabel, QProgressBar, QLineEdit, QMessageBox, QGroupBox
+from qtpy.QtWidgets import QScrollArea, QMainWindow, QAction, QMenu, QApplication, QWidget, QScrollBar, QComboBox, QGridLayout, QPushButton, QFrame, QCheckBox, QLabel, QProgressBar, QLineEdit, QMessageBox, QGroupBox
 import pyqtgraph as pg
 
 import numpy as np
@@ -524,14 +524,14 @@ class MainW(QMainWindow):
         b0 += 1
         label = QLabel('Length in μm:')
         label.setToolTip('Micrometers(μm) per pixel, *.tif file')
-        label.setStyleSheet(label_style)
         label.setFont(self.medfont)
-        self.segBoxG.addWidget(label, b, 0,1,5)
+        self.segBoxG.addWidget(label, b0, 0, 1, 4)
+
         self.pixTomicro = QLineEdit()
         self.pixTomicro.setText('0.0')
         self.pixTomicro.editingFinished.connect(self.update_px_to_mm)
         self.pixTomicro.setFixedWidth(70)
-        self.segBoxG.addWidget(self.pixTomicro, b0, 5,1,4)
+        self.segBoxG.addWidget(self.pixTomicro, b0, 4, 1, 2)
 
         b0 += 1
         # choose channel
@@ -720,59 +720,6 @@ class MainW(QMainWindow):
         self.modelBoxG.addWidget(self.ModelButtonC, b0, 8, 1, 1)
         self.ModelButtonC.setEnabled(False)
 
-        ## NEW
-        b0 += 1
-        self.MB = QGroupBox('metrics')
-        self.MB.setStyleSheet("QGroupBox { border: 1px solid white; color:white; padding: 10px 0px;}")
-        self.MBg = QGridLayout()
-        self.MB.setLayout(self.MBg)
-        self.currentImageMask = ""
-        self.indexCytoMask = -1
-        self.indexNucleusMask = -1
-
-        # select metrics to calculate
-        self.calcSize = True
-        self.SMCheckBox = QCheckBox('Size')
-        self.SMCheckBox.setStyleSheet(self.checkstyle)
-        self.SMCheckBox.setFont(self.medfont)
-        self.SMCheckBox.setChecked(False)
-        self.SMCheckBox.setEnabled(False)
-        self.SMCheckBox.toggled.connect(self.toggle_masks)
-        tipstr = 'Area of the cell in μm2'
-        self.SMCheckBox.setToolTip(tipstr)
-        self.MBg.addWidget(self.SMCheckBox, 0, 0, 1, 7)
-
-        self.calcRound = True
-        self.RMCheckBox = QCheckBox('Roundness')
-        self.RMCheckBox.setStyleSheet(self.checkstyle)
-        self.RMCheckBox.setFont(self.medfont)
-        self.RMCheckBox.setChecked(False)
-        self.RMCheckBox.setEnabled(False)
-        self.RMCheckBox.toggled.connect(self.toggle_masks)
-        tipstr = 'Closer to 1 means more like a circle'
-        self.RMCheckBox.setToolTip(tipstr)
-        self.MBg.addWidget(self.RMCheckBox, 0, 5, 1, 7)
-
-        self.calcRatio = True
-        self.RTCheckBox = QCheckBox('Ratio')
-        self.RTCheckBox.setStyleSheet(self.checkstyle)
-        self.RTCheckBox.setFont(self.medfont)
-        self.RTCheckBox.setChecked(False)
-        self.RTCheckBox.setEnabled(False)
-        self.RTCheckBox.toggled.connect(self.toggle_masks)
-        tipstr = 'Ratio between cyto and nucleus'
-        self.RTCheckBox.setToolTip(tipstr)
-        self.MBg.addWidget(self.RTCheckBox, 1, 0, 1, 7)
-
-        # calculate the selected metrics
-        self.CalculateButton = QPushButton(u'calculate')
-        self.CalculateButton.clicked.connect(self.calculate_metrics)
-        self.MBg.addWidget(self.CalculateButton, 0, 10, 1, 2)
-        self.CalculateButton.setEnabled(False)
-        self.CalculateButton.setStyleSheet(self.styleInactive)
-
-        self.l0.addWidget(self.MB, b, 0, 1, 9)
-        ##
         # compute segmentation with style model
         self.net_names = [
             "nuclei", "cyto2_cp3", "tissuenet_cp3", "livecell_cp3", "yeast_PhC_cp3",
@@ -909,6 +856,62 @@ class MainW(QMainWindow):
         self.invert_cb.setFont(self.medfont)
         self.invert_cb.setToolTip("invert image")
         self.filtBoxG.addWidget(self.invert_cb, b0, 3, 1, 3)
+
+        ## NEW
+        b += 1
+        b0 += 1
+        self.MB = QGroupBox('Metrics')
+        self.MB.setFont(self.boldfont)
+        self.MB.setStyleSheet("QGroupBox { border: 1px solid white; color:white; padding: 10px 0px;}")
+        self.MBg = QGridLayout()
+        self.MB.setLayout(self.MBg)
+        self.currentImageMask = ""
+        self.indexCytoMask = -1
+        self.indexNucleusMask = -1
+
+        # select metrics to calculate
+        self.calcSize = True
+        self.SMCheckBox = QCheckBox('Size')
+        self.SMCheckBox.setStyleSheet("color: rgb(190,190,190);")
+        self.SMCheckBox.setFont(self.medfont)
+        self.SMCheckBox.setChecked(False)
+        self.SMCheckBox.setEnabled(False)
+        self.SMCheckBox.toggled.connect(self.toggle_masks)
+        tipstr = 'Area of the cell in μm2'
+        self.SMCheckBox.setToolTip(tipstr)
+        self.MBg.addWidget(self.SMCheckBox, 0, 0, 1, 7)
+
+        self.calcRound = True
+        self.RMCheckBox = QCheckBox('Roundness')
+        self.RMCheckBox.setStyleSheet("color: rgb(190,190,190);")
+        self.RMCheckBox.setFont(self.medfont)
+        self.RMCheckBox.setChecked(False)
+        self.RMCheckBox.setEnabled(False)
+        self.RMCheckBox.toggled.connect(self.toggle_masks)
+        tipstr = 'Closer to 1 means more like a circle'
+        self.RMCheckBox.setToolTip(tipstr)
+        self.MBg.addWidget(self.RMCheckBox, 0, 5, 1, 7)
+
+        self.calcRatio = True
+        self.RTCheckBox = QCheckBox('Ratio')
+        self.RTCheckBox.setStyleSheet("color: rgb(190,190,190);")
+        self.RTCheckBox.setFont(self.medfont)
+        self.RTCheckBox.setChecked(False)
+        self.RTCheckBox.setEnabled(False)
+        self.RTCheckBox.toggled.connect(self.toggle_masks)
+        tipstr = 'Ratio between cyto and nucleus'
+        self.RTCheckBox.setToolTip(tipstr)
+        self.MBg.addWidget(self.RTCheckBox, 1, 0, 1, 7)
+
+        # calculate the selected metrics
+        self.CalculateButton = QPushButton(u'calculate')
+        self.CalculateButton.clicked.connect(self.calculate_metrics)
+        self.MBg.addWidget(self.CalculateButton, 0, 10, 1, 2)
+        self.CalculateButton.setEnabled(False)
+        # self.CalculateButton.setStyleSheet(self.styleInactive)
+
+        self.l0.addWidget(self.MB, b, 0, 1, 9)
+        ##
 
         b += 1
         self.l0.addWidget(QLabel(""), b, 0, 1, 9)
@@ -2546,6 +2549,7 @@ class MainW(QMainWindow):
             self.clear_all()
             self.flows = [[], [], []]
             self.initialize_model(model_name=model_name, custom=custom)
+            self.selected_model = model_name
             self.progress.setValue(10)
             do_3D = self.load_3D
             stitch_threshold = float(self.stitch_threshold.text()) if not isinstance(
@@ -2615,7 +2619,11 @@ class MainW(QMainWindow):
             io._masks_to_gui(self, masks, outlines=None)
             self.masksOn = True
             self.MCheckBox.setChecked(True)
+            self.keepMask.setEnabled(True)
+            self.saveMasks.setEnabled(True)
+
             self.progress.setValue(100)
+
             if self.restore != "filter":
                 self.compute_saturation()
             if not do_3D and not stitch_threshold > 0:
@@ -2627,7 +2635,7 @@ class MainW(QMainWindow):
 
     def save_temp_output(self, masks="", image="", model_name=""):
         d = datetime.datetime.now()
-        temp_output_name = self.selected_model if model_name == "" else model_name
+        temp_output_name = self.current_model if model_name == "" else model_name
 
         if image == "":
             mask_names = [mask_name[0] for mask_name in self.temp_masks if temp_output_name in mask_name[0] and mask_name[0][len(temp_output_name)] == "_"]
@@ -2635,10 +2643,10 @@ class MainW(QMainWindow):
             subMenu = self.main_masks_menu.addMenu("&" + new_mask_names)
 
             cytoAction = QAction("Select as main mask (cytoplasm)", self)
-            cytoAction.triggered.connect(lambda checked, subMenu=subMenu, curr_index=len(self.temp_masks): self.select_mask(subMenu, 'cyto', curr_index))
+            cytoAction.triggered.connect(lambda checked, subMenu=subMenu, curr_index=len(self.temp_masks): self.select_mask(subMenu, 'primary', curr_index))
 
             nucleiAction = QAction("Select as secondary mask (nucleus)", self)
-            nucleiAction.triggered.connect(lambda checked, subMenu=subMenu, curr_index=len(self.temp_masks): self.select_mask(subMenu, 'nucleus', curr_index))
+            nucleiAction.triggered.connect(lambda checked, subMenu=subMenu, curr_index=len(self.temp_masks): self.select_mask(subMenu, 'secondary', curr_index))
 
             subMenu.addAction(cytoAction)
             subMenu.addAction(nucleiAction)
@@ -2651,7 +2659,7 @@ class MainW(QMainWindow):
                 newImage.triggered.connect(lambda checked, image=image, name=full_name: self.select_image(image, name))
                 self.main_images_menu.addAction(newImage)
 
-        logger.info(str(temp_output_name) + " mask stored temporarily")
+        self.logger.info(str(temp_output_name) + " mask stored temporarily")
 
     def save_labeled_masks(self):
         """ save masks to *_mask.jpg """
@@ -2785,7 +2793,6 @@ class MainW(QMainWindow):
             if indices_cyto_nuclei[cnt][0] == indices_cyto_nuclei[cnt + 1][0]:
                 to_del = (self.find_overlap(tmp_cyto, tmp_nuclei, indices_cyto_nuclei[cnt]) > 
                           self.find_overlap(tmp_cyto, tmp_nuclei, indices_cyto_nuclei[cnt + 1])) * 1
-                # print("to_del: ", indices_cyto_nuclei[cnt][0])
                 del indices_cyto_nuclei[cnt + to_del]
                 n = n - 1
             else:
@@ -2828,7 +2835,13 @@ class MainW(QMainWindow):
             if self.calcRound:
                 round_cells.append(round(msr[1]["Roundness"][0], 2))
 
-        return size_cells, round_cells, center_coords
+        return [size_cells, round_cells], center_coords
+
+    def out_concat(self, prev_out, curr_out):
+        if isinstance(prev_out, float):
+            return [prev_out, curr_out]
+        else: # isinstance(prev_out, list)
+            return [prev_out[0], prev_out[1], curr_out]
 
     def save_metrics(self, masks_img, center_coords, metric_cells, metric_name, out_csv, out_name, out_dir):
         layerz_cell = self.create_colormap_mask(masks_img)
@@ -2844,10 +2857,11 @@ class MainW(QMainWindow):
         im_cell_size_labeled = self.image_labeling(im_mask=im_cell, im_labels=metric_cells, coords=center_coords)
         self.save_temp_output(image=im_cell_size_labeled, model_name=metric_name)
         im_cell_size_labeled.save(out_dir + "/" + metric_name + ".png")
-        out_csv = round_cells_main if not self.calcSize else [[out_csv[idx], round_cell] for idx, round_cell in enumerate(round_cells_main)]
+        # out_csv = metric_cells if len(out_csv) == 0 else [[out_csv[idx], single_metric] for idx, single_metric in enumerate(metric_cells)]
+        out_csv = metric_cells if len(out_csv) == 0 else [self.out_concat(out_csv[idx], single_metric) for idx, single_metric in enumerate(metric_cells)]
 
         # Metric csv
-        np.savetxt(out_dir + "/" + self.filename.split('/')[-1].split(".png")[0] + "_" + out_name + ".csv",
+        np.savetxt(out_dir + "/" + self.filename.split('/')[-1].split(".")[0] + "_" + out_name + ".csv",
             out_csv,
             delimiter =", ",
             fmt ='% s')
@@ -2873,41 +2887,77 @@ class MainW(QMainWindow):
         if not os.path.exists(secondary_results_dir) and not comparison:
             os.makedirs(secondary_results_dir)
 
+        output_csv_primary = []
+        output_csv_secondary = []
+        output_csv_ratio = []
+
+        output_name = ""
+
         custom_features = ["Center"]
         if self.calcSize:
-            custom_features.append("Size")
+            custom_features.append("SolidArea")
+            output_name += "size"
         if self.calcRound:
             custom_features.append("Roundness")
+            output_name += "_roundness"
 
-        size_cells_main, round_cells_main, center_coords_main = self.get_metrics(main_masks_img, custom_features)
+        main_metrics, center_coords_main = self.get_metrics(main_masks_img, custom_features)
+        size_cells_main, round_cells_main = main_metrics
         if self.calcRatio:
-            size_cells_secondary, round_cells_secondary, center_coords_secondary = self.get_metrics(secondary_masks_img, custom_features)
+            secondary_metrics, center_coords_secondary = self.get_metrics(secondary_masks_img, custom_features)
+            size_cells_secondary, round_cells_secondary = secondary_metrics
             ratio_cells, center_coords_ratio, indices_cyto_nuclei = self.matched_indices(main_masks_img, secondary_masks_img, size_cells_main, size_cells_secondary, center_coords_main)
+            output_csv_ratio = [[index_cyto_nuclei[0], index_cyto_nuclei[1]] for index_cyto_nuclei in indices_cyto_nuclei]
 
-        main_cell_size_csv = self.save_metrics(main_masks_img, center_coords_main, size_cells_main, "size", [], "size", primary_results_dir)
-        main_cell_roundness_csv = self.save_metrics(main_masks_img, center_coords_main, size_cells_main, "size", main_cell_size_csv, "size", primary_results_dir)
+        for idx_feature, feature in enumerate(custom_features):
+            if idx_feature > 0:
+                output_csv_primary = self.save_metrics(main_masks_img, 
+                                                        center_coords_main, 
+                                                        main_metrics[idx_feature - 1], 
+                                                        custom_features[idx_feature], 
+                                                        output_csv_primary, 
+                                                        output_name, 
+                                                        primary_results_dir)
+
+                if self.calcRatio:
+                    output_csv_secondary = self.save_metrics(secondary_masks_img, 
+                                                            center_coords_secondary, 
+                                                            secondary_metrics[idx_feature - 1], 
+                                                            custom_features[idx_feature], 
+                                                            output_csv_secondary, 
+                                                            output_name, 
+                                                            secondary_results_dir)
+
+        if self.calcRatio:
+            output_csv_ratio = self.save_metrics(main_masks_img, 
+                                                            center_coords_ratio, 
+                                                            ratio_cells, 
+                                                            "ratio", 
+                                                            output_csv_ratio, 
+                                                            "ratio", 
+                                                            results_dir)
 
         return size_cells_main, center_coords_main
 
     def select_mask(self, menu_output, cell_type, curr_index):
-        if cell_type == "cyto":
+        if cell_type == "primary":
             if self.indexCytoMask != -1:
-                curr_selected_mask = menu_output.parentWidget().findChildren(QMenu)[self.indexCytoMask]
-                curr_selected_mask.setIcon(QtGui.QIcon())
+                prev_selected_mask = menu_output.parentWidget().findChildren(QMenu)[self.indexCytoMask]
+                prev_selected_mask.setIcon(QtGui.QIcon())
             self.indexCytoMask = curr_index
             self.indexNucleusMask = -1 if self.indexNucleusMask == curr_index else self.indexNucleusMask
-        elif cell_type == "nucleus":
+        elif cell_type == "secondary":
             if self.indexNucleusMask != -1:
-                curr_selected_mask = menu_output.parentWidget().findChildren(QMenu)[self.indexNucleusMask]
-                curr_selected_mask.setIcon(QtGui.QIcon())
+                prev_selected_mask = menu_output.parentWidget().findChildren(QMenu)[self.indexNucleusMask]
+                prev_selected_mask.setIcon(QtGui.QIcon())
             self.indexNucleusMask = curr_index
             self.indexCytoMask = -1 if self.indexCytoMask == curr_index else self.indexCytoMask
         menu_output.setIcon(QtGui.QIcon('/home/mellamoarroz/.cellpose/' + cell_type + '.png'))
-
+        
         self.RTCheckBox.setEnabled(self.indexCytoMask > -1 and self.indexNucleusMask > -1)
         self.SMCheckBox.setEnabled(self.indexCytoMask > -1)
         self.RMCheckBox.setEnabled(self.indexCytoMask > -1)
-        self.CalculateButton.setStyleSheet(self.styleUnpressed if self.indexCytoMask > -1 else self.styleInactive)
+        # self.CalculateButton.setStyleSheet(self.styleUnpressed if self.indexCytoMask > -1 else self.styleInactive)
         self.CalculateButton.setEnabled(self.indexCytoMask > -1)
 
     def select_image(self, img_layer, name):
