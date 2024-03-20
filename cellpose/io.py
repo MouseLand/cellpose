@@ -96,7 +96,7 @@ def polygons_to_geojson(base, polygons):
             "type": "Feature",
             "geometry": {
                 "type": "Polygon",
-                "coordinates": [polygon]
+                "coordinates": polygon
             },
             "properties": {}
         })

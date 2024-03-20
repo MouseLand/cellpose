@@ -290,7 +290,8 @@ def outlines_list_multi(masks, num_processes=None):
     return outpix
 
 
-def get_polygon(outline: np.ndarray[int], bb: tuple[int, int, int, int], dim: int) -> list[list[float]]:
+def get_polygon(outline: np.ndarray[int], bb: tuple[int, int, int, int], dim: int = 0,
+                keep_holes: bool = False) -> list:
     """
     Compute contour contours from binary mask, translate to bounding box coordinates, and return as polygon.
     Args:
@@ -298,16 +299,35 @@ def get_polygon(outline: np.ndarray[int], bb: tuple[int, int, int, int], dim: in
         bb (tuple[int, int, int, int]): Bounding box coordinates.
         dim (int): In which dimension to look for the contour.
     Returns:
-        polygon (list[list[float]]): Polygon coordinates compatible with geojson format.
+        polygon (list[list[float]]): Polygon coordinates compatible with geojson format.    # TODO: Holes case
     """
-    contours = cv2.findContours(outline, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
-    coordinates = contours[0][dim].squeeze()
-    coordinates = coordinates + np.array([bb[1], bb[0]])
+    cv2_method = cv2.RETR_TREE if keep_holes else cv2.RETR_EXTERNAL
+    contours, hierarchy = cv2.findContours(
+        image=outline,
+        mode=cv2_method,
+        method=cv2.CHAIN_APPROX_NONE,
+    )
+    outline = contours[dim].squeeze()
+    coordinates = outline + np.array([bb[1], bb[0]])
     polygon = [list(map(float, point)) for point in coordinates]
-    return polygon
+    if polygon[0] != polygon[-1]:
+        polygon.append(polygon[0])
+    to_return = [polygon]
+    if hierarchy.shape[1] > 1:
+        inner_contours = np.where(hierarchy[0, :, 3].squeeze() != -1)[0]
+        inner_polygons = []
+        for c_idx in inner_contours:
+            inner_outline = contours[c_idx].squeeze()
+            inner_coordinates = inner_outline + np.array([bb[1], bb[0]])
+            inner_polygon = [list(map(float, point)) for point in inner_coordinates]
+            if inner_polygon[0] != inner_polygon[-1]:
+                inner_polygon.append(inner_polygon[0])
+            inner_polygons.append(inner_polygon)
+        to_return.extend(inner_polygons)
+    return to_return
 
 
-def outlines_polygons(masks: np.ndarray[int]) -> list[list[list[float]]]:
+def outlines_polygons(masks: np.ndarray[int], keep_holes: bool = False) -> list[list[list[float]]]:
     """
     Get outlines of masks as polygons writing geojson.
     Args:
@@ -324,11 +344,9 @@ def outlines_polygons(masks: np.ndarray[int]) -> list[list[list[float]]]:
                      + [sl[i].stop for i in range(masks.ndim)])
         outline = image.astype(np.uint8)
         try:
-            polygon = get_polygon(outline, bbox, 0)
+            polygon = get_polygon(outline, bbox, 0, keep_holes)
         except TypeError:
-            polygon = get_polygon(outline, bbox, 1)
-        if polygon[0] != polygon[-1]:
-            polygon.append(polygon[0])
+            polygon = get_polygon(outline, bbox, 1, keep_holes)
         polygons.append(polygon)
     return polygons
 
@@ -694,9 +712,9 @@ def fill_holes_and_remove_small_masks(masks, min_size=15, fill_holes=True):
                     if msk.ndim == 3:
                         for k in range(msk.shape[0]):
                             # TODO: Replace binary_fill_holes with remove_small_holes
-                            msk[k] = binary_fill_holes(msk[k])
+                            msk[k] = remove_small_holes(msk[k], area_threshold=5)
                     else:
-                        msk = binary_fill_holes(msk)
+                        msk = remove_small_holes(msk, area_threshold=5)
                 masks[slc][msk] = (j + 1)
                 j += 1
     return masks
