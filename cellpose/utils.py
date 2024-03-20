@@ -254,6 +254,7 @@ def outlines_list_single(masks):
         list: List of outlines as pixel coordinates.
 
     """
+    # TODO: Computing masks
     outpix = []
     for n in np.unique(masks)[1:]:
         mn = masks == n
@@ -287,6 +288,50 @@ def outlines_list_multi(masks, num_processes=None):
     with Pool(processes=num_processes) as pool:
         outpix = pool.map(get_outline_multi, [(masks, n) for n in unique_masks])
     return outpix
+
+
+def get_polygon(outline: np.ndarray[int], bb: tuple[int, int, int, int], dim: int) -> list[list[float]]:
+    """
+    Compute contour contours from binary mask, translate to bounding box coordinates, and return as polygon.
+    Args:
+        outline (np.ndarray[int]): Binary mask.
+        bb (tuple[int, int, int, int]): Bounding box coordinates.
+        dim (int): In which dimension to look for the contour.
+    Returns:
+        polygon (list[list[float]]): Polygon coordinates compatible with geojson format.
+    """
+    contours = cv2.findContours(outline, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+    coordinates = contours[0][dim].squeeze()
+    coordinates = coordinates + np.array([bb[1], bb[0]])
+    polygon = [list(map(float, point)) for point in coordinates]
+    return polygon
+
+
+def outlines_polygons(masks: np.ndarray[int]) -> list[list[list[float]]]:
+    """
+    Get outlines of masks as polygons writing geojson.
+    Args:
+        masks (np.ndarray[int]): masks (0=no cells, 1=first cell, 2=second cell,...)
+    Returns:
+        polygons (list[list[list[float]]]): List of polygons as pixel coordinates.
+    """
+    polygons: list[list[list[float]]] = []
+    objects = find_objects(masks)
+    for i, sl in enumerate(objects):
+        lb = i + 1
+        image = masks[sl] == lb
+        bbox = tuple([sl[i].start for i in range(masks.ndim)]
+                     + [sl[i].stop for i in range(masks.ndim)])
+        outline = image.astype(np.uint8)
+        try:
+            polygon = get_polygon(outline, bbox, 0)
+        except TypeError:
+            polygon = get_polygon(outline, bbox, 1)
+        if polygon[0] != polygon[-1]:
+            polygon.append(polygon[0])
+        polygons.append(polygon)
+    return polygons
+
 
 def get_outline_multi(args):
     """Get the outline of a specific mask in a multi-mask image.
@@ -648,6 +693,7 @@ def fill_holes_and_remove_small_masks(masks, min_size=15, fill_holes=True):
                 if fill_holes:
                     if msk.ndim == 3:
                         for k in range(msk.shape[0]):
+                            # TODO: Replace binary_fill_holes with remove_small_holes
                             msk[k] = binary_fill_holes(msk[k])
                     else:
                         msk = binary_fill_holes(msk)

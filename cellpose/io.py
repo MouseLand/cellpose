@@ -2,7 +2,7 @@
 Copyright © 2023 Howard Hughes Medical Institute, Authored by Carsen Stringer and Marius Pachitariu.
 """
 
-import os, datetime, gc, warnings, glob, shutil
+import os, datetime, gc, warnings, glob, shutil, json
 from natsort import natsorted
 import numpy as np
 import cv2
@@ -84,6 +84,24 @@ def outlines_to_text(base, outlines):
             xy_str = ",".join(map(str, xy))
             f.write(xy_str)
             f.write("\n")
+
+
+def polygons_to_geojson(base, polygons):
+    geojson = {
+        "type": "FeatureCollection",
+        "features": []
+    }
+    for polygon in polygons:
+        geojson["features"].append({
+            "type": "Feature",
+            "geometry": {
+                "type": "Polygon",
+                "coordinates": [polygon]
+            },
+            "properties": {}
+        })
+    with open(base + "_cp_outlines.geojson", "w") as f:
+        json.dump(geojson, f)
 
 
 def load_dax(filename):
@@ -595,7 +613,7 @@ def save_rois(masks, file_name):
 def save_masks(images, masks, flows, file_names, png=True, tif=False, channels=[0, 0],
                suffix="", save_flows=False, save_outlines=False, 
                dir_above=False, in_folders=False, savedir=None, save_txt=False,
-               save_mpl=False):
+               save_geojson=False, save_mpl=False):
     """ Save masks + nicely plotted segmentation image to png and/or tiff.
 
     Can save masks, flows to different directories, if in_folders is True.
@@ -623,6 +641,7 @@ def save_masks(images, masks, flows, file_names, png=True, tif=False, channels=[
         in_folders (bool, optional): Save masks/flows in separate folders. Defaults to False.
         savedir (str, optional): Absolute path where images will be saved. If None, saves to image directory. Defaults to None.
         save_txt (bool, optional): Save masks as list of outlines for ImageJ. Defaults to False.
+        save_geojson (bool, optional): Save masks as geojson. Defaults to False.
         save_mpl (bool, optional): If True, saves a matplotlib figure of the original image/segmentation/flows. Does not work for 3D.
                 This takes a long time for large images. Defaults to False.
     
@@ -636,7 +655,7 @@ def save_masks(images, masks, flows, file_names, png=True, tif=False, channels=[
                        dir_above=dir_above, save_flows=save_flows,
                        save_outlines=save_outlines, 
                        savedir=savedir, save_txt=save_txt, in_folders=in_folders,
-                       save_mpl=save_mpl)
+                       save_mpl=save_mpl, save_geojson=save_geojson)
         return
 
     if masks.ndim > 2 and not tif:
@@ -719,6 +738,12 @@ def save_masks(images, masks, flows, file_names, png=True, tif=False, channels=[
         check_dir(txtdir)
         outlines = utils.outlines_list(masks)
         outlines_to_text(os.path.join(txtdir, basename), outlines)
+
+    # QuPath geojson files
+    if masks.ndim < 3 and save_geojson:
+        polygons = utils.outlines_polygons(masks)
+        if polygons is not None:
+            polygons_to_geojson(os.path.join(txtdir, basename), polygons)
 
     # RGB outline images
     if masks.ndim < 3 and save_outlines:
