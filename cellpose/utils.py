@@ -254,7 +254,6 @@ def outlines_list_single(masks):
         list: List of outlines as pixel coordinates.
 
     """
-    # TODO: Computing masks
     outpix = []
     for n in np.unique(masks)[1:]:
         mn = masks == n
@@ -290,16 +289,31 @@ def outlines_list_multi(masks, num_processes=None):
     return outpix
 
 
-def get_polygon(outline: np.ndarray[int], bb: tuple[int, int, int, int], dim: int = 0,
-                keep_holes: bool = False) -> list:
+def make_polygon(outline: np.ndarray, bb: tuple) -> list:
+    """
+    Enclose a polygon by adding the first point to the end of the list.
+    Args:
+        outline (np.ndarray): A list of points in the polygon.
+    Returns:
+        polygon (list): The enclosed polygon.
+    """
+    coordinates = outline + np.array([bb[1], bb[0]])
+    polygon = [list(map(float, point)) for point in coordinates]
+    if polygon[0] != polygon[-1]:
+        polygon.append(polygon[0])
+    return polygon
+
+
+def get_polygon(outline: np.ndarray, bb: tuple, dim: int, keep_holes: bool = False) -> list:
     """
     Compute contour contours from binary mask, translate to bounding box coordinates, and return as polygon.
     Args:
-        outline (np.ndarray[int]): Binary mask.
-        bb (tuple[int, int, int, int]): Bounding box coordinates.
+        outline (np.ndarray): Binary mask.
+        bb (tuple): Bounding box coordinates.
         dim (int): In which dimension to look for the contour.
+        keep_holes (bool, optional): Whether to keep holes in the mask. Default is False.
     Returns:
-        polygon (list[list[float]]): Polygon coordinates compatible with geojson format.    # TODO: Holes case
+        polygon (list): Polygon coordinates compatible with geojson format.
     """
     cv2_method = cv2.RETR_TREE if keep_holes else cv2.RETR_EXTERNAL
     contours, hierarchy = cv2.findContours(
@@ -308,40 +322,34 @@ def get_polygon(outline: np.ndarray[int], bb: tuple[int, int, int, int], dim: in
         method=cv2.CHAIN_APPROX_NONE,
     )
     outline = contours[dim].squeeze()
-    coordinates = outline + np.array([bb[1], bb[0]])
-    polygon = [list(map(float, point)) for point in coordinates]
-    if polygon[0] != polygon[-1]:
-        polygon.append(polygon[0])
-    to_return = [polygon]
-    if hierarchy.shape[1] > 1:
+    polygon = make_polygon(outline, bb)
+    polygon = [polygon]
+    if keep_holes and hierarchy.shape[1] > 1:
         inner_contours = np.where(hierarchy[0, :, 3].squeeze() != -1)[0]
         inner_polygons = []
         for c_idx in inner_contours:
             inner_outline = contours[c_idx].squeeze()
-            inner_coordinates = inner_outline + np.array([bb[1], bb[0]])
-            inner_polygon = [list(map(float, point)) for point in inner_coordinates]
-            if inner_polygon[0] != inner_polygon[-1]:
-                inner_polygon.append(inner_polygon[0])
+            inner_polygon = make_polygon(inner_outline, bb)
             inner_polygons.append(inner_polygon)
-        to_return.extend(inner_polygons)
-    return to_return
+        polygon.extend(inner_polygons)
+    return polygon
 
 
-def outlines_polygons(masks: np.ndarray[int], keep_holes: bool = False) -> list[list[list[float]]]:
+def outlines_polygons(masks: np.ndarray, keep_holes: bool = False) -> list:
     """
     Get outlines of masks as polygons writing geojson.
     Args:
-        masks (np.ndarray[int]): masks (0=no cells, 1=first cell, 2=second cell,...)
+        masks (np.ndarray): masks (0=no cells, 1=first cell, 2=second cell,...)
+        keep_holes (bool, optional): Whether to keep holes in the mask. Default is False.
     Returns:
-        polygons (list[list[list[float]]]): List of polygons as pixel coordinates.
+        polygons (list): List of polygons as pixel coordinates.
     """
-    polygons: list[list[list[float]]] = []
+    polygons: list = []
     objects = find_objects(masks)
     for i, sl in enumerate(objects):
         lb = i + 1
         image = masks[sl] == lb
-        bbox = tuple([sl[i].start for i in range(masks.ndim)]
-                     + [sl[i].stop for i in range(masks.ndim)])
+        bbox = tuple([sl[i].start for i in range(masks.ndim)] + [sl[i].stop for i in range(masks.ndim)])
         outline = image.astype(np.uint8)
         try:
             polygon = get_polygon(outline, bbox, 0, keep_holes)
@@ -674,7 +682,7 @@ def size_distribution(masks):
     counts = np.unique(masks, return_counts=True)[1][1:]
     return np.percentile(counts, 25) / np.percentile(counts, 75)
 
-def fill_holes_and_remove_small_masks(masks, min_size=15, fill_holes=True):
+def fill_holes_and_remove_small_masks(masks, min_size=15, fill_holes=True, area_threshold=None):
     """ Fills holes in masks (2D/3D) and discards masks smaller than min_size.
 
     This function fills holes in each mask using scipy.ndimage.morphology.binary_fill_holes.
@@ -688,7 +696,8 @@ def fill_holes_and_remove_small_masks(masks, min_size=15, fill_holes=True):
         Masks smaller than min_size will be removed.
         Set to -1 to turn off this functionality. Default is 15.
     fill_holes (bool, optional): Whether to fill holes in masks. Default is True.
-
+    area_threshold (int, optional): If filling holes, fills holes smaller than this threshold.
+        If None or SKIMAGE_ENABLED is False, fills all holes. Default is None.
     Returns:
     ndarray: Int, 2D or 3D array of masks with holes filled and small masks removed.
         0 represents no mask, while positive integers represent mask labels.
@@ -711,10 +720,15 @@ def fill_holes_and_remove_small_masks(masks, min_size=15, fill_holes=True):
                 if fill_holes:
                     if msk.ndim == 3:
                         for k in range(msk.shape[0]):
-                            # TODO: Replace binary_fill_holes with remove_small_holes
-                            msk[k] = remove_small_holes(msk[k], area_threshold=5)
+                            if area_threshold is not None and SKIMAGE_ENABLED:
+                                msk[k] = remove_small_holes(msk[k], area_threshold=area_threshold)
+                            else:
+                                msk[k] = binary_fill_holes(msk[k])
                     else:
-                        msk = remove_small_holes(msk, area_threshold=5)
+                        if area_threshold is not None and SKIMAGE_ENABLED:
+                            msk = remove_small_holes(msk, area_threshold=area_threshold)
+                        else:
+                            msk = binary_fill_holes(msk)
                 masks[slc][msk] = (j + 1)
                 j += 1
     return masks

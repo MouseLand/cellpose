@@ -86,7 +86,15 @@ def outlines_to_text(base, outlines):
             f.write("\n")
 
 
-def polygons_to_geojson(base, polygons):
+def polygons_to_geojson(base, polygons) -> None:
+    """
+    Create a geojson file from polygons.
+    Args:
+        base (str): base name of the file to save
+        polygons (list): list of polygons
+    Returns:
+        None
+    """
     geojson = {
         "type": "FeatureCollection",
         "features": []
@@ -613,7 +621,7 @@ def save_rois(masks, file_name):
 def save_masks(images, masks, flows, file_names, png=True, tif=False, channels=[0, 0],
                suffix="", save_flows=False, save_outlines=False, 
                dir_above=False, in_folders=False, savedir=None, save_txt=False,
-               save_geojson=False, save_mpl=False):
+               save_geojson=False, keep_holes=False, save_mpl=False):
     """ Save masks + nicely plotted segmentation image to png and/or tiff.
 
     Can save masks, flows to different directories, if in_folders is True.
@@ -642,6 +650,7 @@ def save_masks(images, masks, flows, file_names, png=True, tif=False, channels=[
         savedir (str, optional): Absolute path where images will be saved. If None, saves to image directory. Defaults to None.
         save_txt (bool, optional): Save masks as list of outlines for ImageJ. Defaults to False.
         save_geojson (bool, optional): Save masks as geojson. Defaults to False.
+        keep_holes (bool, optional): Keep holes outlines inside polygons. Default is False.
         save_mpl (bool, optional): If True, saves a matplotlib figure of the original image/segmentation/flows. Does not work for 3D.
                 This takes a long time for large images. Defaults to False.
     
@@ -741,14 +750,22 @@ def save_masks(images, masks, flows, file_names, png=True, tif=False, channels=[
 
     # QuPath geojson files
     if masks.ndim < 3 and save_geojson:
-        polygons = utils.outlines_polygons(masks)
+        polygons = utils.outlines_polygons(masks, keep_holes=keep_holes)
         if polygons is not None:
             polygons_to_geojson(os.path.join(txtdir, basename), polygons)
 
     # RGB outline images
     if masks.ndim < 3 and save_outlines:
         check_dir(outlinedir)
-        outlines = utils.masks_to_outlines(masks)
+        polygons = utils.outlines_polygons(masks, keep_holes=True)
+        image_shape = images.shape[1:] if images.shape[0] < 4 else images.shape[:2]
+        outlines = np.zeros(shape=image_shape)
+        for polygon in polygons:    # TODO: Little ad-hoc
+            for outline in polygon:
+                for coordinates in range(len(outline)):
+                    x = outline[coordinates][0]
+                    y = outline[coordinates][1]
+                    outlines[int(y), int(x)] = 255
         outX, outY = np.nonzero(outlines)
         img0 = transforms.normalize99(images)
         if img0.shape[0] < 4:

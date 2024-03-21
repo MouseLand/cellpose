@@ -306,7 +306,7 @@ class CellposeModel():
              flow_threshold=0.4, cellprob_threshold=0.0, do_3D=False, anisotropy=None,
              stitch_threshold=0.0, min_size=15, niter=None, augment=False, tile=True,
              tile_overlap=0.1, bsize=224, interp=True, compute_masks=True, fill_holes=True,
-             progress=None):
+             area_threshold=None, progress=None):
         """ segment list of images x, or 4D array - Z x nchan x Y x X
 
         Args:
@@ -353,6 +353,7 @@ class CellposeModel():
             interp (bool, optional): interpolate during 2D dynamics (not available in 3D) . Defaults to True.
             compute_masks (bool, optional): Whether or not to compute dynamics and return masks. This is set to False when retrieving the styles for the size model. Defaults to True.
             fill_holes (bool, optional): Whether or not to fill holes in masks. Defaults to True.
+            area_threshold (int, optional): If filling holes, fills holes smaller than this threshold. Default is None.
             progress (QProgressBar, optional): pyqt progress bar. Defaults to None.
 
         Returns:
@@ -386,7 +387,7 @@ class CellposeModel():
                     interp=interp, flow_threshold=flow_threshold,
                     cellprob_threshold=cellprob_threshold, compute_masks=compute_masks,
                     min_size=min_size, fill_holes=fill_holes, stitch_threshold=stitch_threshold,
-                    progress=progress, niter=niter)
+                    area_threshold=area_threshold, progress=progress, niter=niter)
                 masks.append(maski)
                 flows.append(flowi)
                 styles.append(stylei)
@@ -414,7 +415,7 @@ class CellposeModel():
                 tile_overlap=tile_overlap, bsize=bsize, flow_threshold=flow_threshold,
                 cellprob_threshold=cellprob_threshold, interp=interp, min_size=min_size,
                 do_3D=do_3D, anisotropy=anisotropy, niter=niter, fill_holes=fill_holes,
-                stitch_threshold=stitch_threshold)
+                area_threshold=area_threshold, stitch_threshold=stitch_threshold)
 
             flows = [plot.dx_to_circ(dP), dP, cellprob, p]
             return masks, flows, styles
@@ -422,7 +423,7 @@ class CellposeModel():
     def _run_cp(self, x, compute_masks=True, normalize=True, invert=False, niter=None,
                 rescale=1.0, resample=True, augment=False, tile=True, tile_overlap=0.1,
                 cellprob_threshold=0.0, bsize=224, flow_threshold=0.4, min_size=15,
-                interp=True, anisotropy=1.0, do_3D=False, stitch_threshold=0.0, fill_holes=True):
+                interp=True, anisotropy=1.0, do_3D=False, stitch_threshold=0.0, fill_holes=True, area_threshold=None):
 
         if isinstance(normalize, dict):
             normalize_params = {**normalize_default, **normalize}
@@ -506,7 +507,7 @@ class CellposeModel():
                 masks, p = dynamics.resize_and_compute_masks(
                     dP, cellprob, niter=niter, cellprob_threshold=cellprob_threshold,
                     flow_threshold=flow_threshold, interp=interp, do_3D=do_3D,
-                    min_size=min_size, resize=None, fill_holes=fill_holes,
+                    min_size=min_size, resize=None, fill_holes=fill_holes, area_threshold=area_threshold,
                     device=self.device if self.gpu else None)
             else:
                 masks, p = [], []
@@ -526,6 +527,7 @@ class CellposeModel():
                         min_size=min_size if stitch_threshold == 0 or nimg == 1 else
                         -1,  # turn off for 3D stitching
                         fill_holes=fill_holes,
+                        area_threshold=area_threshold,
                         device=self.device if self.gpu else None)
                     masks.append(outputs[0])
                     p.append(outputs[1])
