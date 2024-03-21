@@ -141,6 +141,7 @@ def _load_image(parent, filename=None, load_seg=True, load_3D=False):
 
 def _initialize_images(parent, image, load_3D=False):
     """ format image for GUI """
+    load_3D = parent.load_3D if load_3D is False else load_3D
     parent.nchan = 3
     if image.ndim > 4:
         image = image.squeeze()
@@ -345,7 +346,7 @@ def _load_seg(parent, filename=None, image=None, image_file=None, load_3D=False)
     parent.set_restore_button()
 
     _initialize_images(parent, image, load_3D=load_3D)
-    print(parent.stack.shape, parent.stack_filtered.shape)
+    print(parent.stack.shape)
     if "chan_choose" in dat:
         parent.ChannelChoose[0].setCurrentIndex(dat["chan_choose"][0])
         parent.ChannelChoose[1].setCurrentIndex(dat["chan_choose"][1])

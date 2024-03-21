@@ -179,6 +179,12 @@ The first time cellpose runs it downloads the latest available trained model wei
 
 You can now **drag and drop** any images (*.tif, *.png, *.jpg, *.gif) into the GUI and run Cellpose, and/or manually segment them. When the GUI is processing, you will see the progress bar fill up and during this time you cannot click on anything in the GUI. For more information about what the GUI is doing you can look at the terminal/prompt you opened the GUI with. For example data, see [website](http://www.cellpose.org) or this google drive [folder](https://drive.google.com/open?id=18syVlaix8cIlrnNF20pEWKMWUsKx9R9z). For best accuracy and runtime performance, resize images so cells are less than 100 pixels across. 
 
+For 3D data, with multi-Z, please use the 3D version of the GUI with:
+~~~~
+python -m cellpose --Zstack
+~~~~
+
+
 ## Step-by-step demo
 
 1. Download this [folder](http://cellpose.org/static/images/demo_images.zip) of images and unzip it. These are a subset of the test images from the paper.

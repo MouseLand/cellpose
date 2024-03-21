@@ -16,6 +16,11 @@ For example data, see `cellpose website <https://www.cellpose.org>`_. For best a
 
 For multi-channel, multi-Z tiff's, the expected format is Z x channels x Ly x Lx.
 
+For multi-Z 3D data, please use the 3D version of the GUI:
+::
+
+    python -m cellpose --Zstack
+
 .. note::
     The output file with the masks is in the same folder as the loaded
     image with ``_seg.npy`` appended. The GUI automatically saves after you 
