@@ -149,7 +149,7 @@ If you want edit ability to the code, in the github repository folder, run `pip 
 
 ## Run cellpose 1.0 without local python installation
 
-You can quickly try out Cellpose on the [website](https://www.cellpose.org) first (some features disabled). 
+You can quickly try out Cellpose on the [website](https://www.cellpose.org) first (many features disabled). 
 
 You can also run Cellpose in google colab with a GPU: 
 * a code-based notebook: [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/MouseLand/cellpose/blob/main/notebooks/run_cellpose_GPU.ipynb)
