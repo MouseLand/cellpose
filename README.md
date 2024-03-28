@@ -57,14 +57,6 @@ Cellpose 2.0 now allows human-in-the-loop training of models! To learn more...
 * Check out the colab notebook to get cloud access to a GPU to train your models or run your custom models: [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/MouseLand/cellpose/blob/main/notebooks/run_cellpose_2.ipynb).
 * See how to use it yourself in the [docs](https://cellpose.readthedocs.io/en/latest/gui.html#training-your-own-cellpose-model) and also check out the help info in the `Models` menu in the GUI.
 
-Results of human-in-the-loop
-
-<img src="https://www.cellpose.org/static/images/cellpose2.gif" width="500" title="cellpose2" alt="cellpose2 vs cellpose1 results" align="center" vspace = "50">
-
-and updated GUI:
-
-<img src="https://www.cellpose.org/static/images/cellpose_gui.png" width="500" title="cellpose2 gui screenshot" alt="cellpose2 gui screenshot" align="center" vspace = "50">
-
 Mxnet is no longer supported in cellpose. To use mxnet, please use v1.0.2 (not recommended).
 
 # Installation
