@@ -65,7 +65,7 @@ and updated GUI:
 
 <img src="https://www.cellpose.org/static/images/cellpose_gui.png" width="500" title="cellpose2 gui screenshot" alt="cellpose2 gui screenshot" align="center" vspace = "50">
 
-Mxnet is no longer supported in cellpose. To use mxnet, please use v1.0.2.
+Mxnet is no longer supported in cellpose. To use mxnet, please use v1.0.2 (not recommended).
 
 # Installation
 
