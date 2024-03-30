@@ -221,13 +221,28 @@ def main():
         else:
 
             test_dir = None if len(args.test_dir) == 0 else args.test_dir
-            output = io.load_train_test_data(args.dir, test_dir, imf, args.mask_filter,
-                                             args.look_one_level_down)
-            images, labels, image_names, test_images, test_labels, image_names_test = output
+            images, labels, image_names, train_probs = None, None, None, None
+            test_images, test_labels, image_names_test, test_probs = None, None, None, None
+            if len(args.file_list) > 0:
+                if os.path.exists(args.file_list):
+                    dat = np.load(args.file_list, allow_pickle=True).item()
+                    image_names = dat["train_files"]
+                    image_names_test = dat["test_files"]
+                    if "train_probs" in dat:
+                        train_probs = dat["train_probs"]
+                        test_probs = dat["test_probs"]
+                    load_files = False
+                else:
+                   logger.critical(f"ERROR: {args.file_list} does not exist")
+            else:
+                output = io.load_train_test_data(args.dir, test_dir, imf, args.mask_filter,
+                                                 args.look_one_level_down)
+                images, labels, image_names, test_images, test_labels, image_names_test = output
+                load_files = True
 
             # training with all channels
             if args.all_channels:
-                img = images[0]
+                img = images[0] if images is not None else io.imread(image_names[0])
                 if img.ndim == 3:
                     nchan = min(img.shape)
                 elif img.ndim == 2:
@@ -261,12 +276,16 @@ def main():
                 cpmodel_path = train.train_seg(
                     model.net, images, labels, train_files=image_names,
                     test_data=test_images, test_labels=test_labels,
-                    test_files=image_names_test, learning_rate=args.learning_rate,
+                    test_files=image_names_test, 
+                    train_probs=train_probs, test_probs=test_probs,
+                    load_files=load_files, learning_rate=args.learning_rate,
                     weight_decay=args.weight_decay, channels=channels, 
-                    channel_axis=args.channel_axis,
+                    channel_axis=args.channel_axis, rgb=(nchan==3),
                     save_path=os.path.realpath(args.dir), save_every=args.save_every,
                     SGD=args.SGD, n_epochs=args.n_epochs, batch_size=args.batch_size,
-                    min_train_masks=args.min_train_masks,
+                    min_train_masks=args.min_train_masks, 
+                    nimg_per_epoch=args.nimg_per_epoch, normalize=(not args.no_norm),
+                    nimg_test_per_epoch=args.nimg_test_per_epoch,
                     model_name=args.model_name_out)
                 model.pretrained_model = cpmodel_path
                 logger.info(">>>> model trained and saved to %s" % cpmodel_path)

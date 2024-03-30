@@ -63,7 +63,7 @@ def get_arg_parser():
     input_img_args.add_argument(
         "--all_channels", action="store_true", help=
         "use all channels in image if using own model and images with special channels")
-
+    
     # model settings
     model_args = parser.add_argument_group("Model Arguments")
     model_args.add_argument("--pretrained_model", required=False, default="cyto",
@@ -172,6 +172,10 @@ def get_arg_parser():
     training_args.add_argument("--test_dir", default=[], type=str,
                                help="folder containing test data (optional)")
     training_args.add_argument(
+        "--file_list", default=[], type=str, help=
+        "path to list of files for training and testing and probabilities for each image (optional)"
+    )
+    training_args.add_argument(
         "--mask_filter", default="_masks", type=str, help=
         "end string for masks to run on. use '_seg.npy' for manual annotations from the GUI. Default: %(default)s"
     )
@@ -187,6 +191,10 @@ def get_arg_parser():
                                help="number of epochs. Default: %(default)s")
     training_args.add_argument("--batch_size", default=8, type=int,
                                help="batch size. Default: %(default)s")
+    training_args.add_argument("--nimg_per_epoch", default=None, type=int,
+                               help="number of train images per epoch. Default is to use all train images.")
+    training_args.add_argument("--nimg_test_per_epoch", default=None, type=int,
+                               help="number of test images per epoch. Default is to use all test images.")
     training_args.add_argument(
         "--min_train_masks", default=5, type=int, help=
         "minimum number of masks a training image must have to be used. Default: %(default)s"
