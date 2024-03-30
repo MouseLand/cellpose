@@ -51,12 +51,15 @@ def model_path(model_type, model_index=0):
 
 
 def size_model_path(model_type):
-    torch_str = "torch"
-    if model_type == "cyto" or model_type == "nuclei" or model_type == "cyto2":
-        basename = "size_%s%s_0.npy" % (model_type, torch_str)
+    if os.path.exists(model_type):
+        return model_type + "_size.npy"
     else:
-        basename = "size_%s.npy" % model_type
-    return cache_model_path(basename)
+        torch_str = "torch"
+        if model_type == "cyto" or model_type == "nuclei" or model_type == "cyto2":
+            basename = "size_%s%s_0.npy" % (model_type, torch_str)
+        else:
+            basename = "size_%s.npy" % model_type
+        return cache_model_path(basename)
 
 
 def cache_model_path(basename):
@@ -99,7 +102,7 @@ class Cellpose():
 
     """
 
-    def __init__(self, gpu=False, model_type="cyto3", device=None):
+    def __init__(self, gpu=False, model_type="cyto3", nchan=2, device=None):
         super(Cellpose, self).__init__()
 
         # assign device (GPU or CPU)
@@ -114,8 +117,13 @@ class Cellpose():
         if nuclear:
             self.diam_mean = 17.
 
+        if model_type in ["cyto", "nuclei", "cyto2", "cyto3"] and nchan!=2:
+            nchan = 2
+            models_logger.warning(f"cannot set nchan to other value for {model_type} model")
+        self.nchan = nchan
+
         self.cp = CellposeModel(device=self.device, gpu=self.gpu, model_type=model_type,
-                                diam_mean=self.diam_mean)
+                                diam_mean=self.diam_mean, nchan=self.nchan)
         self.cp.model_type = model_type
 
         # size model not used for bacterial model

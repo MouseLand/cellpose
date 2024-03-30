@@ -298,7 +298,8 @@ def train_seg(net, train_data=None, train_labels=None, train_files=None,
               n_epochs=2000, weight_decay=1e-5, momentum=0.9, SGD=False, channels=None,
               channel_axis=None, normalize=True, compute_flows=False, save_path=None,
               save_every=100, nimg_per_epoch=None, nimg_test_per_epoch=None,
-              rescale=True, min_train_masks=5, model_name=None):
+              rescale=True, scale_range=None, bsize=224,
+              min_train_masks=5, model_name=None):
     """
     Train the network with images for segmentation.
 
@@ -338,7 +339,8 @@ def train_seg(net, train_data=None, train_labels=None, train_files=None,
     """
     device = net.device
 
-    scale_range = 0.5 if rescale else 1.0
+    scale_range0 = 0.5 if rescale else 1.0
+    scale_range = scale_range if scale_range is not None else scale_range0
 
     if isinstance(normalize, dict):
         normalize_params = {**models.normalize_default, **normalize}
@@ -424,7 +426,7 @@ def train_seg(net, train_data=None, train_labels=None, train_files=None,
             rsc = diams / net.diam_mean.item()
             # augmentations
             imgi, lbl = transforms.random_rotate_and_resize(imgs, Y=lbls, rescale=rsc,
-                                                            scale_range=scale_range)[:2]
+                                                            scale_range=scale_range, xy=(bsize, bsize))[:2]
 
             X = torch.from_numpy(imgi).to(device)
             y = net(X)[0]
@@ -460,7 +462,8 @@ def train_seg(net, train_data=None, train_labels=None, train_files=None,
                         diams = np.array([diam_test[i] for i in inds])
                         rsc = diams / net.diam_mean.item()
                         imgi, lbl = transforms.random_rotate_and_resize(
-                            imgs, Y=lbls, rescale=rsc, scale_range=scale_range)[:2]
+                            imgs, Y=lbls, rescale=rsc, scale_range=scale_range,
+                            xy=(bsize, bsize))[:2]
                         X = torch.from_numpy(imgi).to(device)
                         y = net(X)[0]
                         loss = _loss_fn_seg(lbl, y, device)
@@ -486,6 +489,7 @@ def train_size(net, pretrained_model, train_data=None, train_labels=None,
                test_labels_files=None, test_probs=None, load_files=True,
                min_train_masks=5, channels=None, channel_axis=None, normalize=True,
                nimg_per_epoch=None, nimg_test_per_epoch=None, batch_size=128,
+               scale_range=1.0, bsize=512,
                l2_regularization=1.0, n_epochs=10):
     """Train the size model.
 
@@ -564,7 +568,7 @@ def train_size(net, pretrained_model, train_data=None, train_labels=None,
                                     normalize_params=normalize_params)
             diami = diam_train[inds].copy()
             imgi, lbl, scale = transforms.random_rotate_and_resize(
-                imgs, scale_range=1, xy=(512, 512))
+                imgs, scale_range=scale_range, xy=(bsize, bsize))
             imgi = torch.from_numpy(imgi).to(device)
             with torch.no_grad():
                 feat = net(imgi)[1]
@@ -608,7 +612,7 @@ def train_size(net, pretrained_model, train_data=None, train_labels=None,
                                     normalize_params=normalize_params)
             diami = diam_test[inds].copy()
             imgi, lbl, scale = transforms.random_rotate_and_resize(
-                imgs, Y=lbls, scale_range=1, xy=(512, 512))
+                imgs, Y=lbls, scale_range=scale_range, xy=(bsize, bsize))
             imgi = torch.from_numpy(imgi).to(device)
             diamt = np.array([utils.diameters(lbl0[0])[0] for lbl0 in lbl])
             diamt = np.maximum(5., diamt)
