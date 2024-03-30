@@ -79,14 +79,20 @@ def _get_batch(inds, data=None, labels=None, files=None, labels_files=None,
         lbls = [labels[i][1:] for i in inds]
     return imgs, lbls
 
-def pad_to_rgb(img):
-    if img.ndim==2 or (img.shape[0]==2 and np.ptp(img[1])<1e-3):
-        if img.ndim==2:
-            img = img[np.newaxis,:,:]
-        img = np.tile(img[:1], (3,1,1))
+def convert_to_rgb(img):
+    if img.ndim==2:
+        img = img[np.newaxis,:,:]
+        img = np.tile(img, (3,1,1))
     elif img.shape[0] < 3:
-        nc, Ly, Lx = img.shape
-        img = np.concatenate((img, np.zeros((3-nc, Ly, Lx), dtype=img.dtype)), axis=0)
+        img = img.mean(axis=0, keepdims=True)
+        img = transforms.normalize99(img)
+        img = np.tile(img, (3,1,1))
+    #     if img.ndim==2:
+    #         img = img[np.newaxis,:,:]
+    #     img = np.tile(img[:1], (3,1,1))
+    # elif img.shape[0] < 3:
+    #     nc, Ly, Lx = img.shape
+    #     img = np.concatenate((img, np.zeros((3-nc, Ly, Lx), dtype=img.dtype)), axis=0)
     return img
 
 def _reshape_norm(data, channels=None, channel_axis=None, rgb=False,
@@ -115,7 +121,7 @@ def _reshape_norm(data, channels=None, channel_axis=None, rgb=False,
             for td in data
         ]
     if rgb:
-        data = [pad_to_rgb(td) for td in data]
+        data = [convert_to_rgb(td) for td in data]
     return data
 
 
