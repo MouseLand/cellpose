@@ -24,7 +24,8 @@ MODEL_DIR = pathlib.Path(_MODEL_DIR_ENV) if _MODEL_DIR_ENV else _MODEL_DIR_DEFAU
 
 MODEL_NAMES = [
     "cyto3", "nuclei", "cyto2_cp3", "tissuenet_cp3", "livecell_cp3", "yeast_PhC_cp3",
-    "yeast_BF_cp3", "bact_phase_cp3", "bact_fluor_cp3", "deepbacs_cp3", "cyto2", "cyto"
+    "yeast_BF_cp3", "bact_phase_cp3", "bact_fluor_cp3", "deepbacs_cp3", "cyto2", "cyto",
+    "transformer_cp3"
 ]
 
 MODEL_LIST_PATH = os.fspath(MODEL_DIR.joinpath("gui_models.txt"))
@@ -42,13 +43,15 @@ normalize_default = {
 }
 
 def model_path(model_type, model_index=0):
-    torch_str = "torch"
-    if model_type == "cyto" or model_type == "cyto2" or model_type == "nuclei":
-        basename = "%s%s_%d" % (model_type, torch_str, model_index)
+    if not os.path.exists(model_type):
+        torch_str = "torch"
+        if model_type == "cyto" or model_type == "cyto2" or model_type == "nuclei":
+            basename = "%s%s_%d" % (model_type, torch_str, model_index)
+        else:
+            basename = model_type
+        return cache_model_path(basename)
     else:
-        basename = model_type
-    return cache_model_path(basename)
-
+        return model_type
 
 def size_model_path(model_type):
     if os.path.exists(model_type):
@@ -102,13 +105,15 @@ class Cellpose():
 
     """
 
-    def __init__(self, gpu=False, model_type="cyto3", nchan=2, device=None):
+    def __init__(self, gpu=False, model_type="cyto3", nchan=2, 
+                device=None, backbone="default"):
         super(Cellpose, self).__init__()
 
         # assign device (GPU or CPU)
         sdevice, gpu = assign_device(use_torch=True, gpu=gpu)
         self.device = device if device is not None else sdevice
         self.gpu = gpu
+        self.backbone = backbone
 
         model_type = "cyto3" if model_type is None else model_type
 
@@ -123,7 +128,8 @@ class Cellpose():
         self.nchan = nchan
 
         self.cp = CellposeModel(device=self.device, gpu=self.gpu, model_type=model_type,
-                                diam_mean=self.diam_mean, nchan=self.nchan)
+                                diam_mean=self.diam_mean, nchan=self.nchan, 
+                                backbone=self.backbone)
         self.cp.model_type = model_type
 
         # size model not used for bacterial model
@@ -231,7 +237,7 @@ class CellposeModel():
     """
 
     def __init__(self, gpu=False, pretrained_model=False, model_type=None,
-                 diam_mean=30., device=None, nchan=2):
+                 diam_mean=30., device=None, nchan=2, backbone="default"):
         """
         Initialize the CellposeModel.
 
@@ -245,19 +251,21 @@ class CellposeModel():
         """
         self.diam_mean = diam_mean
         builtin = True
-
+        default_model = "cyto3" if backbone=="default" else "transformer_cp3"
         if model_type is not None or (pretrained_model and
                                       not os.path.exists(pretrained_model)):
-            pretrained_model_string = model_type if model_type is not None else "cyto"
+            pretrained_model_string = model_type if model_type is not None else default_model
             model_strings = get_user_models()
             all_models = MODEL_NAMES.copy()
             all_models.extend(model_strings)
             if ~np.any([pretrained_model_string == s for s in MODEL_NAMES]):
                 builtin = False
-            elif ~np.any([pretrained_model_string == s for s in all_models]):
-                pretrained_model_string = "cyto3"
+            if (not os.path.exists(model_type) and 
+                 ~np.any([pretrained_model_string == s for s in all_models])):
+                pretrained_model_string = default_model
+                models_logger.warning("model_type does not exist / has incorrect path")
 
-            if (pretrained_model and not os.path.exists(pretrained_model[0])):
+            if (pretrained_model and not os.path.exists(pretrained_model)):
                 models_logger.warning("pretrained model has incorrect path")
             models_logger.info(f">> {pretrained_model_string} << model set to be used")
 
@@ -266,7 +274,6 @@ class CellposeModel():
             else:
                 self.diam_mean = 30.
             pretrained_model = model_path(pretrained_model_string)
-
         else:
             builtin = False
             if pretrained_model:
@@ -290,10 +297,15 @@ class CellposeModel():
         nbase = [32, 64, 128, 256]
         self.nbase = [nchan, *nbase]
         
-        self.net = CPnet(self.nbase, self.nclasses, sz=3, mkldnn=self.mkldnn,
-                         max_pool=True, diam_mean=diam_mean).to(self.device)
-
         self.pretrained_model = pretrained_model
+        if backbone=="default":
+            self.net = CPnet(self.nbase, self.nclasses, sz=3, mkldnn=self.mkldnn,
+                             max_pool=True, diam_mean=diam_mean).to(self.device)
+        else:
+            from .segformer import Transformer
+            self.net = Transformer(encoder_weights="imagenet" if not self.pretrained_model else None,
+                                     diam_mean=diam_mean).to(self.device)
+
         if self.pretrained_model:
             self.net.load_model(self.pretrained_model, device=self.device)
             if not builtin:
@@ -307,7 +319,7 @@ class CellposeModel():
                     f">>>> model diam_labels = {self.diam_labels: .3f} (mean diameter of training ROIs)"
                 )
 
-        self.net_type = "cellpose"
+        self.net_type = f"cellpose_{backbone}"
 
     def eval(self, x, batch_size=8, resample=True, channels=None, channel_axis=None,
              z_axis=None, normalize=True, invert=False, rescale=None, diameter=None,

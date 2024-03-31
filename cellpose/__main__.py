@@ -90,6 +90,7 @@ def main():
         else:
             pretrained_model = args.pretrained_model
 
+
         restore_type = args.restore_type
         if restore_type is not None:
             try:
@@ -98,6 +99,15 @@ def main():
                 raise ValueError("restore_type invalid")
             if args.train or args.train_size:
                 raise ValueError("restore_type cannot be used with training on CLI yet")
+            
+        if args.transformer and (restore_type is None):
+            default_model = "transformer_cp3"
+            backbone = "transformer"
+        elif args.transformer and restore_type is not None:
+            raise ValueError("no transformer based restoration")
+        else:
+            default_model = "cyto3"
+            backbone = "default"
 
         model_type = None
         if pretrained_model and not os.path.exists(pretrained_model):
@@ -106,13 +116,15 @@ def main():
             all_models = models.MODEL_NAMES.copy()
             all_models.extend(model_strings)
             if ~np.any([model_type == s for s in all_models]):
-                model_type = "cyto"
-                logger.warning("pretrained model has incorrect path")
+                model_type = default_model
+                logger.warning(f"pretrained model has incorrect path, using {default_model}")
             if model_type == "nuclei":
                 szmean = 17.
             else:
                 szmean = 30.
-        builtin_size = model_type == "cyto" or model_type == "cyto2" or model_type == "nuclei" or model_type == "cyto3"
+        builtin_size = (model_type == "cyto" or model_type == "cyto2" or 
+                        model_type == "nuclei" or model_type == "cyto3" or 
+                        model_type=="transformer_cp3")
 
         if len(args.image_path) > 0 and (args.train or args.train_size):
             raise ValueError("ERROR: cannot train model with single image input")
@@ -138,7 +150,8 @@ def main():
 
             # handle built-in model exceptions
             if builtin_size and restore_type is None:
-                model = models.Cellpose(gpu=gpu, device=device, model_type=model_type)
+                model = models.Cellpose(gpu=gpu, device=device, 
+                                        model_type=model_type, backbone=backbone)
             else:
                 builtin_size = False
                 if args.all_channels:
@@ -147,7 +160,8 @@ def main():
                 if restore_type is None:
                     model = models.CellposeModel(gpu=gpu, device=device,
                                                  pretrained_model=pretrained_model,
-                                                 model_type=model_type)
+                                                 model_type=model_type, 
+                                                 backbone=backbone)
                 else:
                     model = denoise.CellposeDenoiseModel(gpu=gpu, device=device,
                                                          pretrained_model=pretrained_model,
@@ -267,9 +281,9 @@ def main():
 
             # initialize model
             model = models.CellposeModel(
-                device=device,
+                device=device, model_type=model_type, diam_mean=szmean, nchan=nchan,
                 pretrained_model=pretrained_model if model_type is None else None,
-                model_type=model_type, diam_mean=szmean, nchan=nchan)
+                backbone=backbone)
 
             # train segmentation model
             if args.train:

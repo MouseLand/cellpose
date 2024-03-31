@@ -77,7 +77,9 @@ def get_arg_parser():
     model_args.add_argument(
         "--add_model", required=False, default=None, type=str,
         help="model path to copy model to hidden .cellpose folder for using in GUI/CLI")
-
+    model_args.add_argument("--transformer", action="store_true",
+                               help="use transformer backbone (pretrained_model from Cellpose3 is transformer_cp3)")
+    
     # algorithm settings
     algorithm_args = parser.add_argument_group("Algorithm Arguments")
     algorithm_args.add_argument(
