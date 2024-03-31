@@ -75,6 +75,10 @@ def pad_to_rgb(img):
         img = np.tile(img[:1], (3,1,1))
     elif img.shape[0] < 3:
         nc, Ly, Lx = img.shape
+        # randomly flip channels
+        if np.random.rand() > 0.5:
+            img = img[::-1]
+        # randomly insert blank channel
         ic = np.random.randint(3)
         img = np.insert(img, ic, np.zeros((3-nc, Ly, Lx), dtype=img.dtype), axis=0)
     return img
