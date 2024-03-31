@@ -61,23 +61,23 @@ def _get_batch(inds, data=None, labels=None, files=None, labels_files=None,
         imgs = [io.imread(files[i]) for i in inds]
         imgs = _reshape_norm(imgs, channels=channels, channel_axis=channel_axis, rgb=rgb,
                                normalize_params=normalize_params)
-        # if channels is not None:
-        #     imgs = [
-        #         transforms.convert_image(img, channels=channels,
-        #                                  channel_axis=channel_axis, nchan=None) for img in imgs
-        #     ]
-        #     imgs = [img.transpose(2, 0, 1) for img in imgs]
-        # if normalize_params["normalize"]:
-        #     imgs = [
-        #         transforms.normalize_img(img, normalize=normalize_params, axis=0)
-        #         for img in imgs
-        #     ]
         if labels_files is not None:
             lbls = [io.imread(labels_files[i])[1:] for i in inds]
     else:
         imgs = [data[i] for i in inds]
         lbls = [labels[i][1:] for i in inds]
     return imgs, lbls
+
+def pad_to_rgb(img):
+    if img.ndim==2 or np.ptp(img[1]) < 1e-3:
+        if img.ndim==2:
+            img = img[np.newaxis,:,:]
+        img = np.tile(img[:1], (3,1,1))
+    elif img.shape[0] < 3:
+        nc, Ly, Lx = img.shape
+        ic = np.random.randint(3)
+        img = np.insert(img, ic, np.zeros((3-nc, Ly, Lx), dtype=img.dtype), axis=0)
+    return img
 
 def convert_to_rgb(img):
     if img.ndim==2:
@@ -87,12 +87,6 @@ def convert_to_rgb(img):
         img = img.mean(axis=0, keepdims=True)
         img = transforms.normalize99(img)
         img = np.tile(img, (3,1,1))
-    #     if img.ndim==2:
-    #         img = img[np.newaxis,:,:]
-    #     img = np.tile(img[:1], (3,1,1))
-    # elif img.shape[0] < 3:
-    #     nc, Ly, Lx = img.shape
-    #     img = np.concatenate((img, np.zeros((3-nc, Ly, Lx), dtype=img.dtype)), axis=0)
     return img
 
 def _reshape_norm(data, channels=None, channel_axis=None, rgb=False,
@@ -121,7 +115,7 @@ def _reshape_norm(data, channels=None, channel_axis=None, rgb=False,
             for td in data
         ]
     if rgb:
-        data = [convert_to_rgb(td) for td in data]
+        data = [pad_to_rgb(td) for td in data]
     return data
 
 
