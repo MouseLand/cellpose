@@ -123,8 +123,7 @@ def main():
             else:
                 szmean = 30.
         builtin_size = (model_type == "cyto" or model_type == "cyto2" or 
-                        model_type == "nuclei" or model_type == "cyto3" or 
-                        model_type=="transformer_cp3")
+                        model_type == "nuclei" or model_type == "cyto3")
 
         if len(args.image_path) > 0 and (args.train or args.train_size):
             raise ValueError("ERROR: cannot train model with single image input")
@@ -312,8 +311,15 @@ def main():
                              ] if test_labels is not None else test_labels
                 # data has already been normalized and reshaped
                 sz_model.params = train.train_size(model.net, model.pretrained_model,
-                                                   images, masks, test_images,
-                                                   test_masks, channels=channels,
+                                                   images, labels, train_files=image_names,
+                                                    test_data=test_images, test_labels=test_labels,
+                                                    test_files=image_names_test, 
+                                                    train_probs=train_probs, test_probs=test_probs,
+                                                    load_files=load_files,  channels=channels,
+                                                   min_train_masks=args.min_train_masks, 
+                                                   channel_axis=args.channel_axis, rgb=(nchan==3),
+                                                 nimg_per_epoch=args.nimg_per_epoch, normalize=(not args.no_norm),
+                                                    nimg_test_per_epoch=args.nimg_test_per_epoch,
                                                    batch_size=args.batch_size)
                 if test_images is not None:
                     predicted_diams, diams_style = sz_model.eval(

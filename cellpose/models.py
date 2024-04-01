@@ -260,7 +260,7 @@ class CellposeModel():
             all_models.extend(model_strings)
             if ~np.any([pretrained_model_string == s for s in MODEL_NAMES]):
                 builtin = False
-            if (not os.path.exists(model_type) and 
+            if (not os.path.exists(pretrained_model_string) and 
                  ~np.any([pretrained_model_string == s for s in all_models])):
                 pretrained_model_string = default_model
                 models_logger.warning("model_type does not exist / has incorrect path")

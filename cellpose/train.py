@@ -337,10 +337,12 @@ def train_seg(net, train_data=None, train_labels=None, train_files=None,
         train_data (List[np.ndarray], optional): List of arrays (2D or 3D) - images for training. Defaults to None.
         train_labels (List[np.ndarray], optional): List of arrays (2D or 3D) - labels for train_data, where 0=no masks; 1,2,...=mask labels. Defaults to None.
         train_files (List[str], optional): List of strings - file names for images in train_data (to save flows for future runs). Defaults to None.
+        train_labels_files (list or None): List of training label file paths. Defaults to None.
         train_probs (List[float], optional): List of floats - probabilities for each image to be selected during training. Defaults to None.
         test_data (List[np.ndarray], optional): List of arrays (2D or 3D) - images for testing. Defaults to None.
         test_labels (List[np.ndarray], optional): List of arrays (2D or 3D) - labels for test_data, where 0=no masks; 1,2,...=mask labels. Defaults to None.
         test_files (List[str], optional): List of strings - file names for images in test_data (to save flows for future runs). Defaults to None.
+        test_labels_files (list or None): List of test label file paths. Defaults to None.
         test_probs (List[float], optional): List of floats - probabilities for each image to be selected during testing. Defaults to None.
         load_files (bool, optional): Boolean - whether to load images and labels from files. Defaults to True.
         batch_size (int, optional): Integer - number of patches to run simultaneously on the GPU. Defaults to 8.
@@ -519,7 +521,7 @@ def train_size(net, pretrained_model, train_data=None, train_labels=None,
                test_labels_files=None, test_probs=None, load_files=True,
                min_train_masks=5, channels=None, channel_axis=None, rgb=False, 
                normalize=True, nimg_per_epoch=None, nimg_test_per_epoch=None, 
-               batch_size=128, scale_range=1.0, bsize=512,
+               batch_size=64, scale_range=1.0, bsize=512,
                l2_regularization=1.0, n_epochs=10):
     """Train the size model.
 
@@ -543,7 +545,7 @@ def train_size(net, pretrained_model, train_data=None, train_labels=None,
         normalize (bool or dict, optional): Whether to normalize the data. Defaults to True.
         nimg_per_epoch (int, optional): The number of images per epoch. Defaults to None.
         nimg_test_per_epoch (int, optional): The number of test images per epoch. Defaults to None.
-        batch_size (int, optional): The batch size. Defaults to 128.
+        batch_size (int, optional): The batch size. Defaults to 64.
         l2_regularization (float, optional): The L2 regularization factor. Defaults to 1.0.
         n_epochs (int, optional): The number of epochs. Defaults to 10.
 
@@ -600,7 +602,7 @@ def train_size(net, pretrained_model, train_data=None, train_labels=None,
             inds_batch = np.arange(ibatch, min(nimg_per_epoch, ibatch + batch_size))
             inds = rperm[inds_batch]
             imgs, lbls = _get_batch(inds, data=train_data, labels=train_labels,
-                                    files=train_files, labels_files=train_labels_files,
+                                    files=train_files, 
                                     **kwargs)
             diami = diam_train[inds].copy()
             imgi, lbl, scale = transforms.random_rotate_and_resize(
@@ -632,7 +634,7 @@ def train_size(net, pretrained_model, train_data=None, train_labels=None,
         np.random.seed(0)
         styles_test = np.zeros((nimg_test_per_epoch, 256), np.float32)
         diams_test = np.zeros((nimg_test_per_epoch,), np.float32)
-        diam_test = np.zeros((nimg_test_per_epoch,), np.float32)
+        diams_test0 = np.zeros((nimg_test_per_epoch,), np.float32)
         if nimg_test != nimg_test_per_epoch:
             rperm = np.random.choice(np.arange(0, nimg_test),
                                      size=(nimg_test_per_epoch,), p=test_probs)
@@ -655,12 +657,12 @@ def train_size(net, pretrained_model, train_data=None, train_labels=None,
                 feat = net(imgi)[1]
             styles_test[inds_batch] = feat.cpu().numpy()
             diams_test[inds_batch] = np.log(diami) - np.log(diam_mean) + np.log(scale)
-            diam_test[inds_batch] = diamt
+            diams_test0[inds_batch] = diamt
 
         diam_test_pred = np.exp(A @ (styles_test - smean).T + np.log(diam_mean) + ymean)
         diam_test_pred = np.maximum(5., diam_test_pred)
         train_logger.info("test correlation: %0.4f" %
-                          np.corrcoef(diam_test, diam_test_pred)[0, 1])
+                          np.corrcoef(diams_test0, diam_test_pred)[0, 1])
 
     pretrained_size = str(pretrained_model) + "_size.npy"
     params = {"A": A, "smean": smean, "diam_mean": diam_mean, "ymean": ymean}
