@@ -22,6 +22,8 @@ Cellpose was written by Carsen Stringer and Marius Pachitariu. To learn about Ce
 
 Please see install instructions [below](README.md/#Installation), and also check out the detailed documentation at [**cellpose.readthedocs.io**](https://cellpose.readthedocs.io/en/latest/) for more information.
 
+This is a new version.
+
 ### :star2: v3 (Feb 2024) :star2:
 
 Cellpose3 enables image restoration in the GUI, API and CLI (saved to `_seg.npy`). To learn more...
