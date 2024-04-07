@@ -236,14 +236,15 @@ def main():
             test_dir = None if len(args.test_dir) == 0 else args.test_dir
             images, labels, image_names, train_probs = None, None, None, None
             test_images, test_labels, image_names_test, test_probs = None, None, None, None
+            compute_flows = False
             if len(args.file_list) > 0:
                 if os.path.exists(args.file_list):
                     dat = np.load(args.file_list, allow_pickle=True).item()
                     image_names = dat["train_files"]
-                    image_names_test = dat["test_files"]
-                    if "train_probs" in dat:
-                        train_probs = dat["train_probs"]
-                        test_probs = dat["test_probs"]
+                    image_names_test = dat.get("test_files", None)
+                    train_probs = dat.get("train_probs", None)
+                    test_probs = dat.get("test_probs", None)
+                    compute_flows = dat.get("compute_flows", False)
                     load_files = False
                 else:
                    logger.critical(f"ERROR: {args.file_list} does not exist")
@@ -263,7 +264,7 @@ def main():
                 channels = None
             else:
                 nchan = 2
-
+            
             # model path
             szmean = args.diam_mean
             if not os.path.exists(pretrained_model) and model_type is None:
@@ -291,14 +292,15 @@ def main():
                     test_data=test_images, test_labels=test_labels,
                     test_files=image_names_test, 
                     train_probs=train_probs, test_probs=test_probs,
-                    load_files=load_files, learning_rate=args.learning_rate,
-                    weight_decay=args.weight_decay, channels=channels, 
+                    compute_flows=compute_flows, load_files=load_files, 
+                    normalize=(not args.no_norm), channels=channels, 
                     channel_axis=args.channel_axis, rgb=(nchan==3),
-                    save_path=os.path.realpath(args.dir), save_every=args.save_every,
+                    learning_rate=args.learning_rate, weight_decay=args.weight_decay, 
                     SGD=args.SGD, n_epochs=args.n_epochs, batch_size=args.batch_size,
                     min_train_masks=args.min_train_masks, 
-                    nimg_per_epoch=args.nimg_per_epoch, normalize=(not args.no_norm),
+                    nimg_per_epoch=args.nimg_per_epoch, 
                     nimg_test_per_epoch=args.nimg_test_per_epoch,
+                    save_path=os.path.realpath(args.dir), save_every=args.save_every,
                     model_name=args.model_name_out)
                 model.pretrained_model = cpmodel_path
                 logger.info(">>>> model trained and saved to %s" % cpmodel_path)
@@ -306,9 +308,6 @@ def main():
             # train size model
             if args.train_size:
                 sz_model = models.SizeModel(cp_model=model, device=device)
-                masks = [lbl[0] for lbl in labels]
-                test_masks = [lbl[0] for lbl in test_labels
-                             ] if test_labels is not None else test_labels
                 # data has already been normalized and reshaped
                 sz_model.params = train.train_size(model.net, model.pretrained_model,
                                                    images, labels, train_files=image_names,
@@ -322,6 +321,8 @@ def main():
                                                     nimg_test_per_epoch=args.nimg_test_per_epoch,
                                                    batch_size=args.batch_size)
                 if test_images is not None:
+                    test_masks = [lbl[0] for lbl in test_labels
+                             ] if test_labels is not None else test_labels
                     predicted_diams, diams_style = sz_model.eval(
                         test_images, channels=channels)
                     ccs = np.corrcoef(

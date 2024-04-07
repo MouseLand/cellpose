@@ -188,6 +188,7 @@ def run_net(net, imgs, batch_size=8, augment=False, tile=True, tile_overlap=0.1,
     (faster if augment is False)
 
     Args:
+        net (class): cellpose network (model.net)
         imgs (np.ndarray): The input image or stack of images of size [Ly x Lx x nchan] or [Lz x Ly x Lx x nchan].
         batch_size (int, optional): Number of tiles to run in a batch. Defaults to 8.
         rsz (float, optional): Resize coefficient(s) for image. Defaults to 1.0.
@@ -239,7 +240,6 @@ def run_net(net, imgs, batch_size=8, augment=False, tile=True, tile_overlap=0.1,
     y = np.transpose(y, detranspose)
 
     return y, style
-
 
 def _run_tiled(net, imgi, batch_size=8, augment=False, bsize=224, tile_overlap=0.1):
     """ 

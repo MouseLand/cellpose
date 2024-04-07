@@ -38,7 +38,6 @@ def _taper_mask(ly=224, lx=224, sig=7.5):
                 bsize // 2 - lx // 2:bsize // 2 + lx // 2 + lx % 2]
     return mask
 
-
 def unaugment_tiles(y):
     """Reverse test-time augmentations for averaging (includes flipping of flowsY and flowsX).
 

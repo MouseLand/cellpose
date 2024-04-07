@@ -192,7 +192,7 @@ def _process_train_test(train_data=None, train_labels=None, train_files=None,
                 os.path.splitext(str(tf))[0] + "_flows.tif" for tf in train_files
             ]
             train_labels_files = [tf for tf in train_labels_files if os.path.exists(tf)]
-        if test_data is not None or test_files is not None and test_labels_files is None:
+        if (test_data is not None or test_files is not None) and test_labels_files is None:
             test_labels_files = [
                    os.path.splitext(str(tf))[0] + "_flows.tif" for tf in test_files
             ]
@@ -415,7 +415,7 @@ def train_seg(net, train_data=None, train_labels=None, train_files=None,
         LR = LR[:-50]
         for i in range(10):
             LR = np.append(LR, LR[-1] / 2 * np.ones(5))
-    n_epochs = len(LR)
+    LR = LR
     train_logger.info(f">>> n_epochs={n_epochs}, n_train={nimg}, n_test={nimg_test}")
 
     if not SGD:
