@@ -166,9 +166,11 @@ def _initialize_images(parent, image, load_3D=False):
             c = np.array(image.shape).argmin()
             image = image.transpose(((c + 1) % 3, (c + 2) % 3, c))
         elif load_3D:
-            # assume smallest dimension is Z and put first
-            z = np.array(image.shape).argmin()
-            image = image.transpose((z, (z + 1) % 3, (z + 2) % 3))
+            # assume smallest dimension is Z and put first if <3x max dim
+            shape = np.array(image.shape)
+            z = shape.argmin()
+            if shape[z] < shape.max()/3:
+                image = image.transpose((z, (z + 1) % 3, (z + 2) % 3))
             image = image[..., np.newaxis]
     elif image.ndim == 2:
         if not load_3D:
