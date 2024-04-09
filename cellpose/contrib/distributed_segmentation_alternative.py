@@ -36,39 +36,25 @@ def distributed_eval(
     Distributed over cluster or workstation resources with Dask
     Optionally run preprocessing steps on the blocks before running cellpose
 
-    Current Limitations
-    -------------------
-    Method for stitching separate segmentations between blocks is pretty simple
-    and could be improved.
-
-    Current Dask implementation may not be optimal - Dask struggles with large
-    numbers of blocks (greater than 2K). This produces too many tasks and the
-    scheduler is sometimes very slow.
-
-    You need to be very knowledgeable about the resources (RAM, cpu count, GPU count,
-    GPU RAM) your job will need for this to be successful. These items would be set
-    via `cluster_kwargs`
-
     Parameters
     ----------
-    zarr_path : string
-        Array like object that has a shape parameter and supports slicing. Can be
-        in memory (e.g. a numpy array or zarr array backed by ram) or on disk/lazy
-        (e.g. a zarr array backed by data on disk).
+    zarr_array : zarr.core.Array
+        A zarr.core.Array instance containing the image data you want to
+        segment.
 
     blocksize : iterable
         The size of blocks in voxels. E.g. [128, 256, 256]
 
-    dataset_path : string (default: None)
-        If the image data within the zarr file is in a subgroup; the path to
-        that subgroup.
+    write_path : string
+        The location of a zarr file on disk where you'd like to write your results
 
     mask : numpy.ndarray (default: None)
         A foreground mask for the image data; may be at a different resolution
-        (e.g. smaller) than the image data. If given, only blocks that contain
+        (e.g. lower) than the image data. If given, only blocks that contain
         foreground will be processed. This can save considerable time and
-        expense. The physical size of the mask and the image data must be the
-        same; i.e. the boundaries are the same locations in physical space.
+        expense. It is assumed that the domain of the zarr_array image data
+        and the mask is the same in physical units, but they may be on
+        different sampling/voxel grids.
 
     preprocessing_steps : list of tuples (default: [])
         Preprocessing steps to run on blocks before running cellpose. This might
@@ -85,22 +71,85 @@ def distributed_eval(
     eval_kwargs : dict (default: {})
         Arguments passed to cellpose.models.Cellpose.eval
 
-    cluster_kwargs : dict (default: {})
-        Arguments passed to ClusterWrap.cluster
+    cluster : ClusterWrap.cluster object (default: None)
+        Only set if you have constructed your own static cluster. The default
+        behavior is to construct a dask cluster for the duration of this function,
+        then close it when the function is finished.
 
-    write_path : string (default: None)
-        The location of a zarr file on disk where you'd like to write your results
-        If `write_path == None` then results are returned to the calling python
-        process (e.g. your jupyter process), which for any big data case is going
-        to crash. So, for large images (greater than 8GB) be sure to specify this!
+    cluster_kwargs : dict (default: {})
+        Arguments passed to ClusterWrap.cluster.
+        See "Cluster Parameterization section" below.
+
+    temporary_directory : string (default: None)
+        Temporary files are created during segmentation. The temporary files
+        will be in their own folder within the temporary_directory. The default
+        is the current directory. Temporary files are removed if the function
+        completes successfully.
+
 
     Returns
     -------
-    if `write_path != None`, reference to the zarr file on disk containing the
-    stitched cellpose results for your entire image
+    A reference to the zarr array on disk containing the stitched cellpose
+    segments for your entire image
 
-    if `write_path == None`, a numpy.ndarray containing the stitched
-    cellpose results for your entire image (may be too large for local RAM!)
+
+    Cluster Parameterization
+    ------------------------
+    This function runs on a Dask cluster. There are basically three things you
+    need to know about: (1) workers, (2) the task graph, and (3) the scheduler.
+    You won't interact with any of these components directly, but in order
+    to parameterize this function properly, you need to know a little about how
+    they work.
+
+
+    (1) Workers
+    A "Dask worker" is a set of computational resources that have been set aside
+    to execute tasks. Let's say you're working on a nice workstation computer with
+    16 cpus and 128 GB of RAM. A worker might be 2 cpus and 16 GB of RAM. If that's
+    the case then you could have up to 8 workers on that machine. What resources
+    a worker has access to and how many workers you want are both configurable
+    parameters, and different choices should be made depending on whether you're
+    working on a workstation, a cluster, or a laptop.
+
+    (2) The task graph
+    Dask code is "lazy" meaning individual lines of dask code don't execute a
+    computation right away; instead they just record what you want to do and
+    then you specify later when you actually want to execute the computation.
+    Say A and B are both Dask arrays of data. Then:
+    C = A + B
+    D = 2 * C
+    won't actually compute anything right away. Instead, you have just
+    constructed a "task graph" which contains all the instructions needed
+    to compute D at a later time. When you actually want D computed you
+    can write:
+    D_result = D.compute()
+    This will send the task graph for D to the scheduler, which we'll learn
+    about next.
+
+    (3) The Scheduler
+    When you execute a Dask task graph it is sent to the scheduler. The
+    scheduler also knows which workers are available and what resources
+    they have. The scheduler will analyze the task graph and determine which
+    individual tasks should be mapped to which workers and in what order.
+    The scheduler runs in the same Python process from which you submit
+    the Dask function (such as this function).
+
+
+    The cluster_kwargs argument to this function is how you specify what
+    resources workers will have and how many workers you will allow. These
+    choices are different if you're on a cluster or a workstation.
+    If you are working on the Janelia cluster, then you can see which options
+    to put in the cluster_kwargs dictionary by running the following code:
+    ```
+    from ClusterWrap.clusters import janelia_lsf_cluster
+    janelia_lsf_cluster
+    ```
+    If you are working on a workstation, then you can see which options
+    to put in the cluster_kwargs dictionary by running the following code:
+    ```
+    from ClusterWrap.clusters import local_cluster
+    local_cluster?
+    ```
     """
 
     # set default values
@@ -109,13 +158,14 @@ def distributed_eval(
     overlap = eval_kwargs['diameter'] * 2
     blocksize = np.array(blocksize)
     if mask is not None:
-        mask_blocksize = np.round(blocksize * mask.shape / zarr_array.shape).astype(int)
+        ratio = np.array(mask.shape) / zarr_array.shape
+        mask_blocksize = np.round(ratio * blocksize).astype(int)
 
     # get all foreground block coordinates
     nblocks = np.ceil(np.array(zarr_array.shape) / blocksize).astype(np.int16)
     block_coords = []
-    for (i, j, k) in np.ndindex(*nblocks):
-        start = blocksize * (i, j, k) - overlap
+    for index in np.ndindex(*nblocks):
+        start = blocksize * index - overlap
         stop = start + blocksize + 2 * overlap
         start = np.maximum(0, start)
         stop = np.minimum(zarr_array.shape, stop)
@@ -124,13 +174,13 @@ def distributed_eval(
         # check foreground
         foreground = True
         if mask is not None:
-            start = mask_blocksize * (i, j, k)
+            start = mask_blocksize * index
             stop = start + mask_blocksize
             stop = np.minimum(mask.shape, stop)
             mask_coords = tuple(slice(x, y) for x, y in zip(start, stop))
             if not np.any(mask[mask_coords]): foreground = False
         if foreground:
-            block_coords.append( ((i, j, k), coords) )
+            block_coords.append( (index, coords) )
 
     # construct zarr file for output
     temporary_directory = tempfile.TemporaryDirectory(
@@ -144,14 +194,17 @@ def distributed_eval(
         np.uint32,
     )
 
+
     # pipeline to run on each block
     def preprocess_and_segment(coords):
 
         # parse inputs and print
         block_index = coords[0]
         coords = coords[1]
-        image = zarr_array[coords]
         print('SEGMENTING BLOCK: ', block_index, '\tREGION: ', coords, flush=True)
+
+        # read the block from disk
+        image = zarr_array[coords]
 
         # preprocess
         for pp_step in preprocessing_steps:
@@ -164,7 +217,7 @@ def distributed_eval(
         segmentation = model.eval(image, **eval_kwargs)[0].astype(np.uint32)
 
         # remove overlaps
-        new_coords = list(coords)
+        coords_trimmed = list(coords)
         for axis in range(image.ndim):
 
             # left side
@@ -173,24 +226,28 @@ def distributed_eval(
                 slc[axis] = slice(overlap, None)
                 segmentation = segmentation[tuple(slc)]
                 a, b = coords[axis].start, coords[axis].stop
-                new_coords[axis] = slice(a + overlap, b)
+                coords_trimmed[axis] = slice(a + overlap, b)
 
             # right side
             if segmentation.shape[axis] > blocksize[axis]:
                 slc = [slice(None),]*image.ndim
                 slc[axis] = slice(None, blocksize[axis])
                 segmentation = segmentation[tuple(slc)]
-                a = new_coords[axis].start
-                new_coords[axis] = slice(a, a + blocksize[axis])
+                a = coords_trimmed[axis].start
+                coords_trimmed[axis] = slice(a, a + blocksize[axis])
 
         # get all segment bounding boxes, adjust to global coordinates
         boxes = find_objects(segmentation)
         boxes = [b for b in boxes if b is not None]
+        translate = lambda a, b: slice(a.start+b.start, a.start+b.stop)
         for iii, box in enumerate(boxes):
-            boxes[iii] = tuple(slice(a.start+b.start, a.start+b.stop) for a, b in zip(new_coords, box))
+            boxes[iii] = tuple(translate(a, b) for a, b in zip(coords_trimmed, box))
 
         # remap segment ids to globally unique values
-        # TODO: casting string to uint32 will overflow witout warning or exception
+        # the (rastered) block_index and segment id will each be a five digit
+        # decimal, and those will be packed together (concantenated as strings)
+        # into a single uint32
+        # NOTE: casting string to uint32 will overflow witout warning or exception
         #    so, using uint32 this only works if:
         #    number of blocks is less than or equal to 42950
         #    number of segments per block is less than or equal to 99999
@@ -198,51 +255,55 @@ def distributed_eval(
         #    in binary instead of decimal, then split into two 16 bit chunks
         #    then max number of blocks and max number of cells per block
         #    are both 2**16
-        # TODO: don't use ravel_multi_index - use the index of coords in block_coords
-        #       this will start at one and increment - still globally unique, much more efficient
         unique, unique_inverse = np.unique(segmentation, return_inverse=True)
         p = str(np.ravel_multi_index(block_index, nblocks))
         remap = [np.uint32(p+str(x).zfill(5)) for x in range(len(unique))]
-        remap[0] = np.uint32(0)
+        remap[0] = np.uint32(0)  # 0 should just always be 0
         segmentation = np.array(remap)[unique_inverse.reshape(segmentation.shape)]
 
         # write segmentaiton block
-        output_zarr[tuple(new_coords)] = segmentation
+        output_zarr[tuple(coords_trimmed)] = segmentation
 
         # get the block faces
         faces = []
-        for iii in range(3):
-            a = [slice(None),] * 3
+        for iii in range(image.ndim):
+            a = [slice(None),] * image.ndim
             a[iii] = slice(0, 1)
             faces.append(segmentation[tuple(a)])
-            a = [slice(None),] * 3
+            a = [slice(None),] * image.ndim
             a[iii] = slice(-1, None)
             faces.append(segmentation[tuple(a)])
 
         # package and return results
         return block_index, (faces, boxes, remap[1:])
 
-    # submit all segmentations, reformat to dict[block_index] = (faces, boxes, box_ids)
+
+    # submit all segmentations, scale down cluster when complete
     results = cluster.client.gather(cluster.client.map(
         preprocess_and_segment, block_coords,
     ))
-    results = {a:b for a, b in results}
+    cluster.cluster.scale(0)
 
-    # TODO: this function really has 3 very different sections, segmentation, reduction, relabeling
-    #       segmentation needs lots of gpus, reduction is local, relabeling needs lots of cpus
-    #       I should be dynamically adjusting the cluster resources during these periods to avoid waste
 
+    # begin the local reduction step (merging label IDs)
     print('REDUCE STEP, SHOULD TAKE 5-10 MINUTES')
+
+    # reformat to dict[block_index] = (faces, boxes, box_ids)
+    results = {a:b for a, b in results}
 
     # find face adjacency pairs
     faces, boxes, box_ids = [], [], []
     for block_index, result in results.items():
-        for ax, index in enumerate(block_index):
-            neighbor_index = tuple(a+1 if i==ax else a for i, a in enumerate(block_index))
-            if neighbor_index not in results.keys(): continue
-            a = result[0][2*ax + 1]
-            b = results[neighbor_index][0][2*ax]
-            faces.append( np.concatenate((a, b), axis=ax) )
+        for ax in range(len(block_index)):
+            neighbor_index = np.array(block_index)
+            neighbor_index[ax] += 1
+            neighbor_index = tuple(neighbor_index)
+            try:
+                a = result[0][2*ax + 1]
+                b = results[neighbor_index][0][2*ax]
+                faces.append( np.concatenate((a, b), axis=ax) )
+            except KeyError:
+                continue
         boxes += result[1]
         box_ids += result[2]
 
@@ -250,7 +311,7 @@ def distributed_eval(
     label_range = np.max(box_ids)
     label_groups = _block_face_adjacency_graph(faces, label_range)
     new_labeling = connected_components(label_groups, directed=False)[1]
-    # XXX: new_labeling is returned as int32. Potentially a problem.
+    # XXX: new_labeling is returned as int32. Loses half range. Potentially a problem.
 
     # map unused label ids to zero and remap remaining ids to [0, 1, 2, ...]
     unused_labels = np.ones(label_range + 1, dtype=bool)
@@ -259,6 +320,18 @@ def distributed_eval(
     unique, unique_inverse = np.unique(new_labeling, return_inverse=True)
     new_labeling = np.arange(len(unique), dtype=np.uint32)[unique_inverse]
     print('REDUCTION COMPLETE')
+
+
+    # reformat worker properties for relabeling step
+    cluster.change_worker_attributes(
+        min_workers=10,
+        max_workers=400,
+        ncpus=1,
+        memory="15GB",
+        mem=int(15e9),
+        queue=None,
+        job_extra=[],
+    )
 
     # define relabeling function
     np.save(temporary_directory.name + '/new_labeling.npy', new_labeling)
@@ -275,6 +348,7 @@ def distributed_eval(
         chunks=segmentation_da.chunks,
     )
     da.to_zarr(relabeled, write_path)
+
 
     # merge boxes
     merged_boxes = []
