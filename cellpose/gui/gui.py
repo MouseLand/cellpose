@@ -1046,7 +1046,6 @@ class MainW(QMainWindow):
         self.saveSet.setEnabled(False)
         self.savePNG.setEnabled(False)
         self.saveFlows.setEnabled(False)
-        self.saveServer.setEnabled(False)
         self.saveOutlines.setEnabled(False)
         self.saveROIs.setEnabled(False)
 
@@ -1065,14 +1064,12 @@ class MainW(QMainWindow):
             self.saveSet.setEnabled(True)
             self.savePNG.setEnabled(True)
             self.saveFlows.setEnabled(True)
-            self.saveServer.setEnabled(True)
             self.saveOutlines.setEnabled(True)
             self.saveROIs.setEnabled(True)
         else:
             self.saveSet.setEnabled(False)
             self.savePNG.setEnabled(False)
             self.saveFlows.setEnabled(False)
-            self.saveServer.setEnabled(False)
             self.saveOutlines.setEnabled(False)
             self.saveROIs.setEnabled(False)
 
