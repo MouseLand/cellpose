@@ -1,3 +1,11 @@
+---
+name: user_story
+about: Create a new user story for new features.
+title: ''
+labels: ''
+assignees: ''
+
+---
 
 **As a** [type of user], **I want** [a feature], **so that** [benefit].
 
@@ -12,8 +20,6 @@ Or:
 - [ ] Constraint 1;
 - [ ] Constraint 2;
 - [ ] Constraint 3.
-
-
 
 
 ### Additional Resources:
