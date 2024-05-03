@@ -496,7 +496,9 @@ def masks_flows_to_seg(images, masks, flows, file_names, diams=30., channels=Non
         if not isinstance(diams, (list, np.ndarray)):
             diams = diams * np.ones(len(masks), np.float32)
         if imgs_restore is None:
-            imgs_restore = [] * len(masks)
+            imgs_restore = [None] * len(masks)
+        if isinstance(file_names, str):
+            file_names = [file_names] * len(masks)
         for k, [image, mask, flow, diam,
                 file_name, img_restore] in enumerate(zip(images, masks, flows, diams, file_names, imgs_restore)):
             channels_img = channels
