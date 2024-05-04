@@ -6,7 +6,7 @@ import sys, os, pathlib, warnings, datetime, time, copy
 
 from qtpy import QtGui, QtCore
 from superqt import QRangeSlider, QCollapsible
-from qtpy.QtWidgets import QScrollArea, QMainWindow, QApplication, QWidget, QScrollBar, QComboBox, QGridLayout, QPushButton, QFrame, QCheckBox, QLabel, QProgressBar, QLineEdit, QMessageBox, QGroupBox
+from qtpy.QtWidgets import QScrollArea, QMainWindow, QApplication, QWidget, QScrollBar, QComboBox, QGridLayout, QPushButton, QFrame, QCheckBox, QLabel, QProgressBar, QLineEdit, QMessageBox, QGroupBox, QColorDialog
 import pyqtgraph as pg
 
 import numpy as np
