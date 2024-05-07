@@ -223,10 +223,15 @@ class TrainWindow(QDialog):
         # choose parameters
         labels = ["learning_rate", "weight_decay", "n_epochs", "model_name"]
         self.edits = []
+        self.parameter_explanations = ["The learning rate determines how quickly or slowly the model learns from data. A higher learning rate may lead to faster learning but could cause the model to overshoot the optimal solution. Conversely, a lower learning rate may result in slower learning but is safer and more likely to find the best solution.",
+                     "Weight decay helps prevent overfitting by penalizing large parameter values in the model. Increasing weight decay encourages the model to learn simpler patterns from the data, improving its ability to generalize to new, unseen examples.",
+                     "The number of times the entire dataset is passed forward and backward through the machine learning model during training. Increasing the number of epochs allows the model to see the data more times, potentially improving its accuracy. However, too many epochs can lead to overfitting, where the model memorizes the training data instead of learning generalizable patterns.",
+                     ""]
         yoff += 1
         for i, label in enumerate(labels):
             qlabel = QLabel(label)
             qlabel.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
+            qlabel.setToolTip(self.parameter_explanations[i])
             self.l0.addWidget(qlabel, i + yoff, 0, 1, 1)
             self.edits.append(QLineEdit())
             self.edits[-1].setText(str(parent.training_params[label]))
