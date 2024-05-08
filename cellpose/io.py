@@ -2,7 +2,7 @@
 Copyright © 2023 Howard Hughes Medical Institute, Authored by Carsen Stringer and Marius Pachitariu.
 """
 
-import os, datetime, gc, warnings, glob, shutil
+import os, datetime, gc, warnings, glob, shutil, json
 from natsort import natsorted
 import numpy as np
 import cv2
@@ -84,6 +84,32 @@ def outlines_to_text(base, outlines):
             xy_str = ",".join(map(str, xy))
             f.write(xy_str)
             f.write("\n")
+
+
+def polygons_to_geojson(base, polygons) -> None:
+    """
+    Create a geojson file from polygons.
+    Args:
+        base (str): base name of the file to save
+        polygons (list): list of polygons
+    Returns:
+        None
+    """
+    geojson = {
+        "type": "FeatureCollection",
+        "features": []
+    }
+    for polygon in polygons:
+        geojson["features"].append({
+            "type": "Feature",
+            "geometry": {
+                "type": "Polygon",
+                "coordinates": polygon
+            },
+            "properties": {}
+        })
+    with open(base + "_cp_outlines.geojson", "w") as f:
+        json.dump(geojson, f)
 
 
 def load_dax(filename):
@@ -261,7 +287,7 @@ def imsave(filename, arr):
     """
     ext = os.path.splitext(filename)[-1].lower()
     if ext == ".tif" or ext == ".tiff":
-        tifffile.imwrite(filename, arr)
+        tifffile.imwrite(filename, arr, compression="zlib")
     else:
         if len(arr.shape) > 2:
             arr = cv2.cvtColor(arr, cv2.COLOR_BGR2RGB)
@@ -597,7 +623,7 @@ def save_rois(masks, file_name):
 def save_masks(images, masks, flows, file_names, png=True, tif=False, channels=[0, 0],
                suffix="", save_flows=False, save_outlines=False, 
                dir_above=False, in_folders=False, savedir=None, save_txt=False,
-               save_mpl=False):
+               save_geojson=False, keep_holes=False, save_mpl=False):
     """ Save masks + nicely plotted segmentation image to png and/or tiff.
 
     Can save masks, flows to different directories, if in_folders is True.
@@ -625,6 +651,8 @@ def save_masks(images, masks, flows, file_names, png=True, tif=False, channels=[
         in_folders (bool, optional): Save masks/flows in separate folders. Defaults to False.
         savedir (str, optional): Absolute path where images will be saved. If None, saves to image directory. Defaults to None.
         save_txt (bool, optional): Save masks as list of outlines for ImageJ. Defaults to False.
+        save_geojson (bool, optional): Save masks as geojson. Defaults to False.
+        keep_holes (bool, optional): Keep holes outlines inside polygons. Default is False.
         save_mpl (bool, optional): If True, saves a matplotlib figure of the original image/segmentation/flows. Does not work for 3D.
                 This takes a long time for large images. Defaults to False.
     
@@ -638,7 +666,7 @@ def save_masks(images, masks, flows, file_names, png=True, tif=False, channels=[
                        dir_above=dir_above, save_flows=save_flows,
                        save_outlines=save_outlines, 
                        savedir=savedir, save_txt=save_txt, in_folders=in_folders,
-                       save_mpl=save_mpl)
+                       save_mpl=save_mpl, save_geojson=save_geojson)
         return
 
     if masks.ndim > 2 and not tif:
@@ -722,10 +750,24 @@ def save_masks(images, masks, flows, file_names, png=True, tif=False, channels=[
         outlines = utils.outlines_list(masks)
         outlines_to_text(os.path.join(txtdir, basename), outlines)
 
+    # QuPath geojson files
+    if masks.ndim < 3 and save_geojson:
+        polygons = utils.outlines_polygons(masks, keep_holes=keep_holes)
+        if polygons is not None:
+            polygons_to_geojson(os.path.join(txtdir, basename), polygons)
+
     # RGB outline images
     if masks.ndim < 3 and save_outlines:
         check_dir(outlinedir)
-        outlines = utils.masks_to_outlines(masks)
+        polygons = utils.outlines_polygons(masks, keep_holes=True)
+        image_shape = images.shape[1:] if images.shape[0] < 4 else images.shape[:2]
+        outlines = np.zeros(shape=image_shape)
+        for polygon in polygons:    # TODO: Little ad-hoc
+            for outline in polygon:
+                for coordinates in range(len(outline)):
+                    x = outline[coordinates][0]
+                    y = outline[coordinates][1]
+                    outlines[int(y), int(x)] = 255
         outX, outY = np.nonzero(outlines)
         img0 = transforms.normalize99(images)
         if img0.shape[0] < 4:
