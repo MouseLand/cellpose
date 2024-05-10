@@ -1,10 +1,18 @@
 """
-Copyright © 2023 Howard Hughes Medical Institute, Authored by Carsen Stringer and Marius Pachitariu.
+Copyright Â© 2023 Howard Hughes Medical Institute, Authored by Carsen Stringer and Marius Pachitariu.
 """
+
+from tkinter import *
+import tkinter as tk
+from tkinter import ttk
 
 from qtpy import QtGui, QtCore, QtWidgets
 from qtpy.QtGui import QPainter, QPixmap
-from qtpy.QtWidgets import QApplication, QRadioButton, QWidget, QDialog, QButtonGroup, QSlider, QStyle, QStyleOptionSlider, QGridLayout, QPushButton, QLabel, QLineEdit, QDialogButtonBox, QComboBox, QCheckBox
+from qtpy.QtWidgets import (QApplication, QRadioButton, QWidget, QDialog, QButtonGroup, QSlider, QStyle,
+                            QStyleOptionSlider,
+                            QGridLayout, QPushButton, QLabel, QLineEdit, QDialogButtonBox, QComboBox, QCheckBox)
+from qtpy.QtCore import Qt, QSize
+from qtpy.QtGui import QFont
 import pyqtgraph as pg
 from pyqtgraph import functions as fn
 from pyqtgraph import Point
@@ -35,13 +43,13 @@ def stylesheet():
                     border: none;
                     margin: 0px 0px 0px 0px;
                 } 
-                           
+
         QGroupBox 
             { border: 1px solid white; color: rgb(255,255,255);
                            border-radius: 6px;
                             margin-top: 8px;
                             padding: 0px 0px;}            
-                           
+
         QPushButton:pressed {Text-align: center; 
                              background-color: rgb(150,50,150); 
                              border-color: white;
@@ -69,7 +77,7 @@ def stylesheet():
                            color: white; 
                            border: black solid 1px
                            }
-                        
+
         """
 
 
@@ -223,15 +231,10 @@ class TrainWindow(QDialog):
         # choose parameters
         labels = ["learning_rate", "weight_decay", "n_epochs", "model_name"]
         self.edits = []
-        self.parameter_explanations = ["The learning rate determines how quickly or slowly the model learns from data. A higher learning rate may lead to faster learning but could cause the model to overshoot the optimal solution. Conversely, a lower learning rate may result in slower learning but is safer and more likely to find the best solution.",
-                                       "Weight decay helps prevent overfitting by penalizing large parameter values in the model. \n Increasing weight decay encourages the model to learn simpler patterns from the data,\n improving its ability to generalize to new, unseen examples.",
-                                       "The number of times the entire dataset is passed forward and backward through the machine learning model during training. Increasing the number of epochs allows the model to see the data more times, potentially improving its accuracy. However, too many epochs can lead to overfitting, where the model memorizes the training data instead of learning generalizable patterns.",
-                     ""]
         yoff += 1
         for i, label in enumerate(labels):
             qlabel = QLabel(label)
             qlabel.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
-            qlabel.setToolTip(self.parameter_explanations[i])
             self.l0.addWidget(qlabel, i + yoff, 0, 1, 1)
             self.edits.append(QLineEdit())
             self.edits[-1].setText(str(parent.training_params[label]))
@@ -243,7 +246,7 @@ class TrainWindow(QDialog):
         yoff += 1
         self.use_norm = QCheckBox(f"use restored/filtered image")
         self.use_norm.setChecked(True)
-        #self.l0.addWidget(self.use_norm, yoff, 0, 2, 4)
+        # self.l0.addWidget(self.use_norm, yoff, 0, 2, 4)
 
         yoff += 2
         qlabel = QLabel(
@@ -294,7 +297,7 @@ class TrainWindow(QDialog):
             "weight_decay": float(self.edits[1].text()),
             "n_epochs": int(self.edits[2].text()),
             "model_name": self.edits[3].text(),
-            #"use_norm": True if self.use_norm.isChecked() else False,
+            # "use_norm": True if self.use_norm.isChecked() else False,
         }
         self.done(1)
 
@@ -337,27 +340,53 @@ class HelpWindow(QDialog):
         layout.addWidget(label, 0, 0, 1, 1)
         self.show()
 
-
 class TrainHelpWindow(QDialog):
-
     def __init__(self, parent=None):
         super(TrainHelpWindow, self).__init__(parent)
         self.setGeometry(100, 50, 700, 300)
-        self.setWindowTitle("training instructions")
-        self.win = QWidget(self)
-        layout = QGridLayout()
-        self.win.setLayout(layout)
+        self.setWindowTitle("Training Instructions")
 
-        text_file = pathlib.Path(__file__).parent.joinpath(
-            "guitrainhelpwindowtext.html")
+        layout = QGridLayout()
+        self.setLayout(layout)
+
+        text_file = pathlib.Path(__file__).parent.joinpath("guitrainhelpwindowtext.html")
         with open(str(text_file.resolve()), "r") as f:
             text = f.read()
 
-        label = QLabel(text)
-        label.setFont(QtGui.QFont("Arial", 8))
-        label.setWordWrap(True)
-        layout.addWidget(label, 0, 0, 1, 1)
+        self.label = QLabel(text)
+        self.label.setWordWrap(True)
+        layout.addWidget(self.label, 0, 0, 1, 1)
+
+        # Dropdown menu for font size
+        self.font_size_combo = QComboBox(self)
+        self.font_size_combo.addItems([str(size) for size in range(5, 30, 3)])
+        self.font_size_combo.currentIndexChanged.connect(self.adjust_font_size)
+        layout.addWidget(self.font_size_combo, 1, 0, 1, 1)
+
+        self.adjust_font_size()  # Initial font size adjustment
+
         self.show()
+
+    def adjust_font_size(self):
+        # Get the current font size from the combo box
+        font_size = int(self.font_size_combo.currentText())
+        # Calculate the new font size based on window height
+        new_font_size = max(5, int(self.height() / 30))
+        # Set the font size for the label
+        font = QFont("Arial", min(font_size, new_font_size))
+        self.label.setFont(font)
+
+    def resizeEvent(self, event):
+        # Call adjust_font_size when the window is resized
+        self.adjust_font_size()
+        super().resizeEvent(event)
+
+
+if __name__ == "__main__":
+    import sys
+    app = QApplication(sys.argv)
+    window = TrainHelpWindow()
+    sys.exit(app.exec_())
 
 
 class ViewBoxNoRightDrag(pg.ViewBox):
@@ -405,8 +434,8 @@ class ImageDraw(pg.ImageItem):
 
     def __init__(self, image=None, viewbox=None, parent=None, **kargs):
         super(ImageDraw, self).__init__()
-        #self.image=None
-        #self.viewbox=viewbox
+        # self.image=None
+        # self.viewbox=viewbox
         self.levels = np.array([0, 255])
         self.lut = None
         self.autoDownsample = False
@@ -414,17 +443,17 @@ class ImageDraw(pg.ImageItem):
         self.removable = False
 
         self.parent = parent
-        #kernel[1,1] = 1
+        # kernel[1,1] = 1
         self.setDrawKernel(kernel_size=self.parent.brush_size)
         self.parent.current_stroke = []
         self.parent.in_stroke = False
 
     def mouseClickEvent(self, ev):
         if (self.parent.masksOn or
-                self.parent.outlinesOn) and not self.parent.removing_region:
+            self.parent.outlinesOn) and not self.parent.removing_region:
             is_right_click = ev.button() == QtCore.Qt.RightButton
             if self.parent.loaded \
-                    and (is_right_click or ev.modifiers() & QtCore.Qt.ShiftModifier and not ev.double())\
+                    and (is_right_click or ev.modifiers() & QtCore.Qt.ShiftModifier and not ev.double()) \
                     and not self.parent.deleting_multiple:
                 if not self.parent.in_stroke:
                     ev.accept()
@@ -466,17 +495,17 @@ class ImageDraw(pg.ImageItem):
         return
 
     def hoverEvent(self, ev):
-        #QtWidgets.QApplication.setOverrideCursor(QtCore.Qt.CrossCursor)
+        # QtWidgets.QApplication.setOverrideCursor(QtCore.Qt.CrossCursor)
         if self.parent.in_stroke:
             if self.parent.in_stroke:
                 # continue stroke if not at start
                 self.drawAt(ev.pos())
                 if self.is_at_start(ev.pos()):
-                    #self.parent.in_stroke = False
+                    # self.parent.in_stroke = False
                     self.end_stroke()
         else:
             ev.acceptClicks(QtCore.Qt.RightButton)
-            #ev.acceptClicks(QtCore.Qt.LeftButton)
+            # ev.acceptClicks(QtCore.Qt.LeftButton)
 
     def create_start(self, pos):
         self.scatter = pg.ScatterPlotItem([pos.x()], [pos.y()], pxMode=False,
@@ -494,9 +523,9 @@ class ImageDraw(pg.ImageItem):
         if len(self.parent.current_stroke) > 3:
             stroke = np.array(self.parent.current_stroke)
             dist = (((stroke[1:, 1:] -
-                      stroke[:1, 1:][np.newaxis, :, :])**2).sum(axis=-1))**0.5
+                      stroke[:1, 1:][np.newaxis, :, :]) ** 2).sum(axis=-1)) ** 0.5
             dist = dist.flatten()
-            #print(dist)
+            # print(dist)
             has_left = (dist > thresh_out).nonzero()[0]
             if len(has_left) > 0:
                 first_left = np.sort(has_left)[0]
@@ -527,9 +556,9 @@ class ImageDraw(pg.ImageItem):
 
     def tabletEvent(self, ev):
         pass
-        #print(ev.device())
-        #print(ev.pointerType())
-        #print(ev.pressure())
+        # print(ev.device())
+        # print(ev.pointerType())
+        # print(ev.pressure())
 
     def drawAt(self, pos, ev=None):
         mask = self.strokemask
