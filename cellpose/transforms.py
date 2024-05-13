@@ -674,7 +674,7 @@ def normalize_img(img, normalize=True, norm3D=False, invert=False, lowhigh=None,
 
     return img_norm
 
-def resize_save(img, Ly, Lx, interpolation=cv2.INTER_LINEAR):
+def resize_safe(img, Ly, Lx, interpolation=cv2.INTER_LINEAR):
     """OpenCV resize function does not support uint32. 
     
     This function converts the image to float32 before resizing and then converts it back to uint32. Not safe!
@@ -760,9 +760,9 @@ def resize_image(img0, Ly=None, Lx=None, rsz=None, interpolation=cv2.INTER_LINEA
         else:
             imgs = np.zeros((img0.shape[0], Ly, Lx, img0.shape[-1]), np.float32)
         for i, img in enumerate(img0):
-            imgs[i] = resize_save(img, Ly, Lx, interpolation=interpolation)
+            imgs[i] = resize_safe(img, Ly, Lx, interpolation=interpolation)
     else:
-        imgs = resize_save(img0, Ly, Lx, interpolation=interpolation)
+        imgs = resize_safe(img0, Ly, Lx, interpolation=interpolation)
     return imgs
 
 
