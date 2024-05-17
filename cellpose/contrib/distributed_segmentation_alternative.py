@@ -233,6 +233,85 @@ def cluster(func):
 
 ######################## The distributed function #############################
 
+#----------------------- function to distribute ------------------------------#
+def preprocess_and_segment(
+    coords,
+    zarr_array,
+    preprocessing_steps,
+    model_kwargs,
+    eval_kwargs,
+    overlap,
+    blocksize,
+    nblocks,
+    output_zarr,
+):
+    block_index, coords = coords[0], coords[1]
+    print('RUNNING BLOCK: ', block_index, '\tREGION: ', coords, flush=True)
+
+    # read, preprocess, segment
+    image = zarr_array[coords]
+    for pp_step in preprocessing_steps:
+        pp_step[1]['coords'] = coords
+        image = pp_step[0](image, **pp_step[1])
+    logger_setup()
+    model = models.Cellpose(**model_kwargs)
+    segmentation = model.eval(image, **eval_kwargs)[0].astype(np.uint32)
+
+    # remove overlaps
+    coords_trimmed = list(coords)
+    for axis in range(image.ndim):
+        if coords[axis].start != 0:
+            slc = [slice(None),]*image.ndim
+            slc[axis] = slice(overlap, None)
+            segmentation = segmentation[tuple(slc)]
+            a, b = coords[axis].start, coords[axis].stop
+            coords_trimmed[axis] = slice(a + overlap, b)
+        if segmentation.shape[axis] > blocksize[axis]:
+            slc = [slice(None),]*image.ndim
+            slc[axis] = slice(None, blocksize[axis])
+            segmentation = segmentation[tuple(slc)]
+            a = coords_trimmed[axis].start
+            coords_trimmed[axis] = slice(a, a + blocksize[axis])
+
+    # get all segment bounding boxes in global coordinates
+    boxes = find_objects(segmentation)
+    boxes = [b for b in boxes if b is not None]
+    translate = lambda a, b: slice(a.start+b.start, a.start+b.stop)
+    for iii, box in enumerate(boxes):
+        boxes[iii] = tuple(translate(a, b) for a, b in zip(coords_trimmed, box))
+
+    # remap segment ids to globally unique values
+    # the rastered block_index and segment id will each be a five digit
+    # decimal, and those will be packed together (concantenated as strings)
+    # into a single uint32
+    # NOTE: casting string to uint32 will overflow witout warning or exception
+    #    so, using uint32 this only works if:
+    #    number of blocks is less than or equal to 42950
+    #    number of segments per block is less than or equal to 99999
+    unique, unique_inverse = np.unique(segmentation, return_inverse=True)
+    p = str(np.ravel_multi_index(block_index, nblocks))
+    remap = [np.uint32(p+str(x).zfill(5)) for x in unique]
+    if unique[0] == 0: remap[0] = np.uint32(0)  # 0 should just always be 0
+    segmentation = np.array(remap)[unique_inverse.reshape(segmentation.shape)]
+
+    # write segmentaiton block
+    output_zarr[tuple(coords_trimmed)] = segmentation
+
+    # get the block faces
+    faces = []
+    for iii in range(image.ndim):
+        a = [slice(None),] * image.ndim
+        a[iii] = slice(0, 1)
+        faces.append(segmentation[tuple(a)])
+        a = [slice(None),] * image.ndim
+        a[iii] = slice(-1, None)
+        faces.append(segmentation[tuple(a)])
+
+    # package and return results
+    return block_index, (faces, boxes, remap[1:])
+
+
+#----------------------- Distributed Cellpose --------------------------------#
 @cluster
 def distributed_eval(
     zarr_array,
@@ -410,93 +489,20 @@ def distributed_eval(
     )
 
 
-    # pipeline to run on each block
-    def preprocess_and_segment(coords):
-
-        # parse inputs and print
-        block_index = coords[0]
-        coords = coords[1]
-        print('SEGMENTING BLOCK: ', block_index, '\tREGION: ', coords, flush=True)
-
-        # read the block from disk
-        image = zarr_array[coords]
-
-        # preprocess
-        for pp_step in preprocessing_steps:
-            pp_step[1]['coords'] = coords
-            image = pp_step[0](image, **pp_step[1])
-
-        # segment
-        logger_setup()
-        model = models.Cellpose(**model_kwargs)
-        segmentation = model.eval(image, **eval_kwargs)[0].astype(np.uint32)
-
-        # remove overlaps
-        coords_trimmed = list(coords)
-        for axis in range(image.ndim):
-
-            # left side
-            if coords[axis].start != 0:
-                slc = [slice(None),]*image.ndim
-                slc[axis] = slice(overlap, None)
-                segmentation = segmentation[tuple(slc)]
-                a, b = coords[axis].start, coords[axis].stop
-                coords_trimmed[axis] = slice(a + overlap, b)
-
-            # right side
-            if segmentation.shape[axis] > blocksize[axis]:
-                slc = [slice(None),]*image.ndim
-                slc[axis] = slice(None, blocksize[axis])
-                segmentation = segmentation[tuple(slc)]
-                a = coords_trimmed[axis].start
-                coords_trimmed[axis] = slice(a, a + blocksize[axis])
-
-        # get all segment bounding boxes, adjust to global coordinates
-        boxes = find_objects(segmentation)
-        boxes = [b for b in boxes if b is not None]
-        translate = lambda a, b: slice(a.start+b.start, a.start+b.stop)
-        for iii, box in enumerate(boxes):
-            boxes[iii] = tuple(translate(a, b) for a, b in zip(coords_trimmed, box))
-
-        # remap segment ids to globally unique values
-        # the (rastered) block_index and segment id will each be a five digit
-        # decimal, and those will be packed together (concantenated as strings)
-        # into a single uint32
-        # NOTE: casting string to uint32 will overflow witout warning or exception
-        #    so, using uint32 this only works if:
-        #    number of blocks is less than or equal to 42950
-        #    number of segments per block is less than or equal to 99999
-        #    if max number of blocks becomes insufficient, could pack values
-        #    in binary instead of decimal, then split into two 16 bit chunks
-        #    then max number of blocks and max number of cells per block
-        #    are both 2**16
-        unique, unique_inverse = np.unique(segmentation, return_inverse=True)
-        p = str(np.ravel_multi_index(block_index, nblocks))
-        remap = [np.uint32(p+str(x).zfill(5)) for x in range(len(unique))]
-        remap[0] = np.uint32(0)  # 0 should just always be 0
-        segmentation = np.array(remap)[unique_inverse.reshape(segmentation.shape)]
-
-        # write segmentaiton block
-        output_zarr[tuple(coords_trimmed)] = segmentation
-
-        # get the block faces
-        faces = []
-        for iii in range(image.ndim):
-            a = [slice(None),] * image.ndim
-            a[iii] = slice(0, 1)
-            faces.append(segmentation[tuple(a)])
-            a = [slice(None),] * image.ndim
-            a[iii] = slice(-1, None)
-            faces.append(segmentation[tuple(a)])
-
-        # package and return results
-        return block_index, (faces, boxes, remap[1:])
-
-
     # submit all segmentations, scale down cluster when complete
-    results = cluster.client.gather(cluster.client.map(
-        preprocess_and_segment, block_coords,
-    ))
+    futures = cluster.client.map(
+        preprocess_and_segment,
+        block_coords,
+        zarr_array=zarr_array,
+        preprocessing_steps=preprocessing_steps,
+        model_kwargs=model_kwargs,
+        eval_kwargs=eval_kwargs,
+        overlap=overlap,
+        blocksize=blocksize,
+        nblocks=nblocks,
+        output_zarr=output_zarr,
+    )
+    results = cluster.client.gather(futures)
     cluster.cluster.scale(0)
 
 
