@@ -10,6 +10,9 @@ install_deps = ['numpy>=1.20.0', 'scipy', 'natsort',
                 'fastremap',
                 'imagecodecs',
                 'roifile',
+                'dask', 'dask[array]', 'dask[delayed]',
+                'ClusterWrap',
+                'fastremap',
                 ]
 
 gui_deps = [
@@ -36,6 +39,7 @@ distributed_deps = [
         'dask[delayed]',
         'ClusterWrap',
         ]
+]
 
 try:
     import torch
