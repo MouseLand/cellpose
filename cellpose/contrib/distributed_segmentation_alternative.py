@@ -1,10 +1,8 @@
-import functools, os
-import operator
+import functools
+import os
 import numpy as np
-from dask import delayed
-from dask.distributed import wait
 import dask.array as da
-from ClusterWrap.decorator import cluster
+from ClusterWrap import cluster as cluster_constructor
 import bigstream.utility as ut
 from cellpose import models
 from cellpose.io import logger_setup
@@ -14,9 +12,35 @@ from scipy.ndimage import generate_binary_structure
 from scipy.sparse import coo_matrix
 from scipy.sparse.csgraph import connected_components
 import zarr
-from numcodecs import Blosc
 import tempfile
 
+######################## Cluster related functions ############################
+
+
+def cluster(func):
+    """
+    This decorator ensures a function will run inside a cluster
+    as a context manager. The decorated function, "func", must
+    accept "cluster" and "cluster_kwargs" as parameters. If
+    "cluster" is not None then the user has provided an existing
+    cluster and we just run func. If "cluster" is None then
+    "cluster_kwargs" are used to construct a new cluster, and
+    the function is run inside that cluster context.
+    """
+
+    @functools.wraps(func)
+    def create_or_pass_cluster(*args, **kwargs):
+        cluster = kwargs['cluster'] if 'cluster' in kwargs else None
+        if cluster is None:
+            x = kwargs['cluster_kwargs'] if 'cluster_kwargs' in kwargs else {}
+            with cluster_constructor(**x) as cluster:
+                kwargs['cluster'] = cluster
+                return func(*args, **kwargs)
+        return func(*args, **kwargs)
+    return create_or_pass_cluster
+
+
+######################## The distributed function #############################
 
 @cluster
 def distributed_eval(
