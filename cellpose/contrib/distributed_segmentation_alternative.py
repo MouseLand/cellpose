@@ -135,9 +135,11 @@ def block_faces(segmentation):
 
 
 ######################## Distributed Cellpose #################################
+
+#----------------------- The main function -----------------------------------#
 @cluster
 def distributed_eval(
-    zarr_array,
+    input_zarr,
     blocksize,
     write_path,
     mask=None,
@@ -152,10 +154,11 @@ def distributed_eval(
     Evaluate a cellpose model on overlapping blocks of a big image
     Distributed over cluster or workstation resources with Dask
     Optionally run preprocessing steps on the blocks before running cellpose
+    Optionally use a mask to ignore background regions in image
 
     Parameters
     ----------
-    zarr_array : zarr.core.Array
+    input_zarr : zarr.core.Array
         A zarr.core.Array instance containing the image data you want to
         segment.
 
@@ -169,7 +172,7 @@ def distributed_eval(
         A foreground mask for the image data; may be at a different resolution
         (e.g. lower) than the image data. If given, only blocks that contain
         foreground will be processed. This can save considerable time and
-        expense. It is assumed that the domain of the zarr_array image data
+        expense. It is assumed that the domain of the input_zarr image data
         and the mask is the same in physical units, but they may be on
         different sampling/voxel grids.
 
@@ -178,9 +181,11 @@ def distributed_eval(
         include things like Gaussian smoothing or gamma correction. The correct
         formatting is as follows:
             preprocessing_steps = [(pp1, {'arg1':val1}), (pp2, {'arg1':val1}), ...]
-        Where `pp1` and `pp2` are functions; the first argument to which should
-        be an ndarray (i.e. image data). The second item in each tuple is a
-        dictionary containing the arguments to that function.
+        Where `pp1` and `pp2` are functions. The first argument to these
+        functions must be an nd-array, the image data to be preprocessed.
+        These functions must also take a keyword argument named "coords"
+        even if that argument is never used. The second item in each tuple
+        is a dictionary containing any additional arguments to the function.
 
     model_kwargs : dict (default: {})
         Arguments passed to cellpose.models.Cellpose
@@ -188,14 +193,16 @@ def distributed_eval(
     eval_kwargs : dict (default: {})
         Arguments passed to cellpose.models.Cellpose.eval
 
-    cluster : ClusterWrap.cluster object (default: None)
+    cluster : A dask cluster object (default: None)
         Only set if you have constructed your own static cluster. The default
         behavior is to construct a dask cluster for the duration of this function,
         then close it when the function is finished.
 
     cluster_kwargs : dict (default: {})
-        Arguments passed to ClusterWrap.cluster.
-        See "Cluster Parameterization section" below.
+        Arguments used to parameterize your cluster.
+        If you are running locally, see the docstring for the myLocalCluster
+        class below. If you are running on the Janelia LSF cluster, see
+        the docstring for the janeliaLSFCluster class below.
 
     temporary_directory : string (default: None)
         Temporary files are created during segmentation. The temporary files
@@ -210,14 +217,13 @@ def distributed_eval(
     segments for your entire image
 
 
-    Cluster Parameterization
-    ------------------------
+    Some additional help on cluster parameterization
+    ------------------------------------------------
     This function runs on a Dask cluster. There are basically three things you
     need to know about: (1) workers, (2) the task graph, and (3) the scheduler.
     You won't interact with any of these components directly, but in order
     to parameterize this function properly, you need to know a little about how
     they work.
-
 
     (1) Workers
     A "Dask worker" is a set of computational resources that have been set aside
@@ -248,9 +254,7 @@ def distributed_eval(
     scheduler also knows which workers are available and what resources
     they have. The scheduler will analyze the task graph and determine which
     individual tasks should be mapped to which workers and in what order.
-    The scheduler runs in the same Python process from which you submit
-    the Dask function (such as this function).
-
+    The scheduler runs in the same Python process as this function.
 
     The cluster_kwargs argument to this function is how you specify what
     resources workers will have and how many workers you will allow. These
@@ -268,6 +272,7 @@ def distributed_eval(
     local_cluster?
     ```
     """
+    # TODO update dask stuff in docstring above
 
     # set default values
     if 'diameter' not in eval_kwargs.keys():
@@ -275,17 +280,17 @@ def distributed_eval(
     overlap = eval_kwargs['diameter'] * 2
     blocksize = np.array(blocksize)
     if mask is not None:
-        ratio = np.array(mask.shape) / zarr_array.shape
+        ratio = np.array(mask.shape) / input_zarr.shape
         mask_blocksize = np.round(ratio * blocksize).astype(int)
 
     # get all foreground block coordinates
-    nblocks = np.ceil(np.array(zarr_array.shape) / blocksize).astype(np.int16)
+    nblocks = np.ceil(np.array(input_zarr.shape) / blocksize).astype(np.int16)
     block_coords = []
     for index in np.ndindex(*nblocks):
         start = blocksize * index - overlap
         stop = start + blocksize + 2 * overlap
         start = np.maximum(0, start)
-        stop = np.minimum(zarr_array.shape, stop)
+        stop = np.minimum(input_zarr.shape, stop)
         coords = tuple(slice(x, y) for x, y in zip(start, stop))
 
         # check foreground
@@ -306,7 +311,7 @@ def distributed_eval(
     output_zarr_path = temporary_directory.name + '/segmentation_unstitched.zarr'
     output_zarr = ut.create_zarr(
         output_zarr_path,
-        zarr_array.shape,
+        input_zarr.shape,
         blocksize,
         np.uint32,
     )
@@ -316,7 +321,7 @@ def distributed_eval(
     futures = cluster.client.map(
         process_block,
         block_coords,
-        zarr_array=zarr_array,
+        input_zarr=input_zarr,
         preprocessing_steps=preprocessing_steps,
         model_kwargs=model_kwargs,
         eval_kwargs=eval_kwargs,
@@ -411,6 +416,7 @@ def distributed_eval(
     return zarr.open(write_path, mode='r'), merged_boxes
 
 
+#----------------------- component functions ---------------------------------#
 def _block_face_adjacency_graph(faces, nlabels):
     """
     Shrink labels in face plane, then find which labels touch across the
