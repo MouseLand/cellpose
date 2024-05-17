@@ -2,7 +2,6 @@ import functools
 import os
 import numpy as np
 import dask.array as da
-from ClusterWrap import cluster as cluster_constructor
 import bigstream.utility as ut
 from cellpose import models
 from cellpose.io import logger_setup
@@ -13,10 +12,199 @@ from scipy.sparse import coo_matrix
 from scipy.sparse.csgraph import connected_components
 import zarr
 import tempfile
+from pathlib import Path
+import yaml
+import dask.config
+from dask.distributed import Client, LocalCluster
+from dask_jobqueue.lsf import LSFJob
+
 
 ######################## Cluster related functions ############################
 
+#----------------------- config stuff ----------------------------------------#
+DEFAULT_CONFIG_FILENAME = 'distributed_cellpose_dask_config.yaml'
 
+def _config_path(config_name):
+    """Add config directory path to config filename"""
+    return str(Path.home()) + '/.config/dask/' + config_name
+
+
+def _modify_dask_config(
+    config,
+    config_name=DEFAULT_CONFIG_FILENAME,
+):
+    """
+    Modifies dask config dictionary, but also dumps modified
+    config to disk as a yaml file in ~/.config/dask/. This
+    ensures that workers inherit config options.
+    """
+    dask.config.set(config)
+    with open(_config_path(config_name), 'w') as f:
+        yaml.dump(dask.config.config, f, default_flow_style=False)
+
+
+def _remove_config_file(
+    config_name=DEFAULT_CONFIG_FILENAME,
+):
+    """Removes a config file from disk"""
+    config_path = _config_path(config_name)
+    if os.path.exists(config_path): os.remove(config_path)
+
+
+#----------------------- clusters --------------------------------------------#
+class myLocalCluster(LocalCluster):
+    """
+    This is a thin wrapper extending dask.distributed.LocalCluster to set
+    configs before the cluster or workers are initialized.
+
+    For a list of full arguments (how to specify your worker resources) see:
+    https://distributed.dask.org/en/latest/api.html#distributed.LocalCluster
+    You need to know how many cpu cores and how much RAM your machine has.
+
+    Most users will only need to specify:
+    n_workers
+    memory_limit (which is the limit per worker)
+    threads_per_workers (for most workflows this should be 1)
+
+    You can also modify any dask configuration option through the
+    config argument (first argument to constructor).
+    """
+
+    def __init__(
+        self,
+        config={},
+        config_name=DEFAULT_CONFIG_FILENAME,
+        persist_config=False,
+        **kwargs,
+    ):
+        self.config_name = config_name
+        self.persist_config = persist_config
+        _modify_dask_config(config, config_name)
+        if "host" not in kwargs: kwargs["host"] = ""
+        self.cluster = super().__init__(**kwargs)
+        self.client = Client(self.cluster)
+        print("Cluster dashboard link: ", self.cluster.dashboard_link)
+
+    def __enter__(self): return self
+    def __exit__(self, exc_type, exc_value, traceback):
+        if not self.persist_config:
+            _remove_config_file(config_name)
+        self.client.close()
+        self.cluster.__exit__(exc_type, exc_value, traceback)
+
+
+class janeliaLSFCluster(LSFCluster):
+    """
+    This is a thin wrapper extending dask_jobqueue.LSFCluster,
+    which in turn extends dask.distributed.SpecCluster. This wrapper
+    sets configs before the cluster or workers are initialized. This is
+    an adaptive cluster and will scale the number of workers, between user
+    specified limits, based on the number of pending tasks. This wrapper
+    also enforces conventions specific to the Janelia LSF cluster.
+
+    For a full list of arguments see
+    https://jobqueue.dask.org/en/latest/generated/dask_jobqueue.LSFCluster.html
+
+    Most users will only need to specify:
+    ncpus (the number of cpu cores per worker)
+    min_workers
+    max_workers
+    """
+
+    def __init__(
+        self,
+        ncpus,
+        min_workers,
+        max_workers,
+        config={},
+        config_name=DEFAULT_CONFIG_FILENAME,
+        persist_config=False,
+        **kwargs
+    ):
+        # config
+        self.config_name = config_name
+        self.persist_config = persist_config
+        scratch_dir = f"/scratch/{os.environ['USER']}/"
+        config_defaults = {
+            'temporary-directory':scratch_dir,
+            'distributed.comm.timeouts.connect':'180s',
+            'distributed.comm.timeouts.tcp':'360s',
+        }
+        config = {**config_defaults, **config}
+        _modify_dask_config(config, config_name)
+
+        # threading is best in low level libraries
+        job_script_prologue = [
+            f"export MKL_NUM_THREADS={2*ncpus}",
+            f"export NUM_MKL_THREADS={2*ncpus}",
+            f"export OPENBLAS_NUM_THREADS={2*ncpus}",
+            f"export OPENMP_NUM_THREADS={2*ncpus}",
+            f"export OMP_NUM_THREADS={2*ncpus}",
+        ]
+
+        # set scratch and log directories
+        if "local_directory" not in kwargs:
+            kwargs["local_directory"] = scratch_dir
+        if "log_directory" not in kwargs:
+            log_dir = f"{os.getcwd()}/dask_worker_logs_{os.getpid()}/"
+            Path(log_dir).mkdir(parents=False, exist_ok=True)
+            kwargs["log_directory"] = log_dir
+
+        # graceful exit for lsf jobs (adds -d flag)
+        class quietLSFJob(LSFJob):
+            cancel_command = "bkill -d"
+
+        # create cluster
+        self.cluster = super().__init__(
+            ncpus=ncpus,
+            processes=1,
+            cores=1,
+            memory=str(15*ncpus)+'GB',
+            mem=int(15e9*ncpus),
+            job_script_prologue=job_script_prologue,
+            job_cls=quietLSFJob,
+            **kwargs,
+        )
+        self.client = Client(self.cluster)
+        print("Cluster dashboard link: ", self.cluster.dashboard_link)
+
+        # set adaptive cluster bounds
+        self.adapt_cluster(min_workers, max_workers)
+
+
+    def __enter__(self): return self
+    def __exit__(self, exc_type, exc_value, traceback):
+        if not self.persist_config:
+            _remove_config_file(config_name)
+        self.client.close()
+        self.cluster.__exit__(exc_type, exc_value, traceback)
+
+
+    def adapt_cluster(self, min_workers, max_workers):
+        _ = self.cluster.adapt(
+            minimum_jobs=min_workers,
+            maximum_jobs=max_workers,
+            interval='10s',
+            wait_count=6,
+        )
+
+
+    def change_worker_attributes(
+        self,
+        min_workers,
+        max_workers,
+        **kwargs,
+    ):
+        """WARNING: this function is dangerous if you don't know what
+           you're doing. Don't call this unless you know exactly what
+           this does."""
+        self.cluster.scale(0)
+        for k, v in kwargs.items():
+            self.cluster.new_spec['options'][k] = v
+        self.adapt_cluster(min_workers, max_workers)
+
+
+#----------------------- decorator -------------------------------------------#
 def cluster(func):
     """
     This decorator ensures a function will run inside a cluster
@@ -27,13 +215,16 @@ def cluster(func):
     "cluster_kwargs" are used to construct a new cluster, and
     the function is run inside that cluster context.
     """
-
     @functools.wraps(func)
     def create_or_pass_cluster(*args, **kwargs):
-        cluster = kwargs['cluster'] if 'cluster' in kwargs else None
-        if cluster is None:
-            x = kwargs['cluster_kwargs'] if 'cluster_kwargs' in kwargs else {}
-            with cluster_constructor(**x) as cluster:
+        assert kwargs['cluster'] or kwargs['cluster_kwargs'], \
+        "Either cluster or cluster_kwargs must be defined"
+        if kwargs['cluster'] is None:
+            cluster_constructor = myLocalCluster
+            F = lambda x: x in kwargs['cluster_kwargs']
+            if F('ncpus') and F('min_workers') and F('max_workers'):
+                cluster_constructor = janeliaLSFCluster
+            with cluster_constructor(**kwargs['cluster_kwargs']) as cluster:
                 kwargs['cluster'] = cluster
                 return func(*args, **kwargs)
         return func(*args, **kwargs)
