@@ -106,13 +106,11 @@ def bounding_boxes_in_global_coordinates(segmentation, coords):
 
 
 def global_segment_ids(segmentation, block_index, nblocks):
-    """Independent blocks will have overlapping segment IDs
-       pack the block index into the segment IDs so they are
-       globally unique. Everything gets remapped to [1..N] later."""
-    # NOTE: casting string to uint32 will overflow witout warning or exception
-    #    so, using uint32 this only works if:
-    #    number of blocks is less than 42950
-    #    number of segments per block is less than or equal to 99999
+    """pack the block index into the segment IDs so they are
+       globally unique. Everything gets remapped to [1..N] later.
+       A uint32 is split into 5 digits on left and 5 digits on right.
+       This creates limits: 42950 maximum number of blocks and
+       99999 maximum number of segments per block"""
     unique, unique_inverse = np.unique(segmentation, return_inverse=True)
     p = str(np.ravel_multi_index(block_index, nblocks))
     remap = [np.uint32(p+str(x).zfill(5)) for x in unique]
@@ -274,48 +272,13 @@ def distributed_eval(
     """
     # TODO update dask stuff in docstring above
 
-    # set default values
     if 'diameter' not in eval_kwargs.keys():
         eval_kwargs['diameter'] = 30
     overlap = eval_kwargs['diameter'] * 2
-    blocksize = np.array(blocksize)
-    if mask is not None:
-        ratio = np.array(mask.shape) / input_zarr.shape
-        mask_blocksize = np.round(ratio * blocksize).astype(int)
 
-    # get all foreground block coordinates
-    nblocks = np.ceil(np.array(input_zarr.shape) / blocksize).astype(np.int16)
-    block_coords = []
-    for index in np.ndindex(*nblocks):
-        start = blocksize * index - overlap
-        stop = start + blocksize + 2 * overlap
-        start = np.maximum(0, start)
-        stop = np.minimum(input_zarr.shape, stop)
-        coords = tuple(slice(x, y) for x, y in zip(start, stop))
+    block_coords = block_coordinates(input_zarr, blocksize, overlap, mask)
 
-        # check foreground
-        foreground = True
-        if mask is not None:
-            start = mask_blocksize * index
-            stop = start + mask_blocksize
-            stop = np.minimum(mask.shape, stop)
-            mask_coords = tuple(slice(x, y) for x, y in zip(start, stop))
-            if not np.any(mask[mask_coords]): foreground = False
-        if foreground:
-            block_coords.append( (index, coords) )
-
-    # construct zarr file for output
-    temporary_directory = tempfile.TemporaryDirectory(
-        prefix='.', dir=temporary_directory or os.getcwd(),
-    )
-    output_zarr_path = temporary_directory.name + '/segmentation_unstitched.zarr'
-    output_zarr = ut.create_zarr(
-        output_zarr_path,
-        input_zarr.shape,
-        blocksize,
-        np.uint32,
-    )
-
+    output_zarr = prepare_output_array(input_zarr, blocksize, temporary_directory)
 
     # submit all segmentations, scale down cluster when complete
     futures = cluster.client.map(
@@ -417,6 +380,48 @@ def distributed_eval(
 
 
 #----------------------- component functions ---------------------------------#
+def block_coordinates(input_zarr, blocksize, overlap, mask):
+    blocksize = np.array(blocksize)
+    if mask is not None:
+        ratio = np.array(mask.shape) / input_zarr.shape
+        mask_blocksize = np.round(ratio * blocksize).astype(int)
+
+    # get all foreground block coordinates
+    nblocks = np.ceil(np.array(input_zarr.shape) / blocksize).astype(np.int16)
+    block_coords = []
+    for index in np.ndindex(*nblocks):
+        start = blocksize * index - overlap
+        stop = start + blocksize + 2 * overlap
+        start = np.maximum(0, start)
+        stop = np.minimum(input_zarr.shape, stop)
+        coords = tuple(slice(x, y) for x, y in zip(start, stop))
+
+        # check foreground
+        foreground = True
+        if mask is not None:
+            start = mask_blocksize * index
+            stop = start + mask_blocksize
+            stop = np.minimum(mask.shape, stop)
+            mask_coords = tuple(slice(x, y) for x, y in zip(start, stop))
+            if not np.any(mask[mask_coords]): foreground = False
+        if foreground:
+            block_coords.append( (index, coords) )
+    return block_coords
+
+
+def prepare_output_array(input_zarr, blocksize, temporary_directory)
+    temporary_directory = tempfile.TemporaryDirectory(
+        prefix='.', dir=temporary_directory or os.getcwd(),
+    )
+    output_zarr_path = temporary_directory.name + '/segmentation_unstitched.zarr'
+    return  ut.create_zarr(
+        output_zarr_path,
+        input_zarr.shape,
+        blocksize,
+        np.uint32,
+    )
+
+
 def _block_face_adjacency_graph(faces, nlabels):
     """
     Shrink labels in face plane, then find which labels touch across the
