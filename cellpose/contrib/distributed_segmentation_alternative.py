@@ -54,7 +54,7 @@ def process_block(
     segmentation, remap = global_segment_ids(segmentation, block_index, nblocks)
     output_zarr[tuple(coords)] = segmentation
     faces = block_faces(segmentation)
-    return block_index, (faces, boxes, remap[1:])
+    return block_index, (faces, boxes, remap[1:])  # XXX remap may not begin with 0
 
 #----------------------- component functions ---------------------------------#
 def read_preprocess_and_segment(
@@ -275,12 +275,9 @@ def distributed_eval(
     if 'diameter' not in eval_kwargs.keys():
         eval_kwargs['diameter'] = 30
     overlap = eval_kwargs['diameter'] * 2
-
     block_coords = block_coordinates(input_zarr, blocksize, overlap, mask)
-
     output_zarr = prepare_output_array(input_zarr, blocksize, temporary_directory)
 
-    # submit all segmentations, scale down cluster when complete
     futures = cluster.client.map(
         process_block,
         block_coords,
@@ -297,29 +294,8 @@ def distributed_eval(
     cluster.cluster.scale(0)
 
 
-    # begin the local reduction step (merging label IDs)
     print('REDUCE STEP, SHOULD TAKE 5-10 MINUTES')
-
-    # reformat to dict[block_index] = (faces, boxes, box_ids)
-    results = {a:b for a, b in results}
-
-    # find face adjacency pairs
-    faces, boxes, box_ids = [], [], []
-    for block_index, result in results.items():
-        for ax in range(len(block_index)):
-            neighbor_index = np.array(block_index)
-            neighbor_index[ax] += 1
-            neighbor_index = tuple(neighbor_index)
-            try:
-                a = result[0][2*ax + 1]
-                b = results[neighbor_index][0][2*ax]
-                faces.append( np.concatenate((a, b), axis=ax) )
-            except KeyError:
-                continue
-        boxes += result[1]
-        box_ids += result[2]
-
-    # determine mergers
+    faces, boxes, box_ids = adjacent_faces(results)
     label_range = np.max(box_ids)
     label_groups = _block_face_adjacency_graph(faces, label_range)
     new_labeling = connected_components(label_groups, directed=False)[1]
@@ -420,6 +396,25 @@ def prepare_output_array(input_zarr, blocksize, temporary_directory)
         blocksize,
         np.uint32,
     )
+
+
+def adjacent_faces(results, ):
+    results = {a:b for a, b in results}
+    faces, boxes, box_ids = [], [], []
+    for block_index, result in results.items():
+        for ax in range(len(block_index)):
+            neighbor_index = np.array(block_index)
+            neighbor_index[ax] += 1
+            neighbor_index = tuple(neighbor_index)
+            try:
+                a = result[0][2*ax + 1]
+                b = results[neighbor_index][0][2*ax]
+                faces.append( np.concatenate((a, b), axis=ax) )
+            except KeyError:
+                continue
+        boxes += result[1]
+        box_ids += result[2]
+    return faces, boxes, box_ids
 
 
 def _block_face_adjacency_graph(faces, nlabels):
