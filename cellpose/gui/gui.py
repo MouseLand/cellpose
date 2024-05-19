@@ -2473,7 +2473,7 @@ class MainW(QMainWindow):
             self.masksOn = True
             self.MCheckBox.setChecked(True)
             self.progress.setValue(100)
-            if self.restore != "filter":
+            if self.restore != "filter" and self.restore is not None:
                 self.compute_saturation()
             if not do_3D and not stitch_threshold > 0:
                 self.recompute_masks = True
