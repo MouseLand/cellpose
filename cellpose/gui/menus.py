@@ -69,6 +69,7 @@ def mainmenu(parent):
     file_menu.addAction(parent.saveFlows)
     parent.saveFlows.setEnabled(False)
 
+
 def editmenu(parent):
     main_menu = parent.menuBar()
     edit_menu = main_menu.addMenu("&Edit")

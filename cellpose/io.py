@@ -267,6 +267,7 @@ def imsave(filename, arr):
             arr = cv2.cvtColor(arr, cv2.COLOR_BGR2RGB)
         cv2.imwrite(filename, arr)
 
+
 def get_image_files(folder, mask_filter, imf=None, look_one_level_down=False):
     """
     Finds all images in a folder and its subfolders (if specified) with the given file extensions.
@@ -438,6 +439,7 @@ def load_images_labels(tdir, mask_filter="_masks", image_filter=None,
     io_logger.info(f"{k} / {nimg} images in {tdir} folder have labels")
     return images, labels, image_names
 
+
 def load_train_test_data(train_dir, test_dir=None, image_filter=None,
                          mask_filter="_masks", look_one_level_down=False):
     """
@@ -469,8 +471,9 @@ def load_train_test_data(train_dir, test_dir=None, image_filter=None,
 
     return images, labels, image_names, test_images, test_labels, test_image_names
 
+
 def masks_flows_to_seg(images, masks, flows, file_names, diams=30., channels=None,
-                        imgs_restore=None, restore_type=None, ratio=1.):
+                       imgs_restore=None, restore_type=None, ratio=1.):
     """Save output of model eval to be loaded in GUI.
 
     Can be list output (run on multiple images) or single output (run on single image).
@@ -499,8 +502,9 @@ def masks_flows_to_seg(images, masks, flows, file_names, diams=30., channels=Non
             imgs_restore = [None] * len(masks)
         if isinstance(file_names, str):
             file_names = [file_names] * len(masks)
-        for k, [image, mask, flow, diam,
-                file_name, img_restore] in enumerate(zip(images, masks, flows, diams, file_names, imgs_restore)):
+        for k, [image, mask, flow, diam, file_name, img_restore
+               ] in enumerate(zip(images, masks, flows, diams, file_names,
+                                  imgs_restore)):
             channels_img = channels
             if channels_img is not None and len(channels) > 2:
                 channels_img = channels[k]
@@ -538,29 +542,31 @@ def masks_flows_to_seg(images, masks, flows, file_names, diams=30., channels=Non
     outlines = masks * utils.masks_to_outlines(masks)
     base = os.path.splitext(file_names)[0]
 
-    dat = {"outlines":
-                outlines.astype(np.uint16)
-                if outlines.max() < 2**16 - 1 else outlines.astype(np.uint32),
-            "masks":
-                masks.astype(np.uint16)
-                if outlines.max() < 2**16 - 1 else masks.astype(np.uint32),
-            "chan_choose":
-                channels,
-            "ismanual":
-                np.zeros(masks.max(), bool),
-            "filename":
-                file_names,
-            "flows":
-                flowi,
-            "diameter":
-                diams
-            }
+    dat = {
+        "outlines":
+            outlines.astype(np.uint16) if outlines.max() < 2**16 -
+            1 else outlines.astype(np.uint32),
+        "masks":
+            masks.astype(np.uint16) if outlines.max() < 2**16 -
+            1 else masks.astype(np.uint32),
+        "chan_choose":
+            channels,
+        "ismanual":
+            np.zeros(masks.max(), bool),
+        "filename":
+            file_names,
+        "flows":
+            flowi,
+        "diameter":
+            diams
+    }
     if restore_type is not None and imgs_restore is not None:
         dat["restore"] = restore_type
-        dat["ratio"] = ratio 
+        dat["ratio"] = ratio
         dat["img_restore"] = imgs_restore
 
     np.save(base + "_seg.npy", dat)
+
 
 def save_to_png(images, masks, flows, file_names):
     """ deprecated (runs io.save_masks with png=True) 
@@ -593,11 +599,9 @@ def save_rois(masks, file_name):
     roiwrite(file_name, rois)
 
 
-
 def save_masks(images, masks, flows, file_names, png=True, tif=False, channels=[0, 0],
-               suffix="", save_flows=False, save_outlines=False, 
-               dir_above=False, in_folders=False, savedir=None, save_txt=False,
-               save_mpl=False):
+               suffix="", save_flows=False, save_outlines=False, dir_above=False,
+               in_folders=False, savedir=None, save_txt=False, save_mpl=False):
     """ Save masks + nicely plotted segmentation image to png and/or tiff.
 
     Can save masks, flows to different directories, if in_folders is True.
@@ -636,9 +640,8 @@ def save_masks(images, masks, flows, file_names, png=True, tif=False, channels=[
         for image, mask, flow, file_name in zip(images, masks, flows, file_names):
             save_masks(image, mask, flow, file_name, png=png, tif=tif, suffix=suffix,
                        dir_above=dir_above, save_flows=save_flows,
-                       save_outlines=save_outlines, 
-                       savedir=savedir, save_txt=save_txt, in_folders=in_folders,
-                       save_mpl=save_mpl)
+                       save_outlines=save_outlines, savedir=savedir, save_txt=save_txt,
+                       in_folders=in_folders, save_mpl=save_mpl)
         return
 
     if masks.ndim > 2 and not tif:

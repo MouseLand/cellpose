@@ -45,12 +45,12 @@ def _extend_centers(T, y, x, ymed, xmed, Lx, niter):
         numpy.ndarray: Array of shape (Ly * Lx) representing the amount of diffused particles at each pixel.
     """
     for t in range(niter):
-            T[ymed * Lx + xmed] += 1
-            T[y * Lx +
-                x] = 1 / 9. * (T[y * Lx + x] + T[(y - 1) * Lx + x] + T[(y + 1) * Lx + x] +
-                                                T[y * Lx + x - 1] + T[y * Lx + x + 1] +
-                                                T[(y - 1) * Lx + x - 1] + T[(y - 1) * Lx + x + 1] +
-                                                T[(y + 1) * Lx + x - 1] + T[(y + 1) * Lx + x + 1])
+        T[ymed * Lx + xmed] += 1
+        T[y * Lx +
+          x] = 1 / 9. * (T[y * Lx + x] + T[(y - 1) * Lx + x] + T[(y + 1) * Lx + x] +
+                         T[y * Lx + x - 1] + T[y * Lx + x + 1] +
+                         T[(y - 1) * Lx + x - 1] + T[(y - 1) * Lx + x + 1] +
+                         T[(y + 1) * Lx + x - 1] + T[(y + 1) * Lx + x + 1])
     return T
 
 
@@ -89,7 +89,7 @@ def _extend_centers_gpu(neighbors, meds, isneighbor, shape, n_iter=200,
         del grads
         mu_torch = np.stack((dy.cpu().squeeze(0), dx.cpu().squeeze(0)), axis=-2)
     else:
-        grads = T[tuple(neighbors[:,1:])]
+        grads = T[tuple(neighbors[:, 1:])]
         del neighbors
         dz = grads[0] - grads[1]
         dy = grads[2] - grads[3]
@@ -98,6 +98,7 @@ def _extend_centers_gpu(neighbors, meds, isneighbor, shape, n_iter=200,
         mu_torch = np.stack(
             (dz.cpu().squeeze(0), dy.cpu().squeeze(0), dx.cpu().squeeze(0)), axis=-2)
     return mu_torch
+
 
 @njit(nogil=True)
 def get_centers(masks, slices):
@@ -211,7 +212,7 @@ def masks_to_flows_gpu_3d(masks, device=None):
 
     masks_padded = torch.from_numpy(masks.astype("int64")).to(device)
     masks_padded = F.pad(masks_padded, (1, 1, 1, 1, 1, 1))
-    
+
     # get mask pixel neighbors
     z, y, x = torch.nonzero(masks_padded).T
     neighborsZ = torch.stack((z, z + 1, z - 1, z, z, z, z))
@@ -219,7 +220,7 @@ def masks_to_flows_gpu_3d(masks, device=None):
     neighborsX = torch.stack((x, x, x, x, x, x + 1, x - 1), axis=0)
 
     neighbors = torch.stack((neighborsZ, neighborsY, neighborsX), axis=0)
-    
+
     # get mask centers
     slices = find_objects(masks)
 
@@ -360,8 +361,8 @@ def masks_to_flows(masks, device=None, niter=None):
         raise ValueError("masks_to_flows only takes 2D or 3D arrays")
 
 
-def labels_to_flows(labels, files=None, device=None, 
-                    redo_flows=False, niter=None, return_flows=True):
+def labels_to_flows(labels, files=None, device=None, redo_flows=False, niter=None,
+                    return_flows=True):
     """Converts labels (list of masks or flows) to flows for training model.
 
     Args:
@@ -385,7 +386,7 @@ def labels_to_flows(labels, files=None, device=None,
 
     flows = []
     # flows need to be recomputed
-    if labels[0].shape[0] == 1 or labels[0].ndim < 3 or redo_flows:  
+    if labels[0].shape[0] == 1 or labels[0].ndim < 3 or redo_flows:
         dynamics_logger.info("computing flows for labels")
 
         # compute flows; labels are fixed here to be unique, so they need to be passed back
@@ -395,10 +396,10 @@ def labels_to_flows(labels, files=None, device=None,
         for n in iterator(nimg):
             labels[n][0] = fastremap.renumber(labels[n][0], in_place=True)[0]
             vecn = masks_to_flows(labels[n][0].astype(int), device=device, niter=niter)
-                
+
             # concatenate labels, distance transform, vector flows, heat (boundary and mask are computed in augmentations)
             flow = np.concatenate((labels[n], labels[n] > 0.5, vecn),
-                            axis=0).astype(np.float32)
+                                  axis=0).astype(np.float32)
             if files is not None:
                 file_name = os.path.splitext(files[n])[0]
                 tifffile.imwrite(file_name + "_flows.tif", flow)
@@ -753,6 +754,7 @@ def get_masks(p, iscell=None, rpad=20):
     fastremap.renumber(M0, in_place=True)  #convenient to guarantee non-skipped labels
     M0 = np.reshape(M0, shape0)
     return M0
+
 
 def resize_and_compute_masks(dP, cellprob, p=None, niter=200, cellprob_threshold=0.0,
                              flow_threshold=0.4, interp=True, do_3D=False, min_size=15,

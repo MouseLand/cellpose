@@ -276,19 +276,15 @@ def outline_view(img0, maski, color=[1, 0, 0], mode="inner"):
         numpy.ndarray: The image with the red outline overlay.
 
     """
-    if img0.ndim==2:
+    if img0.ndim == 2:
         img0 = np.stack([img0] * 3, axis=-1)
-    elif img0.ndim!=3:
+    elif img0.ndim != 3:
         raise ValueError("img0 not right size (must have ndim 2 or 3)")
 
     if SKIMAGE_ENABLED:
-        outlines = find_boundaries(
-            maski,
-            mode=mode)
+        outlines = find_boundaries(maski, mode=mode)
     else:
-        outlines = utils.masks_to_outlines(
-            maski,
-            mode=mode)
+        outlines = utils.masks_to_outlines(maski, mode=mode)
     outY, outX = np.nonzero(outlines)
     imgout = img0.copy()
     imgout[outY, outX] = np.array(color)

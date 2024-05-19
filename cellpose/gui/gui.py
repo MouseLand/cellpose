@@ -1669,7 +1669,7 @@ class MainW(QMainWindow):
     def update_layer(self):
         if self.masksOn or self.outlinesOn:
             #self.draw_layer()
-            self.layer.setImage(self.layerz, autoLevels=False)    
+            self.layer.setImage(self.layerz, autoLevels=False)
         self.update_roi_count()
         self.win.show()
         self.show()
@@ -1851,9 +1851,8 @@ class MainW(QMainWindow):
         self.layerz = np.zeros((self.Ly, self.Lx, 4), np.uint8)
         if self.masksOn:
             self.layerz[..., :3] = self.cellcolors[self.cellpix[self.currentZ], :]
-            self.layerz[...,
-                        3] = self.opacity * (self.cellpix[self.currentZ] > 0).astype(
-                            np.uint8)
+            self.layerz[..., 3] = self.opacity * (self.cellpix[self.currentZ]
+                                                  > 0).astype(np.uint8)
             if self.selected > 0:
                 self.layerz[self.cellpix[self.currentZ] == self.selected] = np.array(
                     [255, 255, 255, self.opacity])
@@ -1959,7 +1958,7 @@ class MainW(QMainWindow):
             normalize_params["tile_norm_smooth3D"] = smooth3D
             normalize_params["norm3D"] = norm3D
             normalize_params["invert"] = invert
-        
+
         from cellpose.models import normalize_default
         normalize_params = {**normalize_default, **normalize_params}
 
@@ -2190,8 +2189,7 @@ class MainW(QMainWindow):
         self.ChannelChoose[1].setCurrentIndex(channels[1])
         self.diameter = diam_labels
         self.Diameter.setText("%0.2f" % self.diameter)
-        self.logger.info(
-            f">>>> diameter set to diam_labels ( = {diam_labels: 0.3f} )")
+        self.logger.info(f">>>> diameter set to diam_labels ( = {diam_labels: 0.3f} )")
         self.restore = restore
         self.set_normalize_params(normalize_params)
         self.get_next_image(load_seg=True)
@@ -2393,7 +2391,7 @@ class MainW(QMainWindow):
             self.update_plot()
 
         except Exception as e:
-            print("ERROR: %s"%e)
+            print("ERROR: %s" % e)
 
     def compute_segmentation(self, custom=False, model_name=None, load_model=True):
         self.progress.setValue(0)
@@ -2428,7 +2426,7 @@ class MainW(QMainWindow):
                     normalize=normalize_params, stitch_threshold=stitch_threshold,
                     progress=self.progress)[:2]
             except Exception as e:
-                print("NET ERROR: %s"%e)
+                print("NET ERROR: %s" % e)
                 self.progress.setValue(0)
                 return
 
@@ -2480,4 +2478,4 @@ class MainW(QMainWindow):
             else:
                 self.recompute_masks = False
         except Exception as e:
-            print("ERROR: %s"%e)
+            print("ERROR: %s" % e)

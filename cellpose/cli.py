@@ -63,23 +63,23 @@ def get_arg_parser():
     input_img_args.add_argument(
         "--all_channels", action="store_true", help=
         "use all channels in image if using own model and images with special channels")
-    
+
     # model settings
     model_args = parser.add_argument_group("Model Arguments")
     model_args.add_argument("--pretrained_model", required=False, default="cyto",
                             type=str,
                             help="model to use for running or starting training")
-    model_args.add_argument("--restore_type", required=False, default=None,
-                            type=str,
+    model_args.add_argument("--restore_type", required=False, default=None, type=str,
                             help="model to use for image restoration")
     model_args.add_argument("--chan2_restore", action="store_true",
-                               help="use nuclei restore model for second channel")
+                            help="use nuclei restore model for second channel")
     model_args.add_argument(
         "--add_model", required=False, default=None, type=str,
         help="model path to copy model to hidden .cellpose folder for using in GUI/CLI")
-    model_args.add_argument("--transformer", action="store_true",
-                               help="use transformer backbone (pretrained_model from Cellpose3 is transformer_cp3)")
-    
+    model_args.add_argument(
+        "--transformer", action="store_true", help=
+        "use transformer backbone (pretrained_model from Cellpose3 is transformer_cp3)")
+
     # algorithm settings
     algorithm_args = parser.add_argument_group("Algorithm Arguments")
     algorithm_args.add_argument(
@@ -113,8 +113,9 @@ def get_arg_parser():
         "--cellprob_threshold", default=0, type=float,
         help="cellprob threshold, default is 0, decrease to find more and larger masks")
     algorithm_args.add_argument(
-        "--niter", default=0, type=int,
-        help="niter, number of iterations for dynamics for mask creation, default of 0 means it is proportional to diameter, set to a larger number like 2000 for very long ROIs")
+        "--niter", default=0, type=int, help=
+        "niter, number of iterations for dynamics for mask creation, default of 0 means it is proportional to diameter, set to a larger number like 2000 for very long ROIs"
+    )
 
     algorithm_args.add_argument("--anisotropy", required=False, default=1.0, type=float,
                                 help="anisotropy of volume in 3D")
@@ -193,10 +194,12 @@ def get_arg_parser():
                                help="number of epochs. Default: %(default)s")
     training_args.add_argument("--batch_size", default=8, type=int,
                                help="batch size. Default: %(default)s")
-    training_args.add_argument("--nimg_per_epoch", default=None, type=int,
-                               help="number of train images per epoch. Default is to use all train images.")
-    training_args.add_argument("--nimg_test_per_epoch", default=None, type=int,
-                               help="number of test images per epoch. Default is to use all test images.")
+    training_args.add_argument(
+        "--nimg_per_epoch", default=None, type=int,
+        help="number of train images per epoch. Default is to use all train images.")
+    training_args.add_argument(
+        "--nimg_test_per_epoch", default=None, type=int,
+        help="number of test images per epoch. Default is to use all test images.")
     training_args.add_argument(
         "--min_train_masks", default=5, type=int, help=
         "minimum number of masks a training image must have to be used. Default: %(default)s"
