@@ -423,7 +423,8 @@ def load_images_labels(tdir, mask_filter="_masks", image_filter=None,
     labels = []
     k = 0
     for n in range(nimg):
-        if os.path.isfile(label_names[n]) or os.path.isfile(flow_names[0]):
+        if (os.path.isfile(label_names[n]) or 
+            (flow_names is not None and os.path.isfile(flow_names[0]))):
             image = imread(image_names[n])
             if label_names is not None:
                 label = imread(label_names[n])
