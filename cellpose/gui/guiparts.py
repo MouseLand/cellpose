@@ -353,7 +353,7 @@ class TrainHelpWindow(QDialog):
 
         # Dropdown menu for font size
         self.font_size_combo = QComboBox(self)
-        self.font_size_combo.addItems([str(size) for size in range(8, 33, 3)])
+        self.font_size_combo.addItems([str(size) for size in range(8, 45, 3)])
         # Set fixed size (width, height)
         self.font_size_combo.setFixedSize(55, 25)
 
@@ -373,7 +373,7 @@ class TrainHelpWindow(QDialog):
         # Get the current font size from the combo box
         font_size = int(self.font_size_combo.currentText())
         # Calculate the new font size based on window height and width
-        new_font_size = max(5, max(int(self.height() / 50), int(self.width() / 60)))
+        new_font_size = max(5, int((self.height() * self.width())**0.5 / 45))
         # Set the font size for the label
         # The if statement prevents the font from being too big to fit the screen/window
         if new_font_size < font_size:
