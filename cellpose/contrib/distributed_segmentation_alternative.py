@@ -1,22 +1,19 @@
-import functools
-import os
+# stdlib imports
+import os, pathlib, tempfile, functools
+
+# non-stdlib core dependencies
 import numpy as np
-import dask.array as da
-import bigstream.utility as ut
-from cellpose import models
-from cellpose.io import logger_setup
-import dask_image.ndmeasure._utils._label as label
-from scipy.ndimage import distance_transform_edt, find_objects
-from scipy.ndimage import generate_binary_structure
-from scipy.sparse import coo_matrix
-from scipy.sparse.csgraph import connected_components
-import zarr
-import tempfile
-from pathlib import Path
+import scipy
+import cellpose
+
+# existing distributed dependencies
+import dask
+import dask_image
+
+# new dependencies
 import yaml
-import dask.config
-from dask.distributed import Client, LocalCluster
-from dask_jobqueue.lsf import LSFJob
+import zarr
+import dask_jobqueue
 
 
 ######################## function(s) run on each block ########################
@@ -69,8 +66,8 @@ def read_preprocess_and_segment(
     for pp_step in preprocessing_steps:
         pp_step[1]['coords'] = coords
         image = pp_step[0](image, **pp_step[1])
-    logger_setup()
-    model = models.Cellpose(**model_kwargs)
+    cellpose.io.logger_setup()
+    model = cellpose.models.Cellpose(**model_kwargs)
     return model.eval(image, **eval_kwargs)[0].astype(np.uint32)
 
 
@@ -97,7 +94,7 @@ def remove_overlaps(array, coords, overlap, blocksize):
 def bounding_boxes_in_global_coordinates(segmentation, coords):
     """bounding boxes (tuples of slices) are super useful later
        best to compute them now while things are distributed"""
-    boxes = find_objects(segmentation)
+    boxes = scipy.ndimage.find_objects(segmentation)
     boxes = [b for b in boxes if b is not None]
     translate = lambda a, b: slice(a.start+b.start, a.start+b.stop)
     for iii, box in enumerate(boxes):
@@ -319,14 +316,14 @@ def distributed_eval(
         return new_labeling[block]
 
     # execute mergers and relabeling, write result to disk
-    segmentation_da = da.from_zarr(output_zarr)
-    relabeled = da.map_blocks(
+    segmentation_da = dask.array.from_zarr(output_zarr)
+    relabeled = dask.array.map_blocks(
         relabel_block,
         segmentation_da,
         dtype=np.uint32,
         chunks=segmentation_da.chunks,
     )
-    da.to_zarr(relabeled, write_path)
+    dask.array.to_zarr(relabeled, write_path)
 
     merged_boxes = merge_boxes()
 
@@ -369,11 +366,11 @@ def prepare_output_array(input_zarr, blocksize, temporary_directory)
         prefix='.', dir=temporary_directory or os.getcwd(),
     )
     output_zarr_path = temporary_directory.name + '/segmentation_unstitched.zarr'
-    return  ut.create_zarr(
-        output_zarr_path,
-        input_zarr.shape,
-        blocksize,
-        np.uint32,
+    return zarr.open(
+        output_zarr_path, 'w',
+        shape=intput_zarr.shape,
+        chunks=blocksize,
+        dtype=np.uint32,
     )
 
 
@@ -382,7 +379,8 @@ def determine_merge_relabeling(results):
     label_range = np.max(box_ids)
     label_groups = _block_face_adjacency_graph(faces, label_range)
 
-    new_labeling = connected_components(label_groups, directed=False)[1]
+    new_labeling = scipy.sparse.csgraph.connected_components(
+        label_groups, directed=False)[1]
     # XXX: new_labeling is returned as int32. Loses half range. Potentially a problem.
 
     # map unused label ids to zero and remap remaining ids to [0, 1, 2, ...]
@@ -435,7 +433,7 @@ def _block_face_adjacency_graph(faces, nlabels):
     """
 
     all_mappings = []
-    structure = generate_binary_structure(3, 1)
+    structure = scipy.ndimage.generate_binary_structure(3, 1)
     for face in faces:
         # shrink labels in plane
         sl0 = tuple(slice(0, 1) if d==2 else slice(None) for d in face.shape)
@@ -445,13 +443,13 @@ def _block_face_adjacency_graph(faces, nlabels):
         face = np.concatenate((a, b), axis=np.argmin(a.shape))
 
         # find connections
-        mapped = label._across_block_label_grouping(face, structure)
+        mapped = dask_image.ndmeasure._utils._label._across_block_label_grouping(face, structure)
         all_mappings.append(mapped)
 
     # reformat as csr_matrix and return
     i, j = np.concatenate(all_mappings, axis=1)
     v = np.ones_like(i)
-    return coo_matrix((v, (i, j)), shape=(nlabels+1, nlabels+1)).tocsr()
+    return scipy.sparse.coo_matrix((v, (i, j)), shape=(nlabels+1, nlabels+1)).tocsr()
 
 
 def _shrink_labels(plane, threshold):
@@ -462,7 +460,7 @@ def _shrink_labels(plane, threshold):
     gradmag = np.linalg.norm(np.gradient(plane.squeeze()), axis=0)
     shrunk_labels = np.copy(plane.squeeze())
     shrunk_labels[gradmag > 0] = 0
-    distances = distance_transform_edt(shrunk_labels)
+    distances = scipy.ndimage.distance_transform_edt(shrunk_labels)
     shrunk_labels[distances <= threshold] = 0
     return shrunk_labels.reshape(plane.shape)
 
@@ -491,7 +489,7 @@ DEFAULT_CONFIG_FILENAME = 'distributed_cellpose_dask_config.yaml'
 
 def _config_path(config_name):
     """Add config directory path to config filename"""
-    return str(Path.home()) + '/.config/dask/' + config_name
+    return str(pathlib.Path.home()) + '/.config/dask/' + config_name
 
 
 def _modify_dask_config(
@@ -517,7 +515,7 @@ def _remove_config_file(
 
 
 #----------------------- clusters --------------------------------------------#
-class myLocalCluster(LocalCluster):
+class myLocalCluster(dask.distributed.LocalCluster):
     """
     This is a thin wrapper extending dask.distributed.LocalCluster to set
     configs before the cluster or workers are initialized.
@@ -547,7 +545,7 @@ class myLocalCluster(LocalCluster):
         _modify_dask_config(config, config_name)
         if "host" not in kwargs: kwargs["host"] = ""
         self.cluster = super().__init__(**kwargs)
-        self.client = Client(self.cluster)
+        self.client = dask.distributed.Client(self.cluster)
         print("Cluster dashboard link: ", self.cluster.dashboard_link)
 
     def __enter__(self): return self
@@ -558,7 +556,7 @@ class myLocalCluster(LocalCluster):
         self.cluster.__exit__(exc_type, exc_value, traceback)
 
 
-class janeliaLSFCluster(LSFCluster):
+class janeliaLSFCluster(dask_jobqueue.LSFCluster):
     """
     This is a thin wrapper extending dask_jobqueue.LSFCluster,
     which in turn extends dask.distributed.SpecCluster. This wrapper
@@ -612,11 +610,11 @@ class janeliaLSFCluster(LSFCluster):
             kwargs["local_directory"] = scratch_dir
         if "log_directory" not in kwargs:
             log_dir = f"{os.getcwd()}/dask_worker_logs_{os.getpid()}/"
-            Path(log_dir).mkdir(parents=False, exist_ok=True)
+            pathlib.Path(log_dir).mkdir(parents=False, exist_ok=True)
             kwargs["log_directory"] = log_dir
 
         # graceful exit for lsf jobs (adds -d flag)
-        class quietLSFJob(LSFJob):
+        class quietLSFJob(dask_jobqueue.lsf.LSFJob):
             cancel_command = "bkill -d"
 
         # create cluster
@@ -630,7 +628,7 @@ class janeliaLSFCluster(LSFCluster):
             job_cls=quietLSFJob,
             **kwargs,
         )
-        self.client = Client(self.cluster)
+        self.client = dask.distributed.Client(self.cluster)
         print("Cluster dashboard link: ", self.cluster.dashboard_link)
 
         # set adaptive cluster bounds
