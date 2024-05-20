@@ -278,6 +278,7 @@ def distributed_eval(
     block_coords = block_coordinates(input_zarr, blocksize, overlap, mask)
     output_zarr = prepare_output_array(input_zarr, blocksize, temporary_directory)
 
+    print('MAPPING STEP')
     futures = cluster.client.map(
         process_block,
         block_coords,
@@ -291,25 +292,16 @@ def distributed_eval(
         output_zarr=output_zarr,
     )
     results = cluster.client.gather(futures)
+    print('MAPPING STEP COMPLETE')
     cluster.cluster.scale(0)
 
-
     print('REDUCE STEP, SHOULD TAKE 5-10 MINUTES')
-    faces, boxes, box_ids = adjacent_faces(results)
-    label_range = np.max(box_ids)
-    label_groups = _block_face_adjacency_graph(faces, label_range)
-    new_labeling = connected_components(label_groups, directed=False)[1]
-    # XXX: new_labeling is returned as int32. Loses half range. Potentially a problem.
-
-    # map unused label ids to zero and remap remaining ids to [0, 1, 2, ...]
-    unused_labels = np.ones(label_range + 1, dtype=bool)
-    unused_labels[box_ids] = 0
-    new_labeling[unused_labels] = 0
-    unique, unique_inverse = np.unique(new_labeling, return_inverse=True)
-    new_labeling = np.arange(len(unique), dtype=np.uint32)[unique_inverse]
+    new_labeling = determine_merge_relabeling(results)
+    # XXX temporary_directory here is still a string due to scoping
+    np.save(temporary_directory.name + '/new_labeling.npy', new_labeling)
     print('REDUCTION COMPLETE')
 
-
+    # TODO this should only happen on the cluster, not workstations
     # reformat worker properties for relabeling step
     cluster.change_worker_attributes(
         min_workers=10,
@@ -322,7 +314,6 @@ def distributed_eval(
     )
 
     # define relabeling function
-    np.save(temporary_directory.name + '/new_labeling.npy', new_labeling)
     def relabel_block(block):
         new_labeling = np.load(temporary_directory.name + '/new_labeling.npy')
         return new_labeling[block]
@@ -337,19 +328,7 @@ def distributed_eval(
     )
     da.to_zarr(relabeled, write_path)
 
-
-    # merge boxes
-    merged_boxes = []
-    new_box_ids = new_labeling[box_ids]
-    boxes_array = np.empty(len(boxes), dtype=object)
-    boxes_array[...] = boxes
-    for iii in range(1, len(unique)):
-        merge_indices = np.argwhere(new_box_ids == iii).squeeze()
-        if merge_indices.shape:
-            merged_box = _merge_boxes(boxes_array[merge_indices])
-        else:
-            merged_box = boxes_array[merge_indices]
-        merged_boxes.append(merged_box)
+    merged_boxes = merge_boxes()
 
     # return segmentation and boxes
     return zarr.open(write_path, mode='r'), merged_boxes
@@ -398,7 +377,39 @@ def prepare_output_array(input_zarr, blocksize, temporary_directory)
     )
 
 
-def adjacent_faces(results, ):
+def determine_merge_relabeling(results):
+    faces, boxes, box_ids = _adjacent_faces(results)
+    label_range = np.max(box_ids)
+    label_groups = _block_face_adjacency_graph(faces, label_range)
+
+    new_labeling = connected_components(label_groups, directed=False)[1]
+    # XXX: new_labeling is returned as int32. Loses half range. Potentially a problem.
+
+    # map unused label ids to zero and remap remaining ids to [0, 1, 2, ...]
+    unused_labels = np.ones(label_range + 1, dtype=bool)
+    unused_labels[box_ids] = 0
+    new_labeling[unused_labels] = 0
+    unique, unique_inverse = np.unique(new_labeling, return_inverse=True)
+    new_labeling = np.arange(len(unique), dtype=np.uint32)[unique_inverse]
+    return new_labeling
+
+
+def merge_boxes(boxes, new_labeling, box_ids):
+    merged_boxes = []
+    new_box_ids = new_labeling[box_ids]
+    boxes_array = np.empty(len(boxes), dtype=object)
+    boxes_array[...] = boxes
+    for iii in range(1, len(unique)):
+        merge_indices = np.argwhere(new_box_ids == iii).squeeze()
+        if merge_indices.shape:
+            merged_box = _merge_boxes(boxes_array[merge_indices])
+        else:
+            merged_box = boxes_array[merge_indices]
+        merged_boxes.append(merged_box)
+    return merged_boxes
+
+
+def _adjacent_faces(results, ):
     results = {a:b for a, b in results}
     faces, boxes, box_ids = [], [], []
     for block_index, result in results.items():
