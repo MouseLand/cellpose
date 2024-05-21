@@ -49,10 +49,10 @@ Stringer, C. & Pachitariu, M. (2024). Cellpose3: one-click image restoration for
 
 ### :star2: v2.0 (April 2022) :star2:
 
-Cellpose 2.0 now allows human-in-the-loop training of models! To learn more...
+Cellpose 2.0 allows human-in-the-loop training of models! To learn more...
 * Check out the twitter [thread](https://twitter.com/marius10p/status/1511415409047650307?s=20&t=umTVIG1CFKIWHYMrQqFKyQ) for an overview.
 * Check out the [paper](https://www.nature.com/articles/s41592-022-01663-4) for more details on the algorithm and the performance. Also, there's a short review of the paper available [here](https://www.nature.com/articles/s41592-022-01664-3).
-* Watch the short intro [talk](https://www.youtube.com/watch?v=3ydtAhfq6H0) and watch the longer [tutorial talk](https://youtu.be/5qANHWoubZU) which goes through running Cellpose 2.0 in the GUI and a jupyter notebook.
+* Watch the short overview [talk](https://youtu.be/wB7XYh4QRiI) and watch the longer [tutorial talk](https://youtu.be/5qANHWoubZU) which goes through running Cellpose 2.0 in the GUI and a jupyter notebook.
 * Check out the full human-in-the-loop [video](https://youtu.be/3Y1VKcxjNy4). 
 * Check out the colab notebook to get cloud access to a GPU to train your models or run your custom models: [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/MouseLand/cellpose/blob/main/notebooks/run_cellpose_2.ipynb).
 * See how to use it yourself in the [docs](https://cellpose.readthedocs.io/en/latest/gui.html#training-your-own-cellpose-model) and also check out the help info in the `Models` menu in the GUI.
