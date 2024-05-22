@@ -74,6 +74,7 @@ class myLocalCluster(distributed.LocalCluster):
 
     # TODO: figure out how to get logs for each worker to go into separate
     #       files instead of all mixing in stdout of the scheduler process
+    # TODO: figure out variable hardware on workers, e.g. GPU on one worker
     def __init__(
         self,
         ncpus,
@@ -150,8 +151,7 @@ class janeliaLSFCluster(dask_jobqueue.LSFCluster):
         # config
         self.config_name = config_name
         self.persist_config = persist_config
-        scratch_dir = f"/scratch/"
-        scratch_dir += "{os.environ['USER']}_distributed_cellpose/"
+        scratch_dir = f"/scratch/{os.environ['USER']}/"
         config_defaults = {
             'temporary-directory':scratch_dir,
             'distributed.comm.timeouts.connect':'180s',
@@ -181,8 +181,8 @@ class janeliaLSFCluster(dask_jobqueue.LSFCluster):
         class quietLSFJob(dask_jobqueue.lsf.LSFJob):
             cancel_command = "bkill -d"
 
-        # create cluster
-        self.cluster = super().__init__(
+        # construct
+        super().__init__(
             ncpus=ncpus,
             processes=1,
             cores=1,
@@ -192,8 +192,8 @@ class janeliaLSFCluster(dask_jobqueue.LSFCluster):
             job_cls=quietLSFJob,
             **kwargs,
         )
-        self.client = distributed.Client(self.cluster)
-        print("Cluster dashboard link: ", self.cluster.dashboard_link)
+        self.client = distributed.Client(self)
+        print("Cluster dashboard link: ", self.dashboard_link)
 
         # set adaptive cluster bounds
         self.adapt_cluster(min_workers, max_workers)
@@ -202,13 +202,13 @@ class janeliaLSFCluster(dask_jobqueue.LSFCluster):
     def __enter__(self): return self
     def __exit__(self, exc_type, exc_value, traceback):
         if not self.persist_config:
-            _remove_config_file(config_name)
+            _remove_config_file(self.config_name)
         self.client.close()
-        self.cluster.__exit__(exc_type, exc_value, traceback)
+        super().__exit__(exc_type, exc_value, traceback)
 
 
     def adapt_cluster(self, min_workers, max_workers):
-        _ = self.cluster.adapt(
+        _ = self.adapt(
             minimum_jobs=min_workers,
             maximum_jobs=max_workers,
             interval='10s',
@@ -225,9 +225,9 @@ class janeliaLSFCluster(dask_jobqueue.LSFCluster):
         """WARNING: this function is dangerous if you don't know what
            you're doing. Don't call this unless you know exactly what
            this does."""
-        self.cluster.scale(0)
+        self.scale(0)
         for k, v in kwargs.items():
-            self.cluster.new_spec['options'][k] = v
+            self.new_spec['options'][k] = v
         self.adapt_cluster(min_workers, max_workers)
 
 
@@ -290,7 +290,7 @@ def process_block(
     the distributed function. When test_mode=True, steps (5) and (6)
     are omitted and replaced with:
 
-    (5) return remapped segments as a numpy array
+    (5) return remapped segments as a numpy array, return boxes
 
     Parameters
     ----------
@@ -356,10 +356,11 @@ def process_block(
 
         When test_mode is True this function does not store the
         segments, and instead returns them to the caller as a numpy
-        array. When test_mode is True, you can supply dummy values
-        for many of the other inputs, such as,
+        array. The boxes and box IDs are also returned. When test_mode
+        is True, you can supply dummy values for many of the inputs,
+        such as:
 
-        block_index = (0, 0, 1)
+        block_index = (0, 0, 0)
         output_zarr=None
 
     Returns
@@ -372,6 +373,9 @@ def process_block(
 
     If test_mode == True, one thing is returned:
         segments : np.ndarray containing the segments with globally unique IDs
+        boxes : a list of crops (tuples of slices), bounding boxes of segments
+        box_ids : 1D numpy array, parallel to boxes, the segment IDs of the
+                  boxes
     """
     print('RUNNING BLOCK: ', block_index, '\tREGION: ', crop, flush=True)
     segmentation = read_preprocess_and_segment(
@@ -383,12 +387,12 @@ def process_block(
     boxes = bounding_boxes_in_global_coordinates(segmentation, crop)
     nblocks = get_nblocks(input_zarr.shape, blocksize)
     segmentation, remap = global_segment_ids(segmentation, block_index, nblocks)
+    if remap[0] == 0: remap = remap[1:]
 
-    if test_mode: return segmentation
-
+    if test_mode: return segmentation, boxes, remap
     output_zarr[tuple(crop)] = segmentation
     faces = block_faces(segmentation)
-    return faces, boxes, remap[1:]  # XXX remap may not begin with 0
+    return faces, boxes, remap
 
 
 #----------------------- component functions ---------------------------------#
@@ -599,12 +603,13 @@ def distributed_eval(
     )
     results = cluster.client.gather(futures)
     if isinstance(cluster, dask_jobqueue.core.JobQueueCluster): 
-        cluster.cluster.scale(0)
+        cluster.scale(0)
 
-    faces, boxes_, box_ids_ = list(zip(*results))  # parallel to block_indices
+    faces, boxes_, box_ids_ = list(zip(*results))
     boxes = [box for sublist in boxes_ for box in sublist]
     box_ids = np.concatenate(box_ids_)
     new_labeling = determine_merge_relabeling(block_indices, faces, box_ids)
+    debug_unique = np.unique(new_labeling)
     new_labeling_path = temporary_directory.name + '/new_labeling.npy'
     np.save(new_labeling_path, new_labeling)
 
@@ -617,7 +622,7 @@ def distributed_eval(
             memory="15GB",
             mem=int(15e9),
             queue=None,
-            job_extra=[],
+            job_extra_directives=[],
         )
 
     segmentation_da = dask.array.from_zarr(temp_zarr)
@@ -627,7 +632,7 @@ def distributed_eval(
         dtype=np.uint32,
         chunks=segmentation_da.chunks,
     )
-    dask.array.to_zarr(relabeled, write_path)
+    dask.array.to_zarr(relabeled, write_path, overwrite=True)
     merged_boxes = merge_all_boxes(boxes, new_labeling[box_ids])
     return zarr.open(write_path, mode='r'), merged_boxes
 
@@ -732,7 +737,7 @@ def merge_all_boxes(boxes, box_ids):
     """Merge all boxes that map to the same box_ids"""
     merged_boxes = []
     boxes_array = np.array(boxes, dtype=object)
-    for iii in range(1, len(set(box_ids))):
+    for iii in np.unique(box_ids):
         merge_indices = np.argwhere(box_ids == iii).squeeze()
         if merge_indices.shape:
             merged_box = merge_boxes(boxes_array[merge_indices])
