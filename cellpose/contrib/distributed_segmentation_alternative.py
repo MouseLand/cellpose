@@ -10,7 +10,7 @@ import cellpose.models
 # existing distributed dependencies
 import dask
 import distributed
-import dask_image
+import dask_image.ndmeasure
 
 # new dependencies
 import yaml
@@ -64,34 +64,59 @@ class myLocalCluster(distributed.LocalCluster):
 
     Most users will only need to specify:
     n_workers
+    ncpus (number of physical cpu cores per worker)
     memory_limit (which is the limit per worker)
-    threads_per_workers (for most workflows this should be 1)
+    threads_per_worker (for most workflows this should be 1)
 
     You can also modify any dask configuration option through the
     config argument.
     """
 
+    # TODO: figure out how to get logs for each worker to go into separate
+    #       files instead of all mixing in stdout of the scheduler process
     def __init__(
         self,
+        ncpus,
         config={},
         config_name=DEFAULT_CONFIG_FILENAME,
         persist_config=False,
         **kwargs,
     ):
+        # config
         self.config_name = config_name
         self.persist_config = persist_config
+        scratch_dir = f"{os.getcwd()}/"
+        scratch_dir += f".{os.environ['USER']}_distributed_cellpose/"
+        config_defaults = {'temporary-directory':scratch_dir}
+        config = {**config_defaults, **config}
         _modify_dask_config(config, config_name)
+
+        # construct
         if "host" not in kwargs: kwargs["host"] = ""
-        self.cluster = super().__init__(**kwargs)
-        self.client = distributed.Client(self.cluster)
-        print("Cluster dashboard link: ", self.cluster.dashboard_link)
+        super().__init__(**kwargs)
+        self.client = distributed.Client(self)
+
+        # set environment variables for workers (threading)
+        environment_vars = {
+            'MKL_NUM_THREADS':str(2*ncpus),
+            'NUM_MKL_THREADS':str(2*ncpus),
+            'OPENBLAS_NUM_THREADS':str(2*ncpus),
+            'OPENMP_NUM_THREADS':str(2*ncpus),
+            'OMP_NUM_THREADS':str(2*ncpus),
+        }
+        def set_environment_vars():
+            for k, v in environment_vars.items():
+                os.environ[k] = v
+        self.client.run(set_environment_vars)
+
+        print("Cluster dashboard link: ", self.dashboard_link)
 
     def __enter__(self): return self
     def __exit__(self, exc_type, exc_value, traceback):
         if not self.persist_config:
-            _remove_config_file(config_name)
+            _remove_config_file(self.config_name)
         self.client.close()
-        self.cluster.__exit__(exc_type, exc_value, traceback)
+        super().__exit__(exc_type, exc_value, traceback)
 
 
 class janeliaLSFCluster(dask_jobqueue.LSFCluster):
@@ -125,7 +150,8 @@ class janeliaLSFCluster(dask_jobqueue.LSFCluster):
         # config
         self.config_name = config_name
         self.persist_config = persist_config
-        scratch_dir = f"/scratch/{os.environ['USER']}/"
+        scratch_dir = f"/scratch/"
+        scratch_dir += "{os.environ['USER']}_distributed_cellpose/"
         config_defaults = {
             'temporary-directory':scratch_dir,
             'distributed.comm.timeouts.connect':'180s',
@@ -218,9 +244,9 @@ def cluster(func):
     """
     @functools.wraps(func)
     def create_or_pass_cluster(*args, **kwargs):
-        assert kwargs['cluster'] or kwargs['cluster_kwargs'], \
+        assert 'cluster' in kwargs or 'cluster_kwargs' in kwargs, \
         "Either cluster or cluster_kwargs must be defined"
-        if kwargs['cluster'] is None:
+        if not 'cluster' in kwargs:
             cluster_constructor = myLocalCluster
             F = lambda x: x in kwargs['cluster_kwargs']
             if F('ncpus') and F('min_workers') and F('max_workers'):
@@ -554,7 +580,7 @@ def distributed_eval(
     temp_zarr_path = temporary_directory.name + '/segmentation_unstitched.zarr'
     temp_zarr = zarr.open(
         temp_zarr_path, 'w',
-        shape=intput_zarr.shape,
+        shape=input_zarr.shape,
         chunks=blocksize,
         dtype=np.uint32,
     )
@@ -572,7 +598,7 @@ def distributed_eval(
         output_zarr=temp_zarr,
     )
     results = cluster.client.gather(futures)
-    if isinstance(cluster, distributed.SpecCluster): 
+    if isinstance(cluster, dask_jobqueue.core.JobQueueCluster): 
         cluster.cluster.scale(0)
 
     faces, boxes, box_ids = list(zip(*results))  # parallel to block_indices
