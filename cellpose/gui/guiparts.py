@@ -356,6 +356,8 @@ class TrainHelpWindow(QDialog):
         self.font_size_combo.addItems([str(size) for size in range(8, 45, 3)])
         # Set fixed size (width, height)
         self.font_size_combo.setFixedSize(55, 25)
+        # Set default index to 17
+        self.font_size_combo.setCurrentText("17")
 
         # The line "self.font_size_combo.currentIndexChanged.connect(self.adjust_font_size)"
         # directly connects the currentIndexChanged signal of the "self.font_size_combo" object
