@@ -601,12 +601,14 @@ def distributed_eval(
     if isinstance(cluster, dask_jobqueue.core.JobQueueCluster): 
         cluster.cluster.scale(0)
 
-    faces, boxes, box_ids = list(zip(*results))  # parallel to block_indices
+    faces, boxes_, box_ids_ = list(zip(*results))  # parallel to block_indices
+    boxes = [box for sublist in boxes_ for box in sublist]
+    box_ids = np.concatenate(box_ids_)
     new_labeling = determine_merge_relabeling(block_indices, faces, box_ids)
     new_labeling_path = temporary_directory.name + '/new_labeling.npy'
     np.save(new_labeling_path, new_labeling)
 
-    if isinstance(cluster, distributed.SpecCluster): 
+    if isinstance(cluster, dask_jobqueue.core.JobQueueCluster): 
         # TODO: hard coded values here - not good
         cluster.change_worker_attributes(
             min_workers=10,
