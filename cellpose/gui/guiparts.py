@@ -185,7 +185,7 @@ class TrainWindow(QDialog):
 
     def __init__(self, parent, model_strings):
         super().__init__(parent)
-        self.setGeometry(100, 100, 900, 350)
+        self.setGeometry(100, 100, 900, 550)
         self.setWindowTitle("train settings")
         self.win = QWidget(self)
         self.l0 = QGridLayout()

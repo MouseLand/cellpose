@@ -824,6 +824,7 @@ class MainW(QMainWindow):
         b0 += 3
         self.norm3D_cb = QCheckBox("norm3D")
         self.norm3D_cb.setFont(self.medfont)
+        self.norm3D_cb.setChecked(True)
         self.norm3D_cb.setToolTip("run same normalization across planes")
         self.filtBoxG.addWidget(self.norm3D_cb, b0, 0, 1, 3)
 
@@ -1233,7 +1234,6 @@ class MainW(QMainWindow):
         self.ViewDropDown.model().item(self.ViewDropDown.count() - 1).setEnabled(False)
         self.delete_restore()
 
-        self.BrushChoose.setCurrentIndex(1)
         self.clear_all()
 
         #self.update_plot()
@@ -1942,12 +1942,13 @@ class MainW(QMainWindow):
         ]
         self.check_percentile_params(percentile)
         normalize_params = {"percentile": percentile}
+        norm3D = self.norm3D_cb.isChecked()
+        normalize_params["norm3D"] = norm3D
         if self.restore == "filter":
             sharpen = float(self.filt_edits[0].text())
             smooth = float(self.filt_edits[1].text())
             tile_norm = float(self.filt_edits[2].text())
             smooth3D = float(self.filt_edits[3].text())
-            norm3D = self.norm3D_cb.isChecked()
             invert = self.invert_cb.isChecked()
             out = self.check_filter_params(sharpen, smooth, tile_norm, smooth3D, norm3D,
                                            invert)
@@ -1956,7 +1957,6 @@ class MainW(QMainWindow):
             normalize_params["smooth_radius"] = smooth
             normalize_params["tile_norm_blocksize"] = tile_norm
             normalize_params["tile_norm_smooth3D"] = smooth3D
-            normalize_params["norm3D"] = norm3D
             normalize_params["invert"] = invert
 
         from cellpose.models import normalize_default
