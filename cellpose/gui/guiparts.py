@@ -336,7 +336,7 @@ class HelpWindow(QDialog):
 class TrainHelpWindow(QDialog):
     def __init__(self, parent=None):
         super(TrainHelpWindow, self).__init__(parent)
-        self.setGeometry(100, 50, 550, 300)
+        self.setGeometry(200, 200, 1000, 700)
         self.setMinimumSize(300, 200)
         self.setWindowTitle("Training Instructions")
 
