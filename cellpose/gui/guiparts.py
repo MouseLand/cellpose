@@ -11,6 +11,10 @@ from pyqtgraph import Point
 import numpy as np
 import pathlib, os
 
+# My code for "Minimap" 
+from qtpy.QtWidgets import QMainWindow, QLabel, QVBoxLayout, QWidget
+
+
 
 def stylesheet():
     return """
@@ -179,7 +183,6 @@ class DenoiseButton(QPushButton):
         else:
             parent.clear_restore()
         parent.set_restore_button()
-
 
 class TrainWindow(QDialog):
 
@@ -359,6 +362,27 @@ class TrainHelpWindow(QDialog):
         layout.addWidget(label, 0, 0, 1, 1)
         self.show()
 
+# My code for "Minimap" starts
+
+class MinimapWindow(QMainWindow):
+    def __init__(self, parent=None):
+        super(MinimapWindow, self).__init__(parent)
+        self.setWindowTitle("Minimap")
+        self.setGeometry(100, 100, 400, 300)
+
+        self.label = QLabel("Minimap content will be here", self)
+        layout = QVBoxLayout()
+        layout.addWidget(self.label)
+
+        container = QWidget()
+        container.setLayout(layout)
+        self.setCentralWidget(container)
+
+    def update_image(self, image):
+        # Logic to update the minimap with the current image
+        pass
+
+# My code for "Minimap" ends
 
 class ViewBoxNoRightDrag(pg.ViewBox):
 

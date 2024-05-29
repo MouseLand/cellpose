@@ -2480,3 +2480,16 @@ class MainW(QMainWindow):
                 self.recompute_masks = False
         # except Exception as e:
         #     print("ERROR: %s"%e)
+
+    # My code for "Minimap" starts
+
+    def show_minimap(self):
+        if not hasattr(self, 'minimap'):
+            self.minimap = guiparts.MinimapWindow(self)
+        self.minimap.update_image(self.current_image)
+        self.minimap.show()
+
+    def minimap_window(self):
+        self.show_minimap() 
+    # My code for "Minimap" ends
+
