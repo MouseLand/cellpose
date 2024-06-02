@@ -20,8 +20,6 @@ from ..io import get_image_files, imsave, imread
 from ..transforms import resize_image, normalize99, normalize99_tile, smooth_sharpen_img
 from ..models import normalize_default
 from ..plot import disk
-from PyQt5.QtWidgets import QSplitter, QHBoxLayout
-from PyQt5.QtCore import Qt
 
 try:
     import matplotlib.pyplot as plt
