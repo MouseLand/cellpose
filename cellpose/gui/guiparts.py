@@ -11,8 +11,6 @@ from pyqtgraph import Point
 import numpy as np
 import pathlib, os
 
-# My code for "Minimap" 
-from qtpy.QtWidgets import QMainWindow, QLabel, QVBoxLayout, QWidget
 
 
 
@@ -364,24 +362,39 @@ class TrainHelpWindow(QDialog):
 
 # My code for "Minimap" starts
 
-class MinimapWindow(QMainWindow):
+class MinimapWindow(QWidget):
     def __init__(self, parent=None):
         super(MinimapWindow, self).__init__(parent)
         self.setWindowTitle("Minimap")
         self.setGeometry(100, 100, 400, 300)
 
         self.label = QLabel("Minimap content will be here", self)
-        layout = QVBoxLayout()
-        layout.addWidget(self.label)
-
-        container = QWidget()
-        container.setLayout(layout)
-        self.setCentralWidget(container)
+        layout = QGridLayout()
+        layout.addWidget(self.label, 0, 0)
+        self.setLayout(layout)
 
     def update_image(self, image):
-        # Logic to update the minimap with the current image
-        pass
+        if image is not None:
+            qimage = self.convert_to_qimage(image)
+            pixmap = QPixmap.fromImage(qimage)
+            self.label.setPixmap(pixmap)
+        else:
+            self.label.setText("No image available")
 
+    def convert_to_qimage(self, image):
+        if image.dtype == np.uint8:
+            if len(image.shape) == 2:  # Grayscale image
+                qimage = QImage(image.data, image.shape[1], image.shape[0], QImage.Format_Grayscale8)
+            elif len(image.shape) == 3:
+                if image.shape[2] == 3:  # RGB image
+                    qimage = QImage(image.data, image.shape[1], image.shape[0], image.shape[1] * 3, QImage.Format_RGB888)
+                elif image.shape[2] == 4:  # RGBA image
+                    qimage = QImage(image.data, image.shape[1], image.shape[0], image.shape[1] * 4, QImage.Format_RGBA8888)
+            else:
+                raise ValueError("Unsupported image format")
+        else:
+            raise ValueError("Unsupported image data type")
+        return qimage
 # My code for "Minimap" ends
 
 class ViewBoxNoRightDrag(pg.ViewBox):

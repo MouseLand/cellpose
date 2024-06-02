@@ -287,6 +287,7 @@ class MainW(QMainWindow):
         if image is not None:
             self.filename = image
             io._load_image(self, self.filename)
+            self.update_minimap_image(self.filename)  # Minimap image actualization
 
         # training settings
         d = datetime.datetime.now()
@@ -2486,10 +2487,9 @@ class MainW(QMainWindow):
     def show_minimap(self):
         if not hasattr(self, 'minimap'):
             self.minimap = guiparts.MinimapWindow(self)
-        self.minimap.update_image(self.current_image)
+        self.minimap.update_image(self.image)
         self.minimap.show()
 
     def minimap_window(self):
         self.show_minimap() 
-    # My code for "Minimap" ends
 
