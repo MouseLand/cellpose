@@ -3,14 +3,14 @@ Copyright © 2023 Howard Hughes Medical Institute, Authored by Carsen Stringer a
 """
 
 from qtpy import QtGui, QtCore, QtWidgets
-from qtpy.QtGui import QPainter, QPixmap
+from qtpy.QtGui import QPainter, QPixmap, QImage, QFont
 from qtpy.QtWidgets import QApplication, QRadioButton, QWidget, QDialog, QButtonGroup, QSlider, QStyle, QStyleOptionSlider, QGridLayout, QPushButton, QLabel, QLineEdit, QDialogButtonBox, QComboBox, QCheckBox
 import pyqtgraph as pg
 from pyqtgraph import functions as fn
 from pyqtgraph import Point
 import numpy as np
 import pathlib, os
-
+from . import io
 
 
 
@@ -309,6 +309,10 @@ class ExampleGUI(QDialog):
         self.win = QWidget(self)
         layout = QGridLayout()
         self.win.setLayout(layout)
+
+        # initilization of minimap
+        self.minimap_window = MinimapWindow(self)
+
         guip_path = pathlib.Path.home().joinpath(".cellpose", "cellpose_gui.png")
         guip_path = str(guip_path.resolve())
         pixmap = QPixmap(guip_path)
@@ -316,6 +320,14 @@ class ExampleGUI(QDialog):
         label.setPixmap(pixmap)
         pixmap.scaled
         layout.addWidget(label, 0, 0, 1, 1)
+
+        # Add minimap to layout
+        layout.addWidget(self.minimap_window, 0, 1, 1, 1)
+        self.minimap_window.show()
+
+    # updates the minimap when called
+    def update_minimap(self, image):
+        self.minimap_window.update_image(image)
 
 
 class HelpWindow(QDialog):
@@ -360,27 +372,34 @@ class TrainHelpWindow(QDialog):
         layout.addWidget(label, 0, 0, 1, 1)
         self.show()
 
-# My code for "Minimap" starts
-
+# window displaying a minimap of the current image
 class MinimapWindow(QWidget):
     def __init__(self, parent=None):
         super(MinimapWindow, self).__init__(parent)
         self.setWindowTitle("Minimap")
         self.setGeometry(100, 100, 400, 300)
 
-        self.label = QLabel("Minimap content will be here", self)
         layout = QGridLayout()
-        layout.addWidget(self.label, 0, 0)
         self.setLayout(layout)
 
+        # placeholder label for the minimap content
+        self.label = QLabel("Minimap content will be here")
+        self.label.setFont(QtGui.QFont("Arial", 15))
+        self.label.setWordWrap(True)
+        layout.addWidget(self.label, 0, 0, 1, 1)
+
+    # when implemented, this displays the image
     def update_image(self, image):
         if image is not None:
+            self.filename = image
+            io._load_image(self, self.filename)
             qimage = self.convert_to_qimage(image)
             pixmap = QPixmap.fromImage(qimage)
             self.label.setPixmap(pixmap)
         else:
             self.label.setText("No image available")
 
+    # this converts the image to a qimage so it can be used in the update_image function above
     def convert_to_qimage(self, image):
         if image.dtype == np.uint8:
             if len(image.shape) == 2:  # Grayscale image
@@ -395,7 +414,7 @@ class MinimapWindow(QWidget):
         else:
             raise ValueError("Unsupported image data type")
         return qimage
-# My code for "Minimap" ends
+# end of code for minimap
 
 class ViewBoxNoRightDrag(pg.ViewBox):
 

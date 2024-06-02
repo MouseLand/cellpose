@@ -69,11 +69,17 @@ def mainmenu(parent):
     file_menu.addAction(parent.saveFlows)
     parent.saveFlows.setEnabled(False)
 
-    # Mein code zu "Minimap" starts
-    parent.minimapAction = QAction("&Minimap", parent)
-    parent.minimapAction.triggered.connect(parent.show_minimap)
-    file_menu.addAction(parent.minimapAction)
-    # Mein code zu "Minimap" ends
+    # new code for minimap
+    parent.minimapWindow = QAction("&Minimap", parent, checkable=True)
+    # doesn't offer the possibility of being "unchecked" yet
+    parent.minimapWindow.setChecked(False)
+    parent.minimapWindow.triggered.connect(parent.minimap_window)
+    file_menu.addAction(parent.minimapWindow)
+    # old code for minimap
+    """openMinimap = QAction("&Open Minimap", parent)
+    openMinimap.triggered.connect(parent.minimap_window)
+    main_menu.addAction(openMinimap)"""
+    # end of code for minimap
 
 def editmenu(parent):
     main_menu = parent.menuBar()
@@ -151,3 +157,5 @@ def helpmenu(parent):
     openTrainHelp = QAction("Training instructions", parent)
     openTrainHelp.triggered.connect(parent.train_help_window)
     help_menu.addAction(openTrainHelp)
+
+

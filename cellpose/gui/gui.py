@@ -318,6 +318,11 @@ class MainW(QMainWindow):
         EG = guiparts.ExampleGUI(self)
         EG.show()
 
+    # implements a new window for the minimap
+    def minimap_window(self):
+        MW = guiparts.MinimapWindow(self)
+        MW.show()
+
     def make_buttons(self):
         self.boldfont = QtGui.QFont("Arial", 11, QtGui.QFont.Bold)
         self.boldmedfont = QtGui.QFont("Arial", 9, QtGui.QFont.Bold)
@@ -1024,6 +1029,7 @@ class MainW(QMainWindow):
         self.SizeButton.setEnabled(True)
         self.newmodel.setEnabled(True)
         self.loadMasks.setEnabled(True)
+        self.minimapWindow.setEnabled(True)
 
         for n in range(self.nchan):
             self.sliders[n].setEnabled(True)
@@ -1049,6 +1055,7 @@ class MainW(QMainWindow):
         self.saveFlows.setEnabled(False)
         self.saveOutlines.setEnabled(False)
         self.saveROIs.setEnabled(False)
+        self.minimapWindow.setEnable(False)
 
         self.MakeDeletionRegionButton.setEnabled(False)
         self.DeleteMultipleROIButton.setEnabled(False)
@@ -2484,12 +2491,12 @@ class MainW(QMainWindow):
 
     # My code for "Minimap" starts
 
-    def show_minimap(self):
+    """def show_minimap(self):
         if not hasattr(self, 'minimap'):
             self.minimap = guiparts.MinimapWindow(self)
         self.minimap.update_image(self.image)
         self.minimap.show()
 
     def minimap_window(self):
-        self.show_minimap() 
+        self.show_minimap() """
 
