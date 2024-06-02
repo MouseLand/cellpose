@@ -20,6 +20,8 @@ from ..io import get_image_files, imsave, imread
 from ..transforms import resize_image, normalize99, normalize99_tile, smooth_sharpen_img
 from ..models import normalize_default
 from ..plot import disk
+from PyQt5.QtWidgets import QSplitter, QHBoxLayout
+from PyQt5.QtCore import Qt
 
 try:
     import matplotlib.pyplot as plt
@@ -248,6 +250,25 @@ class MainW(QMainWindow):
         self.swidget.setLayout(self.l0)
         b = self.make_buttons()
         self.lmain.addWidget(self.scrollarea, 0, 0, 39, 9)
+
+        # ---- Right side menu layout ---- #
+        self.rightBox = QGroupBox()
+        self.rightBoxLayout = QGridLayout()
+        self.rightBox.setLayout(self.rightBoxLayout)
+
+        # --- Make the right side menu scrollable---#
+        self.rightScrollArea = QScrollArea()
+        self.rightScrollArea.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOn)  # scrollbar always visible
+        self.rightScrollArea.setStyleSheet("""QScrollArea { border: none }""")  # remove border
+        self.rightScrollArea.setWidgetResizable(True)  # resizing allowed
+        self.rightScrollArea.setWidget(self.rightBox)  # set the rightBox as the content of the scroll area
+
+        # --- Add right side menu to the main layout ---#
+        self.lmain.addWidget(self.rightScrollArea, 0, 40, 39, 9)  # Set the same row and column spans as the left side menu
+
+        # Get the width of the left side menu and set to right side menu width
+        leftMenuWidth = self.scrollarea.sizeHint().width()
+        self.rightScrollArea.setFixedWidth(leftMenuWidth)
 
         # ---- drawing area ---- #
         self.win = pg.GraphicsLayoutWidget()
