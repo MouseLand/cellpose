@@ -114,7 +114,8 @@ def distance_to_boundary(masks):
 
     """
     if masks.ndim > 3 or masks.ndim < 2:
-        raise ValueError("distance_to_boundary takes 2D or 3D array, not %dD array" % masks.ndim)
+        raise ValueError("distance_to_boundary takes 2D or 3D array, not %dD array" %
+                         masks.ndim)
     dist_to_bound = np.zeros(masks.shape, np.float64)
 
     if masks.ndim == 3:
@@ -127,10 +128,12 @@ def distance_to_boundary(masks):
             if si is not None:
                 sr, sc = si
                 mask = (masks[sr, sc] == (i + 1)).astype(np.uint8)
-                contours = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+                contours = cv2.findContours(mask, cv2.RETR_EXTERNAL,
+                                            cv2.CHAIN_APPROX_NONE)
                 pvc, pvr = np.concatenate(contours[-2], axis=0).squeeze().T
                 ypix, xpix = np.nonzero(mask)
-                min_dist = ((ypix[:, np.newaxis] - pvr)**2 + (xpix[:, np.newaxis] - pvc)**2).min(axis=1)
+                min_dist = ((ypix[:, np.newaxis] - pvr)**2 +
+                            (xpix[:, np.newaxis] - pvc)**2).min(axis=1)
                 dist_to_bound[ypix + sr.start, xpix + sc.start] = min_dist
         return dist_to_bound
 
@@ -188,7 +191,8 @@ def masks_to_outlines(masks):
         outlines (2D or 3D array): Size [Ly x Lx] or [Lz x Ly x Lx], where True pixels are outlines.
     """
     if masks.ndim > 3 or masks.ndim < 2:
-        raise ValueError("masks_to_outlines takes 2D or 3D array, not %dD array" % masks.ndim)
+        raise ValueError("masks_to_outlines takes 2D or 3D array, not %dD array" %
+                         masks.ndim)
     outlines = np.zeros(masks.shape, bool)
 
     if masks.ndim == 3:
@@ -201,7 +205,8 @@ def masks_to_outlines(masks):
             if si is not None:
                 sr, sc = si
                 mask = (masks[sr, sc] == (i + 1)).astype(np.uint8)
-                contours = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+                contours = cv2.findContours(mask, cv2.RETR_EXTERNAL,
+                                            cv2.CHAIN_APPROX_NONE)
                 pvc, pvr = np.concatenate(contours[-2], axis=0).squeeze().T
                 vr, vc = pvr + sr.start, pvc + sc.start
                 outlines[vr, vc] = 1
@@ -230,7 +235,7 @@ def outlines_list(masks, multiprocessing_threshold=1000, multiprocessing=None):
     if multiprocessing is None:
         few_masks = np.max(masks) < multiprocessing_threshold
         multiprocessing = not few_masks
-    
+
     # disable multiprocessing for Windows
     if os.name == "nt":
         if multiprocessing:
@@ -288,6 +293,7 @@ def outlines_list_multi(masks, num_processes=None):
         outpix = pool.map(get_outline_multi, [(masks, n) for n in unique_masks])
     return outpix
 
+
 def get_outline_multi(args):
     """Get the outline of a specific mask in a multi-mask image.
 
@@ -308,6 +314,7 @@ def get_outline_multi(args):
         pix = contours[cmax].astype(int).squeeze()
         return pix if len(pix) > 4 else np.zeros((0, 2))
     return np.zeros((0, 2))
+
 
 def dilate_masks(masks, n_iter=5):
     """Dilate masks by n_iter pixels.
@@ -334,6 +341,7 @@ def dilate_masks(masks, n_iter=5):
             dilated_mask = np.logical_and(dist_transform < 2, dilated_mask)
             dilated_masks[dilated_mask > 0] = i
     return dilated_masks
+
 
 def get_perimeter(points):
     """
@@ -610,6 +618,7 @@ def size_distribution(masks):
     """
     counts = np.unique(masks, return_counts=True)[1][1:]
     return np.percentile(counts, 25) / np.percentile(counts, 75)
+
 
 def fill_holes_and_remove_small_masks(masks, min_size=15):
     """ Fills holes in masks (2D/3D) and discards masks smaller than min_size.

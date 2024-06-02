@@ -79,6 +79,7 @@ class downsample(nn.Module):
 
 
 class batchconvstyle(nn.Module):
+
     def __init__(self, in_channels, out_channels, style_channels, sz, conv_3D=False):
         super().__init__()
         self.concatenation = False
@@ -102,8 +103,7 @@ class batchconvstyle(nn.Module):
 
 class resup(nn.Module):
 
-    def __init__(self, in_channels, out_channels, style_channels, sz,
-                 conv_3D=False):
+    def __init__(self, in_channels, out_channels, style_channels, sz, conv_3D=False):
         super().__init__()
         self.concatenation = False
         self.conv = nn.Sequential()

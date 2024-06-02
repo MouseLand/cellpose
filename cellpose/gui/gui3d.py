@@ -475,33 +475,32 @@ class MainW_3d(MainW):
                 self.imgOrtho[0].setLevels([0.0, 255.0])
                 self.imgOrtho[1].setImage(image, autoLevels=False, lut=None)
                 self.imgOrtho[1].setLevels([0.0, 255.0])
-        
+
         zrange = zmax - zmin
-        self.layer_ortho = [np.zeros((self.Ly, zrange, 4), np.uint8), 
-                            np.zeros((zrange, self.Lx, 4), np.uint8)]
+        self.layer_ortho = [
+            np.zeros((self.Ly, zrange, 4), np.uint8),
+            np.zeros((zrange, self.Lx, 4), np.uint8)
+        ]
         if self.masksOn:
             for j in range(2):
-                if j==0:
+                if j == 0:
                     cp = self.cellpix[zmin:zmax, :, x].T
                 else:
                     cp = self.cellpix[zmin:zmax, y]
                 self.layer_ortho[j][..., :3] = self.cellcolors[cp, :]
-                self.layer_ortho[j][...,
-                        3] = self.opacity * (cp > 0).astype(
-                            np.uint8)
+                self.layer_ortho[j][..., 3] = self.opacity * (cp > 0).astype(np.uint8)
                 if self.selected > 0:
                     self.layer_ortho[j][cp == self.selected] = np.array(
-                                    [255, 255, 255, self.opacity])
-        
+                        [255, 255, 255, self.opacity])
+
         if self.outlinesOn:
             for j in range(2):
-                if j==0:
+                if j == 0:
                     op = self.outpix[zmin:zmax, :, x].T
                 else:
                     op = self.outpix[zmin:zmax, y]
-                self.layer_ortho[j][op > 0] = np.array(
-                    self.outcolor).astype(np.uint8)
-        
+                self.layer_ortho[j][op > 0] = np.array(self.outcolor).astype(np.uint8)
+
         for j in range(2):
             self.layerOrtho[j].setImage(self.layer_ortho[j])
         self.win.show()
