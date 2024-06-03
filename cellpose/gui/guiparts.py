@@ -398,13 +398,7 @@ class MinimapWindow(QWidget):
         self.label.setPixmap(self.pixmap)
         # Add the QLabel to the layout
         layout.addWidget(self.label, 0, 0, 1, 1)
-
-        # Create a QDockWidget to accommodate the minimap
-        self.dock = QDockWidget("Minimap", self)
-        # Set the QLabel as the widget for the dock
-        self.dock.setWidget(self.label)
-        # Set the dock to be floating, so it is detached from the main window (can be freely moved around)
-        self.dock.setFloating(True)
+        self.update_image(self.filename)
 
     def update_image(self, image):
         """
@@ -416,7 +410,10 @@ class MinimapWindow(QWidget):
         if image is not None:
             self.filename = image
             # Load the image using the _load_image method from io.py
-            io._load_image(self, self.filename)
+
+            # Get the image on Display in Cellpose
+            #io._load_image(self, self.filename)
+
             # Create QImage object from the image file.
             # Casts the image to a QImage object which adds functionality to easily mutate the image.
             qimage = QImage(self.filename)
@@ -424,6 +421,14 @@ class MinimapWindow(QWidget):
             pixmap = QPixmap.fromImage(qimage)
             # Set the QPixmap to the QLabel
             self.label.setPixmap(pixmap)
+
+
+            # Create a QDockWidget to accommodate the minimap image
+            self.dock = QDockWidget("Minimap", self)
+            # Set the QLabel as the widget for the dock
+            self.dock.setWidget(self.label)
+            # Set the dock to be floating, so it is detached from the main window (can be freely moved around)
+            self.dock.setFloating(True)
         else:
             self.label.setText("No image available")
 
