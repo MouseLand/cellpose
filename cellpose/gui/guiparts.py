@@ -4,7 +4,7 @@ Copyright © 2023 Howard Hughes Medical Institute, Authored by Carsen Stringer a
 
 from qtpy import QtGui, QtCore, QtWidgets
 from qtpy.QtGui import QPainter, QPixmap, QImage, QFont
-from qtpy.QtWidgets import QApplication, QRadioButton, QWidget, QDialog, QButtonGroup, QSlider, QStyle, QStyleOptionSlider, QGridLayout, QPushButton, QLabel, QLineEdit, QDialogButtonBox, QComboBox, QCheckBox
+from qtpy.QtWidgets import QApplication, QRadioButton, QWidget, QDialog, QButtonGroup, QSlider, QStyle, QStyleOptionSlider, QGridLayout, QPushButton, QLabel, QLineEdit, QDialogButtonBox, QComboBox, QCheckBox, QDockWidget
 import pyqtgraph as pg
 from pyqtgraph import functions as fn
 from pyqtgraph import Point
@@ -376,45 +376,78 @@ class TrainHelpWindow(QDialog):
 class MinimapWindow(QWidget):
     def __init__(self, parent=None):
         super(MinimapWindow, self).__init__(parent)
-        self.setWindowTitle("Minimap")
+        # Set the title and geometry of the window
+        self.title = "Minimap"
+        self.setWindowTitle(self.title)
         self.setGeometry(100, 100, 400, 300)
 
+        # Create a QWidget and set its layout to QGridLayout
+        self.win = QWidget(self)
         layout = QGridLayout()
-        self.setLayout(layout)
+        self.win.setLayout(layout)
 
-        # placeholder label for the minimap content
-        self.label = QLabel("Minimap content will be here")
-        self.label.setFont(QtGui.QFont("Arial", 15))
-        self.label.setWordWrap(True)
+        # Create a QLabel to display the image
+        self.label = QLabel(self)
+
+        # Set a default image to display
+        self.filename = 'cellpose/logo/logo.png'  # Placeholder image for testing
+
+        # Load the default image into a QPixmap
+        self.pixmap = QPixmap(self.filename)
+        # Set the QPixmap to the QLabel (that will display the image)
+        self.label.setPixmap(self.pixmap)
+        # Add the QLabel to the layout
         layout.addWidget(self.label, 0, 0, 1, 1)
 
-    # when implemented, this displays the image
+        # Create a QDockWidget to accommodate the minimap
+        self.dock = QDockWidget("Minimap", self)
+        # Set the QLabel as the widget for the dock
+        self.dock.setWidget(self.label)
+        # Set the dock to be floating, so it is detached from the main window (can be freely moved around)
+        self.dock.setFloating(True)
+
     def update_image(self, image):
+        """
+        Method to update the displayed image.
+        If the image is not None, it loads the image, creates a QImage object from the image file,
+        creates a QPixmap from the QImage, and sets the QPixmap to the QLabel.
+        If the image is None, it sets the QLabel's text to "No image available".
+        """
         if image is not None:
             self.filename = image
+            # Load the image using the _load_image method from io.py
             io._load_image(self, self.filename)
-            qimage = self.convert_to_qimage(image)
+            # Create QImage object from the image file.
+            # Casts the image to a QImage object which adds functionality to easily mutate the image.
+            qimage = QImage(self.filename)
+            # Create QPixmap from the QImage
             pixmap = QPixmap.fromImage(qimage)
+            # Set the QPixmap to the QLabel
             self.label.setPixmap(pixmap)
         else:
             self.label.setText("No image available")
 
     # this converts the image to a qimage so it can be used in the update_image function above
+    # Argueably this funktionality is not needed, as the image is already a qimage.
     def convert_to_qimage(self, image):
         if image.dtype == np.uint8:
             if len(image.shape) == 2:  # Grayscale image
                 qimage = QImage(image.data, image.shape[1], image.shape[0], QImage.Format_Grayscale8)
             elif len(image.shape) == 3:
                 if image.shape[2] == 3:  # RGB image
-                    qimage = QImage(image.data, image.shape[1], image.shape[0], image.shape[1] * 3, QImage.Format_RGB888)
+                    qimage = QImage(image.data, image.shape[1], image.shape[0], image.shape[1] * 3,
+                                    QImage.Format_RGB888)
                 elif image.shape[2] == 4:  # RGBA image
-                    qimage = QImage(image.data, image.shape[1], image.shape[0], image.shape[1] * 4, QImage.Format_RGBA8888)
+                    qimage = QImage(image.data, image.shape[1], image.shape[0], image.shape[1] * 4,
+                                    QImage.Format_RGBA8888)
+                else:
+                    raise ValueError("Unsupported image format")
             else:
-                raise ValueError("Unsupported image format")
+                raise ValueError("Unsupported image data type")
         else:
             raise ValueError("Unsupported image data type")
         return qimage
-# end of code for minimap
+
 
 class ViewBoxNoRightDrag(pg.ViewBox):
 
