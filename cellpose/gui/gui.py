@@ -249,6 +249,22 @@ class MainW(QMainWindow):
         b = self.make_buttons()
         self.lmain.addWidget(self.scrollarea, 0, 0, 39, 9)
 
+        # ---- Right side menu layout ---- #
+        self.rightBox = QGroupBox()
+        self.rightBoxLayout = QGridLayout()
+        self.rightBox.setLayout(self.rightBoxLayout)
+
+        # --- Make the right side menu scrollable---#
+        self.rightScrollArea = QScrollArea()
+        self.rightScrollArea.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOn)  # scrollbar always visible
+        self.rightScrollArea.setStyleSheet("""QScrollArea { border: none }""")  # remove border
+        self.rightScrollArea.setWidgetResizable(True)  # resizing allowed
+        self.rightScrollArea.setWidget(self.rightBox)  # set the rightBox as the content of the scroll area
+
+        # --- Add right side menu to the main layout ---#
+        self.lmain.addWidget(self.rightScrollArea, 0, 40, 39, 9)  # Set the same row and column spans as the left side menu
+
+
         # ---- drawing area ---- #
         self.win = pg.GraphicsLayoutWidget()
 
