@@ -264,9 +264,6 @@ class MainW(QMainWindow):
         # --- Add right side menu to the main layout ---#
         self.lmain.addWidget(self.rightScrollArea, 0, 40, 39, 9)  # Set the same row and column spans as the left side menu
 
-        # Get the width of the left side menu and set to right side menu width
-        leftMenuWidth = self.scrollarea.sizeHint().width()
-        self.rightScrollArea.setFixedWidth(leftMenuWidth)
 
         # ---- drawing area ---- #
         self.win = pg.GraphicsLayoutWidget()
