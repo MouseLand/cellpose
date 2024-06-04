@@ -9,5 +9,5 @@ repos:
     hooks:
       - id: yapf-diff
         name: yapf-diff
-        entry: ./yapf-diff-hook.sh
-        language: system
+        entry: python yapf-diff-format.py
+        language: python
