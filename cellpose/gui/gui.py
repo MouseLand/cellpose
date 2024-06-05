@@ -246,7 +246,6 @@ class MainW(QMainWindow):
         self.scrollarea.setWidget(self.swidget)
         self.l0 = QGridLayout()
         self.swidget.setLayout(self.l0)
-        b = self.make_buttons()
         self.lmain.addWidget(self.scrollarea, 0, 0, 39, 9)
 
         # ---- Right side menu layout ---- #
@@ -263,7 +262,7 @@ class MainW(QMainWindow):
 
         # --- Add right side menu to the main layout ---#
         self.lmain.addWidget(self.rightScrollArea, 0, 40, 39, 9)  # Set the same row and column spans as the left side menu
-
+        b = self.make_buttons()
 
         # ---- drawing area ---- #
         self.win = pg.GraphicsLayoutWidget()
@@ -388,27 +387,22 @@ class MainW(QMainWindow):
         self.autobtn.setChecked(True)
         self.satBoxG.addWidget(self.autobtn, b0, 1, 1, 8)
 
-        # ---create buttons ---#
-        #self.marker1_button = self.create_color_button()
-        #self.marker2_button = self.create_color_button()
-        #self.marker3_button = self.create_color_button()
-
         # ---Create a list (extendable) of color buttons  ---#
         self.marker_buttons = [self.create_color_button() for _ in range(3)]
 
-        b0 += 1
+        c = 0
         self.sliders = []
         colors = [[255, 0, 0], [0, 255, 0], [0, 0, 255], [100, 100, 100]]
         colornames = ["red", "Chartreuse", "DodgerBlue"]
         names = ["red", "green", "blue"]
         for r in range(3):
-            b0 += 1
+            c += 1
             label = QLabel(f'Marker {r+1}') # create a label for each marker
             color_button = self.marker_buttons[r] # get the corresponding color button
             label.setStyleSheet("color: white")
             label.setFont(self.boldmedfont)
-            self.satBoxG.addWidget(label, b0, 0, 1, 1) 
-            self.satBoxG.addWidget(color_button, b0, 9, 1, 1) # add the color button to the layout
+            self.rightBoxLayout.addWidget(label, c, 0, 1, 1) 
+            self.rightBoxLayout.addWidget(color_button, c, 9, 1, 1) # add the color button to the layout
             self.sliders.append(Slider(self, names[r], colors[r]))
             self.sliders[-1].setMinimum(-.1)
             self.sliders[-1].setMaximum(255.1)
@@ -416,8 +410,10 @@ class MainW(QMainWindow):
             self.sliders[-1].setToolTip(
                 "NOTE: manually changing the saturation bars does not affect normalization in segmentation"
             )
-            #self.sliders[-1].setTickPosition(QSlider.TicksRight)
-            self.satBoxG.addWidget(self.sliders[-1], b0, 2, 1, 7)
+            self.sliders[-1].setFixedWidth(250)
+            self.rightBoxLayout.addWidget(self.sliders[-1], c, 2, 1, 7)
+            stretch_widget = QWidget()
+            self.rightBoxLayout.addWidget(stretch_widget)
 
         b += 1
         self.drawBox = QGroupBox("Drawing")
