@@ -2172,7 +2172,7 @@ class MainW(QMainWindow):
         self.new_model_path = train.train_seg(
             self.model.net, train_data=self.train_data, train_labels=self.train_labels,
             channels=self.channels, normalize=normalize_params, min_train_masks=0,
-            save_path=save_path, nimg_per_epoch=8, SGD=True,
+            save_path=save_path, nimg_per_epoch=max(8, len(self.train_data)), SGD=True,
             learning_rate=self.training_params["learning_rate"],
             weight_decay=self.training_params["weight_decay"],
             n_epochs=self.training_params["n_epochs"],
