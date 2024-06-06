@@ -411,7 +411,7 @@ class MainW(QMainWindow):
             self.sliders[-1].setToolTip(
                 "NOTE: manually changing the saturation bars does not affect normalization in segmentation"
             )
-            self.sliders[-1].setFixedWidth(250)
+            self.sliders[-1].setFixedWidth(160)
             self.rightBoxLayout.addWidget(self.sliders[-1], c, 2, 1, 7)
             stretch_widget = QWidget()
             self.rightBoxLayout.addWidget(stretch_widget)
@@ -1690,7 +1690,7 @@ class MainW(QMainWindow):
     def update_layer(self):
         if self.masksOn or self.outlinesOn:
             #self.draw_layer()
-            self.layer.setImage(self.layerz, autoLevels=False)    
+            self.layer.setImage(self.layerz, autoLevels=False)
         self.update_roi_count()
         self.win.show()
         self.show()
@@ -1980,7 +1980,7 @@ class MainW(QMainWindow):
             normalize_params["tile_norm_smooth3D"] = smooth3D
             normalize_params["norm3D"] = norm3D
             normalize_params["invert"] = invert
-        
+
         from cellpose.models import normalize_default
         normalize_params = {**normalize_default, **normalize_params}
 
