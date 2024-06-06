@@ -325,10 +325,6 @@ class ExampleGUI(QDialog):
         layout.addWidget(self.minimap_window, 0, 1, 1, 1)
         self.minimap_window.show()
 
-    # updates the minimap when called
-    def update_minimap(self, image):
-        self.minimap_window.update_image(image)
-
 
 class HelpWindow(QDialog):
 
@@ -389,8 +385,8 @@ class MinimapWindow(QWidget):
         # Create a QLabel to display the image
         self.label = QLabel(self)
 
-        # Set a default image to display
-        self.filename = 'cellpose/logo/logo.png'  # Placeholder image for testing
+        # load the image
+        self.filename = parent.filename
 
         # Load the default image into a QPixmap
         self.pixmap = QPixmap(self.filename)
@@ -409,10 +405,6 @@ class MinimapWindow(QWidget):
         """
         if image is not None:
             self.filename = image
-            # Load the image using the _load_image method from io.py
-
-            # Get the image on Display in Cellpose
-            #io._load_image(self, self.filename)
 
             # Create QImage object from the image file.
             # Casts the image to a QImage object which adds functionality to easily mutate the image.
@@ -421,7 +413,6 @@ class MinimapWindow(QWidget):
             pixmap = QPixmap.fromImage(qimage)
             # Set the QPixmap to the QLabel
             self.label.setPixmap(pixmap)
-
 
             # Create a QDockWidget to accommodate the minimap image
             self.dock = QDockWidget("Minimap", self)
