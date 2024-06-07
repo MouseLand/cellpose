@@ -246,7 +246,6 @@ class MainW(QMainWindow):
         self.scrollarea.setWidget(self.swidget)
         self.l0 = QGridLayout()
         self.swidget.setLayout(self.l0)
-        b = self.make_buttons()
         self.lmain.addWidget(self.scrollarea, 0, 0, 39, 9)
 
         # ---- Right side menu layout ---- #
@@ -262,8 +261,10 @@ class MainW(QMainWindow):
         self.rightScrollArea.setWidget(self.rightBox)  # set the rightBox as the content of the scroll area
 
         # --- Add right side menu to the main layout ---#
-        self.lmain.addWidget(self.rightScrollArea, 0, 40, 39, 9)  # Set the same row and column spans as the left side menu
+        self.lmain.addWidget(self.rightScrollArea, 0, 40, 39,
+                             9)  # Set the same row and column spans as the left side menu
 
+        b = self.make_buttons()
 
         # ---- drawing area ---- #
         self.win = pg.GraphicsLayoutWidget()
@@ -388,20 +389,21 @@ class MainW(QMainWindow):
         self.autobtn.setChecked(True)
         self.satBoxG.addWidget(self.autobtn, b0, 1, 1, 8)
 
-        b0 += 1
+        c = 0  # position of the elements in the right side menu
+
         self.sliders = []
         colors = [[255, 0, 0], [0, 255, 0], [0, 0, 255], [100, 100, 100]]
         colornames = ["red", "Chartreuse", "DodgerBlue"]
         names = ["red", "green", "blue"]
         for r in range(3):
-            b0 += 1
+            c += 1
             if r == 0:
                 label = QLabel('<font color="gray">gray/</font><br>red')
             else:
                 label = QLabel(names[r] + ":")
             label.setStyleSheet(f"color: {colornames[r]}")
             label.setFont(self.boldmedfont)
-            self.satBoxG.addWidget(label, b0, 0, 1, 2)
+            self.rightBoxLayout.addWidget(label, c, 0, 1, 2)
             self.sliders.append(Slider(self, names[r], colors[r]))
             self.sliders[-1].setMinimum(-.1)
             self.sliders[-1].setMaximum(255.1)
@@ -409,8 +411,11 @@ class MainW(QMainWindow):
             self.sliders[-1].setToolTip(
                 "NOTE: manually changing the saturation bars does not affect normalization in segmentation"
             )
-            #self.sliders[-1].setTickPosition(QSlider.TicksRight)
-            self.satBoxG.addWidget(self.sliders[-1], b0, 2, 1, 7)
+            self.sliders[-1].setFixedWidth(160)
+            self.rightBoxLayout.addWidget(self.sliders[-1], c, 2, 1, 7)
+            stretch_widget = QWidget()
+            self.rightBoxLayout.addWidget(stretch_widget)
+
 
         b += 1
         self.drawBox = QGroupBox("Drawing")
@@ -1685,7 +1690,7 @@ class MainW(QMainWindow):
     def update_layer(self):
         if self.masksOn or self.outlinesOn:
             #self.draw_layer()
-            self.layer.setImage(self.layerz, autoLevels=False)    
+            self.layer.setImage(self.layerz, autoLevels=False)
         self.update_roi_count()
         self.win.show()
         self.show()
@@ -1975,7 +1980,7 @@ class MainW(QMainWindow):
             normalize_params["tile_norm_smooth3D"] = smooth3D
             normalize_params["norm3D"] = norm3D
             normalize_params["invert"] = invert
-        
+
         from cellpose.models import normalize_default
         normalize_params = {**normalize_default, **normalize_params}
 
