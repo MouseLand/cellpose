@@ -384,6 +384,7 @@ class MinimapWindow(QWidget):
 
         # Create a QLabel to display the image
         self.label = QLabel(self)
+        self.label.setScaledContents(True)  # Allow the image to scale with the QLabel (Nicolás)
 
         # load the image
         self.filename = parent.filename
@@ -413,6 +414,7 @@ class MinimapWindow(QWidget):
             pixmap = QPixmap.fromImage(qimage)
             # Set the QPixmap to the QLabel
             self.label.setPixmap(pixmap)
+            
 
             # Create a QDockWidget to accommodate the minimap image
             self.dock = QDockWidget("Minimap", self)
