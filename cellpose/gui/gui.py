@@ -317,7 +317,10 @@ class MainW(QMainWindow):
         EG = guiparts.ExampleGUI(self)
         EG.show()
 
-    # implements a new window for the minimap
+    """
+    This function creates a new window that displays the minimap of the current image.
+    It uses the MinimapWindow class created in guiparts.py
+    """
     def minimap_window(self):
         MW = guiparts.MinimapWindow(self)
         MW.show()

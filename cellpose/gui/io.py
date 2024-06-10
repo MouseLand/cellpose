@@ -13,6 +13,7 @@ import fastremap
 from ..io import imread, imsave, outlines_to_text, add_model, remove_model, save_rois
 from ..models import normalize_default, MODEL_DIR, MODEL_LIST_PATH, get_user_models
 from ..utils import masks_to_outlines, outlines_list
+from . import guiparts, gui
 
 try:
     import qtpy
@@ -137,6 +138,9 @@ def _load_image(parent, filename=None, load_seg=True, load_3D=False):
         parent.enable_buttons()
         if load_mask:
             _load_masks(parent, filename=mask_file)
+        # This calls the Minimap Window to create a new minimap, if the image is changed
+        # It does not (yet) delete the old minimap
+        guiparts.MinimapWindow(parent)
 
 
 def _initialize_images(parent, image, load_3D=False):
