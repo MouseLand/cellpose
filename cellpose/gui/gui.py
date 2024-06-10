@@ -262,6 +262,7 @@ class MainW(QMainWindow):
 
         # --- Add right side menu to the main layout ---#
         self.lmain.addWidget(self.rightScrollArea, 0, 40, 39, 9)  # Set the same row and column spans as the left side menu
+
         b = self.make_buttons()
 
         # ---- drawing area ---- #
@@ -387,16 +388,19 @@ class MainW(QMainWindow):
         self.autobtn.setChecked(True)
         self.satBoxG.addWidget(self.autobtn, b0, 1, 1, 8)
 
+
         # ---Create a list (extendable) of color buttons  ---#
         self.marker_buttons = [self.create_color_button() for _ in range(3)]
-
-        c = 0
+    
+        c = 0  # position of the elements in the right side menu
+  
         self.sliders = []
         colors = [[255, 0, 0], [0, 255, 0], [0, 0, 255], [100, 100, 100]]
         colornames = ["red", "Chartreuse", "DodgerBlue"]
         names = ["red", "green", "blue"]
         for r in range(3):
             c += 1
+
             label = QLabel(f'Marker {r+1}') # create a label for each marker
             color_button = self.marker_buttons[r] # get the corresponding color button
             label.setStyleSheet("color: white")
@@ -410,10 +414,14 @@ class MainW(QMainWindow):
             self.sliders[-1].setToolTip(
                 "NOTE: manually changing the saturation bars does not affect normalization in segmentation"
             )
+
             self.sliders[-1].setFixedWidth(250)
             self.rightBoxLayout.addWidget(self.sliders[-1], c, 2, 1, 7)
             stretch_widget = QWidget()
             self.rightBoxLayout.addWidget(stretch_widget)
+
+
+
 
         b += 1
         self.drawBox = QGroupBox("Drawing")
@@ -1733,7 +1741,7 @@ class MainW(QMainWindow):
     def update_layer(self):
         if self.masksOn or self.outlinesOn:
             #self.draw_layer()
-            self.layer.setImage(self.layerz, autoLevels=False)    
+            self.layer.setImage(self.layerz, autoLevels=False)
         self.update_roi_count()
         self.win.show()
         self.show()
@@ -2023,7 +2031,7 @@ class MainW(QMainWindow):
             normalize_params["tile_norm_smooth3D"] = smooth3D
             normalize_params["norm3D"] = norm3D
             normalize_params["invert"] = invert
-        
+
         from cellpose.models import normalize_default
         normalize_params = {**normalize_default, **normalize_params}
 
