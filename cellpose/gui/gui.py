@@ -261,8 +261,7 @@ class MainW(QMainWindow):
         self.rightScrollArea.setWidget(self.rightBox)  # set the rightBox as the content of the scroll area
 
         # --- Add right side menu to the main layout ---#
-        self.lmain.addWidget(self.rightScrollArea, 0, 40, 39,
-                             9)  # Set the same row and column spans as the left side menu
+        self.lmain.addWidget(self.rightScrollArea, 0, 40, 39, 9)  # Set the same row and column spans as the left side menu
 
         b = self.make_buttons()
 
@@ -389,21 +388,25 @@ class MainW(QMainWindow):
         self.autobtn.setChecked(True)
         self.satBoxG.addWidget(self.autobtn, b0, 1, 1, 8)
 
-        c = 0  # position of the elements in the right side menu
 
+        # ---Create a list (extendable) of color buttons  ---#
+        self.marker_buttons = [self.create_color_button() for _ in range(3)]
+    
+        c = 0  # position of the elements in the right side menu
+  
         self.sliders = []
         colors = [[255, 0, 0], [0, 255, 0], [0, 0, 255], [100, 100, 100]]
         colornames = ["red", "Chartreuse", "DodgerBlue"]
         names = ["red", "green", "blue"]
         for r in range(3):
             c += 1
-            if r == 0:
-                label = QLabel('<font color="gray">gray/</font><br>red')
-            else:
-                label = QLabel(names[r] + ":")
-            label.setStyleSheet(f"color: {colornames[r]}")
+
+            label = QLabel(f'Marker {r+1}') # create a label for each marker
+            color_button = self.marker_buttons[r] # get the corresponding color button
+            label.setStyleSheet("color: white")
             label.setFont(self.boldmedfont)
-            self.rightBoxLayout.addWidget(label, c, 0, 1, 2)
+            self.rightBoxLayout.addWidget(label, c, 0, 1, 1) 
+            self.rightBoxLayout.addWidget(color_button, c, 9, 1, 1) # add the color button to the layout
             self.sliders.append(Slider(self, names[r], colors[r]))
             self.sliders[-1].setMinimum(-.1)
             self.sliders[-1].setMaximum(255.1)
@@ -411,10 +414,13 @@ class MainW(QMainWindow):
             self.sliders[-1].setToolTip(
                 "NOTE: manually changing the saturation bars does not affect normalization in segmentation"
             )
-            self.sliders[-1].setFixedWidth(160)
+
+            self.sliders[-1].setFixedWidth(250)
             self.rightBoxLayout.addWidget(self.sliders[-1], c, 2, 1, 7)
             stretch_widget = QWidget()
             self.rightBoxLayout.addWidget(stretch_widget)
+
+
 
 
         b += 1
@@ -869,6 +875,51 @@ class MainW(QMainWindow):
         self.l0.addWidget(self.ScaleOn, b, 0, 1, 5)
 
         return b
+    
+    def create_color_button(self):
+        """
+        Creates a new QPushButton with a transparent background color and connects 
+        its clicked signal to the open_color_dialog method.
+
+        Returns:
+            QPushButton: The created color button.
+        """
+        color_button = QPushButton()
+        color_button.setStyleSheet(self.get_color_button_style("transparent"))
+
+        #--- Connect the button's clicked signal to a new slot method ---#
+        color_button.clicked.connect(self.open_color_dialog)
+
+        return color_button
+
+    def open_color_dialog(self):
+        """
+        Opens a QColorDialog and updates the background color of the button 
+        that was clicked (the sender of the signal) if a valid color is selected.
+        """
+        color = QColorDialog.getColor()
+        if color.isValid():
+            self.sender().setStyleSheet(self.get_color_button_style(color.name()))
+
+    def get_color_button_style(self, color_name):
+        """
+        Returns a string with the CSS style for a QPushButton with the specified background color, a solid border, a border width of 1 pixel, and a size of 12x12 pixels.
+
+        Args:
+            color_name (str): The name of the color to use for the button's background.
+
+        Returns:
+            str: The CSS style for the button.
+        """
+        return f"""
+            QPushButton {{
+                background-color: {color_name};
+                border-style: solid;
+                border-width: 1px;
+                height: 12px;
+                width: 12px;
+                }}
+            """
 
     def level_change(self, r):
         r = ["red", "green", "blue"].index(r)
