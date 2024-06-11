@@ -391,9 +391,10 @@ class MainW(QMainWindow):
 
         # ---Create a list (extendable) of color buttons  ---#
         self.marker_buttons = [self.create_color_button() for _ in range(3)]
+        self.on_off_buttons = [self.create_on_off_button() for _ in range(3)]
     
         c = 0  # position of the elements in the right side menu
-  
+
         self.sliders = []
         colors = [[255, 0, 0], [0, 255, 0], [0, 0, 255], [100, 100, 100]]
         colornames = ["red", "Chartreuse", "DodgerBlue"]
@@ -401,12 +402,14 @@ class MainW(QMainWindow):
         for r in range(3):
             c += 1
 
-            label = QLabel(f'Marker {r+1}') # create a label for each marker
-            color_button = self.marker_buttons[r] # get the corresponding color button
+            label = QLabel(f'Marker {r + 1}')  # create a label for each marker
+            color_button = self.marker_buttons[r]  # get the corresponding color button
+            on_off_button = self.on_off_buttons[r]  # get the corresponding on-off button
             label.setStyleSheet("color: white")
             label.setFont(self.boldmedfont)
-            self.rightBoxLayout.addWidget(label, c, 0, 1, 1) 
-            self.rightBoxLayout.addWidget(color_button, c, 9, 1, 1) # add the color button to the layout
+            self.rightBoxLayout.addWidget(label, c, 0, 1, 1)
+            self.rightBoxLayout.addWidget(color_button, c, 9, 1, 1)  # add the color button to the layout
+            self.rightBoxLayout.addWidget(on_off_button, c, 10, 1, 1)  # add the on-off button to the layout
             self.sliders.append(Slider(self, names[r], colors[r]))
             self.sliders[-1].setMinimum(-.1)
             self.sliders[-1].setMaximum(255.1)
@@ -891,6 +894,49 @@ class MainW(QMainWindow):
         color_button.clicked.connect(self.open_color_dialog)
 
         return color_button
+
+    def create_on_off_button(self):
+        """
+        Creates a new QPushButton for toggling on and off, with an initial "off" state,
+        and connects its clicked signal to the toggle_on_off method.
+
+        Returns:
+            QPushButton: The created on-off button.
+        """
+        on_off_button = QPushButton()
+        on_off_button.setCheckable(True)
+        on_off_button.setChecked(False)
+        on_off_button.setIcon(QtGui.QIcon.fromTheme("media-playback-stop"))  # Icon for "off" state
+        on_off_button.setIconSize(QtCore.QSize(12, 12))
+        on_off_button.clicked.connect(self.toggle_on_off)
+        return on_off_button
+
+    def create_on_off_button(self):
+        """
+        Creates a new QPushButton for toggling on and off, with an initial "off" state,
+        and connects its clicked signal to the toggle_on_off method.
+
+        Returns:
+            QPushButton: The created on-off button.
+        """
+        on_off_button = QPushButton()
+        on_off_button.setCheckable(True)
+        on_off_button.setChecked(False)
+        on_off_button.setIcon(QtGui.QIcon.fromTheme("media-playback-stop"))  # Icon for "off" state
+        on_off_button.setIconSize(QtCore.QSize(12, 12))
+        on_off_button.clicked.connect(self.toggle_on_off)
+        return on_off_button
+
+    def toggle_on_off(self):
+        """
+        Slot method that toggles the appearance of the on-off button when clicked.
+        Changes the icon to indicate the current state.
+        """
+        button = self.sender()
+        if button.isChecked():
+            button.setIcon(QtGui.QIcon.fromTheme("media-playback-start"))  # Icon for "on" state
+        else:
+            button.setIcon(QtGui.QIcon.fromTheme("media-playback-stop"))  # Icon for "off" state
 
     def open_color_dialog(self):
         """
