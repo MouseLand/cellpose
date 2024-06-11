@@ -8,6 +8,7 @@ from qtpy import QtGui, QtCore
 from superqt import QRangeSlider, QCollapsible
 from qtpy.QtWidgets import QScrollArea, QMainWindow, QApplication, QWidget, QScrollBar, QComboBox, QGridLayout, QPushButton, QFrame, QCheckBox, QLabel, QProgressBar, QLineEdit, QMessageBox, QGroupBox, QColorDialog
 import pyqtgraph as pg
+from qtpy.QtGui import QIcon
 
 import numpy as np
 from scipy.stats import mode
@@ -906,7 +907,7 @@ class MainW(QMainWindow):
         on_off_button = QPushButton()
         on_off_button.setCheckable(True)
         on_off_button.setChecked(False)
-        on_off_button.setIcon(QtGui.QIcon.fromTheme("media-playback-stop"))  # Icon for "off" state
+        on_off_button.setIcon(QIcon("cellpose/resources/icon/visibility_off"))  # Icon for "off" state
         on_off_button.setIconSize(QtCore.QSize(12, 12))
         on_off_button.clicked.connect(self.toggle_on_off)
         return on_off_button
@@ -918,9 +919,9 @@ class MainW(QMainWindow):
         """
         button = self.sender()
         if button.isChecked():
-            button.setIcon(QtGui.QIcon.fromTheme("media-playback-start"))  # Icon for "on" state
+            button.setIcon(QIcon("cellpose/resources/icon/visibility_on.png"))  # Icon for "on" state
         else:
-            button.setIcon(QtGui.QIcon.fromTheme("media-playback-stop"))  # Icon for "off" state
+            button.setIcon(QIcon("cellpose/resources/icon/visibility_off"))  # Icon for "off" state
 
     def open_color_dialog(self):
         """
