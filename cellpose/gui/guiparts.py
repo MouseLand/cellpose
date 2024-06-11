@@ -384,7 +384,7 @@ class MinimapWindow(QWidget):
 
         # Create a QLabel to display the image
         self.label = QLabel(self)
-        #self.label.setScaledContents(True)  # Allow the image to scale with the QLabel (does not maintain aspect ratio)
+        self.label.setScaledContents(False)  # Allow the image to scale with the QLabel (does not maintain aspect ratio)
 
         # load the image
         self.filename = parent.filename

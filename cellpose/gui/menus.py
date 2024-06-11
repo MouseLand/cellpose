@@ -74,11 +74,11 @@ def mainmenu(parent):
     It is deactivated by default and has to be checked.
     """
     parent.minimapWindow = QAction("&Minimap", parent, checkable=True)
-    # doesn't offer the possibility of being "unchecked" yet
+# doesn't offer the possibility of being "unchecked" yet
     parent.minimapWindow.setChecked(False)
     parent.minimapWindow.triggered.connect(parent.minimap_window)
     file_menu.addAction(parent.minimapWindow)
-
+    
 def editmenu(parent):
     main_menu = parent.menuBar()
     edit_menu = main_menu.addMenu("&Edit")

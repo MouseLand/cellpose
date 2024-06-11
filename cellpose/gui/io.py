@@ -140,7 +140,11 @@ def _load_image(parent, filename=None, load_seg=True, load_3D=False):
             _load_masks(parent, filename=mask_file)
         # This calls the Minimap Window to create a new minimap, if the image is changed
         # It does not (yet) delete the old minimap
-        guiparts.MinimapWindow(parent)
+        if hasattr(parent, 'minimap_window_instance') and parent.minimap_window_instance is not None:
+            parent.minimap_window_instance.update_image(parent.filename)
+        else:
+            parent.minimap_window_instance = guiparts.MinimapWindow(parent)
+            parent.minimap_window_instance.show()
 
 
 def _initialize_images(parent, image, load_3D=False):

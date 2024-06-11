@@ -282,6 +282,7 @@ class MainW(QMainWindow):
         self.restore = None
         self.ratio = 1.
         self.reset()
+        self.minimap_window_instance = None
 
         # if called with image, load it
         if image is not None:
@@ -322,8 +323,15 @@ class MainW(QMainWindow):
     It uses the MinimapWindow class created in guiparts.py
     """
     def minimap_window(self):
-        MW = guiparts.MinimapWindow(self)
-        MW.show()
+        if self.minimapWindow.isChecked():
+            if self.minimap_window_instance is None:
+                self.minimap_window_instance = guiparts.MinimapWindow(self)
+            self.minimap_window_instance.show()
+            self.minimap_window_instance.raise_()
+        else:
+            if self.minimap_window_instance is not None:
+                self.minimap_window_instance.close()
+                self.minimap_window_instance = None
 
     def make_buttons(self):
         self.boldfont = QtGui.QFont("Arial", 11, QtGui.QFont.Bold)
