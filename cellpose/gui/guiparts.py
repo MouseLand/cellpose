@@ -384,7 +384,7 @@ class MinimapWindow(QWidget):
 
         # Create a QLabel to display the image
         self.label = QLabel(self)
-        self.label.setScaledContents(True)  # Allow the image to scale with the QLabel
+        #self.label.setScaledContents(True)  # Allow the image to scale with the QLabel (does not maintain aspect ratio)
 
         # load the image
         self.filename = parent.filename
@@ -418,6 +418,8 @@ class MinimapWindow(QWidget):
 
             # Create a QDockWidget to accommodate the minimap image
             self.dock = QDockWidget("Minimap", self)
+            # Set the dock to use our resize methode.
+            self.dock.resizeEvent = self.resizeEvent
             # Set the QLabel as the widget for the dock
             self.dock.setWidget(self.label)
             # Set the dock to be floating, so it is detached from the main window (can be freely moved around)
@@ -425,26 +427,39 @@ class MinimapWindow(QWidget):
         else:
             self.label.setText("No image available")
 
-    # this converts the image to a qimage so it can be used in the update_image function above
-    # Argueably this funktionality is not needed, as the image is already a qimage.
-    def convert_to_qimage(self, image):
-        if image.dtype == np.uint8:
-            if len(image.shape) == 2:  # Grayscale image
-                qimage = QImage(image.data, image.shape[1], image.shape[0], QImage.Format_Grayscale8)
-            elif len(image.shape) == 3:
-                if image.shape[2] == 3:  # RGB image
-                    qimage = QImage(image.data, image.shape[1], image.shape[0], image.shape[1] * 3,
-                                    QImage.Format_RGB888)
-                elif image.shape[2] == 4:  # RGBA image
-                    qimage = QImage(image.data, image.shape[1], image.shape[0], image.shape[1] * 4,
-                                    QImage.Format_RGBA8888)
-                else:
-                    raise ValueError("Unsupported image format")
-            else:
-                raise ValueError("Unsupported image data type")
-        else:
-            raise ValueError("Unsupported image data type")
-        return qimage
+    def adjust_image_size(self, new_size=None):
+        """
+        Adjusts the size of the image to fit the dock. If a new size is provided,
+        the image is resized to this new size. If no new size is provided, the image
+        is resized to the current size of the dock. The aspect ratio of the image is
+        maintained during the resizing.
+
+        Parameters:
+        new_size (QSize, optional): The new size to which the image should be resized.
+                                    If not provided, the current size of the dock is used.
+        """
+
+        # Default to the size of the dock if no new size is provided
+        if new_size is None:
+            new_size = self.dock.size()
+        # Create a resized version of the image
+        resized_pixmap = self.pixmap.scaled(new_size, QtCore.Qt.KeepAspectRatio)
+        # Set the resized image to the QLabel
+        self.label.setPixmap(resized_pixmap)
+
+    def resizeEvent(self, event):
+        """
+        Overrides the parent class' resizeEvent method. This method is called when
+        the dock is resized. It resizes the image to fit the new size of the dock
+        and then calls the parent class' resizeEvent method.
+
+        Parameters:
+        event (QResizeEvent): The event parameters for the resize event.
+        """
+
+        # Resize the image to fit the new size of the dock
+        self.adjust_image_size()
+        super().resizeEvent(event)
 
 
 class ViewBoxNoRightDrag(pg.ViewBox):
