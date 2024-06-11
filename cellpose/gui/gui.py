@@ -911,22 +911,6 @@ class MainW(QMainWindow):
         on_off_button.clicked.connect(self.toggle_on_off)
         return on_off_button
 
-    def create_on_off_button(self):
-        """
-        Creates a new QPushButton for toggling on and off, with an initial "off" state,
-        and connects its clicked signal to the toggle_on_off method.
-
-        Returns:
-            QPushButton: The created on-off button.
-        """
-        on_off_button = QPushButton()
-        on_off_button.setCheckable(True)
-        on_off_button.setChecked(False)
-        on_off_button.setIcon(QtGui.QIcon.fromTheme("media-playback-stop"))  # Icon for "off" state
-        on_off_button.setIconSize(QtCore.QSize(12, 12))
-        on_off_button.clicked.connect(self.toggle_on_off)
-        return on_off_button
-
     def toggle_on_off(self):
         """
         Slot method that toggles the appearance of the on-off button when clicked.
