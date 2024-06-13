@@ -310,9 +310,6 @@ class ExampleGUI(QDialog):
         layout = QGridLayout()
         self.win.setLayout(layout)
 
-        # initilization of minimap
-        self.minimap_window = MinimapWindow(self)
-
         guip_path = pathlib.Path.home().joinpath(".cellpose", "cellpose_gui.png")
         guip_path = str(guip_path.resolve())
         pixmap = QPixmap(guip_path)
@@ -320,10 +317,6 @@ class ExampleGUI(QDialog):
         label.setPixmap(pixmap)
         pixmap.scaled
         layout.addWidget(label, 0, 0, 1, 1)
-
-        # Add minimap to layout
-        layout.addWidget(self.minimap_window, 0, 1, 1, 1)
-        self.minimap_window.show()
 
 
 class HelpWindow(QDialog):
@@ -370,6 +363,13 @@ class TrainHelpWindow(QDialog):
 
 # window displaying a minimap of the current image
 class MinimapWindow(QWidget):
+    """
+    Method to initialize the Minimap Window.
+    It creates a title for the window and a QWidget with a basic layout.
+    It also takes the current picture stored in parent.filename and loads it in a QPixmap.
+    The proportions of this image stay constant.
+    This is then set to a QLabel that will display the image.
+    """
     def __init__(self, parent=None):
         super(MinimapWindow, self).__init__(parent)
         # Set the title and geometry of the window
@@ -393,8 +393,11 @@ class MinimapWindow(QWidget):
         self.pixmap = QPixmap(self.filename)
         # Set the QPixmap to the QLabel (that will display the image)
         self.label.setPixmap(self.pixmap)
+        # this prevents the minimap from being too big
+        self.label.setMaximumSize(600, 400)
         # Add the QLabel to the layout
         layout.addWidget(self.label, 0, 0, 1, 1)
+        #QWidget().setMaximumSize(600, 750)
         self.update_image(self.filename)
 
     def update_image(self, image):
@@ -414,7 +417,8 @@ class MinimapWindow(QWidget):
             pixmap = QPixmap.fromImage(qimage)
             # Set the QPixmap to the QLabel
             self.label.setPixmap(pixmap)
-            
+            # this prevents the minimap from being too big
+            self.label.setMaximumSize(600, 400)
 
             # Create a QDockWidget to accommodate the minimap image
             self.dock = QDockWidget("Minimap", self)
@@ -436,16 +440,23 @@ class MinimapWindow(QWidget):
 
         Parameters:
         new_size (QSize, optional): The new size to which the image should be resized.
-                                    If not provided, the current size of the dock is used.
+                                    If not provided, the current width and height of the window are used.
         """
 
         # Default to the size of the dock if no new size is provided
         if new_size is None:
             new_size = self.dock.size()
+        # Extract the current height and width of the window
+        new_height = self.height()
+        new_width = self.width()
+        # Create a resized version of the image
+        self.label.setMinimumSize(new_height, new_width)
+        self.label.setMaximumSize(1200, 900)
         # Create a resized version of the image
         resized_pixmap = self.pixmap.scaled(new_size, QtCore.Qt.KeepAspectRatio)
         # Set the resized image to the QLabel
         self.label.setPixmap(resized_pixmap)
+        self.label.setScaledContents(False)
 
     def resizeEvent(self, event):
         """
