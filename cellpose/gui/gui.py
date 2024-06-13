@@ -392,12 +392,11 @@ class MainW(QMainWindow):
     
         c = 0  # position of the elements in the right side menu
 
-        # ---Create a list (extendable) of color buttons  ---#
+        self.sliders = []
+        # ---Create a list (extendable) of color/on-off buttons  ---#
         colors = ["red", "green", "blue"]
         self.marker_buttons = [self.create_color_button(color) for color in colors]
-
         self.on_off_buttons = [self.create_on_off_button() for _ in range(3)]
-        self.sliders = []
 
         for r in range(3):
             c += 1
@@ -418,16 +417,11 @@ class MainW(QMainWindow):
             self.sliders[-1].setToolTip(
                 "NOTE: manually changing the saturation bars does not affect normalization in segmentation"
             )
-            # ---Create a list (extendable) of color buttons  ---#
-            colors = ["red", "green", "blue"]
-            self.marker_buttons = [self.create_color_button(color) for color in colors]
 
             self.sliders[-1].setFixedWidth(250)
             self.rightBoxLayout.addWidget(self.sliders[-1], c, 2, 1, 7)
             stretch_widget = QWidget()
             self.rightBoxLayout.addWidget(stretch_widget)
-
-
 
 
         b += 1
@@ -884,16 +878,6 @@ class MainW(QMainWindow):
         return b
 
     def create_color_button(self, color):
-        """
-            Creates a new QPushButton with a specified background color and connects
-            its clicked signal to the open_color_dialog method.
-
-            Args:
-                color (str): The initial background color of the button.
-
-            Returns:
-                QPushButton: The created color button.
-            """
         color_button = QPushButton()
         color_button.setStyleSheet(self.get_color_button_style(color))
         color_button.clicked.connect(self.open_color_dialog)
