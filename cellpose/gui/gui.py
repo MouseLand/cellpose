@@ -884,6 +884,16 @@ class MainW(QMainWindow):
         return b
 
     def create_color_button(self, color):
+        """
+            Creates a new QPushButton with a specified background color and connects
+            its clicked signal to the open_color_dialog method.
+
+            Args:
+                color (str): The initial background color of the button.
+
+            Returns:
+                QPushButton: The created color button.
+            """
         color_button = QPushButton()
         color_button.setStyleSheet(self.get_color_button_style(color))
         color_button.clicked.connect(self.open_color_dialog)
