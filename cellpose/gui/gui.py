@@ -396,7 +396,7 @@ class MainW(QMainWindow):
         # ---Create a list (extendable) of color/on-off buttons  ---#
         colors = ["red", "green", "blue"]
         self.marker_buttons = [self.create_color_button(color) for color in colors]
-        self.on_off_buttons = [self.create_on_off_button() for _ in range(3)]
+        self.on_off_buttons = [self.create_on_off_button() for color in colors]
 
         for r in range(3):
             c += 1
