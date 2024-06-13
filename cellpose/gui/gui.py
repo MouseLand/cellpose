@@ -878,6 +878,15 @@ class MainW(QMainWindow):
         return b
 
     def create_color_button(self, color):
+        """
+            Creates and initializes all the buttons and UI elements used in the GUI.
+            This includes buttons for changing views, drawing, segmentation, model
+            selection, and image restoration. Also initializes color buttons with
+            specific colors (red, green, blue) and on-off buttons.
+
+            Returns:
+                int: The number of buttons and UI elements created.
+            """
         color_button = QPushButton()
         color_button.setStyleSheet(self.get_color_button_style(color))
         color_button.clicked.connect(self.open_color_dialog)
