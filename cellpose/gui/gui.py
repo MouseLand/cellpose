@@ -924,9 +924,20 @@ class MainW(QMainWindow):
         Opens a QColorDialog and updates the background color of the button 
         that was clicked (the sender of the signal) if a valid color is selected.
         """
-        color = QColorDialog.getColor()
-        if color.isValid():
-            self.sender().setStyleSheet(self.get_color_button_style(color.name()))
+        # Get the current color of the sender button
+        current_color = self.sender().palette().button().color()
+
+        # Create a QColorDialog instance
+        color_dialog = QColorDialog()
+
+        # Set the current color of the dialog
+        color_dialog.setCurrentColor(current_color)
+
+        # Execute the dialog and check if a valid color is selected
+        if color_dialog.exec_():
+            color = color_dialog.selectedColor()
+            if color.isValid():
+                self.sender().setStyleSheet(self.get_color_button_style(color.name()))
 
     def get_color_button_style(self, color_name):
         """
