@@ -1,0 +1,34 @@
+name: size-label
+on: pull_request
+jobs:
+  PRSizeLabeler:
+    permissions:
+      contents: read
+      pull-requests: write
+    runs-on: ubuntu-latest
+    outputs:
+      sizeLabel: ${{ steps.label.outputs.sizeLabel }}
+    steps:
+      - name: size-label
+        id: label
+        uses: "pascalgn/size-label-action@v0.5.2"
+        env:
+          GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
+        with:
+          sizes: >
+            {
+              "0": "XS",
+              "5": "S",
+              "15": "M",
+              "25": "L",
+              "35": "XL",
+              "50": "Too_Big"
+            }
+  TooBig:
+    runs-on: ubuntu-latest
+    needs: PRSizeLabeler
+    if: ${{ contains(needs.PRSizeLabeler.outputs.sizeLabel, 'Too_Big') }}
+    steps:
+      - run: |
+          echo "Size is above 50, failing the workflow"
+          exit 1
