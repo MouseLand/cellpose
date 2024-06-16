@@ -22,7 +22,8 @@ jobs:
               "15": "M",
               "25": "L",
               "35": "XL",
-              "50": "Too_Big"
+              "50": "XXL",
+              "80": "Too_Big"
             }
   TooBig:
     runs-on: ubuntu-latest
@@ -30,5 +31,5 @@ jobs:
     if: ${{ contains(needs.PRSizeLabeler.outputs.sizeLabel, 'Too_Big') }}
     steps:
       - run: |
-          echo "Size is above 50, failing the workflow"
+          echo "The PR is too big, nobody can review something like that please split it into multiple PR's"
           exit 1
