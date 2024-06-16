@@ -31,5 +31,5 @@ jobs:
     if: ${{ contains(needs.PRSizeLabeler.outputs.sizeLabel, 'Too_Big') }}
     steps:
       - run: |
-          echo "The PR is too big, nobody can review something like that please split it into multiple PR's"
+          echo "The PR is too big, nobody can review something like that. Please split it into multiple PR's"
           exit 1
