@@ -394,14 +394,12 @@ class MinimapWindow(QWidget):
         # Set the QPixmap to the QLabel (that will display the image)
         self.label.setPixmap(self.pixmap)
         # this prevents the minimap from being too big
-        # self.label.setMaximumSize(600, 400)
         # Add the QLabel to the layout
         layout.addWidget(self.label, 0, 0, 1, 1)
-        #QWidget().setMaximumSize(600, 750)
-        # If picture smaller then window, set window size to the size of the image
+        # If the picture is smaller than the window, set the window size to half the size of the image
         if self.pixmap.height() < parent.height() and self.pixmap.width() < parent.width():
-            self.setGeometry(100, 100, self.pixmap.height(), self.pixmap.width())
-            
+            self.setGeometry(100, 100, self.pixmap.height()//2, self.pixmap.width()//2)
+
         self.update_image(self.filename)
 
     def update_image(self, image):
