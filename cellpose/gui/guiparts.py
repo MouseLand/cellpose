@@ -375,13 +375,16 @@ class MinimapWindow(QWidget):
         # Set the title and geometry of the window
         self.title = "Minimap"
         self.setWindowTitle(self.title)
-        self.setGeometry(100, 100, 400, 300)
+
+        # In practice, this line allows the window to be resized infinitely big, but sets the
+        # given dimensions as a lower boundry. The image is first presented in its original size.
+        # self.setGeometry(100, 100, 400, 300) 
 
         # Create a QWidget and set its layout to QGridLayout
         self.win = QWidget(self)
         layout = QGridLayout()
         self.win.setLayout(layout)
-
+        
         # Create a QLabel to display the image
         self.label = QLabel(self)
         self.label.setScaledContents(False)  # Allow the image to scale with the QLabel (does not maintain aspect ratio)
@@ -391,16 +394,45 @@ class MinimapWindow(QWidget):
 
         # Load the default image into a QPixmap
         self.pixmap = QPixmap(self.filename)
+
         # Set the QPixmap to the QLabel (that will display the image)
         self.label.setPixmap(self.pixmap)
-        # this prevents the minimap from being too big
+
+        # Define maximum (1) 
+        # This line doesn't to anything at all
+        # QWidget().setMaximumSize(600, 750)
+
+        # Define maximum (2, Most functional version)
+        # For images with both dimensions smaller than defined here, the image has no margin at the start. 
+        # For images with either of the two dimensions (or both) bigger than defined, the window
+        # first appears with the size of the defined maximum, and the image is  shrunken to
+        # fit the window, wihle mantaining proprotions. This occasionates margins for big images and not for small ones!
+        # Example: Max = (100, 200) -> Image = (50, 100) -> Image is displayed without margins, size (50, 100)
+        # Example: Max = (100, 200) -> Image = (200, 400) -> Image is displayed with margins, size (100, 200)
+        # self.label.setMaximumSize(900, 600)
+
+        # Define maximum (2.1)
+        # self.label.setMaximumSize(self.label.height(), QtWidgets.QWIDGETSIZE_MAX)
+
+
+        
+        # Define maximum (3)
+        # In this variant, small images are not shrunkable; same logic as in self.setGeometry comment above.
+        # if self.pixmap.height() < parent.height() and self.pixmap.width() < parent.width():
+        #    self.setGeometry(100, 100, self.pixmap.height(), self.pixmap.width())
+
+        # Define maximum (4)
+        # Norm the height 
+        if self.label.height() > parent.height() / 6:
+            new_height = int(parent.height() / 6)
+            new_width = int(self.label.width() * (new_height / self.label.height()))
+            self.label.resize(new_width, new_height)
+
         # Add the QLabel to the layout
         layout.addWidget(self.label, 0, 0, 1, 1)
-        # If the picture is smaller than the window, set the window size to half the size of the image
-        if self.pixmap.height() < parent.height() and self.pixmap.width() < parent.width():
-            self.setGeometry(100, 100, self.pixmap.height()//2, self.pixmap.width()//2)
-
+            
         self.update_image(self.filename)
+       
 
     def update_image(self, image):
         """
@@ -419,8 +451,9 @@ class MinimapWindow(QWidget):
             pixmap = QPixmap.fromImage(qimage)
             # Set the QPixmap to the QLabel
             self.label.setPixmap(pixmap)
-            # this prevents the minimap from being too big
-            self.label.setMaximumSize(600, 400)
+
+            # Define maximum (5)
+            # self.label.setMaximumSize(600, 400)
 
             # Create a QDockWidget to accommodate the minimap image
             self.dock = QDockWidget("Minimap", self)
@@ -451,9 +484,11 @@ class MinimapWindow(QWidget):
         # Extract the current height and width of the window
         new_height = self.height()
         new_width = self.width()
-        # Create a resized version of the image
+
+        # Die Zeile braucht man irgendwie, dass das fenster überhaupt verkleinert werden kann
         self.label.setMinimumSize(new_height, new_width)
-        self.label.setMaximumSize(1200, 900)
+        # Define maxium (3)
+        # self.label.setMaximumSize(1200, 900)
         # Create a resized version of the image
         resized_pixmap = self.pixmap.scaled(new_size, QtCore.Qt.KeepAspectRatio)
         # Set the resized image to the QLabel
