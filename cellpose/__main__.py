@@ -155,16 +155,26 @@ def main():
                 builtin_size = False
                 if args.all_channels:
                     channels = None
+                    img = io.imread(image_names[0])
+                    if img.ndim == 3:
+                        nchan = min(img.shape)
+                    elif img.ndim == 2:
+                        nchan = 1
+                    channels = None
+                else:
+                    nchan = 2
+                    
                 pretrained_model = None if model_type is not None else pretrained_model
                 if restore_type is None:
                     model = models.CellposeModel(gpu=gpu, device=device,
                                                  pretrained_model=pretrained_model,
                                                  model_type=model_type,
+                                                 nchan=nchan,
                                                  backbone=backbone)
                 else:
                     model = denoise.CellposeDenoiseModel(
                         gpu=gpu, device=device, pretrained_model=pretrained_model,
-                        model_type=model_type, restore_type=restore_type,
+                        model_type=model_type, restore_type=restore_type, nchan=nchan,
                         chan2_restore=args.chan2_restore)
 
             # handle diameters
