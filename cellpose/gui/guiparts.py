@@ -395,6 +395,10 @@ class MinimapWindow(QWidget):
         # Load the default image into a QPixmap
         self.pixmap = QPixmap(self.filename)
 
+        # This line scales the QPixmap object 'self.pixmap' to a new size of 600x400 pixels.
+        # The aspect ratio is maintained to avoid distortions of the image.
+        self.pixmap = self.pixmap.scaled(600, 400, QtCore.Qt.KeepAspectRatio)
+
         # Set the QPixmap to the QLabel (that will display the image)
         self.label.setPixmap(self.pixmap)
 
@@ -422,16 +426,23 @@ class MinimapWindow(QWidget):
         #    self.setGeometry(100, 100, self.pixmap.height(), self.pixmap.width())
 
         # Define maximum (4)
-        # Norm the height 
+        # Norm the height
+        """
         if self.label.height() > parent.height() / 6:
             new_height = int(parent.height() / 6)
             new_width = int(self.label.width() * (new_height / self.label.height()))
             self.label.resize(new_width, new_height)
+        """
 
         # Add the QLabel to the layout
         layout.addWidget(self.label, 0, 0, 1, 1)
             
         self.update_image(self.filename)
+
+        # This line sets the size of the window to match the width and height of the pixmap.
+        self.setFixedSize(self.pixmap.width(), self.pixmap.height())
+        # This line sets the size of the label to match the width and height of the pixmap.
+        self.label.setFixedSize(self.pixmap.width(), self.pixmap.height())
        
 
     def update_image(self, image):
@@ -481,6 +492,8 @@ class MinimapWindow(QWidget):
         # Default to the size of the dock if no new size is provided
         if new_size is None:
             new_size = self.dock.size()
+
+        """
         # Extract the current height and width of the window
         new_height = self.height()
         new_width = self.width()
@@ -494,6 +507,11 @@ class MinimapWindow(QWidget):
         # Set the resized image to the QLabel
         self.label.setPixmap(resized_pixmap)
         self.label.setScaledContents(False)
+        """
+        # Create a resized version of the pixmap with the new size while keeping the aspect ratio
+        resized_pixmap = self.pixmap.scaled(new_size, QtCore.Qt.KeepAspectRatio)
+        # Set the resized pixmap to the label
+        self.label.setPixmap(resized_pixmap)
 
     def resizeEvent(self, event):
         """

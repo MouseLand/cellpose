@@ -1065,7 +1065,7 @@ class MainW(QMainWindow):
         self.saveFlows.setEnabled(False)
         self.saveOutlines.setEnabled(False)
         self.saveROIs.setEnabled(False)
-        self.minimapWindow.setEnable(False)
+        self.minimapWindow.setEnabled(False)
 
         self.MakeDeletionRegionButton.setEnabled(False)
         self.DeleteMultipleROIButton.setEnabled(False)
