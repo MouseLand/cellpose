@@ -323,15 +323,17 @@ class MainW(QMainWindow):
     It uses the MinimapWindow class created in guiparts.py
     """
     def minimap_window(self):
-        if self.minimapWindow.isChecked():
-            if self.minimap_window_instance is None:
-                self.minimap_window_instance = guiparts.MinimapWindow(self)
+        if not self.minimap_window_instance:
+            self.minimap_window_instance = MinimapWindow(parent=self)
             self.minimap_window_instance.show()
-            self.minimap_window_instance.raise_()
-        else:
-            if self.minimap_window_instance is not None:
-                self.minimap_window_instance.close()
-                self.minimap_window_instance = None
+    """
+    This function closes the minimap window
+    """
+    def close_minimap_window(self):
+        if self.minimap_window_instance:
+            self.minimap_window_instance.close()
+            self.minimap_window_instance = None
+    
 
     def make_buttons(self):
         self.boldfont = QtGui.QFont("Arial", 11, QtGui.QFont.Bold)
@@ -1155,6 +1157,11 @@ class MainW(QMainWindow):
             io._load_seg(self, filename=files[0], load_3D=self.load_3D)
         else:
             io._load_image(self, filename=files[0], load_seg=True, load_3D=self.load_3D)
+
+        # Check if the minimap button is not checked
+        if not self.minimap_button.isChecked():
+            # Set the minimap button to checked state
+            self.minimap_button.setChecked(True)
 
     def toggle_masks(self):
         if self.MCheckBox.isChecked():
