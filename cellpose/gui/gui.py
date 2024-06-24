@@ -288,6 +288,9 @@ class MainW(QMainWindow):
         if image is not None:
             self.filename = image
             io._load_image(self, self.filename)
+        
+        # This line connects the toggle function to the checked state of the minimap button in the menu
+        # self.minimapWindow.triggered.connect(self.toggle_minimap)
 
         # training settings
         d = datetime.datetime.now()
@@ -323,9 +326,15 @@ class MainW(QMainWindow):
     It uses the MinimapWindow class created in guiparts.py
     """
     def minimap_window(self):
-        if not self.minimap_window_instance:
-            self.minimap_window_instance = MinimapWindow(parent=self)
+        if self.minimapWindow.isChecked():
+            if self.minimap_window_instance is None:
+                self.minimap_window_instance = guiparts.MinimapWindow(self)
             self.minimap_window_instance.show()
+            self.minimap_window_instance.raise_()
+        else:
+            if self.minimap_window_instance is not None:
+                self.minimap_window_instance.close()
+                self.minimap_window_instance = None
     """
     This function closes the minimap window
     """
@@ -333,6 +342,26 @@ class MainW(QMainWindow):
         if self.minimap_window_instance:
             self.minimap_window_instance.close()
             self.minimap_window_instance = None
+    """
+    This function keeps track of the state of the minimap button and toggles the
+    window on and off ()
+    """
+
+    def toggle_minimap(self, checked):
+        if checked:
+            self.minimap_window()
+        else:
+            self.close_minimap_window()
+
+    """
+    This function notices when the minimap window is closed (thanks to closeEvent
+    method in guiparts) and unchecks the minimap button in the menu
+    """
+    def minimap_closed(self):
+            # Uncheck the minimap button when the minimap window is closed
+            self.minimapWindow.setChecked(False)
+            if hasattr(self, 'minimap'):
+                del self.minimap
     
 
     def make_buttons(self):
@@ -1158,10 +1187,8 @@ class MainW(QMainWindow):
         else:
             io._load_image(self, filename=files[0], load_seg=True, load_3D=self.load_3D)
 
-        # Check if the minimap button is not checked
-        if not self.minimap_button.isChecked():
-            # Set the minimap button to checked state
-            self.minimap_button.setChecked(True)
+        self.minimapWindow.setChecked(True)  # Check the minimap menu item
+        self.toggle_minimap(True)
 
     def toggle_masks(self):
         if self.MCheckBox.isChecked():

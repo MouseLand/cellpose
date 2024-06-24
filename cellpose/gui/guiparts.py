@@ -527,6 +527,14 @@ class MinimapWindow(QWidget):
         self.adjust_image_size()
         super().resizeEvent(event)
 
+        # This method overrides the parent class' resizeEvent method.
+        # It informs the MainW class that the minimap has been closed,
+        # so that the menu button can be untoggled.
+        def closeEvent(self, event):
+        # Notify the parent that the window is closing
+            self.parent.minimap_closed()
+            event.accept()  # Accept the event and close the window
+
 
 class ViewBoxNoRightDrag(pg.ViewBox):
 

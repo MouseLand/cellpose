@@ -149,6 +149,8 @@ def _load_image(parent, filename=None, load_seg=True, load_3D=False):
         else:
             parent.minimap_window_instance = guiparts.MinimapWindow(parent)
             parent.minimap_window_instance.show()
+    # We want to mark the "minimap" menu button as checked if an image is loaded
+    parent.minimapWindow.setChecked(True)
 
 
 def _initialize_images(parent, image, load_3D=False):
