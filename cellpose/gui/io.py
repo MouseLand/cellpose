@@ -140,10 +140,13 @@ def _load_image(parent, filename=None, load_seg=True, load_3D=False):
             _load_masks(parent, filename=mask_file)
 
         # This calls the Minimap Window to create a new minimap, if the image is changed
-        # It does not (yet) delete the old minimap
         if hasattr(parent, 'minimap_window_instance') and parent.minimap_window_instance is not None:
             # The deleteLater() method marks the MinimapWindow object for later deletion after the current event has been processed
             parent.minimap_window_instance.deleteLater()
+            parent.minimap_window_instance.close()
+            # this calls a method from gui that removes the checkmark from the minimap menu button
+            parent.minimap_closed()
+            parent.minimapWindow.setChecked(False)
             # Create a new instance before calling update_image
             parent.minimap_window_instance = guiparts.MinimapWindow(parent)
         else:

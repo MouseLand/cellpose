@@ -72,9 +72,9 @@ def mainmenu(parent):
     """
     This creates a new menu item for the minimap that the user can activate.
     It is deactivated by default and has to be checked.
+    The minimap_window function is called from gui.py when the user clicks on the menu item.
     """
     parent.minimapWindow = QAction("&Minimap", parent, checkable=True)
-# doesn't offer the possibility of being "unchecked" yet
     parent.minimapWindow.setChecked(False)
     parent.minimapWindow.triggered.connect(parent.minimap_window)
     file_menu.addAction(parent.minimapWindow)
