@@ -333,7 +333,7 @@ class MainW(QMainWindow):
             self.minimap_window_instance.raise_()
         else:
             if self.minimap_window_instance is not None:
-                self.minimap_window_instance.close()
+                self.minimap_window_instance.deleteLater()
                 self.minimap_window_instance = None
 
     """
@@ -360,7 +360,7 @@ class MainW(QMainWindow):
     """
     def minimap_closed(self):
             # Uncheck the minimap button when the minimap window is closed
-            self.parent.minimapWindow.setChecked(False)
+            self.minimapWindow.setChecked(False)
             if hasattr(self, 'minimap'):
                 del self.minimap
     
