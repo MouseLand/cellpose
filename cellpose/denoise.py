@@ -349,7 +349,7 @@ def random_rotate_and_resize_noise(data, labels=None, diams=None, poisson=0.7, b
         torch.Tensor: The augmented labels.
         float: The scale factor applied to the image.
     """
-    
+
     diams = 30 if diams is None else diams
     random_diam = diam_mean * (2**(2 * np.random.rand(len(data)) - 1))
     random_rsc = diams / random_diam  #/ random_diam
@@ -463,19 +463,19 @@ def one_chan_cellpose(device, model_type="cyto2", pretrained_model=None):
 
 class CellposeDenoiseModel():
     """ model to run Cellpose and Image restoration """
-    def __init__(self, gpu=False, pretrained_model=False, model_type=None,
-                 restore_type="denoise_cyto3", chan2_restore=False, 
-                 device=None):
 
-        self.dn = DenoiseModel(gpu=gpu, model_type=restore_type, 
-                                    chan2=chan2_restore, device=device)
-        self.cp = CellposeModel(gpu=gpu, model_type=model_type, 
+    def __init__(self, gpu=False, pretrained_model=False, model_type=None,
+                 restore_type="denoise_cyto3", chan2_restore=False, device=None):
+
+        self.dn = DenoiseModel(gpu=gpu, model_type=restore_type, chan2=chan2_restore,
+                               device=device)
+        self.cp = CellposeModel(gpu=gpu, model_type=model_type,
                                 pretrained_model=pretrained_model, device=device)
 
     def eval(self, x, batch_size=8, channels=None, channel_axis=None, z_axis=None,
              normalize=True, rescale=None, diameter=None, tile=True, tile_overlap=0.1,
-             augment=False, resample=True, invert=False, flow_threshold=0.4, 
-             cellprob_threshold=0.0, do_3D=False, anisotropy=None, stitch_threshold=0.0, 
+             augment=False, resample=True, invert=False, flow_threshold=0.4,
+             cellprob_threshold=0.0, do_3D=False, anisotropy=None, stitch_threshold=0.0,
              min_size=15, niter=None, interp=True):
         """
         Restore array or list of images using the image restoration model, and then segment.
@@ -537,25 +537,28 @@ class CellposeDenoiseModel():
             normalize_params["normalize"] = normalize
         normalize_params["invert"] = invert
 
-        
-        img_restore = self.dn.eval(x, batch_size=batch_size, channels=channels, channel_axis=channel_axis, z_axis=z_axis,
-                                      normalize=normalize_params, rescale=rescale, diameter=diameter, tile=tile, tile_overlap=tile_overlap)
-    
+        img_restore = self.dn.eval(x, batch_size=batch_size, channels=channels,
+                                   channel_axis=channel_axis, z_axis=z_axis,
+                                   normalize=normalize_params, rescale=rescale,
+                                   diameter=diameter, tile=tile,
+                                   tile_overlap=tile_overlap)
+
         # turn off special normalization for segmentation
         normalize_params = normalize_default
 
         # change channels for segmentation (denoise model outputs up to 2 channels)
-        channels_new = [0,0] if channels[0] == 0 else [1,2]
+        channels_new = [0, 0] if channels[0] == 0 else [1, 2]
         # change diameter if self.ratio > 1 (upsampled to self.dn.diam_mean)
         diameter = self.dn.diam_mean if self.dn.ratio > 1 else diameter
-        masks, flows, styles = self.cp.eval(img_restore, batch_size=batch_size, channels=channels_new, channel_axis=-1,
-                                   normalize=normalize_params, rescale=rescale, diameter=diameter,
-                                   tile=tile, tile_overlap=tile_overlap, augment=augment, 
-                                   resample=resample, invert=invert,
-                                   flow_threshold=flow_threshold, cellprob_threshold=cellprob_threshold,
-                                   do_3D=do_3D, anisotropy=anisotropy, stitch_threshold=stitch_threshold,
-                                   min_size=min_size, niter=niter, interp=interp)
-    
+        masks, flows, styles = self.cp.eval(
+            img_restore, batch_size=batch_size, channels=channels_new, channel_axis=-1,
+            normalize=normalize_params, rescale=rescale, diameter=diameter, tile=tile,
+            tile_overlap=tile_overlap, augment=augment, resample=resample,
+            invert=invert, flow_threshold=flow_threshold,
+            cellprob_threshold=cellprob_threshold, do_3D=do_3D, anisotropy=anisotropy,
+            stitch_threshold=stitch_threshold, min_size=min_size, niter=niter,
+            interp=interp)
+
         return masks, flows, styles, img_restore
 
 
@@ -645,7 +648,8 @@ class DenoiseModel():
                 f">>>> model diam_mean = {self.diam_mean: .3f} (ROIs rescaled to this size during training)"
             )
             if chan2 and builtin:
-                chan2_path = model_path(os.path.split(self.pretrained_model)[-1].split("_")[0] + "_nuclei")
+                chan2_path = model_path(
+                    os.path.split(self.pretrained_model)[-1].split("_")[0] + "_nuclei")
                 print(f"loading model for chan2: {os.path.split(str(chan2_path))[-1]}")
                 self.net_chan2 = CPnet(self.nbase, self.nclasses, sz=3,
                                        mkldnn=self.mkldnn, max_pool=True,
@@ -734,12 +738,14 @@ class DenoiseModel():
                 Ly, Lx = x.shape[-3:-1]
                 if diameter is not None and 3 <= diameter < self.diam_mean:
                     self.ratio = self.diam_mean / diameter
-                    denoise_logger.info(f"upsampling image to {self.diam_mean} pixel diameter ({self.ratio:0.2f} times)"
+                    denoise_logger.info(
+                        f"upsampling image to {self.diam_mean} pixel diameter ({self.ratio:0.2f} times)"
                     )
                     Lyr, Lxr = int(Ly * self.ratio), int(Lx * self.ratio)
                     x = transforms.resize_image(x, Ly=Lyr, Lx=Lxr)
                 else:
-                    denoise_logger.warning(f"not interpolating image before upsampling because diameter is set >= {self.diam_mean}"
+                    denoise_logger.warning(
+                        f"not interpolating image before upsampling because diameter is set >= {self.diam_mean}"
                     )
                     #raise ValueError(f"diameter is set to {diameter}, needs to be >=3 and < {self.dn.diam_mean}")
 
@@ -752,17 +758,20 @@ class DenoiseModel():
 
             if np.ptp(x[..., -1]) < 1e-3 or channels[-1] == 0:
                 x = x[..., :1]
-            
+
             for c in range(x.shape[-1]):
                 rescale0 = rescale * 30. / 17. if c == 1 else rescale
                 if c == 0 or self.net_chan2 is None:
-                    x[..., c] = self._eval(self.net, x[..., c:c + 1], batch_size=batch_size,
-                                           normalize=normalize, rescale=rescale0,
-                                           tile=tile, tile_overlap=tile_overlap)
+                    x[...,
+                      c] = self._eval(self.net, x[..., c:c + 1], batch_size=batch_size,
+                                      normalize=normalize, rescale=rescale0, tile=tile,
+                                      tile_overlap=tile_overlap)
                 else:
-                    x[..., c] = self._eval(self.net_chan2, x[..., c:c + 1], batch_size=batch_size,
-                                           normalize=normalize, rescale=rescale0,
-                                           tile=tile, tile_overlap=tile_overlap)
+                    x[...,
+                      c] = self._eval(self.net_chan2, x[...,
+                                                        c:c + 1], batch_size=batch_size,
+                                      normalize=normalize, rescale=rescale0, tile=tile,
+                                      tile_overlap=tile_overlap)
             x = x[0] if squeeze else x
         return x
 
@@ -819,9 +828,8 @@ class DenoiseModel():
                 img = transforms.resize_image(img, rsz=[rescale, rescale])
                 if img.ndim == 2:
                     img = img[:, :, np.newaxis]
-            yf, style = run_net(net, img, batch_size=batch_size, 
-                                augment=False, tile=tile,
-                                tile_overlap=tile_overlap)
+            yf, style = run_net(net, img, batch_size=batch_size, augment=False,
+                                tile=tile, tile_overlap=tile_overlap)
             img = transforms.resize_image(yf, Ly=x.shape[-3], Lx=x.shape[-2])
 
             if img.ndim == 2:

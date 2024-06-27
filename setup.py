@@ -2,7 +2,7 @@ import setuptools
 from setuptools import setup
 
 install_deps = [
-    'numpy>=1.20.0',
+    'numpy>=1.20.0,<2.0.0',
     'scipy',
     'natsort',
     'tifffile',
@@ -20,7 +20,6 @@ image_deps = ['nd2', 'pynrrd']
 
 gui_deps = [
     'pyqtgraph>=0.11.0rc0', "pyqt6", "pyqt6.sip", 'qtpy', 'superqt',
-    'google-cloud-storage'
 ]
 
 docs_deps = [

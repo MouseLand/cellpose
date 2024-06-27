@@ -186,9 +186,11 @@ def _initialize_images(parent, image, load_3D=False):
             c = np.array(image.shape).argmin()
             image = image.transpose(((c + 1) % 3, (c + 2) % 3, c))
         elif load_3D:
-            # assume smallest dimension is Z and put first
-            z = np.array(image.shape).argmin()
-            image = image.transpose((z, (z + 1) % 3, (z + 2) % 3))
+            # assume smallest dimension is Z and put first if <3x max dim
+            shape = np.array(image.shape)
+            z = shape.argmin()
+            if shape[z] < shape.max() / 3:
+                image = image.transpose((z, (z + 1) % 3, (z + 2) % 3))
             image = image[..., np.newaxis]
     elif image.ndim == 2:
         if not load_3D:
@@ -320,9 +322,9 @@ def _load_seg(parent, filename=None, image=None, image_file=None, load_3D=False)
     else:
         parent.filename = image_file
 
-    parent.restore = None 
+    parent.restore = None
     parent.ratio = 1.
-    
+
     if "normalize_params" in dat:
         parent.restore = None if "restore" not in dat else dat["restore"]
         print(f"GUI_INFO: restore: {parent.restore}")
@@ -339,9 +341,9 @@ def _load_seg(parent, filename=None, image=None, image_file=None, load_3D=False)
             parent.stack_filtered /= (img_max - img_min)
         parent.stack_filtered *= 255
         if parent.stack_filtered.ndim < 4:
-            parent.stack_filtered = parent.stack_filtered[np.newaxis,...]
+            parent.stack_filtered = parent.stack_filtered[np.newaxis, ...]
         if parent.stack_filtered.ndim < 4:
-            parent.stack_filtered = parent.stack_filtered[...,np.newaxis]
+            parent.stack_filtered = parent.stack_filtered[..., np.newaxis]
         shape = parent.stack_filtered.shape
         if shape[-1] == 2:
             if "chan_choose" in dat:
@@ -351,10 +353,11 @@ def _load_seg(parent, filename=None, image=None, image_file=None, load_3D=False)
                 parent.stack_filtered = img
             else:
                 parent.stack_filtered = np.concatenate(
-                    (parent.stack_filtered, np.zeros((*shape[:-1], 1), dtype="float32")), axis=-1)
+                    (parent.stack_filtered, np.zeros(
+                        (*shape[:-1], 1), dtype="float32")), axis=-1)
         elif shape[-1] > 3:
             parent.stack_filtered = parent.stack_filtered[..., :3]
-        
+
         parent.restore = dat["restore"]
         parent.ViewDropDown.model().item(parent.ViewDropDown.count() -
                                          1).setEnabled(True)
@@ -362,7 +365,7 @@ def _load_seg(parent, filename=None, image=None, image_file=None, load_3D=False)
         if parent.restore and "upsample" in parent.restore:
             print(parent.stack_filtered.shape, image.shape)
             parent.ratio = dat["ratio"]
-        
+
     parent.set_restore_button()
 
     _initialize_images(parent, image, load_3D=load_3D)

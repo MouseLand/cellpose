@@ -185,7 +185,7 @@ class TrainWindow(QDialog):
 
     def __init__(self, parent, model_strings):
         super().__init__(parent)
-        self.setGeometry(100, 100, 900, 350)
+        self.setGeometry(100, 100, 900, 550)
         self.setWindowTitle("train settings")
         self.win = QWidget(self)
         self.l0 = QGridLayout()
@@ -434,7 +434,7 @@ class ImageDraw(pg.ImageItem):
             elif not self.parent.in_stroke:
                 y, x = int(ev.pos().y()), int(ev.pos().x())
                 if y >= 0 and y < self.parent.Ly and x >= 0 and x < self.parent.Lx:
-                    if ev.button() == QtCore.Qt.LeftButton and not ev.double() and self.parent.currentImageMask == "":
+                    if ev.button() == QtCore.Qt.LeftButton and not ev.double():
                         idx = self.parent.cellpix[self.parent.currentZ][y, x]
                         if idx > 0:
                             if ev.modifiers() & QtCore.Qt.ControlModifier:

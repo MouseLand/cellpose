@@ -6,7 +6,6 @@ import qtpy
 from qtpy.QtWidgets import QAction
 from . import io
 from .. import models
-from ..io import save_server
 
 
 def mainmenu(parent):
@@ -69,11 +68,6 @@ def mainmenu(parent):
     parent.saveFlows.triggered.connect(lambda: io._save_flows(parent))
     file_menu.addAction(parent.saveFlows)
     parent.saveFlows.setEnabled(False)
-
-    parent.saveServer = QAction("Send manually labelled data to server", parent)
-    parent.saveServer.triggered.connect(lambda: save_server(parent))
-    file_menu.addAction(parent.saveServer)
-    parent.saveServer.setEnabled(False)
 
 
 def editmenu(parent):

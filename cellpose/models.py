@@ -24,7 +24,9 @@ MODEL_DIR = pathlib.Path(_MODEL_DIR_ENV) if _MODEL_DIR_ENV else _MODEL_DIR_DEFAU
 
 MODEL_NAMES = [
     "cyto3", "nuclei", "cyto2_cp3", "tissuenet_cp3", "livecell_cp3", "yeast_PhC_cp3",
-    "yeast_BF_cp3", "bact_phase_cp3", "bact_fluor_cp3", "deepbacs_cp3", "cyto2", "cyto"
+    "yeast_BF_cp3", "bact_phase_cp3", "bact_fluor_cp3", "deepbacs_cp3", "cyto2", "cyto",
+    "transformer_cp3", "neurips_cellpose_default", "neurips_cellpose_transformer",
+    "neurips_grayscale_cyto2"
 ]
 
 MODEL_LIST_PATH = os.fspath(MODEL_DIR.joinpath("gui_models.txt"))
@@ -41,6 +43,7 @@ normalize_default = {
     "invert": False
 }
 
+
 def model_path(model_type, model_index=0):
     torch_str = "torch"
     if model_type == "cyto" or model_type == "cyto2" or model_type == "nuclei":
@@ -51,12 +54,15 @@ def model_path(model_type, model_index=0):
 
 
 def size_model_path(model_type):
-    torch_str = "torch"
-    if model_type == "cyto" or model_type == "nuclei" or model_type == "cyto2":
-        basename = "size_%s%s_0.npy" % (model_type, torch_str)
+    if os.path.exists(model_type):
+        return model_type + "_size.npy"
     else:
-        basename = "size_%s.npy" % model_type
-    return cache_model_path(basename)
+        torch_str = "torch"
+        if model_type == "cyto" or model_type == "nuclei" or model_type == "cyto2":
+            basename = "size_%s%s_0.npy" % (model_type, torch_str)
+        else:
+            basename = "size_%s.npy" % model_type
+        return cache_model_path(basename)
 
 
 def cache_model_path(basename):
@@ -99,13 +105,15 @@ class Cellpose():
 
     """
 
-    def __init__(self, gpu=False, model_type="cyto3", device=None):
+    def __init__(self, gpu=False, model_type="cyto3", nchan=2, device=None,
+                 backbone="default"):
         super(Cellpose, self).__init__()
 
         # assign device (GPU or CPU)
         sdevice, gpu = assign_device(use_torch=True, gpu=gpu)
         self.device = device if device is not None else sdevice
         self.gpu = gpu
+        self.backbone = backbone
 
         model_type = "cyto3" if model_type is None else model_type
 
@@ -114,8 +122,15 @@ class Cellpose():
         if nuclear:
             self.diam_mean = 17.
 
+        if model_type in ["cyto", "nuclei", "cyto2", "cyto3"] and nchan != 2:
+            nchan = 2
+            models_logger.warning(
+                f"cannot set nchan to other value for {model_type} model")
+        self.nchan = nchan
+
         self.cp = CellposeModel(device=self.device, gpu=self.gpu, model_type=model_type,
-                                diam_mean=self.diam_mean)
+                                diam_mean=self.diam_mean, nchan=self.nchan,
+                                backbone=self.backbone)
         self.cp.model_type = model_type
 
         # size model not used for bacterial model
@@ -124,8 +139,8 @@ class Cellpose():
                             cp_model=self.cp)
         self.sz.model_type = model_type
 
-    def eval(self, x, batch_size=8, channels=[0,0], channel_axis=None, invert=False,
-             normalize=True, diameter=30., do_3D=False, **kwargs):
+    def eval(self, x, batch_size=8, channels=[0, 0], channel_axis=None, invert=False,
+             normalize=True, diameter=30., do_3D=False, find_masks=True, **kwargs):
         """Run cellpose size model and mask model and get masks.
 
         Args:
@@ -183,14 +198,12 @@ class Cellpose():
         else:
             diams = diameter
 
-        tic = time.time()
         models_logger.info("~~~ FINDING MASKS ~~~")
         masks, flows, styles = self.cp.eval(x, channels=channels,
                                             channel_axis=channel_axis,
                                             batch_size=batch_size, normalize=normalize,
                                             invert=invert, diameter=diams, do_3D=do_3D,
                                             **kwargs)
-
         models_logger.info(">>>> TOTAL TIME %0.2f sec" % (time.time() - tic0))
 
         return masks, flows, styles, diams
@@ -223,7 +236,7 @@ class CellposeModel():
     """
 
     def __init__(self, gpu=False, pretrained_model=False, model_type=None,
-                 diam_mean=30., device=None, nchan=2):
+                 diam_mean=30., device=None, nchan=2, backbone="default"):
         """
         Initialize the CellposeModel.
 
@@ -236,36 +249,49 @@ class CellposeModel():
             nchan (int, optional): Number of channels to use as input to network, default is 2 (cyto + nuclei) or (nuclei + zeros).
         """
         self.diam_mean = diam_mean
-        builtin = True
 
-        if model_type is not None or (pretrained_model and
-                                      not os.path.exists(pretrained_model)):
-            pretrained_model_string = model_type if model_type is not None else "cyto"
-            model_strings = get_user_models()
-            all_models = MODEL_NAMES.copy()
-            all_models.extend(model_strings)
-            if ~np.any([pretrained_model_string == s for s in MODEL_NAMES]):
-                builtin = False
-            elif ~np.any([pretrained_model_string == s for s in all_models]):
-                pretrained_model_string = "cyto3"
+        ### set model path
+        default_model = "cyto3" if backbone == "default" else "transformer_cp3"
+        builtin = False
+        use_default = False
+        model_strings = get_user_models()
+        all_models = MODEL_NAMES.copy()
+        all_models.extend(model_strings)
 
-            if (pretrained_model and not os.path.exists(pretrained_model[0])):
-                models_logger.warning("pretrained model has incorrect path")
-            models_logger.info(f">> {pretrained_model_string} << model set to be used")
+        # check if pretrained_model is builtin or custom user model saved in .cellpose/models
+        # if yes, then set to model_type
+        if (pretrained_model and not Path(pretrained_model).exists() and
+                np.any([pretrained_model == s for s in all_models])):
+            model_type = pretrained_model
 
-            if pretrained_model_string == "nuclei":
+        # check if model_type is builtin or custom user model saved in .cellpose/models
+        if model_type is not None and np.any([model_type == s for s in all_models]):
+            if np.any([model_type == s for s in MODEL_NAMES]):
+                builtin = True
+            models_logger.info(f">> {model_type} << model set to be used")
+            if model_type == "nuclei":
                 self.diam_mean = 17.
+            pretrained_model = model_path(model_type)
+        # if model_type is not None and does not exist, use default model
+        elif model_type is not None:
+            if Path(model_type).exists():
+                pretrained_model = model_type
             else:
-                self.diam_mean = 30.
-            pretrained_model = model_path(pretrained_model_string)
-
+                models_logger.warning("model_type does not exist, using default model")
+                use_default = True
+        # if model_type is None...
         else:
-            builtin = False
-            if pretrained_model:
-                pretrained_model_string = pretrained_model
-                models_logger.info(f">>>> loading model {pretrained_model_string}")
+            # if pretrained_model does not exist, use default model
+            if pretrained_model and not Path(pretrained_model).exists():
+                models_logger.warning(
+                    "pretrained_model path does not exist, using default model")
+                use_default = True
 
-        # assign network device
+        builtin = True if use_default else builtin
+        self.pretrained_model = model_path(
+            default_model) if use_default else pretrained_model
+
+        ### assign model device
         self.mkldnn = None
         if device is None:
             sdevice, gpu = assign_device(use_torch=True, gpu=gpu)
@@ -276,17 +302,24 @@ class CellposeModel():
         if not self.gpu:
             self.mkldnn = check_mkl(True)
 
-        # create network
+        ### create neural network
         self.nchan = nchan
         self.nclasses = 3
         nbase = [32, 64, 128, 256]
         self.nbase = [nchan, *nbase]
-        
-        self.net = CPnet(self.nbase, self.nclasses, sz=3, mkldnn=self.mkldnn,
-                         max_pool=True, diam_mean=diam_mean).to(self.device)
-
         self.pretrained_model = pretrained_model
+        if backbone == "default":
+            self.net = CPnet(self.nbase, self.nclasses, sz=3, mkldnn=self.mkldnn,
+                             max_pool=True, diam_mean=diam_mean).to(self.device)
+        else:
+            from .segformer import Transformer
+            self.net = Transformer(
+                encoder_weights="imagenet" if not self.pretrained_model else None,
+                diam_mean=diam_mean).to(self.device)
+
+        ### load model weights
         if self.pretrained_model:
+            models_logger.info(f">>>> loading model {pretrained_model}")
             self.net.load_model(self.pretrained_model, device=self.device)
             if not builtin:
                 self.diam_mean = self.net.diam_mean.data.cpu().numpy()[0]
@@ -298,8 +331,11 @@ class CellposeModel():
                 models_logger.info(
                     f">>>> model diam_labels = {self.diam_labels: .3f} (mean diameter of training ROIs)"
                 )
+        else:
+            models_logger.info(f">>>> no model weights loaded")
+            self.diam_labels = self.diam_mean
 
-        self.net_type = "cellpose"
+        self.net_type = f"cellpose_{backbone}"
 
     def eval(self, x, batch_size=8, resample=True, channels=None, channel_axis=None,
              z_axis=None, normalize=True, invert=False, rescale=None, diameter=None,
@@ -362,12 +398,14 @@ class CellposeModel():
             
         """
         if isinstance(x, list) or x.squeeze().ndim == 5:
+            self.timing = []
             masks, styles, flows = [], [], []
             tqdm_out = utils.TqdmToLogger(models_logger, level=logging.INFO)
             nimg = len(x)
             iterator = trange(nimg, file=tqdm_out,
                               mininterval=30) if nimg > 1 else range(nimg)
             for i in iterator:
+                tic = time.time()
                 maski, flowi, stylei = self.eval(
                     x[i], batch_size=batch_size,
                     channels=channels[i] if channels is not None and
@@ -389,6 +427,7 @@ class CellposeModel():
                 masks.append(maski)
                 flows.append(flowi)
                 styles.append(stylei)
+                self.timing.append(time.time() - tic)
             return masks, flows, styles
 
         else:
@@ -500,7 +539,7 @@ class CellposeModel():
         if compute_masks:
             tic = time.time()
             niter0 = 200 if (do_3D and not resample) else (1 / rescale * 200)
-            niter = niter0 if niter is None or niter==0 else niter
+            niter = niter0 if niter is None or niter == 0 else niter
             if do_3D:
                 masks, p = dynamics.resize_and_compute_masks(
                     dP, cellprob, niter=niter, cellprob_threshold=cellprob_threshold,
@@ -538,8 +577,9 @@ class CellposeModel():
                     masks = utils.fill_holes_and_remove_small_masks(
                         masks, min_size=min_size)
                 elif nimg > 1:
-                    models_logger.warning("3D stack used, but stitch_threshold=0 and do_3D=False, so masks are made per plane only")
-
+                    models_logger.warning(
+                        "3D stack used, but stitch_threshold=0 and do_3D=False, so masks are made per plane only"
+                    )
 
             flow_time = time.time() - tic
             if nimg > 1:
@@ -550,6 +590,7 @@ class CellposeModel():
         else:
             masks, p = np.zeros(0), np.zeros(0)  #pass back zeros if not compute_masks
         return masks, styles, dP, cellprob, p
+
 
 class SizeModel():
     """ 
@@ -641,14 +682,15 @@ class SizeModel():
                 - diam (np.ndarray): Final estimated diameters from images x or styles style after running both steps.
                 - diam_style (np.ndarray): Estimated diameters from style alone.
         """
-
         if isinstance(x, list):
+            self.timing = []
             diams, diams_style = [], []
             nimg = len(x)
             tqdm_out = utils.TqdmToLogger(models_logger, level=logging.INFO)
             iterator = trange(nimg, file=tqdm_out,
                               mininterval=30) if nimg > 1 else range(nimg)
             for i in iterator:
+                tic = time.time()
                 diam, diam_style = self.eval(
                     x[i], channels=channels[i] if
                     (channels is not None and len(channels) == len(x) and
@@ -659,6 +701,7 @@ class SizeModel():
                     batch_size=batch_size, progress=progress)
                 diams.append(diam)
                 diams_style.append(diam_style)
+                self.timing.append(time.time() - tic)
 
             return diams, diams_style
 

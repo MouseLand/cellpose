@@ -99,6 +99,15 @@ def main():
             if args.train or args.train_size:
                 raise ValueError("restore_type cannot be used with training on CLI yet")
 
+        if args.transformer and (restore_type is None):
+            default_model = "transformer_cp3"
+            backbone = "transformer"
+        elif args.transformer and restore_type is not None:
+            raise ValueError("no transformer based restoration")
+        else:
+            default_model = "cyto3"
+            backbone = "default"
+
         model_type = None
         if pretrained_model and not os.path.exists(pretrained_model):
             model_type = pretrained_model if pretrained_model is not None else "cyto3"
@@ -106,13 +115,15 @@ def main():
             all_models = models.MODEL_NAMES.copy()
             all_models.extend(model_strings)
             if ~np.any([model_type == s for s in all_models]):
-                model_type = "cyto"
-                logger.warning("pretrained model has incorrect path")
+                model_type = default_model
+                logger.warning(
+                    f"pretrained model has incorrect path, using {default_model}")
             if model_type == "nuclei":
                 szmean = 17.
             else:
                 szmean = 30.
-        builtin_size = model_type == "cyto" or model_type == "cyto2" or model_type == "nuclei" or model_type == "cyto3"
+        builtin_size = (model_type == "cyto" or model_type == "cyto2" or
+                        model_type == "nuclei" or model_type == "cyto3")
 
         if len(args.image_path) > 0 and (args.train or args.train_size):
             raise ValueError("ERROR: cannot train model with single image input")
@@ -138,7 +149,8 @@ def main():
 
             # handle built-in model exceptions
             if builtin_size and restore_type is None:
-                model = models.Cellpose(gpu=gpu, device=device, model_type=model_type)
+                model = models.Cellpose(gpu=gpu, device=device, model_type=model_type,
+                                        backbone=backbone)
             else:
                 builtin_size = False
                 if args.all_channels:
@@ -147,13 +159,13 @@ def main():
                 if restore_type is None:
                     model = models.CellposeModel(gpu=gpu, device=device,
                                                  pretrained_model=pretrained_model,
-                                                 model_type=model_type)
+                                                 model_type=model_type,
+                                                 backbone=backbone)
                 else:
-                    model = denoise.CellposeDenoiseModel(gpu=gpu, device=device,
-                                                         pretrained_model=pretrained_model,
-                                                         model_type=model_type, 
-                                                         restore_type=restore_type,
-                                                         chan2_restore=args.chan2_restore)
+                    model = denoise.CellposeDenoiseModel(
+                        gpu=gpu, device=device, pretrained_model=pretrained_model,
+                        model_type=model_type, restore_type=restore_type,
+                        chan2_restore=args.chan2_restore)
 
             # handle diameters
             if args.diameter == 0:
@@ -167,8 +179,7 @@ def main():
                         )
                     else:
                         logger.info(
-                            ">>>> cannot auto-estimate diameter for image restoration"
-                        )
+                            ">>>> cannot auto-estimate diameter for image restoration")
                     diameter = model.diam_labels
                     logger.info(">>>> using diameter %0.3f for all images" % diameter)
             else:
@@ -204,12 +215,12 @@ def main():
                 if args.exclude_on_edges:
                     masks = utils.remove_edge_masks(masks)
                 if not args.no_npy:
-                    io.masks_flows_to_seg(image, masks, flows, image_name, imgs_restore=imgs_dn, 
-                                          channels=channels, diams=diams, 
-                                          restore_type=restore_type, ratio=1.)
+                    io.masks_flows_to_seg(image, masks, flows, image_name,
+                                          imgs_restore=imgs_dn, channels=channels,
+                                          diams=diams, restore_type=restore_type,
+                                          ratio=1.)
                 if saving_something:
-                    io.save_masks(image, masks, flows, image_name, 
-                                  png=args.save_png,
+                    io.save_masks(image, masks, flows, image_name, png=args.save_png,
                                   tif=args.save_tif, save_flows=args.save_flows,
                                   save_outlines=args.save_outlines,
                                   dir_above=args.dir_above, savedir=args.savedir,
@@ -221,13 +232,30 @@ def main():
         else:
 
             test_dir = None if len(args.test_dir) == 0 else args.test_dir
-            output = io.load_train_test_data(args.dir, test_dir, imf, args.mask_filter,
-                                             args.look_one_level_down)
-            images, labels, image_names, test_images, test_labels, image_names_test = output
+            images, labels, image_names, train_probs = None, None, None, None
+            test_images, test_labels, image_names_test, test_probs = None, None, None, None
+            compute_flows = False
+            if len(args.file_list) > 0:
+                if os.path.exists(args.file_list):
+                    dat = np.load(args.file_list, allow_pickle=True).item()
+                    image_names = dat["train_files"]
+                    image_names_test = dat.get("test_files", None)
+                    train_probs = dat.get("train_probs", None)
+                    test_probs = dat.get("test_probs", None)
+                    compute_flows = dat.get("compute_flows", False)
+                    load_files = False
+                else:
+                    logger.critical(f"ERROR: {args.file_list} does not exist")
+            else:
+                output = io.load_train_test_data(args.dir, test_dir, imf,
+                                                 args.mask_filter,
+                                                 args.look_one_level_down)
+                images, labels, image_names, test_images, test_labels, image_names_test = output
+                load_files = True
 
             # training with all channels
             if args.all_channels:
-                img = images[0]
+                img = images[0] if images is not None else io.imread(image_names[0])
                 if img.ndim == 3:
                     nchan = min(img.shape)
                 elif img.ndim == 2:
@@ -252,21 +280,25 @@ def main():
 
             # initialize model
             model = models.CellposeModel(
-                device=device,
+                device=device, model_type=model_type, diam_mean=szmean, nchan=nchan,
                 pretrained_model=pretrained_model if model_type is None else None,
-                model_type=model_type, diam_mean=szmean, nchan=nchan)
+                backbone=backbone)
 
             # train segmentation model
             if args.train:
                 cpmodel_path = train.train_seg(
                     model.net, images, labels, train_files=image_names,
                     test_data=test_images, test_labels=test_labels,
-                    test_files=image_names_test, learning_rate=args.learning_rate,
-                    weight_decay=args.weight_decay, channels=channels, 
-                    channel_axis=args.channel_axis,
-                    save_path=os.path.realpath(args.dir), save_every=args.save_every,
+                    test_files=image_names_test, train_probs=train_probs,
+                    test_probs=test_probs, compute_flows=compute_flows,
+                    load_files=load_files, normalize=(not args.no_norm),
+                    channels=channels, channel_axis=args.channel_axis, rgb=(nchan == 3),
+                    learning_rate=args.learning_rate, weight_decay=args.weight_decay,
                     SGD=args.SGD, n_epochs=args.n_epochs, batch_size=args.batch_size,
                     min_train_masks=args.min_train_masks,
+                    nimg_per_epoch=args.nimg_per_epoch,
+                    nimg_test_per_epoch=args.nimg_test_per_epoch,
+                    save_path=os.path.realpath(args.dir), save_every=args.save_every,
                     model_name=args.model_name_out)
                 model.pretrained_model = cpmodel_path
                 logger.info(">>>> model trained and saved to %s" % cpmodel_path)
@@ -274,15 +306,21 @@ def main():
             # train size model
             if args.train_size:
                 sz_model = models.SizeModel(cp_model=model, device=device)
-                masks = [lbl[0] for lbl in labels]
-                test_masks = [lbl[0] for lbl in test_labels
-                             ] if test_labels is not None else test_labels
                 # data has already been normalized and reshaped
-                sz_model.params = train.train_size(model.net, model.pretrained_model,
-                                                   images, masks, test_images,
-                                                   test_masks, channels=channels,
-                                                   batch_size=args.batch_size)
+                sz_model.params = train.train_size(
+                    model.net, model.pretrained_model, images, labels,
+                    train_files=image_names, test_data=test_images,
+                    test_labels=test_labels, test_files=image_names_test,
+                    train_probs=train_probs, test_probs=test_probs,
+                    load_files=load_files, channels=channels,
+                    min_train_masks=args.min_train_masks,
+                    channel_axis=args.channel_axis, rgb=(nchan == 3),
+                    nimg_per_epoch=args.nimg_per_epoch, normalize=(not args.no_norm),
+                    nimg_test_per_epoch=args.nimg_test_per_epoch,
+                    batch_size=args.batch_size)
                 if test_images is not None:
+                    test_masks = [lbl[0] for lbl in test_labels
+                                 ] if test_labels is not None else test_labels
                     predicted_diams, diams_style = sz_model.eval(
                         test_images, channels=channels)
                     ccs = np.corrcoef(

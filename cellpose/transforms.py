@@ -399,7 +399,7 @@ def move_min_dim(img, force=False):
     Returns:
         ndarray: The image with the minimum dimension moved to the last axis as channels.
     """
-    if len(img.shape) > 2:  
+    if len(img.shape) > 2:
         min_dim = min(img.shape)
         if min_dim < 10 or force:
             if img.shape[-1] == min_dim:
@@ -674,6 +674,7 @@ def normalize_img(img, normalize=True, norm3D=False, invert=False, lowhigh=None,
     img_norm = np.moveaxis(img_norm, -1, axis)
 
     return img_norm
+
 
 def resize_image(img0, Ly=None, Lx=None, rsz=None, interpolation=cv2.INTER_LINEAR,
                  no_channels=False):

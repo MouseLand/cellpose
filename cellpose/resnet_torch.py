@@ -103,9 +103,9 @@ class batchconvstyle(nn.Module):
 
 class resup(nn.Module):
 
-    def __init__(self, in_channels, out_channels, style_channels, sz,
-                 concatenation=False, conv_3D=False):
+    def __init__(self, in_channels, out_channels, style_channels, sz, conv_3D=False):
         super().__init__()
+        self.concatenation = False
         self.conv = nn.Sequential()
         self.conv.add_module("conv_0",
                              batchconv(in_channels, out_channels, sz, conv_3D=conv_3D))
@@ -130,24 +130,6 @@ class resup(nn.Module):
         return x
 
 
-class convup(nn.Module):
-
-    def __init__(self, in_channels, out_channels, style_channels, sz,
-                 concatenation=False, conv_3D=False):
-        super().__init__()
-        self.conv = nn.Sequential()
-        self.conv.add_module("conv_0", batchconv(in_channels, out_channels, sz,
-                                                 conv_3D))
-        self.conv.add_module(
-            "conv_1",
-            batchconvstyle(out_channels, out_channels, style_channels, sz,
-                           concatenation=concatenation, conv_3D=conv_3D))
-
-    def forward(self, x, y, style, mkldnn=False):
-        x = self.conv[1](style, self.conv[0](x), y=y)
-        return x
-
-
 class make_style(nn.Module):
 
     def __init__(self, conv_3D=False):
@@ -164,7 +146,7 @@ class make_style(nn.Module):
 
 class upsample(nn.Module):
 
-    def __init__(self, nbase, sz, residual_on=True, conv_3D=False):
+    def __init__(self, nbase, sz, conv_3D=False):
         super().__init__()
         self.upsampling = nn.Upsample(scale_factor=2, mode="nearest")
         self.up = nn.Sequential()

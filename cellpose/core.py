@@ -22,6 +22,7 @@ TORCH_ENABLED = True
 core_logger = logging.getLogger(__name__)
 tqdm_out = utils.TqdmToLogger(core_logger, level=logging.INFO)
 
+
 def use_gpu(gpu_number=0, use_torch=True):
     """ 
     Check if GPU is available for use.
@@ -180,7 +181,7 @@ def _forward(net, x):
     return y, style
 
 
-def run_net(net, imgs, batch_size=8, augment=False, tile=True, tile_overlap=0.1, 
+def run_net(net, imgs, batch_size=8, augment=False, tile=True, tile_overlap=0.1,
             bsize=224):
     """ 
     Run network on image or stack of images.
@@ -188,6 +189,7 @@ def run_net(net, imgs, batch_size=8, augment=False, tile=True, tile_overlap=0.1,
     (faster if augment is False)
 
     Args:
+        net (class): cellpose network (model.net)
         imgs (np.ndarray): The input image or stack of images of size [Ly x Lx x nchan] or [Lz x Ly x Lx x nchan].
         batch_size (int, optional): Number of tiles to run in a batch. Defaults to 8.
         rsz (float, optional): Resize coefficient(s) for image. Defaults to 1.0.
@@ -225,7 +227,7 @@ def run_net(net, imgs, batch_size=8, augment=False, tile=True, tile_overlap=0.1,
 
     # run network
     if tile or augment or imgs.ndim == 4:
-        y, style = _run_tiled(net, imgs, augment=augment, bsize=bsize, 
+        y, style = _run_tiled(net, imgs, augment=augment, bsize=bsize,
                               batch_size=batch_size, tile_overlap=tile_overlap)
     else:
         imgs = np.expand_dims(imgs, axis=0)
@@ -375,8 +377,8 @@ def run_3D(net, imgs, batch_size=8, rsz=1.0, anisotropy=None, augment=False, til
         # per image
         core_logger.info("running %s: %d planes of size (%d, %d)" %
                          (sstr[p], shape[0], shape[1], shape[2]))
-        y, style = run_net(net, xsl, batch_size=batch_size, augment=augment, tile=tile, 
-                            bsize=bsize, tile_overlap=tile_overlap)
+        y, style = run_net(net, xsl, batch_size=batch_size, augment=augment, tile=tile,
+                           bsize=bsize, tile_overlap=tile_overlap)
         y = transforms.resize_image(y, shape[1], shape[2])
         yf[p] = y.transpose(ipm[p])
         if progress is not None:
