@@ -2,13 +2,14 @@
 Copyright © 2023 Howard Hughes Medical Institute, Authored by Carsen Stringer and Marius Pachitariu.
 """
 
-import sys, os, pathlib, warnings, datetime, time, copy
+import sys, os, pathlib, warnings, datetime, time, copy, math
 
 from qtpy import QtGui, QtCore
 from superqt import QRangeSlider, QCollapsible
 from qtpy.QtWidgets import QScrollArea, QMainWindow, QAction, QMenu, QApplication, QWidget, QScrollBar, QComboBox, QGridLayout, QPushButton, QFrame, QCheckBox, QLabel, QProgressBar, QLineEdit, QMessageBox, QGroupBox
 import pyqtgraph as pg
 
+import pandas as pd
 import numpy as np
 from scipy.stats import mode
 import cv2
@@ -22,9 +23,10 @@ from ..models import normalize_default
 from ..plot import disk
 
 from scipy.ndimage import find_objects
+from scipy.spatial import Voronoi, voronoi_plot_2d
 from scipy import ndimage
 import diplib as dip
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageFont
 
 try:
     import matplotlib.pyplot as plt
@@ -870,7 +872,7 @@ class MainW(QMainWindow):
         self.indexNucleusMask = -1
 
         # select metrics to calculate
-        self.calcSize = True
+        self.calcSize = False
         self.SMCheckBox = QCheckBox('Size')
         self.SMCheckBox.setStyleSheet("color: rgb(190,190,190);")
         self.SMCheckBox.setFont(self.medfont)
@@ -881,7 +883,7 @@ class MainW(QMainWindow):
         self.SMCheckBox.setToolTip(tipstr)
         self.MBg.addWidget(self.SMCheckBox, 0, 0, 1, 7)
 
-        self.calcRound = True
+        self.calcRound = False
         self.RMCheckBox = QCheckBox('Roundness')
         self.RMCheckBox.setStyleSheet("color: rgb(190,190,190);")
         self.RMCheckBox.setFont(self.medfont)
@@ -892,7 +894,7 @@ class MainW(QMainWindow):
         self.RMCheckBox.setToolTip(tipstr)
         self.MBg.addWidget(self.RMCheckBox, 0, 5, 1, 7)
 
-        self.calcRatio = True
+        self.calcRatio = False
         self.RTCheckBox = QCheckBox('Ratio')
         self.RTCheckBox.setStyleSheet("color: rgb(190,190,190);")
         self.RTCheckBox.setFont(self.medfont)
@@ -902,6 +904,17 @@ class MainW(QMainWindow):
         tipstr = 'Ratio between cyto and nucleus'
         self.RTCheckBox.setToolTip(tipstr)
         self.MBg.addWidget(self.RTCheckBox, 1, 0, 1, 7)
+
+        self.calcVoronoi = False
+        self.VDCheckBox = QCheckBox('Voronoi')
+        self.VDCheckBox.setStyleSheet("color: rgb(190,190,190);")
+        self.VDCheckBox.setFont(self.medfont)
+        self.VDCheckBox.setChecked(False)
+        self.VDCheckBox.setEnabled(False)
+        self.VDCheckBox.toggled.connect(self.toggle_masks)
+        tipstr = 'Ratio between cyto and nucleus'
+        self.VDCheckBox.setToolTip(tipstr)
+        self.MBg.addWidget(self.VDCheckBox, 1, 5, 1, 7)
 
         # calculate the selected metrics
         self.CalculateButton = QPushButton(u'calculate')
@@ -1252,7 +1265,12 @@ class MainW(QMainWindow):
             self.calcRatio = True
         else:
             self.calcRatio = False
-        
+
+        if self.VDCheckBox.isChecked():
+            self.calcVoronoi = True
+        else:
+            self.calcVoronoi = False
+
         if not self.masksOn and not self.outlinesOn:
             self.p0.removeItem(self.layer)
             self.layer_off = True
@@ -1440,7 +1458,7 @@ class MainW(QMainWindow):
             im.save("hola2.jpg")
 
             labels = dip.Label(mask[:, :] > 0)
-            msr = dip.MeasurementTool.Measure(labels, features=["Perimeter", "Size", "Roundness", "Circularity", "Center"])
+            msr = dip.MeasurementTool.Measure(labels, features=["Perimeter", "SolidArea", "Roundness", "Circularity", "Center"])
             print(msr)
             print("IDX: ", self.selected)
             print("Size in px: ", msr[1]["SolidArea"][0])
@@ -2703,6 +2721,9 @@ class MainW(QMainWindow):
 
     def image_labeling(self, im_mask="", im_labels="", coords=""):
         im_mask_labeled = im_mask.copy()
+
+        font_path = os.path.join(cv2.__path__[0],'qt','fonts','DejaVuSans.ttf')
+        font = ImageFont.truetype(font_path, size=20)
         
         I1 = ImageDraw.Draw(im_mask_labeled)
         
@@ -2714,31 +2735,24 @@ class MainW(QMainWindow):
 
             I1.text((coords[idx][0], coords[idx][1]), label_value, 
                     anchor="mb", 
-                    fill=(255, 255, 255))
+                    fill=(255, 255, 255),
+                    font=font)
 
         return im_mask_labeled
 
     def mask_indexing(self, im_mask, coords):
         im_mask_labeled = im_mask.copy()
+
+        font_path = os.path.join(cv2.__path__[0],'qt','fonts','DejaVuSans.ttf')
+        font = ImageFont.truetype(font_path, size=40)
         
         I1 = ImageDraw.Draw(im_mask_labeled)
         
         for idx in range(0, len(coords)):
             I1.text((coords[idx][0], coords[idx][1]), str(idx + 1), 
                     anchor="mb", 
-                    fill=(255, 255, 255))
-
-        return im_mask_labeled
-
-    def size_labeling(self, im_mask, size_values, coords):
-        im_mask_labeled = im_mask.copy()
-        
-        I1 = ImageDraw.Draw(im_mask_labeled)
-        
-        for idx in range(0, len(coords)):
-            I1.text((coords[idx][0], coords[idx][1]), str(size_values[idx]), 
-                    anchor="mb", 
-                    fill=(255, 255, 255))
+                    fill=(255, 255, 255),
+                    font=font)
 
         return im_mask_labeled
 
@@ -2799,8 +2813,7 @@ class MainW(QMainWindow):
                 cnt = cnt + 1
 
         cyto_nuclei_ratio = [round(cyto_size[index_cyto_nuclei[0] - 1] / nuclei_size[index_cyto_nuclei[1] - 1], 2) for index_cyto_nuclei in indices_cyto_nuclei]
-        tmp_coords = [tmp_coords[index_cyto_nuclei[0] - 1] for index_cyto_nuclei in indices_cyto_nuclei]
-
+        tmp_coords = [tmp_coords[index_cyto_nuclei[0] - 1] for index_cyto_nuclei in indices_cyto_nuclei],
         return cyto_nuclei_ratio, tmp_coords, indices_cyto_nuclei
 
     def get_metrics(self, mask, custom_features):
@@ -2842,6 +2855,29 @@ class MainW(QMainWindow):
             return [prev_out, curr_out]
         else: # isinstance(prev_out, list)
             return [prev_out[0], prev_out[1], curr_out]
+
+    def get_voronoi_entropy(self, vor):
+        polygon_class_counts = {}
+
+        for region_index in vor.point_region:
+            region_vertices = vor.regions[region_index]
+
+            # Exclude unbounded regions
+            if -1 not in region_vertices:
+                polygon_class = len(region_vertices)
+
+                if polygon_class in polygon_class_counts:
+                    polygon_class_counts[polygon_class] += 1
+                else:
+                    polygon_class_counts[polygon_class] = 1
+
+        # Total number of bounded regions and proportions
+        total_bounded_regions = sum(polygon_class_counts.values())
+        proportions = {polygon_class: count / total_bounded_regions for polygon_class, count in polygon_class_counts.items()}
+
+        # Voronoi entropy
+        voronoi_entropy = -sum(p * math.log(p) for p in proportions.values() if p > 0)
+        return voronoi_entropy
 
     def save_metrics(self, masks_img, center_coords, metric_cells, metric_name, out_csv, out_name, out_dir):
         layerz_cell = self.create_colormap_mask(masks_img)
@@ -2890,9 +2926,12 @@ class MainW(QMainWindow):
         output_csv_primary = []
         output_csv_secondary = []
         output_csv_ratio = []
+        output_csv_coords = []
+        output_csv_voronoi = []
 
         output_name = ""
 
+        # Set dip metrics
         custom_features = ["Center"]
         if self.calcSize:
             custom_features.append("SolidArea")
@@ -2901,9 +2940,11 @@ class MainW(QMainWindow):
             custom_features.append("Roundness")
             output_name += "_roundness"
 
+        # Metrics for main mask
         main_metrics, center_coords_main = self.get_metrics(main_masks_img, custom_features)
         size_cells_main, round_cells_main = main_metrics
         if self.calcRatio:
+            # Metrics for secondary mask (if exists)
             secondary_metrics, center_coords_secondary = self.get_metrics(secondary_masks_img, custom_features)
             size_cells_secondary, round_cells_secondary = secondary_metrics
             ratio_cells, center_coords_ratio, indices_cyto_nuclei = self.matched_indices(main_masks_img, secondary_masks_img, size_cells_main, size_cells_secondary, center_coords_main)
@@ -2930,12 +2971,39 @@ class MainW(QMainWindow):
 
         if self.calcRatio:
             output_csv_ratio = self.save_metrics(main_masks_img, 
-                                                            center_coords_ratio, 
-                                                            ratio_cells, 
-                                                            "ratio", 
-                                                            output_csv_ratio, 
-                                                            "ratio", 
-                                                            results_dir)
+                                                    center_coords_ratio, 
+                                                    ratio_cells, 
+                                                    "ratio", 
+                                                    output_csv_ratio, 
+                                                    "ratio", 
+                                                    results_dir)
+
+        output_csv_coords = self.save_metrics(main_masks_img, 
+                                                center_coords_main, 
+                                                center_coords_main, 
+                                                "Center", 
+                                                output_csv_coords, 
+                                                "Center", 
+                                                primary_results_dir)
+
+        if self.calcVoronoi:
+            output_csv_coords = pd.DataFrame(output_csv_coords)
+            output_csv_coords[1] = 1440 - output_csv_coords[1]
+
+            vor = Voronoi(output_csv_coords)
+            fig = voronoi_plot_2d(vor)
+
+            img = plt.imread(self.filename)
+            fig, ax = plt.subplots()
+            ax.imshow(ndimage.rotate(np.fliplr(img), 180))
+            fig = voronoi_plot_2d(vor, point_size=10, ax=ax, line_colors='red')
+            plt.savefig(results_dir + '/' + 'voronoi.png')
+
+            voronoi_entropy = self.get_voronoi_entropy(vor)
+            np.savetxt(results_dir + "/" + self.filename.split('/')[-1].split(".")[0] + "_vornoi_entropy.csv",
+                [voronoi_entropy],
+                delimiter =", ",
+                fmt ='% s')
 
         return size_cells_main, center_coords_main
 
@@ -2953,8 +3021,9 @@ class MainW(QMainWindow):
             self.indexNucleusMask = curr_index
             self.indexCytoMask = -1 if self.indexCytoMask == curr_index else self.indexCytoMask
         menu_output.setIcon(QtGui.QIcon('/home/mellamoarroz/.cellpose/' + cell_type + '.png'))
-        
+
         self.RTCheckBox.setEnabled(self.indexCytoMask > -1 and self.indexNucleusMask > -1)
+        self.VDCheckBox.setEnabled(self.indexCytoMask > -1 and self.indexNucleusMask > -1)
         self.SMCheckBox.setEnabled(self.indexCytoMask > -1)
         self.RMCheckBox.setEnabled(self.indexCytoMask > -1)
         # self.CalculateButton.setStyleSheet(self.styleUnpressed if self.indexCytoMask > -1 else self.styleInactive)
