@@ -379,7 +379,7 @@ class MinimapWindow(QWidget):
 
         # In practice, this line allows the window to be resized infinitely big, but sets the
         # given dimensions as a lower boundry. The image is first presented in its original size.
-        # self.setGeometry(100, 100, 400, 300) 
+        self.setGeometry(100, 100, 400, 300)
 
         # Create a QWidget and set its layout to QGridLayout
         self.win = QWidget(self)
