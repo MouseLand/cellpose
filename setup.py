@@ -79,11 +79,11 @@ with open("README.md", "r") as fh:
     long_description = fh.read()
 
 setup(
-    name="cellpose", license="BSD", author="Marius Pachitariu and Carsen Stringer",
-    author_email="stringerc@janelia.hhmi.org",
-    description="anatomical segmentation algorithm", long_description=long_description,
+    name="cellpose_plus", license="BSD", author="Israel Huaman",
+    author_email="ihuaman@itmo.ru",
+    description="cell segmenetation framework based on cellpose", long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/MouseLand/cellpose", setup_requires=[
+    url="https://github.com/ITMO-MMRM-lab/cellpose", setup_requires=[
         'pytest-runner',
         'setuptools_scm',
     ], packages=setuptools.find_packages(), use_scm_version=True,
