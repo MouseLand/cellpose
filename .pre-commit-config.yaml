@@ -1,0 +1,7 @@
+repos:
+-   repo: local
+    hooks:
+      - id: yapf-diff
+        name: yapf-diff
+        entry: python pre_commit_runner.py --hook yapf-diff
+        language: python

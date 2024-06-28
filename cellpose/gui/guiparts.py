@@ -6,6 +6,7 @@ from qtpy import QtGui, QtCore, QtWidgets
 from qtpy.QtGui import QPainter, QPixmap, QImage, QFont
 from qtpy.QtWidgets import QApplication, QRadioButton, QWidget, QDialog, QButtonGroup, QSlider, QStyle, QStyleOptionSlider, QGridLayout, QPushButton, QLabel, QLineEdit, QDialogButtonBox, QComboBox, QCheckBox, QDockWidget
 from qtpy.QtCore import QEvent
+from qtpy.QtGui import QFont
 import pyqtgraph as pg
 from pyqtgraph import functions as fn
 from pyqtgraph import Point
@@ -38,13 +39,13 @@ def stylesheet():
                     border: none;
                     margin: 0px 0px 0px 0px;
                 } 
-                           
+
         QGroupBox 
             { border: 1px solid white; color: rgb(255,255,255);
                            border-radius: 6px;
                             margin-top: 8px;
                             padding: 0px 0px;}            
-                           
+
         QPushButton:pressed {Text-align: center; 
                              background-color: rgb(150,50,150); 
                              border-color: white;
@@ -72,7 +73,7 @@ def stylesheet():
                            color: white; 
                            border: black solid 1px
                            }
-                        
+
         """
 
 
@@ -125,7 +126,7 @@ def create_channel_choose():
         if i == 0:
             ChannelLabels[i].setToolTip(
                 "this is the channel in which the cytoplasm or nuclei exist \
-            that you want to segment")
+            that you want to segment"q)
             ChannelChoose[i].setToolTip(
                 "this is the channel in which the cytoplasm or nuclei exist \
             that you want to segment")
@@ -340,27 +341,62 @@ class HelpWindow(QDialog):
         layout.addWidget(label, 0, 0, 1, 1)
         self.show()
 
-
 class TrainHelpWindow(QDialog):
-
     def __init__(self, parent=None):
         super(TrainHelpWindow, self).__init__(parent)
-        self.setGeometry(100, 50, 700, 300)
-        self.setWindowTitle("training instructions")
-        self.win = QWidget(self)
+        self.setGeometry(200, 200, 1000, 700)
+        self.setMinimumSize(300, 200)
+        self.setWindowTitle("Training Instructions")
+
         layout = QGridLayout()
-        self.win.setLayout(layout)
+        self.setLayout(layout)
 
         text_file = pathlib.Path(__file__).parent.joinpath(
             "guitrainhelpwindowtext.html")
         with open(str(text_file.resolve()), "r") as f:
             text = f.read()
 
-        label = QLabel(text)
-        label.setFont(QtGui.QFont("Arial", 8))
-        label.setWordWrap(True)
-        layout.addWidget(label, 0, 0, 1, 1)
+        self.label = QLabel(text)
+        self.label.setWordWrap(True)
+        layout.addWidget(self.label, 0, 0, 1, 1)
+
+        # Dropdown menu for font size
+        self.font_size_combo = QComboBox(self)
+        self.font_size_combo.addItems([str(size) for size in range(8, 45, 3)])
+        # Set fixed size (width, height)
+        self.font_size_combo.setFixedSize(55, 25)
+        # Set default index to 17
+        self.font_size_combo.setCurrentText("17")
+
+        # The line "self.font_size_combo.currentIndexChanged.connect(self.adjust_font_size)"
+        # directly connects the currentIndexChanged signal of the "self.font_size_combo" object
+        # to the "self.adjust_font_size" method.
+        # The "self.adjust_font_size" method is automatically called whenever the index changes
+        # in ("self.font_size_combo") the dropdown menu.
+        self.font_size_combo.currentIndexChanged.connect(self.adjust_font_size)
+        layout.addWidget(self.font_size_combo, 1, 0, 1, 1)
+
+        self.adjust_font_size()  # Initial font size adjustment
+
         self.show()
+
+    def adjust_font_size(self):
+        # Get the current font size from the combo box
+        font_size = int(self.font_size_combo.currentText())
+        # Calculate the new font size based on window height and width
+        new_font_size = max(5, int((self.height() * self.width())**0.5 / 45))
+        # Set the font size for the label
+        # The if statement prevents the font from being too big to fit the screen/window
+        if new_font_size < font_size:
+            font = QFont("Arial", new_font_size)
+        else:
+            font = QFont("Arial", font_size)
+        self.label.setFont(font)
+
+    def resizeEvent(self, event):
+        # Call adjust_font_size when the window is resized
+        self.adjust_font_size()
+        super().resizeEvent(event)
 
 # window displaying a minimap of the current image
 class MinimapWindow(QWidget):
@@ -385,7 +421,7 @@ class MinimapWindow(QWidget):
         self.win = QWidget(self)
         layout = QGridLayout()
         self.win.setLayout(layout)
-        
+
         # Create a QLabel to display the image
         self.label = QLabel(self)
         self.label.setScaledContents(False)  # Allow the image to scale with the QLabel (does not maintain aspect ratio)
@@ -405,14 +441,14 @@ class MinimapWindow(QWidget):
 
         # Add the QLabel to the layout
         layout.addWidget(self.label, 0, 0, 1, 1)
-            
+
         self.update_image(self.filename)
 
         # This line sets the size of the window to match the width and height of the pixmap.
         self.setFixedSize(self.pixmap.width(), self.pixmap.height())
         # This line sets the size of the label to match the width and height of the pixmap.
         self.label.setFixedSize(self.pixmap.width(), self.pixmap.height())
-       
+
 
     def update_image(self, image):
         """
@@ -485,7 +521,7 @@ class MinimapWindow(QWidget):
         This is called automatically when the window is closed.
         """
         def closeEvent(self, event:QEvent):
-        # Notify the parent that the window is closing
+            # Notify the parent that the window is closing
             self.parent.minimap_closed()
             event.accept()  # Accept the event and close the window
 
