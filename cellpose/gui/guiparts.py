@@ -433,6 +433,9 @@ class MinimapWindow(QWidget):
         # load the image
         self.filename = parent.filename
 
+        # Open image through the package PIL
+        image = Image.open(self.filename)
+
         # Check the mode of the image
         print("This is the image's mode" + image.mode)
         
