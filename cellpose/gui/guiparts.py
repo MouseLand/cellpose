@@ -439,16 +439,19 @@ class MinimapWindow(QWidget):
         # Check the mode of the image
         print("This is the image's mode" + image.mode)
         
-        if os.path.getsize(self.filename) >  1024 * 1024:  # The exact maximum size still has to be determined
+        if os.path.getsize(self.filename) > 1024 * 1024:  # The exact maximum size still has to be determined
             with open(self.filename, 'r+b') as f:
                 with Image.open(f) as image:
-            # Check if the image mode is I;16 (16-bit grayscale, this is the format of the test-picutures)
+            # Check if the image mode is I;16 (16-bit grayscale, this is the format of the test-pictures)
                     if image.mode == 'I;16':
                 # Convert to 8-bit grayscale (mode 'L') before resizing
-                       image = image.convert('RGB')
+                       image = image.convert('L')
             
             # Resize the image to fit within the 256 MB limit
-                image = resizeimage.resize_contain(image, [800, 800])  # example dimensions
+                image_width = image.size[0]
+                image_height = image.size[1]
+                # resizes the image without changing the aspect ratio
+                image = resizeimage.resize_contain(image, [image_width // 10, image_height // 10])
                 image.save('resized_image.png')
                 self.filename = 'resized_image.png'
 
