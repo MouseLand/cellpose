@@ -14,6 +14,10 @@ import numpy as np
 import pathlib, os
 from . import io
 
+# These packages allow the resizing of images for the minimap
+from PIL import Image
+from resizeimage import resizeimage
+
 
 
 def stylesheet():
@@ -428,6 +432,22 @@ class MinimapWindow(QWidget):
 
         # load the image
         self.filename = parent.filename
+
+        # Check the mode of the image
+        print("This is the image's mode" + image.mode)
+        
+        if os.path.getsize(self.filename) >  1024 * 1024:  # The exact maximum size still has to be determined
+            with open(self.filename, 'r+b') as f:
+                with Image.open(f) as image:
+            # Check if the image mode is I;16 (16-bit grayscale, this is the format of the test-picutures)
+                    if image.mode == 'I;16':
+                # Convert to 8-bit grayscale (mode 'L') before resizing
+                       image = image.convert('RGB')
+            
+            # Resize the image to fit within the 256 MB limit
+                image = resizeimage.resize_contain(image, [800, 800])  # example dimensions
+                image.save('resized_image.png')
+                self.filename = 'resized_image.png'
 
         # Load the default image into a QPixmap
         self.pixmap = QPixmap(self.filename)
