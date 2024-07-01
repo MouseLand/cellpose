@@ -433,27 +433,26 @@ class MinimapWindow(QWidget):
         # load the image
         self.filename = parent.filename
 
-        # Open image through the package PIL
-        image = Image.open(self.filename)
+        # Open image using the QImage class from PyQt
+        image = QImage(self.filename)
 
-        # Check the mode of the image
-        print("This is the image's mode" + image.mode)
-        
+        # Check the format of the image
+        print("This is the image's format" + str(image.format()))
+
         if os.path.getsize(self.filename) > 1024 * 1024:  # The exact maximum size still has to be determined
-            with open(self.filename, 'r+b') as f:
-                with Image.open(f) as image:
             # Check if the image mode is I;16 (16-bit grayscale, this is the format of the test-pictures)
-                    if image.mode == 'I;16':
-                # Convert to 8-bit grayscale (mode 'L') before resizing
-                       image = image.convert('L')
-            
+            if image.format() == QImage.Format_Grayscale16:
+                # Convert to 8-bit grayscale before resizing
+                image = image.convertToFormat(QImage.Format_Grayscale8)
+
             # Resize the image to fit within the 256 MB limit
-                image_width = image.size[0]
-                image_height = image.size[1]
-                # resizes the image without changing the aspect ratio
-                image = resizeimage.resize_contain(image, [image_width // 10, image_height // 10])
-                image.save('resized_image.png')
-                self.filename = 'resized_image.png'
+            image_width = image.width()
+            image_height = image.width()
+            # resizes the image without changing the aspect ratio
+            new_dimensions = (image_width // 10, image_height // 10)
+            image = image.scaled(new_dimensions[0], new_dimensions[1])
+            image.save('resized_image.png')
+            self.filename = 'resized_image.png'
 
         # Load the default image into a QPixmap
         self.pixmap = QPixmap(self.filename)
