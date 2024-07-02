@@ -2807,7 +2807,7 @@ class MainW(QMainWindow):
                 cnt = cnt + 1
 
         cyto_nuclei_ratio = [round(cyto_size[index_cyto_nuclei[0] - 1] / nuclei_size[index_cyto_nuclei[1] - 1], 2) for index_cyto_nuclei in indices_cyto_nuclei]
-        tmp_coords = [tmp_coords[index_cyto_nuclei[0] - 1] for index_cyto_nuclei in indices_cyto_nuclei],
+        tmp_coords = [tuple(tmp_coords[index_cyto_nuclei[0] - 1]) for index_cyto_nuclei in indices_cyto_nuclei]
         return cyto_nuclei_ratio, tmp_coords, indices_cyto_nuclei
 
     def get_metrics(self, mask, custom_features):
