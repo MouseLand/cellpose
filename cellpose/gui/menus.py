@@ -73,7 +73,7 @@ def mainmenu(parent):
     parent.saveSettings.setShortcut("Ctrl+J")
     parent.saveSettings.triggered.connect(lambda: io._save_settings(parent))
     file_menu.addAction(parent.saveSettings)
-    parent.saveSettings.setEnabled(False)
+    parent.saveSettings.setEnabled(True)
 
 def editmenu(parent):
     main_menu = parent.menuBar()
