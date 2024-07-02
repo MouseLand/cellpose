@@ -402,8 +402,9 @@ class TrainHelpWindow(QDialog):
         self.adjust_font_size()
         super().resizeEvent(event)
 
+
 # window displaying a minimap of the current image
-class MinimapWindow(QWidget):
+class MinimapWindow(QDialog):
     """
     Method to initialize the Minimap Window.
     It creates a title for the window and a QWidget with a basic layout.
@@ -411,6 +412,7 @@ class MinimapWindow(QWidget):
     The proportions of this image stay constant.
     This is then set to a QLabel that will display the image.
     """
+
     def __init__(self, parent=None):
         super(MinimapWindow, self).__init__(parent)
         # Set the title and geometry of the window
@@ -419,133 +421,28 @@ class MinimapWindow(QWidget):
 
         # In practice, this line allows the window to be resized infinitely big, but sets the
         # given dimensions as a lower boundry. The image is first presented in its original size.
+
         self.setGeometry(100, 100, 400, 300)
 
         # Create a QWidget and set its layout to QGridLayout
-        self.win = QWidget(self)
         layout = QGridLayout()
-        self.win.setLayout(layout)
+        layout.setContentsMargins(0, 0, 0, 0)  # Set margins (left, top, right, bottom) to zero
+        self.setLayout(layout)
 
-        # Create a QLabel to display the image
-        self.label = QLabel(self)
-        self.label.setScaledContents(False)  # Allow the image to scale with the QLabel (does not maintain aspect ratio)
+        self.image_widget = pg.GraphicsLayoutWidget()
 
-        # load the image
-        self.filename = parent.filename
+        layout.addWidget(self.image_widget, 0, 0, 1, 1)
 
-        # Open image using the QImage class from PyQt
-        image = QImage(self.filename)
+        self.mini_image = pg.ImageItem(parent.stack[parent.currentZ])
 
-        # Check the format of the image
-        print("This is the image's format" + str(image.format()))
+        self.viewbox = pg.ViewBox()
+        self.viewbox.setMouseEnabled(x=False, y=False)
+        self.viewbox.setLimits(xMin=0, xMax=parent.Lx, yMin=0, yMax=parent.Ly)
+        self.viewbox.invertY(True)
+        self.viewbox.addItem(self.mini_image)
+        self.image_widget.addItem(self.viewbox)
 
-        if os.path.getsize(self.filename) > 1024 * 1024:  # The exact maximum size still has to be determined
-            # Check if the image mode is I;16 (16-bit grayscale, this is the format of the test-pictures)
-            if image.format() == QImage.Format_Grayscale16:
-                # Convert to 8-bit grayscale before resizing
-                image = image.convertToFormat(QImage.Format_Grayscale8)
-
-            # Resize the image to fit within the 256 MB limit
-            image_width = image.width()
-            image_height = image.width()
-            # resizes the image without changing the aspect ratio
-            new_dimensions = (image_width // 10, image_height // 10)
-            image = image.scaled(new_dimensions[0], new_dimensions[1])
-            image.save('resized_image.png')
-            self.filename = 'resized_image.png'
-
-        # Load the default image into a QPixmap
-        self.pixmap = QPixmap(self.filename)
-
-        # This line scales the QPixmap object 'self.pixmap' to a new size of 600x400 pixels.
-        # The aspect ratio is maintained to avoid distortions of the image.
-        self.pixmap = self.pixmap.scaled(600, 400, QtCore.Qt.KeepAspectRatio)
-
-        # Set the QPixmap to the QLabel (that will display the image)
-        self.label.setPixmap(self.pixmap)
-
-        # Add the QLabel to the layout
-        layout.addWidget(self.label, 0, 0, 1, 1)
-
-        self.update_image(self.filename)
-
-        # This line sets the size of the window to match the width and height of the pixmap.
-        self.setFixedSize(self.pixmap.width(), self.pixmap.height())
-        # This line sets the size of the label to match the width and height of the pixmap.
-        self.label.setFixedSize(self.pixmap.width(), self.pixmap.height())
-
-
-    def update_image(self, image):
-        """
-        Method to update the displayed image.
-        If the image is not None, it loads the image, creates a QImage object from the image file,
-        creates a QPixmap from the QImage, and sets the QPixmap to the QLabel.
-        If the image is None, it sets the QLabel's text to "No image available".
-        """
-        if image is not None:
-            self.filename = image
-
-            # Create QImage object from the image file.
-            # Casts the image to a QImage object which adds functionality to easily mutate the image.
-            qimage = QImage(self.filename)
-            # Create QPixmap from the QImage
-            pixmap = QPixmap.fromImage(qimage)
-            # Set the QPixmap to the QLabel
-            self.label.setPixmap(pixmap)
-
-            # Create a QDockWidget to accommodate the minimap image
-            self.dock = QDockWidget("Minimap", self)
-            # Set the dock to use our resize methode.
-            self.dock.resizeEvent = self.resizeEvent
-            # Set the QLabel as the widget for the dock
-            self.dock.setWidget(self.label)
-            # Set the dock to be floating, so it is detached from the main window (can be freely moved around)
-            self.dock.setFloating(True)
-        else:
-            self.label.setText("No image available")
-
-    def adjust_image_size(self, new_size=None):
-        """
-        Adjusts the size of the image to fit the dock. If a new size is provided,
-        the image is resized to this new size. If no new size is provided, the image
-        is resized to the current size of the dock. The aspect ratio of the image is
-        maintained during the resizing.
-
-        Parameters:
-        new_size (QSize, optional): The new size to which the image should be resized.
-                                    If not provided, the current width and height of the window are used.
-        """
-
-        # Default to the size of the dock if no new size is provided
-        if new_size is None:
-            new_size = self.dock.size()
-
-        # Create a resized version of the pixmap with the new size while keeping the aspect ratio
-        resized_pixmap = self.pixmap.scaled(new_size, QtCore.Qt.KeepAspectRatio)
-        # Set the resized pixmap to the label
-        self.label.setPixmap(resized_pixmap)
-
-    def resizeEvent(self, event):
-        """
-        Overrides the parent class' resizeEvent method. This method is called when
-        the dock is resized. It resizes the image to fit the new size of the dock
-        and then calls the parent class' resizeEvent method.
-
-        Parameters:
-        event (QResizeEvent): The event parameters for the resize event.
-        """
-
-        # Resize the image to fit the new size of the dock
-        self.adjust_image_size()
-        super().resizeEvent(event)
-
-        """
-        This method overrides the parent class' closeEvent method.
-        It informs the MainW class that the minimap has been closed,
-        so that the menu button can be untoggled.
-        This is called automatically when the window is closed.
-        """
-        def closeEvent(self, event:QEvent):
+        def closeEvent(self, event: QEvent):
             # Notify the parent that the window is closing
             self.parent.minimap_closed()
             event.accept()  # Accept the event and close the window
