@@ -2999,6 +2999,19 @@ class MainW(QMainWindow):
                 delimiter =", ",
                 fmt ='% s')
 
+            # ### DELETE
+            # np.savetxt(results_dir + "/" + "vornoi_vertices.csv",
+            #     vor.vertices,
+            #     delimiter =", ",
+            #     fmt ='% s')
+            # # np.savetxt(results_dir + "/" + "vornoi_regions.csv",
+            # #     vor.regions,
+            # #     delimiter =", ",
+            # #     fmt ='% s')
+            # v_regions = pd.DataFrame(vor.regions)
+            # v_regions.to_csv(results_dir + "/" + "vornoi_regions.csv", index=False, header=False)
+            # ### DELETE
+
         return size_cells_main, center_coords_main
 
     def select_mask(self, menu_output, cell_type, curr_index):
