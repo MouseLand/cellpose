@@ -343,11 +343,11 @@ class MainW(QMainWindow):
         EG = guiparts.ExampleGUI(self)
         EG.show()
 
-    """
-    This function creates a new window that displays the minimap of the current image.
-    It uses the MinimapWindow class created in guiparts.py
-    """
     def minimap_window(self):
+        """
+        This function creates a new window that displays the minimap of the current image.
+        It uses the MinimapWindow class created in guiparts.py
+        """
         if self.minimapWindow.isChecked():
             if self.minimap_window_instance is None:
                 self.minimap_window_instance = guiparts.MinimapWindow(self)
@@ -358,29 +358,29 @@ class MainW(QMainWindow):
                 self.minimap_window_instance.deleteLater()
                 self.minimap_window_instance = None
 
-    """
-    This function closes the minimap window
-    """
     def close_minimap_window(self):
+        """
+        This function closes the minimap window
+        """
         if self.minimap_window_instance:
             self.minimap_window_instance.close()
             self.minimap_window_instance = None
 
-    """
-    This function keeps track of the state of the minimap button and toggles the
-    window on and off ()
-    """
     def toggle_minimap(self, checked):
+        """
+        This function keeps track of the state of the minimap button and toggles the
+        window on and off ()
+        """
         if checked:
             self.minimap_window()
         else:
             self.close_minimap_window()
 
-    """
-    This function notices when the minimap window is closed (thanks to closeEvent
-    method in guiparts) and unchecks the minimap button in the menu
-    """
     def minimap_closed(self):
+        """
+        This function notices when the minimap window is closed (thanks to closeEvent
+        method in guiparts) and unchecks the minimap button in the menu
+        """
         # Uncheck the minimap button when the minimap window is closed
         self.minimapWindow.setChecked(False)
         if hasattr(self, 'minimap'):
@@ -1847,8 +1847,10 @@ class MainW(QMainWindow):
                 self.saturation[r][self.currentZ][1]
             ])
 
+        # If the channels are updated, the minimap is updated as well
         if self.minimap_window_instance is not None:
-            self.minimap_window_instance.update_minimap(self) 
+            self.minimap_window_instance.update_minimap(self)
+
         self.win.show()
         self.show()
         
