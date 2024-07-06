@@ -125,17 +125,19 @@ def create_channel_choose():
         if i == 0:
             ChannelLabels[i].setToolTip(
                 "this is the channel in which the cytoplasm or nuclei exist \
-            that you want to segment"                                     )
+                that you want to segment")
             ChannelChoose[i].setToolTip(
                 "this is the channel in which the cytoplasm or nuclei exist \
-            that you want to segment"                                     )
+                that you want to segment")
         else:
             ChannelLabels[i].setToolTip(
                 "if <em>cytoplasm</em> model is chosen, and you also have a \
-            nuclear channel, then choose the nuclear channel for this option"                                                                             )
+                nuclear channel, then choose the nuclear channel for this option"
+            )
             ChannelChoose[i].setToolTip(
                 "if <em>cytoplasm</em> model is chosen, and you also have a \
-            nuclear channel, then choose the nuclear channel for this option"                                                                             )
+                nuclear channel, then choose the nuclear channel for this option"
+            )
 
     return ChannelChoose, ChannelLabels
 
