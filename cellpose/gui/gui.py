@@ -1846,8 +1846,12 @@ class MainW(QMainWindow):
                 self.saturation[r][self.currentZ][0],
                 self.saturation[r][self.currentZ][1]
             ])
+
+        if self.minimap_window_instance is not None:
+            self.minimap_window_instance.update_minimap(self) 
         self.win.show()
         self.show()
+        
 
     def update_layer(self):
         if self.masksOn or self.outlinesOn:

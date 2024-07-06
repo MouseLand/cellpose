@@ -437,10 +437,9 @@ class MinimapWindow(QDialog):
 
         self.viewbox = pg.ViewBox()
         self.viewbox.setMouseEnabled(x=False, y=False)
-        self.viewbox.setLimits(xMin=0, xMax=parent.Lx, yMin=0, yMax=parent.Ly)
         self.viewbox.invertY(True)
         self.viewbox.setAspectLocked(True)
-        self.viewbox.addItem(self.mini_image)
+        self.update_minimap(parent)
         self.image_widget.addItem(self.viewbox)
 
     def closeEvent(self, event: QEvent):
@@ -448,7 +447,39 @@ class MinimapWindow(QDialog):
         self.parent().minimap_closed()
         event.accept()  # Accept the event and close the window
 
-    
+    def update_minimap(self, parent):
+        """
+        Method to update the minimap.
+        It takes the current image from the parent and updates the image in the minimap.
+        """
+        if parent.img.image is not None:
+            # Obtain image data from the parent
+            image = parent.img.image
+            # Obtain saturation levels
+            levels = parent.img.levels
+            # Obtain current channel
+            current_channel = parent.color
+
+            # Set image
+            self.mini_image = pg.ImageItem(image)
+            if current_channel == 0 or current_channel == 4:
+                self.mini_image.setLookupTable(None)
+            elif current_channel < 4:
+                self.mini_image.setLookupTable(parent.cmap[current_channel])
+            elif current_channel == 5:
+                self.mini_image.setLookupTable(parent.cmap[0])
+
+            self.mini_image.setLevels(levels)
+            self.viewbox.addItem(self.mini_image)
+
+            # Set size
+            aspect_ratio = self.mini_image.width() / self.mini_image.height()
+            self.setFixedSize(int(400 * aspect_ratio), 400)
+            self.viewbox.setLimits(xMin=0, xMax=parent.Lx, yMin=0, yMax=parent.Ly)
+        else:
+            self.setFixedSize(400, 400)
+
+
 
 
 class ViewBoxNoRightDrag(pg.ViewBox):
