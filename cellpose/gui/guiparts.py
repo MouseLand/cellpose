@@ -439,13 +439,16 @@ class MinimapWindow(QDialog):
         self.viewbox.setMouseEnabled(x=False, y=False)
         self.viewbox.setLimits(xMin=0, xMax=parent.Lx, yMin=0, yMax=parent.Ly)
         self.viewbox.invertY(True)
+        self.viewbox.setAspectLocked(True)
         self.viewbox.addItem(self.mini_image)
         self.image_widget.addItem(self.viewbox)
 
-        def closeEvent(self, event: QEvent):
-            # Notify the parent that the window is closing
-            self.parent.minimap_closed()
-            event.accept()  # Accept the event and close the window
+    def closeEvent(self, event: QEvent):
+        # Notify the parent that the window is closing
+        self.parent().minimap_closed()
+        event.accept()  # Accept the event and close the window
+
+    
 
 
 class ViewBoxNoRightDrag(pg.ViewBox):
