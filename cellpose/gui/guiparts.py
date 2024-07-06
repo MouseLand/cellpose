@@ -12,11 +12,6 @@ from pyqtgraph import functions as fn
 from pyqtgraph import Point
 import numpy as np
 import pathlib, os
-from . import io
-
-# These packages allow the resizing of images for the minimap
-from PIL import Image
-from resizeimage import resizeimage
 
 
 
@@ -130,17 +125,17 @@ def create_channel_choose():
         if i == 0:
             ChannelLabels[i].setToolTip(
                 "this is the channel in which the cytoplasm or nuclei exist \
-            that you want to segment")
+            that you want to segment"                                     )
             ChannelChoose[i].setToolTip(
                 "this is the channel in which the cytoplasm or nuclei exist \
-            that you want to segment")
+            that you want to segment"                                     )
         else:
             ChannelLabels[i].setToolTip(
                 "if <em>cytoplasm</em> model is chosen, and you also have a \
-            nuclear channel, then choose the nuclear channel for this option")
+            nuclear channel, then choose the nuclear channel for this option"                                                                             )
             ChannelChoose[i].setToolTip(
                 "if <em>cytoplasm</em> model is chosen, and you also have a \
-            nuclear channel, then choose the nuclear channel for this option")
+            nuclear channel, then choose the nuclear channel for this option"                                                                             )
 
     return ChannelChoose, ChannelLabels
 
@@ -418,6 +413,7 @@ class MinimapWindow(QDialog):
         # Set the title of the window
         self.title = "Minimap"
         self.setWindowTitle(self.title)
+        self.setWindowFlags(self.windowFlags() & ~QtCore.Qt.WindowContextHelpButtonHint)
 
         # Create a QGridLayout for the window
         layout = QGridLayout()
