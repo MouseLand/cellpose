@@ -440,6 +440,9 @@ class MinimapWindow(QDialog):
         # Add the viewbox to the image widget
         self.image_widget.addItem(self.viewbox)
 
+        # This marks the menu button as checked
+        parent.minimapWindow.setChecked(True)
+
     def closeEvent(self, event: QEvent):
         """
         Method to uncheck the button in the menu if the window is closed.
