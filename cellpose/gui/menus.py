@@ -75,6 +75,17 @@ def mainmenu(parent):
     file_menu.addAction(parent.saveSettings)
     parent.saveSettings.setEnabled(True)
 
+    """
+    This adds a new menu item for saving features as a .csv file. 
+    The user can activate this function to export specific data directly from the GUI.
+    The function `_save_features_as_csv` from the `io` module is called when the user clicks on the menu item.
+    """
+    parent.saveFeaturesCsv = QAction("Save Features as .&csv", parent)
+    parent.saveFeaturesCsv.setShortcut("Ctrl+S")
+    parent.saveFeaturesCsv.triggered.connect(lambda: io._save_features_csv(parent))
+    file_menu.addAction(parent.saveFeaturesCsv)
+    parent.saveFeaturesCsv.setEnabled(True)
+
 def editmenu(parent):
     main_menu = parent.menuBar()
     edit_menu = main_menu.addMenu("&Edit")

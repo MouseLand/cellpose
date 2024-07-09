@@ -13,6 +13,7 @@ from pathlib import Path
 import re
 from . import version_str
 from roifile import ImagejRoi, roiwrite
+import csv
 
 try:
     from qtpy import QtGui, QtCore, Qt, QtWidgets
@@ -559,6 +560,25 @@ def masks_flows_to_seg(images, masks, flows, file_names, diams=30., channels=Non
         dat["img_restore"] = imgs_restore
 
     np.save(base + "_seg.npy", dat)
+
+def save_features_csv(file_name):
+    """ save features to .csv file and remove if it already exists
+    Args:
+        file_name (str): Target CSV file name
+
+    Returns:
+        None
+    """
+    file_name = os.path.splitext(file_name)[0] + "_cp_features.csv"
+    if os.path.exists(file_name):
+        os.remove(file_name)
+    with open(file_name, mode='w', newline='') as csv_file:
+        fieldnames = ['Features', 'Value']
+        writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
+        writer.writeheader()
+        # rows can be added as needed
+        # writer.writerow({'Feature': 'example_feature', 'Value': 'example_value'})
+        # Add more rows as needed
 
 def save_to_png(images, masks, flows, file_names):
     """ deprecated (runs io.save_masks with png=True) 
