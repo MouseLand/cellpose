@@ -4,7 +4,7 @@ Copyright © 2023 Howard Hughes Medical Institute, Authored by Carsen Stringer a
 
 from qtpy import QtGui, QtCore, QtWidgets
 from qtpy.QtGui import QPainter, QPixmap, QImage, QFont
-from qtpy.QtWidgets import QApplication, QRadioButton, QWidget, QDialog, QButtonGroup, QSlider, QStyle, QStyleOptionSlider, QGridLayout, QPushButton, QLabel, QLineEdit, QDialogButtonBox, QComboBox, QCheckBox, QDockWidget
+from qtpy.QtWidgets import QApplication, QRadioButton, QWidget, QDialog, QButtonGroup, QSlider, QStyle, QStyleOptionSlider, QGridLayout, QPushButton, QLabel, QLineEdit, QDialogButtonBox, QComboBox, QCheckBox, QDockWidget, QMenu, QWidgetAction
 from qtpy.QtCore import QEvent
 from qtpy.QtGui import QFont
 import pyqtgraph as pg
@@ -489,6 +489,27 @@ class MinimapWindow(QDialog):
         # If there is no image and the minimap is checked, an empty window is opened
         else:
             self.setFixedSize(400, 400)
+
+    def mousePressEvent(self, event):
+        """
+        Method to handle mouse press events.
+        """
+        # Check if the right mouse button was pressed
+        if event.button() == QtCore.Qt.RightButton:
+            # Create the custom context menu
+            contextMenu = QMenu(self)
+
+            # Create a QSlider and add it to the menu
+            slider = QSlider(QtCore.Qt.Horizontal)
+            sliderAction = QWidgetAction(contextMenu)
+            sliderAction.setDefaultWidget(slider)
+            contextMenu.addAction(sliderAction)
+
+            # Show the custom context menu at the mouse position
+            contextMenu.exec_(event.globalPos())
+        else:
+            # If another mouse button was pressed, call the base class implementation
+            super().mousePressEvent(event)
 
 
 
