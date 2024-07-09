@@ -386,6 +386,43 @@ class MainW(QMainWindow):
         if hasattr(self, 'minimap'):
             del self.minimap
 
+    def center_view_on_position(self, normalized_x, normalized_y):
+        """
+        Centers the view on the given normalized coordinates (x, y).
+        This will be used to navigate using the minimap window.
+        This will also give us the coordinates.
+
+        Args:
+            normalized_x (float): Normalized x-coordinate (0.0 to 1.0).
+            normalized_y (float): Normalized y-coordinate (0.0 to 1.0).
+        """
+        # Get the size of the image
+        img_height = self.img.image.shape[0]
+        img_width = self.img.image.shape[1]
+
+        # Calculate the actual pixel coordinates
+        target_x = normalized_x * img_width
+        target_y = normalized_y * img_height
+
+        # Get the size of the viewbox (p0)
+        viewbox_width = self.p0.width()
+        viewbox_height = self.p0.height()
+        # methods using vieboxes (might be useful later):
+        # in gui: make_viewbox, in guiparts ViewBoxNoRightDrag
+
+        # Calculate the new top-left corner of the viewbox to center the target position
+        new_x = target_x - viewbox_width // 2
+        new_y = target_y - viewbox_height // 2
+        # might have to be adjusted
+
+        # Ensure the new top-left corner does not go out of the image bounds
+        new_x = max(0, min(new_x, img_width - viewbox_width))
+        new_y = max(0, min(new_y, img_height - viewbox_height))
+
+        # Set the new viewbox position
+        self.p0.setGeometry(new_x, new_y, viewbox_width, viewbox_height)
+        self.p0.update()  # Refresh the view
+
 
     def make_buttons(self):
         self.boldfont = QtGui.QFont("Arial", 11, QtGui.QFont.Bold)
