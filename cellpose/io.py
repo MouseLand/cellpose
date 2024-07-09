@@ -1,7 +1,7 @@
 """
 Copyright © 2023 Howard Hughes Medical Institute, Authored by Carsen Stringer and Marius Pachitariu.
 """
-
+import json
 import os, datetime, gc, warnings, glob, shutil
 from natsort import natsorted
 import numpy as np
@@ -590,7 +590,20 @@ def save_rois(masks, file_name):
 
     roiwrite(file_name, rois)
 
+def save_settings(file_name):
+    """ save settings to .json file and remove if it already exists
 
+    Args:
+        file_name (str): name to save the .json file to
+
+    Returns:
+        None
+    """
+    file_name = os.path.splitext(file_name)[0] + "_cp_settings.json"
+    if os.path.exists(file_name):
+        os.remove(file_name)
+    with open(file_name, 'w') as f:
+        json.dump({}, f)
 
 def save_masks(images, masks, flows, file_names, png=True, tif=False, channels=[0, 0],
                suffix="", save_flows=False, save_outlines=False, 

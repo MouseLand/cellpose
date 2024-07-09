@@ -69,6 +69,12 @@ def mainmenu(parent):
     file_menu.addAction(parent.saveFlows)
     parent.saveFlows.setEnabled(False)
 
+    parent.saveSettings = QAction("Save Settings as .&json", parent)
+    parent.saveSettings.setShortcut("Ctrl+J")
+    parent.saveSettings.triggered.connect(lambda: io._save_settings(parent))
+    file_menu.addAction(parent.saveSettings)
+    parent.saveSettings.setEnabled(True)
+
 def editmenu(parent):
     main_menu = parent.menuBar()
     edit_menu = main_menu.addMenu("&Edit")
