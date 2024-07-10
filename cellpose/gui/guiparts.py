@@ -416,6 +416,8 @@ class MinimapWindow(QDialog):
         self.title = "Minimap"
         self.setWindowTitle(self.title)
         self.setWindowFlags(self.windowFlags() & ~QtCore.Qt.WindowContextHelpButtonHint)
+        self.defaultSize = 400
+        self.minimapSize = self.defaultSize
 
         # Create a QGridLayout for the window
         layout = QGridLayout()
@@ -427,7 +429,10 @@ class MinimapWindow(QDialog):
         layout.addWidget(self.image_widget, 0, 0, 1, 1)
 
         # Load the current image from the stack
-        self.mini_image = pg.ImageItem(parent.stack[parent.currentZ])
+        #self.mini_image = pg.ImageItem(parent.stack[parent.currentZ])
+
+        # Create custom context menu
+        self.createSlider()
 
         # Create a viexbox for the minimap
         self.viewbox = pg.ViewBox()
@@ -484,11 +489,30 @@ class MinimapWindow(QDialog):
 
             # Set a fixed size for the minimap
             aspect_ratio = self.mini_image.width() / self.mini_image.height()
-            self.setFixedSize(int(400 * aspect_ratio), 400)
+            self.setFixedSize(int(self.minimapSize * aspect_ratio), self.minimapSize)
             self.viewbox.setLimits(xMin=0, xMax=parent.Lx, yMin=0, yMax=parent.Ly)
         # If there is no image and the minimap is checked, an empty window is opened
         else:
-            self.setFixedSize(400, 400)
+            self.setFixedSize(self.minimapSize, self.minimapSize)
+
+    def sliderValueChanged(self, value):
+        # This function will be called whenever the slider's value changes
+        self.minimapSize = 200 + 4 * value
+        aspect_ratio = self.mini_image.width() / self.mini_image.height()
+        self.setFixedSize(int(self.minimapSize * aspect_ratio), self.minimapSize)
+
+    def createSlider(self):
+        # Create the custom context menu
+        self.contextMenu = QMenu(self)
+
+        # Create a QSlider and add it to the menu
+        self.slider = QSlider(QtCore.Qt.Horizontal)
+        sliderAction = QWidgetAction(self.contextMenu)
+        sliderAction.setDefaultWidget(self.slider)
+        self.contextMenu.addAction(sliderAction)
+
+        # Connect the slider's valueChanged signal to a function
+        self.slider.valueChanged.connect(self.sliderValueChanged)
 
     def mousePressEvent(self, event):
         """
@@ -496,17 +520,8 @@ class MinimapWindow(QDialog):
         """
         # Check if the right mouse button was pressed
         if event.button() == QtCore.Qt.RightButton:
-            # Create the custom context menu
-            contextMenu = QMenu(self)
-
-            # Create a QSlider and add it to the menu
-            slider = QSlider(QtCore.Qt.Horizontal)
-            sliderAction = QWidgetAction(contextMenu)
-            sliderAction.setDefaultWidget(slider)
-            contextMenu.addAction(sliderAction)
-
             # Show the custom context menu at the mouse position
-            contextMenu.exec_(event.globalPos())
+            self.contextMenu.exec_(event.globalPos())
         else:
             # If another mouse button was pressed, call the base class implementation
             super().mousePressEvent(event)
