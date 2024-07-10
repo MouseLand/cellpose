@@ -1301,7 +1301,7 @@ class MainW(QMainWindow):
             io._load_image(self, filename=files[0], load_seg=True, load_3D=self.load_3D)
 
         self.minimapWindow.setChecked(True)  # Check the minimap menu item
-        self.toggle_minimap(True)
+        self.minimap_window()
 
     def toggle_masks(self):
         if self.MCheckBox.isChecked():
