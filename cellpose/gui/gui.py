@@ -311,8 +311,6 @@ class MainW(QMainWindow):
             self.filename = image
             io._load_image(self, self.filename)
 
-        # This line connects the toggle function to the checked state of the minimap button in the menu
-        # self.minimapWindow.triggered.connect(self.toggle_minimap)
 
         # training settings
         d = datetime.datetime.now()
