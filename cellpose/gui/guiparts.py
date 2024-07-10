@@ -496,12 +496,18 @@ class MinimapWindow(QDialog):
             self.setFixedSize(self.minimapSize, self.minimapSize)
 
     def sliderValueChanged(self, value):
-        # This function will be called whenever the slider's value changes
+        """
+        Method to change the size of the minimap based on the slider value.
+        This function will be called whenever the slider's value changes
+        """
         self.minimapSize = 200 + 4 * value
         aspect_ratio = self.mini_image.width() / self.mini_image.height()
         self.setFixedSize(int(self.minimapSize * aspect_ratio), self.minimapSize)
 
     def createSlider(self):
+        """
+        Method to create a custom context menu for the minimap. This menu contains a slider and an informative label.
+        """
         # Create the custom context menu
         self.contextMenu = QMenu(self)
 
