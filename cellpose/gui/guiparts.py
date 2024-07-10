@@ -505,6 +505,13 @@ class MinimapWindow(QDialog):
         # Create the custom context menu
         self.contextMenu = QMenu(self)
 
+        # Create a QLabel and set its text
+        label = QLabel()
+        label.setText("Adjust window size")
+        labelAction = QWidgetAction(self.contextMenu)
+        labelAction.setDefaultWidget(label)
+        self.contextMenu.addAction(labelAction)
+
         # Create a QSlider and add it to the menu
         self.slider = QSlider(QtCore.Qt.Horizontal)
         sliderAction = QWidgetAction(self.contextMenu)
