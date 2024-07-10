@@ -357,6 +357,7 @@ class MainW(QMainWindow):
             if self.minimap_window_instance is not None:
                 self.minimap_window_instance.deleteLater()
                 self.minimap_window_instance = None
+        self.center_view_on_position(0.5, 0.5) #test
 
     def close_minimap_window(self):
         """
@@ -404,12 +405,46 @@ class MainW(QMainWindow):
         target_x = normalized_x * img_width
         target_y = normalized_y * img_height
 
+        # Get the current view range of the viewbox.
+        # This tells us which part of the image is currently displayed.
+        view_range = self.p0.viewRange()
+
+        # Extract the x and y ranges
+        x_range = view_range[0]
+        y_range = view_range[1]
+
+        # Get the center position of the view in the image:
+        x_center = (x_range[0] + x_range[1]) / 2
+        y_center = (y_range[0] + y_range[1]) / 2
+        # not needed as of now, might still be useful though
+
+        # Calculate the current zoom level
+        zoom_x = (x_range[1] - x_range[0]) / img_width
+        zoom_y = (y_range[1] - y_range[0]) / img_height
+
+        # Calculate the width and height of the view range based on the zoom level
+        view_width = img_width * zoom_x
+        view_height = img_height * zoom_y
+
+        # Calculate the new view range, centered on the target position
+        new_x_range = [max(0, min(target_x - view_width / 2, img_width - view_width)),
+                       max(view_width, min(target_x + view_width / 2, img_width))]
+        new_y_range = [max(0, min(target_y - view_height / 2, img_height - view_height)),
+                       max(view_height, min(target_y + view_height / 2, img_height))]
+
+        # Set the new view range to the ViewBox
+        self.p0.setXRange(*new_x_range, padding=0)
+        self.p0.setYRange(*new_y_range, padding=0)
+
+        """
+        # old code; probably not needed anymore 
+        
         # Get the size of the viewbox (p0)
         viewbox_width = self.p0.width()
         viewbox_height = self.p0.height()
         # methods using vieboxes (might be useful later):
         # in gui: make_viewbox, in guiparts ViewBoxNoRightDrag
-
+        
         # Calculate the new top-left corner of the viewbox to center the target position
         new_x = target_x - viewbox_width // 2
         new_y = target_y - viewbox_height // 2
@@ -421,7 +456,14 @@ class MainW(QMainWindow):
 
         # Set the new viewbox position
         self.p0.setGeometry(new_x, new_y, viewbox_width, viewbox_height)
+
+        # Move the view of the viewbox
+        self.p0.translateBy(new_x, new_y)
+
         self.p0.update()  # Refresh the view
+        # moves the border of the viewbox as of now (not good xD)
+        """
+
 
 
     def make_buttons(self):
