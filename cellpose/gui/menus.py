@@ -4,9 +4,8 @@ Copyright © 2023 Howard Hughes Medical Institute, Authored by Carsen Stringer a
 
 import qtpy
 from qtpy.QtWidgets import QAction
-from . import io
+from . import io, features
 from .. import models
-
 
 def mainmenu(parent):
     main_menu = parent.menuBar()
@@ -133,21 +132,21 @@ def masksmenu(parent):
     masks_menu = main_menu.addMenu("&Masks")
 
     parent.keepMask = QAction("Save mask temporarily", parent)
-    parent.keepMask.triggered.connect(parent.save_temp_output)
+    parent.keepMask.triggered.connect(lambda: parent.features_class.save_temp_output(gui_self=parent))
     parent.keepMask.setEnabled(False)
     masks_menu.addAction(parent.keepMask)
 
     parent.saveMasks = QAction("Save labeled mask", parent)
-    parent.saveMasks.triggered.connect(parent.save_labeled_masks)
+    parent.saveMasks.triggered.connect(lambda: parent.features_class.save_labeled_masks(gui_self=parent))
     parent.saveMasks.setEnabled(False)
     masks_menu.addAction(parent.saveMasks)
 
-    parent.main_masks_menu = masks_menu
+    parent.features_class.main_masks_menu = masks_menu
 
 def imagesmenu(parent):
     main_menu = parent.menuBar()
     images_menu = main_menu.addMenu("&Images")
-    parent.main_images_menu = images_menu
+    parent.features_class.main_images_menu = images_menu
 
 def helpmenu(parent):
     main_menu = parent.menuBar()
