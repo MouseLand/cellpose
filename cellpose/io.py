@@ -572,13 +572,9 @@ def save_features_csv(file_name):
     file_name = os.path.splitext(file_name)[0] + "_cp_features.csv"
     if os.path.exists(file_name):
         os.remove(file_name)
-    with open(file_name, mode='w', newline='') as csv_file:
-        fieldnames = ['Features', 'Value']
-        writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
-        writer.writeheader()
-        # rows can be added as needed
-        # writer.writerow({'Feature': 'example_feature', 'Value': 'example_value'})
-        # Add more rows as needed
+    with open(file_name, mode='w', newline='') as f:
+        # creating an empty csv file or clearing the existing one
+        pass
 
 def save_to_png(images, masks, flows, file_names):
     """ deprecated (runs io.save_masks with png=True) 
