@@ -427,10 +427,10 @@ class MainW(QMainWindow):
         view_height = img_height * zoom_y
 
         # Calculate the new view range, centered on the target position
-        new_x_range = [max(0, min(target_x - view_width / 2, img_width - view_width)),
-                       max(view_width, min(target_x + view_width / 2, img_width))]
-        new_y_range = [max(0, min(target_y - view_height / 2, img_height - view_height)),
-                       max(view_height, min(target_y + view_height / 2, img_height))]
+        new_x_range = [target_x - view_width / 2,
+                       target_x + view_width / 2]
+        new_y_range = [target_y - view_height / 2,
+                       target_y + view_height / 2]
 
         # Set the new view range to the ViewBox
         self.p0.setXRange(*new_x_range, padding=0)
@@ -458,7 +458,7 @@ class MainW(QMainWindow):
         self.p0.setGeometry(new_x, new_y, viewbox_width, viewbox_height)
 
         # Move the view of the viewbox
-        self.p0.translateBy(new_x, new_y)
+        self.p0.translateBy(x=new_x, y=new_y)
 
         self.p0.update()  # Refresh the view
         # moves the border of the viewbox as of now (not good xD)
