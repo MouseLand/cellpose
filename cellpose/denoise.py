@@ -849,7 +849,7 @@ def train(net, train_data=None, train_labels=None, train_files=None, test_data=N
           save_every=100, save_each=False, poisson=0.7, beta=0.7, blur=0.7, gblur=1.0,
           iso=True, downsample=0., learning_rate=0.005, n_epochs=500, momentum=0.9,
           weight_decay=0.00001, batch_size=8, nimg_per_epoch=None,
-          nimg_test_per_epoch=None):
+          nimg_test_per_epoch=None, model_name=None):
 
     # net properties
     device = net.device
@@ -864,21 +864,24 @@ def train(net, train_data=None, train_labels=None, train_files=None, test_data=N
 
     d = datetime.datetime.now()
     if save_path is not None:
-        filename = ""
-        lstrs = ["per", "seg", "rec"]
-        for k, (l, s) in enumerate(zip(lam, lstrs)):
-            filename += f"{s}_{l:.2f}_"
-        if poisson.sum() > 0:
-            filename += "poisson_"
-        if blur.sum() > 0:
-            if iso:
-                filename += "blur_"
-            else:
-                filename += "bluraniso_"
-        if downsample.sum() > 0:
-            filename += "downsample_"
-        filename += d.strftime("%Y_%m_%d_%H_%M_%S.%f")
-        filename = os.path.join(save_path, filename)
+        if model_name is None:  
+            filename = ""
+            lstrs = ["per", "seg", "rec"]
+            for k, (l, s) in enumerate(zip(lam, lstrs)):
+                filename += f"{s}_{l:.2f}_"
+            if poisson.sum() > 0:
+                filename += "poisson_"
+            if blur.sum() > 0:
+                if iso:
+                    filename += "blur_"
+                else:
+                    filename += "bluraniso_"
+            if downsample.sum() > 0:
+                filename += "downsample_"
+            filename += d.strftime("%Y_%m_%d_%H_%M_%S.%f")
+            filename = os.path.join(save_path, filename)
+        else:
+            filename = os.path.join(save_path, model_name)
         print(filename)
     for i in range(len(poisson)):
         denoise_logger.info(
