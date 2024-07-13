@@ -937,6 +937,7 @@ def train(net, train_data=None, train_labels=None, train_files=None, test_data=N
         nimg_test_per_epoch = nimg_test if nimg_test_per_epoch is None else nimg_test_per_epoch
 
     nbatch = 0
+    train_losses, test_losses = [], []
     for iepoch in range(n_epochs):
         np.random.seed(iepoch)
         rperm = np.random.choice(np.arange(0, nimg), size=(nimg_per_epoch,),
@@ -974,7 +975,7 @@ def train(net, train_data=None, train_labels=None, train_files=None, test_data=N
             nsum += len(img)
             nbatch += 1
 
-        if iepoch % 10 == 0 or iepoch < 10:
+        if iepoch % 5 == 0 or iepoch < 10:
             lavg = lavg / nsum
             lavg_per = lavg_per / nsum
             if test_data is not None or test_files is not None:
@@ -1005,21 +1006,18 @@ def train(net, train_data=None, train_labels=None, train_files=None, test_data=N
 
                     lavgt += loss.item() * img.shape[0]
                     nsum += len(img)
+                lavgt = lavgt / nsum
                 denoise_logger.info(
                     "Epoch %d, Time %4.1fs, Loss %0.3f, loss_per %0.3f, Loss Test %0.3f, LR %2.4f"
-                    % (iepoch, time.time() - tic, lavg, lavg_per, lavgt / nsum,
+                    % (iepoch, time.time() - tic, lavg, lavg_per, lavgt,
                        learning_rate[iepoch]))
+                test_losses.append(lavgt)
             else:
                 denoise_logger.info(
                     "Epoch %d, Time %4.1fs, Loss %0.3f, loss_per %0.3f, LR %2.4f" %
                     (iepoch, time.time() - tic, lavg, lavg_per, learning_rate[iepoch]))
-        elif iepoch < 50:
-            lavg = lavg / nsum
-            lavg_per = lavg_per / nsum
-            denoise_logger.info(
-                "Epoch %d, Time %4.1fs, Loss %0.3f, loss_per %0.3f, LR %2.4f" %
-                (iepoch, time.time() - tic, lavg, lavg_per, learning_rate[iepoch]))
-
+            train_losses.append(lavg)
+            
         if save_path is not None:
             if iepoch == n_epochs - 1 or iepoch % save_every == 1:
                 if save_each:  #separate files as model progresses
@@ -1031,7 +1029,7 @@ def train(net, train_data=None, train_labels=None, train_files=None, test_data=N
         else:
             filename = save_path
 
-    return filename
+    return filename, train_losses, test_losses
 
 
 if __name__ == "__main__":
