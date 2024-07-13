@@ -490,6 +490,28 @@ class MinimapWindow(QDialog):
         else:
             self.setFixedSize(400, 400)
 
+    def mousePressEvent(self, event):
+        """
+        Handles mouse press events on the minimap.
+        This method is triggered when the user clicks on the minimap,
+        allowing for interaction such as navigating the main image view.
+        """
+        # Obtain the position where the mouse was clicked within the minimap.
+        pos = event.pos()
+
+        # Map the position to the coordinate system of the viewbox
+        viewboxPos = self.viewbox.mapToView(pos)
+
+        # Save the translated position for later use
+        self.lastClickPos = (viewboxPos.x(), viewboxPos.y())
+
+        # Normalize the clicked position's coordinates to values between 0 and 1.
+        normalized_x = viewboxPos.x() / self.viewbox.width()
+        normalized_y = viewboxPos.y() / self.viewbox.height()
+        self.normalizedClickPos = (normalized_x, normalized_y)
+
+        # Update the position of the minimap
+        self.viewbox.autoRange()
 
 
 class ViewBoxNoRightDrag(pg.ViewBox):
