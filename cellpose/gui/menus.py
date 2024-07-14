@@ -155,5 +155,3 @@ def helpmenu(parent):
     openTrainHelp = QAction("Training instructions", parent)
     openTrainHelp.triggered.connect(parent.train_help_window)
     help_menu.addAction(openTrainHelp)
-
-

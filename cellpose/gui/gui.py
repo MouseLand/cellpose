@@ -256,18 +256,13 @@ class MainW(QMainWindow):
 
         # --- Make the right side menu scrollable---#
         self.rightScrollArea = QScrollArea()
-        self.rightScrollArea.setVerticalScrollBarPolicy(
-            QtCore.Qt.ScrollBarAlwaysOn)  # scrollbar always visible
-        self.rightScrollArea.setStyleSheet(
-            """QScrollArea { border: none }""")  # remove border
+        self.rightScrollArea.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOn)  # scrollbar always visible
+        self.rightScrollArea.setStyleSheet("""QScrollArea { border: none }""")  # remove border
         self.rightScrollArea.setWidgetResizable(True)  # resizing allowed
-        self.rightScrollArea.setWidget(
-            self.rightBox)  # set the rightBox as the content of the scroll area
+        self.rightScrollArea.setWidget(self.rightBox)  # set the rightBox as the content of the scroll area
 
         # --- Add right side menu to the main layout ---#
-        self.lmain.addWidget(
-            self.rightScrollArea, 0, 40, 39,
-            9)  # Set the same row and column spans as the left side menu
+        self.lmain.addWidget(self.rightScrollArea, 0, 40, 39, 9)  # Set the same row and column spans as the left side menu
 
         b = self.make_buttons()
 
@@ -310,7 +305,6 @@ class MainW(QMainWindow):
         if image is not None:
             self.filename = image
             io._load_image(self, self.filename)
-
 
         # training settings
         d = datetime.datetime.now()
@@ -422,38 +416,28 @@ class MainW(QMainWindow):
         self.autobtn.setChecked(True)
         self.satBoxG.addWidget(self.autobtn, b0, 1, 1, 8)
 
-
+    
         c = 0  # position of the elements in the right side menu
 
         self.sliders = []
         # ---Create a list (extendable) of color/on-off buttons  ---#
         colors = ["red", "green", "blue"]
-        self.marker_buttons = [
-            self.create_color_button(color) for color in colors
-        ]
+        self.marker_buttons = [self.create_color_button(color) for color in colors]
         self.on_off_buttons = [self.create_on_off_button() for color in colors]
 
         for r in range(3):
             c += 1
 
             label = QLabel(f'Marker {r + 1}')  # create a label for each marker
-            color_button = self.marker_buttons[
-                r]  # get the corresponding color button
-            self.marker_buttons = [
-                self.create_color_button(color) for color in colors
-            ]
-            on_off_button = self.on_off_buttons[
-                r]  # get the corresponding on-off button
+            color_button = self.marker_buttons[r]  # get the corresponding color button
+            self.marker_buttons = [self.create_color_button(color) for color in colors]
+            on_off_button = self.on_off_buttons[r]  # get the corresponding on-off button
             label.setStyleSheet("color: white")
             label.setFont(self.boldmedfont)
             self.rightBoxLayout.addWidget(label, c, 0, 1, 1)
-            self.rightBoxLayout.addWidget(
-                color_button, c, 9, 1, 1)  # add the color button to the layout
-            self.rightBoxLayout.addWidget(
-                on_off_button, c, 10, 1,
-                1)  # add the on-off button to the layout
+            self.rightBoxLayout.addWidget(color_button, c, 9, 1, 1)  # add the color button to the layout
+            self.rightBoxLayout.addWidget(on_off_button, c, 10, 1, 1)  # add the on-off button to the layout
             self.sliders.append(Slider(self, colors[r], None))
-
             self.sliders[-1].setMinimum(-.1)
             self.sliders[-1].setMaximum(255.1)
             self.sliders[-1].setValue([0, 255])
@@ -946,9 +930,7 @@ class MainW(QMainWindow):
         on_off_button = QPushButton()
         on_off_button.setCheckable(True)
         on_off_button.setChecked(False)
-        on_off_button.setIcon(
-            QIcon("cellpose/resources/icon/visibility_off.png")
-        )  # Icon for "off" state
+        on_off_button.setIcon(QIcon("cellpose/resources/icon/visibility_off.png"))  # Icon for "off" state
         on_off_button.setIconSize(QtCore.QSize(12, 12))
         on_off_button.clicked.connect(self.toggle_on_off)
         return on_off_button
@@ -960,11 +942,9 @@ class MainW(QMainWindow):
         """
         button = self.sender()
         if button.isChecked():
-            button.setIcon(QIcon("cellpose/resources/icon/visibility_on.png")
-                          )  # Icon for "on" state
+            button.setIcon(QIcon("cellpose/resources/icon/visibility_on.png"))  # Icon for "on" state
         else:
-            button.setIcon(QIcon("cellpose/resources/icon/visibility_off.png")
-                          )  # Icon for "off" state
+            button.setIcon(QIcon("cellpose/resources/icon/visibility_off.png"))  # Icon for "off" state
 
     def open_color_dialog(self):
         """
@@ -984,8 +964,7 @@ class MainW(QMainWindow):
         if color_dialog.exec_():
             color = color_dialog.selectedColor()
             if color.isValid():
-                self.sender().setStyleSheet(
-                    self.get_color_button_style(color.name()))
+                self.sender().setStyleSheet(self.get_color_button_style(color.name()))
 
     def get_color_button_style(self, color_name):
         """
@@ -1833,7 +1812,6 @@ class MainW(QMainWindow):
 
         self.win.show()
         self.show()
-        
 
     def update_layer(self):
         if self.masksOn or self.outlinesOn:

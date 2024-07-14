@@ -13,7 +13,6 @@ import numpy as np
 import pathlib, os
 
 
-
 def stylesheet():
     return """
         QToolTip { 
@@ -124,19 +123,17 @@ def create_channel_choose():
         if i == 0:
             ChannelLabels[i].setToolTip(
                 "this is the channel in which the cytoplasm or nuclei exist \
-                that you want to segment")
+            that you want to segment")
             ChannelChoose[i].setToolTip(
                 "this is the channel in which the cytoplasm or nuclei exist \
-                that you want to segment")
+            that you want to segment")
         else:
             ChannelLabels[i].setToolTip(
                 "if <em>cytoplasm</em> model is chosen, and you also have a \
-                nuclear channel, then choose the nuclear channel for this option"
-            )
+            nuclear channel, then choose the nuclear channel for this option")
             ChannelChoose[i].setToolTip(
                 "if <em>cytoplasm</em> model is chosen, and you also have a \
-                nuclear channel, then choose the nuclear channel for this option"
-            )
+            nuclear channel, then choose the nuclear channel for this option")
 
     return ChannelChoose, ChannelLabels
 
@@ -183,6 +180,7 @@ class DenoiseButton(QPushButton):
         else:
             parent.clear_restore()
         parent.set_restore_button()
+
 
 class TrainWindow(QDialog):
 
@@ -311,7 +309,6 @@ class ExampleGUI(QDialog):
         self.win = QWidget(self)
         layout = QGridLayout()
         self.win.setLayout(layout)
-
         guip_path = pathlib.Path.home().joinpath(".cellpose", "cellpose_gui.png")
         guip_path = str(guip_path.resolve())
         pixmap = QPixmap(guip_path)
@@ -351,8 +348,7 @@ class TrainHelpWindow(QDialog):
         layout = QGridLayout()
         self.setLayout(layout)
 
-        text_file = pathlib.Path(__file__).parent.joinpath(
-            "guitrainhelpwindowtext.html")
+        text_file = pathlib.Path(__file__).parent.joinpath("guitrainhelpwindowtext.html")
         with open(str(text_file.resolve()), "r") as f:
             text = f.read()
 
