@@ -311,8 +311,6 @@ class MainW(QMainWindow):
             self.filename = image
             io._load_image(self, self.filename)
 
-        # This line connects the toggle function to the checked state of the minimap button in the menu
-        # self.minimapWindow.triggered.connect(self.toggle_minimap)
 
         # training settings
         d = datetime.datetime.now()
@@ -358,24 +356,6 @@ class MainW(QMainWindow):
                 self.minimap_window_instance.deleteLater()
                 self.minimap_window_instance = None
         self.center_view_on_position(0.5, 0.5) #test
-
-    def close_minimap_window(self):
-        """
-        This function closes the minimap window
-        """
-        if self.minimap_window_instance:
-            self.minimap_window_instance.close()
-            self.minimap_window_instance = None
-
-    def toggle_minimap(self, checked):
-        """
-        This function keeps track of the state of the minimap button and toggles the
-        window on and off ()
-        """
-        if checked:
-            self.minimap_window()
-        else:
-            self.close_minimap_window()
 
     def minimap_closed(self):
         """
@@ -1362,7 +1342,7 @@ class MainW(QMainWindow):
             io._load_image(self, filename=files[0], load_seg=True, load_3D=self.load_3D)
 
         self.minimapWindow.setChecked(True)  # Check the minimap menu item
-        self.toggle_minimap(True)
+        self.minimap_window()
 
     def toggle_masks(self):
         if self.MCheckBox.isChecked():
