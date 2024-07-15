@@ -370,7 +370,7 @@ class MainW(QMainWindow):
         """
         Centers the view on the given normalized coordinates (x, y).
         This will be used to navigate using the minimap window.
-        This will also give us the coordinates.
+        The zoom level will be maintained.
 
         Args:
             normalized_x (float): Normalized x-coordinate (0.0 to 1.0).
