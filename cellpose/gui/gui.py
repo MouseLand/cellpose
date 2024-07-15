@@ -355,7 +355,6 @@ class MainW(QMainWindow):
             if self.minimap_window_instance is not None:
                 self.minimap_window_instance.deleteLater()
                 self.minimap_window_instance = None
-        self.center_view_on_position(0.5, 0.5) #test
 
     def minimap_closed(self):
         """
