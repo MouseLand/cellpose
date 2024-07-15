@@ -355,10 +355,13 @@ class MainW(QMainWindow):
         This function notices when the minimap window is closed (thanks to closeEvent
         method in guiparts) and unchecks the minimap button in the menu
         """
-        # Uncheck the minimap button when the minimap window is closed
-        self.minimapWindow.setChecked(False)
-        if hasattr(self, 'minimap'):
-            del self.minimap
+        try:
+            # Uncheck the minimap button when the minimap window is closed
+            self.minimapWindow.setChecked(False)
+            if hasattr(self, 'minimap'):
+                del self.minimap
+        except Exception as e:
+            print(f"An error occurred while closing the minimap: {e}")
 
 
     def make_buttons(self):
