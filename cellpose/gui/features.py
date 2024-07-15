@@ -1,6 +1,6 @@
 import sys, os, pathlib, warnings, datetime, time, copy, math
 from qtpy import QtGui
-from qtpy.QtWidgets import QAction
+from qtpy.QtWidgets import QAction, QMenu
 
 from . import symmetry
 import pandas as pd
@@ -271,12 +271,10 @@ class FeatureExtraction():
         im_masks = self.mask_indexing(colormap_mask, center_coords)
         im_masks.save(out_dir + "/" + "mask_colormap.png")
 
-        # for metric in metric_cells:
         # Metric img
         im_cell_size_labeled = self.image_labeling(im_mask=im_cell, im_labels=metric_cells, coords=center_coords)
         self.save_temp_output(image=im_cell_size_labeled, model_name=metric_name, gui_self=gui_self)
         im_cell_size_labeled.save(out_dir + "/" + metric_name + ".png")
-        # out_csv = metric_cells if len(out_csv) == 0 else [[out_csv[idx], single_metric] for idx, single_metric in enumerate(metric_cells)]
         out_csv = metric_cells if len(out_csv) == 0 else [self.out_concat(out_csv[idx], single_metric) for idx, single_metric in enumerate(metric_cells)]
 
         # Metric csv
@@ -413,7 +411,8 @@ class FeatureExtraction():
                 prev_selected_mask.setIcon(QtGui.QIcon())
             self.indexNucleusMask = curr_index
             self.indexCytoMask = -1 if self.indexCytoMask == curr_index else self.indexCytoMask
-        menu_output.setIcon(QtGui.QIcon('/home/mellamoarroz/.cellpose/' + cell_type + '.png'))
+        icon_path = pathlib.Path.home().joinpath(".cellpose", str(cell_type) + '.png')
+        menu_output.setIcon(QtGui.QIcon(str(icon_path.resolve())))
 
         gui_self.RTCheckBox.setEnabled(self.indexCytoMask > -1 and self.indexNucleusMask > -1)
         gui_self.VDCheckBox.setEnabled(self.indexCytoMask > -1 and self.indexNucleusMask > -1)
