@@ -413,7 +413,7 @@ class MinimapWindow(QDialog):
     def __init__(self, parent=None):
         super(MinimapWindow, self).__init__(parent)
         # Set the title of the window
-        self.title = "Minimap"
+        self.title = "Minimap (right click for options)"
         self.setWindowTitle(self.title)
         self.setWindowFlags(self.windowFlags() & ~QtCore.Qt.WindowContextHelpButtonHint)
         # Set min, max and default size of the minimap
