@@ -497,17 +497,14 @@ class MinimapWindow(QDialog):
         allowing for interaction such as navigating the main image view.
         """
         # Obtain the position where the mouse was clicked within the minimap.
-        pos = event.pos()
-
-        # Map the position to the coordinate system of the viewbox
-        viewboxPos = self.viewbox.mapToView(pos)
+        viewboxPos = event.pos()
 
         # Save the translated position for later use
         self.lastClickPos = (viewboxPos.x(), viewboxPos.y())
 
         # Normalize the clicked position's coordinates to values between 0 and 1.
-        normalized_x = viewboxPos.x() / self.viewbox.width()
-        normalized_y = viewboxPos.y() / self.viewbox.height()
+        normalized_x = viewboxPos.x() - 9/ self.viewbox.width()
+        normalized_y = viewboxPos.y() - 9/ self.viewbox.height()
         self.normalizedClickPos = (normalized_x, normalized_y)
 
         # Update the position of the minimap
