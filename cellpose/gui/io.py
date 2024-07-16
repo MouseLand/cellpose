@@ -10,7 +10,7 @@ import tifffile
 import logging
 import fastremap
 
-from ..io import imread, imsave, outlines_to_text, add_model, remove_model, save_rois
+from ..io import imread, imsave, outlines_to_text, add_model, remove_model, save_rois, save_settings
 from ..models import normalize_default, MODEL_DIR, MODEL_LIST_PATH, get_user_models
 from ..utils import masks_to_outlines, outlines_list
 from . import guiparts, gui
@@ -619,6 +619,15 @@ def _save_outlines(parent):
     else:
         print("ERROR: cannot save 3D outlines")
 
+def _save_settings(parent):
+    """ save settings to json file"""
+    filename = parent.filename
+    base = os.path.splitext(filename)[0]
+    if parent.NZ == 1:
+        print("GUI_INFO: saving Settings to json file")
+        save_settings(parent.filename)
+    else:
+        print("ERROR: cannot save settings")
 
 def _save_sets_with_check(parent):
     """ Save masks and update *_seg.npy file. Use this function when saving should be optional
