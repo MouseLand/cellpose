@@ -107,9 +107,10 @@ def _get_image_size(filename):
     file_name = os.path.split(filename)[-1].split("_ch00.tif")[0]
 
     try:
+        root = None
         if os.path.exists(path_root + '/' + file_name + "_Properties.xml"):
             root = ET.parse(path_root + '/' + file_name + "_Properties.xml").getroot()
-        elif os.path.exists(path_root + '/MetaData/' + file_name + "_Properties.xml"):
+        else:
             root = ET.parse(path_root + '/MetaData/' + file_name + "_Properties.xml").getroot()
 
         mm_lengths = root.findall('Image/ImageDescription/Dimensions/DimensionDescription')
