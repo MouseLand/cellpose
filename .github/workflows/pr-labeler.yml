@@ -23,7 +23,8 @@ jobs:
               "25": "L",
               "35": "XL",
               "50": "XXL",
-              "80": "Too_Big"
+              "80": "XXXL",
+              "150": "Too_Big"
             }
   TooBig:
     runs-on: ubuntu-latest
