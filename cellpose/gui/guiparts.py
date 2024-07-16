@@ -416,7 +416,10 @@ class MinimapWindow(QDialog):
         self.title = "Minimap"
         self.setWindowTitle(self.title)
         self.setWindowFlags(self.windowFlags() & ~QtCore.Qt.WindowContextHelpButtonHint)
+        # Set min, max and default size of the minimap
         self.defaultSize = 400
+        self.minimumSize = 100
+        self.maximumSize = 800
         self.minimapSize = self.defaultSize
 
         # Create a QGridLayout for the window
@@ -428,9 +431,6 @@ class MinimapWindow(QDialog):
         self.image_widget = pg.GraphicsLayoutWidget()
         layout.addWidget(self.image_widget, 0, 0, 1, 1)
 
-        # Load the current image from the stack
-        #self.mini_image = pg.ImageItem(parent.stack[parent.currentZ])
-
         # Create custom context menu
         self.createSlider()
 
@@ -440,8 +440,12 @@ class MinimapWindow(QDialog):
         # Invert and fix the aspect ratio of the viewbox to look like the original image
         self.viewbox.invertY(True)
         self.viewbox.setAspectLocked(True)
+
         # Update the minimap so that it responds to changes in the main window
         self.update_minimap(parent)
+        # Set the value of the slider according to the default size
+        self.slider.setValue(int((self.defaultSize - self.minimumSize) / self.maximumSize * 100))
+
         # Add the viewbox to the image widget
         self.image_widget.addItem(self.viewbox)
 
@@ -487,10 +491,13 @@ class MinimapWindow(QDialog):
             self.mini_image.setLevels(levels)
             self.viewbox.addItem(self.mini_image)
 
-            # Set a fixed size for the minimap
+            # Set the size of the minimap based on the aspect ratio of the image
+            # this ensures that the apsect ratio is always correct
             aspect_ratio = self.mini_image.width() / self.mini_image.height()
             self.setFixedSize(int(self.minimapSize * aspect_ratio), self.minimapSize)
+            # Ensure image fits viewbox
             self.viewbox.setLimits(xMin=0, xMax=parent.Lx, yMin=0, yMax=parent.Ly)
+
         # If there is no image and the minimap is checked, an empty window is opened
         else:
             self.setFixedSize(self.minimapSize, self.minimapSize)
@@ -500,9 +507,16 @@ class MinimapWindow(QDialog):
         Method to change the size of the minimap based on the slider value.
         This function will be called whenever the slider's value changes
         """
-        self.minimapSize = 200 + 4 * value
-        aspect_ratio = self.mini_image.width() / self.mini_image.height()
-        self.setFixedSize(int(self.minimapSize * aspect_ratio), self.minimapSize)
+        # Calculate the new size of the minimap based on the slider value
+        upscaleFactor = ((self.maximumSize - self.minimumSize) / 100)
+        self.minimapSize = int(self.minimumSize + upscaleFactor * value)
+
+        # this ensures that the apsect ratio is always correct
+        if self.parent().img.image is not None:
+            aspect_ratio = self.mini_image.width() / self.mini_image.height()
+            self.setFixedSize(int(self.minimapSize * aspect_ratio), self.minimapSize)
+        else:
+            self.setFixedSize(self.minimapSize, self.minimapSize)
 
     def createSlider(self):
         """
@@ -529,7 +543,9 @@ class MinimapWindow(QDialog):
 
     def mousePressEvent(self, event):
         """
-        Method to handle mouse press events.
+        Method to handle mouse press events. This overrides the default mousePressEvent method. Various information
+        about the mouse event are passed to the method and handled accordingly. The method can distinguish between
+        left and right mouse button clicks. If the right mouse button is clicked, the custom context menu is displayed.
         """
         # Check if the right mouse button was pressed
         if event.button() == QtCore.Qt.RightButton:
