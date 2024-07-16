@@ -68,6 +68,18 @@ def mainmenu(parent):
     parent.saveFlows.triggered.connect(lambda: io._save_flows(parent))
     file_menu.addAction(parent.saveFlows)
     parent.saveFlows.setEnabled(False)
+    
+    """
+    This creates a new menu item for the minimap that the user can activate.
+    It is deactivated by default and has to be checked.
+    The minimap_window function is called from gui.py when the user clicks on the menu item.
+    """
+    parent.minimapWindow = QAction("&Minimap", parent, checkable=True)
+    parent.minimapWindow.setChecked(False)
+    parent.minimapWindow.triggered.connect(parent.minimap_window)
+    file_menu.addAction(parent.minimapWindow)
+    
+# Save settings action from main
 
     parent.saveSettings = QAction("Save Settings as .&json", parent)
     parent.saveSettings.setShortcut("Ctrl+J")
