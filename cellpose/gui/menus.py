@@ -78,7 +78,13 @@ def mainmenu(parent):
     parent.minimapWindow.setChecked(False)
     parent.minimapWindow.triggered.connect(parent.minimap_window)
     file_menu.addAction(parent.minimapWindow)
-    
+
+    parent.saveSettings = QAction("Save Settings as .&json", parent)
+    parent.saveSettings.setShortcut("Ctrl+J")
+    parent.saveSettings.triggered.connect(lambda: io._save_settings(parent))
+    file_menu.addAction(parent.saveSettings)
+    parent.saveSettings.setEnabled(True)
+
 def editmenu(parent):
     main_menu = parent.menuBar()
     edit_menu = main_menu.addMenu("&Edit")
@@ -155,5 +161,3 @@ def helpmenu(parent):
     openTrainHelp = QAction("Training instructions", parent)
     openTrainHelp.triggered.connect(parent.train_help_window)
     help_menu.addAction(openTrainHelp)
-
-
