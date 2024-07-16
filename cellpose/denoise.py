@@ -1121,6 +1121,8 @@ if __name__ == "__main__":
     io.logger_setup()
 
     args = parser.parse_args()
+    lams = [args.lam_per, args.lam_seg, args.lam_rec]
+    print("lam", lams)
 
     if len(args.noise_type) > 0:
         noise_type = args.noise_type
@@ -1163,8 +1165,7 @@ if __name__ == "__main__":
     train_data, labels, train_files, train_probs = None, None, None, None
     test_data, test_labels, test_files, test_probs = None, None, None, None
     if len(args.file_list) == 0:
-        output = io.load_train_test_data(args.dir, args.test_dir, "_img", "_masks", 0,
-                                         0)
+        output = io.load_train_test_data(args.dir, args.test_dir, "_img", "_masks", 0)
         images, labels, image_names, test_images, test_labels, image_names_test = output
         train_data = []
         for i in range(len(images)):
@@ -1215,7 +1216,7 @@ if __name__ == "__main__":
         blur=blur, gblur=gblur, downsample=downsample, ds_max=args.ds_max,
         iso=True, n_epochs=args.n_epochs,
         learning_rate=args.learning_rate,
-        lam=[args.lam_per, args.lam_seg, args.lam_rec], 
+        lam=lams, 
         seg_model_type=args.seg_model_type, nimg_per_epoch=nimg_per_epoch,
         nimg_test_per_epoch=nimg_test_per_epoch, save_path=save_path)
 
