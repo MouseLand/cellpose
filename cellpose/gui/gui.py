@@ -299,6 +299,7 @@ class MainW(QMainWindow):
         self.restore = None
         self.ratio = 1.
         self.reset()
+        self.minimap_window_instance = None
 
         # if called with image, load it
         if image is not None:
@@ -333,6 +334,35 @@ class MainW(QMainWindow):
     def gui_window(self):
         EG = guiparts.ExampleGUI(self)
         EG.show()
+
+    def minimap_window(self):
+        """
+        This function creates a new window that displays the minimap of the current image.
+        It uses the MinimapWindow class created in guiparts.py
+        """
+        if self.minimapWindow.isChecked():
+            if self.minimap_window_instance is None:
+                self.minimap_window_instance = guiparts.MinimapWindow(self)
+            self.minimap_window_instance.show()
+            self.minimap_window_instance.raise_()
+        else:
+            if self.minimap_window_instance is not None:
+                self.minimap_window_instance.deleteLater()
+                self.minimap_window_instance = None
+
+    def minimap_closed(self):
+        """
+        This function notices when the minimap window is closed (thanks to closeEvent
+        method in guiparts) and unchecks the minimap button in the menu
+        """
+        try:
+            # Uncheck the minimap button when the minimap window is closed
+            self.minimapWindow.setChecked(False)
+            if hasattr(self, 'minimap'):
+                del self.minimap
+        except Exception as e:
+            print(f"An error occurred while closing the minimap: {e}")
+
 
     def make_buttons(self):
         self.boldfont = QtGui.QFont("Arial", 11, QtGui.QFont.Bold)
@@ -1133,6 +1163,7 @@ class MainW(QMainWindow):
         self.SizeButton.setEnabled(True)
         self.newmodel.setEnabled(True)
         self.loadMasks.setEnabled(True)
+        self.minimapWindow.setEnabled(True)
 
         for n in range(self.nchan):
             self.sliders[n].setEnabled(True)
@@ -1158,6 +1189,7 @@ class MainW(QMainWindow):
         self.saveFlows.setEnabled(False)
         self.saveOutlines.setEnabled(False)
         self.saveROIs.setEnabled(False)
+        self.minimapWindow.setEnabled(False)
 
         self.MakeDeletionRegionButton.setEnabled(False)
         self.DeleteMultipleROIButton.setEnabled(False)
@@ -1247,6 +1279,9 @@ class MainW(QMainWindow):
             io._load_seg(self, filename=files[0], load_3D=self.load_3D)
         else:
             io._load_image(self, filename=files[0], load_seg=True, load_3D=self.load_3D)
+
+        self.minimapWindow.setChecked(True)  # Check the minimap menu item
+        self.minimap_window()
 
     def toggle_masks(self):
         if self.MCheckBox.isChecked():
@@ -1773,6 +1808,11 @@ class MainW(QMainWindow):
                 self.saturation[r][self.currentZ][0],
                 self.saturation[r][self.currentZ][1]
             ])
+
+        # If the channels are updated, the minimap is updated as well
+        if self.minimap_window_instance is not None:
+            self.minimap_window_instance.update_minimap(self)
+
         self.win.show()
         self.show()
 

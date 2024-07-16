@@ -3,9 +3,9 @@ Copyright © 2023 Howard Hughes Medical Institute, Authored by Carsen Stringer a
 """
 
 from qtpy import QtGui, QtCore, QtWidgets
-from qtpy.QtGui import QPainter, QPixmap
-from qtpy.QtWidgets import QApplication, QRadioButton, QWidget, QDialog, QButtonGroup, QSlider, QStyle, QStyleOptionSlider, QGridLayout, QPushButton, QLabel, QLineEdit, QDialogButtonBox, QComboBox, QCheckBox
-from qtpy.QtGui import QFont
+from qtpy.QtGui import QPainter, QPixmap, QImage, QFont
+from qtpy.QtWidgets import QApplication, QRadioButton, QWidget, QDialog, QButtonGroup, QSlider, QStyle, QStyleOptionSlider, QGridLayout, QPushButton, QLabel, QLineEdit, QDialogButtonBox, QComboBox, QCheckBox, QDockWidget
+from qtpy.QtCore import QEvent
 import pyqtgraph as pg
 from pyqtgraph import functions as fn
 from pyqtgraph import Point
@@ -393,6 +393,98 @@ class TrainHelpWindow(QDialog):
         # Call adjust_font_size when the window is resized
         self.adjust_font_size()
         super().resizeEvent(event)
+
+
+# window displaying a minimap of the current image
+class MinimapWindow(QDialog):
+    """
+    Method to initialize the Minimap Window.
+    It creates a title for the window and a QDialog with a basic layout.
+    It also takes the current picture stored in the stack and loads it in a Viewbox.
+    The proportions of this image stay constant.
+    The minimap updates with the image in the main window.
+    """
+
+    def __init__(self, parent=None):
+        super(MinimapWindow, self).__init__(parent)
+        # Set the title of the window
+        self.title = "Minimap"
+        self.setWindowTitle(self.title)
+        self.setWindowFlags(self.windowFlags() & ~QtCore.Qt.WindowContextHelpButtonHint)
+        self.setWindowFlags(self.windowFlags() | QtCore.Qt.WindowStaysOnTopHint)
+
+        # Create a QGridLayout for the window
+        layout = QGridLayout()
+        layout.setContentsMargins(0, 0, 0, 0)  # Set margins (left, top, right, bottom) to zero
+        self.setLayout(layout)
+
+        # Create a widget and add the layout to it
+        self.image_widget = pg.GraphicsLayoutWidget()
+        layout.addWidget(self.image_widget, 0, 0, 1, 1)
+
+        # Load the current image from the stack
+        self.mini_image = pg.ImageItem(parent.stack[parent.currentZ])
+
+        # Create a viexbox for the minimap
+        self.viewbox = pg.ViewBox()
+        self.viewbox.setMouseEnabled(x=False, y=False)
+        # Invert and fix the aspect ratio of the viewbox to look like the original image
+        self.viewbox.invertY(True)
+        self.viewbox.setAspectLocked(True)
+        # Update the minimap so that it responds to changes in the main window
+        self.update_minimap(parent)
+        # Add the viewbox to the image widget
+        self.image_widget.addItem(self.viewbox)
+
+        # This marks the menu button as checked
+        parent.minimapWindow.setChecked(True)
+
+    def closeEvent(self, event: QEvent):
+        """
+        Method to uncheck the button in the menu if the window is closed.
+        It overrides closeEvent and is automatically called when the window is closed.
+        It calls minimap_closed from gui.py.
+        """
+        # Notify the parent that the window is closing
+        self.parent().minimap_closed()
+        event.accept()  # Accept the event and close the window
+
+    def update_minimap(self, parent):
+        """
+        Method to update the minimap.
+        It takes the current image from the parent and updates the image in the minimap.
+        """
+        if parent.img.image is not None:
+            # Obtain image data from the parent
+            image = parent.img.image
+            # Obtain saturation levels
+            levels = parent.img.levels
+            # Obtain current channel
+            current_channel = parent.color
+
+            # Set image
+            self.mini_image = pg.ImageItem(image)
+            # Display of RGB or greyscale image
+            if current_channel == 0 or current_channel == 4:
+                self.mini_image.setLookupTable(None)
+            # Display of image using a pre-defined colormap corresponding to a specific color channel
+            # (red, green, blue)
+            elif current_channel < 4:
+                self.mini_image.setLookupTable(parent.cmap[current_channel])
+            # Display of spectral mage
+            elif current_channel == 5:
+                self.mini_image.setLookupTable(parent.cmap[0])
+
+            self.mini_image.setLevels(levels)
+            self.viewbox.addItem(self.mini_image)
+
+            # Set a fixed size for the minimap
+            aspect_ratio = self.mini_image.width() / self.mini_image.height()
+            self.setFixedSize(int(400 * aspect_ratio), 400)
+            self.viewbox.setLimits(xMin=0, xMax=parent.Lx, yMin=0, yMax=parent.Ly)
+        # If there is no image and the minimap is checked, an empty window is opened
+        else:
+            self.setFixedSize(400, 400)
 
 
 
