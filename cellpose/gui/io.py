@@ -102,9 +102,9 @@ def _get_train_set(image_names):
         print(f"GUI_INFO: using {restore} images (dat['img_restore'])")
     return train_data, train_labels, train_files, restore, normalize_params
 
-def _get_image_size(parent, filename):
-    path_root = os.path.split(parent.filename)[0]
-    file_name = os.path.split(parent.filename)[-1].split("_ch00.tif")[0]
+def _get_image_size(filename):
+    path_root = os.path.split(filename)[0]
+    file_name = os.path.split(filename)[-1].split("_ch00.tif")[0]
 
     try:
         if os.path.exists(path_root + '/' + file_name + "_Properties.xml"):
@@ -122,8 +122,8 @@ def _get_image_size(parent, filename):
         print(f'ERROR: {e}')
 
 
-def _set_image_size(parent, filename):
-    px_to_mm = _get_image_size(parent, filename)
+def _set_image_size(parent):
+    px_to_mm = _get_image_size(parent.filename)
     parent.px_to_mm = px_to_mm
     parent.pixTomicro.setText(str(px_to_mm))
 
@@ -157,7 +157,7 @@ def _load_image(parent, filename=None, load_seg=True, load_3D=False):
         parent.reset()
         parent.filename = filename
         # filename = os.path.split(parent.filename)[-1]
-        _set_image_size(parent, filename)
+        _set_image_size(parent)
         _initialize_images(parent, image, load_3D=load_3D)
         parent.loaded = True
         parent.enable_buttons()
