@@ -107,19 +107,25 @@ def _get_image_size(parent, filename):
     file_name = os.path.split(parent.filename)[-1].split("_ch00.tif")[0]
 
     try:
-        root = ET.parse(path_root + '/MetaData/' + file_name + "_Properties.xml").getroot()
-        mm_lengths = root.findall('Image/ImageDescription/Dimensions/DimensionDescription')
-        # ratio1 = float(mm_lengths[0].get('NumberOfElements').replace(',','')) / float(mm_lengths[0].get('Length').replace(',',''))  # pix/mm
-        ratio1 = float(mm_lengths[0].get('Length').replace(',','')) / float(mm_lengths[0].get('NumberOfElements').replace(',',''))  # mm/pix
-        ratio1 = round(ratio1, 3)
-        # ratio2 = float(mm_lengths[1].get('NumberOfElements').replace(',','')) / float(mm_lengths[1].get('Length').replace(',',''))
+        if os.path.exists(path_root + '/' + file_name + "_Properties.xml"):
+            root = ET.parse(path_root + '/' + file_name + "_Properties.xml").getroot()
+        elif os.path.exists(path_root + '/MetaData/' + file_name + "_Properties.xml"):
+            root = ET.parse(path_root + '/MetaData/' + file_name + "_Properties.xml").getroot()
 
-        parent.px_to_mm = ratio1
-        parent.pixTomicro.setText(str(ratio1))
+        mm_lengths = root.findall('Image/ImageDescription/Dimensions/DimensionDescription')
+        ratio = float(mm_lengths[0].get('Length').replace(',','')) / float(mm_lengths[0].get('NumberOfElements').replace(',',''))  # mm/pix
+        ratio = round(ratio, 3)
+        
+        return ratio
     except Exception as e:
         print('ERROR: No metadata file available')
         print(f'ERROR: {e}')
 
+
+def _set_image_size(parent, filename):
+    px_to_mm = _get_image_size(parent, filename)
+    parent.px_to_mm = px_to_mm
+    parent.pixTomicro.setText(str(px_to_mm))
 
 def _load_image(parent, filename=None, load_seg=True, load_3D=False):
     """ load image with filename; if None, open QFileDialog """
@@ -151,7 +157,7 @@ def _load_image(parent, filename=None, load_seg=True, load_3D=False):
         parent.reset()
         parent.filename = filename
         # filename = os.path.split(parent.filename)[-1]
-        _get_image_size(parent, filename)
+        _set_image_size(parent, filename)
         _initialize_images(parent, image, load_3D=load_3D)
         parent.loaded = True
         parent.enable_buttons()
