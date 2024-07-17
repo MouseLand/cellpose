@@ -105,8 +105,8 @@ class FeatureExtraction():
     def image_labeling(self, im_mask="", im_labels="", coords=""):
         im_mask_labeled = im_mask.copy()
 
-        font_path = os.path.join(cv2.__path__[0],'qt','fonts','DejaVuSans.ttf')
-        font = ImageFont.truetype(font_path, size=20)
+        font_path = pathlib.Path.home().joinpath(".cellpose", "DejaVuSans.ttf")
+        font = ImageFont.truetype(str(font_path), size=20)
         
         I1 = ImageDraw.Draw(im_mask_labeled)
         
@@ -126,8 +126,8 @@ class FeatureExtraction():
     def mask_indexing(self, im_mask, coords):
         im_mask_labeled = im_mask.copy()
 
-        font_path = os.path.join(cv2.__path__[0],'qt','fonts','DejaVuSans.ttf')
-        font = ImageFont.truetype(font_path, size=40)
+        font_path = pathlib.Path.home().joinpath(".cellpose", "DejaVuSans.ttf")
+        font = ImageFont.truetype(str(font_path), size=40)
         
         I1 = ImageDraw.Draw(im_mask_labeled)
         

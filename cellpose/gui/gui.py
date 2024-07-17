@@ -158,6 +158,16 @@ def run(image=None):
     app = QApplication(sys.argv)
     icon_path = pathlib.Path.home().joinpath(".cellpose", "logo.png")
     guip_path = pathlib.Path.home().joinpath(".cellpose", "cellpose_gui.png")
+
+    primary_icon_path = pathlib.Path.home().joinpath(".cellpose", "primary.png")
+    primary_icon_url = "https://github.com/ITMO-MMRM-lab/cellpose/blob/main/cellpose/resources/primary.png?raw=true"
+
+    secondary_icon_path = pathlib.Path.home().joinpath(".cellpose", "secondary.png")
+    secondary_icon_url = "https://github.com/ITMO-MMRM-lab/cellpose/blob/main/cellpose/resources/secondary.png?raw=true"
+
+    dejavu_font_path = pathlib.Path.home().joinpath(".cellpose", "DejaVuSans.ttf")
+    dejavu_font_url = "https://github.com/ITMO-MMRM-lab/cellpose/blob/main/cellpose/resources/DejaVuSans.ttf?raw=true"
+
     if not icon_path.is_file():
         cp_dir = pathlib.Path.home().joinpath(".cellpose")
         cp_dir.mkdir(exist_ok=True)
@@ -169,6 +179,20 @@ def run(image=None):
         print("downloading help window image")
         download_url_to_file("https://www.cellpose.org/static/images/cellpose_gui.png",
                              guip_path, progress=True)
+    if not primary_icon_path.is_file():
+        print("downloading primary mask image")
+        download_url_to_file(primary_icon_url,
+                             primary_icon_path, progress=True)
+    if not secondary_icon_path.is_file():
+        print("downloading secondary mask image")
+        download_url_to_file(secondary_icon_url,
+                             secondary_icon_path, progress=True)
+    if not dejavu_font_path.is_file():
+        print("downloading font")
+        download_url_to_file(dejavu_font_url,
+                             dejavu_font_path, progress=True)
+    
+    
     icon_path = str(icon_path.resolve())
     app_icon = QtGui.QIcon()
     app_icon.addFile(icon_path, QtCore.QSize(16, 16))
