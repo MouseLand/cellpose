@@ -2,6 +2,8 @@ import setuptools
 from setuptools import setup
 
 install_deps = [
+    'pandas',
+    'matplotlib',
     'numpy>=1.20.0,<2.0.0',
     'scipy',
     'natsort',
@@ -12,6 +14,7 @@ install_deps = [
     'torch>=1.6',
     'opencv-python-headless',
     'fastremap',
+    'Cython',
     'imagecodecs',
     'roifile',
 ]

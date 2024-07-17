@@ -900,7 +900,7 @@ class MainW(QMainWindow):
 
         # select metrics to calculate
         self.calcSize = False
-        self.SMCheckBox = QCheckBox('Size')
+        self.SMCheckBox = QCheckBox('Area')
         self.SMCheckBox.setStyleSheet("color: rgb(190,190,190);")
         self.SMCheckBox.setFont(self.medfont)
         self.SMCheckBox.setChecked(False)
