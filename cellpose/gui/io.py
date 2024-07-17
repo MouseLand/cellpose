@@ -9,6 +9,7 @@ import cv2
 import tifffile
 import logging
 import fastremap
+from PIL import Image, ImageSequence
 
 from ..io import imread, imsave, outlines_to_text, add_model, remove_model, save_rois, save_settings
 from ..models import normalize_default, MODEL_DIR, MODEL_LIST_PATH, get_user_models
@@ -104,6 +105,9 @@ def _get_train_set(image_names):
 
 def _load_image(parent, filename=None, load_seg=True, load_3D=False):
     """ load image with filename; if None, open QFileDialog """
+    #checks if the file is a tiff
+    if filename and (filename.endswith('.tif') or filename.endswith('.tiff')):
+        processed_images = process_tiff_image(filename)
     if filename is None:
         name = QFileDialog.getOpenFileName(parent, "Load image")
         filename = name[0]
@@ -707,3 +711,41 @@ def _save_sets(parent):
     del dat
     #print(parent.point_sets)
     print("GUI_INFO: %d ROIs saved to %s" % (parent.ncells, base + "_seg.npy"))
+
+def process_tiff_image(tiff_file):
+    """
+    Processes a multi-layer TIFF image located at `tiff_file`.
+    Converts each layer to opacity format and returns a list of processed images.
+
+    Parameters:
+    - tiff_file (str): Path to the multi-layer TIFF image.
+
+    Returns:
+    - processed_images (list): List of processed PIL Image objects.
+    """
+    processed_images = []
+    with Image.open(tiff_file) as img:
+        for frame in ImageSequence.Iterator(img):
+            processed_frame = convert_grayscale_to_opacity(frame)
+            processed_images.append(processed_frame)
+    return processed_images
+
+def convert_grayscale_to_opacity(frame):
+    """
+    Converts a grayscale image frame to opacity format.
+    Converts the image to 16-bit grayscale, extracts the alpha channel,
+    and merges it with a white background to create an opacity-enhanced image.
+
+    Parameters:
+    - frame (PIL.Image): Input grayscale image frame.
+
+    Returns:
+    - final_image (PIL.Image): Processed opacity-enhanced image.
+    """
+    frame = frame.convert("I;16B")
+    image_np = np.array(frame)
+    alpha_np = (image_np >> 8).astype(np.uint8)
+    alpha = Image.fromarray(alpha_np)
+    white_bg = Image.new("L", frame.size, 255)
+    final_image = Image.merge("LA", (white_bg, alpha))
+    return final_image
