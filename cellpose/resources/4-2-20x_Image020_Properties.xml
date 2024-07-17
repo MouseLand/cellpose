@@ -1,0 +1,73 @@
+<?xml version="1.0"?>
+<?xml-stylesheet type="text/xsl" href="4-2-20x_Image020_Properties_WFIP_HWS3.xsl"?>
+<Data>
+  <Image TextDescription="">
+    <Attachment Name="PreviewMarker" Application="LAS AF" IsPreviewImage="0" />
+    <ImageDescription>
+      <Name>Image020</Name>
+      <Size>16.59 MB</Size>
+      <UniqueID>16ebb65e-797e-11ee-98fa-b42e99897c49</UniqueID>
+      <Channels>
+        <ChannelDescription DataType="0" ChannelTag="3" Resolution="12" NameOfMeasuredQuantity="" Min="0.000000e+000" Max="4.095000e+003" Unit="" LUTName="Blue" IsLUTInverted="0" BytesInc="0" BitInc="0" OpticalResolutionXY="0.959 µm" OpticalResolutionZ="4.490 µm">
+        </ChannelDescription>
+        <ChannelDescription DataType="0" ChannelTag="2" Resolution="12" NameOfMeasuredQuantity="" Min="0.000000e+000" Max="4.095000e+003" Unit="" LUTName="Green" IsLUTInverted="0" BytesInc="2" BitInc="0" OpticalResolutionXY="0.959 µm" OpticalResolutionZ="4.490 µm">
+        </ChannelDescription>
+        <ChannelDescription DataType="0" ChannelTag="1" Resolution="12" NameOfMeasuredQuantity="" Min="0.000000e+000" Max="4.095000e+003" Unit="" LUTName="Red" IsLUTInverted="0" BytesInc="4" BitInc="0" OpticalResolutionXY="0.959 µm" OpticalResolutionZ="4.490 µm">
+        </ChannelDescription>
+      </Channels>
+      <Dimensions>
+        <DimensionDescription DimID="X" NumberOfElements="1920" Origin="0" Length="622.18" Unit="µm" BitInc="0" BytesInc="6" UnitOrigin="µm" EndPosition="622.18" UnitEndPosition="µm" LogicalUnit="pixels" Voxel="0.324">
+        </DimensionDescription>
+        <DimensionDescription DimID="Y" NumberOfElements="1440" Origin="0" Length="466.55" Unit="µm" BitInc="0" BytesInc="11520" UnitOrigin="µm" EndPosition="466.55" UnitEndPosition="µm" LogicalUnit="pixels" Voxel="0.324">
+        </DimensionDescription>
+      </Dimensions>
+      <FileLocation>C:\Users\Leica\Documents\2023_11_02_15_22_54--4-2-20x\4-2-20x.xlef</FileLocation>
+      <StartTime>02/11/2023 15:48:16.930</StartTime>
+      <EndTime>02/11/2023 15:48:16.930</EndTime>
+      <FrameCount>3 (3 channels, 1 frames)</FrameCount>
+      <NumberOfChannels>3</NumberOfChannels>
+      <FluoDescription>
+        <FluoDescriptionRecord Identifier="Channel 0" Name="New 1" Contrast="FLUO" Excitation="" Emission="0" Cube="FITC" Intensity="5" />
+      </FluoDescription>
+    </ImageDescription>
+    <TimeStampList NumberOfTimeStamps="1" FirstTimeStampDate="02/11/2023" FirstTimeStampTime="15:48:16" FirstTimeStampMiliSeconds="930">1da0d8ad9aa1020 <TimeStamp RelativeTime="0.000" Date="02/11/2023" Time="15:48:16" MiliSeconds="930" /></TimeStampList>
+    <Attachment Name="ChannelAttachment" Application="LAS AF" />
+    <Attachment Name="ViewerScaling" Application="LAS AF">
+      <ChannelScalingInfo BackgroundLutName="" WhiteValue="1" BlackValue="0" GammaValue="1" Automatic="0" />
+      <ChannelScalingInfo BackgroundLutName="" WhiteValue="1" BlackValue="0" GammaValue="1" Automatic="0" />
+      <ChannelScalingInfo BackgroundLutName="" WhiteValue="1" BlackValue="0" GammaValue="1" Automatic="0" />
+    </Attachment>
+    <Attachment Name="ImageXMLDocument" Application="LAS AF">
+      <RootNode />
+    </Attachment>
+    <Attachment Name="HardwareSetting" Application="LAS AF" Software="LAS X 3.7.1.21655" HardwareServerVersion="Build 21655" SystemType="11" SystemTypeName="AF 6000" DataSourceType="1" DataSourceTypeName="Camera">
+      <ATLCameraSettingDefinition VersionNumber="5" SpimMirrorMode="1" MirrorX="0" MirrorY="0" TheoCamSensorPixelSizeX="0.0000045390625" TheoCamSensorPixelSizeY="0.0000045390625" Gamma="1" Brightness="70" WhiteValue="4095" BlackValue="0" GainValue="1" GainStringValue="0" IsGainUsedAsStringList="0" CanDoEMGain="0" CanDoColorSat="1" EMGainValue="0" OffsetValue="0" ColorSat="33" AutoBright="0" AutoExposure="0" AutoContrastGamma="101" BinningText="Bin1x1 (1920x1440)" LiveBinningText="Bin1x1 (1920x1440)" ScanMode="xy" ZUseMode="2" ZUseModeName="z-wide" ZPosition="1,347.31 µm" IsSuperZ="0" Begin="0" End="0" Sections="1" CycleCount="1" CycleTime="0" UseMaxIterationsForT="0" CompleteTime="0.529017002336502" IsTimeMinimizeEnabled="0" LastTCalcMode="3" ValidBeginStack="0" ValidEndStack="0" StackCalculationMode="2" StackCalculationModeName="System optimized step size" ZStackDirectionMode="1" ZStackDirectionModeName="Unidirectional" IsLinkedShadingEnabled="0" StageUseMode="0" StagePosX="68.4 mm" StagePosY="46.06 mm" StagePosID="-1" StageRangeX="0.1269999441138" StageRangeY="0.08299997373216" StageOrderNumber="11525225" FlipX="0" FlipY="0" SwapXY="0" Magnification="20" CanDoTotalVideoMag="1" TotalVideoMag="14" AutofocusChannel="1" IsAutofocusOnStart="0" AutofocusRedoEveryNTimePoints="0" ObjectiveName="N PLAN L    20x/0.35 DRY " ObjectiveNumber="11506248" ObjectivePos="4" MicroscopeModel="DMI8" IsInverseMicroscopeModel="1" ShutterMode="1" ShutterModeSoftware="1" CanDoIndustryShuttering="0" Immersion="DRY" NumericalAperture="0.35" RefractionIndex="1" MountingMediumRefractionIndex="1" CoverslipThickness="0.00017" TubeOpticName="" TubeOpticPos="-1" TubeOpticPortMagPos="0" CanDoChangeSpeedAndPort="1" SpeedandPortIndex="0" SpeedandPort="40 MHz" CanDoColorCapture="1" CanDoMicroScanning="0" CanDoDualLightMode="0" CanDoLiveBinning="1" IsLiveBinningActive="1" CanDoControlCooler="0" CanDoControlTemperature="0" CanDoFanControl="0" CanDoHotSpotCorrection="1" ThresholdHotspot="50" ExposureStartTimeHotspot="300 ms" CanDoBrightnessCorrection="1" IsBrightnessCorrectionActive="0" SCMOSReadoutMode="0" CanDoEnhancedAcquisitionMode="0" CurrentLightSheetFilterPosition="0" BinningValuePrecise="1" BinningXValuePrecise="1" BinningYValuePrecise="1" ZStackUseMode="1" NbStepsForEDOF="10" MaxNbStepsForStartUp="20" CalcEDoFfromZStack="0" CalcEDoFfromZStackForStartUp="0" EnhancedAcquisitionHDREnable="0" EnhancedAcquisitionHDRAutomatic="1" EnhancedAcquisitionHDRContrast="-1" EnhancedAcquisitionHDRBrightness="50" IsSequencerAdvancedUseEnabled="0" PortCameraPercentage="80" UserManagementUserName="UserManagementFeatureInactive">
+        <Autofocus-config VersionNumber="1" Precision="2" FocusRange="0.00008" ZUseMode="2" ZUseModeName="z-wide" AFAnalyseType="4" AFAnalyseTypeName="FirstChannelOnly" WorkflowTimelapse="2" WorkflowTimelapseName="AllTime" WorkflowTimelapseIterator="1" WorkflowXY="2" WorkflowXYName="AllPos" WorkflowXYIterator="1" UseFixSliceNumber="0" AFSubsystem="0" AFSubsystemName="BaseAF" AFCOffset="-2" AFCAutonomousOffset="-2" AutoFocusMode="2" AutoFocusModeName="FirstChannelOnly" AutofocusChannel="1" AutofocusChannelName="2000" OptimalStepSize="3.16204032613838E-06" PositionDimension="122" />
+        <AdditionalZPositionList>
+          <AdditionalZPosition Valid="1" SuperZMode="1" SuperZModeName="RestrictedRange" ZMode="2" ZUseModeName="z-wide" ZPosition="0.001347308645" />
+        </AdditionalZPositionList>
+        <Quantity Value="3.16204032613838E-06" Unit="" />
+        <ZStackUseModeInfo ZStackUseMode="1" StackCalcMode="0" ValidBegin="0" ValidEnd="0" BeginValue="0" EndValue="0" NbSections="1">
+          <Quantity Value="0" Unit="" />
+        </ZStackUseModeInfo>
+        <WideFieldChannelConfigurator MicroscopeFamilyType="2" CameraName="DFC7000T-0209973619" CameraType="10" CameraNamePure="DFC7000 T" CameraColorCaptureMode="0" MaxChannelCount="1" CurrentChannelIndex="0" IsSequencerBoard="0" IsSequencerAdvancedBoard="0" IsTriggerCamera="1" IsAutoZControl="0" IsAutoTimeControl="0" IsAutoFluoControl="0" IsAutoIntensityControl="0" IsAutoExposureTimeControl="0" IsAutoWaveLength="0" eZUseMode="0" eStackFlowMode="2" IsUseSameExposureTime="0" SameExposureTime="0.159669" IsHighSpeedModeActive="0" IsSequencerUseEnabled="0" IsSequencerAdvancedUseEnabled="0" EStageAFCModeForSeqAdv="0" IsSimpleOperation="0" FastFilterWheel1="-1" FastFilterWheel2="-1" FastFilterWheel3="-1" FastFilterWheel4="-1" CanDoTIRF="0" TIRFPenetrationDepthMode="1" SameTIRFPenetrationDepthIndex="0" SameTIRFApertureValue="0" TIRFManualMode="0" IsTIRFFastIlluminationSwitchingActive="0" InTrigger="-1" OutTrigger="-1" InTriggerMode="-1" OutTriggerMode="-1" m_sInTrigger="-1" m_sInTriggerMode="-1" m_sInTriggerShowInGraph="1" m_sInTriggerRecordInEventlist="1" m_sInTriggerDescription="" m_sOutTrigger="-1" m_sOutTriggerMode="-1" m_sOutTriggerShowInGraph="1" m_sOutTriggerRecordInEventlist="1" m_sOutTriggerDescription="" m_sOutTriggerOnStart="-1" m_sOutTriggerOnStartMode="-1" m_sOutTriggerOnStartShowInGraph="1" m_sOutTriggerOnStartRecordInEventlist="1" m_sOutTriggerOnStartDescription="" m_sOutTriggerOnEnd="-1" m_sOutTriggerOnEndMode="-1" m_sOutTriggerOnEndShowInGraph="1" m_sOutTriggerOnEndRecordInEventlist="1" m_sOutTriggerOnEndDescription="" WFCCCameranRoiLeftHightX="0" WFCCCameranRoiLeftHightY="0" WFCCCameranRoiRightButtomX="1920" WFCCCameranRoiRightButtomY="1440" WFCCCameranRoiIsUsed="0" ILLEDCanDoChangeWavelength="0" ILLEDCanDoCombineWavelengths="1" ILLEDMaxWavelengths="0" ILLEDCanDoCombiLightSource="0" ILLEDUIMode="1" ILLEDCodedSliderPos="3" ExtensionMode="0" GISTAutoExpoControlConfig_IsEnabled="0" GISTAutoExpoControlConfig_MaxRegulatorValue="150" GISTAutoExpoControlConfig_MinRegulatorValue="1" GISTAutoExpoControlConfig_OverexposuredPixelsThreshold="5" CanDoOnlineShadingCorrection="1" OnlineShadingCorrectionDefinitionState="0" OnlineShadingCorrectionActivationState="0" OnlineShadingCorrectionNotificationsEnabled="0" CanDoDIC="0" CanDoCondenser="1" OnlineShadingCorrection="0" ObjectiveArtNo="11506248" ObjectiveName="N PLAN L 20 x" bIsDiaphragmStoreModeEnabled="0" bIsDICStoreModeEnabled="0" IsSimAcqActive="0" CanDoStageRotation="0" StageRotationAngle="0" CanDoColumnTilt="0" ColumnTiltAngle="0" ScanheadDiaphragm="-1" ScanheadAttenuator="-1" ScanheadAfocalLens="-1" ScanheadVelocity="-1" WFLaserManipulationTimeCourseExperimentSettings="">
+          <WideFieldChannelInfo Channel="2000" Active="1" FluoCubePos="1" Intensity="5" IntensityMode="210" ExposureTime="221.9 ms" ContrastingMethodName="FLUO" ContrastingMethod="205" Gain="1" GainString="0" StringGainName="" EMGain="1" SpinDiskFilterSetPosition="0" SpinDiskUse="0" FluoChromeName="" UserDefName="New 1" FluoCubeName="FITC" EmissionWavelength="527" DyeName="" LUT="P.Color 5" BackgroundLUT="" BlackValue="0" WhiteValue="1" GammaValue="1" SpinDiskFilterSetName="unknown" ColorGainValueR="3.90625" ColorGainValueG="0" ColorGainValueB="13.3816189236111" WhiteBalanceBaseValueR="3.90625" WhiteBalanceBaseValueG="0" WhiteBalanceBaseValueB="13.3816189236111" ColorWheelValueR="255" ColorWheelValueG="255" ColorWheelValueB="255" FFW_Excitation1Position="0" FFW_Excitation2Position="0" FFW_Emission1Position="0" FFW_Emission2Position="0" FFW_Excitation1PositionDev="0" FFW_Excitation2PositionDev="0" FFW_Emission1PositionDev="0" FFW_Emission2PositionDev="0" FFW_Excitation1FilterName="" FFW_Excitation2FilterName="" FFW_Emission1FilterName="" FFW_Emission2FilterName="" TL_Light-Intensity="80" IL_Light-Intensity="5" TL_Shutter="0" IL_Shutter="1" FieldDiaphragmValue="10" ApertureDiaphragmValue="3" OnlineShadingCorrectionReferenceID="-1" OnlineShadingCorrectionReferenceParentID="-1" FilteredOnlineShadingCorrectionReferenceID="-1" OnlineShadingCorrectionDefinitionState="-1" OnlineShadingCorrectionReferenceImageName="" TIRF_WaveLength="0" TIRF_Azimuth="0" TIRF_PenetrationDepthIndex="0" TIRF_Aperture="0" TIRF_PenetrationDepthFromAperture="0" TIRF_PenetrationDepth="0" TIRF_FastIlluminationSwitchingMode="0" TIRF_LaserIntensity="0" ILLEDMaxUsedChannels="0" ILLEDIsValid="0" TIRFFastIlluminationSwitchingMode="0" AFCApplicable="0" GIST_BackpumpingIntensity="0" GIST_BackpumpingEnabled="0" DICPos="0" DICLensName="" CondenserPos="0" CondenserLensName="BF" ObliqueMode="0" ObliqueValue="-1" />
+          <AdvancedCameraFeatures Advanced_Camera_Features_Activated="0">
+            <CameraFeature Name="Averaging" Camera_Feature_160_Value="2.000000" Camera_Feature_160_Enabled="0" Camera_Feature_160_UIEnabled="1" />
+            <CameraFeature Name="Sharpening" Camera_Feature_400_Value="1.000000" Camera_Feature_400_Enabled="0" Camera_Feature_400_UIEnabled="1" />
+            <CameraFeature Name="Color temperature" Camera_Feature_100020_Value="3200K" Camera_Feature_100020_Enabled="0" Camera_Feature_100020_UIEnabled="1" />
+            <CameraFeature Name="Sensor Mode" Camera_Feature_100080_Value="Quality Mode (1 tap)" Camera_Feature_100080_Enabled="0" Camera_Feature_100080_UIEnabled="1" />
+            <Ch0>
+              <CameraFeature Name="Black Balance" Camera_Feature_180_Value="0.000000" Camera_Feature_180_Enabled="0" Camera_Feature_180_UIEnabled="1" />
+            </Ch0>
+          </AdvancedCameraFeatures>
+        </WideFieldChannelConfigurator>
+        <CameraFormat xDim="1920" yDim="1440" Resolution="12" IsGray="0" Binning="1" LiveBinning="1" ColorCaptureMode="0" SimAcqMode="1" />
+        <XYStageConfiguratorSettings>
+          <StitchingSettings IsAutoStitching="1" OverlapXmanual="0" OverlapYmanual="0" OverlapPercentageX="0.1" OverlapPercentageY="0.1" />
+          <Misc />
+        </XYStageConfiguratorSettings>
+      </ATLCameraSettingDefinition>
+    </Attachment>
+  </Image>
+</Data>
