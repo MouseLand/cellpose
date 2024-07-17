@@ -993,14 +993,16 @@ def train(net, train_data=None, train_labels=None, train_files=None, test_data=N
                 iperm = np.random.permutation(img.shape[0])
                 img, lbl = img[iperm], lbl[iperm]
             
-            optimizer.zero_grad()
-            loss, loss_per = train_loss(net, img[:, :nchan], net1=net1,
-                                        img=img[:, nchan:], lbl=lbl, lam=lam)
-
-            loss.backward()
-            optimizer.step()
-            lavg += loss.item() * img.shape[0]
-            lavg_per += loss_per.item() * img.shape[0]
+            for inoise in range(nnoise):
+                optimizer.zero_grad()
+                imgi = img[inoise * batch_size: (inoise+1) * batch_size]
+                loss, loss_per = train_loss(net, imgi[:, :nchan], net1=net1,
+                                        img=imgi[:, nchan:], lbl=lbl, lam=lam)
+                loss.backward()
+                optimizer.step()
+                lavg += loss.item() * img.shape[0]
+                lavg_per += loss_per.item() * img.shape[0]
+                
             nsum += len(img)
             nbatch += 1
 
