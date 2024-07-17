@@ -969,7 +969,7 @@ def train(net, train_data=None, train_labels=None, train_files=None, test_data=N
             param_group["lr"] = learning_rate[iepoch]
         lavg, lavg_per, nsum = 0, 0, 0
         for ibatch in range(0, nimg_per_epoch, batch_size * nnoise):
-            inds = rperm[ibatch:ibatch + batch_size]
+            inds = rperm[ibatch : ibatch + batch_size * nnoise]
             if train_data is None:
                 imgs = [np.maximum(0, io.imread(train_files[i])[:nchan]) for i in inds]
                 lbls = [io.imread(train_labels_files[i])[1:] for i in inds]
@@ -977,32 +977,40 @@ def train(net, train_data=None, train_labels=None, train_files=None, test_data=N
                 imgs = [train_data[i][:nchan] for i in inds]
                 lbls = [train_labels[i][1:] for i in inds]
             #inoise = nbatch % nnoise
-            for inoise in range(nnoise):
-                imgi, lbli, scale = random_rotate_and_resize_noise(
-                    imgs, lbls, diam_train[inds].copy(), poisson=poisson[inoise],
-                    beta=beta[inoise], gblur=gblur[inoise], blur=blur[inoise], iso=iso,
-                    downsample=downsample[inoise], diam_mean=diam_mean, ds_max=ds_max,
-                    device=device)
-                if inoise == 0:
-                    img = imgi 
-                    lbl = lbli 
-                else:
-                    img = torch.cat((img, imgi), axis=0)
-                    lbl = torch.cat((lbl, lbli), axis=0)
+            rnoise = np.random.permutation(nnoise)
+            for i, inoise in enumerate(rnoise):
+                if i * batch_size < len(imgs):
+                    imgi, lbli, scale = random_rotate_and_resize_noise(
+                        imgs[i * batch_size : (i + 1) * batch_size], 
+                        lbls[i * batch_size : (i + 1) * batch_size],
+                        diam_train[inds][i * batch_size : (i + 1) * batch_size].copy(), 
+                        poisson=poisson[inoise],
+                        beta=beta[inoise], gblur=gblur[inoise], blur=blur[inoise], iso=iso,
+                        downsample=downsample[inoise], diam_mean=diam_mean, ds_max=ds_max,
+                        device=device)
+                    if i == 0:
+                        img = imgi 
+                        lbl = lbli 
+                    else:
+                        img = torch.cat((img, imgi), axis=0)
+                        lbl = torch.cat((lbl, lbli), axis=0)
+
             if nnoise > 0:
                 iperm = np.random.permutation(img.shape[0])
                 img, lbl = img[iperm], lbl[iperm]
             
-            for inoise in range(nnoise):
+            for i in range(nnoise):
                 optimizer.zero_grad()
-                imgi = img[inoise * batch_size: (inoise+1) * batch_size]
-                loss, loss_per = train_loss(net, imgi[:, :nchan], net1=net1,
-                                        img=imgi[:, nchan:], lbl=lbl, lam=lam)
-                loss.backward()
-                optimizer.step()
-                lavg += loss.item() * img.shape[0]
-                lavg_per += loss_per.item() * img.shape[0]
-                
+                imgi = img[i * batch_size: (i + 1) * batch_size]
+                lbli = lbl[i * batch_size: (i + 1) * batch_size]
+                if imgi.shape[0] > 0:
+                    loss, loss_per = train_loss(net, imgi[:, :nchan], net1=net1,
+                                            img=imgi[:, nchan:], lbl=lbli, lam=lam)
+                    loss.backward()
+                    optimizer.step()
+                    lavg += loss.item() * imgi.shape[0]
+                    lavg_per += loss_per.item() * imgi.shape[0]
+
             nsum += len(img)
             nbatch += 1
 
