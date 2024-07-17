@@ -3,6 +3,7 @@ from qtpy import QtGui
 from qtpy.QtWidgets import QAction, QMenu
 
 from . import symmetry
+from ..utils import download_font
 import pandas as pd
 import numpy as np
 from scipy.stats import mode
@@ -33,6 +34,8 @@ class FeatureExtraction():
         self.currentImageMask = ""
         self.current_model = ""
         self.temp_masks = []
+
+        download_font() # If running without GUI
         
     def save_temp_output(self, masks="", image="", model_name="", gui_self=""):
         d = datetime.datetime.now()

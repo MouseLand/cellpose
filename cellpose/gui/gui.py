@@ -16,7 +16,7 @@ import cv2
 
 from . import guiparts, menus, io, symmetry, features
 from .. import models, core, dynamics, version, denoise, train
-from ..utils import download_url_to_file, masks_to_outlines, diameters
+from ..utils import download_url_to_file, masks_to_outlines, diameters, download_font
 from ..io import get_image_files, imsave, imread
 from ..transforms import resize_image, normalize99, normalize99_tile, smooth_sharpen_img
 from ..models import normalize_default
@@ -165,9 +165,6 @@ def run(image=None):
     secondary_icon_path = pathlib.Path.home().joinpath(".cellpose", "secondary.png")
     secondary_icon_url = "https://github.com/ITMO-MMRM-lab/cellpose/blob/main/cellpose/resources/secondary.png?raw=true"
 
-    dejavu_font_path = pathlib.Path.home().joinpath(".cellpose", "DejaVuSans.ttf")
-    dejavu_font_url = "https://github.com/ITMO-MMRM-lab/cellpose/blob/main/cellpose/resources/DejaVuSans.ttf?raw=true"
-
     if not icon_path.is_file():
         cp_dir = pathlib.Path.home().joinpath(".cellpose")
         cp_dir.mkdir(exist_ok=True)
@@ -187,11 +184,8 @@ def run(image=None):
         print("downloading secondary mask image")
         download_url_to_file(secondary_icon_url,
                              secondary_icon_path, progress=True)
-    if not dejavu_font_path.is_file():
-        print("downloading font")
-        download_url_to_file(dejavu_font_url,
-                             dejavu_font_path, progress=True)
-    
+
+    download_font()
     
     icon_path = str(icon_path.resolve())
     app_icon = QtGui.QIcon()
