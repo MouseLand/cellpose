@@ -384,7 +384,7 @@ class MainW(QMainWindow):
         target_x = normalized_x * img_width
         target_y = normalized_y * img_height
 
-        # Get the current view range of the viewbox.
+        # Get the current view range of the view box p0.
         # This tells us which part of the image is currently displayed.
         view_range = self.p0.viewRange()
 
