@@ -487,7 +487,7 @@ class MinimapWindow(QDialog):
             self.viewbox.addItem(self.mini_image)
 
             # Set the size of the minimap based on the aspect ratio of the image
-            # this ensures that the apsect ratio is always correct
+            # this ensures that the aspect ratio is always correct
             aspect_ratio = self.mini_image.width() / self.mini_image.height()
             self.setFixedSize(int(self.minimapSize * aspect_ratio), self.minimapSize)
             # Ensure image fits viewbox
@@ -506,7 +506,7 @@ class MinimapWindow(QDialog):
         upscaleFactor = ((self.maximumSize - self.minimumSize) / 100)
         self.minimapSize = int(self.minimumSize + upscaleFactor * value)
 
-        # this ensures that the apsect ratio is always correct
+        # this ensures that the aspect ratio is always correct
         if self.parent().img.image is not None:
             aspect_ratio = self.mini_image.width() / self.mini_image.height()
             self.setFixedSize(int(self.minimapSize * aspect_ratio), self.minimapSize)
