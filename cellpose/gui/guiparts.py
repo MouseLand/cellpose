@@ -408,7 +408,7 @@ class MinimapWindow(QDialog):
     def __init__(self, parent=None):
         super(MinimapWindow, self).__init__(parent)
         # Set the title of the window
-        self.title = "Minimap (right click for options)"
+        self.title = "Minimap (click right mouse button to resize)"
         self.setWindowTitle(self.title)
         self.setWindowFlags(self.windowFlags() & ~QtCore.Qt.WindowContextHelpButtonHint)
         # Set min, max and default size of the minimap
@@ -416,6 +416,7 @@ class MinimapWindow(QDialog):
         self.minimumSize = 100
         self.maximumSize = 800
         self.minimapSize = self.defaultSize
+        self.rightClickInteractions = 0
 
         # Create a QGridLayout for the window
         layout = QGridLayout()
@@ -546,6 +547,12 @@ class MinimapWindow(QDialog):
         if event.button() == QtCore.Qt.RightButton:
             # Show the custom context menu at the mouse position
             self.contextMenu.exec_(event.globalPos())
+            # Delete hint after 4 interactions with the resize slider
+            if self.rightClickInteractions == 3:
+                self.setWindowTitle("Minimap")
+                self.rightClickInteractions += 1
+            elif self.rightClickInteractions < 3:
+                self.rightClickInteractions += 1
         else:
             # If another mouse button was pressed, call the base class implementation
             super().mousePressEvent(event)
