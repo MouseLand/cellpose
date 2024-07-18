@@ -503,12 +503,9 @@ class MinimapWindow(QDialog):
         self.lastClickPos = (viewboxPos.x(), viewboxPos.y())
 
         # Normalize the clicked position's coordinates to values between 0 and 1.
-        normalized_x = viewboxPos.x() - 9/ self.viewbox.width()
-        normalized_y = viewboxPos.y() - 9/ self.viewbox.height()
+        normalized_x = (viewboxPos.x() - 9)/ self.viewbox.width()
+        normalized_y = (viewboxPos.y() - 9)/ self.viewbox.height()
         self.normalizedClickPos = (normalized_x, normalized_y)
-
-        # Update the position of the minimap
-        self.viewbox.autoRange()
 
 
 class ViewBoxNoRightDrag(pg.ViewBox):
