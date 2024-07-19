@@ -81,7 +81,7 @@ def mainmenu(parent):
     The function `_save_features_as_csv` from the `io` module is called when the user clicks on the menu item.
     """
     parent.saveFeaturesCsv = QAction("Save Features as .&csv", parent)
-    parent.saveFeaturesCsv.setShortcut("Ctrl+C")
+    parent.saveFeaturesCsv.setShortcut("Ctrl+Shift+C")
     parent.saveFeaturesCsv.triggered.connect(lambda: io._save_features_csv(parent))
     file_menu.addAction(parent.saveFeaturesCsv)
     parent.saveFeaturesCsv.setEnabled(True)
