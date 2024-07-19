@@ -561,8 +561,13 @@ def _save_features_csv(parent):
     Args:
         parent: GUI object with filename and NZ attributes.
     """
+    
+    if not parent.filename:
+        raise FileNotFoundError("ERROR: No file loaded. Please load a file before attempting to save features.")
+
     filename = parent.filename
     base = os.path.splitext(filename)[0] + "_features.csv"
+    # check if the dataset is 2D (NZ == 1 implies a single z-layer)
     if parent.NZ == 1:
         print("GUI_INFO: saving features to CSV file")
         save_features_csv(parent.filename)

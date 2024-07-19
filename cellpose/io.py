@@ -562,7 +562,8 @@ def masks_flows_to_seg(images, masks, flows, file_names, diams=30., channels=Non
     np.save(base + "_seg.npy", dat)
 
 def save_features_csv(file_name):
-    """ save features to .csv file and remove if it already exists
+    """
+    Save features to .csv file and remove if it already exists
     Args:
         file_name (str): Target CSV file name
 
