@@ -321,7 +321,7 @@ def add_noise(lbl, alpha=4, beta=0.7, poisson=0.7, blur=0.7, gblur=1.0, downsamp
 def random_rotate_and_resize_noise(data, labels=None, diams=None, poisson=0.7, blur=0.7,
                                    downsample=0.0, beta=0.7, gblur=1.0, diam_mean=30,
                                    ds_max=7, iso=True, rotate=True,
-                                   device=torch.device("cuda"), xy=(224, 224),
+                                   device=None, xy=(224, 224),
                                    nchan_noise=1, keep_raw=True):
     """
     Applies random rotation, resizing, and noise to the input data.
@@ -349,7 +349,9 @@ def random_rotate_and_resize_noise(data, labels=None, diams=None, poisson=0.7, b
         torch.Tensor: The augmented labels.
         float: The scale factor applied to the image.
     """
-
+    if device == None:
+        device = torch.device('cuda') if torch.cuda.is_available() else torch.device('mps') if torch.backends.mps.is_available() else None
+    
     diams = 30 if diams is None else diams
     random_diam = diam_mean * (2**(2 * np.random.rand(len(data)) - 1))
     random_rsc = diams / random_diam  #/ random_diam
