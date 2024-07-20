@@ -363,6 +363,47 @@ class MainW(QMainWindow):
         except Exception as e:
             print(f"An error occurred while closing the minimap: {e}")
 
+    def center_view_on_position(self, normalized_x, normalized_y):
+        """
+        Centers the view on the given normalized coordinates (x, y).
+        This will be used to navigate using the minimap window.
+        The zoom level will be maintained.
+        Args:
+            normalized_x (float): Normalized x-coordinate (0.0 to 1.0).
+            normalized_y (float): Normalized y-coordinate (0.0 to 1.0).
+        """
+        # Get the size of the image
+        img_height = self.img.image.shape[0]
+        img_width = self.img.image.shape[1]
+
+        # Calculate the actual pixel coordinates
+        target_x = normalized_x * img_width
+        target_y = normalized_y * img_height
+
+        # Get the current view range of the view box p0.
+        # This tells us which part of the image is currently displayed.
+        view_range = self.p0.viewRange()
+
+        # Extract the x and y ranges
+        x_range = view_range[0]
+        y_range = view_range[1]
+
+        # Calculate the current zoom level
+        zoom_x = (x_range[1] - x_range[0]) / img_width
+        zoom_y = (y_range[1] - y_range[0]) / img_height
+
+        # Calculate the width and height of the view range based on the zoom level
+        view_width = img_width * zoom_x
+        view_height = img_height * zoom_y
+
+        # Calculate the new view range, centered on the target position
+        new_x_range = [target_x - view_width / 2, target_x + view_width / 2]
+        new_y_range = [target_y - view_height / 2, target_y + view_height / 2]
+
+        # Set the new view range to the ViewBox
+        self.p0.setXRange(*new_x_range, padding=0)
+        self.p0.setYRange(*new_y_range, padding=0)
+
 
     def make_buttons(self):
         self.boldfont = QtGui.QFont("Arial", 11, QtGui.QFont.Bold)
