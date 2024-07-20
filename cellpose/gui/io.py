@@ -561,9 +561,11 @@ def _save_features_csv(parent):
     Args:
         parent: GUI object with filename and NZ attributes.
     """
-    
+
+    # check if a file is loaded, if not, print an error message and return
     if not parent.filename:
-        raise FileNotFoundError("ERROR: No file loaded. Please load a file before attempting to save features.")
+        print("ERROR: No file loaded. Please load a file before attempting to save features.")
+        return
 
     filename = parent.filename
     base = os.path.splitext(filename)[0] + "_features.csv"
