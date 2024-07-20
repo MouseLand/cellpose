@@ -554,7 +554,7 @@ class MinimapWindow(QDialog):
         normalized_y = (viewboxPos.y() - 9)/ self.viewbox.height()
         self.normalizedClickPos = (normalized_x, normalized_y)
 
-        self.parent.center_view_on_position(self, normalized_x, normalized_y)
+        self.parent().center_view_on_position(normalized_x, normalized_y)
 
 
 class ViewBoxNoRightDrag(pg.ViewBox):
