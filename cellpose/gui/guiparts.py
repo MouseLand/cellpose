@@ -554,6 +554,7 @@ class MinimapWindow(QDialog):
         normalized_y = (viewboxPos.y() - 9)/ self.viewbox.height()
         self.normalizedClickPos = (normalized_x, normalized_y)
 
+        # Change the view in the main window to the clicked position
         self.parent().center_view_on_position(normalized_x, normalized_y)
 
 
