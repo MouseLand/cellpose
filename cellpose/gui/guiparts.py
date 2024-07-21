@@ -411,6 +411,8 @@ class MinimapWindow(QDialog):
         self.title = "Minimap (click right mouse button to resize)"
         self.setWindowTitle(self.title)
         self.setWindowFlags(self.windowFlags() & ~QtCore.Qt.WindowContextHelpButtonHint)
+        self.setWindowFlags(self.windowFlags() | QtCore.Qt.WindowStaysOnTopHint)
+
         # Set min, max and default size of the minimap
         self.defaultSize = 400
         self.minimumSize = 100
