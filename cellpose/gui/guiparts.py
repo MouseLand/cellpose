@@ -416,6 +416,7 @@ class MinimapWindow(QDialog):
         self.title = "Minimap"
         self.setWindowTitle(self.title)
         self.setWindowFlags(self.windowFlags() & ~QtCore.Qt.WindowContextHelpButtonHint)
+        self.setWindowFlags(self.windowFlags() | QtCore.Qt.WindowStaysOnTopHint)
 
         # Create a QGridLayout for the window
         layout = QGridLayout()
