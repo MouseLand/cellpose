@@ -69,6 +69,8 @@ def mainmenu(parent):
     file_menu.addAction(parent.saveFlows)
     parent.saveFlows.setEnabled(False)
 
+    # Save settings action from main
+
     parent.saveSettings = QAction("Save Settings as .&json", parent)
     parent.saveSettings.setShortcut("Ctrl+J")
     parent.saveSettings.triggered.connect(lambda: io._save_settings(parent))
@@ -85,6 +87,17 @@ def mainmenu(parent):
     parent.saveFeaturesCsv.triggered.connect(lambda: io._save_features_csv(parent))
     file_menu.addAction(parent.saveFeaturesCsv)
     parent.saveFeaturesCsv.setEnabled(True)
+
+    """
+    This creates a new menu item for the minimap that the user can activate.
+    It is deactivated by default and has to be checked.
+    The minimap_window function is called from gui.py when the user clicks on the menu item.
+    """
+    parent.minimapWindow = QAction("&Minimap", parent, checkable=True)
+    parent.minimapWindow.setChecked(False)
+    parent.minimapWindow.triggered.connect(parent.minimap_window)
+    file_menu.addAction(parent.minimapWindow)
+
 
 def editmenu(parent):
     main_menu = parent.menuBar()
@@ -162,3 +175,5 @@ def helpmenu(parent):
     openTrainHelp = QAction("Training instructions", parent)
     openTrainHelp.triggered.connect(parent.train_help_window)
     help_menu.addAction(openTrainHelp)
+
+

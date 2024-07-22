@@ -13,6 +13,7 @@ import fastremap
 from ..io import imread, imsave, outlines_to_text, add_model, remove_model, save_rois, save_settings, save_features_csv
 from ..models import normalize_default, MODEL_DIR, MODEL_LIST_PATH, get_user_models
 from ..utils import masks_to_outlines, outlines_list
+from . import guiparts, gui
 
 try:
     import qtpy
@@ -137,6 +138,21 @@ def _load_image(parent, filename=None, load_seg=True, load_3D=False):
         parent.enable_buttons()
         if load_mask:
             _load_masks(parent, filename=mask_file)
+
+        # This calls the Minimap Window to create a new minimap, if the image is changed
+        if hasattr(parent, 'minimap_window_instance') and parent.minimap_window_instance is not None:
+            # The deleteLater() method marks the MinimapWindow object for later deletion after the current event has been processed
+            parent.minimap_window_instance.deleteLater()
+            parent.minimap_window_instance.close()
+            # this calls a method from gui that removes the checkmark from the minimap menu button
+            parent.minimap_closed()
+            parent.minimapWindow.setChecked(False)
+            # Create a new instance before calling update_image
+            parent.minimap_window_instance = guiparts.MinimapWindow(parent)
+            parent.minimap_window_instance.show()
+        else:
+            parent.minimap_window_instance = guiparts.MinimapWindow(parent)
+            parent.minimap_window_instance.show()
 
 
 def _initialize_images(parent, image, load_3D=False):

@@ -3,9 +3,9 @@ Copyright © 2023 Howard Hughes Medical Institute, Authored by Carsen Stringer a
 """
 
 from qtpy import QtGui, QtCore, QtWidgets
-from qtpy.QtGui import QPainter, QPixmap
-from qtpy.QtWidgets import QApplication, QRadioButton, QWidget, QDialog, QButtonGroup, QSlider, QStyle, QStyleOptionSlider, QGridLayout, QPushButton, QLabel, QLineEdit, QDialogButtonBox, QComboBox, QCheckBox
-from qtpy.QtGui import QFont
+from qtpy.QtGui import QPainter, QPixmap, QImage, QFont
+from qtpy.QtWidgets import QApplication, QRadioButton, QWidget, QDialog, QButtonGroup, QSlider, QStyle, QStyleOptionSlider, QGridLayout, QPushButton, QLabel, QLineEdit, QDialogButtonBox, QComboBox, QCheckBox, QDockWidget, QMenu, QWidgetAction
+from qtpy.QtCore import QEvent
 import pyqtgraph as pg
 from pyqtgraph import functions as fn
 from pyqtgraph import Point
@@ -393,6 +393,168 @@ class TrainHelpWindow(QDialog):
         # Call adjust_font_size when the window is resized
         self.adjust_font_size()
         super().resizeEvent(event)
+
+
+# window displaying a minimap of the current image
+class MinimapWindow(QDialog):
+    """
+    Method to initialize the Minimap Window.
+    It creates a title for the window and a QDialog with a basic layout.
+    It also takes the current picture stored in the stack and loads it in a Viewbox.
+    The proportions of this image stay constant.
+    The minimap updates with the image in the main window.
+    """
+
+    def __init__(self, parent=None):
+        super(MinimapWindow, self).__init__(parent)
+        # Set the title of the window
+        self.title = "Minimap (click right mouse button to resize)"
+        self.setWindowTitle(self.title)
+        self.setWindowFlags(self.windowFlags() & ~QtCore.Qt.WindowContextHelpButtonHint)
+        # Set min, max and default size of the minimap
+        self.defaultSize = 400
+        self.minimumSize = 100
+        self.maximumSize = 800
+        self.minimapSize = self.defaultSize
+        self.rightClickInteraction = True
+
+        # Create a QGridLayout for the window
+        layout = QGridLayout()
+        layout.setContentsMargins(0, 0, 0, 0)  # Set margins (left, top, right, bottom) to zero
+        self.setLayout(layout)
+
+        # Create a widget and add the layout to it
+        self.image_widget = pg.GraphicsLayoutWidget()
+        layout.addWidget(self.image_widget, 0, 0, 1, 1)
+
+        # Create custom context menu
+        self.createSlider()
+
+        # Create a viexbox for the minimap
+        self.viewbox = pg.ViewBox()
+        self.viewbox.setMouseEnabled(x=False, y=False)
+        # Invert and fix the aspect ratio of the viewbox to look like the original image
+        self.viewbox.invertY(True)
+        self.viewbox.setAspectLocked(True)
+
+        # Update the minimap so that it responds to changes in the main window
+        self.update_minimap(parent)
+        # Set the value of the slider according to the default size
+        self.slider.setValue(int((self.defaultSize - self.minimumSize) / self.maximumSize * 100))
+
+        # Add the viewbox to the image widget
+        self.image_widget.addItem(self.viewbox)
+
+        # This marks the menu button as checked
+        parent.minimapWindow.setChecked(True)
+
+    def closeEvent(self, event: QEvent):
+        """
+        Method to uncheck the button in the menu if the window is closed.
+        It overrides closeEvent and is automatically called when the window is closed.
+        It calls minimap_closed from gui.py.
+        """
+        # Notify the parent that the window is closing
+        self.parent().minimap_closed()
+        event.accept()  # Accept the event and close the window
+
+    def update_minimap(self, parent):
+        """
+        Method to update the minimap.
+        It takes the current image from the parent and updates the image in the minimap.
+        """
+        if parent.img.image is not None:
+            # Obtain image data from the parent
+            image = parent.img.image
+            # Obtain saturation levels
+            levels = parent.img.levels
+            # Obtain current channel
+            current_channel = parent.color
+
+            # Set image
+            self.mini_image = pg.ImageItem(image)
+            # Display of RGB or greyscale image
+            if current_channel == 0 or current_channel == 4:
+                self.mini_image.setLookupTable(None)
+            # Display of image using a pre-defined colormap corresponding to a specific color channel
+            # (red, green, blue)
+            elif current_channel < 4:
+                self.mini_image.setLookupTable(parent.cmap[current_channel])
+            # Display of spectral mage
+            elif current_channel == 5:
+                self.mini_image.setLookupTable(parent.cmap[0])
+
+            self.mini_image.setLevels(levels)
+            self.viewbox.addItem(self.mini_image)
+
+            # Set the size of the minimap based on the aspect ratio of the image
+            # this ensures that the aspect ratio is always correct
+            aspect_ratio = self.mini_image.width() / self.mini_image.height()
+            self.setFixedSize(int(self.minimapSize * aspect_ratio), self.minimapSize)
+            # Ensure image fits viewbox
+            self.viewbox.setLimits(xMin=0, xMax=parent.Lx, yMin=0, yMax=parent.Ly)
+
+        # If there is no image and the minimap is checked, an empty window is opened
+        else:
+            self.setFixedSize(self.minimapSize, self.minimapSize)
+
+    def sliderValueChanged(self, value):
+        """
+        Method to change the size of the minimap based on the slider value.
+        This function will be called whenever the slider's value changes
+        """
+        # Calculate the new size of the minimap based on the slider value
+        upscaleFactor = ((self.maximumSize - self.minimumSize) / 100)
+        self.minimapSize = int(self.minimumSize + upscaleFactor * value)
+
+        # this ensures that the aspect ratio is always correct
+        if self.parent().img.image is not None:
+            aspect_ratio = self.mini_image.width() / self.mini_image.height()
+            self.setFixedSize(int(self.minimapSize * aspect_ratio), self.minimapSize)
+        else:
+            self.setFixedSize(self.minimapSize, self.minimapSize)
+
+    def createSlider(self):
+        """
+        Method to create a custom context menu for the minimap. This menu contains a slider and an informative label.
+        """
+        # Create the custom context menu
+        self.contextMenu = QMenu(self)
+
+        # Create a QLabel and set its text
+        label = QLabel()
+        label.setText("Adjust window size")
+        labelAction = QWidgetAction(self.contextMenu)
+        labelAction.setDefaultWidget(label)
+        self.contextMenu.addAction(labelAction)
+
+        # Create a QSlider and add it to the menu
+        self.slider = QSlider(QtCore.Qt.Horizontal)
+        sliderAction = QWidgetAction(self.contextMenu)
+        sliderAction.setDefaultWidget(self.slider)
+        self.contextMenu.addAction(sliderAction)
+
+        # Connect the slider's valueChanged signal to a function
+        self.slider.valueChanged.connect(self.sliderValueChanged)
+
+    def mousePressEvent(self, event):
+        """
+        Method to handle mouse press events. This overrides the default mousePressEvent method. Various information
+        about the mouse event are passed to the method and handled accordingly. The method can distinguish between
+        left and right mouse button clicks. If the right mouse button is clicked, the custom context menu is displayed.
+        """
+        # Check if the right mouse button was pressed
+        if event.button() == QtCore.Qt.RightButton:
+            # Show the custom context menu at the mouse position
+            self.contextMenu.exec_(event.globalPos())
+            # Delete hint after first interaction with the resize slider
+            if self.rightClickInteraction:
+                self.setWindowTitle("Minimap")
+                self.rightClickInteraction = False
+
+        else:
+            # If another mouse button was pressed, call the base class implementation
+            super().mousePressEvent(event)
 
 
 
