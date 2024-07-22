@@ -69,6 +69,14 @@ def mainmenu(parent):
     file_menu.addAction(parent.saveFlows)
     parent.saveFlows.setEnabled(False)
 
+    # Save settings action from main
+
+    parent.saveSettings = QAction("Save Settings as .&json", parent)
+    parent.saveSettings.setShortcut("Ctrl+J")
+    parent.saveSettings.triggered.connect(lambda: io._save_settings(parent))
+    file_menu.addAction(parent.saveSettings)
+    parent.saveSettings.setEnabled(True)
+
     """
     This creates a new menu item for the minimap that the user can activate.
     It is deactivated by default and has to be checked.
@@ -78,7 +86,8 @@ def mainmenu(parent):
     parent.minimapWindow.setChecked(False)
     parent.minimapWindow.triggered.connect(parent.minimap_window)
     file_menu.addAction(parent.minimapWindow)
-    
+
+
 def editmenu(parent):
     main_menu = parent.menuBar()
     edit_menu = main_menu.addMenu("&Edit")
