@@ -543,7 +543,9 @@ class MinimapWindow(QDialog):
         """
         Method to handle mouse press events. This overrides the default mousePressEvent method. Various information
         about the mouse event are passed to the method and handled accordingly. The method can distinguish between
-        left and right mouse button clicks. If the right mouse button is clicked, the custom context menu is displayed.
+        left and right mouse button clicks.
+        THe first part of method checks if the right mouse button is clicked, in which case the custom context menu
+        is displayed.
         """
         # Check if the right mouse button was pressed
         if event.button() == QtCore.Qt.RightButton:
@@ -553,30 +555,26 @@ class MinimapWindow(QDialog):
             if self.rightClickInteraction:
                 self.setWindowTitle("Minimap")
                 self.rightClickInteraction = False
-
+                """
+                The second part of the method handles mouse press events on the minimap.
+                This method is triggered when the user clicks on the minimap,
+                allowing for interaction such as navigating the main image view.
+             """
         else:
-            # If another mouse button was pressed, call the base class implementation
-            super().mousePressEvent(event)
 
-    def mousePressEvent(self, event):
-        """
-        Handles mouse press events on the minimap.
-        This method is triggered when the user clicks on the minimap,
-        allowing for interaction such as navigating the main image view.
-        """
-        # Obtain the position where the mouse was clicked within the minimap.
-        viewboxPos = event.pos()
+            # Obtain the position where the mouse was clicked within the minimap.
+            viewboxPos = event.pos()
 
-        # Save the translated position for later use
-        self.lastClickPos = (viewboxPos.x(), viewboxPos.y())
+            # Save the translated position for later use
+            self.lastClickPos = (viewboxPos.x(), viewboxPos.y())
 
-        # Normalize the clicked position's coordinates to values between 0 and 1.
-        normalized_x = (viewboxPos.x() - 9)/ self.viewbox.width()
-        normalized_y = (viewboxPos.y() - 9)/ self.viewbox.height()
-        self.normalizedClickPos = (normalized_x, normalized_y)
+            # Normalize the clicked position's coordinates to values between 0 and 1.
+            normalized_x = (viewboxPos.x() - 9)/ self.viewbox.width()
+            normalized_y = (viewboxPos.y() - 9)/ self.viewbox.height()
+            self.normalizedClickPos = (normalized_x, normalized_y)
 
-        # Change the view in the main window to the clicked position
-        self.parent().center_view_on_position(normalized_x, normalized_y)
+            # Change the view in the main window to the clicked position
+            self.parent().center_view_on_position(normalized_x, normalized_y)
 
 
 class ViewBoxNoRightDrag(pg.ViewBox):
