@@ -541,6 +541,25 @@ class MinimapWindow(QDialog):
 
     def mousePressEvent(self, event):
         """
+        Method to handle mouse press events. This overrides the default mousePressEvent method. Various information
+        about the mouse event are passed to the method and handled accordingly. The method can distinguish between
+        left and right mouse button clicks. If the right mouse button is clicked, the custom context menu is displayed.
+        """
+        # Check if the right mouse button was pressed
+        if event.button() == QtCore.Qt.RightButton:
+            # Show the custom context menu at the mouse position
+            self.contextMenu.exec_(event.globalPos())
+            # Delete hint after first interaction with the resize slider
+            if self.rightClickInteraction:
+                self.setWindowTitle("Minimap")
+                self.rightClickInteraction = False
+
+        else:
+            # If another mouse button was pressed, call the base class implementation
+            super().mousePressEvent(event)
+
+    def mousePressEvent(self, event):
+        """
         Handles mouse press events on the minimap.
         This method is triggered when the user clicks on the minimap,
         allowing for interaction such as navigating the main image view.
