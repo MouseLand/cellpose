@@ -638,9 +638,13 @@ def normalize_img(img, normalize=True, norm3D=False, invert=False, lowhigh=None,
     nchan = img_norm.shape[-1]
 
     if lowhigh is not None:
+        new_min, new_max = lowhigh
         for c in range(nchan):
-            img_norm[...,
-                     c] = (img_norm[..., c] - lowhigh[0]) / (lowhigh[1] - lowhigh[0])
+            c_min = img_norm[..., c].min()
+            c_max = img_norm[..., c].max()
+            eps = 1.0e-6
+            img_norm[..., c] = (img_norm[..., c] - c_min) / (c_max - c_min + eps)
+            img_norm[..., c] = img_norm[..., c] * (new_max - new_min) + new_min
     else:
         if sharpen_radius > 0 or smooth_radius > 0:
             img_norm = smooth_sharpen_img(img_norm, sharpen_radius=sharpen_radius,
