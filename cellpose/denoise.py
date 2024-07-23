@@ -1156,8 +1156,8 @@ if __name__ == "__main__":
             poisson = 0.8
             blur = 0.8
             downsample = 0.8
-            beta = 0.01
-            gblur = 0.5
+            beta = 0.05
+            gblur = 8.0
         elif noise_type == "all":
             poisson = [0.8, 0.8, 0.8]
             blur = [0., 0.8, 0.8]
