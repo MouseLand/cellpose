@@ -35,7 +35,7 @@ normalize_default = {
     "lowhigh": None,
     "percentile": None,
     "normalize": True,
-    "norm3D": False,
+    "norm3D": True,
     "sharpen_radius": 0,
     "smooth_radius": 0,
     "tile_norm_blocksize": 0,
@@ -263,7 +263,7 @@ class CellposeModel():
         if (pretrained_model and not Path(pretrained_model).exists() and
                 np.any([pretrained_model == s for s in all_models])):
             model_type = pretrained_model
-
+            
         # check if model_type is builtin or custom user model saved in .cellpose/models
         if model_type is not None and np.any([model_type == s for s in all_models]):
             if np.any([model_type == s for s in MODEL_NAMES]):
@@ -286,6 +286,10 @@ class CellposeModel():
                 models_logger.warning(
                     "pretrained_model path does not exist, using default model")
                 use_default = True
+            else:
+                if pretrained_model[-13:] == "nucleitorch_0":
+                    builtin = True
+                    self.diam_mean = 17.
 
         builtin = True if use_default else builtin
         self.pretrained_model = model_path(

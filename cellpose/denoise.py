@@ -245,20 +245,22 @@ def add_noise(lbl, alpha=4, beta=0.7, poisson=0.7, blur=0.7, gblur=1.0, downsamp
     iblur = np.random.rand(len(lbl)) < blur
     if iblur.sum() > 0:
         if sigma0 is None:
-            # was 10
-            xrand = np.random.exponential(1, size=iblur.sum())
-            xrand = np.clip(xrand * 0.5, 0.1, 1.0)
-            xrand *= gblur
-            sigma0 = diams[iblur] / 30. * 5. * torch.from_numpy(xrand).float().to(
-                device)
-            #(1 + torch.rand(iblur.sum(), device=device))
-            if not iso:
-                sr = diams[iblur] / 30. * 2 * (1 +
-                                               torch.rand(iblur.sum(), device=device))
-                sigma1 = (torch.rand(iblur.sum(), device=device) > 0.66) * sr
+            if iso:
+                # was 10
+                # xrand = np.random.exponential(1, size=iblur.sum())
+                # xrand = np.clip(xrand * 0.5, 0.1, 1.0)
+                # xrand *= gblur
+                # sigma0 = diams[iblur] / 30. * 5. * torch.from_numpy(xrand).float().to(
+                #     device)
+                # #(1 + torch.rand(iblur.sum(), device=device))
+                # sigma1 = sigma0.clone()
+                sigma0 = diams[iblur] / 30. * gblur * (1/gblur +
+                                                   (1 - 1/gblur) * torch.rand(iblur.sum(), device=device))
+                sigma1 = sigma0.clone()
             else:
-                sigma1 = sigma0.clone(
-                )  #+ torch.randint(0, 3, size=(len(sigma0.clone()),), device=device)
+                sigma0 = diams[iblur] / 30. * gblur * (1/gblur +
+                                                   (1 - 1/gblur) * torch.rand(iblur.sum(), device=device))
+                sigma1 = sigma0.clone() / 10.
         else:
             sigma0 = sigma0 * torch.ones((iblur.sum(),), device=device)
             sigma1 = sigma1 * torch.ones((iblur.sum(),), device=device)
@@ -555,6 +557,7 @@ class CellposeDenoiseModel():
 
         img_restore = self.dn.eval(x, batch_size=batch_size, channels=channels,
                                    channel_axis=channel_axis, z_axis=z_axis,
+                                   do_3D=do_3D, 
                                    normalize=normalize_params, rescale=rescale,
                                    diameter=diameter, tile=tile,
                                    tile_overlap=tile_overlap, bsize=bsize)
@@ -674,7 +677,7 @@ class DenoiseModel():
         self.net_type = "cellpose_denoise"
 
     def eval(self, x, batch_size=8, channels=None, channel_axis=None, z_axis=None,
-             normalize=True, rescale=None, diameter=None, tile=True, 
+             normalize=True, rescale=None, diameter=None, tile=True, do_3D=False,
              tile_overlap=0.1, bsize=224):
         """
         Restore array or list of images using the image restoration model.
@@ -729,6 +732,7 @@ class DenoiseModel():
                        isinstance(channels[i], np.ndarray)) and len(channels[i]) == 2))
                     else channels, channel_axis=channel_axis, z_axis=z_axis,
                     normalize=normalize,
+                    do_3D=do_3D,
                     rescale=rescale[i] if isinstance(rescale, list) or
                     isinstance(rescale, np.ndarray) else rescale,
                     diameter=diameter[i] if isinstance(diameter, list) or
@@ -742,7 +746,7 @@ class DenoiseModel():
         else:
             # reshape image
             x = transforms.convert_image(x, channels, channel_axis=channel_axis,
-                                         z_axis=z_axis)
+                                         z_axis=z_axis, do_3D=do_3D)
             if x.ndim < 4:
                 squeeze = True
                 x = x[np.newaxis, ...]
