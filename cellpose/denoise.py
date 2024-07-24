@@ -241,8 +241,20 @@ def add_noise(lbl, alpha=4, beta=0.7, poisson=0.7, blur=0.7, gblur=1.0, downsamp
     ds = ds * torch.ones(
         (len(lbl),), device=device, dtype=torch.long) if ds is not None else ds
 
+    # downsample
+    ii = []
+    idownsample = np.random.rand(len(lbl)) < downsample
+    if (ds is None and idownsample.sum() > 0.) or not iso:
+        ds = torch.ones(len(lbl), dtype=torch.long, device=device)
+        ds[idownsample] = torch.randint(2, ds_max + 1, size=(idownsample.sum(),),
+                                        device=device)
+        ii = torch.nonzero(ds > 1).flatten()
+    elif ds is not None and (ds > 1).sum():
+        ii = torch.nonzero(ds > 1).flatten()
+
     # add gaussian blur
-    iblur = np.random.rand(len(lbl)) < blur
+    iblur = torch.rand(len(lbl), device=device) < blur
+    iblur[ii] = True
     if iblur.sum() > 0:
         if sigma0 is None:
             if iso:
@@ -254,8 +266,10 @@ def add_noise(lbl, alpha=4, beta=0.7, poisson=0.7, blur=0.7, gblur=1.0, downsamp
                 #     device)
                 # #(1 + torch.rand(iblur.sum(), device=device))
                 # sigma1 = sigma0.clone()
-                sigma0 = diams[iblur] / 30. * gblur * (1/gblur +
-                                                   (1 - 1/gblur) * torch.rand(iblur.sum(), device=device))
+                xr = torch.rand(len(lbl), device=device)
+                if ii.shape[0] > 0:
+                    xr[ii] = (ds[ii].float() / 2.) / gblur
+                sigma0 = diams[iblur] / 30. * gblur * (1 / gblur + (1 - 1 / gblur) * xr[iblur])
                 sigma1 = sigma0.clone()
             else:
                 sigma0 = diams[iblur] / 30. * gblur * (1/gblur +
@@ -302,16 +316,7 @@ def add_noise(lbl, alpha=4, beta=0.7, poisson=0.7, blur=0.7, gblur=1.0, downsamp
 
     imgi[~iblur] = lbl[~iblur]
 
-    # downsample
-    ii = []
-    idownsample = np.random.rand(len(lbl)) < downsample
-    if (ds is None and idownsample.sum() > 0.) or not iso:
-        ds = torch.ones(len(lbl), dtype=torch.long, device=device)
-        ds[idownsample] = torch.randint(2, ds_max + 1, size=(idownsample.sum(),),
-                                        device=device)
-        ii = torch.nonzero(ds > 1)
-    elif ds is not None and (ds > 1).sum():
-        ii = torch.nonzero(ds > 1)
+    # apply downsample
     for k in ii:
         i0 = imgi[k:k + 1, :, ::ds[k], ::ds[k]] if iso else imgi[k:k + 1, :, ::ds[k]]
         imgi[k] = interpolate(i0, size=lbl[k].shape[-2:], mode="bilinear")
@@ -1159,14 +1164,14 @@ if __name__ == "__main__":
             poisson = 0.8
             blur = 0.8
             downsample = 0.8
-            beta = 0.05
-            gblur = 8.0
+            beta = 0.03
+            gblur = 5.0
         elif noise_type == "all":
             poisson = [0.8, 0.8, 0.8]
             blur = [0., 0.8, 0.8]
             downsample = [0., 0., 0.8]
-            beta = [0.7, 0.1, 0.01]
-            gblur = [0., 1.0, 0.5]
+            beta = [0.7, 0.1, 0.05]
+            gblur = [0., 10.0, 8.0]
         else:
             raise ValueError(f"{noise_type} noise_type is not supported")
     else:
