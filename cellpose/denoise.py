@@ -267,7 +267,7 @@ def add_noise(lbl, alpha=4, beta=0.7, poisson=0.7, blur=0.7, gblur=1.0, downsamp
                 # #(1 + torch.rand(iblur.sum(), device=device))
                 # sigma1 = sigma0.clone()
                 xr = torch.rand(len(lbl), device=device)
-                if ii.shape[0] > 0:
+                if len(ii) > 0:
                     xr[ii] = (ds[ii].float() / 2.) / gblur
                 sigma0 = diams[iblur] / 30. * gblur * (1 / gblur + (1 - 1 / gblur) * xr[iblur])
                 sigma1 = sigma0.clone()
