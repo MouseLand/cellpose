@@ -562,7 +562,6 @@ class MinimapWindow(QDialog):
 
         Returns:
             Normalized (x, y) positions of the mouse click within the minimap.
->>>>>>> origin/main
         """
         # Check if the right mouse button was pressed
         if event.button() == QtCore.Qt.RightButton:
