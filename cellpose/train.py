@@ -328,7 +328,7 @@ def train_seg(net, train_data=None, train_labels=None, train_files=None,
               test_probs=None, load_files=True, batch_size=8, learning_rate=0.005,
               n_epochs=2000, weight_decay=1e-5, momentum=0.9, SGD=False, channels=None,
               channel_axis=None, rgb=False, normalize=True, compute_flows=False,
-              save_path=None, save_every=100, nimg_per_epoch=None,
+              save_path=None, save_every=100, save_each=False, nimg_per_epoch=None,
               nimg_test_per_epoch=None, rescale=True, scale_range=None, bsize=224,
               min_train_masks=5, model_name=None):
     """
@@ -359,6 +359,7 @@ def train_seg(net, train_data=None, train_labels=None, train_files=None,
         compute_flows (bool, optional): Boolean - whether to compute flows during training. Defaults to False.
         save_path (str, optional): String - where to save the trained model. Defaults to None.
         save_every (int, optional): Integer - save the network every [save_every] epochs. Defaults to 100.
+        save_each (bool, optional): Boolean - save the network to a new filename at every [save_each] epoch. Defaults to False.
         nimg_per_epoch (int, optional): Integer - minimum number of images to train on per epoch. Defaults to None.
         nimg_test_per_epoch (int, optional): Integer - minimum number of images to test on per epoch. Defaults to None.
         rescale (bool, optional): Boolean - whether or not to rescale images during training. Defaults to True.
@@ -441,10 +442,10 @@ def train_seg(net, train_data=None, train_labels=None, train_files=None,
     t0 = time.time()
     model_name = f"cellpose_{t0}" if model_name is None else model_name
     save_path = Path.cwd() if save_path is None else Path(save_path)
-    model_path = save_path / "models" / model_name
+    filename = save_path / "models" / model_name
     (save_path / "models").mkdir(exist_ok=True)
 
-    train_logger.info(f">>> saving model to {model_path}")
+    train_logger.info(f">>> saving model to {filename}")
 
     lavg, nsum = 0, 0
     for iepoch in range(n_epochs):
@@ -519,11 +520,17 @@ def train_seg(net, train_data=None, train_labels=None, train_files=None,
             )
             lavg, nsum = 0, 0
 
-        if iepoch > 0 and iepoch % save_every == 0:
-            net.save_model(model_path)
-    net.save_model(model_path)
+        if iepoch == n_epochs - 1 or (iepoch % save_every == 0 and iepoch != 0):
+            if save_each and iepoch != n_epochs - 1:  #separate files as model progresses
+                filename0 = str(filename) + f"_epoch_{iepoch:%04d}"
+            else:
+                filename0 = filename
+            train_logger.info(f"saving network parameters to {filename0}")
+            net.save_model(filename0)
+    
+    net.save_model(filename)
 
-    return model_path
+    return filename
 
 
 def train_size(net, pretrained_model, train_data=None, train_labels=None,

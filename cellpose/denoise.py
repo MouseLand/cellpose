@@ -1062,9 +1062,9 @@ def train(net, train_data=None, train_labels=None, train_files=None, test_data=N
             train_losses.append(lavg)
             
         if save_path is not None:
-            if iepoch == n_epochs - 1 or iepoch % save_every == 1:
+            if iepoch == n_epochs - 1 or (iepoch % save_every == 0 and iepoch != 0):
                 if save_each:  #separate files as model progresses
-                    filename0 = filename + "_epoch_" + str(iepoch)
+                    filename0 = str(filename) + f"_epoch_{iepoch:%04d}"
                 else:
                     filename0 = filename
                 denoise_logger.info(f"saving network parameters to {filename0}")
@@ -1126,6 +1126,9 @@ if __name__ == "__main__":
     training_args.add_argument("--n_epochs", default=2000, type=int,
                                help="number of epochs. Default: %(default)s")
     training_args.add_argument(
+        "--save_each", default=False, action="store_true",
+        help="save each epoch as separate model")
+    training_args.add_argument(
         "--nimg_per_epoch", default=0, type=int,
         help="number of images per epoch. Default is length of training images")
     training_args.add_argument(
@@ -1151,7 +1154,7 @@ if __name__ == "__main__":
             blur = 0.8
             downsample = 0.
             beta = 0.1
-            gblur = 12.0
+            gblur = 10.0
         elif noise_type == "downsample":
             poisson = 0.8
             blur = 0.8
