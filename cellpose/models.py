@@ -301,6 +301,8 @@ class CellposeModel():
                 device_gpu = self.device.type == "cuda"
             elif torch.backends.mps.is_available():
                 device_gpu = self.device.type == "mps"
+            else:
+                device_gpu = False
         self.gpu = gpu if device is None else device_gpu
         if not self.gpu:
             self.mkldnn = check_mkl(True)
