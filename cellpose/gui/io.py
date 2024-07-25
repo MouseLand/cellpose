@@ -108,8 +108,6 @@ def _load_image(parent, filename=None, load_seg=True, load_3D=False):
     #checks if the file is a tiff
     if filename and (filename.endswith('.tif') or filename.endswith('.tiff')):
         processed_images = process_tiff_image(filename)
-        for i, img in enumerate(processed_images):
-            img.show(title=f"Processed Image {i}")
         parent.processed_images = processed_images
     if filename is None:
         name = QFileDialog.getOpenFileName(parent, "Load image")
