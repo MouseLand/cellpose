@@ -78,6 +78,17 @@ def mainmenu(parent):
     parent.saveSettings.setEnabled(True)
 
     """
+    This adds a new menu item for saving features as a .csv file. 
+    The user can activate this function to export specific data directly from the GUI.
+    The function `_save_features_as_csv` from the `io` module is called when the user clicks on the menu item.
+    """
+    parent.saveFeaturesCsv = QAction("Save Features as .&csv", parent)
+    parent.saveFeaturesCsv.setShortcut("Ctrl+Shift+C")
+    parent.saveFeaturesCsv.triggered.connect(lambda: io._save_features_csv(parent))
+    file_menu.addAction(parent.saveFeaturesCsv)
+    parent.saveFeaturesCsv.setEnabled(True)
+
+    """
     This creates a new menu item for the minimap that the user can activate.
     It is deactivated by default and has to be checked.
     The minimap_window function is called from gui.py when the user clicks on the menu item.

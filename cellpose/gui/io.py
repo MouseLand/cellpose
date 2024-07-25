@@ -10,7 +10,7 @@ import tifffile
 import logging
 import fastremap
 
-from ..io import imread, imsave, outlines_to_text, add_model, remove_model, save_rois, save_settings
+from ..io import imread, imsave, outlines_to_text, add_model, remove_model, save_rois, save_settings, save_features_csv
 from ..models import normalize_default, MODEL_DIR, MODEL_LIST_PATH, get_user_models
 from ..utils import masks_to_outlines, outlines_list
 from . import guiparts, gui
@@ -570,6 +570,27 @@ def _masks_to_gui(parent, masks, outlines=None, colors=None):
     else:
         parent.ViewDropDown.setCurrentIndex(0)
 
+def _save_features_csv(parent):
+    """
+    Saves features to CSV if dataset is 2D.
+
+    Args:
+        parent: GUI object with filename and NZ attributes.
+    """
+
+    # check if a file is loaded, if not, print an error message and return
+    if not parent.filename:
+        print("ERROR: No file loaded. Please load a file before attempting to save features.")
+        return
+
+    filename = parent.filename
+    base = os.path.splitext(filename)[0] + "_features.csv"
+    # check if the dataset is 2D (NZ == 1 implies a single z-layer)
+    if parent.NZ == 1:
+        print("GUI_INFO: saving features to CSV file")
+        save_features_csv(parent.filename)
+    else:
+        print("ERROR: cannot save features")
 
 def _save_png(parent):
     """ save masks to png or tiff (if 3D) """
