@@ -411,10 +411,6 @@ class MinimapWindow(QDialog):
         self.title = "Minimap (click right mouse button to resize)"
         self.setWindowTitle(self.title)
         self.setWindowFlags(self.windowFlags() & ~QtCore.Qt.WindowContextHelpButtonHint)
-<<<<<<< HEAD
-=======
-
->>>>>>> origin/main
         self.setWindowFlags(self.windowFlags() | QtCore.Qt.WindowStaysOnTopHint)
 
         # Set min, max and default size of the minimap
@@ -549,14 +545,8 @@ class MinimapWindow(QDialog):
         Method to handle mouse press events. This overrides the default mousePressEvent method. Various information
         about the mouse event are passed to the method and handled accordingly. The method can distinguish between
         left and right mouse button clicks.
-<<<<<<< HEAD
         THe first part of method checks if the right mouse button is clicked, in which case the custom context menu
         is displayed.
-=======
-
-        The first part of the method checks if the right mouse button is clicked, in which case the custom context menu
-        is displayed.
-
         The else branch of the method checks if the user left-clicks on the minimap, in which case it enables
         interactions such as navigating the main image view.
 
@@ -591,7 +581,6 @@ class MinimapWindow(QDialog):
 
             # Change the view in the main window to the clicked position
             self.parent().center_view_on_position(normalized_x, normalized_y)
-
 
 
 class ViewBoxNoRightDrag(pg.ViewBox):
