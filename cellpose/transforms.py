@@ -393,7 +393,7 @@ def move_min_dim(img, force=False):
 
     Args:
         img (ndarray): The input image.
-        force (bool, optional): If True, the minimum dimension will always be moved. 
+        force (bool, optional): If True, the minimum dimension will always be moved.
             Defaults to False.
 
     Returns:
@@ -638,9 +638,13 @@ def normalize_img(img, normalize=True, norm3D=False, invert=False, lowhigh=None,
     nchan = img_norm.shape[-1]
 
     if lowhigh is not None:
+        new_min, new_max = lowhigh
         for c in range(nchan):
-            img_norm[...,
-                     c] = (img_norm[..., c] - lowhigh[0]) / (lowhigh[1] - lowhigh[0])
+            c_min = img_norm[..., c].min()
+            c_max = img_norm[..., c].max()
+            eps = 1.0e-6
+            img_norm[..., c] = (img_norm[..., c] - c_min) / (c_max - c_min + eps)
+            img_norm[..., c] = img_norm[..., c] * (new_max - new_min) + new_min
     else:
         if sharpen_radius > 0 or smooth_radius > 0:
             img_norm = smooth_sharpen_img(img_norm, sharpen_radius=sharpen_radius,
@@ -664,7 +668,7 @@ def normalize_img(img, normalize=True, norm3D=False, invert=False, lowhigh=None,
                                                            c], lower=percentile[0],
                                                   upper=percentile[1], copy=False)
         if (tile_norm_blocksize > 0 or normalize) and invert:
-            img_norm[..., c] = -1 * img_norm[..., c] + 1
+            img_norm[..., 0] = -1 * img_norm[..., 0] + 1
         elif invert:
             error_message = "cannot invert image without normalizing"
             transforms_logger.critical(error_message)
@@ -686,7 +690,7 @@ def resize_image(img0, Ly=None, Lx=None, rsz=None, interpolation=cv2.INTER_LINEA
         Lx (int, optional): Desired width of the resized image. Defaults to None.
         rsz (float, optional): Resize coefficient(s) for the image. If Ly is None, rsz is used. Defaults to None.
         interpolation (int, optional): OpenCV interpolation method. Defaults to cv2.INTER_LINEAR.
-        no_channels (bool, optional): Flag indicating whether to treat the third dimension as a channel. 
+        no_channels (bool, optional): Flag indicating whether to treat the third dimension as a channel.
             Defaults to False.
 
     Returns:
@@ -738,8 +742,8 @@ def pad_image_ND(img0, div=16, extra=1, min_size=None):
         extra (int, optional): Extra padding. Defaults to 1.
         min_size (tuple, optional): Minimum size of the image. Defaults to None.
 
-    Returns:   
-        tuple containing 
+    Returns:
+        tuple containing
             - I (ndarray): Padded image.
             - ysub (ndarray): Y range of pixels in the padded image corresponding to img0.
             - xsub (ndarray): X range of pixels in the padded image corresponding to img0.

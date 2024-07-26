@@ -13,6 +13,9 @@ def test_normalize_img(data_dir):
     img = io.imread(str(data_dir.joinpath('3D').joinpath('rgb_3D.tif')))
     img = img.transpose(0, 2, 3, 1).astype('float32')
 
+    img_norm = normalize_img(img, lowhigh=(0, 1))
+    assert img_norm.min() >= 0 and img_norm.max() <= 1
+
     img_norm = normalize_img(img, norm3D=True)
     assert img_norm.shape == img.shape
 
