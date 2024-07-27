@@ -411,7 +411,6 @@ class MinimapWindow(QDialog):
         self.title = "Minimap (click right mouse button to resize)"
         self.setWindowTitle(self.title)
         self.setWindowFlags(self.windowFlags() & ~QtCore.Qt.WindowContextHelpButtonHint)
-
         self.setWindowFlags(self.windowFlags() | QtCore.Qt.WindowStaysOnTopHint)
 
         # Set min, max and default size of the minimap
@@ -564,7 +563,6 @@ class MinimapWindow(QDialog):
             if self.rightClickInteraction:
                 self.setWindowTitle("Minimap")
                 self.rightClickInteraction = False
-
         else:
 
             # Obtain the position where the mouse was clicked within the minimap.
@@ -574,9 +572,12 @@ class MinimapWindow(QDialog):
             self.lastClickPos = (viewboxPos.x(), viewboxPos.y())
 
             # Normalize the clicked position's coordinates to values between 0 and 1.
-            normalized_x = (viewboxPos.x() - 9) / self.viewbox.width()
-            normalized_y = (viewboxPos.y() - 9) / self.viewbox.height()
+            normalized_x = (viewboxPos.x() - 9)/ self.viewbox.width()
+            normalized_y = (viewboxPos.y() - 9)/ self.viewbox.height()
             self.normalizedClickPos = (normalized_x, normalized_y)
+
+            # Change the view in the main window to the clicked position
+            self.parent().center_view_on_position(normalized_x, normalized_y)
 
 
 class ViewBoxNoRightDrag(pg.ViewBox):
