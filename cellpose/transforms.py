@@ -393,7 +393,7 @@ def move_min_dim(img, force=False):
 
     Args:
         img (ndarray): The input image.
-        force (bool, optional): If True, the minimum dimension will always be moved. 
+        force (bool, optional): If True, the minimum dimension will always be moved.
             Defaults to False.
 
     Returns:
@@ -537,7 +537,7 @@ def reshape(data, channels=[0, 0], chan_first=False):
 
     Args:
         data (numpy.ndarray): The input data. It should have shape (Z x ) Ly x Lx x nchan
-            if data.ndim==8 and data.shape[0]<8, it is assumed to be nchan x Ly x Lx.
+            if data.ndim==3 and data.shape[0]<8, it is assumed to be nchan x Ly x Lx.
         channels (list of int, optional): The channels to use for reshaping. The first element
             of the list is the channel to segment (0=grayscale, 1=red, 2=green, 3=blue). The
             second element of the list is the optional nuclear channel (0=none, 1=red, 2=green, 3=blue).
@@ -686,7 +686,7 @@ def resize_image(img0, Ly=None, Lx=None, rsz=None, interpolation=cv2.INTER_LINEA
         Lx (int, optional): Desired width of the resized image. Defaults to None.
         rsz (float, optional): Resize coefficient(s) for the image. If Ly is None, rsz is used. Defaults to None.
         interpolation (int, optional): OpenCV interpolation method. Defaults to cv2.INTER_LINEAR.
-        no_channels (bool, optional): Flag indicating whether to treat the third dimension as a channel. 
+        no_channels (bool, optional): Flag indicating whether to treat the third dimension as a channel.
             Defaults to False.
 
     Returns:
@@ -738,8 +738,8 @@ def pad_image_ND(img0, div=16, extra=1, min_size=None):
         extra (int, optional): Extra padding. Defaults to 1.
         min_size (tuple, optional): Minimum size of the image. Defaults to None.
 
-    Returns:   
-        tuple containing 
+    Returns:
+        tuple containing
             - I (ndarray): Padded image.
             - ysub (ndarray): Y range of pixels in the padded image corresponding to img0.
             - xsub (ndarray): X range of pixels in the padded image corresponding to img0.
