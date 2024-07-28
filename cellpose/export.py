@@ -1,4 +1,42 @@
-"""Auxiliary module for bioimageio format export"""
+"""Auxiliary module for bioimageio format export
+
+Example usage:
+
+```bash
+#!/bin/bash
+
+# Define default paths and parameters
+DEFAULT_CHANNELS="1 0"
+DEFAULT_PATH_PRETRAINED_MODEL="/home/qinyu/models/cp/cellpose_residual_on_style_on_concatenation_off_1135_rest_2023_05_04_23_41_31.252995"
+DEFAULT_PATH_README="/home/qinyu/models/cp/README.md"
+DEFAULT_LIST_PATH_COVER_IMAGES="/home/qinyu/images/cp/cellpose_raw_and_segmentation.jpg /home/qinyu/images/cp/cellpose_raw_and_probability.jpg /home/qinyu/images/cp/cellpose_raw.jpg"
+DEFAULT_MODEL_ID="philosophical-panda"
+DEFAULT_MODEL_ICON="🐼"
+DEFAULT_MODEL_VERSION="0.1.0"
+DEFAULT_MODEL_NAME="My Cool Cellpose"
+DEFAULT_MODEL_DOCUMENTATION="A cool Cellpose model trained for my cool dataset."
+DEFAULT_MODEL_AUTHORS='[{"name": "Qin Yu", "affiliation": "EMBL", "github_user": "qin-yu", "orcid": "0000-0002-4652-0795"}]'
+DEFAULT_MODEL_CITE='[{"text": "For more details of the model itself, see the manuscript", "doi": "10.1101/2024.02.19.580954", "url": null}]'
+DEFAULT_MODEL_TAGS="cellpose 3d 2d"
+DEFAULT_MODEL_LICENSE="MIT"
+DEFAULT_MODEL_REPO="https://github.com/kreshuklab/go-nuclear"
+
+# Run the Python script with default parameters
+python export.py \
+    --channels $DEFAULT_CHANNELS \
+    --path_pretrained_model "$DEFAULT_PATH_PRETRAINED_MODEL" \
+    --path_readme "$DEFAULT_PATH_README" \
+    --list_path_cover_images $DEFAULT_LIST_PATH_COVER_IMAGES \
+    --model_version "$DEFAULT_MODEL_VERSION" \
+    --model_name "$DEFAULT_MODEL_NAME" \
+    --model_documentation "$DEFAULT_MODEL_DOCUMENTATION" \
+    --model_authors "$DEFAULT_MODEL_AUTHORS" \
+    --model_cite "$DEFAULT_MODEL_CITE" \
+    --model_tags $DEFAULT_MODEL_TAGS \
+    --model_license "$DEFAULT_MODEL_LICENSE" \
+    --model_repo "$DEFAULT_MODEL_REPO"
+```
+"""
 
 import os
 import sys
@@ -218,7 +256,7 @@ def package_to_bioimageio(
 ):
     """Package model description to BioImage.IO format."""
     my_model_descr = ModelDescr(
-        id=ModelId(model_id),
+        id=ModelId(model_id) if model_id is not None else None,
         id_emoji=model_icon,
         version=Version(model_version),
         name=model_name,
@@ -258,23 +296,24 @@ def package_to_bioimageio(
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="BioImage.IO model packaging script")
-    parser.add_argument("--path_dir_model", required=True, type=str, help="Directory containing model files")
-    parser.add_argument("--channels", nargs=2, default=[1, 0], type=int, help="Channels to use")
-    parser.add_argument("--path_pretrained_model", required=True, type=str, help="Path to pretrained model file")
+    # fmt: off
+    parser = argparse.ArgumentParser(description="BioImage.IO model packaging for Cellpose")
+    parser.add_argument("--channels", nargs=2, default=[2, 1], type=int, help="Cyto-only = [2, 0], Cyto + Nuclei = [2, 1], Nuclei-only = [1, 0]")
+    parser.add_argument("--path_pretrained_model", required=True, type=str, help="Path to pretrained model file, e.g., cellpose_residual_on_style_on_concatenation_off_1135_rest_2023_05_04_23_41_31.252995")
     parser.add_argument("--path_readme", required=True, type=str, help="Path to README file")
     parser.add_argument("--list_path_cover_images", nargs='+', required=True, type=str, help="List of paths to cover images")
-    parser.add_argument("--model_id", required=True, type=str, help="Model ID")
-    parser.add_argument("--model_icon", required=True, type=str, help="Model icon")
-    parser.add_argument("--model_version", required=True, type=str, help="Model version")
-    parser.add_argument("--model_name", required=True, type=str, help="Model name")
-    parser.add_argument("--model_documentation", required=True, type=str, help="Model documentation")
-    parser.add_argument("--model_authors", required=True, type=str, help="Model authors in JSON format")
-    parser.add_argument("--model_cite", required=True, type=str, help="Model citation in JSON format")
-    parser.add_argument("--model_tags", nargs='+', required=True, type=str, help="Model tags")
-    parser.add_argument("--model_license", required=True, type=str, help="Model license")
+    parser.add_argument("--model_id", type=str, help="Model ID, provide if already exists", default=None)
+    parser.add_argument("--model_icon", type=str, help="Model icon, provide if already exists", default=None)
+    parser.add_argument("--model_version", required=True, type=str, help="Model version, new model should be 0.1.0")
+    parser.add_argument("--model_name", required=True, type=str, help="Model name, e.g., My Cool Cellpose")
+    parser.add_argument("--model_documentation", required=True, type=str, help="Model documentation, e.g., A cool Cellpose model trained for my cool dataset.")
+    parser.add_argument("--model_authors", required=True, type=str, help="Model authors in JSON format, e.g., '[{\"name\": \"Qin Yu\", \"affiliation\": \"EMBL\", \"github_user\": \"qin-yu\", \"orcid\": \"0000-0002-4652-0795\"}]'")
+    parser.add_argument("--model_cite", required=True, type=str, help="Model citation in JSON format, e.g., '[{\"text\": \"For more details of the model itself, see the manuscript\", \"doi\": \"10.1101/2024.02.19.580954\", \"url\": null}]'")
+    parser.add_argument("--model_tags", nargs='+', required=True, type=str, help="Model tags, e.g., cellpose 3d 2d")
+    parser.add_argument("--model_license", required=True, type=str, help="Model license, e.g., MIT")
     parser.add_argument("--model_repo", required=True, type=str, help="Model repository URL")
     return parser.parse_args()
+    # fmt: on
 
 
 def main():
@@ -282,16 +321,18 @@ def main():
 
     # Parse user-provided paths and arguments
     channels = args.channels
-
-    model_authors = json.loads(args.model_authors)
     model_cite = json.loads(args.model_cite)
-    # Auto-generated paths
-    path_pretrained_model = Path(args.path_pretrained_model)
+    model_authors = json.loads(args.model_authors)
+
     path_readme = Path(args.path_readme)
+    path_pretrained_model = Path(args.path_pretrained_model)
     list_path_cover_images = [Path(path_image) for path_image in args.list_path_cover_images]
+
+    # Auto-generated paths
     path_cpnet_wrapper = Path(__file__).resolve().parent / "resnet_torch.py"
     path_dir_temp = Path(__file__).resolve().parent.parent / "models" / path_pretrained_model.stem
     path_dir_temp.mkdir(parents=True, exist_ok=True)
+
     path_save_trace = path_dir_temp / "cp_traced.pt"
     path_test_input = path_dir_temp / "test_input.npy"
     path_test_output = path_dir_temp / "test_output.npy"
@@ -324,7 +365,6 @@ def main():
     descr_output_style_tensor = descr_gen_output_style(path_test_style, cpnet_biio.nbase[-1])
     pytorch_version = Version(torch.__version__)
     pytorch_architecture = descr_gen_arch(cpnet_kwargs, path_cpnet_wrapper)
-
 
     # Package model
     my_model_descr = package_to_bioimageio(
