@@ -438,7 +438,7 @@ def update_axis(m_axis, to_squeeze, ndim):
 
 
 def convert_image(x, channels, channel_axis=None, z_axis=None, do_3D=False, nchan=2):
-    """Converts the image to have the z-axis first, channels last, and normalized intensities.
+    """Converts the image to have the z-axis first, channels last.
 
     Args:
         x (numpy.ndarray or torch.Tensor): The input image.
