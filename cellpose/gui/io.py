@@ -9,6 +9,7 @@ import cv2
 import tifffile
 import logging
 import fastremap
+from PIL import Image, ImageSequence, ImageOps
 
 from ..io import imread, imsave, outlines_to_text, add_model, remove_model, save_rois, save_settings, save_features_csv
 from ..models import normalize_default, MODEL_DIR, MODEL_LIST_PATH, get_user_models
@@ -105,6 +106,10 @@ def _get_train_set(image_names):
 
 def _load_image(parent, filename=None, load_seg=True, load_3D=False):
     """ load image with filename; if None, open QFileDialog """
+    #checks if the file is a tiff
+    if filename and (filename.endswith('.tif') or filename.endswith('.tiff')):
+        processed_images = process_tiff_image(filename)
+        parent.processed_images = processed_images
     if filename is None:
         name = QFileDialog.getOpenFileName(parent, "Load image")
         filename = name[0]
@@ -455,6 +460,7 @@ def _load_masks(parent, filename=None):
     """ load zeros-based masks (0=no cell, 1=cell 1, ...) """
     if filename is None:
         name = QFileDialog.getOpenFileName(parent, "Load masks (PNG or TIFF)")
+        print()
         filename = name[0]
     print(f"GUI_INFO: loading masks: {filename}")
     masks = imread(filename)
@@ -744,3 +750,61 @@ def _save_sets(parent):
     del dat
     #print(parent.point_sets)
     print("GUI_INFO: %d ROIs saved to %s" % (parent.ncells, base + "_seg.npy"))
+
+def process_tiff_image(tiff_file):
+    """
+    Processes a multi-layer TIFF image located at `tiff_file`.
+    Converts each layer to opacity format and returns a list of processed images.
+
+    Parameters:
+    - tiff_file (str): Path to the multi-layer TIFF image.
+
+    Returns:
+    - processed_images (list): List of processed PIL Image objects.
+    """
+    processed_images = []
+    with Image.open(tiff_file) as img:
+        for frame in ImageSequence.Iterator(img):
+            processed_frame = convert_grayscale_to_opacity(frame)
+            processed_images.append(processed_frame)
+    return processed_images
+
+def convert_grayscale_to_opacity(frame):
+    """
+    Converts an image frame to opacity format.
+    - For 16-bit grayscale images, it extracts the alpha channel from the high byte.
+    - For RGB images, it creates an alpha channel based on the image's luminance with a simple threshold.
+    - For 8-bit grayscale images, it creates an alpha channel with a simple threshold.
+
+    Parameters:
+    - frame (PIL.Image): Input image frame.
+
+    Returns:
+    - final_image (PIL.Image): Processed image with an alpha channel in RGBA format.
+    """
+    if frame.mode == 'I;16B':
+        frame = frame.convert("I;16B")
+        image_np = np.array(frame)
+        alpha_np = (image_np >> 8).astype(np.uint8)
+        alpha = Image.fromarray(alpha_np, mode="L")
+        white_bg = Image.new("L", frame.size, 255)
+        final_image = Image.merge("LA", (white_bg, alpha))
+        rgba_image = final_image.convert("RGBA")
+        return rgba_image
+
+    elif frame.mode == 'RGB':
+        luminance = frame.convert("L")
+        alpha = luminance.point(lambda p: 255 if p < 128 else 0)
+        alpha = ImageOps.invert(alpha)
+        white_bg = Image.new("L", frame.size, 255)
+        final_image = Image.merge("LA", (white_bg, alpha))
+        rgba_image = final_image.convert("RGBA")
+        return rgba_image
+
+    else:  # 8-bit grayscale
+        alpha = frame.point(lambda p: 255 if p < 128 else 0)
+        alpha = ImageOps.invert(alpha)
+        white_bg = Image.new("L", frame.size, 255)
+        final_image = Image.merge("LA", (white_bg, alpha))
+        rgba_image = final_image.convert("RGBA")
+        return rgba_image
