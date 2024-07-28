@@ -2,6 +2,8 @@
 
 import os
 import sys
+import json
+import argparse
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -44,31 +46,34 @@ from bioimageio.spec.common import HttpUrl
 from bioimageio.spec import save_bioimageio_package
 from bioimageio.core import test_model
 
+DEFAULT_CHANNELS = [2, 1]
+DEFAULT_NORMALIZE_PARAMS = {
+    "axis": -1,
+    "lowhigh": None,
+    "percentile": None,
+    "normalize": True,
+    "norm3D": False,
+    "sharpen_radius": 0,
+    "smooth_radius": 0,
+    "tile_norm_blocksize": 0,
+    "tile_norm_smooth3D": 1,
+    "invert": False,
+}
+IMAGE_URL = "http://www.cellpose.org/static/data/rgb_3D.tif"
 
-def download_and_normalize_image(path_dir_temp, channels=None):
-    if channels is None:
-        channels = [2, 1]
-    normalize_default = {
-        "axis": -1,
-        "lowhigh": None,
-        "percentile": None,
-        "normalize": True,
-        "norm3D": False,
-        "sharpen_radius": 0,
-        "smooth_radius": 0,
-        "tile_norm_blocksize": 0,
-        "tile_norm_smooth3D": 1,
-        "invert": False
-    }
-    image_url = "http://www.cellpose.org/static/data/rgb_3D.tif"
-    filename = os.path.basename(urlparse(image_url).path)
+
+def download_and_normalize_image(path_dir_temp, channels=DEFAULT_CHANNELS):
+    """
+    Download and normalize image.
+    """
+    filename = os.path.basename(urlparse(IMAGE_URL).path)
     path_image = path_dir_temp / filename
-    if not os.path.exists(path_image):
-        sys.stderr.write('Downloading: "{}" to {}\n'.format(image_url, path_image))
-        download_url_to_file(image_url, path_image)
+    if not path_image.exists():
+        sys.stderr.write(f'Downloading: "{IMAGE_URL}" to {path_image}\n')
+        download_url_to_file(IMAGE_URL, path_image)
     img = imread(path_image).astype(np.float32)
     img = convert_image(img, channels, channel_axis=1, z_axis=0, do_3D=False, nchan=2)
-    img = normalize_img(img, **normalize_default)
+    img = normalize_img(img, **DEFAULT_NORMALIZE_PARAMS)
     img = np.transpose(img, (0, 3, 1, 2))
     img, _, _ = pad_image_ND(img)
     return img
@@ -211,6 +216,7 @@ def package_to_bioimageio(
     model_license,
     model_repo,
 ):
+    """Package model description to BioImage.IO format."""
     my_model_descr = ModelDescr(
         id=ModelId(model_id),
         id_emoji=model_icon,
@@ -251,36 +257,46 @@ def package_to_bioimageio(
     return my_model_descr
 
 
-if __name__ == "__main__":
-    env = os.environ.get("CONDA_DEFAULT_ENV")
-    if env is None:
-        print("No conda environment found")
-    else:
-        print(f"Conda environment: {env}")
+def parse_args():
+    parser = argparse.ArgumentParser(description="BioImage.IO model packaging script")
+    parser.add_argument("--path_dir_model", required=True, type=str, help="Directory containing model files")
+    parser.add_argument("--channels", nargs=2, default=[1, 0], type=int, help="Channels to use")
+    parser.add_argument("--path_pretrained_model", required=True, type=str, help="Path to pretrained model file")
+    parser.add_argument("--path_readme", required=True, type=str, help="Path to README file")
+    parser.add_argument("--list_path_cover_images", nargs='+', required=True, type=str, help="List of paths to cover images")
+    parser.add_argument("--model_id", required=True, type=str, help="Model ID")
+    parser.add_argument("--model_icon", required=True, type=str, help="Model icon")
+    parser.add_argument("--model_version", required=True, type=str, help="Model version")
+    parser.add_argument("--model_name", required=True, type=str, help="Model name")
+    parser.add_argument("--model_documentation", required=True, type=str, help="Model documentation")
+    parser.add_argument("--model_authors", required=True, type=str, help="Model authors in JSON format")
+    parser.add_argument("--model_cite", required=True, type=str, help="Model citation in JSON format")
+    parser.add_argument("--model_tags", nargs='+', required=True, type=str, help="Model tags")
+    parser.add_argument("--model_license", required=True, type=str, help="Model license")
+    parser.add_argument("--model_repo", required=True, type=str, help="Model repository URL")
+    return parser.parse_args()
 
-    # User input paths
-    path_dir_model = Path(
-        "/g/kreshuk/yu/repositories/bi-unet/resources/configs/2024-athul-ovules/cellpose/contribute_to_cellpose/temp_model_and_input/"
-    )
-    path_dir_cover_images = path_dir_model
-    channels = [1, 0]
 
+def main():
+    args = parse_args()
+
+    # Parse user-provided paths and arguments
+    channels = args.channels
+
+    model_authors = json.loads(args.model_authors)
+    model_cite = json.loads(args.model_cite)
     # Auto-generated paths
-    path_pretrained_model = path_dir_model / "cp_state_dict_1135_gold.pth"
-    list_path_cover_images = [
-        path_dir_cover_images / "cellpose_raw_and_segmentation.jpg",
-        path_dir_cover_images / "cellpose_raw_and_probability.jpg",
-        path_dir_cover_images / "cellpose_raw.jpg",
-    ]
+    path_pretrained_model = Path(args.path_pretrained_model)
+    path_readme = Path(args.path_readme)
+    list_path_cover_images = [Path(path_image) for path_image in args.list_path_cover_images]
     path_cpnet_wrapper = Path(__file__).resolve().parent / "resnet_torch.py"
     path_dir_temp = Path(__file__).resolve().parent.parent / "models" / path_pretrained_model.stem
-    Path(path_dir_temp).mkdir(parents=True, exist_ok=True)
-    path_save_trace = path_dir_temp / "cp_traced_1135_gold.pt"
+    path_dir_temp.mkdir(parents=True, exist_ok=True)
+    path_save_trace = path_dir_temp / "cp_traced.pt"
     path_test_input = path_dir_temp / "test_input.npy"
     path_test_output = path_dir_temp / "test_output.npy"
     path_test_style = path_dir_temp / "test_style.npy"
-    path_readme = path_dir_temp / "README.md"
-    path_bioimageio_package = path_dir_temp / "cellpose_gold_1135.zip"
+    path_bioimageio_package = path_dir_temp / "cellpose_model.zip"
 
     # Download test input image
     img_np = download_and_normalize_image(path_dir_temp, channels=channels)
@@ -290,7 +306,7 @@ if __name__ == "__main__":
     # Load model
     cpnet_biio, cpnet_kwargs = load_bioimageio_cpnet_model(path_pretrained_model)
 
-    # Test model and save ouptut
+    # Test model and save output
     tuple_output_tensor = cpnet_biio(img)
     np.save(path_test_output, tuple_output_tensor[0].detach().numpy())
     np.save(path_test_style, tuple_output_tensor[1].detach().numpy())
@@ -308,32 +324,7 @@ if __name__ == "__main__":
     descr_output_style_tensor = descr_gen_output_style(path_test_style, cpnet_biio.nbase[-1])
     pytorch_version = Version(torch.__version__)
     pytorch_architecture = descr_gen_arch(cpnet_kwargs, path_cpnet_wrapper)
-    model_tags_default = ["cellpose", "3d", "2d"]
 
-    # User input arguments
-    readme = """# A User-trained Cellpose Model
-
-A Cellpose nuclei model fine-tuned on nuclei data for testing purposes.
-"""
-    descr_gen_documentation(path_readme, readme)
-    model_id = "philosophical-panda"
-    model_icon = "🐼"
-    model_version = "0.1.0"
-    model_name = "Cellpose Plant Nuclei ResNet"
-    model_documentation = "An experimental Cellpose nuclear model fine-tuned on ovules 1136, 1137, 1139, 1170 and tested on ovules 1135 (see reference for dataset details). A model for BioImage.IO team to test and develop post-processing tools."
-    model_authors = [
-        {"name": "Qin Yu", "affiliation": "EMBL", "github_user": "qin-yu", "orcid": "0000-0002-4652-0795"},
-    ]
-    model_cite = [
-        {
-            "text": "For more details of the model itself, see the manuscript",
-            "doi": "10.1101/2024.02.19.580954",
-            "url": None,
-        },
-    ]
-    model_tags = model_tags_default + ["nuclei"]
-    model_license = "MIT"
-    model_repo = "https://github.com/kreshuklab/go-nuclear"
 
     # Package model
     my_model_descr = package_to_bioimageio(
@@ -347,16 +338,16 @@ A Cellpose nuclei model fine-tuned on nuclei data for testing purposes.
         descr_output_style_tensor,
         pytorch_version,
         pytorch_architecture,
-        model_id,
-        model_icon,
-        model_version,
-        model_name,
-        model_documentation,
+        args.model_id,
+        args.model_icon,
+        args.model_version,
+        args.model_name,
+        args.model_documentation,
         model_authors,
         model_cite,
-        model_tags,
-        model_license,
-        model_repo,
+        args.model_tags,
+        args.model_license,
+        args.model_repo,
     )
 
     # Test model
@@ -365,4 +356,10 @@ A Cellpose nuclei model fine-tuned on nuclei data for testing purposes.
     summary = test_model(my_model_descr, weight_format="torchscript")
     summary.display()
 
-    print("package path:", save_bioimageio_package(my_model_descr, output_path=Path(path_bioimageio_package)))
+    # Save BioImage.IO package
+    package_path = save_bioimageio_package(my_model_descr, output_path=Path(path_bioimageio_package))
+    print("package path:", package_path)
+
+
+if __name__ == "__main__":
+    main()
