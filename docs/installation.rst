@@ -31,7 +31,7 @@ this code at the beginning of your notebook before you import cellpose:
 M1 Mac installation
 ~~~~~~~~~~~~~~~~~~~~~~~
 
-Please use the instructions provided on `image.sc <https://forum.image.sc/t/cellpose-on-macos-m1-pro-apple-silicon-arm64/68018/4>` 
+Please use the instructions provided on `image.sc <https://forum.image.sc/t/cellpose-on-macos-m1-pro-apple-silicon-arm64/68018/4>`_ 
 by Peter Sobolewski. From the command line you can choose the Mac device with
 
 ::
