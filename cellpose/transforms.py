@@ -729,7 +729,7 @@ def resize_image(img0, Ly=None, Lx=None, rsz=None, interpolation=cv2.INTER_LINEA
     return imgs
 
 
-def pad_image_ND(img0, div=16, extra=1, min_size=None):
+def pad_image_ND(img0, div=16, extra=1, min_size=None, zpad=False):
     """Pad image for test-time so that its dimensions are a multiple of 16 (2D or 3D).
 
     Args:
@@ -758,7 +758,13 @@ def pad_image_ND(img0, div=16, extra=1, min_size=None):
     ypad2 = extra * div // 2 + Lpad - Lpad // 2
 
     if img0.ndim > 3:
-        pads = np.array([[0, 0], [0, 0], [xpad1, xpad2], [ypad1, ypad2]])
+        if zpad:
+            Lpad = int(div * np.ceil(img0.shape[-3] / div) - img0.shape[-3])
+            zpad1 = extra * div // 2 + Lpad // 2
+            zpad2 = extra * div // 2 + Lpad - Lpad // 2
+        else:
+            zpad1, zpad2 = 0, 0
+        pads = np.array([[0, 0], [zpad1, zpad2], [xpad1, xpad2], [ypad1, ypad2]])
     else:
         pads = np.array([[0, 0], [xpad1, xpad2], [ypad1, ypad2]])
 
@@ -767,8 +773,11 @@ def pad_image_ND(img0, div=16, extra=1, min_size=None):
     Ly, Lx = img0.shape[-2:]
     ysub = np.arange(xpad1, xpad1 + Ly)
     xsub = np.arange(ypad1, ypad1 + Lx)
-
-    return I, ysub, xsub
+    if zpad:
+        zsub = np.arange(zpad1, zpad1 + img0.shape[-3])
+        return I, ysub, xsub, zsub
+    else:
+        return I, ysub, xsub
 
 
 def random_rotate_and_resize(X, Y=None, scale_range=1., xy=(224, 224), do_3D=False,

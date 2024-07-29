@@ -1170,8 +1170,8 @@ if __name__ == "__main__":
             poisson = [0.8, 0.8, 0.8]
             blur = [0., 0.8, 0.8]
             downsample = [0., 0., 0.8]
-            beta = [0.7, 0.1, 0.05]
-            gblur = [0., 10.0, 8.0]
+            beta = [0.7, 0.1, 0.03]
+            gblur = [0., 10.0, 5.0]
         else:
             raise ValueError(f"{noise_type} noise_type is not supported")
     else:
