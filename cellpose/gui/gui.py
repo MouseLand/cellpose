@@ -301,7 +301,7 @@ class MainW(QMainWindow):
         self.reset()
         self.minimap_window_instance = None
 
-        # Custoom multi-page tiff image stack
+        # Custom multi-page tiff image stack
         self.grayscale_image_stack = []
         self.colors_stack = []
         self.colored_image_stack = []
