@@ -108,7 +108,10 @@ def _load_image(parent, filename=None, load_seg=True, load_3D=False):
     """ load image with filename; if None, open QFileDialog """
     #checks if the file is a tiff
     if filename and (filename.endswith('.tif') or filename.endswith('.tiff')):
-        parent.grayscale_image_stack = initialize_tiff_images(parent, filename)
+        successful_import, grayscale_image_stack = initialize_tiff_images(parent, filename)
+        if successful_import:
+            parent.grayscale_image_stack = grayscale_image_stack
+            parent.generate_multi_channel_ui()
 
     if filename is None:
         name = QFileDialog.getOpenFileName(parent, "Load image")
@@ -760,15 +763,14 @@ def initialize_tiff_images(tiff_file_path):
                                   count=-1,
                                   flags=cv2.IMREAD_GRAYSCALE)
 
-    if not ret:
-        return []
-
-    processed_images = []
-    for img in images:
-        # Convert the grayscale image to an LA image with black as transparent and white as opaque with a white background in the L channel
-        img = Image.fromarray(img)
-        white_bg = Image.new("L", img.size, 255)
-        img = Image.merge("LA", (white_bg, img))
-        processed_images.append(img)
-    return processed_images
+    if ret:
+        processed_images = []
+        for img in images:
+            # Convert the grayscale image to an LA image with black as transparent and white as opaque with a white background in the L channel
+            img = Image.fromarray(img)
+            white_bg = Image.new("L", img.size, 255)
+            img = Image.merge("LA", (white_bg, img))
+            processed_images.append(img)
+        return ret, processed_images
+    return ret, []
 
