@@ -286,7 +286,7 @@ class CellposeModel():
                 models_logger.warning(
                     "pretrained_model path does not exist, using default model")
                 use_default = True
-            else:
+            elif pretrained_model:
                 if pretrained_model[-13:] == "nucleitorch_0":
                     builtin = True
                     self.diam_mean = 17.

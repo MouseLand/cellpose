@@ -258,22 +258,18 @@ def add_noise(lbl, alpha=4, beta=0.7, poisson=0.7, blur=0.7, gblur=1.0, downsamp
     if iblur.sum() > 0:
         if sigma0 is None:
             if iso:
-                # was 10
-                # xrand = np.random.exponential(1, size=iblur.sum())
-                # xrand = np.clip(xrand * 0.5, 0.1, 1.0)
-                # xrand *= gblur
-                # sigma0 = diams[iblur] / 30. * 5. * torch.from_numpy(xrand).float().to(
-                #     device)
-                # #(1 + torch.rand(iblur.sum(), device=device))
-                # sigma1 = sigma0.clone()
                 xr = torch.rand(len(lbl), device=device)
                 if len(ii) > 0:
                     xr[ii] = (ds[ii].float() / 2.) / gblur
                 sigma0 = diams[iblur] / 30. * gblur * (1 / gblur + (1 - 1 / gblur) * xr[iblur])
                 sigma1 = sigma0.clone()
             else:
-                sigma0 = diams[iblur] / 30. * gblur * (1/gblur +
-                                                   (1 - 1/gblur) * torch.rand(iblur.sum(), device=device))
+                xr = torch.rand(len(lbl), device=device)
+                if len(ii) > 0:
+                    xr[ii] = (ds[ii].float() / 2.) / gblur
+                sigma0 = diams[iblur] / 30. * gblur * (1 / gblur + (1 - 1 / gblur) * xr[iblur])
+                #sigma0 = diams[iblur] / 30. * gblur * (1/gblur +
+                #                                   (1 - 1/gblur) * torch.rand(iblur.sum(), device=device))
                 sigma1 = sigma0.clone() / 10.
         else:
             sigma0 = sigma0 * torch.ones((iblur.sum(),), device=device)
