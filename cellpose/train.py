@@ -516,7 +516,7 @@ def train_seg(net, train_data=None, train_labels=None, train_files=None,
                 lavgt /= len(rperm)
             lavg /= nsum
             train_logger.info(
-                f"{iepoch}, train_loss={lavg:.4f}, test_loss={lavgt:.4f}, LR={LR[iepoch]:.4f}, time {time.time()-t0:.2f}s"
+                f"{iepoch}, train_loss={lavg:.4f}, test_loss={lavgt:.4f}, LR={LR[iepoch]:.6f}, time {time.time()-t0:.2f}s"
             )
             lavg, nsum = 0, 0
 
