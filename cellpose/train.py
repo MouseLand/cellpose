@@ -382,9 +382,11 @@ def train_seg(net, train_data=None, train_labels=None, train_files=None,
         normalize_params["normalize"] = normalize
 
     out = _process_train_test(train_data=train_data, train_labels=train_labels,
-                              train_files=train_files, train_probs=train_probs,
+                              train_files=train_files, train_labels_files=train_labels_files,
+                              train_probs=train_probs,
                               test_data=test_data, test_labels=test_labels,
-                              test_files=test_files, test_probs=test_probs,
+                              test_files=test_files, test_labels_files=test_labels_files,
+                              test_probs=test_probs,
                               load_files=load_files, min_train_masks=min_train_masks,
                               compute_flows=compute_flows, channels=channels,
                               channel_axis=channel_axis, rgb=rgb,
