@@ -24,47 +24,7 @@ io.logger_setup()
 device = torch.device("cuda")
 
 try:
-    import segmentation_models_pytorch as smp
-
-    class Transformer(nn.Module):
-
-        def __init__(self, pretrained_model=None, encoder="mit_b5",
-                     encoder_weights="imagenet", decoder="FPN"):
-            super().__init__()
-            net_fcn = smp.FPN if decoder == "FPN" else smp.MAnet
-            self.net = net_fcn(
-                encoder_name=encoder,
-                encoder_weights=encoder_weights if pretrained_model is None else
-                None,  # use `imagenet` pre-trained weights for encoder initialization
-                in_channels=3,
-                classes=3,
-                activation=None)
-            self.nout = 3
-            self.mkldnn = False
-            if pretrained_model is not None:
-                state_dict = torch.load(pretrained_model)
-                if list(state_dict.keys())[0][:7] == "module.":
-                    from collections import OrderedDict
-                    new_state_dict = OrderedDict()
-                    for k, v in state_dict.items():
-                        name = k[
-                            7:]  # remove 'module.' of DataParallel/DistributedDataParallel
-                        new_state_dict[name] = v
-                    self.net.load_state_dict(new_state_dict)
-                else:
-                    self.load_state_dict(state_dict)
-
-        def forward(self, X):
-            X = torch.cat(
-                (X, torch.zeros(
-                    (X.shape[0], 1, X.shape[2], X.shape[3]), device=X.device)), dim=1)
-            y = self.net(X)
-            return y, torch.zeros((X.shape[0], 256), device=X.device)
-
-        @property
-        def device(self):
-            return next(self.parameters()).device
-
+    from cellpose.segformer import Transformer
 except Exception as e:
     print(e)
     print("need to install segmentation_models_pytorch to run transformer")
@@ -402,21 +362,20 @@ def cyto3_comparisons(folder):
     ]
 
     net_types = ["generalist", "specialist", "transformer"]
-    for net_type in net_types:
+    for net_type in net_types[-1:]:
         if net_type == "generalist":
             seg_model = models.Cellpose(gpu=True, model_type="cyto3")
         elif net_type == "transformer":
-            seg_model = models.CellposeModel(gpu=True, pretrained_model=None)
             pretrained_model = "/home/carsen/.cellpose/models/transformer_cp3"
-            seg_model.net = Transformer(pretrained_model=pretrained_model,
-                                        decoder="MAnet").to(device)
-        for f in folders:
+            seg_model = models.CellposeModel(gpu=True, backbone="transformer",
+                                             pretrained_model=pretrained_model)
+        for f in folders[:3]:
             if net_type == "specialist":
                 seg_model = models.CellposeModel(gpu=True, model_type=f"{f}_cp3")
 
             root = Path(folder) / f"images_{f}"
             channels = [1, 2] if f == "tissuenet" or f == "cyto2" else [1, 0]
-            tifs = (root / "test").glob("*.tif")
+            tifs = natsorted((root / "test").glob("*.tif"))
             tifs = [tif for tif in tifs]
             tifs = [
                 tif for tif in tifs
@@ -424,7 +383,7 @@ def cyto3_comparisons(folder):
             ]
             if net_type != "generalist":
                 d = np.load(
-                    f"/media/carsen/ssd4/datasets_cellpose/{f}_generalist_masks.npy",
+                    Path(folder) / f"{f}_generalist_masks.npy",
                     allow_pickle=True).item()
                 diams = d["diams"]
             else:
@@ -456,7 +415,7 @@ def cyto3_comparisons(folder):
             dat["performance"] = [ap, tp, fp, fn]
             dat["diams"] = diams
 
-            #p.save(f"/media/carsen/ssd4/datasets_cellpose/{f}_{net_type}_masks.npy", dat)
+            #np.save(f"/media/carsen/ssd4/datasets_cellpose/{f}_{net_type}_masks.npy", dat)
 
 
 if __name__ == '__main__':

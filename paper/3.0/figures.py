@@ -1021,6 +1021,16 @@ def load_benchmarks_specialist(folder, thresholds=np.arange(0.5, 1.05, 0.05)):
     imgs_all.append(test_care)
     masks_all.append(masks_care)
 
+    dat = np.load(root / "noisy_test" / f"test_{noise_type}_denoiseg_specialist.npy",
+                  allow_pickle=True).item()
+    test_dns = dat["test_denoiseg"][:nimg_test]
+    masks_dns = dat["masks_denoiseg"][:nimg_test]
+    imgs_all.append(test_dns)
+    masks_all.append(masks_dns)
+    masks_dns = dat["masks_denoiseg_seg"][:nimg_test]
+    imgs_all.append(test_dns)
+    masks_all.append(masks_dns)
+
     dat = np.load(root / "noisy_test" / f"test_{noise_type}_cp3.npy",
                   allow_pickle=True).item()
     istr = ["rec", "per", "seg", "perseg"]
@@ -1069,11 +1079,16 @@ def suppfig_specialist(folder, save_fig=True):
     legstr0 = []
     for ls in legstr[:-1]:
         legstr0.append(" ".join(ls.split(" ")[1:]))
-    legstr0.insert(4, "CARE")
+        legstr0[-1] = u"\u2013 " + legstr0[-1]
+    legstr0.insert(4, u"\u2013 CARE")
+    legstr0.insert(5, u"\u2013 denoiseg")
+    legstr0.insert(6, "-- denoiseg\n(segmentation)")
     cols0 = list(cols[:-1].copy())
     cols0.insert(4, [1, 0.5, 1])
+    cols0.insert(5, 0.4*np.ones(3))
+    cols0.insert(6, 0.4*np.ones(3))
     print(len(cols0))
-    legstr0[-1] = "Cellpose3\n(per. + seg.)"
+    legstr0[-1] = u"\u2013 Cellpose3\n(per. + seg.)"
 
     il = 0
 
@@ -1094,7 +1109,7 @@ def suppfig_specialist(folder, save_fig=True):
             imset = imgs_all[1].copy()
         ax = plt.subplot(grid[0, j])
         pos = ax.get_position().bounds
-        ax.set_position([pos[0] - 0.015 * j, pos[1] - 0.04, pos[2], pos[3]])
+        ax.set_position([pos[0] - 0.02 * j, pos[1] - 0.04, pos[2], pos[3]])
         ly, lx = 128, 128
         dy, dx = 20, 30
         ni = 5
@@ -1119,17 +1134,18 @@ def suppfig_specialist(folder, save_fig=True):
             ax.text(0.02, 1.2, "Specialist dataset", fontsize="large",
                     fontstyle="italic", transform=ax.transAxes)
 
-    transl = mtransforms.ScaledTranslation(-50 / 72, 8 / 72, fig.dpi_scale_trans)
+    transl = mtransforms.ScaledTranslation(-45 / 72, 8 / 72, fig.dpi_scale_trans)
     ax = plt.subplot(grid[0, -1])
     pos = ax.get_position().bounds
-    ax.set_position([pos[0] + 0.03, pos[1] - 0.03, pos[2] * 0.8,
+    ax.set_position([pos[0] + 0.01, pos[1] - 0.03, pos[2] * 0.8,
                      pos[3] * 1])  #+pos[3]*0.15-0.03, pos[2], pos[3]*0.7])
     il = plot_label(ltr, il, ax, transl, fs_title)
-    theight = [0, 1, 2, 3, 4, 5, 6, 7, 5.1]
-    for k in [1, 2, 3, 4, 8]:
-        ax.plot(thresholds, aps[k, :, :].mean(axis=0), color=cols0[k])
+    theight = [0, 0, 4, 3, 6, 5, 1, 5, 7, 8, 7.1]
+    for k in [1, 2, 3, 4, 5, 6, 10]:
+        ax.plot(thresholds, aps[k, :, :].mean(axis=0), color=cols0[k],
+                lw=3 if k==4 else 1, ls="--" if k==6 else "-")
         #ax.errorbar(thresholds, aps[k,:,:].mean(axis=0), aps[k,:,:].std(axis=0) / 10**0.5, color=cols0[k])
-        ax.text(0.59, 0.55 + 0.08 * theight[k], legstr0[k], color=cols0[k],
+        ax.text(0.7, 0.3 + 0.09 * theight[k], legstr0[k], color=cols0[k],
                 transform=ax.transAxes)
     ax.set_ylim([0, 0.8])
     ax.set_ylabel("average precision (AP)")
@@ -1139,11 +1155,11 @@ def suppfig_specialist(folder, save_fig=True):
 
     transl = mtransforms.ScaledTranslation(-10 / 72, 20 / 72, fig.dpi_scale_trans)
 
-    kk = [2, 3, 4, 8]
+    kk = [2, 3, 4, 10]
     iex = 8
     ylim = [10, 310]
     xlim = [100, 500]
-    legstr0[-1] = "Cellpose3 (per. + seg.)"
+    legstr0[-1] = u"\u2013 Cellpose3 (per. + seg.)"
     for j, k in enumerate(kk):
         ax = plt.subplot(grid[1, j])
         pos = ax.get_position().bounds
@@ -1156,7 +1172,7 @@ def suppfig_specialist(folder, save_fig=True):
         ax.axis("off")
         ax.set_ylim(ylim)
         ax.set_xlim(xlim)
-        ax.set_title(legstr0[k], color=cols0[k], fontsize="medium")
+        ax.set_title(legstr0[k][2:], color=cols0[k], fontsize="medium")
         ax.text(1, -0.04, f"AP@0.5 = {aps[k,iex,0] : 0.2f}", va="top", ha="right",
                 transform=ax.transAxes)
         if j == 0:

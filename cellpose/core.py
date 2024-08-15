@@ -220,7 +220,7 @@ def run_net(net, imgs, batch_size=8, augment=False, tile=True, tile_overlap=0.1,
     # slices from padding
     #         slc = [slice(0, self.nclasses) for n in range(imgs.ndim)] # changed from imgs.shape[n]+1 for first slice size
     slc = [slice(0, imgs.shape[n] + 1) for n in range(imgs.ndim)]
-    slc[-3] = slice(0, 3)
+    slc[-3] = slice(0, net.nout)
     slc[-2] = slice(ysub[0], ysub[-1] + 1)
     slc[-1] = slice(xsub[0], xsub[-1] + 1)
     slc = tuple(slc)
