@@ -57,8 +57,8 @@ We suggest installing our fork using conda and pip (with >=python3.8).
  `torchvision pytorch-cuda=11.8 -c pytorch -c nvidia`\
 4. To activate the new environment, run `conda activate cellpose_plus`
 5. To install the latest PyPi release of Cellpose plus, run:\
-  `pip install cellpose-plus`
-
+  `pip install cellpose-plus[gui]`\
+  or `pip install cellpose-plus` for a version without GUI.
 ### How to use
 
 Maybe to attach a link to the manual we wrote, if possible
