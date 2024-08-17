@@ -876,7 +876,7 @@ def train(net, train_data=None, train_labels=None, train_files=None, test_data=N
           test_labels=None, test_files=None, train_probs=None, test_probs=None,
           lam=[1., 1.5, 0.], scale_range=0.5, seg_model_type="cyto2", save_path=None,
           save_every=100, save_each=False, poisson=0.7, beta=0.7, blur=0.7, gblur=1.0,
-          iso=True, downsample=0., ds_max=7,
+          iso=True, uniform_blur=False, downsample=0., ds_max=7,
           learning_rate=0.005, n_epochs=500,
           weight_decay=0.00001, batch_size=8, nimg_per_epoch=None,
           nimg_test_per_epoch=None, model_name=None):
