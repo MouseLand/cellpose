@@ -1116,7 +1116,7 @@ if __name__ == "__main__":
                                help="scale of gaussian blurring stddev")
     training_args.add_argument("--downsample", default=0., type=float,
                                help="fraction of images to downsample")
-    training_args.add_argument("--ds_max", default=10, type=int,
+    training_args.add_argument("--ds_max", default=7, type=int,
                                help="max downsampling factor")
     training_args.add_argument("--lam_per", default=1.0, type=float,
                                help="weighting of perceptual loss")
