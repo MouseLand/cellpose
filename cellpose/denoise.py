@@ -257,15 +257,20 @@ def add_noise(lbl, alpha=4, beta=0.7, poisson=0.7, blur=0.7, gblur=1.0, downsamp
     iblur[ii] = True
     if iblur.sum() > 0:
         if sigma0 is None:
-            if not iso or uniform_blur:
+            if uniform_blur and iso:
                 xr = torch.rand(len(lbl), device=device)
                 if len(ii) > 0:
-                    xr[ii] = (ds[ii].float() / 2.) / gblur
+                    xr[ii] = ds[ii].float() / 2. / gblur
                 sigma0 = diams[iblur] / 30. * gblur * (1 / gblur + (1 - 1 / gblur) * xr[iblur])
-                if iso:
-                    sigma1 = sigma0.clone()
-                else:
-                    sigma1 = sigma0.clone() / 10.
+                sigma1 = sigma0.clone()
+            elif not iso:
+                xr = torch.rand(len(lbl), device=device)
+                if len(ii) > 0:
+                    xr[ii] = (ds[ii].float()) / gblur
+                    xr[ii] = xr[ii] + torch.rand(len(ii), device=device) * 0.7 - 0.35
+                    xr[ii] = torch.clip(xr[ii], 0.05, 1.5)
+                sigma0 = diams[iblur] / 30. * gblur * xr[iblur]
+                sigma1 = sigma0.clone() / 10.
             else:
                 xrand = np.random.exponential(1, size=iblur.sum())
                 xrand = np.clip(xrand * 0.5, 0.1, 1.0)
@@ -341,7 +346,7 @@ def add_noise(lbl, alpha=4, beta=0.7, poisson=0.7, blur=0.7, gblur=1.0, downsamp
 
 def random_rotate_and_resize_noise(data, labels=None, diams=None, poisson=0.7, blur=0.7,
                                    downsample=0.0, beta=0.7, gblur=1.0, diam_mean=30,
-                                   ds_max=7, iso=True, rotate=True,
+                                   ds_max=7, uniform_blur=False, iso=True, rotate=True,
                                    device=torch.device("cuda"), xy=(224, 224),
                                    nchan_noise=1, keep_raw=True):
     """
@@ -894,13 +899,12 @@ def train(net, train_data=None, train_labels=None, train_files=None, test_data=N
             lstrs = ["per", "seg", "rec"]
             for k, (l, s) in enumerate(zip(lam, lstrs)):
                 filename += f"{s}_{l:.2f}_"
+            if not iso:
+                filename += "aniso_"
             if poisson.sum() > 0:
                 filename += "poisson_"
             if blur.sum() > 0:
-                if iso:
-                    filename += "blur_"
-                else:
-                    filename += "bluraniso_"
+                filename += "blur_"
             if downsample.sum() > 0:
                 filename += "downsample_"
             filename += d.strftime("%Y_%m_%d_%H_%M_%S.%f")
@@ -1112,7 +1116,7 @@ if __name__ == "__main__":
                                help="scale of gaussian blurring stddev")
     training_args.add_argument("--downsample", default=0., type=float,
                                help="fraction of images to downsample")
-    training_args.add_argument("--ds_max", default=7, type=int,
+    training_args.add_argument("--ds_max", default=10, type=int,
                                help="max downsampling factor")
     training_args.add_argument("--lam_per", default=1.0, type=float,
                                help="weighting of perceptual loss")
@@ -1146,6 +1150,8 @@ if __name__ == "__main__":
 
     if len(args.noise_type) > 0:
         noise_type = args.noise_type
+        uniform_blur = False
+        iso = True
         if noise_type == "poisson":
             poisson = 0.8
             blur = 0.
@@ -1157,19 +1163,27 @@ if __name__ == "__main__":
             blur = 0.8
             downsample = 0.
             beta = 0.1
-            gblur = 10.0
+            gblur = 0.5
         elif noise_type == "downsample":
             poisson = 0.8
             blur = 0.8
             downsample = 0.8
             beta = 0.03
-            gblur = 5.0
+            gblur = 1.0
         elif noise_type == "all":
             poisson = [0.8, 0.8, 0.8]
             blur = [0., 0.8, 0.8]
             downsample = [0., 0., 0.8]
             beta = [0.7, 0.1, 0.03]
             gblur = [0., 10.0, 5.0]
+            uniform_blur = True
+        elif noise_type == "aniso":
+            poisson = 0.8
+            blur = 0.8
+            downsample = 0.8
+            beta = 0.1
+            gblur = args.ds_max * 1.5
+            iso = False
         else:
             raise ValueError(f"{noise_type} noise_type is not supported")
     else:
@@ -1234,7 +1248,7 @@ if __name__ == "__main__":
         test_data=test_data, test_labels=test_labels, test_files=test_files,
         train_probs=train_probs, test_probs=test_probs, poisson=poisson, beta=beta,
         blur=blur, gblur=gblur, downsample=downsample, ds_max=args.ds_max,
-        iso=True, n_epochs=args.n_epochs,
+        iso=iso, uniform_blur=uniform_blur, n_epochs=args.n_epochs,
         learning_rate=args.learning_rate,
         lam=lams, 
         seg_model_type=args.seg_model_type, nimg_per_epoch=nimg_per_epoch,
