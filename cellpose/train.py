@@ -156,7 +156,7 @@ def _process_train_test(train_data=None, train_labels=None, train_files=None,
                         test_probs=None, load_files=True, min_train_masks=5,
                         compute_flows=False, channels=None, channel_axis=None,
                         rgb=False, normalize_params={"normalize": False
-                                                    }, device=torch.device("cuda")):
+                                                    }, device=None):
     """
     Process train and test data.
 
@@ -183,6 +183,9 @@ def _process_train_test(train_data=None, train_labels=None, train_files=None,
     Returns:
         tuple: A tuple containing the processed train and test data and sampling probabilities and diameters.
     """
+    if device == None:
+        device = torch.device('cuda') if torch.cuda.is_available() else torch.device('mps') if torch.backends.mps.is_available() else None
+    
     if train_data is not None and train_labels is not None:
         # if data is loaded
         nimg = len(train_data)
