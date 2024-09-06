@@ -272,7 +272,8 @@ def _run_tiled(net, imgi, batch_size=8, augment=False, bsize=224, tile_overlap=0
         yf = np.zeros((Lz, nout, imgi.shape[-2], imgi.shape[-1]), np.float32)
         styles = []
         if ny * nx > batch_size:
-            ziterator = trange(Lz, file=tqdm_out, mininterval=30)
+            ziterator = (trange(Lz, file=tqdm_out, mininterval=30) 
+                         if Lz > 1 else range(Lz))
             for i in ziterator:
                 yfi, stylei = _run_tiled(net, imgi[i], augment=augment, bsize=bsize,
                                          tile_overlap=tile_overlap)
@@ -283,7 +284,8 @@ def _run_tiled(net, imgi, batch_size=8, augment=False, bsize=224, tile_overlap=0
             ntiles = ny * nx
             nimgs = max(2, int(np.round(batch_size / ntiles)))
             niter = int(np.ceil(Lz / nimgs))
-            ziterator = trange(niter, file=tqdm_out, mininterval=30)
+            ziterator = (trange(niter, file=tqdm_out, mininterval=30) 
+                         if Lz > 1 else range(niter))
             for k in ziterator:
                 IMGa = np.zeros((ntiles * nimgs, nchan, ly, lx), np.float32)
                 for i in range(min(Lz - k * nimgs, nimgs)):

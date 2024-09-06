@@ -502,37 +502,18 @@ class CellposeModel():
             del yf
         else:
             tqdm_out = utils.TqdmToLogger(models_logger, level=logging.INFO)
-            iterator = trange(nimg, file=tqdm_out,
-                              mininterval=30) if nimg > 1 else range(nimg)
-            styles = np.zeros((nimg, self.nbase[-1]), np.float32)
+            img = np.asarray(x)
+            if do_normalization:
+                img = transforms.normalize_img(img, **normalize_params)
+            if rescale != 1.0:
+                img = transforms.resize_image(img, rsz=rescale)
+            yf, style = run_net(self.net, img, bsize=bsize, augment=augment,
+                                tile=tile, tile_overlap=tile_overlap)
             if resample:
-                dP = np.zeros((2, nimg, shape[1], shape[2]), np.float32)
-                cellprob = np.zeros((nimg, shape[1], shape[2]), np.float32)
-            else:
-                dP = np.zeros(
-                    (2, nimg, int(shape[1] * rescale), int(shape[2] * rescale)),
-                    np.float32)
-                cellprob = np.zeros(
-                    (nimg, int(shape[1] * rescale), int(shape[2] * rescale)),
-                    np.float32)
-            for i in iterator:
-                img = np.asarray(x[i])
-                if do_normalization:
-                    img = transforms.normalize_img(img, **normalize_params)
-                if rescale != 1.0:
-                    img = transforms.resize_image(img, rsz=rescale)
-                yf, style = run_net(self.net, img, bsize=bsize, augment=augment,
-                                    tile=tile, tile_overlap=tile_overlap)
-                if resample:
-                    yf = transforms.resize_image(yf, shape[1], shape[2])
-
-                cellprob[i] = yf[:, :, 2]
-                dP[:, i] = yf[:, :, :2].transpose((2, 0, 1))
-                if self.nclasses == 4:
-                    if i == 0:
-                        bd = np.zeros_like(cellprob)
-                    bd[i] = yf[:, :, 3]
-                styles[i][:len(style)] = style
+                yf = transforms.resize_image(yf, shape[1], shape[2])
+            dP = np.moveaxis(yf[..., :2], source=-1, destination=0).copy()
+            cellprob = yf[..., 2]
+            styles = style
             del yf, style
         styles = styles.squeeze()
 

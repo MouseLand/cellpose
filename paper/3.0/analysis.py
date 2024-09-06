@@ -35,49 +35,56 @@ model_names = {"poisson": "denoise", "blur": "deblur", "downsample": "upsample"}
 def seg_eval_cp3(folder, noise_type="poisson"):
     """ need to download test_poisson.npy, test_blur.npy, test_downsample.npy
     (for cells and/or nuclei)
-    
-    (was computed with old flows, but results similar with new flows) """
+    """
     ctypes = ["cyto2", "nuclei"]
-    for ctype in ctypes:
-        folder_name = ctype
-        diam_mean = 30 if ctype == "cyto2" else 17
-        root = Path(folder) / f"images_{folder_name}/"
+    for c, ctype in enumerate(ctypes):
+        print(ctype)
+        pretrained_models = [f"/home/carsen/.cellpose/models/{model_names[noise_type]}{istr}_{ctype}" 
+                                 for istr in ["_rec", "_seg", "_per", ""]]
+        pretrained_models.extend([f"/home/carsen/.cellpose/models/{model_names[noise_type]}_cyto3", 
+                                  f"/home/carsen/.cellpose/models/oneclick_{ctype}", 
+                                  f"/home/carsen/.cellpose/models/oneclick_cyto3"])
 
+        seg_model = models.CellposeModel(gpu=True, model_type=ctype)
+
+        folder_name = ctype
+        root = Path(folder) / f"images_{folder_name}/"
+        model_name = model_names[noise_type]
+        nimg_test = 68 if ctype=="cyto2" else 111
+        diam_mean = 30. if ctype == "cyto2" else 17.
         ### cellpose enhance
         dat = np.load(root / "noisy_test" / f"test_{noise_type}.npy",
-                      allow_pickle=True).item()
-        test_noisy = dat["test_noisy"]
-        masks_true = dat["masks_true"]
-        diam_test = dat["diam_test"] if "diam_test" in dat else 30. * np.ones(
+                        allow_pickle=True).item()
+        test_noisy = dat["test_noisy"][:nimg_test]
+        masks_true = dat["masks_true"][:nimg_test]
+        diam_test = dat["diam_test"][:nimg_test] if "diam_test" in dat else diam_mean * np.ones(
             len(test_noisy))
 
-        istr = ["rec", "seg", "per", "perseg"]
-        for k in range(len(istr)):
-            model_name = model_names[noise_type]
-            if istr[k] != "perseg":
-                model_name += "_" + istr[k]
-            model = denoise.DenoiseModel(gpu=True, nchan=1, diam_mean=diam_mean,
-                                         model_type=f"{model_name}_{ctype}")
-            imgs2 = model.eval([test_noisy[i][0] for i in range(len(test_noisy))],
-                               diameter=diam_test, channel_axis=0)
-            print(imgs2[0].shape)
-            seg_model = models.CellposeModel(gpu=True, model_type=ctype)
-            masks2, flows2, styles2 = seg_model.eval(imgs2, channels=[1, 0],
-                                                     diameter=diam_test, channel_axis=0,
-                                                     normalize=True)
-            flows = [flow[0] for flow in flows2]
+        thresholds = np.arange(0.5, 1.05, 0.05)
+        istrs = ["rec", "seg", "per", "perseg", "noise_spec", "data_spec", "gen"]
+        
+        print(pretrained_models)
+        aps = []
+        for istr, pretrained_model in zip(istrs, pretrained_models):
+            dn_model = denoise.DenoiseModel(gpu=True, nchan=1, 
+                                            diam_mean = 30 if "cyto" in pretrained_model else 17,
+                                            pretrained_model=pretrained_model)
+            dn_model.pretrained_model = "test"
+            imgs2 = dn_model.eval([test_noisy[i][0] for i in range(len(test_noisy))],
+                                diameter=diam_test, channel_axis=0)
 
-            ap, tp, fp, fn = metrics.average_precision(masks_true, masks2)
-            if ctype == "cyto2":
-                print(f"{istr[k]} AP@0.5 \t = {ap[:68,0].mean(axis=0):.3f}")
-            else:
-                print(f"{istr[k]} AP@0.5 \t = {ap[:,0].mean(axis=0):.3f}")
+            masks2, flows, styles2 = seg_model.eval(imgs2, channels=[1, 0],
+                                                    diameter=diam_test, channel_axis=-1,
+                                                    normalize=True)
 
-            dat[f"test_{istr[k]}"] = imgs2
-            dat[f"masks_{istr[k]}"] = masks2
-            dat[f"flows_{istr[k]}"] = flows
+            ap, tp, fp, fn = metrics.average_precision(masks_true, masks2, threshold=thresholds)
+            print(f"{noise_type} {istr} AP@0.5 \t = {ap[:,0].mean(axis=0):.3f}")
 
-        #np.save(root / "noisy_test" / f"test_{noise_type}_cp3.npy", dat)
+            dat[f"test_{istr}"] = imgs2
+            dat[f"masks_{istr}"] = masks2
+            dat[f"flows_{istr}"] = flows
+            aps.append(ap)
+        np.save(root / "noisy_test" / f"test_{noise_type}_cp3_all.npy", dat)
 
         if noise_type == "poisson":
             ### cellpose retrained
@@ -97,7 +104,7 @@ def seg_eval_cp3(folder, noise_type="poisson"):
 
             dat[f"masks_retrain"] = masks2
 
-            #np.save(root / "noisy_test" / f"test_{noise_type}_cp_retrain.npy", dat)
+            np.save(root / "noisy_test" / f"test_{noise_type}_cp_retrain.npy", dat)
 
 
 def blind_denoising(folder):
@@ -310,48 +317,6 @@ def specialist_training(root):
     noise2void.train_test_specialist(root, n_epochs=100, lr=4e-4, test=True)
 
 
-def seg_eval_oneclick(folder):
-    noise_types = ["poisson", "blur", "downsample"]
-    ctypes = ["cyto2", "nuclei"]
-    for c, ctype in enumerate(ctypes):
-        folder_name = ctype
-        diam_mean = 30.
-        root = Path(f"/media/carsen/ssd4/datasets_cellpose/images_{folder_name}/")
-        print(ctype)
-        for n, noise_type in enumerate(noise_types):
-            print(noise_type)
-            ### cellpose enhance
-            dat = np.load(root / "noisy_test" / f"test_{noise_type}.npy",
-                          allow_pickle=True).item()
-            test_noisy = dat["test_noisy"]
-            masks_true = dat["masks_true"]
-            diam_test = dat["diam_test"] if "diam_test" in dat else 30. * np.ones(
-                len(test_noisy))
-
-            model = denoise.DenoiseModel(gpu=True, nchan=1, diam_mean=diam_mean,
-                                         model_type=model_names[noise_type] + "_cyto3",
-                                         device=torch.device("cuda"))
-            imgs2 = model.eval([test_noisy[i][0] for i in range(len(test_noisy))],
-                               diameter=diam_test, channel_axis=0)
-
-            seg_model = models.CellposeModel(gpu=True, model_type=ctype,
-                                             device=torch.device("cuda"))
-            masks2, flows2, styles2 = seg_model.eval(imgs2, channels=[1, 0],
-                                                     diameter=diam_test, channel_axis=0,
-                                                     normalize=True)
-            istr = "generalist"
-            ap, tp, fp, fn = metrics.average_precision(masks_true, masks2)
-            if ctype == "cyto2":
-                print(f"{istr} AP@0.5 \t = {ap[:68,0].mean(axis=0):.3f}")
-            else:
-                print(f"{istr} AP@0.5 \t = {ap[:,0].mean(axis=0):.3f}")
-
-            dat[f"test_{istr}"] = imgs2
-            dat[f"masks_{istr}"] = masks2
-
-            np.save(root / "noisy_test" / f"test_{noise_type}_generalist_cp3.npy", dat)
-
-
 def cyto3_comparisons(folder):
     """  diameters computed from generalist model cyto3
     will need segmentation_models_pytorch to run transformer """
@@ -369,7 +334,7 @@ def cyto3_comparisons(folder):
             pretrained_model = "/home/carsen/.cellpose/models/transformer_cp3"
             seg_model = models.CellposeModel(gpu=True, backbone="transformer",
                                              pretrained_model=pretrained_model)
-        for f in folders[:3]:
+        for f in folders:
             if net_type == "specialist":
                 seg_model = models.CellposeModel(gpu=True, model_type=f"{f}_cp3")
 

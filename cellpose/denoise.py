@@ -794,13 +794,13 @@ class DenoiseModel():
                     x[...,
                       c] = self._eval(self.net, x[..., c:c + 1], batch_size=batch_size,
                                       normalize=normalize, rescale=rescale0, tile=tile,
-                                      tile_overlap=tile_overlap, bsize=bsize)
+                                      tile_overlap=tile_overlap, bsize=bsize)[...,0]
                 else:
                     x[...,
                       c] = self._eval(self.net_chan2, x[...,
                                                         c:c + 1], batch_size=batch_size,
                                       normalize=normalize, rescale=rescale0, tile=tile,
-                                      tile_overlap=tile_overlap, bsize=bsize)
+                                      tile_overlap=tile_overlap, bsize=bsize)[...,0]
             x = x[0] if squeeze else x
         return x
 
@@ -845,31 +845,39 @@ class DenoiseModel():
 
         do_normalization = True if normalize_params["normalize"] else False
 
-        tqdm_out = utils.TqdmToLogger(denoise_logger, level=logging.INFO)
-        iterator = trange(nimg, file=tqdm_out,
-                          mininterval=30) if nimg > 1 else range(nimg)
-        imgs = np.zeros((*x.shape[:-1], 1), np.float32)
-        for i in iterator:
-            img = np.asarray(x[i])
-            if do_normalization:
-                img = transforms.normalize_img(img, **normalize_params)
-            if rescale != 1.0:
-                img = transforms.resize_image(img, rsz=[rescale, rescale])
-                if img.ndim == 2:
-                    img = img[:, :, np.newaxis]
-            yf, style = run_net(net, img, batch_size=batch_size, augment=False,
-                                tile=tile, tile_overlap=tile_overlap, bsize=bsize)
-            img = transforms.resize_image(yf, Ly=x.shape[-3], Lx=x.shape[-2])
+        img = np.asarray(x)
+        if do_normalization:
+            img = transforms.normalize_img(img, **normalize_params)
+        if rescale != 1.0:
+            img = transforms.resize_image(img, rsz=rescale)
+        yf, style = run_net(self.net, img, bsize=bsize,
+                            tile=tile, tile_overlap=tile_overlap)
+        yf = transforms.resize_image(yf, shape[1], shape[2])
+        imgs = yf
+        del yf, style
 
-            if img.ndim == 2:
-                img = img[:, :, np.newaxis]
-            imgs[i] = img
-            del yf, style
+        # imgs = np.zeros((*x.shape[:-1], 1), np.float32)
+        # for i in iterator:
+        #     img = np.asarray(x[i])
+        #     if do_normalization:
+        #         img = transforms.normalize_img(img, **normalize_params)
+        #     if rescale != 1.0:
+        #         img = transforms.resize_image(img, rsz=[rescale, rescale])
+        #         if img.ndim == 2:
+        #             img = img[:, :, np.newaxis]
+        #     yf, style = run_net(net, img, batch_size=batch_size, augment=False,
+        #                         tile=tile, tile_overlap=tile_overlap, bsize=bsize)
+        #     img = transforms.resize_image(yf, Ly=x.shape[-3], Lx=x.shape[-2])
+
+        #     if img.ndim == 2:
+        #         img = img[:, :, np.newaxis]
+        #     imgs[i] = img
+        #     del yf, style
         net_time = time.time() - tic
         if nimg > 1:
             denoise_logger.info("imgs denoised in %2.2fs" % (net_time))
 
-        return imgs.squeeze()
+        return imgs
 
 
 def train(net, train_data=None, train_labels=None, train_files=None, test_data=None,
@@ -997,7 +1005,8 @@ def train(net, train_data=None, train_labels=None, train_files=None, test_data=N
                         diam_train[inds][i * batch_size : (i + 1) * batch_size].copy(), 
                         poisson=poisson[inoise],
                         beta=beta[inoise], gblur=gblur[inoise], blur=blur[inoise], iso=iso,
-                        downsample=downsample[inoise], diam_mean=diam_mean, ds_max=ds_max,
+                        downsample=downsample[inoise], uniform_blur=uniform_blur,
+                        diam_mean=diam_mean, ds_max=ds_max,
                         device=device)
                     if i == 0:
                         img = imgi 
@@ -1049,8 +1058,8 @@ def train(net, train_data=None, train_labels=None, train_files=None, test_data=N
                     img, lbl, scale = random_rotate_and_resize_noise(
                         imgs, lbls, diam_test[inds].copy(), poisson=poisson[inoise],
                         beta=beta[inoise], blur=blur[inoise], gblur=gblur[inoise],
-                        iso=iso, downsample=downsample[inoise], diam_mean=diam_mean,
-                        device=device)
+                        iso=iso, downsample=downsample[inoise], uniform_blur=uniform_blur,
+                        diam_mean=diam_mean, ds_max=ds_max, device=device)
                     loss, loss_per = test_loss(net, img[:, :nchan], net1=net1,
                                                img=img[:, nchan:], lbl=lbl, lam=lam)
 
@@ -1158,18 +1167,32 @@ if __name__ == "__main__":
             downsample = 0.
             beta = 0.7
             gblur = 1.0
-        elif noise_type == "blur":
+        elif noise_type == "blur_expr":
             poisson = 0.8
             blur = 0.8
             downsample = 0.
             beta = 0.1
             gblur = 0.5
-        elif noise_type == "downsample":
+        elif noise_type == "blur":
+            poisson = 0.8
+            blur = 0.8
+            downsample = 0.
+            beta = 0.1
+            gblur = 10.0
+            uniform_blur = True
+        elif noise_type == "downsample_expr":
             poisson = 0.8
             blur = 0.8
             downsample = 0.8
             beta = 0.03
             gblur = 1.0
+        elif noise_type == "downsample":
+            poisson = 0.8
+            blur = 0.8
+            downsample = 0.8
+            beta = 0.03
+            gblur = 5.0
+            uniform_blur = True
         elif noise_type == "all":
             poisson = [0.8, 0.8, 0.8]
             blur = [0., 0.8, 0.8]
