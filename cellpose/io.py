@@ -744,3 +744,4 @@ def save_masks(images, masks, flows, file_names, png=True, tif=False, channels=[
         imsave(os.path.join(flowdir, basename + "_flows" + suffix + ".tif"),
                (flows[0] * (2**16 - 1)).astype(np.uint16))
         #save full flow data
+        imsave(os.path.join(flowdir, basename + "_dP" + suffix + ".tif"), flows[1])
