@@ -15,11 +15,31 @@ CellposeModel
 .. autoclass:: cellpose.models.CellposeModel
    :members:
 
+CellposeDenoiseModel
+~~~~~~~~~~~~~~~~~
+
+.. autoclass:: cellpose.denoise.CellposeDenoiseModel
+   :members:
+
+
+DenoiseModel
+~~~~~~~~~~~~~~~~~
+
+.. autoclass:: cellpose.denoise.DenoiseModel
+   :members:
+
 SizeModel
 ~~~~~~~~~~~~~~~~~
 
 .. autoclass:: cellpose.models.SizeModel
    :members:
+
+Training
+~~~~~~~~~~~~~~~~~~
+
+.. automodule:: cellpose.train
+   :members:
+
 
 Metrics
 ~~~~~~~~~~~~~~~~~~
