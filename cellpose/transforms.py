@@ -469,9 +469,9 @@ def convert_image(x, channels, channel_axis=None, z_axis=None, do_3D=False, ncha
         if len(to_squeeze) > 0:
             channel_axis = update_axis(
                 channel_axis, to_squeeze,
-                x.ndim) if channel_axis is not None else channel_axis
+                x.ndim) if channel_axis is not None else None
             z_axis = update_axis(z_axis, to_squeeze,
-                                 x.ndim) if z_axis is not None else z_axis
+                                 x.ndim) if z_axis is not None else None
         x = x.squeeze()
 
     # put z axis first
@@ -480,7 +480,19 @@ def convert_image(x, channels, channel_axis=None, z_axis=None, do_3D=False, ncha
         if channel_axis is not None:
             channel_axis += 1
         z_axis = 0
-
+    elif z_axis is None and x.ndim > 2 and channels is not None and min(x.shape) > 5 :
+        # if there are > 5 channels and channels!=None, assume first dimension is z
+        min_dim = min(x.shape)
+        if min_dim != channel_axis:
+            z_axis = (x.shape).index(min_dim)
+            if z_axis != 0:
+                x = move_axis(x, m_axis=z_axis, first=True)
+                if channel_axis is not None:
+                    channel_axis += 1
+            transforms_logger.warning(f"z_axis not specified, assuming it is dim {z_axis}")
+            transforms_logger.warning(f"if this is actually the channel_axis, use 'model.eval(channel_axis={z_axis}, ...)'")
+            z_axis = 0
+    
     if z_axis is not None:
         if x.ndim == 3:
             x = x[..., np.newaxis]
@@ -500,7 +512,7 @@ def convert_image(x, channels, channel_axis=None, z_axis=None, do_3D=False, ncha
 
     if channel_axis is None:
         x = move_min_dim(x)
-
+    
     if x.ndim > 3:
         transforms_logger.info(
             "multi-stack tiff read in as having %d planes %d channels" %
@@ -723,13 +735,14 @@ def resize_image(img0, Ly=None, Lx=None, rsz=None, interpolation=cv2.INTER_LINEA
         else:
             imgs = np.zeros((img0.shape[0], Ly, Lx, img0.shape[-1]), np.float32)
         for i, img in enumerate(img0):
-            imgs[i] = cv2.resize(img, (Lx, Ly), interpolation=interpolation)
+            imgi = cv2.resize(img, (Lx, Ly), interpolation=interpolation)
+            imgs[i] = imgi if imgi.ndim > 2 else imgi[..., np.newaxis]
     else:
         imgs = cv2.resize(img0, (Lx, Ly), interpolation=interpolation)
     return imgs
 
 
-def pad_image_ND(img0, div=16, extra=1, min_size=None):
+def pad_image_ND(img0, div=16, extra=1, min_size=None, zpad=False):
     """Pad image for test-time so that its dimensions are a multiple of 16 (2D or 3D).
 
     Args:
@@ -758,7 +771,13 @@ def pad_image_ND(img0, div=16, extra=1, min_size=None):
     ypad2 = extra * div // 2 + Lpad - Lpad // 2
 
     if img0.ndim > 3:
-        pads = np.array([[0, 0], [0, 0], [xpad1, xpad2], [ypad1, ypad2]])
+        if zpad:
+            Lpad = int(div * np.ceil(img0.shape[-3] / div) - img0.shape[-3])
+            zpad1 = extra * div // 2 + Lpad // 2
+            zpad2 = extra * div // 2 + Lpad - Lpad // 2
+        else:
+            zpad1, zpad2 = 0, 0
+        pads = np.array([[0, 0], [zpad1, zpad2], [xpad1, xpad2], [ypad1, ypad2]])
     else:
         pads = np.array([[0, 0], [xpad1, xpad2], [ypad1, ypad2]])
 
@@ -767,8 +786,11 @@ def pad_image_ND(img0, div=16, extra=1, min_size=None):
     Ly, Lx = img0.shape[-2:]
     ysub = np.arange(xpad1, xpad1 + Ly)
     xsub = np.arange(ypad1, ypad1 + Lx)
-
-    return I, ysub, xsub
+    if zpad:
+        zsub = np.arange(zpad1, zpad1 + img0.shape[-3])
+        return I, ysub, xsub, zsub
+    else:
+        return I, ysub, xsub
 
 
 def random_rotate_and_resize(X, Y=None, scale_range=1., xy=(224, 224), do_3D=False,
@@ -826,7 +848,7 @@ def random_rotate_and_resize(X, Y=None, scale_range=1., xy=(224, 224), do_3D=Fal
             # generate random augmentation parameters
             flip = np.random.rand() > .5
             theta = np.random.rand() * np.pi * 2 if rotate else 0.
-            scale[n] = (1 - scale_range / 2) + scale_range * np.random.rand()
+            scale[n] = 2 ** (-2 + 5 * np.random.rand())#(1 - scale_range / 2) + scale_range * np.random.rand()
             if rescale is not None:
                 scale[n] *= 1. / rescale[n]
             dxy = np.maximum(0, np.array([Lx * scale[n] - xy[1],

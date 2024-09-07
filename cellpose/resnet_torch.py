@@ -199,6 +199,7 @@ class CPnet(nn.Module):
     def __init__(self, nbase, nout, sz, mkldnn=False, conv_3D=False, max_pool=True,
                  diam_mean=30.):
         super().__init__()
+        self.nchan = nbase[0]
         self.nbase = nbase
         self.nout = nout
         self.sz = sz
