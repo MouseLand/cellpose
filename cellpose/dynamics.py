@@ -24,7 +24,7 @@ import torch.nn.functional as F
 from . import resnet_torch
 
 TORCH_ENABLED = True
-torch_GPU = torch.device("cuda")
+torch_GPU = torch.device('cuda') if torch.cuda.is_available() else torch.device('mps') if torch.backends.mps.is_available() else None
 torch_CPU = torch.device("cpu")
 
 
@@ -54,8 +54,7 @@ def _extend_centers(T, y, x, ymed, xmed, Lx, niter):
     return T
 
 
-def _extend_centers_gpu(neighbors, meds, isneighbor, shape, n_iter=200,
-                        device=torch.device("cuda")):
+def _extend_centers_gpu(neighbors, meds, isneighbor, shape, n_iter=200, device=None):
     """Runs diffusion on GPU to generate flows for training images or quality control.
 
     Args:
@@ -71,9 +70,13 @@ def _extend_centers_gpu(neighbors, meds, isneighbor, shape, n_iter=200,
 
     """
     if device is None:
-        device = torch.device("cuda")
-
-    T = torch.zeros(shape, dtype=torch.double, device=device)
+        device = torch.device('cuda') if torch.cuda.is_available() else torch.device('mps') if torch.backends.mps.is_available() else None
+    
+    
+    if device.type == "mps":
+        T = torch.zeros(shape, dtype=torch.float, device=device)
+    else:
+        T = torch.zeros(shape, dtype=torch.double, device=device)
     for i in range(n_iter):
         T[tuple(meds.T)] += 1
         Tneigh = T[tuple(neighbors)]
@@ -148,7 +151,7 @@ def masks_to_flows_gpu(masks, device=None, niter=None):
             - meds_p (float, 2D or 3D array): cell centers
     """
     if device is None:
-        device = torch.device("cuda")
+        device = torch.device('cuda') if torch.cuda.is_available() else torch.device('mps') if torch.backends.mps.is_available() else None
 
     Ly0, Lx0 = masks.shape
     Ly, Lx = Ly0 + 2, Lx0 + 2
@@ -205,7 +208,7 @@ def masks_to_flows_gpu_3d(masks, device=None):
             - mu_c (float, 2D or 3D array): zeros
     """
     if device is None:
-        device = torch.device("cuda")
+        device = torch.device('cuda') if torch.cuda.is_available() else torch.device('mps') if torch.backends.mps.is_available() else None
 
     Lz0, Ly0, Lx0 = masks.shape
     Lz, Ly, Lx = Lz0 + 2, Ly0 + 2, Lx0 + 2
@@ -468,7 +471,7 @@ def steps2D_interp(p, dP, niter, device=None):
     """
 
     shape = dP.shape[1:]
-    if device is not None and device.type == "cuda":
+    if device is not None and (device.type == "cuda" or device.type == "mps"):
         shape = np.array(shape)[[
             1, 0
         ]].astype("float") - 1  # Y and X dimensions (dP is 2.Ly.Lx), flipped X-1, Y-1

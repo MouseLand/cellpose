@@ -45,13 +45,13 @@ def use_gpu(gpu_number=0, use_torch=True):
 
 def _use_gpu_torch(gpu_number=0):
     """
-    Checks if CUDA is available and working with PyTorch.
+    Checks if CUDA or MPS is available and working with PyTorch.
 
     Args:
         gpu_number (int): The GPU device number to use (default is 0).
 
     Returns:
-        bool: True if CUDA is available and working, False otherwise.
+        bool: True if CUDA or MPS is available and working, False otherwise.
     """
     try:
         device = torch.device("cuda:" + str(gpu_number))
@@ -59,7 +59,14 @@ def _use_gpu_torch(gpu_number=0):
         core_logger.info("** TORCH CUDA version installed and working. **")
         return True
     except:
-        core_logger.info("TORCH CUDA version not installed/working.")
+        pass
+    try:
+        device = torch.device('mps:' + str(gpu_number))
+        _ = torch.zeros([1, 2, 3]).to(device)
+        core_logger.info('** TORCH MPS version installed and working. **')
+        return True
+    except:
+        core_logger.info('Neither TORCH CUDA nor MPS version not installed/working.')
         return False
 
 
@@ -76,28 +83,35 @@ def assign_device(use_torch=True, gpu=False, device=0):
         torch.device: The assigned device.
         bool: True if GPU is used, False otherwise.
     """
-    mac = False
-    cpu = True
+
     if isinstance(device, str):
-        if device == "mps":
-            mac = True
-        else:
+        if device != "mps" or not(gpu and torch.backends.mps.is_available()):
             device = int(device)
     if gpu and use_gpu(use_torch=True):
-        device = torch.device(f"cuda:{device}")
-        gpu = True
-        cpu = False
-        core_logger.info(">>>> using GPU")
-    elif mac:
         try:
-            device = torch.device("mps")
-            gpu = True
-            cpu = False
-            core_logger.info(">>>> using GPU")
+            if torch.cuda.is_available():
+                device = torch.device(f'cuda:{device}')
+                core_logger.info(">>>> using GPU (CUDA)")
+                gpu = True
+                cpu = False
         except:
-            cpu = True
             gpu = False
-
+            cpu = True
+        try:
+            if torch.backends.mps.is_available():
+                device = torch.device('mps')
+                core_logger.info(">>>> using GPU (MPS)")
+                gpu = True
+                cpu = False
+        except:
+            gpu = False
+            cpu = True
+    else:
+        device = torch.device('cpu')
+        core_logger.info('>>>> using CPU')
+        gpu = False
+        cpu = True
+    
     if cpu:
         device = torch.device("cpu")
         core_logger.info(">>>> using CPU")

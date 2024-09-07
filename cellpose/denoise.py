@@ -375,7 +375,9 @@ def random_rotate_and_resize_noise(data, labels=None, diams=None, poisson=0.7, b
         torch.Tensor: The augmented labels.
         float: The scale factor applied to the image.
     """
-
+    if device == None:
+        device = torch.device('cuda') if torch.cuda.is_available() else torch.device('mps') if torch.backends.mps.is_available() else None
+    
     diams = 30 if diams is None else diams
     random_diam = diam_mean * (2**(2 * np.random.rand(len(data)) - 1))
     random_rsc = diams / random_diam  #/ random_diam
