@@ -3,53 +3,42 @@ Models
 
 ``from cellpose import models``
 
-Cellpose 2.0 now has a model zoo and options for user model training. 
 Each model will be downloaded automatically to your ``models.MODELS_DIR`` 
 (see Installation instructions for more details on MODELS_DIR). 
-See paper for more details on the model zoo. You can also directly download a 
-model by going to the URL, e.g.:
+You can also directly download a model by going to the URL, e.g.:
 
 ``https://www.cellpose.org/models/MODEL_NAME``
-
-Model Zoo
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 All built-in models were trained with the ROIs resized to a diameter of 30.0
 (``diam_mean = 30``), 
 except the `'nuclei'` model which was trained with a diameter of 17.0 
-(``diam_mean = 17``). 
+(``diam_mean = 17``). User-trained models will be trained with the same ``diam_mean`` 
+as the model they are initalized with.
 The models will internally take care of rescaling the images given a 
 user-provided diameter (or with the diameter from 
 auto-diameter estimation in full models).
 
-There is a suggestion button below the model zoo in the GUI. This runs a ``general`` model 
-that has been trained on Cellpose, TissueNet, and LiveCell to obtain the style 
-of the image. It uses this style to suggest which model would be best for the 
-given image (see info in Cellpose 2.0 `paper <https://www.biorxiv.org/content/10.1101/2022.04.01.486764v1>`_, 
-and runs the suggested model on the image. Make sure the diameter is set to the approximate 
-diameter of the ROIs in the image before clicking the button to ensure best performance.
-
-
 Full built-in models
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-These models have a size model and 4 different training versions, each trained
-starting from 4 different random initial parameter sets. This means you can 
-run with ``diameter=0`` or ``--diameter 0`` and the model can estimate the ROI size. Also you can set 
-``net_avg=True`` or ``--net_avg`` to average the results of the 4 models.
+These models have Cellpose model weights and a size model. This means you can 
+run with ``diameter=0`` or ``--diameter 0`` and the model can estimate the ROI size. 
+However, we recommend that you set the diameter for your ROIs rather than having Cellpose 
+guess the diameter.
 
-These models can be loaded and used in the notebook with ``models.Cellpose(model_type='cyto')`` 
-or in the command line with ``python -m cellpose --pretrained_model cyto``.
+These models can be loaded and used in the notebook with ``models.Cellpose(model_type='cyto3')`` 
+or in the command line with ``python -m cellpose --pretrained_model cyto3``.
 
-These models' names (to download all the models for a class run with ``--net_avg``): 
-* `'cyto'`: ``cytotorch_0``, ``cytotorch_1``, ``cytotorch_2``, ``cytotorch_3``, ``size_cytotorch_0.npy``
-* `'nuclei'`: ``nucleitorch_0``, ``nucleitorch_1``, ``nucleitorch_2``, ``nucleitorch_3``, ``size_nucleitorch_0.npy``
-* `'cyto2'`: ``cyto2torch_0``, ``cyto2torch_1``, ``cyto2torch_2``, ``cyto2torch_3``, ``size_cyto2torch_0.npy``
+We have a ``nuclei`` model and a super-generalist ``cyto3`` model. There are also two 
+older models, ``cyto``, which is trained on only the Cellpose training set, and ``cyto2``,
+which is also trained on user-submitted images.
 
-Cytoplasm model (`'cyto'`)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+FYI we are no longer using the 4 different versions and ``--net_avg`` is deprecated.
 
-The cytoplasm model in cellpose is trained on two-channel images, where 
+Cytoplasm model (``'cyto3'``, ``'cyto2'``, ``'cyto'``)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The cytoplasm models in cellpose are trained on two-channel images, where 
 the first channel is the channel to segment, and the second channel is 
 an optional nuclear channel. Here are the options for each:
 1. 0=grayscale, 1=red, 2=green, 3=blue 
@@ -58,6 +47,8 @@ an optional nuclear channel. Here are the options for each:
 Set channels to a list with each of these elements, e.g.
 ``channels = [0,0]`` if you want to segment cells in grayscale or for single channel images, or
 ``channels = [2,3]`` if you green cells with blue nuclei.
+
+The `'cyto3'` model is trained on 9 datasets, see the Cellpose3 paper for more details.
 
 Nucleus model (`'nuclei'`)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -69,47 +60,27 @@ always set to an array of zeros. Therefore set the first channel as
 ``channels = [0,0]`` if you want to segment nuclei in grayscale or for single channel images, or 
 ``channels = [3,0]`` if you want to segment blue nuclei.
 
-Cytoplasm 2.0 model (`'cyto2'`)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-The cytoplasm 2.0 model in cellpose is trained on two-channel images, where 
-the first channel is the channel to segment, and the second channel is 
-an optional nuclear channel, as the cytoplasm model.
-
-In addition to the training data in our dataset, it was 
-trained with user-submitted images.
-
-
 Other built-in models
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-These models do not have a size model and 4 different training versions.
+The main built-in models are dataset-specific models trained on one of the 9 datasets 
+in the Cellpose3 paper. These models do not have a size model.
 If the diameter is set to 0.0, then the model uses the default ``diam_mean`` for the
 diameter (``30.0``).
 
 These models can be loaded and used in the notebook with e.g. 
-``models.CellposeModel(model_type='tissuenet')`` or ``models.CellposeModel(model_type='LC2')``, 
-or in the command line with ``python -m cellpose --pretrained_model tissuenet``.
+``models.CellposeModel(model_type='tissuenet_cp3')`` or ``models.CellposeModel(model_type='livecell_cp3')``, 
+or in the command line with ``python -m cellpose --pretrained_model tissuenet_cp3``.
 
-These models' names are the same as their strings in the GUI.
-
-TissueNet models
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-The ``'tissuenet'`` model was trained on all training images from the 
-`tissuenet dataset <https://datasets.deepcell.org/>`_. 
-These images have a cytoplasm channel and a nuclear channel. The 
-other tissuenet models (``'TN1'``, ``'TN2'``, and ``'TN3'``) were trained on subsets 
-of the tissuenet dataset that had similar characteristics.
-
-LiveCell models
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-The ``'livecell'`` model was trained on all training images from the 
-`livecell dataset <https://sartorius-research.github.io/LIVECell/>`_. 
-These images only have a cytoplasm channel. The 
-other livecell models (``'LC1'``, ``'LC2'``, ``'LC3'``, and ``'LC4'``) were trained on subsets 
-of the livecell dataset that had similar characteristics.
+The dataset-specific models were trained on the training images provided in the following datasets: 
+    - ``tissuenet_cp3``: `tissuenet dataset <https://datasets.deepcell.org/>`_. 
+    - ``livecell_cp3``: `livecell dataset <https://sartorius-research.github.io/LIVECell/>`_
+    - ``yeast_PhC_cp3``: `YEAZ dataset <https://www.epfl.ch/labs/lpbs/data-and-software/>`_
+    - ``yeast_BF_cp3``: `YEAZ dataset <https://www.epfl.ch/labs/lpbs/data-and-software/>`_
+    - ``bact_phase_cp3``: `omnipose dataset <https://osf.io/xmury/>`_
+    - ``bact_fluor_cp3``: `omnipose dataset <https://osf.io/xmury/>`_
+    - ``deepbacs_cp3``: `deepbacs dataset <https://github.com/HenriquesLab/DeepBacs/wiki/Segmentation>`_
+    - ``cyto2_cp3``: `cellpose dataset <http://www.cellpose.org/dataset>`_
 
 
 User-trained models 

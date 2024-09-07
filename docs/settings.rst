@@ -39,6 +39,8 @@ Set channels to a list with each of these elements, e.g.
 
 On the command line the above would be ``--chan 0 --chan2 0`` or ``--chan 2 --chan2 3``.
 
+Note, if you set the first channel input to use grayscale ``0``, then no nuclear channel will be used 
+(the second channel will be filled with zeros).
 
 .. _diameter:
 
@@ -59,7 +61,7 @@ on the training data. On a new image the procedure is as follows.
 1. Run the image through the cellpose network and obtain the style vector. Predict the size using the linear regression model from the style vector.
 2. Resize the image based on the predicted size and run cellpose again, and produce ROIs. Take the final estimated size as the median diameter of the predicted ROIs.
 
-For automated estimation set ``diameter = None``. 
+For automated estimation set ``diameter = None`` or ``diameter = 0``. 
 However, if this estimate is incorrect please set the diameter by hand.
 
 Changing the diameter will change the results that the algorithm 
@@ -108,7 +110,7 @@ if cellpose is not returning as many ROIs as you'd expect.
 Similarly, decrease this threshold if cellpose is returning too many 
 ill-shaped ROIs.
 
-Mask threshold
+Cellprob threshold
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The network predicts 3 outputs: flows in X, flows in Y, and cell "probability". 
@@ -119,6 +121,15 @@ so they vary from around -6 to +6. The pixels greater than the
 is ``cellprob_threshold=0.0``. Decrease this threshold if cellpose is not returning 
 as many ROIs as you'd expect. Similarly, increase this threshold if cellpose is 
 returning too ROIs particularly from dim areas.
+
+Number of iterations niter
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The flows from the network are used to simulate a dynamical system governing the 
+movements of the pixels. We simulate the dynamics for ``niter`` iterations. 
+The pixels that converge to the same position make up a single ROI. The default ``niter=None`` 
+or ``niter=0`` sets the number of iterations to be proportional to the ROI diameter.
+For longer ROIs, more iterations might be needed, for example ``niter=2000``, for convergence.
 
 3D settings
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
