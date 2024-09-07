@@ -75,7 +75,8 @@ In a notebook, you can train with the `train_seg` function:
     # e.g. retrain a Cellpose model
     model = models.CellposeModel(model_type="cyto3")
     
-    model_path = train.train_seg(model.net, train_data=images, train_labels=labels,
+    model_path, train_losses, test_losses = train.train_seg(model.net, 
+                                train_data=images, train_labels=labels,
                                 channels=[1,2], normalize=True,
                                 test_data=test_images, test_labels=test_labels,
                                 weight_decay=1e-4, SGD=True, learning_rate=0.1,

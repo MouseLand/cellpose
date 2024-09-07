@@ -163,7 +163,7 @@ def main():
                     channels = None
                 else:
                     nchan = 2
-                    
+
                 pretrained_model = None if model_type is not None else pretrained_model
                 if restore_type is None:
                     model = models.CellposeModel(gpu=gpu, device=device,
@@ -309,7 +309,7 @@ def main():
                     nimg_per_epoch=args.nimg_per_epoch,
                     nimg_test_per_epoch=args.nimg_test_per_epoch,
                     save_path=os.path.realpath(args.dir), save_every=args.save_every,
-                    model_name=args.model_name_out)
+                    model_name=args.model_name_out)[0]
                 model.pretrained_model = cpmodel_path
                 logger.info(">>>> model trained and saved to %s" % cpmodel_path)
 

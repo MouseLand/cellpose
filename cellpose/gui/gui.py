@@ -2169,14 +2169,16 @@ class MainW(QMainWindow):
         save_path = os.path.dirname(self.filename)
 
         print("GUI_INFO: name of new model: " + self.training_params["model_name"])
-        self.new_model_path = train.train_seg(
+        self.new_model_path, train_losses = train.train_seg(
             self.model.net, train_data=self.train_data, train_labels=self.train_labels,
             channels=self.channels, normalize=normalize_params, min_train_masks=0,
             save_path=save_path, nimg_per_epoch=max(8, len(self.train_data)), SGD=True,
             learning_rate=self.training_params["learning_rate"],
             weight_decay=self.training_params["weight_decay"],
             n_epochs=self.training_params["n_epochs"],
-            model_name=self.training_params["model_name"])
+            model_name=self.training_params["model_name"])[:2]
+        # save train losses
+        np.save(str(self.new_model_path) + "_train_losses.npy", train_losses)
         # run model on next image
         io._add_model(self, self.new_model_path)
         diam_labels = self.model.net.diam_labels.item()  #.copy()
