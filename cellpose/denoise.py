@@ -465,7 +465,7 @@ def one_chan_cellpose(device, model_type="cyto2", pretrained_model=None):
     net1 = resnet_torch.CPnet([nchan, *nbase], nout=3, sz=3).to(device)
     filename = model_path(model_type,
                           0) if pretrained_model is None else pretrained_model
-    weights = torch.load(filename)
+    weights = torch.load(filename, weights_only=True)
     zp = 0
     print(filename)
     for name in net1.state_dict():
@@ -493,11 +493,12 @@ class CellposeDenoiseModel():
     """ model to run Cellpose and Image restoration """
 
     def __init__(self, gpu=False, pretrained_model=False, model_type=None,
-                 restore_type="denoise_cyto3", chan2_restore=False, device=None):
+                 restore_type="denoise_cyto3", nchan=2,
+                 chan2_restore=False, device=None):
 
         self.dn = DenoiseModel(gpu=gpu, model_type=restore_type, chan2=chan2_restore,
                                device=device)
-        self.cp = CellposeModel(gpu=gpu, model_type=model_type,
+        self.cp = CellposeModel(gpu=gpu, model_type=model_type, nchan=nchan,
                                 pretrained_model=pretrained_model, device=device)
 
     def eval(self, x, batch_size=8, channels=None, channel_axis=None, z_axis=None,

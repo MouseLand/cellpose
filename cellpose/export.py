@@ -127,7 +127,7 @@ def load_bioimageio_cpnet_model(path_model_weight, nchan=2):
         "max_pool": True,
     }
     cpnet_biio = CPnetBioImageIO(**cpnet_kwargs)
-    state_dict_cuda = torch.load(path_model_weight, map_location=torch.device("cpu"))
+    state_dict_cuda = torch.load(path_model_weight, map_location=torch.device("cpu"), weights_only=True)
     cpnet_biio.load_state_dict(state_dict_cuda)
     cpnet_biio.eval()  # crucial for the prediction results
     return cpnet_biio, cpnet_kwargs

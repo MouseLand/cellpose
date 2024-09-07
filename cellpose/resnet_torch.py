@@ -268,11 +268,11 @@ class CPnet(nn.Module):
             device (torch.device, optional): The device to load the model on. Defaults to None.
         """
         if (device is not None) and (device.type != "cpu"):
-            state_dict = torch.load(filename, map_location=device)
+            state_dict = torch.load(filename, map_location=device, weights_only=True)
         else:
             self.__init__(self.nbase, self.nout, self.sz, self.mkldnn, self.conv_3D,
                           self.diam_mean)
-            state_dict = torch.load(filename, map_location=torch.device("cpu"))
+            state_dict = torch.load(filename, map_location=torch.device("cpu"), weights_only=True)
 
         self.load_state_dict(state_dict)
 
