@@ -47,11 +47,10 @@ except:
 
 io_logger = logging.getLogger(__name__)
 
-
-def logger_setup():
-    cp_dir = pathlib.Path.home().joinpath(".cellpose")
+def logger_setup(cp_path=".cellpose", logfile_name="run.log"):
+    cp_dir = pathlib.Path.home().joinpath(cp_path)
     cp_dir.mkdir(exist_ok=True)
-    log_file = cp_dir.joinpath("run.log")
+    log_file = cp_dir.joinpath(logfile_name)
     try:
         log_file.unlink()
     except:
@@ -70,8 +69,7 @@ def logger_setup():
 
 from . import utils, plot, transforms
 
-
-# helper function to check for a path; if it doesn"t exist, make it
+# helper function to check for a path; if it doesn't exist, make it
 def check_dir(path):
     if not os.path.isdir(path):
         os.mkdir(path)
@@ -156,7 +154,7 @@ def imread(filename):
     """
     # ensure that extension check is not case sensitive
     ext = os.path.splitext(filename)[-1].lower()
-    if ext == ".tif" or ext == ".tiff":
+    if ext == ".tif" or ext == ".tiff" or ext == ".flex":
         with tifffile.TiffFile(filename) as tif:
             ltif = len(tif.pages)
             try:
@@ -295,7 +293,7 @@ def get_image_files(folder, mask_filter, imf=None, look_one_level_down=False):
     if look_one_level_down:
         folders = natsorted(glob.glob(os.path.join(folder, "*/")))
     folders.append(folder)
-    exts = [".png", ".jpg", ".jpeg", ".tif", ".tiff", ".dax", ".nd2", ".nrrd"]
+    exts = [".png", ".jpg", ".jpeg", ".tif", ".tiff", ".flex", ".dax", ".nd2", ".nrrd"]
     l0 = 0
     al = 0
     for folder in folders:
@@ -311,7 +309,7 @@ def get_image_files(folder, mask_filter, imf=None, look_one_level_down=False):
         raise ValueError("ERROR: no files in --dir folder ")
     elif l0 == 0:
         raise ValueError(
-            "ERROR: no images in --dir folder with extensions .png, .jpg, .jpeg, .tif, .tiff"
+            "ERROR: no images in --dir folder with extensions .png, .jpg, .jpeg, .tif, .tiff, .flex"
         )
 
     image_names = natsorted(image_names)
@@ -337,7 +335,6 @@ def get_image_files(folder, mask_filter, imf=None, look_one_level_down=False):
             "ERROR: no images in --dir folder without _masks or _flows ending")
 
     return image_names
-
 
 def get_label_files(image_names, mask_filter, imf=None):
     """
@@ -440,7 +437,6 @@ def load_images_labels(tdir, mask_filter="_masks", image_filter=None,
     io_logger.info(f"{k} / {nimg} images in {tdir} folder have labels")
     return images, labels, image_names
 
-
 def load_train_test_data(train_dir, test_dir=None, image_filter=None,
                          mask_filter="_masks", look_one_level_down=False):
     """
@@ -463,7 +459,6 @@ def load_train_test_data(train_dir, test_dir=None, image_filter=None,
     """
     images, labels, image_names = load_images_labels(train_dir, mask_filter,
                                                      image_filter, look_one_level_down)
-
     # testing data
     test_images, test_labels, test_image_names = None, None, None
     if test_dir is not None:
@@ -568,12 +563,11 @@ def masks_flows_to_seg(images, masks, flows, file_names, diams=30., channels=Non
 
     np.save(base + "_seg.npy", dat)
 
-
 def save_to_png(images, masks, flows, file_names):
-    """ deprecated (runs io.save_masks with png=True) 
-    
+    """ deprecated (runs io.save_masks with png=True)
+
         does not work for 3D images
-    
+
     """
     save_masks(images, masks, flows, file_names, png=True)
 
