@@ -2,15 +2,9 @@
 Copyright © 2023 Howard Hughes Medical Institute, Authored by Carsen Stringer and Marius Pachitariu.
 """
 
-import os, sys, time, shutil, tempfile, datetime, pathlib, subprocess
-import numpy as np
 import torch
 import torch.nn as nn
-from torch import optim
 import torch.nn.functional as F
-import datetime
-
-from . import transforms, io, dynamics, utils
 
 
 def batchconv(in_channels, out_channels, sz, conv_3D=False):
@@ -280,11 +274,45 @@ class CPnet(nn.Module):
                           self.diam_mean)
             state_dict = torch.load(filename, map_location=torch.device("cpu"))
 
+        self.load_state_dict(state_dict)
+
+    def load_state_dict(self, state_dict):
+        """
+        Load the state dictionary into the model.
+
+        This method overrides the default `load_state_dict` to handle Cellpose's custom
+        loading mechanism and ensures compatibility with BioImage.IO Core.
+
+        Args:
+            state_dict (Mapping[str, Any]): A state dictionary to load into the model
+        """
         if state_dict["output.2.weight"].shape[0] != self.nout:
             for name in self.state_dict():
                 if "output" not in name:
                     self.state_dict()[name].copy_(state_dict[name])
         else:
-            self.load_state_dict(
-                dict([(name, param) for name, param in state_dict.items()]),
+            super().load_state_dict(
+                {name: param for name, param in state_dict.items()},
                 strict=False)
+
+
+class CPnetBioImageIO(CPnet):
+    """
+    A subclass of the CPnet model compatible with the BioImage.IO Spec.
+
+    This subclass addresses the limitation of CPnet's incompatibility with the BioImage.IO Spec,
+    allowing the CPnet model to use the weights uploaded to the BioImage.IO Model Zoo.
+    """
+
+    def forward(self, x):
+        """
+        Perform a forward pass of the CPnet model and return unpacked tensors.
+
+        Args:
+            x (torch.Tensor): Input tensor.
+
+        Returns:
+            tuple: A tuple containing the output tensor, style tensor, and downsampled tensors.
+        """
+        output_tensor, style_tensor, downsampled_tensors = super().forward(x)
+        return output_tensor, style_tensor, *downsampled_tensors
