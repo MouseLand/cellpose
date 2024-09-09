@@ -85,12 +85,12 @@ If you have an older `cellpose` environment you can remove it with `conda env re
 
 If you are using a GPU, make sure its drivers and the cuda libraries are correctly installed.
 
-1. Install an [Anaconda](https://www.anaconda.com/products/distribution) distribution of Python. Note you might need to use an anaconda prompt if you did not add anaconda to the path.
+1. Install a [miniforge](https://github.com/conda-forge/miniforge) distribution of Python. Note you might need to use an anaconda prompt if you did not add anaconda to the path.
 2. Open an anaconda prompt / command prompt which has `conda` for **python 3** in the path
-3. Create a new environment with `conda create --name cellpose python=3.8`. We recommend python 3.8, but python 3.9 and 3.10 will likely work as well.
+3. Create a new environment with `conda create --name cellpose python=3.9`. We recommend python 3.10, but python 3.9 and 3.11 will also work.
 4. To activate this new environment, run `conda activate cellpose`
-5. To install the minimal version of cellpose, run `python -m pip install cellpose`.  
-6. To install cellpose and the GUI, run `python -m pip install cellpose[gui]`. If you're on a zsh server, you may need to use ' ' around the cellpose[gui] call: `python -m pip install 'cellpose[gui]'`.
+5. (option 1) To install cellpose with the GUI, run `python -m pip install cellpose[gui]`.  If you're on a zsh server, you may need to use ' ': `python -m pip install 'cellpose[gui]'`.
+6. (option 2) To install cellpose without the GUI, run `python -m pip install cellpose`. 
 
 To upgrade cellpose (package [here](https://pypi.org/project/cellpose/)), run the following in the environment:
 
@@ -126,11 +126,11 @@ If you are using a GPU, make sure its drivers and the cuda libraries are correct
 
 ### GPU version (CUDA) on Windows or Linux
 
-If you plan on running many images, you may want to install a GPU version of *torch* (if it isn't already installed).
+If you plan on running many images, you may want to install a GPU version of *torch*. To use your NVIDIA GPU with python, you will need to make sure the NVIDIA driver for your GPU is installed, check out this [website](https://www.nvidia.com/Download/index.aspx?lang=en-us) to download it. You can also install the CUDA toolkit, or use the pytorch cudatoolkit (installed below with conda). If you have trouble with the below install, we recommend installing the CUDA toolkit yourself, choosing one of the 11.x releases [here](https://developer.nvidia.com/cuda-toolkit-archive).
 
-To use your NVIDIA GPU with python, you will first need to install the NVIDIA driver for your GPU, check out this [website](https://www.nvidia.com/Download/index.aspx?lang=en-us) to download it. You can also install the CUDA toolkit, or use the pytorch cudatoolkit (installed below with conda). If you have trouble with the below install, we recommend installing the CUDA toolkit yourself, choosing one of the 11.x releases [here](https://developer.nvidia.com/cuda-toolkit-archive).
+With the latest versions of pytorch, as long as the NVIDIA drivers are installed, the GPU version is installed by default with pip. You can check if the GPU support is working by opening the GUI. If the GPU is working then the `GPU` box will be checked and the `CUDA` version will be displayed in the command line. 
 
-Next we need to remove the CPU version of torch:
+If it's not working, we will need to remove the CPU version of torch:
 ~~~
 pip uninstall torch
 ~~~

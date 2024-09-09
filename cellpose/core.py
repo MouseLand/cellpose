@@ -45,13 +45,13 @@ def use_gpu(gpu_number=0, use_torch=True):
 
 def _use_gpu_torch(gpu_number=0):
     """
-    Checks if CUDA is available and working with PyTorch.
+    Checks if CUDA or MPS is available and working with PyTorch.
 
     Args:
         gpu_number (int): The GPU device number to use (default is 0).
 
     Returns:
-        bool: True if CUDA is available and working, False otherwise.
+        bool: True if CUDA or MPS is available and working, False otherwise.
     """
     try:
         device = torch.device("cuda:" + str(gpu_number))
@@ -59,7 +59,14 @@ def _use_gpu_torch(gpu_number=0):
         core_logger.info("** TORCH CUDA version installed and working. **")
         return True
     except:
-        core_logger.info("TORCH CUDA version not installed/working.")
+        pass
+    try:
+        device = torch.device('mps:' + str(gpu_number))
+        _ = torch.zeros([1, 2, 3]).to(device)
+        core_logger.info('** TORCH MPS version installed and working. **')
+        return True
+    except:
+        core_logger.info('Neither TORCH CUDA nor MPS version not installed/working.')
         return False
 
 
@@ -76,28 +83,35 @@ def assign_device(use_torch=True, gpu=False, device=0):
         torch.device: The assigned device.
         bool: True if GPU is used, False otherwise.
     """
-    mac = False
-    cpu = True
+
     if isinstance(device, str):
-        if device == "mps":
-            mac = True
-        else:
+        if device != "mps" or not(gpu and torch.backends.mps.is_available()):
             device = int(device)
     if gpu and use_gpu(use_torch=True):
-        device = torch.device(f"cuda:{device}")
-        gpu = True
-        cpu = False
-        core_logger.info(">>>> using GPU")
-    elif mac:
         try:
-            device = torch.device("mps")
-            gpu = True
-            cpu = False
-            core_logger.info(">>>> using GPU")
+            if torch.cuda.is_available():
+                device = torch.device(f'cuda:{device}')
+                core_logger.info(">>>> using GPU (CUDA)")
+                gpu = True
+                cpu = False
         except:
-            cpu = True
             gpu = False
-
+            cpu = True
+        try:
+            if torch.backends.mps.is_available():
+                device = torch.device('mps')
+                core_logger.info(">>>> using GPU (MPS)")
+                gpu = True
+                cpu = False
+        except:
+            gpu = False
+            cpu = True
+    else:
+        device = torch.device('cpu')
+        core_logger.info('>>>> using CPU')
+        gpu = False
+        cpu = True
+    
     if cpu:
         device = torch.device("cpu")
         core_logger.info(">>>> using CPU")
@@ -220,7 +234,7 @@ def run_net(net, imgs, batch_size=8, augment=False, tile=True, tile_overlap=0.1,
     # slices from padding
     #         slc = [slice(0, self.nclasses) for n in range(imgs.ndim)] # changed from imgs.shape[n]+1 for first slice size
     slc = [slice(0, imgs.shape[n] + 1) for n in range(imgs.ndim)]
-    slc[-3] = slice(0, 3)
+    slc[-3] = slice(0, net.nout)
     slc[-2] = slice(ysub[0], ysub[-1] + 1)
     slc[-1] = slice(xsub[0], xsub[-1] + 1)
     slc = tuple(slc)
@@ -272,7 +286,8 @@ def _run_tiled(net, imgi, batch_size=8, augment=False, bsize=224, tile_overlap=0
         yf = np.zeros((Lz, nout, imgi.shape[-2], imgi.shape[-1]), np.float32)
         styles = []
         if ny * nx > batch_size:
-            ziterator = trange(Lz, file=tqdm_out)
+            ziterator = (trange(Lz, file=tqdm_out, mininterval=30) 
+                         if Lz > 1 else range(Lz))
             for i in ziterator:
                 yfi, stylei = _run_tiled(net, imgi[i], augment=augment, bsize=bsize,
                                          tile_overlap=tile_overlap)
@@ -283,7 +298,8 @@ def _run_tiled(net, imgi, batch_size=8, augment=False, bsize=224, tile_overlap=0
             ntiles = ny * nx
             nimgs = max(2, int(np.round(batch_size / ntiles)))
             niter = int(np.ceil(Lz / nimgs))
-            ziterator = trange(niter, file=tqdm_out)
+            ziterator = (trange(niter, file=tqdm_out, mininterval=30) 
+                         if Lz > 1 else range(niter))
             for k in ziterator:
                 IMGa = np.zeros((ntiles * nimgs, nchan, ly, lx), np.float32)
                 for i in range(min(Lz - k * nimgs, nimgs)):

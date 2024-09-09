@@ -38,8 +38,8 @@ def avg3d(C):
     """
     Ly, Lx = C.shape
     # pad T by 2
-    T = np.zeros((Ly + 2, Lx + 2), np.float32)
-    M = np.zeros((Ly, Lx), np.float32)
+    T = np.zeros((Ly + 2, Lx + 2), "float32")
+    M = np.zeros((Ly, Lx), "float32")
     T[1:-1, 1:-1] = C.copy()
     y, x = np.meshgrid(np.arange(0, Ly, 1, int), np.arange(0, Lx, 1, int),
                        indexing="ij")
@@ -244,7 +244,7 @@ class MainW_3d(MainW):
                 vc = stroke[iz, 2]
                 if iz.sum() > 0:
                     # get points inside drawn points
-                    mask = np.zeros((np.ptp(vr) + 4, np.ptp(vc) + 4), np.uint8)
+                    mask = np.zeros((np.ptp(vr) + 4, np.ptp(vc) + 4), "uint8")
                     pts = np.stack((vc - vc.min() + 2, vr - vr.min() + 2),
                                    axis=-1)[:, np.newaxis, :]
                     mask = cv2.fillPoly(mask, [pts], (255, 0, 0))
@@ -265,7 +265,7 @@ class MainW_3d(MainW):
                     elif ioverlap.sum() > 0:
                         ar, ac = ar[~ioverlap], ac[~ioverlap]
                         # compute outline of new mask
-                        mask = np.zeros((np.ptp(ar) + 4, np.ptp(ac) + 4), np.uint8)
+                        mask = np.zeros((np.ptp(ar) + 4, np.ptp(ac) + 4), "uint8")
                         mask[ar - ar.min() + 2, ac - ac.min() + 2] = 1
                         contours = cv2.findContours(mask, cv2.RETR_EXTERNAL,
                                                     cv2.CHAIN_APPROX_NONE)
@@ -282,7 +282,7 @@ class MainW_3d(MainW):
             pix = np.append(pix, np.vstack((ars, acs)), axis=-1)
 
         mall = mall[:, pix[0].min():pix[0].max() + 1,
-                    pix[1].min():pix[1].max() + 1].astype(np.float32)
+                    pix[1].min():pix[1].max() + 1].astype("float32")
         ymin, xmin = pix[0].min(), pix[1].min()
         if len(zdraw) > 1:
             mall, zfill = interpZ(mall, zdraw - zmin)
@@ -422,15 +422,15 @@ class MainW_3d(MainW):
                 for j in range(2):
                     if j == 0:
                         if self.view == 0:
-                            image = self.stack[zmin:zmax, :, x].transpose(1, 0, 2)
+                            image = self.stack[zmin:zmax, :, x].transpose(1, 0, 2).copy()
                         else:
                             image = self.stack_filtered[zmin:zmax, :,
-                                                        x].transpose(1, 0, 2)
+                                                        x].transpose(1, 0, 2).copy()
                     else:
                         image = self.stack[
                             zmin:zmax,
-                            y, :] if self.view == 0 else self.stack_filtered[zmin:zmax,
-                                                                             y, :]
+                            y, :].copy() if self.view == 0 else self.stack_filtered[zmin:zmax,
+                                                                             y, :].copy()
                     if self.nchan == 1:
                         # show single channel
                         image = image[..., 0]
@@ -458,11 +458,13 @@ class MainW_3d(MainW):
                             self.imgOrtho[j].setLevels(
                                 self.saturation[0][self.currentZ])
                     elif self.color == 4:
-                        image = image.astype(np.float32).mean(axis=-1).astype(np.uint8)
+                        if image.ndim > 2:
+                            image = image.astype("float32").mean(axis=2).astype("uint8")
                         self.imgOrtho[j].setImage(image, autoLevels=False, lut=None)
                         self.imgOrtho[j].setLevels(self.saturation[0][self.currentZ])
                     elif self.color == 5:
-                        image = image.astype(np.float32).mean(axis=-1).astype(np.uint8)
+                        if image.ndim > 2:
+                            image = image.astype("float32").mean(axis=2).astype("uint8")
                         self.imgOrtho[j].setImage(image, autoLevels=False,
                                                   lut=self.cmap[0])
                         self.imgOrtho[j].setLevels(self.saturation[0][self.currentZ])
@@ -470,7 +472,7 @@ class MainW_3d(MainW):
                 self.pOrtho[1].setAspectLocked(lock=True, ratio=1. / self.zaspect)
 
             else:
-                image = np.zeros((10, 10), np.uint8)
+                image = np.zeros((10, 10), "uint8")
                 self.imgOrtho[0].setImage(image, autoLevels=False, lut=None)
                 self.imgOrtho[0].setLevels([0.0, 255.0])
                 self.imgOrtho[1].setImage(image, autoLevels=False, lut=None)
@@ -478,8 +480,8 @@ class MainW_3d(MainW):
 
         zrange = zmax - zmin
         self.layer_ortho = [
-            np.zeros((self.Ly, zrange, 4), np.uint8),
-            np.zeros((zrange, self.Lx, 4), np.uint8)
+            np.zeros((self.Ly, zrange, 4), "uint8"),
+            np.zeros((zrange, self.Lx, 4), "uint8")
         ]
         if self.masksOn:
             for j in range(2):
@@ -488,7 +490,7 @@ class MainW_3d(MainW):
                 else:
                     cp = self.cellpix[zmin:zmax, y]
                 self.layer_ortho[j][..., :3] = self.cellcolors[cp, :]
-                self.layer_ortho[j][..., 3] = self.opacity * (cp > 0).astype(np.uint8)
+                self.layer_ortho[j][..., 3] = self.opacity * (cp > 0).astype("uint8")
                 if self.selected > 0:
                     self.layer_ortho[j][cp == self.selected] = np.array(
                         [255, 255, 255, self.opacity])
@@ -499,7 +501,7 @@ class MainW_3d(MainW):
                     op = self.outpix[zmin:zmax, :, x].T
                 else:
                     op = self.outpix[zmin:zmax, y]
-                self.layer_ortho[j][op > 0] = np.array(self.outcolor).astype(np.uint8)
+                self.layer_ortho[j][op > 0] = np.array(self.outcolor).astype("uint8")
 
         for j in range(2):
             self.layerOrtho[j].setImage(self.layer_ortho[j])

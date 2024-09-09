@@ -35,7 +35,7 @@ normalize_default = {
     "lowhigh": None,
     "percentile": None,
     "normalize": True,
-    "norm3D": False,
+    "norm3D": True,
     "sharpen_radius": 0,
     "smooth_radius": 0,
     "tile_norm_blocksize": 0,
@@ -263,7 +263,7 @@ class CellposeModel():
         if (pretrained_model and not Path(pretrained_model).exists() and
                 np.any([pretrained_model == s for s in all_models])):
             model_type = pretrained_model
-
+            
         # check if model_type is builtin or custom user model saved in .cellpose/models
         if model_type is not None and np.any([model_type == s for s in all_models]):
             if np.any([model_type == s for s in MODEL_NAMES]):
@@ -286,6 +286,10 @@ class CellposeModel():
                 models_logger.warning(
                     "pretrained_model path does not exist, using default model")
                 use_default = True
+            elif pretrained_model:
+                if pretrained_model[-13:] == "nucleitorch_0":
+                    builtin = True
+                    self.diam_mean = 17.
 
         builtin = True if use_default else builtin
         self.pretrained_model = model_path(
@@ -297,7 +301,12 @@ class CellposeModel():
             sdevice, gpu = assign_device(use_torch=True, gpu=gpu)
         self.device = device if device is not None else sdevice
         if device is not None:
-            device_gpu = self.device.type == "cuda"
+            if torch.cuda.is_available():
+                device_gpu = self.device.type == "cuda"
+            elif torch.backends.mps.is_available():
+                device_gpu = self.device.type == "mps"
+            else:
+                device_gpu = False
         self.gpu = gpu if device is None else device_gpu
         if not self.gpu:
             self.mkldnn = check_mkl(True)
@@ -498,37 +507,18 @@ class CellposeModel():
             del yf
         else:
             tqdm_out = utils.TqdmToLogger(models_logger, level=logging.INFO)
-            iterator = trange(nimg, file=tqdm_out,
-                              mininterval=30) if nimg > 1 else range(nimg)
-            styles = np.zeros((nimg, self.nbase[-1]), np.float32)
+            img = np.asarray(x)
+            if do_normalization:
+                img = transforms.normalize_img(img, **normalize_params)
+            if rescale != 1.0:
+                img = transforms.resize_image(img, rsz=rescale)
+            yf, style = run_net(self.net, img, bsize=bsize, augment=augment,
+                                tile=tile, tile_overlap=tile_overlap)
             if resample:
-                dP = np.zeros((2, nimg, shape[1], shape[2]), np.float32)
-                cellprob = np.zeros((nimg, shape[1], shape[2]), np.float32)
-            else:
-                dP = np.zeros(
-                    (2, nimg, int(shape[1] * rescale), int(shape[2] * rescale)),
-                    np.float32)
-                cellprob = np.zeros(
-                    (nimg, int(shape[1] * rescale), int(shape[2] * rescale)),
-                    np.float32)
-            for i in iterator:
-                img = np.asarray(x[i])
-                if do_normalization:
-                    img = transforms.normalize_img(img, **normalize_params)
-                if rescale != 1.0:
-                    img = transforms.resize_image(img, rsz=rescale)
-                yf, style = run_net(self.net, img, bsize=bsize, augment=augment,
-                                    tile=tile, tile_overlap=tile_overlap)
-                if resample:
-                    yf = transforms.resize_image(yf, shape[1], shape[2])
-
-                cellprob[i] = yf[:, :, 2]
-                dP[:, i] = yf[:, :, :2].transpose((2, 0, 1))
-                if self.nclasses == 4:
-                    if i == 0:
-                        bd = np.zeros_like(cellprob)
-                    bd[i] = yf[:, :, 3]
-                styles[i][:len(style)] = style
+                yf = transforms.resize_image(yf, shape[1], shape[2])
+            dP = np.moveaxis(yf[..., :2], source=-1, destination=0).copy()
+            cellprob = yf[..., 2]
+            styles = style
             del yf, style
         styles = styles.squeeze()
 

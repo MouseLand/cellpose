@@ -71,7 +71,7 @@ def load_benchmarks(folder, noise_type="poisson", ctype="cyto2",
         imgs_all.append(test_n2s)
         masks_all.append(masks_n2s)
 
-    dat = np.load(root / "noisy_test" / f"test_{noise_type}_cp3.npy",
+    dat = np.load(root / "noisy_test" / f"test_{noise_type}_cp3_all.npy",
                   allow_pickle=True).item()
     istr = ["rec", "per", "seg", "perseg"]
     for k in range(len(istr)):
@@ -621,13 +621,14 @@ def suppfig_nuclei(folder, save_fig=False):
 
 
 def fig2(folder, folder2="/media/carsen/ssd4/denoising/Projection_Flywing/test_data",
+         folder3="/media/carsen/ssd4/denoising/ribo_denoise/",
          save_fig=False):
     thresholds = np.arange(0.5, 1.05, 0.05)
 
-    fig = plt.figure(figsize=(14, 8), dpi=100)
+    fig = plt.figure(figsize=(14, 12), dpi=100)
     yratio = 14 / 8
-    grid = plt.GridSpec(5, 8, figure=fig, left=0.02, right=0.98, top=0.96, bottom=0.1,
-                        wspace=0.05, hspace=0.25)
+    grid = plt.GridSpec(7, 8, figure=fig, left=0.02, right=0.97, top=0.98, bottom=0.08,
+                        wspace=0.12, hspace=0.25)
     transl = mtransforms.ScaledTranslation(-18 / 72, 10 / 72, fig.dpi_scale_trans)
     il = 0
 
@@ -639,7 +640,7 @@ def fig2(folder, folder2="/media/carsen/ssd4/denoising/Projection_Flywing/test_d
                           kk=[0, 1, 5], seg=[0, 0, 0], dy=0.015)
 
     dat = np.load(f"{folder2}/cp_masks.npy", allow_pickle=True).item()
-    grid1 = matplotlib.gridspec.GridSpecFromSubplotSpec(2, 5, subplot_spec=grid[-2:, :],
+    grid1 = matplotlib.gridspec.GridSpecFromSubplotSpec(2, 5, subplot_spec=grid[-4:-2, :],
                                                         wspace=0.05, hspace=0.1)
 
     iex = 10
@@ -666,7 +667,7 @@ def fig2(folder, folder2="/media/carsen/ssd4/denoising/Projection_Flywing/test_d
 
         ax = plt.subplot(grid1[0, k])
         pos = ax.get_position().bounds
-        ax.set_position([pos[0], pos[1] - 0.05, pos[2], pos[3]])
+        ax.set_position([pos[0], pos[1] - 0.01, pos[2], pos[3]])
         ax.imshow(img, vmin=0, vmax=1, cmap="gray")
         ax.set_title(titlesd[k], color="k" if k < 2 else cols[-2], fontsize="medium")
         ax.set_xlim(xlim)
@@ -679,7 +680,7 @@ def fig2(folder, folder2="/media/carsen/ssd4/denoising/Projection_Flywing/test_d
 
         ax = plt.subplot(grid1[1, k])
         pos = ax.get_position().bounds
-        ax.set_position([pos[0], pos[1] - 0.05, pos[2], pos[3]])
+        ax.set_position([pos[0], pos[1] - 0.01, pos[2], pos[3]])
         ax.imshow(img, vmin=0, vmax=1, cmap="gray")
         ax.set_xlim(xlim)
         ax.set_ylim(ylim)
@@ -706,7 +707,7 @@ def fig2(folder, folder2="/media/carsen/ssd4/denoising/Projection_Flywing/test_d
     transl = mtransforms.ScaledTranslation(-40 / 72, 15 / 72, fig.dpi_scale_trans)
     ax = plt.subplot(grid1[:, 3])
     pos = ax.get_position().bounds
-    ax.set_position([pos[0] + 0.05, pos[1] - 0.03, pos[2] * 0.7, pos[3]])
+    ax.set_position([pos[0] + 0.05, pos[1] - 0.0, pos[2] * 0.7, pos[3]])
     nl = 0
     titlesd = titles.copy()
     titlesd[7] = "Cellpose3"
@@ -731,7 +732,7 @@ def fig2(folder, folder2="/media/carsen/ssd4/denoising/Projection_Flywing/test_d
 
     ax = plt.subplot(grid1[:, 4])
     pos = ax.get_position().bounds
-    ax.set_position([pos[0] + 0.05, pos[1] - 0.03, pos[2] * 0.7, pos[3]])
+    ax.set_position([pos[0] + 0.05, pos[1] - 0.0, pos[2] * 0.7, pos[3]])
     kk = [1, 2, 3, 7]
     for k in range(len(aps)):
         means = np.array([aps[k][nl][:, 0].mean(axis=0) for nl in [0, 2, 1]])
@@ -745,6 +746,117 @@ def fig2(folder, folder2="/media/carsen/ssd4/denoising/Projection_Flywing/test_d
     ax.set_xticks([0, 1, 2])
     ax.set_xticklabels(["2%", "3%", "5%"])
     ax.set_xlabel("laser power")
+
+
+    dat = np.load(f"{folder3}/ribo_denoise_n2v.npy", allow_pickle=True).item()
+    ap_n2v = dat["ap_n2v"]
+    dat = np.load(f"{folder3}/ribo_denoise_n2s.npy", allow_pickle=True).item()
+    ap_n2s = dat["ap_n2s"]
+    dat = np.load(f"{folder3}/ribo_denoise.npy", allow_pickle=True).item()
+    navgs  = dat["navgs"]
+
+    grid1 = matplotlib.gridspec.GridSpecFromSubplotSpec(2, 5, subplot_spec=grid[-2:, :],
+                                                        wspace=0.05, hspace=0.1)
+    iex = 3
+    nl = 2
+    ylim = [350, 500]
+    xlim = [200, 500]
+
+    transl = mtransforms.ScaledTranslation(-18 / 72, 26 / 72, fig.dpi_scale_trans)
+    outlines_gt = utils.outlines_list(dat["masks_clean"][iex].copy(),
+                                        multiprocessing=False)
+    titlest = ["clean (300 frames averaged)", "noisy (4 frames averaged)", "denoised (Cellpose3)"]
+    for k in range(3):
+        if k == 0:
+            img = dat["clean"][iex].copy()
+        elif k == 1:
+            img = dat["noisy"][nl][iex].copy()
+            maskk = dat["masks_noisy"][nl][iex].copy()
+            ap = dat["ap_noisy"][nl][iex, 0]
+        else:
+            img = dat["imgs_dn"][nl][iex].copy()
+            maskk = dat["masks_dn"][nl][iex].copy()
+            ap = dat["ap_dn"][nl][iex, 0]
+        img = transforms.normalize99(img)
+
+        ax = plt.subplot(grid1[0, k])
+        pos = ax.get_position().bounds
+        ax.set_position([pos[0], pos[1] - 0.05, pos[2], pos[3]])
+        ax.imshow(img, vmin=0., vmax=0.75, cmap="gray")
+        ax.set_title(titlest[k], color="k" if k < 2 else [0,0.5,0], fontsize="medium")
+        ax.set_xlim(xlim)
+        ax.set_ylim(ylim)
+        ax.axis("off")
+        if k == 0:
+            ax.text(0, 1.25, "Denoising two-photon imaging in mice", fontsize="large",
+                    fontstyle="italic", transform=ax.transAxes)
+            il = plot_label(ltr, il, ax, transl, fs_title)
+
+        ax = plt.subplot(grid1[1, k])
+        pos = ax.get_position().bounds
+        ax.set_position([pos[0], pos[1] - 0.05, pos[2], pos[3]])
+        ax.imshow(img, vmin=0, vmax=1, cmap="gray")
+        ax.set_xlim(xlim)
+        ax.set_ylim(ylim)
+        ax.axis("off")
+        #ax.set_title("segmentation")
+        if k == 0:
+            for o in outlines_gt:
+                ax.plot(o[:, 0], o[:, 1], color=[1, 0, 1], lw=1, ls="--")
+            ax.text(1, -0.15, "ground-truth", ha="right", transform=ax.transAxes)
+        else:
+            outlines = utils.outlines_list(maskk, multiprocessing=False)
+            for o in outlines:
+                ax.plot(o[:, 0], o[:, 1], color=[1, 1, 0.3], lw=1, ls="--")
+            ax.text(1, -0.15, f"AP@0.5 = {ap:.2f}", ha="right", transform=ax.transAxes)
+
+    grid11 = matplotlib.gridspec.GridSpecFromSubplotSpec(1, 3, subplot_spec=grid1[:, -2:],
+                                                        wspace=0.3, hspace=0.1)
+    
+
+    transl = mtransforms.ScaledTranslation(-35 / 72, 25 / 72, fig.dpi_scale_trans)
+    ax = plt.subplot(grid11[:, 0])
+    pos = ax.get_position().bounds
+    ax.set_position([pos[0] + 0.05, pos[1] - 0.04, pos[2] * 0.8, pos[3]*0.9])
+    aps = [dat["ap_noisy"], ap_n2v, ap_n2s, dat["ap_dn"]]
+    theight = [-0.9, 3, 2, 4]
+    kk = [1, 2, 3, 7]
+    titlesd[1] = "noisy\n(4 frames\naveraged)"
+    for k in range(len(aps)):
+        means = aps[k][nl, :12].mean(axis=0)
+        ax.plot(thresholds, means, color=cols[kk[k]])
+        ax.text(1.15, 0.62   + theight[k] * 0.09, titlesd[kk[k]], 
+                color=cols[kk[k]],
+                transform=ax.transAxes, ha="right")
+    ax.set_ylim([0, 0.8])
+    ax.text(-0.18, 1.13, "Segmentation performance", fontstyle="italic",
+            transform=ax.transAxes, fontsize="large")
+    ax.set_ylabel("average precision (AP)")
+    ax.set_xlabel("IoU threshold")
+    ax.set_xticks(np.arange(0.5, 1.05, 0.25))
+    ax.set_yticks(np.arange(0, 1.1, 0.2))
+    ax.set_ylim([0, 0.83])
+    ax.set_xlim([0.5, 1.0])
+    il = plot_label(ltr, il, ax, transl, fs_title)
+
+    ifrs = [slice(0, 12), slice(12, 20)]
+    for i, ifr in enumerate(ifrs):
+        ax = plt.subplot(grid11[:, i + 1])
+        pos = ax.get_position().bounds
+        ax.set_position([pos[0] + 0.04 - i*0.01, pos[1] - 0.04, pos[2] * 0.8, pos[3]*0.9])
+        nifr = ifr.stop - ifr.start
+        for k in range(len(aps)):
+            means = np.array([aps[k][nl][ifr, 0].mean(axis=0) for nl in range(len(aps[k]))])
+            sems = np.array([aps[k][nl][ifr, 0].std(axis=0) / (nifr**0.5) for nl in range(len(aps[k]))])
+            ax.errorbar(np.arange(0, len(means)), means, sems, color=cols[kk[k]])
+
+        ax.set_xticks(np.arange(0, len(navgs), 2))
+        ax.set_xticklabels([f"{navg}" for navg in navgs[::2]])
+        ax.set_yticks(np.arange(0, 1.1, 0.2))
+        ax.set_ylim([0, 0.83])
+        ax.set_xlabel("# of frames averaged")
+        ax.set_title("dense expression" if i==0 else "sparse expression", fontsize="medium")
+
 
     if save_fig:
         os.makedirs("figs/", exist_ok=True)
@@ -1021,7 +1133,17 @@ def load_benchmarks_specialist(folder, thresholds=np.arange(0.5, 1.05, 0.05)):
     imgs_all.append(test_care)
     masks_all.append(masks_care)
 
-    dat = np.load(root / "noisy_test" / f"test_{noise_type}_cp3.npy",
+    dat = np.load(root / "noisy_test" / f"test_{noise_type}_denoiseg_specialist.npy",
+                  allow_pickle=True).item()
+    test_dns = dat["test_denoiseg"][:nimg_test]
+    masks_dns = dat["masks_denoiseg"][:nimg_test]
+    imgs_all.append(test_dns)
+    masks_all.append(masks_dns)
+    masks_dns = dat["masks_denoiseg_seg"][:nimg_test]
+    imgs_all.append(test_dns)
+    masks_all.append(masks_dns)
+
+    dat = np.load(root / "noisy_test" / f"test_{noise_type}_cp3_all.npy",
                   allow_pickle=True).item()
     istr = ["rec", "per", "seg", "perseg"]
     for k in range(len(istr)):
@@ -1069,17 +1191,22 @@ def suppfig_specialist(folder, save_fig=True):
     legstr0 = []
     for ls in legstr[:-1]:
         legstr0.append(" ".join(ls.split(" ")[1:]))
-    legstr0.insert(4, "CARE")
+        legstr0[-1] = u"\u2013 " + legstr0[-1]
+    legstr0.insert(4, u"\u2013 CARE")
+    legstr0.insert(5, u"\u2013 denoiseg")
+    legstr0.insert(6, "-- denoiseg\n(segmentation)")
     cols0 = list(cols[:-1].copy())
     cols0.insert(4, [1, 0.5, 1])
+    cols0.insert(5, 0.4*np.ones(3))
+    cols0.insert(6, 0.4*np.ones(3))
     print(len(cols0))
-    legstr0[-1] = "Cellpose3\n(per. + seg.)"
+    legstr0[-1] = u"\u2013 Cellpose3\n(per. + seg.)"
 
     il = 0
 
     fig = plt.figure(figsize=(9, 5), dpi=100)
     yratio = 9 / 5
-    grid = plt.GridSpec(2, 4, figure=fig, left=0.02, right=0.98, top=0.96, bottom=0.1,
+    grid = plt.GridSpec(2, 4, figure=fig, left=0.02, right=0.96, top=0.96, bottom=0.1,
                         wspace=0.15, hspace=0.2)
 
     titles = ["train - clean", "train - noisy", "test - noisy"]
@@ -1094,12 +1221,12 @@ def suppfig_specialist(folder, save_fig=True):
             imset = imgs_all[1].copy()
         ax = plt.subplot(grid[0, j])
         pos = ax.get_position().bounds
-        ax.set_position([pos[0] - 0.015 * j, pos[1] - 0.04, pos[2], pos[3]])
+        ax.set_position([pos[0] - 0.02 * j, pos[1] - 0.04, pos[2], pos[3]])
         ly, lx = 128, 128
         dy, dx = 20, 30
         ni = 5
         img0 = np.ones((ly + (ni - 1) * dy, lx + (ni - 1) * dx))
-        ii = np.arange(0, 5)[::-1] if j == 2 else np.arange(0, 20 * ni, 20)
+        ii = np.arange(0, 5)[::-1] if j == 2 else np.arange(1, 20 * ni, 20)[::-1]
         if j < 2:
             x0, y0 = 20, 20
         else:
@@ -1119,17 +1246,18 @@ def suppfig_specialist(folder, save_fig=True):
             ax.text(0.02, 1.2, "Specialist dataset", fontsize="large",
                     fontstyle="italic", transform=ax.transAxes)
 
-    transl = mtransforms.ScaledTranslation(-50 / 72, 8 / 72, fig.dpi_scale_trans)
+    transl = mtransforms.ScaledTranslation(-45 / 72, 8 / 72, fig.dpi_scale_trans)
     ax = plt.subplot(grid[0, -1])
     pos = ax.get_position().bounds
-    ax.set_position([pos[0] + 0.03, pos[1] - 0.03, pos[2] * 0.8,
+    ax.set_position([pos[0] + 0.01, pos[1] - 0.03, pos[2] * 0.8,
                      pos[3] * 1])  #+pos[3]*0.15-0.03, pos[2], pos[3]*0.7])
     il = plot_label(ltr, il, ax, transl, fs_title)
-    theight = [0, 1, 2, 3, 4, 5, 6, 7, 5.1]
-    for k in [1, 2, 3, 4, 8]:
-        ax.plot(thresholds, aps[k, :, :].mean(axis=0), color=cols0[k])
+    theight = [0, 0, 4, 3, 6, 5, 1, 5, 7, 8, 7.1]
+    for k in [1, 2, 3, 4, 5, 6, 10]:
+        ax.plot(thresholds, aps[k, :, :].mean(axis=0), color=cols0[k],
+                lw=3 if k==4 else 1, ls="--" if k==6 else "-")
         #ax.errorbar(thresholds, aps[k,:,:].mean(axis=0), aps[k,:,:].std(axis=0) / 10**0.5, color=cols0[k])
-        ax.text(0.59, 0.55 + 0.08 * theight[k], legstr0[k], color=cols0[k],
+        ax.text(0.7, 0.3 + 0.09 * theight[k], legstr0[k], color=cols0[k],
                 transform=ax.transAxes)
     ax.set_ylim([0, 0.8])
     ax.set_ylabel("average precision (AP)")
@@ -1139,11 +1267,11 @@ def suppfig_specialist(folder, save_fig=True):
 
     transl = mtransforms.ScaledTranslation(-10 / 72, 20 / 72, fig.dpi_scale_trans)
 
-    kk = [2, 3, 4, 8]
+    kk = [2, 3, 4, 10]
     iex = 8
     ylim = [10, 310]
     xlim = [100, 500]
-    legstr0[-1] = "Cellpose3 (per. + seg.)"
+    legstr0[-1] = u"\u2013 Cellpose3 (per. + seg.)"
     for j, k in enumerate(kk):
         ax = plt.subplot(grid[1, j])
         pos = ax.get_position().bounds
@@ -1156,7 +1284,7 @@ def suppfig_specialist(folder, save_fig=True):
         ax.axis("off")
         ax.set_ylim(ylim)
         ax.set_xlim(xlim)
-        ax.set_title(legstr0[k], color=cols0[k], fontsize="medium")
+        ax.set_title(legstr0[k][2:], color=cols0[k], fontsize="medium")
         ax.text(1, -0.04, f"AP@0.5 = {aps[k,iex,0] : 0.2f}", va="top", ha="right",
                 transform=ax.transAxes)
         if j == 0:
@@ -1169,6 +1297,128 @@ def suppfig_specialist(folder, save_fig=True):
     if save_fig:
         os.makedirs("figs/", exist_ok=True)
         fig.savefig("figs/suppfig_specialist.pdf", dpi=100)
+
+def suppfig_impr(folder, save_fig=True):
+    aps_all = [[], []]
+    imgs_all, masks_all = [[], []], [[], []]
+    inds_all = [[], []]
+    diams = [[], []]
+    noise_types = ["poisson", "blur", "downsample"]
+    for noise_type in noise_types:
+        for j, ctype in enumerate(["cyto2", "nuclei"]):
+            nimg_test = 68 if ctype == "cyto2" else 111
+            folder_name = ctype
+            root = Path(f"{folder}/images_{folder_name}/")
+
+            dat = np.load(root / "noisy_test" / f"test_{noise_type}.npy",
+                            allow_pickle=True).item()
+            test_data = dat["test_data"][:nimg_test]
+            test_noisy = dat["test_noisy"][:nimg_test]
+            masks_noisy = dat["masks_noisy"][:nimg_test]
+            masks_true = dat["masks_true"][:nimg_test]
+            masks_data = dat["masks_orig"][:nimg_test]
+            diam_test = dat["diam_test"][:nimg_test]
+            noise_levels = dat["noise_levels"][:nimg_test]
+
+            dat = np.load(root / "noisy_test" / f"test_{noise_type}_cp3_all.npy",
+                            allow_pickle=True).item()
+
+            masks_denoised = dat["masks_perseg"][:nimg_test]
+            test_denoised = dat["test_perseg"][:nimg_test]
+            thresholds=np.arange(0.5, 1.05, 0.05)
+            ap_c, tp_d, fp_d, fn_d = metrics.average_precision(masks_true, masks_data,
+                                                            threshold=thresholds)
+            ap_d, tp_d, fp_d, fn_d = metrics.average_precision(masks_true, masks_denoised,
+                                                            threshold=thresholds)
+            ap_n, tp_n, fp_n, fn_n = metrics.average_precision(masks_true, masks_noisy,
+                                                            threshold=thresholds)
+
+            aps_all[j].append([ap_c, ap_n, ap_d])
+            igood = np.nonzero(ap_d[:,0] > 0)[0]
+            impr = (ap_d[igood,0] - ap_n[igood,0]) / ap_n[igood,0]
+            ii = np.hstack((impr.argsort()[-2:][::-1], impr.argsort()[:2]))
+            ii = igood[ii]
+            imgs_all[j].append([np.array([test_data[i].squeeze(), test_noisy[i].squeeze(), test_denoised[i].squeeze()])
+                            for i in ii])
+            masks_all[j].append([np.array([masks_data[i].squeeze(), masks_noisy[i].squeeze(), masks_denoised[i].squeeze()])
+                            for i in ii])
+            diams[j].append(dat["diam_test"][ii])
+            inds_all[j].append(ii)    
+
+    colors = [["darkblue", "royalblue", [0.46, 1, 0], "cyan", "orange", "maroon"],
+            ["darkblue", [0.46, 1, 0], "dodgerblue"]]
+
+    titles = [["CellImageLibrary", "Cells : fluorescent", "Cells : nonfluorescent", 
+                        "Cell membranes", "Microscopy : other", "Non-microscopy"],
+                ["DSB 2018 / kaggle", "MoNuSeg (H&E)", "ISBI 2009 (fluorescent)"]]
+
+    cinds = [[np.arange(0, 11), np.arange(11,28,1,int), np.arange(28,33,1,int), 
+                        np.arange(33,42,1,int), np.arange(42,55,1,int),
+                        np.arange(55,68,1,int)],
+            [np.arange(0, 75), np.arange(75, 103), np.arange(103, 111)]]
+
+    ddeg = ["noisy", "blurry", "downsampled"]
+    dcorr = ["denoised", "deblurred", "upsampled"]
+    dtitle = ["Denoising", "Deblurring", "Upsampling"]
+
+    fig = plt.figure(figsize=(14,8))
+    yratio = 14/10
+    grid = plt.GridSpec(2, 5, hspace=0.3, wspace=0.5, 
+                        left=0.05, right=0.97, top=0.95, bottom=0.05)
+    il = 0
+    transl = mtransforms.ScaledTranslation(-45 / 72, 5 / 72, fig.dpi_scale_trans)
+
+    for c, ctype in enumerate(["cyto2", "nuclei"]):
+        for d in range(3):
+            imgs = imgs_all[c][d]
+            masks = masks_all[c][d]
+            inds = inds_all[c][d]
+            aps = aps_all[c][d]
+
+            ax = plt.subplot(grid[c, d + 2*(d>0)])
+            pos = ax.get_position().bounds 
+            ax.set_position([pos[0], pos[1]+(pos[3]-pos[2]*yratio), pos[2], pos[2]*yratio])
+            for k in range(len(cinds[c])):
+                ax.scatter(aps[1][cinds[c][k],0], aps[2][cinds[c][k],0], marker="x", 
+                                label=titles[c][k], color=colors[c][k])
+            ax.plot([0, 1], [0, 1], color="k", lw=1, ls="--")
+            ax.set_xlabel(f"{ddeg[d]}, AP@0.5")
+            ax.set_ylabel(f"{dcorr[d]}, AP@0.5", color=[0, 0.5, 0])
+            ax.text(-0.2, 1.05, dtitle[d], fontsize="large", transform=ax.transAxes, 
+                    fontstyle="italic")
+            il = plot_label(ltr, il, ax, transl, fs_title)
+            if d==0:
+                ax.legend(loc="lower center", bbox_to_anchor=(0.5, -1.3+c*0.4), fontsize="small")
+
+                dstr = ["clean", "noisy", "denoised"]
+                diam_mean = 30 if ctype=="cyto2" else 17
+                grid1 = matplotlib.gridspec.GridSpecFromSubplotSpec(3, 4, subplot_spec=grid[c, 1:3],
+                                                                        wspace=0.15, hspace=0.05)
+                for j in range(4):
+                    Ly, Lx = imgs[j][0].shape
+                    yinds, xinds = plot.interesting_patch(masks[j][0], 
+                                        bsize=min(Ly, Lx, int(300 * diams[0][0][j] / diam_mean)))
+                    for k in range(3):
+                        ax = plt.subplot(grid1[k, j])
+                        pos = ax.get_position().bounds
+                        ax.set_position([pos[0]-0.01, pos[1] - 0.015*k, *pos[2:]])
+                        ax.imshow(imgs[j][k], vmin=0, vmax=1, cmap="gray")
+                        ax.axis("off")
+                        #outlines = utils.outlines_list(masks[j][k], multiprocessing=False)
+                        #for o in outlines:
+                        #    ax.plot(o[:, 0], o[:, 1], color=[1, 1, 0.3], lw=1.5, ls="--")
+                        ax.set_ylim([yinds[0], yinds[-1]+1])
+                        ax.set_xlim([xinds[0], xinds[-1]+1])
+                        ax.text(1, -0.01, f"AP@0.5 = {aps[k][inds[j],0]:.2f}", ha="right", 
+                                va="top", fontsize="small", transform=ax.transAxes)
+                        if j%2==0 and k==0:
+                            istr = ["most improved", "least improved"]
+                            ax.set_title(f"{istr[j//2]}", fontsize="medium", fontstyle="italic")
+                        if j==0:
+                            ax.text(-0.05, 0.5, dstr[k], ha="right", va="center", 
+                                    rotation=90, transform=ax.transAxes, 
+                                    color="k" if k<2 else [0., 0.5, 0])
+    fig.savefig("figs/suppfig_impr.pdf", dpi=300)
 
 
 def load_benchmarks_generalist(folder, noise_type="poisson", ctype="cyto2",
@@ -1193,20 +1443,15 @@ def load_benchmarks_generalist(folder, noise_type="poisson", ctype="cyto2",
     imgs_all.append(test_data)
     imgs_all.append(test_noisy)
 
-    dat = np.load(root / "noisy_test" / f"test_{noise_type}_cp3.npy",
-                  allow_pickle=True).item()
-    test_dn = dat["test_perseg"][:nimg_test]
-    masks_dn = dat["masks_perseg"][:nimg_test]
-    imgs_all.append(test_dn)
-    masks_all.append(masks_dn)
-
-    dat = np.load(root / "noisy_test" / f"test_{noise_type}_generalist_cp3.npy",
-                  allow_pickle=True).item()
-    test_dn = dat["test_generalist"][:nimg_test]
-    masks_dn = dat["masks_generalist"][:nimg_test]
-    imgs_all.append(test_dn)
-    masks_all.append(masks_dn)
-
+    dat = np.load(root / "noisy_test" / f"test_{noise_type}_cp3_all.npy",
+                allow_pickle=True).item()
+    istrs = ["perseg", "noise_spec", "data_spec", "gen"]
+    for istr in istrs:
+        test_dn = dat[f"test_{istr}"][:nimg_test]
+        masks_dn = dat[f"masks_{istr}"][:nimg_test]
+        imgs_all.append(test_dn)
+        masks_all.append(masks_dn)
+            
     # benchmarking
     aps = []
     tps = []
@@ -1225,7 +1470,7 @@ def load_benchmarks_generalist(folder, noise_type="poisson", ctype="cyto2",
             diam_test)
 
 
-def fig5(folder, save_fig=True):
+def fig6(folder, save_fig=True):
     folders = [
         "cyto2", "nuclei", "tissuenet", "livecell", "yeast_BF", "yeast_PhC",
         "bact_phase", "bact_fluor", "deepbacs"
@@ -1248,8 +1493,9 @@ def fig5(folder, save_fig=True):
 
     diams = [utils.diameters(lbl)[0] for lbl in lbls]
 
+    gen_model = "/home/carsen/dm11_string/datasets_cellpose/models/per_1.00_seg_1.50_rec_0.00_poisson_blur_downsample_2024_08_20_11_46_25.557039"
     model = denoise.DenoiseModel(gpu=True, nchan=1, diam_mean=diam_mean,
-                                 model_type="denoise_cyto3")
+                                 pretrained_model=gen_model)
     seg_model = models.CellposeModel(gpu=True, model_type="cyto3")
     pscales = [1.5, 20., 1.5, 1., 5., 40., 3.]
     denoise.deterministic()
@@ -1267,7 +1513,6 @@ def fig5(folder, save_fig=True):
                     imgs[j][i], diameter=diams[i], channels=[0, 0], tile_overlap=0.5,
                     flow_threshold=0.4, augment=True, bsize=224,
                     niter=2000 if folders[i - 2] == "bact_phase" else None)[0])
-
     api = np.array(
         [metrics.average_precision(lbls, masks[i])[0][:, 0] for i in range(3)])
 
@@ -1283,65 +1528,70 @@ def fig5(folder, save_fig=True):
         print(ctype, noise_type, aps0[1:, :, 0].mean(axis=1))
         aps.append(aps0)
 
-    fig = plt.figure(figsize=(14, 10), dpi=100)
-    yratio = 14 / 10
-    grid = plt.GridSpec(4, 14, figure=fig, left=0.02, right=0.98, top=0.96, bottom=0.1,
-                        wspace=0.05, hspace=0.3)
+    fig = plt.figure(figsize=(14, 7), dpi=100)
+    yratio = 14 / 7
+    grid = plt.GridSpec(3, 14, figure=fig, left=0.02, right=0.97, top=0.97, bottom=0.1,
+                        wspace=0.05, hspace=0.2)
 
-    grid1 = matplotlib.gridspec.GridSpecFromSubplotSpec(1, 6, subplot_spec=grid[0, :],
+    grid1 = matplotlib.gridspec.GridSpecFromSubplotSpec(1, 8, subplot_spec=grid[0, :],
                                                         wspace=0.4, hspace=0.15)
 
-    transl = mtransforms.ScaledTranslation(-40 / 72, 10 / 72, fig.dpi_scale_trans)
+    transl = mtransforms.ScaledTranslation(-0 / 72, 3 / 72, fig.dpi_scale_trans)
     il = 0
     noise_type = ["poisson", "blur", "downsample"][i % 3]
 
+    ax = plt.subplot(grid1[0:2])
+    pos = ax.get_position().bounds
+    im = plt.imread("figs/cellpose3_models.png")
+    yr = im.shape[0] / im.shape[1]
+    w = 0.22
+    ax.set_position([0.0, pos[1]-0.08, w, w*yratio*yr])
+    plt.imshow(im)
+    ax.axis("off")
+    ax.text(0.08, 1.02, "General restoration models", transform=ax.transAxes,
+                    fontstyle="italic", fontsize="large")
+    il = plot_label(ltr, il, ax, transl, fs_title)
+    
+    transl = mtransforms.ScaledTranslation(-40 / 72, 20 / 72, fig.dpi_scale_trans)
     thresholds = np.arange(0.5, 1.05, 0.05)
-    cols0 = np.array(cols)[[0, 0, 7, 7]].copy()
-    cols0[-1] = np.array([0, 1, 0])
-    cols0 = np.clip(cols0, 0, 1)
-    lss0 = ["-", "-", "-", "--"]
-    legstr0 = ["", u"\u2013 noisy image", u"\u2013 dataset-specific", u"-- one-click"]
-    theight = [0, 1, 3, 2]
+    cols0 = np.array([[0, 0, 0], [0, 0, 0], [0, 128, 0], [180, 229, 162], 
+                    [246, 198, 173], [192, 71, 29], ])
+    cols0 = cols0 / 255
+    lss0 = ["-", "-", "-","-", "-", "-"]
+    legstr0 = ["", u"\u2013 noisy image", u"\u2013 original", 
+                u"\u2013 noise-specific", "\u2013 data-specific", u"-- one-click"]
+    theight = [0, 0,4,3,2,1]
     for i in range(6):
         ctype = "cellpose test set" if i < 3 else "nuclei test set"
         noise_type = ["denoising", "deblurring", "upsampling"][i % 3]
 
-        ax = plt.subplot(grid1[i])
+        ax = plt.subplot(grid1[i+2])
         pos = ax.get_position().bounds
         ax.set_position([
-            pos[0] + (5 - i) * 0.01 - 0.02 + 0.03 * (i > 2), pos[1] - 0.05,
+            pos[0] + 0.025 * (i>2), pos[1] - 0.05, # (5 - i) * 0.01 - 0.02 + 0.03 * (i > 2)
             pos[2] * 0.92, pos[3]
         ])
-
         for k in range(1, len(aps[0])):
-            ax.plot(thresholds, aps[i][k].mean(axis=0), color=cols0[k], ls=lss0[k])
-            if i == 0 or i == 3:
-                ax.text(0.43, 0.62 + 0.1 * theight[k], legstr0[k], color=cols0[k],
-                        transform=ax.transAxes)
+            ax.plot(thresholds, aps[i][k].mean(axis=0), color=cols0[k], ls=lss0[k], lw=1)
         if i == 0 or i == 3:
             ax.set_ylabel("average precision (AP)")
+            ax.set_xlabel("IoU threshold")
             il = plot_label(ltr, il, ax, transl, fs_title)
         if i == 1 or i == 4:
-            ax.text(0.5, 1.3, ctype, transform=ax.transAxes, ha="center",
+            ax.text(0.5, 1.18, ctype, transform=ax.transAxes, ha="center",
                     fontsize="large")
-        if i == 0:
-            ax.text(-0.35, 1.35, "One-click models", transform=ax.transAxes,
-                    fontstyle="italic", fontsize="large")
-
+        
         ax.set_ylim([0, 0.72])
-        ax.set_xlabel("IoU threshold")
-        ax.set_xticks(np.arange(0.5, 1.05, 0.1))
+        ax.set_xticks(np.arange(0.5, 1.05, 0.25))
         ax.set_xlim([0.5, 1.0])
         ax.set_title(f"{noise_type}", fontsize="medium")
 
-    #yr, xr = 200, 240
-
-    titlesj = ["clean", "noisy", "denoised"]
+    titlesj = ["clean", "noisy", "denoised (one-click)"]
     titlesi = [
         "Tissuenet", "Livecell", "Yeaz bright-field", "YeaZ phase-contrast",
         "Omnipose phase-contrast", "Omnipose fluorescent", "DeepBacs"
     ]
-    colsj = cols0[[0, 1, 3]]
+    colsj = cols0[[0, 1, -1]]
 
     ly0 = 250
 
@@ -1355,15 +1605,10 @@ def fig5(folder, save_fig=True):
         mask_gt = lbls[i].copy()
         #outlines_gt = utils.outlines_list(mask_gt, multiprocessing=False)
 
-        for j in range(3):
-            #img = np.zeros((*imgs[j][i].shape[1:], 3))
-            #img[:,:,1:] = imgs[j][i][[0,1]].transpose(1,2,0)
-            if imgs[j][i].ndim == 3:
-                imgs[j][i] = imgs[j][i][0]
-
-            img = np.clip(transforms.normalize99(imgs[j][i].copy()), 0, 1)
+        for j in range(1, 3):
+            img = np.clip(transforms.normalize99(imgs[j][i].copy().squeeze()), 0, 1)
             for k in range(2):
-                ax = plt.subplot(grid[j + 1, 2 * i + k])
+                ax = plt.subplot(grid[j, 2 * i + k])
                 pos = ax.get_position().bounds
                 ax.set_position([
                     pos[0] + 0.003 * i - 0.00 * k, pos[1] - (2 - j) * 0.025 - 0.07,
@@ -1401,11 +1646,9 @@ def fig5(folder, save_fig=True):
                 if k == 0 and j == 0:
                     ax.text(0.0, 1.05, titlesi[i], transform=ax.transAxes,
                             fontsize="medium")
-
     if save_fig:
         os.makedirs("figs/", exist_ok=True)
-        fig.savefig("figs/fig5.pdf", dpi=100)
-
+        fig.savefig("figs/fig6.pdf", dpi=150)
 
 def load_seg_generalist(folder):
     folders = [
@@ -1473,7 +1716,7 @@ def load_seg_generalist(folder):
     return apcs, api, imgs, masks_true, masks_pred
 
 
-def suppfig_generalist(folder, save_fig=True):
+def fig5(folder, save_fig=True):
     thresholds = np.arange(0.5, 1.05, 0.05)
     apcs, api, imgs, masks_true, masks_pred = load_seg_generalist(folder)
     titlesi = [
@@ -1583,7 +1826,7 @@ def suppfig_generalist(folder, save_fig=True):
 
     if save_fig:
         os.makedirs("figs/", exist_ok=True)
-        fig.savefig("figs/suppfig_generalist.pdf", dpi=100)
+        fig.savefig("figs/fig5.pdf", dpi=100)
 
 
 if __name__ == "__main__":
@@ -1617,10 +1860,14 @@ if __name__ == "__main__":
     fig4(folder, save_fig=0, ctype="nuclei")
     plt.show()
 
+    # ex images
+    suppfig_impr(folder, save_fig=0)
+    plt.show()
+
     # one-click + supergeneralist
     fig5(folder, save_fig=0)
     plt.show()
-    suppfig_generalist(folder, save_fig=0)
+    fig6(folder, save_fig=0)
     plt.show()
 
 

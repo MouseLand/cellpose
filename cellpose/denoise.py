@@ -210,7 +210,7 @@ def img_norm(imgi):
 
 def add_noise(lbl, alpha=4, beta=0.7, poisson=0.7, blur=0.7, gblur=1.0, downsample=0.7,
               ds_max=7, diams=None, pscale=None, iso=True, sigma0=None, sigma1=None,
-              ds=None):
+              ds=None, uniform_blur=False, partial_blur=False):
     """Adds noise to the input image.
 
     Args:
@@ -234,30 +234,50 @@ def add_noise(lbl, alpha=4, beta=0.7, poisson=0.7, blur=0.7, gblur=1.0, downsamp
     """
     device = lbl.device
     imgi = torch.zeros_like(lbl)
+    Ly, Lx = lbl.shape[-2:]
 
     diams = diams if diams is not None else 30. * torch.ones(len(lbl), device=device)
     #ds0 = 1 if ds is None else ds.item()
     ds = ds * torch.ones(
         (len(lbl),), device=device, dtype=torch.long) if ds is not None else ds
 
+    # downsample
+    ii = []
+    idownsample = np.random.rand(len(lbl)) < downsample
+    if (ds is None and idownsample.sum() > 0.) or not iso:
+        ds = torch.ones(len(lbl), dtype=torch.long, device=device)
+        ds[idownsample] = torch.randint(2, ds_max + 1, size=(idownsample.sum(),),
+                                        device=device)
+        ii = torch.nonzero(ds > 1).flatten()
+    elif ds is not None and (ds > 1).sum():
+        ii = torch.nonzero(ds > 1).flatten()
+
     # add gaussian blur
-    iblur = np.random.rand(len(lbl)) < blur
+    iblur = torch.rand(len(lbl), device=device) < blur
+    iblur[ii] = True
     if iblur.sum() > 0:
         if sigma0 is None:
-            # was 10
-            xrand = np.random.exponential(1, size=iblur.sum())
-            xrand = np.clip(xrand * 0.5, 0.1, 1.0)
-            xrand *= gblur
-            sigma0 = diams[iblur] / 30. * 5. * torch.from_numpy(xrand).float().to(
-                device)
-            #(1 + torch.rand(iblur.sum(), device=device))
-            if not iso:
-                sr = diams[iblur] / 30. * 2 * (1 +
-                                               torch.rand(iblur.sum(), device=device))
-                sigma1 = (torch.rand(iblur.sum(), device=device) > 0.66) * sr
+            if uniform_blur and iso:
+                xr = torch.rand(len(lbl), device=device)
+                if len(ii) > 0:
+                    xr[ii] = ds[ii].float() / 2. / gblur
+                sigma0 = diams[iblur] / 30. * gblur * (1 / gblur + (1 - 1 / gblur) * xr[iblur])
+                sigma1 = sigma0.clone()
+            elif not iso:
+                xr = torch.rand(len(lbl), device=device)
+                if len(ii) > 0:
+                    xr[ii] = (ds[ii].float()) / gblur
+                    xr[ii] = xr[ii] + torch.rand(len(ii), device=device) * 0.7 - 0.35
+                    xr[ii] = torch.clip(xr[ii], 0.05, 1.5)
+                sigma0 = diams[iblur] / 30. * gblur * xr[iblur]
+                sigma1 = sigma0.clone() / 10.
             else:
-                sigma1 = sigma0.clone(
-                )  #+ torch.randint(0, 3, size=(len(sigma0.clone()),), device=device)
+                xrand = np.random.exponential(1, size=iblur.sum())
+                xrand = np.clip(xrand * 0.5, 0.1, 1.0)
+                xrand *= gblur
+                sigma0 = diams[iblur] / 30. * 5. * torch.from_numpy(xrand).float().to(
+                    device)
+                sigma1 = sigma0.clone()
         else:
             sigma0 = sigma0 * torch.ones((iblur.sum(),), device=device)
             sigma1 = sigma1 * torch.ones((iblur.sum(),), device=device)
@@ -278,22 +298,28 @@ def add_noise(lbl, alpha=4, beta=0.7, poisson=0.7, blur=0.7, gblur=1.0, downsamp
         gfilt = torch.einsum("ck,cl->ckl", gfilt0, gfilt1)
         gfilt /= gfilt.sum(axis=(1, 2), keepdims=True)
 
-        imgi[iblur] = conv2d(lbl[iblur].transpose(1, 0), gfilt.unsqueeze(1),
+        lbl_blur = conv2d(lbl[iblur].transpose(1, 0), gfilt.unsqueeze(1),
                              padding=gfilt.shape[-1] // 2,
                              groups=gfilt.shape[0]).transpose(1, 0)
+        if partial_blur:
+            #yc, xc = np.random.randint(100, Ly-100), np.random.randint(100, Lx-100)
+            imgi[iblur] = lbl[iblur].clone()
+            Lxc = int(Lx * 0.85)
+            ym, xm = torch.meshgrid(torch.zeros(Ly, dtype=torch.float32), 
+                                    torch.arange(0, Lxc, dtype=torch.float32), 
+                        indexing="ij")
+            mask = torch.exp(-(ym**2 + xm**2) / 2*(0.001**2))
+            mask -= mask.min()
+            mask /= mask.max()
+            lbl_blur_crop = lbl_blur[:, :, :, :Lxc]
+            imgi[iblur, :, :, :Lxc] = (lbl_blur_crop * mask + 
+                                (1-mask) * imgi[iblur, :, :, :Lxc])
+        else:
+            imgi[iblur] = lbl_blur
 
     imgi[~iblur] = lbl[~iblur]
 
-    # downsample
-    ii = []
-    idownsample = np.random.rand(len(lbl)) < downsample
-    if (ds is None and idownsample.sum() > 0.) or not iso:
-        ds = torch.ones(len(lbl), dtype=torch.long, device=device)
-        ds[idownsample] = torch.randint(2, ds_max + 1, size=(idownsample.sum(),),
-                                        device=device)
-        ii = torch.nonzero(ds > 1)
-    elif ds is not None and (ds > 1).sum():
-        ii = torch.nonzero(ds > 1)
+    # apply downsample
     for k in ii:
         i0 = imgi[k:k + 1, :, ::ds[k], ::ds[k]] if iso else imgi[k:k + 1, :, ::ds[k]]
         imgi[k] = interpolate(i0, size=lbl[k].shape[-2:], mode="bilinear")
@@ -320,7 +346,7 @@ def add_noise(lbl, alpha=4, beta=0.7, poisson=0.7, blur=0.7, gblur=1.0, downsamp
 
 def random_rotate_and_resize_noise(data, labels=None, diams=None, poisson=0.7, blur=0.7,
                                    downsample=0.0, beta=0.7, gblur=1.0, diam_mean=30,
-                                   ds_max=7, iso=True, rotate=True,
+                                   ds_max=7, uniform_blur=False, iso=True, rotate=True,
                                    device=torch.device("cuda"), xy=(224, 224),
                                    nchan_noise=1, keep_raw=True):
     """
@@ -349,7 +375,9 @@ def random_rotate_and_resize_noise(data, labels=None, diams=None, poisson=0.7, b
         torch.Tensor: The augmented labels.
         float: The scale factor applied to the image.
     """
-
+    if device == None:
+        device = torch.device('cuda') if torch.cuda.is_available() else torch.device('mps') if torch.backends.mps.is_available() else None
+    
     diams = 30 if diams is None else diams
     random_diam = diam_mean * (2**(2 * np.random.rand(len(data)) - 1))
     random_rsc = diams / random_diam  #/ random_diam
@@ -437,7 +465,7 @@ def one_chan_cellpose(device, model_type="cyto2", pretrained_model=None):
     net1 = resnet_torch.CPnet([nchan, *nbase], nout=3, sz=3).to(device)
     filename = model_path(model_type,
                           0) if pretrained_model is None else pretrained_model
-    weights = torch.load(filename)
+    weights = torch.load(filename, weights_only=True)
     zp = 0
     print(filename)
     for name in net1.state_dict():
@@ -465,18 +493,19 @@ class CellposeDenoiseModel():
     """ model to run Cellpose and Image restoration """
 
     def __init__(self, gpu=False, pretrained_model=False, model_type=None,
-                 restore_type="denoise_cyto3", chan2_restore=False, device=None):
+                 restore_type="denoise_cyto3", nchan=2,
+                 chan2_restore=False, device=None):
 
         self.dn = DenoiseModel(gpu=gpu, model_type=restore_type, chan2=chan2_restore,
                                device=device)
-        self.cp = CellposeModel(gpu=gpu, model_type=model_type,
+        self.cp = CellposeModel(gpu=gpu, model_type=model_type, nchan=nchan,
                                 pretrained_model=pretrained_model, device=device)
 
     def eval(self, x, batch_size=8, channels=None, channel_axis=None, z_axis=None,
              normalize=True, rescale=None, diameter=None, tile=True, tile_overlap=0.1,
              augment=False, resample=True, invert=False, flow_threshold=0.4,
              cellprob_threshold=0.0, do_3D=False, anisotropy=None, stitch_threshold=0.0,
-             min_size=15, niter=None, interp=True):
+             min_size=15, niter=None, interp=True, bsize=224):
         """
         Restore array or list of images using the image restoration model, and then segment.
 
@@ -539,9 +568,10 @@ class CellposeDenoiseModel():
 
         img_restore = self.dn.eval(x, batch_size=batch_size, channels=channels,
                                    channel_axis=channel_axis, z_axis=z_axis,
+                                   do_3D=do_3D, 
                                    normalize=normalize_params, rescale=rescale,
                                    diameter=diameter, tile=tile,
-                                   tile_overlap=tile_overlap)
+                                   tile_overlap=tile_overlap, bsize=bsize)
 
         # turn off special normalization for segmentation
         normalize_params = normalize_default
@@ -557,7 +587,7 @@ class CellposeDenoiseModel():
             invert=invert, flow_threshold=flow_threshold,
             cellprob_threshold=cellprob_threshold, do_3D=do_3D, anisotropy=anisotropy,
             stitch_threshold=stitch_threshold, min_size=min_size, niter=niter,
-            interp=interp)
+            interp=interp, bsize=bsize)
 
         return masks, flows, styles, img_restore
 
@@ -658,7 +688,8 @@ class DenoiseModel():
         self.net_type = "cellpose_denoise"
 
     def eval(self, x, batch_size=8, channels=None, channel_axis=None, z_axis=None,
-             normalize=True, rescale=None, diameter=None, tile=True, tile_overlap=0.1):
+             normalize=True, rescale=None, diameter=None, tile=True, do_3D=False,
+             tile_overlap=0.1, bsize=224):
         """
         Restore array or list of images using the image restoration model.
 
@@ -712,11 +743,12 @@ class DenoiseModel():
                        isinstance(channels[i], np.ndarray)) and len(channels[i]) == 2))
                     else channels, channel_axis=channel_axis, z_axis=z_axis,
                     normalize=normalize,
+                    do_3D=do_3D,
                     rescale=rescale[i] if isinstance(rescale, list) or
                     isinstance(rescale, np.ndarray) else rescale,
                     diameter=diameter[i] if isinstance(diameter, list) or
                     isinstance(diameter, np.ndarray) else diameter, tile=tile,
-                    tile_overlap=tile_overlap)
+                    tile_overlap=tile_overlap, bsize=bsize)
                 imgs.append(imgi)
             if isinstance(x, np.ndarray):
                 imgs = np.array(imgs)
@@ -725,7 +757,7 @@ class DenoiseModel():
         else:
             # reshape image
             x = transforms.convert_image(x, channels, channel_axis=channel_axis,
-                                         z_axis=z_axis)
+                                         z_axis=z_axis, do_3D=do_3D)
             if x.ndim < 4:
                 squeeze = True
                 x = x[np.newaxis, ...]
@@ -765,18 +797,18 @@ class DenoiseModel():
                     x[...,
                       c] = self._eval(self.net, x[..., c:c + 1], batch_size=batch_size,
                                       normalize=normalize, rescale=rescale0, tile=tile,
-                                      tile_overlap=tile_overlap)
+                                      tile_overlap=tile_overlap, bsize=bsize)[...,0]
                 else:
                     x[...,
                       c] = self._eval(self.net_chan2, x[...,
                                                         c:c + 1], batch_size=batch_size,
                                       normalize=normalize, rescale=rescale0, tile=tile,
-                                      tile_overlap=tile_overlap)
+                                      tile_overlap=tile_overlap, bsize=bsize)[...,0]
             x = x[0] if squeeze else x
         return x
 
     def _eval(self, net, x, batch_size=8, normalize=True, rescale=None, tile=True,
-              tile_overlap=0.1):
+              tile_overlap=0.1, bsize=224):
         """
         Run image restoration model on a single channel.
 
@@ -816,40 +848,49 @@ class DenoiseModel():
 
         do_normalization = True if normalize_params["normalize"] else False
 
-        tqdm_out = utils.TqdmToLogger(denoise_logger, level=logging.INFO)
-        iterator = trange(nimg, file=tqdm_out,
-                          mininterval=30) if nimg > 1 else range(nimg)
-        imgs = np.zeros((*x.shape[:-1], 1), np.float32)
-        for i in iterator:
-            img = np.asarray(x[i])
-            if do_normalization:
-                img = transforms.normalize_img(img, **normalize_params)
-            if rescale != 1.0:
-                img = transforms.resize_image(img, rsz=[rescale, rescale])
-                if img.ndim == 2:
-                    img = img[:, :, np.newaxis]
-            yf, style = run_net(net, img, batch_size=batch_size, augment=False,
-                                tile=tile, tile_overlap=tile_overlap)
-            img = transforms.resize_image(yf, Ly=x.shape[-3], Lx=x.shape[-2])
+        img = np.asarray(x)
+        if do_normalization:
+            img = transforms.normalize_img(img, **normalize_params)
+        if rescale != 1.0:
+            img = transforms.resize_image(img, rsz=rescale)
+        yf, style = run_net(self.net, img, bsize=bsize,
+                            tile=tile, tile_overlap=tile_overlap)
+        yf = transforms.resize_image(yf, shape[1], shape[2])
+        imgs = yf
+        del yf, style
 
-            if img.ndim == 2:
-                img = img[:, :, np.newaxis]
-            imgs[i] = img
-            del yf, style
+        # imgs = np.zeros((*x.shape[:-1], 1), np.float32)
+        # for i in iterator:
+        #     img = np.asarray(x[i])
+        #     if do_normalization:
+        #         img = transforms.normalize_img(img, **normalize_params)
+        #     if rescale != 1.0:
+        #         img = transforms.resize_image(img, rsz=[rescale, rescale])
+        #         if img.ndim == 2:
+        #             img = img[:, :, np.newaxis]
+        #     yf, style = run_net(net, img, batch_size=batch_size, augment=False,
+        #                         tile=tile, tile_overlap=tile_overlap, bsize=bsize)
+        #     img = transforms.resize_image(yf, Ly=x.shape[-3], Lx=x.shape[-2])
+
+        #     if img.ndim == 2:
+        #         img = img[:, :, np.newaxis]
+        #     imgs[i] = img
+        #     del yf, style
         net_time = time.time() - tic
         if nimg > 1:
             denoise_logger.info("imgs denoised in %2.2fs" % (net_time))
 
-        return imgs.squeeze()
+        return imgs
 
 
 def train(net, train_data=None, train_labels=None, train_files=None, test_data=None,
           test_labels=None, test_files=None, train_probs=None, test_probs=None,
           lam=[1., 1.5, 0.], scale_range=0.5, seg_model_type="cyto2", save_path=None,
           save_every=100, save_each=False, poisson=0.7, beta=0.7, blur=0.7, gblur=1.0,
-          iso=True, downsample=0., learning_rate=0.005, n_epochs=500, momentum=0.9,
+          iso=True, uniform_blur=False, downsample=0., ds_max=7,
+          learning_rate=0.005, n_epochs=500,
           weight_decay=0.00001, batch_size=8, nimg_per_epoch=None,
-          nimg_test_per_epoch=None):
+          nimg_test_per_epoch=None, model_name=None):
 
     # net properties
     device = net.device
@@ -864,21 +905,23 @@ def train(net, train_data=None, train_labels=None, train_files=None, test_data=N
 
     d = datetime.datetime.now()
     if save_path is not None:
-        filename = ""
-        lstrs = ["per", "seg", "rec"]
-        for k, (l, s) in enumerate(zip(lam, lstrs)):
-            filename += f"{s}_{l:.2f}_"
-        if poisson.sum() > 0:
-            filename += "poisson_"
-        if blur.sum() > 0:
-            if iso:
+        if model_name is None:  
+            filename = ""
+            lstrs = ["per", "seg", "rec"]
+            for k, (l, s) in enumerate(zip(lam, lstrs)):
+                filename += f"{s}_{l:.2f}_"
+            if not iso:
+                filename += "aniso_"
+            if poisson.sum() > 0:
+                filename += "poisson_"
+            if blur.sum() > 0:
                 filename += "blur_"
-            else:
-                filename += "bluraniso_"
-        if downsample.sum() > 0:
-            filename += "downsample_"
-        filename += d.strftime("%Y_%m_%d_%H_%M_%S.%f")
-        filename = os.path.join(save_path, filename)
+            if downsample.sum() > 0:
+                filename += "downsample_"
+            filename += d.strftime("%Y_%m_%d_%H_%M_%S.%f")
+            filename = os.path.join(save_path, filename)
+        else:
+            filename = os.path.join(save_path, model_name)
         print(filename)
     for i in range(len(poisson)):
         denoise_logger.info(
@@ -937,6 +980,7 @@ def train(net, train_data=None, train_labels=None, train_files=None, test_data=N
         nimg_test_per_epoch = nimg_test if nimg_test_per_epoch is None else nimg_test_per_epoch
 
     nbatch = 0
+    train_losses, test_losses = [], []
     for iepoch in range(n_epochs):
         np.random.seed(iepoch)
         rperm = np.random.choice(np.arange(0, nimg), size=(nimg_per_epoch,),
@@ -946,35 +990,54 @@ def train(net, train_data=None, train_labels=None, train_files=None, test_data=N
         for param_group in optimizer.param_groups:
             param_group["lr"] = learning_rate[iepoch]
         lavg, lavg_per, nsum = 0, 0, 0
-        for ibatch in range(0, nimg_per_epoch, batch_size):
-            inds = rperm[ibatch:ibatch + batch_size]
+        for ibatch in range(0, nimg_per_epoch, batch_size * nnoise):
+            inds = rperm[ibatch : ibatch + batch_size * nnoise]
             if train_data is None:
                 imgs = [np.maximum(0, io.imread(train_files[i])[:nchan]) for i in inds]
                 lbls = [io.imread(train_labels_files[i])[1:] for i in inds]
             else:
                 imgs = [train_data[i][:nchan] for i in inds]
                 lbls = [train_labels[i][1:] for i in inds]
-            inoise = nbatch % nnoise
-            img, lbl, scale = random_rotate_and_resize_noise(
-                imgs, lbls, diam_train[inds].copy(), poisson=poisson[inoise],
-                beta=beta[inoise], gblur=gblur[inoise], blur=blur[inoise], iso=iso,
-                downsample=downsample[inoise], diam_mean=diam_mean, device=device)
-            #print(torch.isnan(img).sum())
-            if torch.isnan(img).sum():
-                import pdb
-                pdb.set_trace()
-            optimizer.zero_grad()
-            loss, loss_per = train_loss(net, img[:, :nchan], net1=net1,
-                                        img=img[:, nchan:], lbl=lbl, lam=lam)
+            #inoise = nbatch % nnoise
+            rnoise = np.random.permutation(nnoise)
+            for i, inoise in enumerate(rnoise):
+                if i * batch_size < len(imgs):
+                    imgi, lbli, scale = random_rotate_and_resize_noise(
+                        imgs[i * batch_size : (i + 1) * batch_size], 
+                        lbls[i * batch_size : (i + 1) * batch_size],
+                        diam_train[inds][i * batch_size : (i + 1) * batch_size].copy(), 
+                        poisson=poisson[inoise],
+                        beta=beta[inoise], gblur=gblur[inoise], blur=blur[inoise], iso=iso,
+                        downsample=downsample[inoise], uniform_blur=uniform_blur,
+                        diam_mean=diam_mean, ds_max=ds_max,
+                        device=device)
+                    if i == 0:
+                        img = imgi 
+                        lbl = lbli 
+                    else:
+                        img = torch.cat((img, imgi), axis=0)
+                        lbl = torch.cat((lbl, lbli), axis=0)
 
-            loss.backward()
-            optimizer.step()
-            lavg += loss.item() * img.shape[0]
-            lavg_per += loss_per.item() * img.shape[0]
+            if nnoise > 0:
+                iperm = np.random.permutation(img.shape[0])
+                img, lbl = img[iperm], lbl[iperm]
+            
+            for i in range(nnoise):
+                optimizer.zero_grad()
+                imgi = img[i * batch_size: (i + 1) * batch_size]
+                lbli = lbl[i * batch_size: (i + 1) * batch_size]
+                if imgi.shape[0] > 0:
+                    loss, loss_per = train_loss(net, imgi[:, :nchan], net1=net1,
+                                            img=imgi[:, nchan:], lbl=lbli, lam=lam)
+                    loss.backward()
+                    optimizer.step()
+                    lavg += loss.item() * imgi.shape[0]
+                    lavg_per += loss_per.item() * imgi.shape[0]
+
             nsum += len(img)
             nbatch += 1
 
-        if iepoch % 10 == 0 or iepoch < 10:
+        if iepoch % 5 == 0 or iepoch < 10:
             lavg = lavg / nsum
             lavg_per = lavg_per / nsum
             if test_data is not None or test_files is not None:
@@ -998,32 +1061,29 @@ def train(net, train_data=None, train_labels=None, train_files=None, test_data=N
                     img, lbl, scale = random_rotate_and_resize_noise(
                         imgs, lbls, diam_test[inds].copy(), poisson=poisson[inoise],
                         beta=beta[inoise], blur=blur[inoise], gblur=gblur[inoise],
-                        iso=iso, downsample=downsample[inoise], diam_mean=diam_mean,
-                        device=device)
+                        iso=iso, downsample=downsample[inoise], uniform_blur=uniform_blur,
+                        diam_mean=diam_mean, ds_max=ds_max, device=device)
                     loss, loss_per = test_loss(net, img[:, :nchan], net1=net1,
                                                img=img[:, nchan:], lbl=lbl, lam=lam)
 
                     lavgt += loss.item() * img.shape[0]
                     nsum += len(img)
+                lavgt = lavgt / nsum
                 denoise_logger.info(
                     "Epoch %d, Time %4.1fs, Loss %0.3f, loss_per %0.3f, Loss Test %0.3f, LR %2.4f"
-                    % (iepoch, time.time() - tic, lavg, lavg_per, lavgt / nsum,
+                    % (iepoch, time.time() - tic, lavg, lavg_per, lavgt,
                        learning_rate[iepoch]))
+                test_losses.append(lavgt)
             else:
                 denoise_logger.info(
                     "Epoch %d, Time %4.1fs, Loss %0.3f, loss_per %0.3f, LR %2.4f" %
                     (iepoch, time.time() - tic, lavg, lavg_per, learning_rate[iepoch]))
-        elif iepoch < 50:
-            lavg = lavg / nsum
-            lavg_per = lavg_per / nsum
-            denoise_logger.info(
-                "Epoch %d, Time %4.1fs, Loss %0.3f, loss_per %0.3f, LR %2.4f" %
-                (iepoch, time.time() - tic, lavg, lavg_per, learning_rate[iepoch]))
-
+            train_losses.append(lavg)
+            
         if save_path is not None:
-            if iepoch == n_epochs - 1 or iepoch % save_every == 1:
+            if iepoch == n_epochs - 1 or (iepoch % save_every == 0 and iepoch != 0):
                 if save_each:  #separate files as model progresses
-                    filename0 = filename + "_epoch_" + str(iepoch)
+                    filename0 = str(filename) + f"_epoch_{iepoch:%04d}"
                 else:
                     filename0 = filename
                 denoise_logger.info(f"saving network parameters to {filename0}")
@@ -1031,7 +1091,7 @@ def train(net, train_data=None, train_labels=None, train_files=None, test_data=N
         else:
             filename = save_path
 
-    return filename
+    return filename, train_losses, test_losses
 
 
 if __name__ == "__main__":
@@ -1068,6 +1128,8 @@ if __name__ == "__main__":
                                help="scale of gaussian blurring stddev")
     training_args.add_argument("--downsample", default=0., type=float,
                                help="fraction of images to downsample")
+    training_args.add_argument("--ds_max", default=7, type=int,
+                               help="max downsampling factor")
     training_args.add_argument("--lam_per", default=1.0, type=float,
                                help="weighting of perceptual loss")
     training_args.add_argument("--lam_seg", default=1.5, type=float,
@@ -1083,6 +1145,9 @@ if __name__ == "__main__":
     training_args.add_argument("--n_epochs", default=2000, type=int,
                                help="number of epochs. Default: %(default)s")
     training_args.add_argument(
+        "--save_each", default=False, action="store_true",
+        help="save each epoch as separate model")
+    training_args.add_argument(
         "--nimg_per_epoch", default=0, type=int,
         help="number of images per epoch. Default is length of training images")
     training_args.add_argument(
@@ -1092,33 +1157,59 @@ if __name__ == "__main__":
     io.logger_setup()
 
     args = parser.parse_args()
+    lams = [args.lam_per, args.lam_seg, args.lam_rec]
+    print("lam", lams)
 
     if len(args.noise_type) > 0:
         noise_type = args.noise_type
+        uniform_blur = False
+        iso = True
         if noise_type == "poisson":
             poisson = 0.8
             blur = 0.
             downsample = 0.
             beta = 0.7
             gblur = 1.0
+        elif noise_type == "blur_expr":
+            poisson = 0.8
+            blur = 0.8
+            downsample = 0.
+            beta = 0.1
+            gblur = 0.5
         elif noise_type == "blur":
             poisson = 0.8
             blur = 0.8
             downsample = 0.
             beta = 0.1
+            gblur = 10.0
+            uniform_blur = True
+        elif noise_type == "downsample_expr":
+            poisson = 0.8
+            blur = 0.8
+            downsample = 0.8
+            beta = 0.03
             gblur = 1.0
         elif noise_type == "downsample":
             poisson = 0.8
             blur = 0.8
             downsample = 0.8
-            beta = 0.01
-            gblur = 0.5
+            beta = 0.03
+            gblur = 5.0
+            uniform_blur = True
         elif noise_type == "all":
             poisson = [0.8, 0.8, 0.8]
             blur = [0., 0.8, 0.8]
             downsample = [0., 0., 0.8]
-            beta = [0.7, 0.1, 0.01]
-            gblur = [0., 1.0, 0.5]
+            beta = [0.7, 0.1, 0.03]
+            gblur = [0., 10.0, 5.0]
+            uniform_blur = True
+        elif noise_type == "aniso":
+            poisson = 0.8
+            blur = 0.8
+            downsample = 0.8
+            beta = 0.1
+            gblur = args.ds_max * 1.5
+            iso = False
         else:
             raise ValueError(f"{noise_type} noise_type is not supported")
     else:
@@ -1134,8 +1225,7 @@ if __name__ == "__main__":
     train_data, labels, train_files, train_probs = None, None, None, None
     test_data, test_labels, test_files, test_probs = None, None, None, None
     if len(args.file_list) == 0:
-        output = io.load_train_test_data(args.dir, args.test_dir, "_img", "_masks", 0,
-                                         0)
+        output = io.load_train_test_data(args.dir, args.test_dir, "_img", "_masks", 0)
         images, labels, image_names, test_images, test_labels, image_names_test = output
         train_data = []
         for i in range(len(images)):
@@ -1183,10 +1273,11 @@ if __name__ == "__main__":
         model.net, train_data=train_data, train_labels=labels, train_files=train_files,
         test_data=test_data, test_labels=test_labels, test_files=test_files,
         train_probs=train_probs, test_probs=test_probs, poisson=poisson, beta=beta,
-        blur=blur, gblur=gblur, downsample=downsample, iso=True, n_epochs=args.n_epochs,
+        blur=blur, gblur=gblur, downsample=downsample, ds_max=args.ds_max,
+        iso=iso, uniform_blur=uniform_blur, n_epochs=args.n_epochs,
         learning_rate=args.learning_rate,
-        lam=[args.lam_per, args.lam_seg, args.lam_rec
-            ], seg_model_type=args.seg_model_type, nimg_per_epoch=nimg_per_epoch,
+        lam=lams, 
+        seg_model_type=args.seg_model_type, nimg_per_epoch=nimg_per_epoch,
         nimg_test_per_epoch=nimg_test_per_epoch, save_path=save_path)
 
 

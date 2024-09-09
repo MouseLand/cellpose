@@ -156,7 +156,7 @@ def _process_train_test(train_data=None, train_labels=None, train_files=None,
                         test_probs=None, load_files=True, min_train_masks=5,
                         compute_flows=False, channels=None, channel_axis=None,
                         rgb=False, normalize_params={"normalize": False
-                                                    }, device=torch.device("cuda")):
+                                                    }, device=None):
     """
     Process train and test data.
 
@@ -183,6 +183,9 @@ def _process_train_test(train_data=None, train_labels=None, train_files=None,
     Returns:
         tuple: A tuple containing the processed train and test data and sampling probabilities and diameters.
     """
+    if device == None:
+        device = torch.device('cuda') if torch.cuda.is_available() else torch.device('mps') if torch.backends.mps.is_available() else None
+    
     if train_data is not None and train_labels is not None:
         # if data is loaded
         nimg = len(train_data)
@@ -328,7 +331,7 @@ def train_seg(net, train_data=None, train_labels=None, train_files=None,
               test_probs=None, load_files=True, batch_size=8, learning_rate=0.005,
               n_epochs=2000, weight_decay=1e-5, momentum=0.9, SGD=False, channels=None,
               channel_axis=None, rgb=False, normalize=True, compute_flows=False,
-              save_path=None, save_every=100, nimg_per_epoch=None,
+              save_path=None, save_every=100, save_each=False, nimg_per_epoch=None,
               nimg_test_per_epoch=None, rescale=True, scale_range=None, bsize=224,
               min_train_masks=5, model_name=None):
     """
@@ -359,6 +362,7 @@ def train_seg(net, train_data=None, train_labels=None, train_files=None,
         compute_flows (bool, optional): Boolean - whether to compute flows during training. Defaults to False.
         save_path (str, optional): String - where to save the trained model. Defaults to None.
         save_every (int, optional): Integer - save the network every [save_every] epochs. Defaults to 100.
+        save_each (bool, optional): Boolean - save the network to a new filename at every [save_each] epoch. Defaults to False.
         nimg_per_epoch (int, optional): Integer - minimum number of images to train on per epoch. Defaults to None.
         nimg_test_per_epoch (int, optional): Integer - minimum number of images to test on per epoch. Defaults to None.
         rescale (bool, optional): Boolean - whether or not to rescale images during training. Defaults to True.
@@ -367,6 +371,8 @@ def train_seg(net, train_data=None, train_labels=None, train_files=None,
 
     Returns:
         Path: path to saved model weights
+        np.ndarray: training losses
+        np.ndarray: test losses
     """
     device = net.device
 
@@ -382,9 +388,11 @@ def train_seg(net, train_data=None, train_labels=None, train_files=None,
         normalize_params["normalize"] = normalize
 
     out = _process_train_test(train_data=train_data, train_labels=train_labels,
-                              train_files=train_files, train_probs=train_probs,
+                              train_files=train_files, train_labels_files=train_labels_files,
+                              train_probs=train_probs,
                               test_data=test_data, test_labels=test_labels,
-                              test_files=test_files, test_probs=test_probs,
+                              test_files=test_files, test_labels_files=test_labels_files,
+                              test_probs=test_probs,
                               load_files=load_files, min_train_masks=min_train_masks,
                               compute_flows=compute_flows, channels=channels,
                               channel_axis=channel_axis, rgb=rgb,
@@ -441,24 +449,27 @@ def train_seg(net, train_data=None, train_labels=None, train_files=None,
     t0 = time.time()
     model_name = f"cellpose_{t0}" if model_name is None else model_name
     save_path = Path.cwd() if save_path is None else Path(save_path)
-    model_path = save_path / "models" / model_name
+    filename = save_path / "models" / model_name
     (save_path / "models").mkdir(exist_ok=True)
 
-    train_logger.info(f">>> saving model to {model_path}")
+    train_logger.info(f">>> saving model to {filename}")
 
     lavg, nsum = 0, 0
+    train_losses, test_losses = np.zeros(n_epochs), np.zeros(n_epochs)
     for iepoch in range(n_epochs):
         np.random.seed(iepoch)
         if nimg != nimg_per_epoch:
+            # choose random images for epoch with probability train_probs
             rperm = np.random.choice(np.arange(0, nimg), size=(nimg_per_epoch,),
                                      p=train_probs)
         else:
+            # otherwise use all images
             rperm = np.random.permutation(np.arange(0, nimg))
         for param_group in optimizer.param_groups:
-            param_group["lr"] = LR[iepoch]
+            param_group["lr"] = LR[iepoch] # set learning rate
         net.train()
         for k in range(0, nimg_per_epoch, batch_size):
-            kend = min(k + batch_size, nimg)
+            kend = min(k + batch_size, nimg_per_epoch)
             inds = rperm[k:kend]
             imgs, lbls = _get_batch(inds, data=train_data, labels=train_labels,
                                     files=train_files, labels_files=train_labels_files,
@@ -470,18 +481,22 @@ def train_seg(net, train_data=None, train_labels=None, train_files=None,
             imgi, lbl = transforms.random_rotate_and_resize(imgs, Y=lbls, rescale=rsc,
                                                             scale_range=scale_range,
                                                             xy=(bsize, bsize))[:2]
-
+            # network and loss optimization
             X = torch.from_numpy(imgi).to(device)
             y = net(X)[0]
             loss = _loss_fn_seg(lbl, y, device)
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
-
             train_loss = loss.item()
             train_loss *= len(imgi)
+
+            # keep track of average training loss across epochs
             lavg += train_loss
             nsum += len(imgi)
+            # per epoch training loss
+            train_losses[iepoch] += train_loss
+        train_losses[iepoch] /= nimg_per_epoch
 
         if iepoch == 5 or iepoch % 10 == 0:
             lavgt = 0.
@@ -513,17 +528,24 @@ def train_seg(net, train_data=None, train_labels=None, train_files=None,
                         test_loss *= len(imgi)
                         lavgt += test_loss
                 lavgt /= len(rperm)
+                test_losses[iepoch] = lavgt
             lavg /= nsum
             train_logger.info(
-                f"{iepoch}, train_loss={lavg:.4f}, test_loss={lavgt:.4f}, LR={LR[iepoch]:.4f}, time {time.time()-t0:.2f}s"
+                f"{iepoch}, train_loss={lavg:.4f}, test_loss={lavgt:.4f}, LR={LR[iepoch]:.6f}, time {time.time()-t0:.2f}s"
             )
             lavg, nsum = 0, 0
 
-        if iepoch > 0 and iepoch % save_every == 0:
-            net.save_model(model_path)
-    net.save_model(model_path)
+        if iepoch == n_epochs - 1 or (iepoch % save_every == 0 and iepoch != 0):
+            if save_each and iepoch != n_epochs - 1:  #separate files as model progresses
+                filename0 = str(filename) + f"_epoch_{iepoch:%04d}"
+            else:
+                filename0 = filename
+            train_logger.info(f"saving network parameters to {filename0}")
+            net.save_model(filename0)
+    
+    net.save_model(filename)
 
-    return model_path
+    return filename, train_losses, test_losses
 
 
 def train_size(net, pretrained_model, train_data=None, train_labels=None,
