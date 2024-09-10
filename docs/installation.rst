@@ -59,6 +59,12 @@ Be warned that the ROCm project is significantly less mature than CUDA, and you 
 Common issues
 ~~~~~~~~~~~~~~~~~~~~~~~
 
+If you receive an issue with Qt "xcb", you may need to install xcb libraries, e.g.:
+
+:: 
+   sudo apt install libxcb-cursor0
+
+
 If you are having issues with CUDA on Windows, or want to use 
 Cuda Toolkit 10, please follow these `instructions <https://github.com/MouseLand/cellpose/issues/481#issuecomment-1080137885>`_:
 
