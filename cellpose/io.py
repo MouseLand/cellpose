@@ -572,7 +572,7 @@ def save_to_png(images, masks, flows, file_names):
     save_masks(images, masks, flows, file_names, png=True)
 
 
-def save_rois(masks, file_name):
+def save_rois(masks, file_name, multiprocessing=None):
     """ save masks to .roi files in .zip archive for ImageJ/Fiji
 
     Args:
@@ -582,7 +582,7 @@ def save_rois(masks, file_name):
     Returns:
         None
     """
-    outlines = utils.outlines_list(masks)
+    outlines = utils.outlines_list(masks, multiprocessing=multiprocessing)
     nonempty_outlines = [outline for outline in outlines if len(outline)!=0]
     if len(outlines)!=len(nonempty_outlines):
         print(f"empty outlines found, saving {len(nonempty_outlines)} ImageJ ROIs to .zip archive.")
