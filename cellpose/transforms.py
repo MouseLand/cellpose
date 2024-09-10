@@ -642,10 +642,10 @@ def normalize_img(img, normalize=True, norm3D=False, invert=False, lowhigh=None,
     # Validate and handle lowhigh bounds
     if lowhigh is not None:
         lowhigh = np.array(lowhigh)
-        if lowhigh.ndim == 1:
-            lowhigh = np.tile(lowhigh, (nchan, 1))
+        if lowhigh.shape == (2,):
+            lowhigh = np.tile(lowhigh, (nchan, 1))  # Expand to per-channel bounds
         elif lowhigh.shape != (nchan, 2):
-            error_message = "`lowhigh` must have shape (nchan, 2)"
+            error_message = "`lowhigh` must have shape (2,) or (nchan, 2)"
             transforms_logger.critical(error_message)
             raise ValueError(error_message)
 
