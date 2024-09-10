@@ -1,5 +1,7 @@
-from cellpose.transforms import *
-from cellpose import io
+import numpy as np
+
+from cellpose.io import imread
+from cellpose.transforms import normalize_img, random_rotate_and_resize, resize_image
 
 
 def test_random_rotate_and_resize__default():
@@ -10,11 +12,8 @@ def test_random_rotate_and_resize__default():
 
 
 def test_normalize_img(data_dir):
-    img = io.imread(str(data_dir.joinpath('3D').joinpath('rgb_3D.tif')))
+    img = imread(str(data_dir.joinpath('3D').joinpath('rgb_3D.tif')))
     img = img.transpose(0, 2, 3, 1).astype('float32')
-
-    img_norm = normalize_img(img, lowhigh=(0, 1))
-    assert img_norm.min() >= 0 and img_norm.max() <= 1
 
     img_norm = normalize_img(img, norm3D=True)
     assert img_norm.shape == img.shape
@@ -25,21 +24,50 @@ def test_normalize_img(data_dir):
     img_norm = normalize_img(img, norm3D=False, sharpen_radius=8)
     assert img_norm.shape == img.shape
 
+
+def test_normalize_img_with_lowhigh_and_invert(data_dir):
+    img = imread(str(data_dir.joinpath('3D').joinpath('rgb_3D.tif')))
+    img = img.transpose(0, 2, 3, 1).astype('float32')
+
+    img_norm = normalize_img(img, lowhigh=(img.min(), img.max()))
+    assert img_norm.min() >= 0 and img_norm.max() <= 1
+
+    img_norm_channelwise = normalize_img(
+        img,
+        lowhigh=(
+            (img[..., 0].min(), img[..., 0].max()),
+            (img[..., 1].min(), img[..., 1].max()),
+        ),
+    )
+    assert img_norm_channelwise.min() >= 0 and img_norm_channelwise.max() <= 1
+
+    img_norm_channelwise_inverted = normalize_img(
+        img,
+        lowhigh=(
+            (img[..., 0].min(), img[..., 0].max()),
+            (img[..., 1].min(), img[..., 1].max()),
+        ),
+        invert=True,
+    )
+    np.testing.assert_allclose(
+        img_norm_channelwise, 1 - img_norm_channelwise_inverted, rtol=1e-3
+    )
+
+
 def test_resize(data_dir):
-    img = io.imread(str(data_dir.joinpath('2D').joinpath('rgb_2D_tif.tif')))
-    
+    img = imread(str(data_dir.joinpath('2D').joinpath('rgb_2D_tif.tif')))
+
     Lx = 100
     Ly = 200
-    
+
     img8 = resize_image(img.astype("uint8"), Lx=Lx, Ly=Ly)
     assert img8.shape == (Ly, Lx, 3)
     assert img8.dtype == np.uint8
-    
+
     img16 = resize_image(img.astype("uint16"), Lx=Lx, Ly=Ly)
     assert img16.shape == (Ly, Lx, 3)
     assert img16.dtype == np.uint16
-    
+
     img32 = resize_image(img.astype("uint32"), Lx=Lx, Ly=Ly)
     assert img32.shape == (Ly, Lx, 3)
     assert img32.dtype == np.uint32
-    

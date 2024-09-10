@@ -2,18 +2,16 @@
 Copyright © 2023 Howard Hughes Medical Institute, Authored by Carsen Stringer and Marius Pachitariu.
 """
 
-import numpy as np
-import warnings
-import cv2
-import torch
-from torch.fft import fft2, ifft2, fftshift
-from scipy.ndimage import gaussian_filter1d
-
 import logging
+import warnings
+
+import cv2
+import numpy as np
+import torch
+from scipy.ndimage import gaussian_filter1d
+from torch.fft import fft2, fftshift, ifft2
 
 transforms_logger = logging.getLogger(__name__)
-
-from . import dynamics, utils
 
 
 def _taper_mask(ly=224, lx=224, sig=7.5):
@@ -492,7 +490,7 @@ def convert_image(x, channels, channel_axis=None, z_axis=None, do_3D=False, ncha
             transforms_logger.warning(f"z_axis not specified, assuming it is dim {z_axis}")
             transforms_logger.warning(f"if this is actually the channel_axis, use 'model.eval(channel_axis={z_axis}, ...)'")
             z_axis = 0
-    
+
     if z_axis is not None:
         if x.ndim == 3:
             x = x[..., np.newaxis]
@@ -512,7 +510,7 @@ def convert_image(x, channels, channel_axis=None, z_axis=None, do_3D=False, ncha
 
     if channel_axis is None:
         x = move_min_dim(x)
-    
+
     if x.ndim > 3:
         transforms_logger.info(
             "multi-stack tiff read in as having %d planes %d channels" %
@@ -533,7 +531,7 @@ def convert_image(x, channels, channel_axis=None, z_axis=None, do_3D=False, ncha
                 % (nchan, nchan))
             x = x[..., :nchan]
 
-        #if not do_3D and x.ndim > 3:
+        # if not do_3D and x.ndim > 3:
         #    transforms_logger.critical("ERROR: cannot process 4D images in 2D mode")
         #    raise ValueError("ERROR: cannot process 4D images in 2D mode")
 
@@ -716,41 +714,40 @@ def normalize_img(img, normalize=True, norm3D=False, invert=False, lowhigh=None,
     return img_norm
 
 def resize_safe(img, Ly, Lx, interpolation=cv2.INTER_LINEAR):
-    """OpenCV resize function does not support uint32. 
-    
+    """OpenCV resize function does not support uint32.
+
     This function converts the image to float32 before resizing and then converts it back to uint32. Not safe!
     References issue: https://github.com/MouseLand/cellpose/issues/937
-    
+
     Implications:
-    * Runtime: Runtime increases by 5x-50x due to type casting. However, with resizing being very efficient, this is not 
+    * Runtime: Runtime increases by 5x-50x due to type casting. However, with resizing being very efficient, this is not
     a big issue. A 10,000x10,000 image takes 0.47s instead of 0.016s to cast and resize on 32 cores on GPU.
     * Memory: However, memory usage increases. Not tested by how much.
-    
+
     Args:
         img (ndarray): Image of size [Ly x Lx].
         Ly (int): Desired height of the resized image.
         Lx (int): Desired width of the resized image.
         interpolation (int, optional): OpenCV interpolation method. Defaults to cv2.INTER_LINEAR.
-    
+
     Returns:
         ndarray: Resized image of size [Ly x Lx].
-        
+
     """
-        
+
     # cast image
     cast = img.dtype == np.uint32
     if cast:
-        # 
         img = img.astype(np.float32)
-    
+
     # resize
     img = cv2.resize(img, (Lx, Ly), interpolation=interpolation)
-    
+
     # cast back
     if cast:
         transforms_logger.warning("resizing image from uint32 to float32 and back to uint32")
         img = img.round().astype(np.uint32)
-        
+
     return img
 
 
