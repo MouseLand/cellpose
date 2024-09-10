@@ -598,21 +598,24 @@ def reshape(data, channels=[0, 0], chan_first=False):
 
 
 def normalize_img(img, normalize=True, norm3D=False, invert=False, lowhigh=None,
-                  percentile=None, sharpen_radius=0, smooth_radius=0,
+                  percentile=(1., 99.), sharpen_radius=0, smooth_radius=0,
                   tile_norm_blocksize=0, tile_norm_smooth3D=1, axis=-1):
-    """Normalize each channel of the image.
+    """Normalize each channel of the image with optional inversion, smoothing, and sharpening.
 
     Args:
         img (ndarray): The input image. It should have at least 3 dimensions.
             If it is 4-dimensional, it assumes the first non-channel axis is the Z dimension.
         normalize (bool, optional): Whether to perform normalization. Defaults to True.
-        norm3D (bool, optional): Whether to normalize in 3D. Defaults to False.
+        norm3D (bool, optional): Whether to normalize in 3D. If True, the entire 3D stack will
+            be normalized per channel. If False, normalization is applied per Z-slice. Defaults to False.
         invert (bool, optional): Whether to invert the image. Useful if cells are dark instead of bright.
             Defaults to False.
-        lowhigh (tuple, optional): The lower and upper bounds for normalization. If provided, it should be a tuple
-            of two values. Defaults to None.
+        lowhigh (tuple or ndarray, optional): The lower and upper bounds for normalization.
+            Can be a tuple of two values (applied to all channels) or an array of shape (nchan, 2)
+            for per-channel normalization. Incompatible with smoothing and sharpening.
+            Defaults to None.
         percentile (tuple, optional): The lower and upper percentiles for normalization. If provided, it should be
-            a tuple of two values. Each value should be between 0 and 100. Defaults to None.
+            a tuple of two values. Each value should be between 0 and 100. Defaults to (1.0, 99.0).
         sharpen_radius (int, optional): The radius for sharpening the image. Defaults to 0.
         smooth_radius (int, optional): The radius for smoothing the image. Defaults to 0.
         tile_norm_blocksize (int, optional): The block size for tile-based normalization. Defaults to 0.
@@ -633,60 +636,81 @@ def normalize_img(img, normalize=True, norm3D=False, invert=False, lowhigh=None,
         transforms_logger.critical(error_message)
         raise ValueError(error_message)
 
-    if lowhigh is not None:
-        assert len(lowhigh) == 2
-        assert lowhigh[1] > lowhigh[0]
-    elif percentile is not None:
-        assert len(percentile) == 2
-        assert percentile[0] >= 0 and percentile[1] > 0
-        assert percentile[0] < 100 and percentile[1] <= 100
-        assert percentile[1] > percentile[0]
-    else:
-        percentile = [1., 99.]
-
     img_norm = img.astype(np.float32)
-    # move channel axis last
-    img_norm = np.moveaxis(img_norm, axis, -1)
+    img_norm = np.moveaxis(img_norm, axis, -1)  # Move channel axis to last
+
     nchan = img_norm.shape[-1]
 
+    # Validate and handle lowhigh bounds
     if lowhigh is not None:
-        new_min, new_max = lowhigh
-        for c in range(nchan):
-            c_min = img_norm[..., c].min()
-            c_max = img_norm[..., c].max()
-            eps = 1.0e-6
-            img_norm[..., c] = (img_norm[..., c] - c_min) / (c_max - c_min + eps)
-            img_norm[..., c] = img_norm[..., c] * (new_max - new_min) + new_min
-    else:
-        if sharpen_radius > 0 or smooth_radius > 0:
-            img_norm = smooth_sharpen_img(img_norm, sharpen_radius=sharpen_radius,
-                                          smooth_radius=smooth_radius)
-
-        if tile_norm_blocksize > 0:
-            img_norm = normalize99_tile(img_norm, blocksize=tile_norm_blocksize,
-                                        lower=percentile[0], upper=percentile[1],
-                                        smooth3D=tile_norm_smooth3D, norm3D=norm3D)
-        elif normalize:
-            if img_norm.ndim == 3 or norm3D:
-                for c in range(nchan):
-                    img_norm[..., c] = normalize99(img_norm[...,
-                                                            c], lower=percentile[0],
-                                                   upper=percentile[1], copy=False)
-            else:
-                for z in range(img_norm.shape[0]):
-                    for c in range(nchan):
-                        img_norm[z, :, :,
-                                 c] = normalize99(img_norm[z, :, :,
-                                                           c], lower=percentile[0],
-                                                  upper=percentile[1], copy=False)
-        if (tile_norm_blocksize > 0 or normalize) and invert:
-            img_norm[..., 0] = -1 * img_norm[..., 0] + 1
-        elif invert:
-            error_message = "cannot invert image without normalizing"
+        lowhigh = np.array(lowhigh)
+        if lowhigh.ndim == 1:
+            lowhigh = np.tile(lowhigh, (nchan, 1))
+        elif lowhigh.shape != (nchan, 2):
+            error_message = "`lowhigh` must have shape (nchan, 2)"
             transforms_logger.critical(error_message)
             raise ValueError(error_message)
 
-    # move channel axis back to original position
+    # Validate percentile
+    if percentile is None:
+        percentile = (1.0, 99.0)
+    elif not (0 <= percentile[0] < percentile[1] <= 100):
+        error_message = "Invalid percentile range, should be between 0 and 100"
+        transforms_logger.critical(error_message)
+        raise ValueError(error_message)
+
+    # Apply normalization based on lowhigh or percentile
+    if lowhigh is not None:
+        for c in range(nchan):
+            lower = lowhigh[c, 0]
+            upper = lowhigh[c, 1]
+            img_norm[..., c] = (img_norm[..., c] - lower) / (upper - lower)
+
+    else:
+        # Apply sharpening and smoothing if specified
+        if sharpen_radius > 0 or smooth_radius > 0:
+            img_norm = smooth_sharpen_img(
+                img_norm, sharpen_radius=sharpen_radius, smooth_radius=smooth_radius
+            )
+
+        # Apply tile-based normalization or standard normalization
+        if tile_norm_blocksize > 0:
+            img_norm = normalize99_tile(
+                img_norm,
+                blocksize=tile_norm_blocksize,
+                lower=percentile[0],
+                upper=percentile[1],
+                smooth3D=tile_norm_smooth3D,
+                norm3D=norm3D,
+            )
+        elif normalize:
+            if img_norm.ndim == 3 or norm3D:  # i.e. if YXC, or ZYXC with norm3D=True
+                for c in range(nchan):
+                    img_norm[..., c] = normalize99(
+                        img_norm[..., c],
+                        lower=percentile[0],
+                        upper=percentile[1],
+                        copy=False,
+                    )
+            else:  # i.e. if ZYXC with norm3D=False then per Z-slice
+                for z in range(img_norm.shape[0]):
+                    for c in range(nchan):
+                        img_norm[z, ..., c] = normalize99(
+                            img_norm[z, ..., c],
+                            lower=percentile[0],
+                            upper=percentile[1],
+                            copy=False,
+                        )
+
+    if invert:
+        if lowhigh is not None or tile_norm_blocksize > 0 or normalize:
+            img_norm = 1 - img_norm
+        else:
+            error_message = "Cannot invert image without normalization"
+            transforms_logger.critical(error_message)
+            raise ValueError(error_message)
+
+    # Move channel axis back to the original position
     img_norm = np.moveaxis(img_norm, -1, axis)
 
     return img_norm
