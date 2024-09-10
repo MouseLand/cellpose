@@ -83,7 +83,8 @@ In a notebook, you can train with the `train_seg` function:
                                 n_epochs=100, model_name="my_new_model")
 
 
-Training arguments on the CLI
+CLI training options
+~~~~~~~~~~~~~~~~~~~~
 
 ::
 
@@ -114,3 +115,61 @@ Training arguments on the CLI
                             Name of model to save as, defaults to name describing
                             model architecture. Model is saved in the folder
                             specified by --dir in models subfolder.
+
+
+Re-training a model 
+~~~~~~~~~~~~~~~~~~~
+
+We find that for re-training, using SGD generally works better, and it is the default in the GUI. 
+The options in the code above are the default options for retraining in the GUI and in the Cellpose 2.0 paper
+``(weight_decay=1e-4, SGD=True, learning_rate=0.1, n_epochs=100)``, 
+although in the paper we often use 300 epochs instead of 100 epochs, and it may help to use more epochs, 
+especially when you have more training data.
+
+When re-training, keep in mind that the normalization happens per image that you train on, and often these are image crops from full images. 
+These crops may look different after normalization than the full images. To approximate per-crop normalization on the full images, we have the option for 
+tile normalization that can be set in ``model.eval``: ``normalize={"tile_norm_blocksize": 128}``. Alternatively/additionally, you may want to change 
+the overall normalization scaling on the full images, e.g. ``normalize={"percentile": [3, 98]``. You can visualize how the normalization looks in 
+a notebook for example with ``from cellpose import transforms; plt.imshow(transforms.normalize99(img, lower=3, upper=98))``. The default 
+that will be used for training on the image crops is ``[1, 99]``. 
+
+You can create image crops from z-stacks (in XY, YZ and XZ) using the script ``cellpose/gui/make_train.py``:
+
+::
+    python cellpose/gui/make_train.py --help
+    usage: make_train.py [-h] [--dir DIR] [--image_path IMAGE_PATH] [--look_one_level_down] [--img_filter IMG_FILTER]
+                        [--channel_axis CHANNEL_AXIS] [--z_axis Z_AXIS] [--chan CHAN] [--chan2 CHAN2] [--invert]
+                        [--all_channels] [--sharpen_radius SHARPEN_RADIUS] [--tile_norm TILE_NORM]
+                        [--nimg_per_tif NIMG_PER_TIF] [--crop_size CROP_SIZE]
+
+    cellpose parameters
+
+    options:
+    -h, --help            show this help message and exit
+
+    input image arguments:
+    --dir DIR             folder containing data to run or train on.
+    --image_path IMAGE_PATH
+                            if given and --dir not given, run on single image instead of folder (cannot train with this
+                            option)
+    --look_one_level_down
+                            run processing on all subdirectories of current folder
+    --img_filter IMG_FILTER
+                            end string for images to run on
+    --channel_axis CHANNEL_AXIS
+                            axis of image which corresponds to image channels
+    --z_axis Z_AXIS       axis of image which corresponds to Z dimension
+    --chan CHAN           channel to segment; 0: GRAY, 1: RED, 2: GREEN, 3: BLUE. Default: 0
+    --chan2 CHAN2         nuclear channel (if cyto, optional); 0: NONE, 1: RED, 2: GREEN, 3: BLUE. Default: 0
+    --invert              invert grayscale channel
+    --all_channels        use all channels in image if using own model and images with special channels
+
+    algorithm arguments:
+    --sharpen_radius SHARPEN_RADIUS
+                            high-pass filtering radius. Default: 0.0
+    --tile_norm TILE_NORM
+                            tile normalization block size. Default: 0
+    --nimg_per_tif NIMG_PER_TIF
+                            number of crops in XY to save per tiff. Default: 10
+    --crop_size CROP_SIZE
+                            size of random crop to save. Default: 512

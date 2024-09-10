@@ -25,8 +25,6 @@ def main():
         help='axis of image which corresponds to image channels')
     input_img_args.add_argument('--z_axis', default=None, type=int,
                                 help='axis of image which corresponds to Z dimension')
-    input_img_args.add_argument('--t_axis', default=None, type=int,
-                                help='axis of image which corresponds to T dimension')
     input_img_args.add_argument(
         '--chan', default=0, type=int, help=
         'channel to segment; 0: GRAY, 1: RED, 2: GREEN, 3: BLUE. Default: %(default)s')
@@ -39,22 +37,17 @@ def main():
     input_img_args.add_argument(
         '--all_channels', action='store_true', help=
         'use all channels in image if using own model and images with special channels')
-    training_args = parser.add_argument_group("training arguments")
-    training_args.add_argument(
-        '--mask_filter', default='_masks', type=str, help=
-        'end string for masks to run on. use "_seg.npy" for manual annotations from the GUI. Default: %(default)s'
-    )
 
     # algorithm settings
     algorithm_args = parser.add_argument_group("algorithm arguments")
     algorithm_args.add_argument('--sharpen_radius', required=False, default=0.0,
-                                type=float, help='tile normalization')
-    algorithm_args.add_argument('--tile_norm', required=False, default=0.0, type=float,
-                                help='tile normalization')
+                                type=float, help='high-pass filtering radius. Default: %(default)s')
+    algorithm_args.add_argument('--tile_norm', required=False, default=0, type=int,
+                                help='tile normalization block size. Default: %(default)s')
     algorithm_args.add_argument('--nimg_per_tif', required=False, default=10, type=int,
-                                help='number of slices to save')
+                                help='number of crops in XY to save per tiff. Default: %(default)s')
     algorithm_args.add_argument('--crop_size', required=False, default=512, type=int,
-                                help='size of random crop to save')
+                                help='size of random crop to save. Default: %(default)s')
 
     args = parser.parse_args()
 
@@ -64,29 +57,33 @@ def main():
     else:
         imf = None
 
-    image_names = io.get_image_files(args.dir, args.mask_filter, imf=imf,
+    image_names = io.get_image_files(args.dir, "_masks", imf=imf,
                                      look_one_level_down=args.look_one_level_down)
-
     np.random.seed(0)
-    nimg_per_tif = 10
+    nimg_per_tif = args.nimg_per_tif
+    crop_size = args.crop_size
     os.makedirs(os.path.join(args.dir, 'train/'), exist_ok=True)
+    pm = [(0, 1, 2, 3), (2, 0, 1, 3), (1, 0, 2, 3)]
+    npm = ["YX", "ZY", "ZX"]
     for name in image_names:
         name0 = os.path.splitext(os.path.split(name)[-1])[0]
-        img = io.imread(name)
-        #print(img.shape)
-        Ly, Lx = img.shape[1:3]
-        img = img[8:]
-        imgs = img[np.random.permutation(img.shape[0])[:args.nimg_per_tif]]
-        for k, img in enumerate(imgs):
-            if args.tile_norm:
-                img = transforms.normalize99_tile(img, blocksize=args.tile_norm)
-            if args.sharpen_radius:
-                img = transforms.smooth_sharpen_img(img,
-                                                    sharpen_radius=args.sharpen_radius)
-            ly = np.random.randint(0, Ly - args.crop_size)
-            lx = np.random.randint(0, Lx - args.crop_size)
-            io.imsave(os.path.join(args.dir, f'train/{name0}_{k}.tif'),
-                      img[ly:ly + args.crop_size, lx:lx + args.crop_size])
+        img0 = io.imread(name)
+        img0 = transforms.convert_image(img0, channels=[args.chan, args.chan2], channel_axis=args.channel_axis, z_axis=args.z_axis)
+        for p in range(3):
+            img = img0.transpose(pm[p]).copy()
+            print(npm[p], img[0].shape)
+            Ly, Lx = img.shape[1:3]
+            imgs = img[np.random.permutation(img.shape[0])[:args.nimg_per_tif]]
+            for k, img in enumerate(imgs):
+                if args.tile_norm:
+                    img = transforms.normalize99_tile(img, blocksize=args.tile_norm)
+                if args.sharpen_radius:
+                    img = transforms.smooth_sharpen_img(img,
+                                                        sharpen_radius=args.sharpen_radius)
+                ly = 0 if Ly - crop_size <= 0 else np.random.randint(0, Ly - crop_size)
+                lx = 0 if Lx - crop_size <= 0 else np.random.randint(0, Lx - crop_size)
+                io.imsave(os.path.join(args.dir, f'train/{name0}_{npm[p]}_{k}.tif'),
+                        img[ly:ly + args.crop_size, lx:lx + args.crop_size].squeeze())
 
 
 if __name__ == '__main__':
