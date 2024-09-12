@@ -16,7 +16,7 @@ DEFAULT_MODEL_VERSION="0.1.0"
 DEFAULT_MODEL_NAME="My Cool Cellpose"
 DEFAULT_MODEL_DOCUMENTATION="A cool Cellpose model trained for my cool dataset."
 DEFAULT_MODEL_AUTHORS='[{"name": "Qin Yu", "affiliation": "EMBL", "github_user": "qin-yu", "orcid": "0000-0002-4652-0795"}]'
-DEFAULT_MODEL_CITE='[{"text": "For more details of the model itself, see the manuscript", "doi": "10.1101/2024.02.19.580954", "url": null}]'
+DEFAULT_MODEL_CITE='[{"text": "For more details of the model itself, see the manuscript", "doi": "10.1242/dev.202800", "url": null}]'
 DEFAULT_MODEL_TAGS="cellpose 3d 2d"
 DEFAULT_MODEL_LICENSE="MIT"
 DEFAULT_MODEL_REPO="https://github.com/kreshuklab/go-nuclear"
@@ -308,7 +308,7 @@ def parse_args():
     parser.add_argument("--model_name", required=True, type=str, help="Model name, e.g., My Cool Cellpose")
     parser.add_argument("--model_documentation", required=True, type=str, help="Model documentation, e.g., A cool Cellpose model trained for my cool dataset.")
     parser.add_argument("--model_authors", required=True, type=str, help="Model authors in JSON format, e.g., '[{\"name\": \"Qin Yu\", \"affiliation\": \"EMBL\", \"github_user\": \"qin-yu\", \"orcid\": \"0000-0002-4652-0795\"}]'")
-    parser.add_argument("--model_cite", required=True, type=str, help="Model citation in JSON format, e.g., '[{\"text\": \"For more details of the model itself, see the manuscript\", \"doi\": \"10.1101/2024.02.19.580954\", \"url\": null}]'")
+    parser.add_argument("--model_cite", required=True, type=str, help="Model citation in JSON format, e.g., '[{\"text\": \"For more details of the model itself, see the manuscript\", \"doi\": \"10.1242/dev.202800\", \"url\": null}]'")
     parser.add_argument("--model_tags", nargs='+', required=True, type=str, help="Model tags, e.g., cellpose 3d 2d")
     parser.add_argument("--model_license", required=True, type=str, help="Model license, e.g., MIT")
     parser.add_argument("--model_repo", required=True, type=str, help="Model repository URL")
