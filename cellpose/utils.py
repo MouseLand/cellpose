@@ -528,7 +528,6 @@ def stitch3D(masks, stitch_threshold=0.25):
     """
     mmax = masks[0].max()
     empty = 0
-
     for i in trange(len(masks) - 1):
         iou = metrics._intersection_over_union(masks[i + 1], masks[i])[1:, 1:]
         if not iou.size and empty == 0:
@@ -536,7 +535,7 @@ def stitch3D(masks, stitch_threshold=0.25):
             mmax = masks[i + 1].max()
         elif not iou.size and not empty == 0:
             icount = masks[i + 1].max()
-            istitch = np.arange(mmax + 1, mmax + icount + 1, 1, int)
+            istitch = np.arange(mmax + 1, mmax + icount + 1, 1, masks.dtype)
             mmax += icount
             istitch = np.append(np.array(0), istitch)
             masks[i + 1] = istitch[masks[i + 1]]
@@ -545,7 +544,7 @@ def stitch3D(masks, stitch_threshold=0.25):
             iou[iou < iou.max(axis=0)] = 0.0
             istitch = iou.argmax(axis=1) + 1
             ino = np.nonzero(iou.max(axis=1) == 0.0)[0]
-            istitch[ino] = np.arange(mmax + 1, mmax + len(ino) + 1, 1, int)
+            istitch[ino] = np.arange(mmax + 1, mmax + len(ino) + 1, 1, masks.dtype)
             mmax += len(ino)
             istitch = np.append(np.array(0), istitch)
             masks[i + 1] = istitch[masks[i + 1]]
