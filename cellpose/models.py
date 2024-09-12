@@ -236,7 +236,7 @@ class CellposeModel():
     """
 
     def __init__(self, gpu=False, pretrained_model=False, model_type=None,
-                 diam_mean=30., device=None, nchan=2, backbone="default"):
+                 mkldnn=True, diam_mean=30., device=None, nchan=2, backbone="default"):
         """
         Initialize the CellposeModel.
 
@@ -244,6 +244,7 @@ class CellposeModel():
             gpu (bool, optional): Whether or not to save model to GPU, will check if GPU available.
             pretrained_model (str or list of strings, optional): Full path to pretrained cellpose model(s), if None or False, no model loaded.
             model_type (str, optional): Any model that is available in the GUI, use name in GUI e.g. "livecell" (can be user-trained or model zoo).
+            mkldnn (bool, optional): Use MKLDNN for CPU inference, faster but not always supported.
             diam_mean (float, optional): Mean "diameter", 30. is built-in value for "cyto" model; 17. is built-in value for "nuclei" model; if saved in custom model file (cellpose>=2.0) then it will be loaded automatically and overwrite this value.
             device (torch device, optional): Device used for model running / training (torch.device("cuda") or torch.device("cpu")), overrides gpu input, recommended if you want to use a specific GPU (e.g. torch.device("cuda:1")).
             nchan (int, optional): Number of channels to use as input to network, default is 2 (cyto + nuclei) or (nuclei + zeros).
@@ -309,7 +310,10 @@ class CellposeModel():
                 device_gpu = False
         self.gpu = gpu if device is None else device_gpu
         if not self.gpu:
-            self.mkldnn = check_mkl(True)
+            if mkldnn:
+                self.mkldnn = check_mkl(True)
+            else:
+                self.mkldnn = False
 
         ### create neural network
         self.nchan = nchan
