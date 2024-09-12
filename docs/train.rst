@@ -133,15 +133,18 @@ the overall normalization scaling on the full images, e.g. ``normalize={"percent
 a notebook for example with ``from cellpose import transforms; plt.imshow(transforms.normalize99(img, lower=3, upper=98))``. The default 
 that will be used for training on the image crops is ``[1, 99]``. 
 
-You can create image crops from z-stacks (in XY, YZ and XZ) using the script ``cellpose/gui/make_train.py``:
+You can create image crops from z-stacks (in YX, YZ and XZ) using the script ``cellpose/gui/make_train.py``. 
+If you have anisotropic volumes, then set the ``--anisotropy`` flag to the ratio between pixel size in Z and in YX, 
+e.g. set ``--anisotropy 5`` for pixel size of 1.0 um in YX and 5.0 um in Z. 
+See the help message for more information:
 
 ::
     
-    python cellpose/gui/make_train.py --help
+    python cellpose\gui\make_train.py --help
     usage: make_train.py [-h] [--dir DIR] [--image_path IMAGE_PATH] [--look_one_level_down] [--img_filter IMG_FILTER]
                         [--channel_axis CHANNEL_AXIS] [--z_axis Z_AXIS] [--chan CHAN] [--chan2 CHAN2] [--invert]
-                        [--all_channels] [--sharpen_radius SHARPEN_RADIUS] [--tile_norm TILE_NORM]
-                        [--nimg_per_tif NIMG_PER_TIF] [--crop_size CROP_SIZE]
+                        [--all_channels] [--anisotropy ANISOTROPY] [--sharpen_radius SHARPEN_RADIUS]
+                        [--tile_norm TILE_NORM] [--nimg_per_tif NIMG_PER_TIF] [--crop_size CROP_SIZE]
 
     cellpose parameters
 
@@ -164,6 +167,8 @@ You can create image crops from z-stacks (in XY, YZ and XZ) using the script ``c
     --chan2 CHAN2         nuclear channel (if cyto, optional); 0: NONE, 1: RED, 2: GREEN, 3: BLUE. Default: 0
     --invert              invert grayscale channel
     --all_channels        use all channels in image if using own model and images with special channels
+    --anisotropy ANISOTROPY
+                            anisotropy of volume in 3D
 
     algorithm arguments:
     --sharpen_radius SHARPEN_RADIUS

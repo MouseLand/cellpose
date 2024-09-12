@@ -37,6 +37,9 @@ def main():
     input_img_args.add_argument(
         '--all_channels', action='store_true', help=
         'use all channels in image if using own model and images with special channels')
+    input_img_args.add_argument("--anisotropy", required=False, default=1.0, type=float,
+                                help="anisotropy of volume in 3D")
+    
 
     # algorithm settings
     algorithm_args = parser.add_argument_group("algorithm arguments")
@@ -74,6 +77,8 @@ def main():
             print(npm[p], img[0].shape)
             Ly, Lx = img.shape[1:3]
             imgs = img[np.random.permutation(img.shape[0])[:args.nimg_per_tif]]
+            if args.anisotropy > 1.0:
+                imgs = transforms.resize_image(imgs, Ly=int(args.anisotropy * Ly), Lx=Lx)
             for k, img in enumerate(imgs):
                 if args.tile_norm:
                     img = transforms.normalize99_tile(img, blocksize=args.tile_norm)
