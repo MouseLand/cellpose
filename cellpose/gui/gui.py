@@ -695,15 +695,16 @@ class MainW(QMainWindow):
         self.modelBoxG.addWidget(self.ModelButtonC, b0, 8, 1, 1)
         self.ModelButtonC.setEnabled(False)
 
-        # compute segmentation with style model
         self.net_names = [
             "nuclei", "cyto2_cp3", "tissuenet_cp3", "livecell_cp3", "yeast_PhC_cp3",
-            "yeast_BF_cp3", "bact_phase_cp3", "bact_fluor_cp3", "deepbacs_cp3"
-        ]
+            "yeast_BF_cp3", "bact_phase_cp3", "bact_fluor_cp3", "deepbacs_cp3",
+            "cyto", "cyto2", "CPx"]
+
         nett = [
             "nuclei", "cellpose (cyto2_cp3)", "tissuenet_cp3", "livecell_cp3",
             "yeast_PhC_cp3", "yeast_BF_cp3", "bact_phase_cp3", "bact_fluor_cp3",
-            "deepbacs_cp3"
+            "deepbacs_cp3", "cyto", "cyto2",
+            "CPx (from Cellpose2)"
         ]
         b0 += 1
         self.ModelChooseB = QComboBox()
