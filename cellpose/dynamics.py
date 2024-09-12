@@ -663,7 +663,7 @@ def remove_bad_flow_masks(masks, flows, threshold=0.4, device=None):
     return masks
 
 
-def get_masks(p, iscell=None, rpad=20):
+def get_masks(p, iscell=None, rpad=20, max_size_fraction=0.4):
     """Create masks using pixel convergence after running dynamics.
 
     Makes a histogram of final pixel locations p, initializes masks 
@@ -677,6 +677,8 @@ def get_masks(p, iscell=None, rpad=20):
         iscell (bool, 2D or 3D array): If iscell is not None, set pixels that are 
             iscell False to stay in their original location.
         rpad (int, optional): Histogram edge padding. Default is 20.
+        max_size_fraction (float, optional): Masks larger than max_size_fraction of
+            total image size are removed. Default is 0.4.
 
     Returns:
         M0 (int, 2D or 3D array): Masks with inconsistent flow masks removed, 
@@ -750,7 +752,7 @@ def get_masks(p, iscell=None, rpad=20):
 
     # remove big masks
     uniq, counts = fastremap.unique(M0, return_counts=True)
-    big = np.prod(shape0) * 0.4
+    big = np.prod(shape0) * max_size_fraction
     bigc = uniq[counts > big]
     if len(bigc) > 0 and (len(bigc) > 1 or bigc[0] != 0):
         M0 = fastremap.mask(M0, bigc)
@@ -761,7 +763,7 @@ def get_masks(p, iscell=None, rpad=20):
 
 def resize_and_compute_masks(dP, cellprob, p=None, niter=200, cellprob_threshold=0.0,
                              flow_threshold=0.4, interp=True, do_3D=False, min_size=15,
-                             resize=None, device=None):
+                             max_size_fraction=0.4, resize=None, device=None):
     """Compute masks using dynamics from dP and cellprob, and resizes masks if resize is not None.
 
     Args:
@@ -774,6 +776,8 @@ def resize_and_compute_masks(dP, cellprob, p=None, niter=200, cellprob_threshold
         interp (bool, optional): Whether to interpolate during dynamics computation. Defaults to True.
         do_3D (bool, optional): Whether to perform mask computation in 3D. Defaults to False.
         min_size (int, optional): The minimum size of the masks. Defaults to 15.
+        max_size_fraction (float, optional): Masks larger than max_size_fraction of
+            total image size are removed. Default is 0.4.
         resize (tuple, optional): The desired size for resizing the masks. Defaults to None.
         device (str, optional): The torch device to use for computation. Defaults to None.
 
@@ -783,7 +787,8 @@ def resize_and_compute_masks(dP, cellprob, p=None, niter=200, cellprob_threshold
     mask, p = compute_masks(dP, cellprob, p=p, niter=niter,
                             cellprob_threshold=cellprob_threshold,
                             flow_threshold=flow_threshold, interp=interp, do_3D=do_3D,
-                            min_size=min_size, device=device)
+                            min_size=min_size, max_size_fraction=max_size_fraction, 
+                            device=device)
 
     if resize is not None:
         mask = transforms.resize_image(mask, resize[0], resize[1],
@@ -798,7 +803,7 @@ def resize_and_compute_masks(dP, cellprob, p=None, niter=200, cellprob_threshold
 
 def compute_masks(dP, cellprob, p=None, niter=200, cellprob_threshold=0.0,
                   flow_threshold=0.4, interp=True, do_3D=False, min_size=15,
-                  device=None):
+                  max_size_fraction=0.4, device=None):
     """Compute masks using dynamics from dP and cellprob.
 
     Args:
@@ -811,6 +816,8 @@ def compute_masks(dP, cellprob, p=None, niter=200, cellprob_threshold=0.0,
         interp (bool, optional): Whether to interpolate during dynamics computation. Defaults to True.
         do_3D (bool, optional): Whether to perform mask computation in 3D. Defaults to False.
         min_size (int, optional): The minimum size of the masks. Defaults to 15.
+        max_size_fraction (float, optional): Masks larger than max_size_fraction of
+            total image size are removed. Default is 0.4.
         device (str, optional): The torch device to use for computation. Defaults to None.
 
     Returns:
@@ -831,7 +838,7 @@ def compute_masks(dP, cellprob, p=None, niter=200, cellprob_threshold=0.0,
                 return mask, p
 
         #calculate masks
-        mask = get_masks(p, iscell=cp_mask)
+        mask = get_masks(p, iscell=cp_mask, max_size_fraction=max_size_fraction)
 
         # flow thresholding factored out of get_masks
         if not do_3D:

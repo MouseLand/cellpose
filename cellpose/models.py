@@ -140,7 +140,7 @@ class Cellpose():
         self.sz.model_type = model_type
 
     def eval(self, x, batch_size=8, channels=[0, 0], channel_axis=None, invert=False,
-             normalize=True, diameter=30., do_3D=False, find_masks=True, **kwargs):
+             normalize=True, diameter=30., do_3D=False, **kwargs):
         """Run cellpose size model and mask model and get masks.
 
         Args:
@@ -353,9 +353,9 @@ class CellposeModel():
     def eval(self, x, batch_size=8, resample=True, channels=None, channel_axis=None,
              z_axis=None, normalize=True, invert=False, rescale=None, diameter=None,
              flow_threshold=0.4, cellprob_threshold=0.0, do_3D=False, anisotropy=None,
-             stitch_threshold=0.0, min_size=15, niter=None, augment=False, tile=True,
-             tile_overlap=0.1, bsize=224, interp=True, compute_masks=True,
-             progress=None):
+             stitch_threshold=0.0, min_size=15, max_size_fraction=0.4, niter=None, 
+             augment=False, tile=True, tile_overlap=0.1, bsize=224, 
+             interp=True, compute_masks=True, progress=None):
         """ segment list of images x, or 4D array - Z x nchan x Y x X
 
         Args:
@@ -394,6 +394,8 @@ class CellposeModel():
             anisotropy (float, optional): for 3D segmentation, optional rescaling factor (e.g. set to 2.0 if Z is sampled half as dense as X or Y). Defaults to None.
             stitch_threshold (float, optional): if stitch_threshold>0.0 and not do_3D, masks are stitched in 3D to return volume segmentation. Defaults to 0.0.
             min_size (int, optional): all ROIs below this size, in pixels, will be discarded. Defaults to 15.
+            max_size_fraction (float, optional): max_size_fraction (float, optional): Masks larger than max_size_fraction of
+                total image size are removed. Default is 0.4.
             niter (int, optional): number of iterations for dynamics computation. if None, it is set proportional to the diameter. Defaults to None.
             augment (bool, optional): tiles image with overlapping tiles and flips overlapped regions to augment. Defaults to False.
             tile (bool, optional): tiles image to ensure GPU/CPU memory usage limited (recommended). Defaults to True.
@@ -435,7 +437,8 @@ class CellposeModel():
                     tile_overlap=tile_overlap, bsize=bsize, resample=resample,
                     interp=interp, flow_threshold=flow_threshold,
                     cellprob_threshold=cellprob_threshold, compute_masks=compute_masks,
-                    min_size=min_size, stitch_threshold=stitch_threshold,
+                    min_size=min_size, max_size_fraction=max_size_fraction, 
+                    stitch_threshold=stitch_threshold,
                     progress=progress, niter=niter)
                 masks.append(maski)
                 flows.append(flowi)
@@ -464,7 +467,7 @@ class CellposeModel():
                 rescale=rescale, resample=resample, augment=augment, tile=tile,
                 tile_overlap=tile_overlap, bsize=bsize, flow_threshold=flow_threshold,
                 cellprob_threshold=cellprob_threshold, interp=interp, min_size=min_size,
-                do_3D=do_3D, anisotropy=anisotropy, niter=niter,
+                max_size_fraction=max_size_fraction, do_3D=do_3D, anisotropy=anisotropy, niter=niter,
                 stitch_threshold=stitch_threshold)
 
             flows = [plot.dx_to_circ(dP), dP, cellprob, p]
@@ -473,7 +476,8 @@ class CellposeModel():
     def _run_cp(self, x, compute_masks=True, normalize=True, invert=False, niter=None,
                 rescale=1.0, resample=True, augment=False, tile=True, tile_overlap=0.1,
                 cellprob_threshold=0.0, bsize=224, flow_threshold=0.4, min_size=15,
-                interp=True, anisotropy=1.0, do_3D=False, stitch_threshold=0.0):
+                max_size_fraction=0.4, interp=True, anisotropy=1.0, do_3D=False, 
+                stitch_threshold=0.0):
 
         if isinstance(normalize, dict):
             normalize_params = {**normalize_default, **normalize}
@@ -538,7 +542,7 @@ class CellposeModel():
                 masks, p = dynamics.resize_and_compute_masks(
                     dP, cellprob, niter=niter, cellprob_threshold=cellprob_threshold,
                     flow_threshold=flow_threshold, interp=interp, do_3D=do_3D,
-                    min_size=min_size, resize=None,
+                    min_size=min_size, max_size_fraction=max_size_fraction, resize=None,
                     device=self.device if self.gpu else None)
             else:
                 masks, p = [], []
@@ -557,6 +561,7 @@ class CellposeModel():
                         resize=resize,
                         min_size=min_size if stitch_threshold == 0 or nimg == 1 else
                         -1,  # turn off for 3D stitching
+                        max_size_fraction=max_size_fraction,
                         device=self.device if self.gpu else None)
                     masks.append(outputs[0])
                     p.append(outputs[1])
