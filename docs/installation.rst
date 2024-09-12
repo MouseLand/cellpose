@@ -63,6 +63,9 @@ If you receive an issue with Qt "xcb", you may need to install xcb libraries, e.
 
 :: 
    sudo apt install libxcb-cursor0
+   sudo apt install libxcb-xinerama0
+
+There is also more advice here: https://github.com/NVlabs/instant-ngp/discussions/300.
 
 
 If you are having issues with CUDA on Windows, or want to use 

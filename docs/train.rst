@@ -136,6 +136,7 @@ that will be used for training on the image crops is ``[1, 99]``.
 You can create image crops from z-stacks (in XY, YZ and XZ) using the script ``cellpose/gui/make_train.py``:
 
 ::
+    
     python cellpose/gui/make_train.py --help
     usage: make_train.py [-h] [--dir DIR] [--image_path IMAGE_PATH] [--look_one_level_down] [--img_filter IMG_FILTER]
                         [--channel_axis CHANNEL_AXIS] [--z_axis Z_AXIS] [--chan CHAN] [--chan2 CHAN2] [--invert]
