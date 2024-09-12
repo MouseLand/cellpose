@@ -114,6 +114,7 @@ def make_tiles(imgi, bsize=224, augment=False, tile_overlap=0.1):
         if Lx < bsize:
             imgi = np.concatenate((imgi, np.zeros((nchan, Ly, bsize - Lx))), axis=2)
         Ly, Lx = imgi.shape[-2:]
+        
         # tiles overlap by half of tile size
         ny = max(2, int(np.ceil(2. * Ly / bsize)))
         nx = max(2, int(np.ceil(2. * Lx / bsize)))
