@@ -334,13 +334,14 @@ def _run_tiled(net, imgi, batch_size=8, augment=False, bsize=224, tile_overlap=0
         IMG = np.reshape(IMG, (ny * nx, nchan, ly, lx))
         niter = int(np.ceil(IMG.shape[0] / batch_size))
         y = np.zeros((IMG.shape[0], nout, ly, lx))
-        for k in range(niter):
+        iterator =  (trange(niter, file=tqdm_out, mininterval=30) 
+                         if niter > 25 else range(niter))
+        for k in iterator:
             irange = slice(batch_size * k, min(IMG.shape[0],
                                                batch_size * k + batch_size))
             y0, style = _forward(net, IMG[irange])
             y[irange] = y0.reshape(irange.stop - irange.start, y0.shape[-3],
                                    y0.shape[-2], y0.shape[-1])
-            # check size models!
             if k == 0:
                 styles = style.sum(axis=0)
             else:

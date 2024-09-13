@@ -3,16 +3,24 @@
 Image Restoration
 =================
 
+We introduce image restoration in the `Cellpose3 paper <https://www.biorxiv.org/content/10.1101/2024.02.10.579780v2>`_. 
 The image restoration module ``denoise`` provides functions for restoring degraded images. 
 There are two main classes, ``DenoiseModel`` for image restoration only, and 
 ``CellposeDenoiseModel`` for image restoration and then segmentation. There are four types 
-of image restoration provided, denoising, deblurring, upsampling and one-click (trained on 
-all degradation types), and for each of these 
-there are three models, one trained on the full ``cyto3`` training set, one trained on the 
-``cyto2`` training set, and one trained on the ``nuclei`` training set: 
+of image restoration provided: denoising, deblurring, upsampling and one-click (trained on 
+all degradation types). For each of these 
+there are three models: one trained on the full ``cyto3`` training set, one trained on the 
+``cyto2`` training set, and one trained on the ``nuclei`` training set. Each of these 
+models are available on the website as ``https://www.cellpose.org/models/MODEL_NAME``, or will be 
+automatically downloaded when you first run the model in the notebook, CLI or GUI: 
 ``'denoise_cyto3'``, ``'deblur_cyto3'``, ``'upsample_cyto3'``, ``'oneclick_cyto3'``,
 ``'denoise_cyto2'``, ``'deblur_cyto2'``, ``'upsample_cyto2'``, ``'oneclick_cyto2'``,
 ``'denoise_nuclei'``, ``'deblur_nuclei'``, ``'upsample_nuclei'``, ``'oneclick_nuclei'``.
+
+Each of the models above were trained with the segmentation loss and perceptual loss. We also make available
+the models trained with different loss functions for verifying the results of the paper, 
+e.g. ``'denoise_rec_cyto2'`` is the denoising model trained with the reconstruction loss function 
+on the ``cyto2`` training set.
 
 DenoiseModel
 --------------
