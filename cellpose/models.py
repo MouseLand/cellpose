@@ -454,8 +454,7 @@ class CellposeModel():
                                          nchan=self.nchan)
             if x.ndim < 4:
                 x = x[np.newaxis, ...]
-            self.batch_size = batch_size
-
+            
             if diameter is not None and diameter > 0:
                 rescale = self.diam_mean / diameter
             elif rescale is None:
@@ -465,7 +464,7 @@ class CellposeModel():
             masks, styles, dP, cellprob, p = self._run_cp(
                 x, compute_masks=compute_masks, normalize=normalize, invert=invert,
                 rescale=rescale, resample=resample, augment=augment, tile=tile,
-                tile_overlap=tile_overlap, bsize=bsize, flow_threshold=flow_threshold,
+                batch_size=batch_size, tile_overlap=tile_overlap, bsize=bsize, flow_threshold=flow_threshold,
                 cellprob_threshold=cellprob_threshold, interp=interp, min_size=min_size,
                 max_size_fraction=max_size_fraction, do_3D=do_3D, anisotropy=anisotropy, niter=niter,
                 stitch_threshold=stitch_threshold)
@@ -474,7 +473,8 @@ class CellposeModel():
             return masks, flows, styles
 
     def _run_cp(self, x, compute_masks=True, normalize=True, invert=False, niter=None,
-                rescale=1.0, resample=True, augment=False, tile=True, tile_overlap=0.1,
+                rescale=1.0, resample=True, augment=False, tile=True, 
+                batch_size=8, tile_overlap=0.1,
                 cellprob_threshold=0.0, bsize=224, flow_threshold=0.4, min_size=15,
                 max_size_fraction=0.4, interp=True, anisotropy=1.0, do_3D=False, 
                 stitch_threshold=0.0):
@@ -507,7 +507,8 @@ class CellposeModel():
         if do_3D:
             img = np.asarray(x)
             yf, styles = run_3D(self.net, img, rsz=rescale, anisotropy=anisotropy,
-                                augment=augment, tile=tile, tile_overlap=tile_overlap)
+                                batch_size=batch_size, augment=augment, tile=tile, 
+                                tile_overlap=tile_overlap)
             cellprob = yf[0][-1] + yf[1][-1] + yf[2][-1]
             dP = np.stack(
                 (yf[1][0] + yf[2][0], yf[0][0] + yf[2][1], yf[0][1] + yf[1][1]),
@@ -521,7 +522,8 @@ class CellposeModel():
             if rescale != 1.0:
                 img = transforms.resize_image(img, rsz=rescale)
             yf, style = run_net(self.net, img, bsize=bsize, augment=augment,
-                                tile=tile, tile_overlap=tile_overlap)
+                                batch_size=batch_size, tile=tile, 
+                                tile_overlap=tile_overlap)
             if resample:
                 yf = transforms.resize_image(yf, shape[1], shape[2])
             dP = np.moveaxis(yf[..., :2], source=-1, destination=0).copy()

@@ -1,7 +1,7 @@
 FAQ
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
-**Q: What should I set the** ``--flow_threshold``/``--cell_prob``/``--diam`` **parameter to?**
+**Q: What should I set the** ``--flow_threshold``/``--cellprob_threshold``/``--diameter`` **parameter to?**
 
     These parameters should be set experimentally by running Cellpose, viewing the results, and tuning the parameters
     to get the best results. The default parameters are set to work well for most images, but may not be optimal

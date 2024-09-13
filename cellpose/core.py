@@ -277,12 +277,15 @@ def _run_tiled(net, imgi, batch_size=8, augment=False, bsize=224, tile_overlap=0
     """
     nout = net.nout
     if imgi.ndim == 4:
-        Lz, nchan = imgi.shape[:2]
-        IMG, ysub, xsub, Ly, Lx = transforms.make_tiles(imgi[0], bsize=bsize,
-                                                        augment=augment,
-                                                        tile_overlap=tile_overlap)
-        ny, nx, nchan, ly, lx = IMG.shape
-        batch_size *= max(4, (bsize**2 // (ly * lx))**0.5)
+        Lz, nchan, Ly, Lx = imgi.shape 
+        if augment:
+            ny = max(2, int(np.ceil(2. * Ly / bsize)))
+            nx = max(2, int(np.ceil(2. * Lx / bsize)))
+            ly, lx = bsize, bsize
+        else:
+            ny = 1 if Ly <= bsize else int(np.ceil((1. + 2 * tile_overlap) * Ly / bsize))
+            nx = 1 if Lx <= bsize else int(np.ceil((1. + 2 * tile_overlap) * Lx / bsize))
+            ly, lx = min(bsize, Ly), min(bsize, Lx)
         yf = np.zeros((Lz, nout, imgi.shape[-2], imgi.shape[-1]), np.float32)
         styles = []
         if ny * nx > batch_size:
@@ -290,34 +293,35 @@ def _run_tiled(net, imgi, batch_size=8, augment=False, bsize=224, tile_overlap=0
                          if Lz > 1 else range(Lz))
             for i in ziterator:
                 yfi, stylei = _run_tiled(net, imgi[i], augment=augment, bsize=bsize,
-                                         tile_overlap=tile_overlap)
+                                         batch_size=batch_size, tile_overlap=tile_overlap)
                 yf[i] = yfi
                 styles.append(stylei)
         else:
             # run multiple slices at the same time
             ntiles = ny * nx
-            nimgs = max(2, int(np.round(batch_size / ntiles)))
+            nimgs = batch_size // ntiles # number of z-slices to run at the same time
             niter = int(np.ceil(Lz / nimgs))
             ziterator = (trange(niter, file=tqdm_out, mininterval=30) 
                          if Lz > 1 else range(niter))
             for k in ziterator:
-                IMGa = np.zeros((ntiles * nimgs, nchan, ly, lx), np.float32)
-                for i in range(min(Lz - k * nimgs, nimgs)):
+                inds = np.arange(k * nimgs, min(Lz, (k + 1) * nimgs))
+                IMGa = np.zeros((ntiles * len(inds), nchan, ly, lx), "float32")
+                for i, b in enumerate(inds):
                     IMG, ysub, xsub, Ly, Lx = transforms.make_tiles(
-                        imgi[k * nimgs + i], bsize=bsize, augment=augment,
+                        imgi[b], bsize=bsize, augment=augment,
                         tile_overlap=tile_overlap)
-                    IMGa[i * ntiles:(i + 1) * ntiles] = np.reshape(
-                        IMG, (ny * nx, nchan, ly, lx))
+                    IMGa[i * ntiles : (i+1) * ntiles] = np.reshape(IMG, 
+                                                    (ny * nx, nchan, ly, lx))
                 ya, stylea = _forward(net, IMGa)
-                for i in range(min(Lz - k * nimgs, nimgs)):
-                    y = ya[i * ntiles:(i + 1) * ntiles]
+                for i, b in enumerate(inds):
+                    y = ya[i * ntiles : (i + 1) * ntiles]
                     if augment:
                         y = np.reshape(y, (ny, nx, 3, ly, lx))
                         y = transforms.unaugment_tiles(y)
                         y = np.reshape(y, (-1, 3, ly, lx))
                     yfi = transforms.average_tiles(y, ysub, xsub, Ly, Lx)
                     yfi = yfi[:, :imgi.shape[2], :imgi.shape[3]]
-                    yf[k * nimgs + i] = yfi
+                    yf[b] = yfi
                     stylei = stylea[i * ntiles:(i + 1) * ntiles].sum(axis=0)
                     stylei /= (stylei**2).sum()**0.5
                     styles.append(stylei)
@@ -330,13 +334,14 @@ def _run_tiled(net, imgi, batch_size=8, augment=False, bsize=224, tile_overlap=0
         IMG = np.reshape(IMG, (ny * nx, nchan, ly, lx))
         niter = int(np.ceil(IMG.shape[0] / batch_size))
         y = np.zeros((IMG.shape[0], nout, ly, lx))
-        for k in range(niter):
+        iterator =  (trange(niter, file=tqdm_out, mininterval=30) 
+                         if niter > 25 else range(niter))
+        for k in iterator:
             irange = slice(batch_size * k, min(IMG.shape[0],
                                                batch_size * k + batch_size))
             y0, style = _forward(net, IMG[irange])
             y[irange] = y0.reshape(irange.stop - irange.start, y0.shape[-3],
                                    y0.shape[-2], y0.shape[-1])
-            # check size models!
             if k == 0:
                 styles = style.sum(axis=0)
             else:
