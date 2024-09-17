@@ -931,6 +931,8 @@ def random_rotate_and_resize(X, Y=None, scale_range=1., xy=(224, 224), do_3D=Fal
                           np.sin(np.pi / 2 + theta)])
             ])
             M = cv2.getAffineTransform(pts1, pts2)
+            if do_3D:
+                flip_z = np.random.rand() > .5
 
         img = X[n].copy()
         if Y is not None:
@@ -938,12 +940,19 @@ def random_rotate_and_resize(X, Y=None, scale_range=1., xy=(224, 224), do_3D=Fal
             if labels.ndim < 3:
                 labels = labels[np.newaxis, :, :]
 
-        if flip and do_flip:
-            img = img[..., ::-1]
-            if Y is not None:
-                labels = labels[..., ::-1]
-                if nt > 1 and not unet:
-                    labels[-1] = -labels[-1]
+        if do_flip:
+            if flip:
+                img = img[..., ::-1]
+                if Y is not None:
+                    labels = labels[..., ::-1]
+                    if nt > 1 and not unet:
+                        labels[-1] = -labels[-1]
+            if do_3D and flip_z:
+                img = img[:, ::-1]
+                if Y is not None:
+                    labels = labels[:,::-1]
+                    if nt > 1 and not unet:
+                        labels[-3] = -labels[-3]
 
         for k in range(nchan):
             if do_3D:

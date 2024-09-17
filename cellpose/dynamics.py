@@ -196,7 +196,7 @@ def masks_to_flows_gpu(masks, device=None, niter=None):
     return mu0, meds_p.cpu().numpy() - 1
 
 
-def masks_to_flows_gpu_3d(masks, device=None):
+def masks_to_flows_gpu_3d(masks, device=None, niter=None):
     """Convert masks to flows using diffusion from center pixel.
 
     Args:
@@ -253,7 +253,7 @@ def masks_to_flows_gpu_3d(masks, device=None):
     ext = np.array(
         [[sz.stop - sz.start + 1, sy.stop - sy.start + 1, sx.stop - sx.start + 1]
          for sz, sy, sx in slices])
-    n_iter = 6 * (ext.sum(axis=1)).max()
+    n_iter = 6 * (ext.sum(axis=1)).max() if niter is None else niter
 
     # run diffusion
     shape = masks_padded.shape
