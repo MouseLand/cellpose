@@ -1,11 +1,12 @@
 # stdlib imports
-import os, pathlib, tempfile, functools
+import os, pathlib, tempfile, functools, glob
 
 # non-stdlib core dependencies
 import numpy as np
 import scipy
 import cellpose.io
 import cellpose.models
+import tifffile
 
 # existing distributed dependencies
 import dask
@@ -16,6 +17,35 @@ import dask_image.ndmeasure
 import yaml
 import zarr
 import dask_jobqueue
+
+
+
+
+######################## File format functions ################################
+def wrap_folder_of_tiffs(folder, filename_pattern, axis_identifiers):
+    """
+    Given a folder of tiff files, with structured file names,
+    return an object with a global shape and instructions
+    for reading data using a standard slicing/indexing
+
+    Parameters
+    ----------
+    folder : string
+        The folder containing the tif files
+
+    filename_pattern : string
+        A glob pattern that will match all needed tif files
+
+    axis_identifiers : dict
+        This dictionary specifies how the chunks of data in the
+        separate tif files concatenate together to make the larger
+        array. Keys indicate the substrings of filename_pattern that
+        indicate 
+    """
+
+    paths = glob.glob(folder + '/' + filename_pattern)
+    
+
 
 
 
@@ -244,6 +274,8 @@ def cluster(func):
     """
     @functools.wraps(func)
     def create_or_pass_cluster(*args, **kwargs):
+        # TODO: this only checks if args are explicitly present in function call
+        #       it does not check if they are set correctly in any way
         assert 'cluster' in kwargs or 'cluster_kwargs' in kwargs, \
         "Either cluster or cluster_kwargs must be defined"
         if not 'cluster' in kwargs:
@@ -290,7 +322,7 @@ def process_block(
     the distributed function. When test_mode=True, steps (5) and (6)
     are omitted and replaced with:
 
-    (5) return remapped segments as a numpy array, return boxes
+    (5) return remapped segments as a numpy array, boxes, and box_ids
 
     Parameters
     ----------
@@ -371,7 +403,7 @@ def process_block(
         box_ids : 1D numpy array, parallel to boxes, the segment IDs of the
                   boxes
 
-    If test_mode == True, one thing is returned:
+    If test_mode == True, three things are returned:
         segments : np.ndarray containing the segments with globally unique IDs
         boxes : a list of crops (tuples of slices), bounding boxes of segments
         box_ids : 1D numpy array, parallel to boxes, the segment IDs of the
@@ -500,6 +532,8 @@ def distributed_eval(
     Distributed over cluster or workstation resources with Dask.
     Optionally run preprocessing steps on the blocks before running cellpose.
     Optionally use a mask to ignore background regions in image.
+    Note: either cluster or cluster_kwargs parameter must be set to a
+    non-default value; please read these parameter descriptions below.
 
     Parameters
     ----------
@@ -567,8 +601,14 @@ def distributed_eval(
 
     Returns
     -------
-    A reference to the zarr array on disk containing the stitched cellpose
-    segments for your entire image
+    Two values are returned:
+    (1) A reference to the zarr array on disk containing the stitched cellpose
+        segments for your entire image
+    (2) Bounding boxes for every segment. This is a list of tuples of slices:
+        [(slice(z1, z2), slice(y1, y2), slice(x1, x2)), ...]
+        The list is sorted according to segment ID. That is the smallest segment
+        ID is the first tuple in the list, the largest segment ID is the last
+        tuple in the list.
     """
 
     if 'diameter' not in eval_kwargs.keys():
