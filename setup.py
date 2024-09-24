@@ -38,7 +38,6 @@ distributed_deps = [
         'dask[array]',
         'dask[delayed]',
         'ClusterWrap',
-        ]
 ]
 
 try:
