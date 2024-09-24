@@ -1445,6 +1445,8 @@ class MainW(QMainWindow):
             self.remove_roi(self.remove_roi_obj)
 
     def merge_cells(self, idx):
+        if self.selected == 0:
+            return
         self.prev_selected = self.selected
         self.selected = idx
         if self.selected != self.prev_selected:
