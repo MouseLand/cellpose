@@ -7,6 +7,7 @@ import scipy
 import cellpose.io
 import cellpose.models
 import tifffile
+import imagecodecs
 
 # existing distributed dependencies
 import dask
@@ -22,30 +23,48 @@ import dask_jobqueue
 
 
 ######################## File format functions ################################
-def wrap_folder_of_tiffs(folder, filename_pattern, axis_identifiers):
+def wrap_folder_of_tiffs(
+    filename_pattern,
+    block_index_pattern=r'_(Z)(\d+)(Y)(\d+)(X)(\d+)',
+):
     """
-    Given a folder of tiff files, with structured file names,
-    return an object with a global shape and instructions
-    for reading data using a standard slicing/indexing
+    Wrap a folder of tiff files with a zarr array without duplicating data
+    tiff files must all contain images with the same shape and data type
+    tiff file names must contain a pattern indicating where individual files
+    lie in the block grid
 
     Parameters
     ----------
-    folder : string
-        The folder containing the tif files
-
     filename_pattern : string
         A glob pattern that will match all needed tif files
 
-    axis_identifiers : dict
-        This dictionary specifies how the chunks of data in the
-        separate tif files concatenate together to make the larger
-        array. Keys indicate the substrings of filename_pattern that
-        indicate 
+    block_index_pattern : regular expression string (default: r'_(Z)(\d+)(Y)(\d+)(X)(\d+)')
+        A regular expression pattern that indicates how to parse tiff filenames
+        to determine where each tiff file lies in the overall block grid
+        The default pattern assumes filenames like the following:
+            {any_prefix}_Z000Y000X000{any_suffix}
+            {any_prefix}_Z000Y000X001{any_suffix}
+            ... and so on
+
+    Returns
+    -------
+    zarr.core.Array
     """
 
-    paths = glob.glob(folder + '/' + filename_pattern)
-    
+    # define function to read individual files
+    def imread(fname):
+        with open(fname, 'rb') as fh:
+            return imagecodecs.tiff_decode(fh.read(), index=None)
 
+    # create zarr store, open it as zarr array and return
+    store = tifffile.imread(
+        filename_pattern,
+        aszarr=True,
+        imread=imread,
+        pattern=block_index_pattern,
+        axestiled={x:x for x in range(3)}    # TODO: bad hardcode
+    )
+    return zarr.open(store=store)
 
 
 
