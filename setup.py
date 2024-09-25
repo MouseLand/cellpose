@@ -10,8 +10,6 @@ install_deps = ['numpy>=1.20.0', 'scipy', 'natsort',
                 'fastremap',
                 'imagecodecs',
                 'roifile',
-                'dask', 'dask[array]', 'dask[delayed]',
-                'ClusterWrap',
                 'fastremap',
                 ]
 
@@ -36,8 +34,6 @@ distributed_deps = [
         'dask_image',
         'scikit-learn',
         'dask[array]',
-        'dask[delayed]',
-        'ClusterWrap',
 ]
 
 try:
