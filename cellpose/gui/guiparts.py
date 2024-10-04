@@ -237,9 +237,6 @@ class TrainWindow(QDialog):
         use_SGD = "SGD"
         self.useSGD = QCheckBox(f"{use_SGD}")
         self.useSGD.setChecked(True)
-        # self.edits[-1].setText(str(use_SGD))
-        # self.edits[-1].setFixedWidth(200)
-        # self.l0.addWidget(self.edits[-1], i + yoff, 1, 1, 1)
         self.l0.addWidget(self.useSGD, i+yoff, 1, 1, 1)
 
         yoff += len(labels)
