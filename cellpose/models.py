@@ -415,7 +415,7 @@ class CellposeModel():
             flow_threshold (float, optional): flow error threshold (all cells with errors below threshold are kept) (not used for 3D). Defaults to 0.4.
             cellprob_threshold (float, optional): all pixels with value above threshold kept for masks, decrease to find more and larger masks. Defaults to 0.0.
             do_3D (bool, optional): set to True to run 3D segmentation on 3D/4D image input. Defaults to False.
-            dP_smooth (int, optional): if do_3D and dP_smooth>0, smooth flows with gaussian filter of this sigma. Defaults to 0.
+            dP_smooth (int, optional): if do_3D and dP_smooth>0, smooth flows with gaussian filter of this stddev. Defaults to 0.
             anisotropy (float, optional): for 3D segmentation, optional rescaling factor (e.g. set to 2.0 if Z is sampled half as dense as X or Y). Defaults to None.
             stitch_threshold (float, optional): if stitch_threshold>0.0 and not do_3D, masks are stitched in 3D to return volume segmentation. Defaults to 0.0.
             min_size (int, optional): all ROIs below this size, in pixels, will be discarded. Defaults to 15.

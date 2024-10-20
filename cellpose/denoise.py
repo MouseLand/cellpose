@@ -502,10 +502,10 @@ class CellposeDenoiseModel():
                                 pretrained_model=pretrained_model, device=device)
 
     def eval(self, x, batch_size=8, channels=None, channel_axis=None, z_axis=None,
-             normalize=True, rescale=None, diameter=None, tile=True, tile_overlap=0.1,
+             normalize=True, rescale=None, diameter=None, tile_overlap=0.1,
              augment=False, resample=True, invert=False, flow_threshold=0.4,
              cellprob_threshold=0.0, do_3D=False, anisotropy=None, stitch_threshold=0.0,
-             min_size=15, niter=None, interp=True, bsize=224):
+             min_size=15, niter=None, interp=True, bsize=224, dP_smooth=0):
         """
         Restore array or list of images using the image restoration model, and then segment.
 
@@ -547,6 +547,7 @@ class CellposeDenoiseModel():
             anisotropy (float, optional): for 3D segmentation, optional rescaling factor (e.g. set to 2.0 if Z is sampled half as dense as X or Y). Defaults to None.
             stitch_threshold (float, optional): if stitch_threshold>0.0 and not do_3D, masks are stitched in 3D to return volume segmentation. Defaults to 0.0.
             min_size (int, optional): all ROIs below this size, in pixels, will be discarded. Defaults to 15.
+            dP_smooth (int, optional): if do_3D and dP_smooth>0, smooth flows with gaussian filter of this stddev. Defaults to 0.
             niter (int, optional): number of iterations for dynamics computation. if None, it is set proportional to the diameter. Defaults to None.
             interp (bool, optional): interpolate during 2D dynamics (not available in 3D) . Defaults to True.
             
