@@ -148,7 +148,7 @@ def main():
                 % (nimg, cstr0[channels[0]], cstr1[channels[1]]))
 
             # handle built-in model exceptions
-            if builtin_size and restore_type is None:
+            if builtin_size and restore_type is None and not args.pretrained_model_ortho:
                 model = models.Cellpose(gpu=gpu, device=device, model_type=model_type,
                                         backbone=backbone)
             else:
@@ -166,11 +166,13 @@ def main():
 
                 pretrained_model = None if model_type is not None else pretrained_model
                 if restore_type is None:
+                    pretrained_model_ortho = None if args.pretrained_model_ortho is None else args.pretrained_model_ortho
                     model = models.CellposeModel(gpu=gpu, device=device,
                                                  pretrained_model=pretrained_model,
                                                  model_type=model_type,
                                                  nchan=nchan,
-                                                 backbone=backbone)
+                                                 backbone=backbone,
+                                                 pretrained_model_ortho=pretrained_model_ortho)
                 else:
                     model = denoise.CellposeDenoiseModel(
                         gpu=gpu, device=device, pretrained_model=pretrained_model,
@@ -240,7 +242,6 @@ def main():
                     io.save_rois(masks, image_name)
             logger.info(">>>> completed in %0.3f sec" % (time.time() - tic))
         else:
-
             test_dir = None if len(args.test_dir) == 0 else args.test_dir
             images, labels, image_names, train_probs = None, None, None, None
             test_images, test_labels, image_names_test, test_probs = None, None, None, None

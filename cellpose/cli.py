@@ -66,7 +66,7 @@ def get_arg_parser():
 
     # model settings
     model_args = parser.add_argument_group("Model Arguments")
-    model_args.add_argument("--pretrained_model", required=False, default="cyto",
+    model_args.add_argument("--pretrained_model", required=False, default="cyto3",
                             type=str,
                             help="model to use for running or starting training")
     model_args.add_argument("--restore_type", required=False, default=None, type=str,
@@ -79,7 +79,10 @@ def get_arg_parser():
     model_args.add_argument(
         "--transformer", action="store_true", help=
         "use transformer backbone (pretrained_model from Cellpose3 is transformer_cp3)")
-
+    model_args.add_argument("--pretrained_model_ortho", required=False, default=None,
+                            type=str,
+                            help="model to use for running 3D ortho views (ZY and ZX)")
+    
     # algorithm settings
     algorithm_args = parser.add_argument_group("Algorithm Arguments")
     algorithm_args.add_argument(

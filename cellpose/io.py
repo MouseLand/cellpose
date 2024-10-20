@@ -533,7 +533,10 @@ def masks_flows_to_seg(images, masks, flows, file_names, diams=30., channels=Non
             (np.clip(transforms.normalize99(flows[2]), 0, 1) * 255).astype(np.uint8))
         flowi.append((flows[1][0] / 10 * 127 + 127).astype(np.uint8))
     if len(flows) > 2:
-        flowi.append(flows[3])
+        if len(flows) > 3:
+            flowi.append(flows[3])
+        else:
+            flowi.append([])
         flowi.append(np.concatenate((flows[1], flows[2][np.newaxis, ...]), axis=0))
     outlines = masks * utils.masks_to_outlines(masks)
     base = os.path.splitext(file_names)[0]
