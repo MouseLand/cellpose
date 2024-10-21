@@ -295,6 +295,7 @@ class MainW(QMainWindow):
             "learning_rate": 0.1,
             "weight_decay": 0.0001,
             "n_epochs": 100,
+            "SGD": True,
             "model_name": "CP" + d.strftime("_%Y%m%d_%H%M%S"),
         }
 
@@ -2170,13 +2171,15 @@ class MainW(QMainWindow):
         save_path = os.path.dirname(self.filename)
 
         print("GUI_INFO: name of new model: " + self.training_params["model_name"])
+        print(f"GUI_INFO: SGD activated: {self.training_params['SGD']}")
         self.new_model_path, train_losses = train.train_seg(
             self.model.net, train_data=self.train_data, train_labels=self.train_labels,
             channels=self.channels, normalize=normalize_params, min_train_masks=0,
-            save_path=save_path, nimg_per_epoch=max(8, len(self.train_data)), SGD=True,
+            save_path=save_path, nimg_per_epoch=max(8, len(self.train_data)),
             learning_rate=self.training_params["learning_rate"],
             weight_decay=self.training_params["weight_decay"],
             n_epochs=self.training_params["n_epochs"],
+            SGD=self.training_params["SGD"],
             model_name=self.training_params["model_name"])[:2]
         # save train losses
         np.save(str(self.new_model_path) + "_train_losses.npy", train_losses)
