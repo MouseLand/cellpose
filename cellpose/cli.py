@@ -66,7 +66,7 @@ def get_arg_parser():
 
     # model settings
     model_args = parser.add_argument_group("Model Arguments")
-    model_args.add_argument("--pretrained_model", required=False, default="cyto",
+    model_args.add_argument("--pretrained_model", required=False, default="cyto3",
                             type=str,
                             help="model to use for running or starting training")
     model_args.add_argument("--restore_type", required=False, default=None, type=str,
@@ -79,7 +79,10 @@ def get_arg_parser():
     model_args.add_argument(
         "--transformer", action="store_true", help=
         "use transformer backbone (pretrained_model from Cellpose3 is transformer_cp3)")
-
+    model_args.add_argument("--pretrained_model_ortho", required=False, default=None,
+                            type=str,
+                            help="model to use for running 3D ortho views (ZY and ZX)")
+    
     # algorithm settings
     algorithm_args = parser.add_argument_group("Algorithm Arguments")
     algorithm_args.add_argument(
@@ -105,6 +108,9 @@ def get_arg_parser():
     algorithm_args.add_argument(
         "--min_size", required=False, default=15, type=int,
         help="minimum number of pixels per mask, can turn off with -1")
+    algorithm_args.add_argument(
+        "--dP_smooth", required=False, default=0, type=float,
+        help="stddev of gaussian for smoothing of dP for dynamics in 3D, default of 0 means no smoothing")
 
     algorithm_args.add_argument(
         "--flow_threshold", default=0.4, type=float, help=

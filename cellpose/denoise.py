@@ -502,10 +502,10 @@ class CellposeDenoiseModel():
                                 pretrained_model=pretrained_model, device=device)
 
     def eval(self, x, batch_size=8, channels=None, channel_axis=None, z_axis=None,
-             normalize=True, rescale=None, diameter=None, tile=True, tile_overlap=0.1,
+             normalize=True, rescale=None, diameter=None, tile_overlap=0.1,
              augment=False, resample=True, invert=False, flow_threshold=0.4,
              cellprob_threshold=0.0, do_3D=False, anisotropy=None, stitch_threshold=0.0,
-             min_size=15, niter=None, interp=True, bsize=224):
+             min_size=15, niter=None, interp=True, bsize=224, dP_smooth=0):
         """
         Restore array or list of images using the image restoration model, and then segment.
 
@@ -537,7 +537,6 @@ class CellposeDenoiseModel():
                 (only used if diameter is None). Defaults to None.
             diameter (float, optional):  diameter for each image, 
                 if diameter is None, set to diam_mean or diam_train if available. Defaults to None.
-            tile (bool, optional): tiles image to ensure GPU/CPU memory usage limited (recommended). Defaults to True.
             tile_overlap (float, optional): fraction of overlap of tiles when computing flows. Defaults to 0.1.
             augment (bool, optional): augment tiles by flipping and averaging for segmentation. Defaults to False.
             resample (bool, optional): run dynamics at original image size (will be slower but create more accurate boundaries). Defaults to True.
@@ -548,6 +547,7 @@ class CellposeDenoiseModel():
             anisotropy (float, optional): for 3D segmentation, optional rescaling factor (e.g. set to 2.0 if Z is sampled half as dense as X or Y). Defaults to None.
             stitch_threshold (float, optional): if stitch_threshold>0.0 and not do_3D, masks are stitched in 3D to return volume segmentation. Defaults to 0.0.
             min_size (int, optional): all ROIs below this size, in pixels, will be discarded. Defaults to 15.
+            dP_smooth (int, optional): if do_3D and dP_smooth>0, smooth flows with gaussian filter of this stddev. Defaults to 0.
             niter (int, optional): number of iterations for dynamics computation. if None, it is set proportional to the diameter. Defaults to None.
             interp (bool, optional): interpolate during 2D dynamics (not available in 3D) . Defaults to True.
             
@@ -570,7 +570,7 @@ class CellposeDenoiseModel():
                                    channel_axis=channel_axis, z_axis=z_axis,
                                    do_3D=do_3D, 
                                    normalize=normalize_params, rescale=rescale,
-                                   diameter=diameter, tile=tile,
+                                   diameter=diameter,
                                    tile_overlap=tile_overlap, bsize=bsize)
 
         # turn off special normalization for segmentation
@@ -582,7 +582,7 @@ class CellposeDenoiseModel():
         diameter = self.dn.diam_mean if self.dn.ratio > 1 else diameter
         masks, flows, styles = self.cp.eval(
             img_restore, batch_size=batch_size, channels=channels_new, channel_axis=-1,
-            normalize=normalize_params, rescale=rescale, diameter=diameter, tile=tile,
+            normalize=normalize_params, rescale=rescale, diameter=diameter,
             tile_overlap=tile_overlap, augment=augment, resample=resample,
             invert=invert, flow_threshold=flow_threshold,
             cellprob_threshold=cellprob_threshold, do_3D=do_3D, anisotropy=anisotropy,
@@ -721,7 +721,6 @@ class DenoiseModel():
                 (only used if diameter is None). Defaults to None.
             diameter (float, optional):  diameter for each image, 
                 if diameter is None, set to diam_mean or diam_train if available. Defaults to None.
-            tile (bool, optional): tiles image to ensure GPU/CPU memory usage limited (recommended). Defaults to True.
             tile_overlap (float, optional): fraction of overlap of tiles when computing flows. Defaults to 0.1.
             
         Returns:
@@ -747,7 +746,7 @@ class DenoiseModel():
                     rescale=rescale[i] if isinstance(rescale, list) or
                     isinstance(rescale, np.ndarray) else rescale,
                     diameter=diameter[i] if isinstance(diameter, list) or
-                    isinstance(diameter, np.ndarray) else diameter, tile=tile,
+                    isinstance(diameter, np.ndarray) else diameter, 
                     tile_overlap=tile_overlap, bsize=bsize)
                 imgs.append(imgi)
             if isinstance(x, np.ndarray):
@@ -796,18 +795,18 @@ class DenoiseModel():
                 if c == 0 or self.net_chan2 is None:
                     x[...,
                       c] = self._eval(self.net, x[..., c:c + 1], batch_size=batch_size,
-                                      normalize=normalize, rescale=rescale0, tile=tile,
+                                      normalize=normalize, rescale=rescale0, 
                                       tile_overlap=tile_overlap, bsize=bsize)[...,0]
                 else:
                     x[...,
                       c] = self._eval(self.net_chan2, x[...,
                                                         c:c + 1], batch_size=batch_size,
-                                      normalize=normalize, rescale=rescale0, tile=tile,
+                                      normalize=normalize, rescale=rescale0, 
                                       tile_overlap=tile_overlap, bsize=bsize)[...,0]
             x = x[0] if squeeze else x
         return x
 
-    def _eval(self, net, x, batch_size=8, normalize=True, rescale=None, tile=True,
+    def _eval(self, net, x, batch_size=8, normalize=True, rescale=None,
               tile_overlap=0.1, bsize=224):
         """
         Run image restoration model on a single channel.
@@ -827,7 +826,6 @@ class DenoiseModel():
                 Defaults to True.
             rescale (float, optional): resize factor for each image, if None, set to 1.0;
                 (only used if diameter is None). Defaults to None.
-            tile (bool, optional): tiles image to ensure GPU/CPU memory usage limited (recommended). Defaults to True.
             tile_overlap (float, optional): fraction of overlap of tiles when computing flows. Defaults to 0.1.
             
         Returns:
@@ -854,7 +852,7 @@ class DenoiseModel():
         if rescale != 1.0:
             img = transforms.resize_image(img, rsz=rescale)
         yf, style = run_net(self.net, img, bsize=bsize,
-                            tile=tile, tile_overlap=tile_overlap)
+                            tile_overlap=tile_overlap)
         yf = transforms.resize_image(yf, shape[1], shape[2])
         imgs = yf
         del yf, style
