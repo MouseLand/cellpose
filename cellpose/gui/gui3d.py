@@ -1,6 +1,7 @@
 """
 Copyright © 2023 Howard Hughes Medical Institute, Authored by Carsen Stringer and Marius Pachitariu.
 """
+from itertools import zip_longest
 
 import sys, os, pathlib, warnings, datetime, time
 
@@ -628,6 +629,29 @@ class MainW_3d(MainW):
                     self.update_plot()
         if event.key() == QtCore.Qt.Key_Minus or event.key() == QtCore.Qt.Key_Equal:
             self.p0.keyPressEvent(event)
+
+        if event.modifiers() & QtCore.Qt.ControlModifier and self.selected > 0:
+            if event.key() == QtCore.Qt.Key_V:
+                self._copySelectedMaskIntoLayer(previous=False)
+            elif event.key() == QtCore.Qt.Key_C:
+                self._copySelectedMaskIntoLayer(previous=True)
+
+            self.update_plot()
+            self.draw_layer()
+            self.update_layer()
+
+    def _copySelectedMaskIntoLayer(self, previous: bool):
+        first = tuple(range(self.currentZ + 1, self.NZ))
+        second = tuple(range(self.currentZ - 1, -1, -1))
+        if previous:
+            first, second = second, first
+        zipped = zip_longest(first, second, fillvalue=None)
+        search = [item for sublist in zipped for item in sublist if item is not None]
+        for z in search:
+            selected = self.cellpix[z] == self.selected
+            if np.any(selected):
+                self.cellpix[self.currentZ][selected] = self.selected
+                break
 
     def update_ztext(self):
         zpos = self.currentZ
