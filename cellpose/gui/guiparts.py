@@ -236,6 +236,7 @@ class TrainWindow(QDialog):
         yoff += 1
         use_SGD = "SGD"
         self.useSGD = QCheckBox(f"{use_SGD}")
+        self.useSGD.setToolTip("use SGD, if unchecked uses AdamW (recommended learning_rate then 1e-3)")
         self.useSGD.setChecked(True)
         self.l0.addWidget(self.useSGD, i+yoff, 1, 1, 1)
 
