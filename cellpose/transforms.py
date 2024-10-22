@@ -176,6 +176,7 @@ def normalize99(Y, lower=1, upper=99, copy=True, downsample=False):
         ndarray: The normalized image.
     """
     X = Y.copy() if copy else Y
+    X = X.astype("float32") if X.dtype!="float64" and X.dtype!="float32" else X
     if downsample and X.size > 224**3:
         nskip = [max(1, X.shape[i] // 224) for i in range(X.ndim)]
         nskip[0] = max(1, X.shape[0] // 50) if X.ndim == 3 else nskip[0]
