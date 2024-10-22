@@ -2160,7 +2160,8 @@ class MainW(QMainWindow):
             model_type = None
             self.logger.info(f"training new model starting from scratch")
         self.current_model = model_type
-        self.channels = self.get_channels()
+        self.channels = self.training_params["channels"]
+        
         self.logger.info(
             f"training with chan = {self.ChannelChoose[0].currentText()}, chan2 = {self.ChannelChoose[1].currentText()}"
         )
@@ -2198,7 +2199,7 @@ class MainW(QMainWindow):
         self.logger.info(f">>>> diameter set to diam_labels ( = {diam_labels: 0.3f} )")
         self.restore = restore
         self.set_normalize_params(normalize_params)
-        self.get_next_image(load_seg=True)
+        self.get_next_image(load_seg=False)
 
         self.compute_segmentation(custom=True)
         self.logger.info(
