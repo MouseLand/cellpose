@@ -2431,7 +2431,7 @@ class MainW(QMainWindow):
                     cellprob_threshold=cellprob_threshold,
                     flow_threshold=flow_threshold, do_3D=do_3D, niter=niter,
                     normalize=normalize_params, stitch_threshold=stitch_threshold,
-                    progress=self.progress)[:2]
+                    progress=self.progress, z_axis=0 if self.NZ > 1 else None)[:2]
             except Exception as e:
                 print("NET ERROR: %s" % e)
                 self.progress.setValue(0)
