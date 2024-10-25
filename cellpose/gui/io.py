@@ -478,7 +478,8 @@ def _masks_to_gui(parent, masks, outlines=None, colors=None):
     # get unique values
     shape = masks.shape
     masks = masks.flatten()
-    fastremap.renumber(masks, in_place=True)
+    if len(fastremap.unique(masks)) != masks.max() + 1:
+        fastremap.renumber(masks, in_place=True)
     masks = masks.reshape(shape)
     masks = masks.astype(np.uint16) if masks.max() < 2**16 - 1 else masks.astype(
         np.uint32)
