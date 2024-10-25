@@ -58,16 +58,20 @@ def model_path(model_type, model_index=0):
 
 
 def size_model_path(model_type):
-    if os.path.exists(model_type):
-        return model_type + "_size.npy"
-    else:
-        torch_str = "torch"
-        if model_type == "cyto" or model_type == "nuclei" or model_type == "cyto2":
-            basename = "size_%s%s_0.npy" % (model_type, torch_str)
-        else:
+    torch_str = "torch"
+    if (model_type == "cyto" or model_type == "nuclei" or 
+        model_type == "cyto2" or model_type == "cyto3"):
+        if model_type == "cyto3":
             basename = "size_%s.npy" % model_type
+        else:
+            basename = "size_%s%s_0.npy" % (model_type, torch_str)
         return cache_model_path(basename)
-
+    else:
+        if os.path.exists(model_type) and os.path.exists(model_type + "_size.npy"):
+            return model_type + "_size.npy"
+        else:
+            raise FileNotFoundError(f"size model not found ({model_type + '_size.npy'})")            
+        
 
 def cache_model_path(basename):
     MODEL_DIR.mkdir(parents=True, exist_ok=True)
