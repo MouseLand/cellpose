@@ -1502,6 +1502,7 @@ class MainW(QMainWindow):
         stroke = np.array(self.strokes[stroke_ind])
         cZ = self.currentZ
         inZ = stroke[0, 0] == cZ
+        print(inZ.sum())
         if inZ:
             outpix = self.outpix[cZ, stroke[:, 1], stroke[:, 2]] > 0
             self.layerz[stroke[~outpix, 1], stroke[~outpix, 2]] = np.array([0, 0, 0, 0])
@@ -1687,6 +1688,7 @@ class MainW(QMainWindow):
                 color = self.colormap[self.ncells, :3]
                 median = self.add_mask(points=self.current_point_set, color=color)
                 if median is not None:
+                    print(median)
                     self.removed_cell = []
                     self.toggle_mask_ops()
                     self.cellcolors = np.append(self.cellcolors, color[np.newaxis, :],
@@ -1696,6 +1698,8 @@ class MainW(QMainWindow):
                     if self.NZ == 1:
                         # only save after each cell if single image
                         io._save_sets_with_check(self)
+            else:
+                print("GUI_ERROR: cell too small, not drawn")
             self.current_stroke = []
             self.strokes = []
             self.current_point_set = []
@@ -1724,28 +1728,31 @@ class MainW(QMainWindow):
             ar, ac = ar + vr.min() - 2, ac + vc.min() - 2
             # get dense outline
             contours = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
-            pvc, pvr = contours[-2][0].squeeze().T
+            print(contours[-2][0].shape)
+            pvc, pvr = contours[-2][0][:,0].T
             vr, vc = pvr + vr.min() - 2, pvc + vc.min() - 2
             # concatenate all points
             ar, ac = np.hstack((np.vstack((vr, vc)), np.vstack((ar, ac))))
             # if these pixels are overlapping with another cell, reassign them
             ioverlap = self.cellpix[z][ar, ac] > 0
-            if (~ioverlap).sum() < 8:
-                print("ERROR: cell too small without overlaps, not drawn")
+            if (~ioverlap).sum() < 10:
+                print("GUI_ERROR: cell < 10 pixels without overlaps, not drawn")
                 return None
             elif ioverlap.sum() > 0:
                 ar, ac = ar[~ioverlap], ac[~ioverlap]
                 # compute outline of new mask
-                mask = np.zeros((np.ptp(ar) + 4, np.ptp(ac) + 4), np.uint8)
-                mask[ar - ar.min() + 2, ac - ac.min() + 2] = 1
+                mask = np.zeros((np.ptp(vr) + 4, np.ptp(vc) + 4), np.uint8)
+                mask[ar - vr.min() + 2, ac - vc.min() + 2] = 1
                 contours = cv2.findContours(mask, cv2.RETR_EXTERNAL,
                                             cv2.CHAIN_APPROX_NONE)
-                pvc, pvr = contours[-2][0].squeeze().T
-                vr, vc = pvr + ar.min() - 2, pvc + ac.min() - 2
+                print(contours[-2][0].shape)
+                pvc, pvr = contours[-2][0][:,0].T
+                vr, vc = pvr + vr.min() - 2, pvc + vc.min() - 2
             ars = np.concatenate((ars, ar), axis=0)
             acs = np.concatenate((acs, ac), axis=0)
             vrs = np.concatenate((vrs, vr), axis=0)
             vcs = np.concatenate((vcs, vc), axis=0)
+            print("HI", ars, acs)
 
         self.draw_mask(z, ars, acs, vrs, vcs, color)
         median.append(np.array([np.median(ars), np.median(acs)]))

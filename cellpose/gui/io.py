@@ -482,6 +482,7 @@ def _masks_to_gui(parent, masks, outlines=None, colors=None):
         fastremap.renumber(masks, in_place=True)
         outlines = None
         masks = masks.reshape(shape)
+    outlines = None
     masks = masks.astype(np.uint16) if masks.max() < 2**16 - 1 else masks.astype(
         np.uint32)
     if parent.restore and "upsample" in parent.restore:
