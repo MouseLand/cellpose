@@ -1502,7 +1502,6 @@ class MainW(QMainWindow):
         stroke = np.array(self.strokes[stroke_ind])
         cZ = self.currentZ
         inZ = stroke[0, 0] == cZ
-        print(inZ.sum())
         if inZ:
             outpix = self.outpix[cZ, stroke[:, 1], stroke[:, 2]] > 0
             self.layerz[stroke[~outpix, 1], stroke[~outpix, 2]] = np.array([0, 0, 0, 0])
@@ -1688,7 +1687,6 @@ class MainW(QMainWindow):
                 color = self.colormap[self.ncells, :3]
                 median = self.add_mask(points=self.current_point_set, color=color)
                 if median is not None:
-                    print(median)
                     self.removed_cell = []
                     self.toggle_mask_ops()
                     self.cellcolors = np.append(self.cellcolors, color[np.newaxis, :],
@@ -1728,7 +1726,6 @@ class MainW(QMainWindow):
             ar, ac = ar + vr.min() - 2, ac + vc.min() - 2
             # get dense outline
             contours = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
-            print(contours[-2][0].shape)
             pvc, pvr = contours[-2][0][:,0].T
             vr, vc = pvr + vr.min() - 2, pvc + vc.min() - 2
             # concatenate all points
@@ -1745,15 +1742,13 @@ class MainW(QMainWindow):
                 mask[ar - vr.min() + 2, ac - vc.min() + 2] = 1
                 contours = cv2.findContours(mask, cv2.RETR_EXTERNAL,
                                             cv2.CHAIN_APPROX_NONE)
-                print(contours[-2][0].shape)
                 pvc, pvr = contours[-2][0][:,0].T
                 vr, vc = pvr + vr.min() - 2, pvc + vc.min() - 2
             ars = np.concatenate((ars, ar), axis=0)
             acs = np.concatenate((acs, ac), axis=0)
             vrs = np.concatenate((vrs, vr), axis=0)
             vcs = np.concatenate((vcs, vc), axis=0)
-            print("HI", ars, acs)
-
+            
         self.draw_mask(z, ars, acs, vrs, vcs, color)
         median.append(np.array([np.median(ars), np.median(acs)]))
 
