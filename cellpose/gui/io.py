@@ -692,7 +692,6 @@ def _save_sets(parent):
             "diameter":
                 parent.diameter
         }
-        print(dat["masks"].shape)
         if parent.restore is not None:
             dat["img_restore"] = parent.stack_filtered
         np.save(base + "_seg.npy", dat)
