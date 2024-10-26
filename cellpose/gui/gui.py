@@ -1704,7 +1704,7 @@ class MainW(QMainWindow):
     def add_mask(self, points=None, color=(100, 200, 50), dense=True):
         # points is list of strokes
         points_all = np.concatenate(points, axis=0)
-
+        
         # loop over z values
         median = []
         zdraw = np.unique(points_all[:, 0])
