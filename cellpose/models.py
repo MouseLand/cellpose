@@ -597,19 +597,10 @@ class CellposeModel():
             masks = dynamics.resize_and_compute_masks(
                 dP, cellprob, niter=niter, cellprob_threshold=cellprob_threshold,
                 flow_threshold=flow_threshold, interp=interp, do_3D=do_3D,
-                min_size=min_size, max_size_fraction=max_size_fraction, resize=None,
+                min_size=min_size, max_size_fraction=max_size_fraction, 
+                resize=shape[:3] if (np.array(dP.shape[-3:])!=np.array(shape[:3])).sum() 
+                        else None,
                 device=self.device)
-            if masks.shape[0] != Lz or masks.shape[1] != Ly:
-                models_logger.info("resizing 3D masks to original image size")
-                if masks.shape[1] != Ly:
-                    masks = transforms.resize_image(masks, Ly=Ly, Lx=Lx,
-                                                no_channels=True, 
-                                                interpolation=cv2.INTER_NEAREST)
-                if masks.shape[0] != Lz:
-                    masks = transforms.resize_image(masks.transpose(1,0,2),
-                                                    Ly=Lz, Lx=Lx,
-                                                    no_channels=True, 
-                                                    interpolation=cv2.INTER_NEAREST).transpose(1,0,2)
         else:
             nimg = shape[0]
             Ly0, Lx0 = cellprob[0].shape 

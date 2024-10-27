@@ -838,18 +838,33 @@ def resize_and_compute_masks(dP, cellprob, niter=200, cellprob_threshold=0.0,
     mask = compute_masks(dP, cellprob, niter=niter,
                             cellprob_threshold=cellprob_threshold,
                             flow_threshold=flow_threshold, interp=interp, do_3D=do_3D,
-                            min_size=min_size, max_size_fraction=max_size_fraction, 
+                            max_size_fraction=max_size_fraction, 
                             device=device)
 
     if resize is not None:
-        mask = transforms.resize_image(mask, resize[0], resize[1], no_channels=True,
-                                       interpolation=cv2.INTER_NEAREST)
+        if len(resize) == 2:
+            mask = transforms.resize_image(mask, resize[0], resize[1], no_channels=True,
+                                           interpolation=cv2.INTER_NEAREST)
+        else:
+            Lz, Ly, Lx = resize
+            if mask.shape[0] != Lz or mask.shape[1] != Ly:
+                dynamics_logger.info("resizing 3D masks to original image size")
+                if mask.shape[1] != Ly:
+                    mask = transforms.resize_image(mask, Ly=Ly, Lx=Lx,
+                                                no_channels=True, 
+                                                interpolation=cv2.INTER_NEAREST)
+                if mask.shape[0] != Lz:
+                    mask = transforms.resize_image(mask.transpose(1,0,2),
+                                                    Ly=Lz, Lx=Lx,
+                                                    no_channels=True, 
+                                                    interpolation=cv2.INTER_NEAREST).transpose(1,0,2)
+
+    mask = utils.fill_holes_and_remove_small_masks(mask, min_size=min_size)
+
     return mask
 
-
-
 def compute_masks(dP, cellprob, p=None, niter=200, cellprob_threshold=0.0,
-                  flow_threshold=0.4, interp=True, do_3D=False, min_size=15,
+                  flow_threshold=0.4, interp=True, do_3D=False, min_size=-1,
                   max_size_fraction=0.4, device=torch.device("cpu")):
     """Compute masks using dynamics from dP and cellprob.
 
@@ -905,8 +920,9 @@ def compute_masks(dP, cellprob, p=None, niter=200, cellprob_threshold=0.0,
         shape = cellprob.shape
         mask = np.zeros(cellprob.shape, "uint16")
         return mask
-
-    mask = utils.fill_holes_and_remove_small_masks(mask, min_size=min_size)
+    
+    if min_size > 0:
+        mask = utils.fill_holes_and_remove_small_masks(mask, min_size=min_size)
 
     if mask.dtype == np.uint32:
         dynamics_logger.warning(
