@@ -29,7 +29,8 @@ MODEL_NAMES = [
     "cyto3", "nuclei", "cyto2_cp3", "tissuenet_cp3", "livecell_cp3", "yeast_PhC_cp3",
     "yeast_BF_cp3", "bact_phase_cp3", "bact_fluor_cp3", "deepbacs_cp3", "cyto2", "cyto", "CPx",
     "transformer_cp3", "neurips_cellpose_default", "neurips_cellpose_transformer",
-    "neurips_grayscale_cyto2"
+    "neurips_grayscale_cyto2",
+    "CP", "CPx", "TN1", "TN2", "TN3", "LC1", "LC2", "LC3", "LC4"
 ]
 
 MODEL_LIST_PATH = os.fspath(MODEL_DIR.joinpath("gui_models.txt"))
@@ -57,16 +58,20 @@ def model_path(model_type, model_index=0):
 
 
 def size_model_path(model_type):
-    if os.path.exists(model_type):
-        return model_type + "_size.npy"
-    else:
-        torch_str = "torch"
-        if model_type == "cyto" or model_type == "nuclei" or model_type == "cyto2":
-            basename = "size_%s%s_0.npy" % (model_type, torch_str)
-        else:
+    torch_str = "torch"
+    if (model_type == "cyto" or model_type == "nuclei" or 
+        model_type == "cyto2" or model_type == "cyto3"):
+        if model_type == "cyto3":
             basename = "size_%s.npy" % model_type
+        else:
+            basename = "size_%s%s_0.npy" % (model_type, torch_str)
         return cache_model_path(basename)
-
+    else:
+        if os.path.exists(model_type) and os.path.exists(model_type + "_size.npy"):
+            return model_type + "_size.npy"
+        else:
+            raise FileNotFoundError(f"size model not found ({model_type + '_size.npy'})")            
+        
 
 def cache_model_path(basename):
     MODEL_DIR.mkdir(parents=True, exist_ok=True)

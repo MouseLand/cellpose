@@ -1696,6 +1696,8 @@ class MainW(QMainWindow):
                     if self.NZ == 1:
                         # only save after each cell if single image
                         io._save_sets_with_check(self)
+            else:
+                print("GUI_ERROR: cell too small, not drawn")
             self.current_stroke = []
             self.strokes = []
             self.current_point_set = []
@@ -1704,7 +1706,7 @@ class MainW(QMainWindow):
     def add_mask(self, points=None, color=(100, 200, 50), dense=True):
         # points is list of strokes
         points_all = np.concatenate(points, axis=0)
-
+        
         # loop over z values
         median = []
         zdraw = np.unique(points_all[:, 0])
@@ -1724,29 +1726,29 @@ class MainW(QMainWindow):
             ar, ac = ar + vr.min() - 2, ac + vc.min() - 2
             # get dense outline
             contours = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
-            pvc, pvr = contours[-2][0].squeeze().T
+            pvc, pvr = contours[-2][0][:,0].T
             vr, vc = pvr + vr.min() - 2, pvc + vc.min() - 2
             # concatenate all points
             ar, ac = np.hstack((np.vstack((vr, vc)), np.vstack((ar, ac))))
             # if these pixels are overlapping with another cell, reassign them
             ioverlap = self.cellpix[z][ar, ac] > 0
-            if (~ioverlap).sum() < 8:
-                print("ERROR: cell too small without overlaps, not drawn")
+            if (~ioverlap).sum() < 10:
+                print("GUI_ERROR: cell < 10 pixels without overlaps, not drawn")
                 return None
             elif ioverlap.sum() > 0:
                 ar, ac = ar[~ioverlap], ac[~ioverlap]
                 # compute outline of new mask
-                mask = np.zeros((np.ptp(ar) + 4, np.ptp(ac) + 4), np.uint8)
-                mask[ar - ar.min() + 2, ac - ac.min() + 2] = 1
+                mask = np.zeros((np.ptp(vr) + 4, np.ptp(vc) + 4), np.uint8)
+                mask[ar - vr.min() + 2, ac - vc.min() + 2] = 1
                 contours = cv2.findContours(mask, cv2.RETR_EXTERNAL,
                                             cv2.CHAIN_APPROX_NONE)
-                pvc, pvr = contours[-2][0].squeeze().T
-                vr, vc = pvr + ar.min() - 2, pvc + ac.min() - 2
+                pvc, pvr = contours[-2][0][:,0].T
+                vr, vc = pvr + vr.min() - 2, pvc + vc.min() - 2
             ars = np.concatenate((ars, ar), axis=0)
             acs = np.concatenate((acs, ac), axis=0)
             vrs = np.concatenate((vrs, vr), axis=0)
             vcs = np.concatenate((vcs, vc), axis=0)
-
+            
         self.draw_mask(z, ars, acs, vrs, vcs, color)
         median.append(np.array([np.median(ars), np.median(acs)]))
 
@@ -2431,7 +2433,7 @@ class MainW(QMainWindow):
                     cellprob_threshold=cellprob_threshold,
                     flow_threshold=flow_threshold, do_3D=do_3D, niter=niter,
                     normalize=normalize_params, stitch_threshold=stitch_threshold,
-                    progress=self.progress)[:2]
+                    progress=self.progress, z_axis=0 if self.NZ > 1 else None)[:2]
             except Exception as e:
                 print("NET ERROR: %s" % e)
                 self.progress.setValue(0)

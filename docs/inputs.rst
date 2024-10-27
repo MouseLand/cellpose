@@ -9,6 +9,11 @@ each channel so that 0 = 1st percentile of image values and 1 = 99th percentile.
 
 If you want to run multiple images in a directory, use the command line or a jupyter notebook to run cellpose.
 
+If you have multiple images of the same size, it can be faster to input them into the 
+Cellpose `model.eval` function as an array rather than a list, and running with a large 
+batch size. This is because the model can process tiles from multiple images in single batches 
+on the GPU if the images are fed in as an array.
+
 3D segmentation
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
