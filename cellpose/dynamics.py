@@ -625,21 +625,22 @@ def remove_bad_flow_masks(masks, flows, threshold=0.4, device=torch.device("cpu"
         if major_version == "1" and int(minor_version) < 10:
             # for PyTorch version lower than 1.10
             def mem_info():
-                total_mem = torch.cuda.get_device_properties(0).total_memory
-                used_mem = torch.cuda.memory_allocated()
-                return total_mem, used_mem
+                total_mem = torch.cuda.get_device_properties(device0.index).total_memory
+                used_mem = torch.cuda.memory_allocated(device0.index)
+                free_mem = total_mem - used_mem
+                return total_mem, free_mem
         else:
             # for PyTorch version 1.10 and above
             def mem_info():
-                total_mem, used_mem = torch.cuda.mem_get_info()
-                return total_mem, used_mem
-
-        if masks.size * 20 > mem_info()[0]:
+                free_mem, total_mem = torch.cuda.mem_get_info(device0.index)
+                return total_mem, free_mem
+        total_mem, free_mem = mem_info()
+        if masks.size * 32 > free_mem:
             dynamics_logger.warning(
                 "WARNING: image is very large, not using gpu to compute flows from masks for QC step flow_threshold"
             )
             dynamics_logger.info("turn off QC step with flow_threshold=0 if too slow")
-            device0 = None
+            device0 = torch.device("cpu")
 
     merrors, _ = metrics.flow_error(masks, flows, device0)
     badi = 1 + (merrors > threshold).nonzero()[0]
@@ -904,7 +905,7 @@ def compute_masks(dP, cellprob, p=None, niter=200, cellprob_threshold=0.0,
         # calculate masks
         mask = get_masks_torch(p_final, inds, dP.shape[1:], 
                                max_size_fraction=max_size_fraction)
-
+        del p_final
         # flow thresholding factored out of get_masks
         if not do_3D:
             if mask.max() > 0 and flow_threshold is not None and flow_threshold > 0:

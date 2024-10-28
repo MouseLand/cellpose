@@ -565,11 +565,12 @@ class CellposeModel():
                                 batch_size=batch_size, augment=augment,  
                                 tile_overlap=tile_overlap, net_ortho=self.net_ortho)
             if resample:
-                models_logger.info("resizing 3D flows and cellprob to original image size")
-                if rescale != 1.0:
-                    yf = transforms.resize_image(yf, Ly=Ly, Lx=Lx)
-                if Lz != yf.shape[0]:
-                    yf = transforms.resize_image(yf.transpose(1,0,2,3),
+                if rescale != 1.0 or Lz != yf.shape[0]:
+                    models_logger.info("resizing 3D flows and cellprob to original image size")
+                    if rescale != 1.0:
+                        yf = transforms.resize_image(yf, Ly=Ly, Lx=Lx)
+                    if Lz != yf.shape[0]:
+                        yf = transforms.resize_image(yf.transpose(1,0,2,3),
                                             Ly=Lz, Lx=Lx).transpose(1,0,2,3)
             cellprob = yf[..., -1]
             dP = yf[..., :-1].transpose((3, 0, 1, 2))
