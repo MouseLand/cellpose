@@ -54,6 +54,7 @@ Cellpose: a generalist algorithm for cellular segmentation
    models
    restore
    train
+   benchmark
    openvino
    faq
 
