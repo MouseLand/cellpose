@@ -4,11 +4,13 @@ Settings
 --------------------------
 
 The important settings are described on this page. 
-See the :ref:`cpclass` for all run options.
+See the :ref:`cpmclass` for all run options.
 
 Here is an example of calling the Cellpose class and
 running a list of images for reference:
-::code-block::
+
+::
+
     from cellpose import models
     from cellpose.io import imread
 
