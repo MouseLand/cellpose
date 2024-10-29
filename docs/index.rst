@@ -50,6 +50,7 @@ Cellpose: a generalist algorithm for cellular segmentation
    inputs
    settings
    outputs
+   do3d
    models
    restore
    train

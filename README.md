@@ -241,17 +241,3 @@ Check out [Omnipose](https://github.com/kevinjohncutler/omnipose), an extension 
 Pytorch is now the default deep neural network software for cellpose. Mxnet will still be supported. To install mxnet (CPU), run `pip install mxnet-mkl`. To use mxnet in a notebook, declare `torch=False` when creating a model, e.g. `model = models.Cellpose(torch=False)`. To use mxnet on the command line, add the flag `--mxnet`, e.g. `python -m cellpose --dir ~/images/ --mxnet`. The pytorch implementation is 20% faster than the mxnet implementation when running on the GPU and 20% slower when running on the CPU. 
 
 Dynamics are computed using bilinear interpolation by default instead of nearest neighbor interpolation. Set `interp=False` in `model.eval` to turn off. The bilinear interpolation will be slightly slower on the CPU, but it is faster than nearest neighbor if using torch and the GPU is enabled.
-
-
-### Timing (v0.6)
-
-You can check if cellpose is running the MKL version (if you are using the CPU not the GPU) by adding the flag `--check_mkl`. If you are not using MKL cellpose will be much slower. Here are Cellpose run times divided into the time it takes to run the deep neural network (DNN) and the time for postprocessing (gradient tracking, segmentation, quality control etc.). The DNN runtime is shown using either a GPU (Nvidia GTX 1080Ti) or a CPU (Intel 10-core 7900X), with or without network ensembling (4net vs 1net). The postprocessing runtime is similar regardless of ensembling or CPU/GPU version. Runtime is shown for different image sizes, all with a cell diameter of 30 pixels (the average from our training set).
-
-|   | 256 pix | 512 pix | 1024 pix |
-|----|-------|------|----------|
-| DNN (1net, GPU) | 0.054 s | 0.12 s | 0.31 s  |
-| DNN (1net, CPU) | 0.30 s | 0.65 s | 2.4 s  |
-| DNN (4net, GPU) | 0.23 s | 0.41 s | 1.3 s |
-| DNN (4net, CPU) | 1.3 s | 2.5 s | 9.1 s  |
-|  | |  |  |
-| Postprocessing (CPU) | 0.32 s | 1.2 s | 6.1 s  |
