@@ -10,6 +10,7 @@ from urllib.parse import urlparse
 import tempfile
 import cv2
 from scipy.stats import mode
+import scipy.ndimage
 import fastremap
 from . import transforms, dynamics, utils, plot, metrics, resnet_torch
 
@@ -291,8 +292,6 @@ def run_3D(net, imgs, batch_size=8, augment=False,
     Args:
         imgs (np.ndarray): The input image stack of size [Lz x Ly x Lx x nchan].
         batch_size (int, optional): Number of tiles to run in a batch. Defaults to 8.
-        rsz (float, optional): Resize coefficient(s) for image. Defaults to 1.0.
-        anisotropy (float, optional): for 3D segmentation, optional rescaling factor (e.g. set to 2.0 if Z is sampled half as dense as X or Y). Defaults to None.
         augment (bool, optional): Tiles image with overlapping tiles and flips overlapped regions to augment. Defaults to False.
         tile_overlap (float, optional): Fraction of overlap of tiles when computing flows. Defaults to 0.1.
         bsize (int, optional): Size of tiles to use in pixels [bsize x bsize]. Defaults to 224.
@@ -304,29 +303,51 @@ def run_3D(net, imgs, batch_size=8, augment=False,
             y[...,0] is Y flow; y[...,1] is X flow; y[...,2] is cell probability.
         style (np.ndarray): 1D array of size 256 summarizing the style of the image, if tiled it is averaged over tiles.
     """
-    sstr = ["YX", "ZY", "ZX"]
-    pm = [(0, 1, 2, 3), (1, 0, 2, 3), (2, 0, 1, 3)]
-    ipm = [(0, 1, 2), (1, 0, 2), (1, 2, 0)]
-    cp = [(1, 2), (0, 2), (0, 1)]
-    cpy = [(0, 1), (0, 1), (0, 1)]
-    shape = imgs.shape[:-1]
-    #cellprob = np.zeros(shape, "float32")
-    yf = np.zeros((*shape, 4), "float32")
-    for p in range(3):
-        xsl = imgs.transpose(pm[p])
-        # per image
-        core_logger.info("running %s: %d planes of size (%d, %d)" %
-                         (sstr[p], shape[pm[p][0]], shape[pm[p][1]], shape[pm[p][2]]))
-        y, style = run_net(net if p==0 or net_ortho is None else net_ortho, 
-                           xsl, batch_size=batch_size, augment=augment, 
-                           bsize=bsize, tile_overlap=tile_overlap, 
-                           rsz=None)
-        yf[..., -1] += y[..., -1].transpose(ipm[p])
-        for j in range(2):
-            yf[..., cp[p][j]] += y[..., cpy[p][j]].transpose(ipm[p])
-        y = None; del y
-    
-        if progress is not None:
-            progress.setValue(25 + 15 * p)
-    
-    return yf, style
+    # Run the network once for each z plane
+    y, style = run_net(net, imgs, batch_size=batch_size, augment=augment, rsz=None, bsize=bsize,
+                       tile_overlap=tile_overlap)
+    yflow, xflow, cellprob = y.transpose([3,0,1,2]) # outputs, z dims, y dims, x dims
+    del y
+    if progress is not None:
+        progress.setValue(50)
+    if net_ortho is None:
+        # Compute the matitude of the derivative in the xy plane at each point.
+        # This is a rough indication of the physical footprint of cell.  However,
+        # since network output will be a bit different for each plane, we need to
+        # filter to make sure it is smooth across z.  We will use the gradient of
+        # this as our pseudo-flow for the z axis.
+        dmag = np.sqrt(yflow**2+xflow**2)
+        _dmag_grad = np.diff(scipy.ndimage.gaussian_filter(scipy.ndimage.maximum_filter(dmag, [3,1,1]), 3), axis=0)
+        del dmag
+        z_grad = np.concatenate([_dmag_grad, _dmag_grad[[-1]]], axis=0)
+        del _dmag_grad
+    else: # If an xz/yz network is passed.  Untested.
+        y, _ = run_net(net, imgs.transpose(1,0,2,3), batch_size=batch_size, augment=augment, rsz=None, bsize=bsize,
+                           tile_overlap=tile_overlap)
+        z_grad = y[0,:,:,0]
+        del y
+    # Filter with an "absolute maximum" filter followed by a gentle gaussian.
+    # The "absolute maximum" filter is like a "maximum" filter but uses the
+    # minimum instead of the maximum if it is greater in absolute value.  (This
+    # could be done with generic_filter but that is much slower than running
+    # maximum_filter + minimum_filter.)  The gentle gaussian at the end is to
+    # avoid plateus that come from max/min operations.
+    flows = np.asarray([yflow, xflow])
+    _flows_pixel_filt_pos = scipy.ndimage.maximum_filter(flows, [1, 3, 1, 1])
+    _flows_pixel_filt_neg = scipy.ndimage.minimum_filter(flows, [1, 3, 1, 1])
+    del flows
+    flows_pixel_filt = _flows_pixel_filt_neg
+    inds = np.abs(_flows_pixel_filt_pos)>np.abs(_flows_pixel_filt_neg)
+    flows_pixel_filt[inds] = _flows_pixel_filt_pos[inds]
+    del _flows_pixel_filt_pos
+    yflow_filt = scipy.ndimage.gaussian_filter(flows_pixel_filt[0], 1)
+    xflow_filt = scipy.ndimage.gaussian_filter(flows_pixel_filt[1], 1)
+    del flows_pixel_filt
+    # Last we need to compute cell probability.  We will just use the network
+    # output nearly verbatim, but filtered along the z axis for smoothness (like
+    # above).
+    cellprob_filt = scipy.ndimage.gaussian_filter(scipy.ndimage.maximum_filter(cellprob, [3,1,1]), [1,1,1])
+    # Renormalise the pseudo-flow in z to match the flows in x and y
+    norm = np.maximum(np.max(np.abs(yflow)), np.max(np.abs(xflow)))/np.max(np.abs(z_grad))
+    new_flows_pixel = [z_grad*norm, yflow_filt, xflow_filt, cellprob_filt]
+    return np.asarray(new_flows_pixel).transpose(1,2,3,0), style
