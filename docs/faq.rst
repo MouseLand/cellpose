@@ -60,6 +60,7 @@ FAQ
 
 **Q: How can I control the amount of threads cellpose is using?**
 
-    Under the hood, Cellpose is using PyTorch for parallelization. PyTorch is configurable through the environment
+    Under the hood, Cellpose is using PyTorch for parallelization. Number of threads for PyTorch can be set
+    using `torch.set_num_threads <https://pytorch.org/docs/stable/generated/torch.set_num_threads.html>`_ or through the environment
     variables ``OMP_NUM_THREADS`` or ``MKL_NUM_THREADS`` as described
     `here <https://pytorch.org/docs/stable/threading_environment_variables.html>`_.
