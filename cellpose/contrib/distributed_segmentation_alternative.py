@@ -122,11 +122,13 @@ class myLocalCluster(distributed.LocalCluster):
 
     You can also modify any dask configuration option through the
     config argument.
+
+    If your workstation has a GPU, one of the workers will have exclusive
+    access to it by default. That worker will be much faster than the others.
+    You may want to consider creating only one worker (which will have access
+    to the GPU) and letting that worker process all blocks serially.
     """
 
-    # TODO: figure out how to get logs for each worker to go into separate
-    #       files instead of all mixing in stdout of the scheduler process
-    # TODO: figure out variable hardware on workers, e.g. GPU on one worker
     def __init__(
         self,
         ncpus,
