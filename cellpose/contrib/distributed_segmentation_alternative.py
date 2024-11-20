@@ -1,5 +1,5 @@
 # stdlib imports
-import os, pathlib, tempfile, functools, glob
+import os, datetime, pathlib, tempfile, functools, glob
 
 # non-stdlib core dependencies
 import numpy as np
@@ -32,6 +32,9 @@ def wrap_folder_of_tiffs(
     tiff files must all contain images with the same shape and data type
     tiff file names must contain a pattern indicating where individual files
     lie in the block grid
+    Currently only 3 dimensional image datasets are supported. Individual tiff
+    files may be 2D, such as one tiff per plane of acquisition, but the overall
+    array is assumed to be 3D.
 
     Parameters
     ----------
@@ -62,7 +65,7 @@ def wrap_folder_of_tiffs(
         aszarr=True,
         imread=imread,
         pattern=block_index_pattern,
-        axestiled={x:x for x in range(3)}    # TODO: bad hardcode
+        axestiled={x:x for x in range(3)}
     )
     return zarr.open(store=store)
 
@@ -324,6 +327,7 @@ def process_block(
     overlap,
     output_zarr,
     preprocessing_steps=[],
+    worker_logs_directory=None,
     test_mode=False,
 ):
     """
@@ -394,6 +398,10 @@ def process_block(
         A location where segments can be stored temporarily before
         merger is complete
 
+    worker_logs_directory : string (default: None)
+        A directory path where log files for each worker can be created
+        The directory must exist
+
     test_mode : bool (default: False)
         The primary use case of this function is to be called by
         distributed_eval (defined later in this same module). However
@@ -431,6 +439,7 @@ def process_block(
     print('RUNNING BLOCK: ', block_index, '\tREGION: ', crop, flush=True)
     segmentation = read_preprocess_and_segment(
         input_zarr, crop, preprocessing_steps, model_kwargs, eval_kwargs,
+        worker_logs_directory,
     )
     segmentation, crop = remove_overlaps(
         segmentation, crop, overlap, blocksize,
@@ -453,13 +462,16 @@ def read_preprocess_and_segment(
     preprocessing_steps,
     model_kwargs,
     eval_kwargs,
+    worker_logs_directory,
 ):
     """Read block from zarr array, run all preprocessing steps, run cellpose"""
     image = input_zarr[crop]
     for pp_step in preprocessing_steps:
         pp_step[1]['crop'] = crop
         image = pp_step[0](image, **pp_step[1])
-    cellpose.io.logger_setup()
+    log_file = f'dask_worker_{distributed.get_worker().name}.log'
+    log_file = pathlib.Path(worker_logs_directory).joinpath(log_file)
+    cellpose.io.logger_setup(stdout_file_replacement=log_file)
     model = cellpose.models.Cellpose(**model_kwargs)
     return model.eval(image, **eval_kwargs)[0].astype(np.uint32)
 
@@ -630,6 +642,11 @@ def distributed_eval(
         tuple in the list.
     """
 
+    timestamp = datetime.datetime.now().strftime('%Y%m%dT%H%M%S')
+    worker_logs_dirname = f'dask_worker_logs_{timestamp}'
+    worker_logs_dir = pathlib.Path().absolute().joinpath(worker_logs_dirname)
+    worker_logs_dir.mkdir()
+
     if 'diameter' not in eval_kwargs.keys():
         eval_kwargs['diameter'] = 30
     overlap = eval_kwargs['diameter'] * 2
@@ -659,6 +676,7 @@ def distributed_eval(
         blocksize=blocksize,
         overlap=overlap,
         output_zarr=temp_zarr,
+        worker_logs_directory=str(worker_logs_dir),
     )
     results = cluster.client.gather(futures)
     if isinstance(cluster, dask_jobqueue.core.JobQueueCluster): 
