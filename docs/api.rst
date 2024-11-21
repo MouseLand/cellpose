@@ -9,10 +9,25 @@ Cellpose class
 .. autoclass:: cellpose.models.Cellpose
    :members:
 
+.. _cpmclass:
+
 CellposeModel
 ~~~~~~~~~~~~~~~~~~
 
 .. autoclass:: cellpose.models.CellposeModel
+   :members:
+
+CellposeDenoiseModel
+~~~~~~~~~~~~~~~~~
+
+.. autoclass:: cellpose.denoise.CellposeDenoiseModel
+   :members:
+
+
+DenoiseModel
+~~~~~~~~~~~~~~~~~
+
+.. autoclass:: cellpose.denoise.DenoiseModel
    :members:
 
 SizeModel
@@ -20,6 +35,13 @@ SizeModel
 
 .. autoclass:: cellpose.models.SizeModel
    :members:
+
+Training
+~~~~~~~~~~~~~~~~~~
+
+.. automodule:: cellpose.train
+   :members:
+
 
 Metrics
 ~~~~~~~~~~~~~~~~~~

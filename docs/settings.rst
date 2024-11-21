@@ -4,11 +4,13 @@ Settings
 --------------------------
 
 The important settings are described on this page. 
-See the :ref:`cpclass` for all run options.
+See the :ref:`cpmclass` for all run options.
 
 Here is an example of calling the Cellpose class and
 running a list of images for reference:
+
 ::
+
     from cellpose import models
     from cellpose.io import imread
 
@@ -17,7 +19,7 @@ running a list of images for reference:
 
     files = ['img0.tif', 'img1.tif']
     imgs = [imread(f) for f in files]
-    masks, flows, styles, diams = model.eval(imgs, diameter=None, channels=[0,0], 
+    masks, flows, styles, diams = model.eval(imgs, diameter=None, channels=[0,0],
                                              flow_threshold=0.4, do_3D=False)
 
 You can make lists of channels/diameter for each image, or set the same channels/diameter for all images
@@ -39,7 +41,20 @@ Set channels to a list with each of these elements, e.g.
 
 On the command line the above would be ``--chan 0 --chan2 0`` or ``--chan 2 --chan2 3``.
 
+Note, if you set the first channel input to use grayscale ``0``, then no nuclear channel will be used 
+(the second channel will be filled with zeros).
+
+The nuclear model in cellpose is trained on two-channel images, where 
+the first channel is the channel to segment, and the second channel is 
+always set to an array of zeros. Therefore set the first channel as 
+0=grayscale, 1=red, 2=green, 3=blue; and set the second channel to zero, e.g.
+``channels = [0,0]`` if you want to segment nuclei in grayscale or for single channel images, or 
+``channels = [3,0]`` if you want to segment blue nuclei.
+
+If the nuclear model isn't working well, try the cytoplasmic model.
+
 .. _diameter:
+
 Diameter 
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -57,13 +72,15 @@ on the training data. On a new image the procedure is as follows.
 1. Run the image through the cellpose network and obtain the style vector. Predict the size using the linear regression model from the style vector.
 2. Resize the image based on the predicted size and run cellpose again, and produce ROIs. Take the final estimated size as the median diameter of the predicted ROIs.
 
-For automated estimation set ``diameter = None``. 
+For automated estimation set ``diameter = None`` or ``diameter = 0``. 
 However, if this estimate is incorrect please set the diameter by hand.
 
 Changing the diameter will change the results that the algorithm 
 outputs. When the diameter is set smaller than the true size 
 then cellpose may over-split cells. Similarly, if the diameter 
 is set too big then cellpose may over-merge cells.
+
+.. _resample:
 
 Resample
 ~~~~~~~~~~~~~~~~~~~~~~~~
@@ -76,15 +93,6 @@ size (``resample=False``), or the dynamics can be run on the resampled, interpol
 at the true image size (``resample=True``). ``resample=True`` will create smoother ROIs when the 
 cells are large but will be slower in case; ``resample=False`` will find more ROIs when the cells 
 are small but will be slower in this case. By default in versions >=1.0 ``resample=True``.
-
-The nuclear model in cellpose is trained on two-channel images, where 
-the first channel is the channel to segment, and the second channel is 
-always set to an array of zeros. Therefore set the first channel as 
-0=grayscale, 1=red, 2=green, 3=blue; and set the second channel to zero, e.g.
-``channels = [0,0]`` if you want to segment nuclei in grayscale or for single channel images, or 
-``channels = [3,0]`` if you want to segment blue nuclei.
-
-If the nuclear model isn't working well, try the cytoplasmic model.
 
 Flow threshold
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -106,7 +114,7 @@ if cellpose is not returning as many ROIs as you'd expect.
 Similarly, decrease this threshold if cellpose is returning too many 
 ill-shaped ROIs.
 
-Mask threshold
+Cellprob threshold
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The network predicts 3 outputs: flows in X, flows in Y, and cell "probability". 
@@ -118,27 +126,15 @@ is ``cellprob_threshold=0.0``. Decrease this threshold if cellpose is not return
 as many ROIs as you'd expect. Similarly, increase this threshold if cellpose is 
 returning too ROIs particularly from dim areas.
 
-3D settings
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Number of iterations niter
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Volumetric stacks do not always have the same sampling in XY as they do in Z. 
-Therefore you can set an ``anisotropy`` parameter to allow for differences in 
-sampling, e.g. set to 2.0 if Z is sampled half as dense as X or Y. 
+The flows from the network are used to simulate a dynamical system governing the 
+movements of the pixels. We simulate the dynamics for ``niter`` iterations. 
+The pixels that converge to the same position make up a single ROI. The default ``niter=None`` 
+or ``niter=0`` sets the number of iterations to be proportional to the ROI diameter.
+For longer ROIs, more iterations might be needed, for example ``niter=2000``, for convergence.
 
-There may be additional differences in YZ and XZ slices 
-that make them unable to be used for 3D segmentation. 
-I'd recommend viewing the volume in those dimensions if 
-the segmentation is failing. In those instances, you may want to turn off 
-3D segmentation (``do_3D=False``) and run instead with ``stitch_threshold>0``. 
-Cellpose will create ROIs in 2D on each XY slice and then stitch them across 
-slices if the IoU between the mask on the current slice and the next slice is 
-greater than or equal to the ``stitch_threshold``. 
-
-3D segmentation ignores the ``flow_threshold`` because we did not find that
-it helped to filter out false positives in our test 3D cell volume. Instead, 
-we found that setting ``min_size`` is a good way to remove false positives.
-
-
-
+For info about 3D data, see :ref:`do3d`.
 
 
