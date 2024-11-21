@@ -1,5 +1,5 @@
 # stdlib imports
-import os, datetime, pathlib, tempfile, functools, glob
+import os, getpass, datetime, pathlib, tempfile, functools, glob
 
 # non-stdlib core dependencies
 import numpy as np
@@ -32,9 +32,6 @@ def wrap_folder_of_tiffs(
     tiff files must all contain images with the same shape and data type
     tiff file names must contain a pattern indicating where individual files
     lie in the block grid
-    Currently only 3 dimensional image datasets are supported. Individual tiff
-    files may be 2D, such as one tiff per plane of acquisition, but the overall
-    array is assumed to be 3D.
 
     Parameters
     ----------
@@ -141,7 +138,7 @@ class myLocalCluster(distributed.LocalCluster):
         self.config_name = config_name
         self.persist_config = persist_config
         scratch_dir = f"{os.getcwd()}/"
-        scratch_dir += f".{os.environ['USER']}_distributed_cellpose/"
+        scratch_dir += f".{getpass.getuser()}_distributed_cellpose/"
         config_defaults = {'temporary-directory':scratch_dir}
         config = {**config_defaults, **config}
         _modify_dask_config(config, config_name)
@@ -205,7 +202,7 @@ class janeliaLSFCluster(dask_jobqueue.LSFCluster):
         # config
         self.config_name = config_name
         self.persist_config = persist_config
-        scratch_dir = f"/scratch/{os.environ['USER']}/"
+        scratch_dir = f"/scratch/{getpass.getuser()}/"
         config_defaults = {
             'temporary-directory':scratch_dir,
             'distributed.comm.timeouts.connect':'180s',
