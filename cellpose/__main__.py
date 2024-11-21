@@ -108,6 +108,13 @@ def main():
             default_model = "cyto3"
             backbone = "default"
 
+        if args.norm_percentile is not None:
+            value1, value2 = args.norm_percentile
+            normalize = {'percentile': (float(value1), float(value2))} 
+        else:
+            normalize = (not args.no_norm)
+        
+
         model_type = None
         if pretrained_model and not os.path.exists(pretrained_model):
             model_type = pretrained_model if pretrained_model is not None else "cyto3"
@@ -209,7 +216,7 @@ def main():
                     cellprob_threshold=args.cellprob_threshold,
                     stitch_threshold=args.stitch_threshold, min_size=args.min_size,
                     invert=args.invert, batch_size=args.batch_size,
-                    interp=(not args.no_interp), normalize=(not args.no_norm),
+                    interp=(not args.no_interp), normalize=normalize,
                     channel_axis=args.channel_axis, z_axis=args.z_axis,
                     anisotropy=args.anisotropy, niter=args.niter,
                     dP_smooth=args.dP_smooth)
@@ -303,7 +310,7 @@ def main():
                     test_data=test_images, test_labels=test_labels,
                     test_files=image_names_test, train_probs=train_probs,
                     test_probs=test_probs, compute_flows=compute_flows,
-                    load_files=load_files, normalize=(not args.no_norm),
+                    load_files=load_files, normalize=normalize,
                     channels=channels, channel_axis=args.channel_axis, rgb=(nchan == 3),
                     learning_rate=args.learning_rate, weight_decay=args.weight_decay,
                     SGD=args.SGD, n_epochs=args.n_epochs, batch_size=args.batch_size,
@@ -327,7 +334,7 @@ def main():
                     load_files=load_files, channels=channels,
                     min_train_masks=args.min_train_masks,
                     channel_axis=args.channel_axis, rgb=(nchan == 3),
-                    nimg_per_epoch=args.nimg_per_epoch, normalize=(not args.no_norm),
+                    nimg_per_epoch=args.nimg_per_epoch, normalize=normalize,
                     nimg_test_per_epoch=args.nimg_test_per_epoch,
                     batch_size=args.batch_size)
                 if test_images is not None:
