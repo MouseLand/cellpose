@@ -94,6 +94,12 @@ def get_arg_parser():
         help="do not interpolate when running dynamics (was default)")
     algorithm_args.add_argument("--no_norm", action="store_true",
                                 help="do not normalize images (normalize=False)")
+    parser.add_argument(
+    '--norm_percentile',
+    nargs=2,  # Require exactly two values
+    metavar=('VALUE1', 'VALUE2'),
+    help="Provide two float values to set norm_percentile (e.g., --norm_percentile 1 99)"
+    )
     algorithm_args.add_argument(
         "--do_3D", action="store_true",
         help="process images as 3D stacks of images (nplanes x nchan x Ly x Lx")
