@@ -594,11 +594,20 @@ def distributed_eval(
 ):
     """
     Evaluate a cellpose model on overlapping blocks of a big image.
-    Distributed over cluster or workstation resources with Dask.
+    Distributed over workstation or cluster resources with Dask.
     Optionally run preprocessing steps on the blocks before running cellpose.
     Optionally use a mask to ignore background regions in image.
-    Note: either cluster or cluster_kwargs parameter must be set to a
+    Either cluster or cluster_kwargs parameter must be set to a
     non-default value; please read these parameter descriptions below.
+    If using cluster_kwargs, the workstation and Janelia LSF cluster cases
+    are distinguished by the arguments present in the dictionary.
+
+    PC/Mac/Linux workstations and the Janelia LSF cluster are supported;
+    running on a different institute cluster will require implementing your
+    own dask cluster class. Look at the JaneliaLSFCluster class in this
+    module as an example, also look at the dask_jobqueue library. A PR with
+    a solid start is the right way to get help running this on your own
+    institute cluster.
 
     Parameters
     ----------
@@ -656,7 +665,9 @@ def distributed_eval(
         Arguments used to parameterize your cluster.
         If you are running locally, see the docstring for the myLocalCluster
         class in this module. If you are running on the Janelia LSF cluster, see
-        the docstring for the janeliaLSFCluster class in this module.
+        the docstring for the janeliaLSFCluster class in this module. If you are
+        running on a different institute cluster, you may need to implement
+        a dask cluster object that conforms to the requirements of your cluster.
 
     temporary_directory : string (default: None)
         Temporary files are created during segmentation. The temporary files
