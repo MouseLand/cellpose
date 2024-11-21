@@ -23,7 +23,7 @@ from cellpose.models import CellposeModel, model_path, normalize_default, assign
 
 MODEL_NAMES = []
 for ctype in ["cyto3", "cyto2", "nuclei"]:
-    for ntype in ["denoise", "deblur", "upsample"]:
+    for ntype in ["denoise", "deblur", "upsample", "oneclick"]:
         MODEL_NAMES.append(f"{ntype}_{ctype}")
         if ctype != "cyto3":
             for ltype in ["per", "seg", "rec"]:

@@ -9,6 +9,7 @@ from natsort import natsorted
 from pathlib import Path
 import torch
 from torch import nn
+from tqdm import trange
 
 # in same folder
 try:
@@ -298,6 +299,106 @@ def real_examples(folder):
         dat2["masks_clean"] = masks_clean
         dat2["ap_n2v"] = ap_n2v
         np.save(root / "n2v_masks.npy", dat2)
+
+def real_examples_ribo(root):
+    navgs = [1, 2, 4, 8, 16, 32, 64]
+    noisy = [[], [], [], [], [], [], []]
+    clean = []
+    for i in [1, 3, 6, 4, 5]:
+        imgs = io.imread(Path(root) / f"denoise_{i:05d}_00001.tif")[:300]
+        imgs = [imgs[:, :512, :512], imgs[:, 512:, :512], imgs[:, :512, 512:], imgs[:, 512:, 512:]]
+        clean.extend([img.mean(axis=0) for img in imgs])
+        for n, navg in enumerate(navgs):
+            iavg = np.linspace(0, len(imgs[0])-1, navg+2).astype(int)[1:-1]
+            noisy[n].extend(np.array([img[iavg].mean(axis=0) for img in imgs]))
+        print(len(clean), len(noisy[0]))
+
+    thresholds = np.arange(0.5, 1.05, 0.05)
+    diameter = 17
+    normalize = True # {"tile_norm_blocksize": 80}
+    seg_model = models.Cellpose(gpu=True, model_type="cyto2")
+    model = denoise.DenoiseModel(gpu=True, model_type="denoise_cyto2")
+    masks = seg_model.eval(clean, diameter=diameter, channels=[0,0], 
+                        normalize=normalize)[0]
+    ap_noisy = np.zeros((len(noisy), len(noisy[0]), len(thresholds)))
+    ap_dn = np.zeros((len(noisy), len(noisy[0]), len(thresholds)))
+    dat = {}
+    dat["navgs"] = navgs
+    dat["imgs_dn"] = []
+    dat["masks_dn"] = []
+    dat["masks_noisy"] = []
+    dat["masks_clean"] = masks
+    dat["noisy"] = noisy
+    dat["clean"] = clean
+    for n, imgs in enumerate(noisy):
+        masks_noisy = seg_model.eval(imgs, diameter=diameter, channels=[0,0],
+                                    normalize=normalize)[0]
+        img_dn = model.eval(imgs, diameter=diameter, channels=[0,0],
+                            normalize=normalize)
+        ap, tp, fp, fn = metrics.average_precision(masks, masks_noisy, threshold=thresholds)
+        ap_noisy[n] = ap
+        masks_dn = seg_model.eval(img_dn, diameter=diameter, channels=[0,0],
+                                normalize=normalize)[0]
+        ap, tp, fp, fn = metrics.average_precision(masks, masks_dn, threshold=thresholds)
+        ap_dn[n] = ap
+        dat["imgs_dn"].append(img_dn)
+        dat["masks_dn"].append(masks_dn)
+        dat["masks_noisy"].append(masks_noisy)
+        print(ap_noisy[n,:,0].mean(axis=0), ap_dn[n,:,0].mean(axis=0))
+    dat["ap_noisy"] = ap_noisy
+    dat["ap_dn"] = ap_dn
+    np.save(Path(root) / "ribo_denoise.npy", dat)
+
+    dat = {}
+    dat["navgs"] = navgs
+    dat["imgs_n2s"] = []
+    dat["masks_n2s"] = []
+    dat["masks_clean"] = masks
+    dat["noisy"] = noisy
+    dat["clean"] = clean
+    dat["ap_n2s"] = np.zeros((len(noisy), len(noisy[0]), len(thresholds)))
+    
+    for n, imgs in enumerate(noisy):
+        imgs_n2s = []
+        for i in trange(len(imgs)):
+            out = noise2self.train_per_image(imgs[i][np.newaxis,...].astype("float32"))
+            imgs_n2s.append(out)
+        imgs_n2s = np.array(imgs_n2s)
+        masks_n2s = seg_model.eval(imgs_n2s, diameter=diameter, channels=[0,0])[0]
+        ap, tp, fp, fn = metrics.average_precision(masks, masks_n2s, threshold=thresholds)
+        dat["ap_n2s"][n] = ap
+        dat["imgs_n2s"].append(imgs_n2s)
+        dat["masks_n2s"].append(masks_n2s)
+        print(n, ap.mean(axis=0)[[0, 5, 8]])
+
+    np.save(Path(root) / "ribo_denoise_n2s.npy", dat)
+
+    dat = {}
+    dat["navgs"] = navgs
+    dat["imgs_n2v"] = []
+    dat["masks_n2v"] = []
+    dat["masks_clean"] = masks
+    dat["noisy"] = noisy
+    dat["clean"] = clean
+    dat["ap_n2v"] = np.zeros((len(noisy), len(noisy[0]), len(thresholds)))
+
+    for n, imgs in enumerate(noisy):
+        imgs_n2v = []
+        for i in trange(len(imgs)):
+            out = noise2void.train_per_image(imgs[i].astype("float32"))
+            imgs_n2v.append(out)
+        imgs_n2v = np.array(imgs_n2v)
+        masks_n2v = seg_model.eval(imgs_n2v, diameter=diameter, channels=[0,0],
+                                normalize=normalize)[0]
+        ap, tp, fp, fn = metrics.average_precision(masks, masks_n2v, threshold=thresholds)
+        #print(ap[:,0])
+        dat["ap_n2v"][n] = ap
+        dat["imgs_n2v"].append(imgs_n2v)
+        dat["masks_n2v"].append(masks_n2v)
+        print(n, ap.mean(axis=0)[[0, 5, 8]])
+
+    np.save(Path(root) / "ribo_denoise_n2v.npy", dat)
+
 
 
 def specialist_training(root):
