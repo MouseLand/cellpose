@@ -224,6 +224,10 @@ class janeliaLSFCluster(dask_jobqueue.LSFCluster):
         persist_config=False,
         **kwargs
     ):
+
+        # store all args in case needed later
+        self.locals_store = {**locals()}
+
         # config
         self.config_name = config_name
         self.persist_config = persist_config
@@ -716,11 +720,11 @@ def distributed_eval(
     new_labeling_path = temporary_directory.name + '/new_labeling.npy'
     np.save(new_labeling_path, new_labeling)
 
+    # stitching step is cheap, we should release gpus and use small workers
     if isinstance(cluster, dask_jobqueue.core.JobQueueCluster): 
-        # TODO: hard coded values here - not good
         cluster.change_worker_attributes(
-            min_workers=10,
-            max_workers=400,
+            min_workers=cluster.locals_store['min_workers'],
+            max_workers=cluster.locals_store['max_workers'],
             ncpus=1,
             memory="15GB",
             mem=int(15e9),
