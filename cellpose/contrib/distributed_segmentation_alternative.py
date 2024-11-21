@@ -23,19 +23,61 @@ import dask_jobqueue
 
 
 ######################## File format functions ################################
+def numpy_array_to_zarr(write_path, array, chunks):
+    """
+    Store an in memory numpy array to disk as a chunked Zarr array
+
+    Parameters
+    ----------
+    write_path : string
+        Filepath where Zarr array will be created
+
+    array : numpy.ndarray
+        The already loaded in-memory numpy array to store as zarr
+
+    chunks : tuple, must be array.ndim length
+        How the array will be chunked in the Zarr array
+
+    Returns
+    -------
+    zarr.core.Array
+        A read+write reference to the zarr array on disk
+    """
+
+    zarr_array = zarr.open(
+        write_path,
+        mode='r+',
+        shape=array.shape,
+        chunks=chunks,
+        dtype=array.dtype,
+    )
+    zarr_array[...] = array
+    return zarr_array
+
+
 def wrap_folder_of_tiffs(
     filename_pattern,
     block_index_pattern=r'_(Z)(\d+)(Y)(\d+)(X)(\d+)',
 ):
     """
-    Wrap a folder of tiff files with a zarr array without duplicating data
-    tiff files must all contain images with the same shape and data type
-    tiff file names must contain a pattern indicating where individual files
-    lie in the block grid
+    Wrap a folder of tiff files with a zarr array without duplicating data.
+    Tiff files must all contain images with the same shape and data type.
+    Tiff file names must contain a pattern indicating where individual files
+    lie in the block grid.
 
-    Due to what is likely an unconsidered edge case in the tifffile library,
-    a filename_pattern that matches only a single tiff image requires duplication
-    of that tiff file in zarr format.
+    Distributed computing requires parallel access to small regions of your
+    image from different processes. This is best accomplished with chunked
+    file formats like Zarr and N5. This function can accommodate a folder of
+    tiff files, but it is not equivalent to reformating your data as Zarr or N5.
+    If your individual tiff files/tiles are huge, distributed performance will
+    be poor or not work at all.
+
+    It does not make sense to use this function if you have only one tiff file.
+    That tiff file will become the only chunk in the zarr array, which means all
+    workers will have to load the entire image to fetch their crop of data anyway.
+    If you have a single tiff image, you should just reformat it with the
+    numpy_array_to_zarr function. Single tiff files too large to fit into system
+    memory are not be supported.
 
     Parameters
     ----------
@@ -55,31 +97,6 @@ def wrap_folder_of_tiffs(
     zarr.core.Array
     """
 
-    # TODO: I guess some people have big tiffs, like 80GB. That's insane,
-    # but biologists have no idea what they're doing with computers. So, this
-    # needs to be reworked.
-
-    # With a single tiff file zarr.open(tifffile.imread(..., aszarr=True, ...)
-    # returns a valid zarr.core.Array but for some unknown reason it is not
-    # serializable - dask throws: TypeError: cannot pickle '_thread.RLock' object
-    # No parameter changes or workarounds seemed to solve this, so treating
-    # single tiff inputs as a special case. Single tiff will always be small
-    # enough to duplicate.
-    filepaths = glob.glob(filename_pattern)
-    if len(filepaths) == 1:
-        data = tifffile.imread(filepaths[0])
-        zarr_path = filepaths[0].split('.tif')[0] + '.zarr'
-        chunks = np.array(data.shape) // 2
-        zarr_data = zarr.open(
-            zarr_path,
-            mode='w',
-            shape=data.shape,
-            chunks=chunks,
-            dtype=data.dtype,
-        )
-        zarr_data[...] = data
-        return zarr.open(zarr_path, 'r')
-
     # define function to read individual files
     def imread(fname):
         with open(fname, 'rb') as fh:
@@ -91,7 +108,7 @@ def wrap_folder_of_tiffs(
         aszarr=True,
         imread=imread,
         pattern=block_index_pattern,
-        axestiled={x:x for x in range(3)}
+        axestiled={x:x for x in range(3)},
     )
     return zarr.open(store=store)
 
