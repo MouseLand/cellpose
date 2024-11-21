@@ -55,6 +55,10 @@ def wrap_folder_of_tiffs(
     zarr.core.Array
     """
 
+    # TODO: I guess some people have big tiffs, like 80GB. That's insane,
+    # but biologists have no idea what they're doing with computers. So, this
+    # needs to be reworked.
+
     # With a single tiff file zarr.open(tifffile.imread(..., aszarr=True, ...)
     # returns a valid zarr.core.Array but for some unknown reason it is not
     # serializable - dask throws: TypeError: cannot pickle '_thread.RLock' object
@@ -684,64 +688,69 @@ def distributed_eval(
         input_zarr.shape, blocksize, overlap, mask,
     )
 
-    temporary_directory = tempfile.TemporaryDirectory(
-        prefix='.', dir=temporary_directory or os.getcwd(),
-    )
-    temp_zarr_path = temporary_directory.name + '/segmentation_unstitched.zarr'
-    temp_zarr = zarr.open(
-        temp_zarr_path, 'w',
-        shape=input_zarr.shape,
-        chunks=blocksize,
-        dtype=np.uint32,
-    )
+    # I hate indenting all that code just for the tempdir
+    # but context manager is the only way to really guarantee that
+    # the tempdir gets cleaned up even after unhandled exceptions
+    with tempfile.TemporaryDirectory(
+        prefix='.', suffix='_distributed_cellpose_tempdir',
+        dir=temporary_directory or os.getcwd(),
+    ) as temporary_directory:
 
-    futures = cluster.client.map(
-        process_block,
-        block_indices,
-        block_crops,
-        input_zarr=input_zarr,
-        preprocessing_steps=preprocessing_steps,
-        model_kwargs=model_kwargs,
-        eval_kwargs=eval_kwargs,
-        blocksize=blocksize,
-        overlap=overlap,
-        output_zarr=temp_zarr,
-        worker_logs_directory=str(worker_logs_dir),
-    )
-    results = cluster.client.gather(futures)
-    if isinstance(cluster, dask_jobqueue.core.JobQueueCluster): 
-        cluster.scale(0)
-
-    faces, boxes_, box_ids_ = list(zip(*results))
-    boxes = [box for sublist in boxes_ for box in sublist]
-    box_ids = np.concatenate(box_ids_)
-    new_labeling = determine_merge_relabeling(block_indices, faces, box_ids)
-    debug_unique = np.unique(new_labeling)
-    new_labeling_path = temporary_directory.name + '/new_labeling.npy'
-    np.save(new_labeling_path, new_labeling)
-
-    # stitching step is cheap, we should release gpus and use small workers
-    if isinstance(cluster, dask_jobqueue.core.JobQueueCluster): 
-        cluster.change_worker_attributes(
-            min_workers=cluster.locals_store['min_workers'],
-            max_workers=cluster.locals_store['max_workers'],
-            ncpus=1,
-            memory="15GB",
-            mem=int(15e9),
-            queue=None,
-            job_extra_directives=[],
+        temp_zarr_path = temporary_directory + '/segmentation_unstitched.zarr'
+        temp_zarr = zarr.open(
+            temp_zarr_path, 'w',
+            shape=input_zarr.shape,
+            chunks=blocksize,
+            dtype=np.uint32,
         )
 
-    segmentation_da = dask.array.from_zarr(temp_zarr)
-    relabeled = dask.array.map_blocks(
-        lambda block: np.load(new_labeling_path)[block],
-        segmentation_da,
-        dtype=np.uint32,
-        chunks=segmentation_da.chunks,
-    )
-    dask.array.to_zarr(relabeled, write_path, overwrite=True)
-    merged_boxes = merge_all_boxes(boxes, new_labeling[box_ids])
-    return zarr.open(write_path, mode='r'), merged_boxes
+        futures = cluster.client.map(
+            process_block,
+            block_indices,
+            block_crops,
+            input_zarr=input_zarr,
+            preprocessing_steps=preprocessing_steps,
+            model_kwargs=model_kwargs,
+            eval_kwargs=eval_kwargs,
+            blocksize=blocksize,
+            overlap=overlap,
+            output_zarr=temp_zarr,
+            worker_logs_directory=str(worker_logs_dir),
+        )
+        results = cluster.client.gather(futures)
+        if isinstance(cluster, dask_jobqueue.core.JobQueueCluster): 
+            cluster.scale(0)
+
+        faces, boxes_, box_ids_ = list(zip(*results))
+        boxes = [box for sublist in boxes_ for box in sublist]
+        box_ids = np.concatenate(box_ids_)
+        new_labeling = determine_merge_relabeling(block_indices, faces, box_ids)
+        debug_unique = np.unique(new_labeling)
+        new_labeling_path = temporary_directory + '/new_labeling.npy'
+        np.save(new_labeling_path, new_labeling)
+
+        # stitching step is cheap, we should release gpus and use small workers
+        if isinstance(cluster, dask_jobqueue.core.JobQueueCluster): 
+            cluster.change_worker_attributes(
+                min_workers=cluster.locals_store['min_workers'],
+                max_workers=cluster.locals_store['max_workers'],
+                ncpus=1,
+                memory="15GB",
+                mem=int(15e9),
+                queue=None,
+                job_extra_directives=[],
+            )
+    
+        segmentation_da = dask.array.from_zarr(temp_zarr)
+        relabeled = dask.array.map_blocks(
+            lambda block: np.load(new_labeling_path)[block],
+            segmentation_da,
+            dtype=np.uint32,
+            chunks=segmentation_da.chunks,
+        )
+        dask.array.to_zarr(relabeled, write_path, overwrite=True)
+        merged_boxes = merge_all_boxes(boxes, new_labeling[box_ids])
+        return zarr.open(write_path, mode='r'), merged_boxes
 
 
 #----------------------- component functions ---------------------------------#
