@@ -33,6 +33,10 @@ def wrap_folder_of_tiffs(
     tiff file names must contain a pattern indicating where individual files
     lie in the block grid
 
+    Due to what is likely an unconsidered edge case in the tifffile library,
+    a filename_pattern that matches only a single tiff image requires duplication
+    of that tiff file in zarr format.
+
     Parameters
     ----------
     filename_pattern : string
@@ -50,6 +54,27 @@ def wrap_folder_of_tiffs(
     -------
     zarr.core.Array
     """
+
+    # With a single tiff file zarr.open(tifffile.imread(..., aszarr=True, ...)
+    # returns a valid zarr.core.Array but for some unknown reason it is not
+    # serializable - dask throws: TypeError: cannot pickle '_thread.RLock' object
+    # No parameter changes or workarounds seemed to solve this, so treating
+    # single tiff inputs as a special case. Single tiff will always be small
+    # enough to duplicate.
+    filepaths = glob.glob(filename_pattern)
+    if len(filepaths) == 1:
+        data = tifffile.imread(filepaths[0])
+        zarr_path = filepaths[0].split('.tif')[0] + '.zarr'
+        chunks = np.array(data.shape) // 2
+        zarr_data = zarr.open(
+            zarr_path,
+            mode='w',
+            shape=data.shape,
+            chunks=chunks,
+            dtype=data.dtype,
+        )
+        zarr_data[...] = data
+        return zarr.open(zarr_path, 'r')
 
     # define function to read individual files
     def imread(fname):
