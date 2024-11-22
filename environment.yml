@@ -22,7 +22,7 @@ dependencies:
     - dask
     - distributed
     - dask-image
-    - pyyaml
+    - yaml
     - zarr
     - dask_jobqueue
   
