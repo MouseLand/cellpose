@@ -33,7 +33,7 @@ distributed_deps = [
     'dask',
     'distributed',
     'dask_image',
-    'yaml',
+    'pyyaml',
     'zarr',
     'dask_jobqueue',
 ]
