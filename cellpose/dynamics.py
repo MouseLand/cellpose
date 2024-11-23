@@ -792,7 +792,8 @@ def get_masks_torch(pt, inds, shape0, rpad=20, max_size_fraction=0.4):
     M1 = torch.zeros(shape, dtype=dtype, device=device)
     for k in range(n_seeds):
         M1[seeds_new[k]] = 1 + k
-    
+
+    pt = pt.long()    
     M1 = M1[tuple(pt)]
     M1 = M1.cpu().numpy()
 
