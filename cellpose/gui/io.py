@@ -107,6 +107,8 @@ def _load_image(parent, filename=None, load_seg=True, load_3D=False):
     if filename is None:
         name = QFileDialog.getOpenFileName(parent, "Load image")
         filename = name[0]
+        if filename == "":
+            return
     manual_file = os.path.splitext(filename)[0] + "_seg.npy"
     load_mask = False
     if load_seg:
