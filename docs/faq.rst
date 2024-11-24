@@ -56,3 +56,11 @@ FAQ
     to run, depending on computer hardware specifications. Cellpose will take a long time to run on large images.
     Using hardware with a faster CPU and with more available memory will speed up the process. Using a GPU will
     also speed up the process, especially if you are training with a large dataset.
+
+
+**Q: How can I control the amount of threads cellpose is using?**
+
+    Under the hood, Cellpose is using PyTorch for parallelization. Number of threads for PyTorch can be set
+    using `torch.set_num_threads <https://pytorch.org/docs/stable/generated/torch.set_num_threads.html>`_ or through the environment
+    variables ``OMP_NUM_THREADS`` or ``MKL_NUM_THREADS`` as described
+    `here <https://pytorch.org/docs/stable/threading_environment_variables.html>`_.
