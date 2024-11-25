@@ -19,4 +19,11 @@ dependencies:
     - cellpose
     - roifile
     - pyqt5
+    - dask
+    - distributed
+    - dask-image
+    - pyyaml
+    - zarr
+    - dask_jobqueue
+    - bokeh
   

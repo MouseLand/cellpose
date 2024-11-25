@@ -31,8 +31,12 @@ docs_deps = [
 
 distributed_deps = [
     'dask',
+    'distributed',
     'dask_image',
-    'scikit-learn',
+    'pyyaml',
+    'zarr',
+    'dask_jobqueue',
+    'bokeh',
 ]
 
 bioimageio_deps = [
