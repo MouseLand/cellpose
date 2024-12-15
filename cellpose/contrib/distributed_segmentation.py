@@ -427,7 +427,7 @@ def process_block(
         preprocessing_steps = [(F, {'sigma':2.0}), (G, {'radius':4})]
 
     model_kwargs : dict
-        Arguments passed to cellpose.models.Cellpose
+        Arguments passed to cellpose.models.CellposeModel
         This is how you select and parameterize a model.
 
     eval_kwargs : dict
@@ -521,7 +521,7 @@ def read_preprocess_and_segment(
         log_file = f'dask_worker_{distributed.get_worker().name}.log'
         log_file = pathlib.Path(worker_logs_directory).joinpath(log_file)
     cellpose.io.logger_setup(stdout_file_replacement=log_file)
-    model = cellpose.models.Cellpose(**model_kwargs)
+    model = cellpose.models.CellposeModel(**model_kwargs)
     return model.eval(image, **eval_kwargs)[0].astype(np.uint32)
 
 
@@ -666,7 +666,7 @@ def distributed_eval(
         preprocessing_steps = [(F, {'sigma':2.0}), (G, {'radius':4})]
 
     model_kwargs : dict (default: {})
-        Arguments passed to cellpose.models.Cellpose
+        Arguments passed to cellpose.models.CellposeModel
 
     eval_kwargs : dict (default: {})
         Arguments passed to cellpose.models.Cellpose.eval
