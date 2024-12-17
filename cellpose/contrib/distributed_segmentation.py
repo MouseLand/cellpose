@@ -427,7 +427,7 @@ def process_block(
         preprocessing_steps = [(F, {'sigma':2.0}), (G, {'radius':4})]
 
     model_kwargs : dict
-        Arguments passed to cellpose.models.CellposeModel
+        Arguments passed to cellpose.models.Cellpose
         This is how you select and parameterize a model.
 
     eval_kwargs : dict
@@ -666,7 +666,7 @@ def distributed_eval(
         preprocessing_steps = [(F, {'sigma':2.0}), (G, {'radius':4})]
 
     model_kwargs : dict (default: {})
-        Arguments passed to cellpose.models.CellposeModel
+        Arguments passed to cellpose.models.Cellpose
 
     eval_kwargs : dict (default: {})
         Arguments passed to cellpose.models.Cellpose.eval
@@ -750,6 +750,11 @@ def distributed_eval(
         faces, boxes_, box_ids_ = list(zip(*results))
         boxes = [box for sublist in boxes_ for box in sublist]
         box_ids = np.concatenate(box_ids_)
+        # FIX indices are not integers
+        # print("Box IDs:", box_ids, "Type:", type(box_ids))
+        box_ids = box_ids.astype(np.int32)
+        # print("Box IDs:", box_ids, "Type:", type(box_ids))
+
         new_labeling = determine_merge_relabeling(block_indices, faces, box_ids)
         debug_unique = np.unique(new_labeling)
         new_labeling_path = temporary_directory + '/new_labeling.npy'
@@ -816,7 +821,12 @@ def determine_merge_relabeling(block_indices, faces, used_labels):
     """Determine boundary segment mergers, remap all label IDs to merge
        and put all label IDs in range [1..N] for N global segments found"""
     faces = adjacent_faces(block_indices, faces)
-    label_range = np.max(used_labels)
+    # FIX float parameters
+    # print("Used labels:", used_labels, "Type:", type(used_labels))
+    used_labels = used_labels.astype(int)
+    # print("Used labels:", used_labels, "Type:", type(used_labels))
+    label_range = int(np.max(used_labels))
+
     label_groups = block_face_adjacency_graph(faces, label_range)
     new_labeling = scipy.sparse.csgraph.connected_components(
         label_groups, directed=False)[1]
@@ -850,6 +860,11 @@ def adjacent_faces(block_indices, faces):
 def block_face_adjacency_graph(faces, nlabels):
     """Shrink labels in face plane, then find which labels touch across the
     face boundary"""
+    # FIX float parameters
+    # print("Initial nlabels:", nlabels, "Type:", type(nlabels))
+    nlabels = int(nlabels)
+    # print("Final nlabels:", nlabels, "Type:", type(nlabels))
+
     all_mappings = []
     structure = scipy.ndimage.generate_binary_structure(3, 1)
     for face in faces:
@@ -879,6 +894,11 @@ def merge_all_boxes(boxes, box_ids):
     """Merge all boxes that map to the same box_ids"""
     merged_boxes = []
     boxes_array = np.array(boxes, dtype=object)
+    # FIX float parameters
+    # print("Box IDs:", box_ids, "Type:", type(box_ids))
+    box_ids = box_ids.astype(int)
+    # print("Box IDs:", box_ids, "Type:", type(box_ids))
+
     for iii in np.unique(box_ids):
         merge_indices = np.argwhere(box_ids == iii).squeeze()
         if merge_indices.shape:
