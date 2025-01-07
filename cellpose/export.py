@@ -79,6 +79,12 @@ from bioimageio.spec.model.v0_5 import (
     Version,
     WeightsDescr,
 )
+# Define ARBITRARY_SIZE if it is not available in the module
+try:
+    from bioimageio.spec.model.v0_5 import ARBITRARY_SIZE
+except ImportError:
+    ARBITRARY_SIZE = 1  # or set to a default value if appropriate
+
 from bioimageio.spec.common import HttpUrl
 from bioimageio.spec import save_bioimageio_package
 from bioimageio.core import test_model
