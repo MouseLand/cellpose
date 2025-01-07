@@ -54,7 +54,6 @@ from cellpose.transforms import pad_image_ND, normalize_img, convert_image
 from cellpose.resnet_torch import CPnetBioImageIO
 
 from bioimageio.spec.model.v0_5 import (
-    ARBITRARY_SIZE,
     ArchitectureFromFileDescr,
     Author,
     AxisId,
