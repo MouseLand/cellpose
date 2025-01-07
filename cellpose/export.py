@@ -83,7 +83,7 @@ from bioimageio.spec.model.v0_5 import (
 try:
     from bioimageio.spec.model.v0_5 import ARBITRARY_SIZE
 except ImportError:
-    ARBITRARY_SIZE = 1  # or set to a default value if appropriate
+    ARBITRARY_SIZE = ParameterizedSize(min=1, step=1)
 
 from bioimageio.spec.common import HttpUrl
 from bioimageio.spec import save_bioimageio_package
