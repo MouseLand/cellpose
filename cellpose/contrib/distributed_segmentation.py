@@ -158,7 +158,7 @@ class myLocalCluster(distributed.LocalCluster):
     Most users will only need to specify:
     n_workers
     ncpus (number of physical cpu cores per worker)
-    memory_limit (which is the limit per worker)
+    memory_limit (which is the limit per worker, should be a string like '16GB')
     threads_per_worker (for most workflows this should be 1)
 
     You can also modify any dask configuration option through the
