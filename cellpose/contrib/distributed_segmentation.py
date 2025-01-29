@@ -624,6 +624,11 @@ def distributed_eval(
     a solid start is the right way to get help running this on your own
     institute cluster.
 
+    If running on a workstation, please read the docstring for the
+    LocalCluster class defined in this module. That will tell you what to
+    put in the cluster_kwargs dictionary. If using the Janelia cluster,
+    please read the docstring for the JaneliaLSFCluster class.
+
     Parameters
     ----------
     input_zarr : zarr.core.Array
