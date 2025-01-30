@@ -754,7 +754,7 @@ def distributed_eval(
 
         faces, boxes_, box_ids_ = list(zip(*results))
         boxes = [box for sublist in boxes_ for box in sublist]
-        box_ids = np.concatenate(box_ids_)
+        box_ids = np.concatenate(box_ids_).astype(int)  # unsure how but without cast these are float64
         new_labeling = determine_merge_relabeling(block_indices, faces, box_ids)
         debug_unique = np.unique(new_labeling)
         new_labeling_path = temporary_directory + '/new_labeling.npy'
@@ -822,7 +822,6 @@ def determine_merge_relabeling(block_indices, faces, used_labels):
        and put all label IDs in range [1..N] for N global segments found"""
     faces = adjacent_faces(block_indices, faces)
     label_range = np.max(used_labels)
-    label_range = int(label_range) # patch, unsure how but used_labels seemed to be cast to float64
     label_groups = block_face_adjacency_graph(faces, label_range)
     new_labeling = scipy.sparse.csgraph.connected_components(
         label_groups, directed=False)[1]
