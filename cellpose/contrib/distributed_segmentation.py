@@ -822,6 +822,7 @@ def determine_merge_relabeling(block_indices, faces, used_labels):
        and put all label IDs in range [1..N] for N global segments found"""
     faces = adjacent_faces(block_indices, faces)
     label_range = np.max(used_labels)
+    label_range = int(label_range) # patch, unsure how but used_labels seemed to be cast to float64
     label_groups = block_face_adjacency_graph(faces, label_range)
     new_labeling = scipy.sparse.csgraph.connected_components(
         label_groups, directed=False)[1]
@@ -867,7 +868,6 @@ def block_face_adjacency_graph(faces, nlabels):
         all_mappings.append(mapped)
     i, j = np.concatenate(all_mappings, axis=1)
     v = np.ones_like(i)
-    nlabels = int(nlabels)  # patch, unsure how but nlabels seemed to be cast to float64
     return scipy.sparse.coo_matrix((v, (i, j)), shape=(nlabels+1, nlabels+1)).tocsr()
 
 
