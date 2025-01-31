@@ -158,7 +158,7 @@ class myLocalCluster(distributed.LocalCluster):
     Most users will only need to specify:
     n_workers
     ncpus (number of physical cpu cores per worker)
-    memory_limit (which is the limit per worker)
+    memory_limit (which is the limit per worker, should be a string like '16GB')
     threads_per_worker (for most workflows this should be 1)
 
     You can also modify any dask configuration option through the
@@ -624,6 +624,11 @@ def distributed_eval(
     a solid start is the right way to get help running this on your own
     institute cluster.
 
+    If running on a workstation, please read the docstring for the
+    LocalCluster class defined in this module. That will tell you what to
+    put in the cluster_kwargs dictionary. If using the Janelia cluster,
+    please read the docstring for the JaneliaLSFCluster class.
+
     Parameters
     ----------
     input_zarr : zarr.core.Array
@@ -749,12 +754,7 @@ def distributed_eval(
 
         faces, boxes_, box_ids_ = list(zip(*results))
         boxes = [box for sublist in boxes_ for box in sublist]
-        box_ids = np.concatenate(box_ids_)
-        # FIX indices are not integers
-        # print("Box IDs:", box_ids, "Type:", type(box_ids))
-        box_ids = box_ids.astype(np.int32)
-        # print("Box IDs:", box_ids, "Type:", type(box_ids))
-
+        box_ids = np.concatenate(box_ids_).astype(int)  # unsure how but without cast these are float64
         new_labeling = determine_merge_relabeling(block_indices, faces, box_ids)
         debug_unique = np.unique(new_labeling)
         new_labeling_path = temporary_directory + '/new_labeling.npy'
