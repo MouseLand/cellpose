@@ -140,7 +140,11 @@ def _load_image(parent, filename=None, load_seg=True, load_3D=False):
 
 
 def _initialize_images(parent, image, load_3D=False):
-    """ format image for GUI """
+    """ format image for GUI 
+    
+    assumes image is Z x channels x W x H
+    
+    """
     load_3D = parent.load_3D if load_3D is False else load_3D
     parent.nchan = 3
     if image.ndim > 4:
@@ -149,16 +153,15 @@ def _initialize_images(parent, image, load_3D=False):
             raise ValueError("cannot load 4D stack, reduce dimensions")
     elif image.ndim == 1:
         raise ValueError("cannot load 1D stack, increase dimensions")
-
     if image.ndim == 4:
         if not load_3D:
             raise ValueError(
                 "cannot load 3D stack, run 'python -m cellpose --Zstack' for 3D GUI")
         else:
-            # make tiff Z x channels x W x H
-            if image.shape[0] < 4:
-                # tiff is channels x Z x W x H
-                image = image.transpose((1, 2, 3, 0))
+            # check if tiff is channels first
+            if image.shape[0] < 4 and image.shape[0] == min(image.shape) and image.shape[0] < image.shape[1]:
+                # tiff is channels x Z x W x H => Z x channels x W x H
+                image = image.transpose((1, 0, 2, 3))
             image = np.transpose(image, (0, 2, 3, 1))
     elif image.ndim == 3:
         if not load_3D:
@@ -178,7 +181,6 @@ def _initialize_images(parent, image, load_3D=False):
         else:
             raise ValueError(
                 "cannot load 2D stack in 3D mode, run 'python -m cellpose' for 2D GUI")
-
     if image.shape[-1] > 3:
         print("WARNING: image has more than 3 channels, keeping only first 3")
         image = image[..., :3]
@@ -192,6 +194,7 @@ def _initialize_images(parent, image, load_3D=False):
         parent.nchan = 1
 
     parent.stack = image
+    print(f"GUI_INFO: image shape: {image.shape}")
     if load_3D:
         parent.NZ = len(parent.stack)
         parent.scroll.setMaximum(parent.NZ - 1)
