@@ -620,7 +620,7 @@ def remove_bad_flow_masks(masks, flows, threshold=0.4, device=torch.device("cpu"
     device0 = device
     if masks.size > 10000 * 10000 and (device is not None and device.type == "cuda"):
 
-        major_version, minor_version, _ = torch.__version__.split(".")
+        major_version, minor_version = torch.__version__.split(".")[:2]
         torch.cuda.empty_cache()
         if major_version == "1" and int(minor_version) < 10:
             # for PyTorch version lower than 1.10
