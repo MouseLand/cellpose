@@ -538,7 +538,7 @@ def train_seg(net, train_data=None, train_labels=None, train_files=None,
 
         if iepoch == n_epochs - 1 or (iepoch % save_every == 0 and iepoch != 0):
             if save_each and iepoch != n_epochs - 1:  #separate files as model progresses
-                filename0 = str(filename) + f"_epoch_{iepoch:%04d}"
+                filename0 = str(filename) + f"_epoch_{iepoch:04d}"
             else:
                 filename0 = filename
             train_logger.info(f"saving network parameters to {filename0}")
