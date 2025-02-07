@@ -60,12 +60,21 @@ def main():
     else:
         imf = None
 
-    image_names = io.get_image_files(args.dir, "_masks", imf=imf,
+    if len(args.dir) > 0:
+        image_names = io.get_image_files(args.dir, "_masks", imf=imf,
                                      look_one_level_down=args.look_one_level_down)
+        dirname = args.dir
+    else:
+        if os.path.exists(args.image_path):
+            image_names = [args.image_path]
+            dirname = os.path.split(args.image_path)[0]
+        else:
+            raise ValueError(f"ERROR: no file found at {args.image_path}")
+        
     np.random.seed(0)
     nimg_per_tif = args.nimg_per_tif
     crop_size = args.crop_size
-    os.makedirs(os.path.join(args.dir, 'train/'), exist_ok=True)
+    os.makedirs(os.path.join(dirname, 'train/'), exist_ok=True)
     pm = [(0, 1, 2, 3), (2, 0, 1, 3), (1, 0, 2, 3)]
     npm = ["YX", "ZY", "ZX"]
     for name in image_names:
@@ -77,7 +86,7 @@ def main():
             print(npm[p], img[0].shape)
             Ly, Lx = img.shape[1:3]
             imgs = img[np.random.permutation(img.shape[0])[:args.nimg_per_tif]]
-            if args.anisotropy > 1.0:
+            if args.anisotropy > 1.0 and p > 0:
                 imgs = transforms.resize_image(imgs, Ly=int(args.anisotropy * Ly), Lx=Lx)
             for k, img in enumerate(imgs):
                 if args.tile_norm:
@@ -87,7 +96,7 @@ def main():
                                                         sharpen_radius=args.sharpen_radius)
                 ly = 0 if Ly - crop_size <= 0 else np.random.randint(0, Ly - crop_size)
                 lx = 0 if Lx - crop_size <= 0 else np.random.randint(0, Lx - crop_size)
-                io.imsave(os.path.join(args.dir, f'train/{name0}_{npm[p]}_{k}.tif'),
+                io.imsave(os.path.join(dirname, f'train/{name0}_{npm[p]}_{k}.tif'),
                         img[ly:ly + args.crop_size, lx:lx + args.crop_size].squeeze())
 
 

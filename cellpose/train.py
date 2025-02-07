@@ -164,12 +164,12 @@ def _process_train_test(train_data=None, train_labels=None, train_files=None,
         train_data (list or None): List of training data arrays.
         train_labels (list or None): List of training label arrays.
         train_files (list or None): List of training file paths.
-        #train_labels_files (list or None): List of training label file paths.
+        train_labels_files (list or None): List of training label file paths.
         train_probs (ndarray or None): Array of training probabilities.
         test_data (list or None): List of test data arrays.
         test_labels (list or None): List of test label arrays.
         test_files (list or None): List of test file paths.
-        #test_labels_files (list or None): List of test label file paths.
+        test_labels_files (list or None): List of test label file paths.
         test_probs (ndarray or None): Array of test probabilities.
         load_files (bool): Whether to load data from files.
         min_train_masks (int): Minimum number of masks required for training images.
