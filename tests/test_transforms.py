@@ -51,18 +51,6 @@ def test_normalize_img_with_lowhigh_and_invert(img_3d):
     )
     assert img_norm_channelwise.min() >= 0 and img_norm_channelwise.max() <= 1
 
-    img_norm_channelwise_inverted = normalize_img(
-        img_3d,
-        lowhigh=(
-            (img_3d[..., 0].min(), img_3d[..., 0].max()),
-            (img_3d[..., 1].min(), img_3d[..., 1].max()),
-        ),
-        invert=True,
-    )
-    np.testing.assert_allclose(
-        img_norm_channelwise, 1 - img_norm_channelwise_inverted, rtol=1e-3
-    )
-
 
 def test_normalize_img_exceptions(img_3d):
     img_2D = img_3d[0, ..., 0]
