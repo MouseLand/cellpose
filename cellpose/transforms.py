@@ -675,12 +675,14 @@ def normalize_img(img, normalize=True, norm3D=True, invert=False, lowhigh=None,
         raise ValueError(error_message)
 
     # Apply normalization based on lowhigh or percentile
+    cgood = np.zeros(nchan, "bool")
     if lowhigh is not None:
         for c in range(nchan):
             lower = lowhigh[c, 0]
             upper = lowhigh[c, 1]
             img_norm[..., c] -= lower 
             img_norm[..., c] /= (upper - lower)
+            cgood[c] = True
     else:
         # Apply sharpening and smoothing if specified
         if sharpen_radius > 0 or smooth_radius > 0:
@@ -701,25 +703,32 @@ def normalize_img(img, normalize=True, norm3D=True, invert=False, lowhigh=None,
         elif normalize:
             if img_norm.ndim == 3 or norm3D:  # i.e. if YXC, or ZYXC with norm3D=True
                 for c in range(nchan):
-                    img_norm[..., c] = normalize99(
-                        img_norm[..., c],
-                        lower=percentile[0],
-                        upper=percentile[1],
-                        copy=False, downsample=True,
-                    )
-            else:  # i.e. if ZYXC with norm3D=False then per Z-slice
-                for z in range(img_norm.shape[0]):
-                    for c in range(nchan):
-                        img_norm[z, ..., c] = normalize99(
-                            img_norm[z, ..., c],
+                    if np.ptp(img_norm[..., c]) > 0.:
+                        img_norm[..., c] = normalize99(
+                            img_norm[..., c],
                             lower=percentile[0],
                             upper=percentile[1],
                             copy=False, downsample=True,
                         )
+                        cgood[c] = True
+            else:  # i.e. if ZYXC with norm3D=False then per Z-slice
+                for z in range(img_norm.shape[0]):
+                    for c in range(nchan):
+                        if np.ptp(img_norm[z, ..., c]) > 0.:
+                            img_norm[z, ..., c] = normalize99(
+                                img_norm[z, ..., c],
+                                lower=percentile[0],
+                                upper=percentile[1],
+                                copy=False, downsample=True,
+                            )
+                            cgood[c] = True
+
 
     if invert:
         if lowhigh is not None or tile_norm_blocksize > 0 or normalize:
-            img_norm = 1 - img_norm
+            for c in range(nchan):
+                if cgood[c]:
+                    img_norm[..., c] = 1 - img_norm[..., c]
         else:
             error_message = "Cannot invert image without normalization"
             transforms_logger.critical(error_message)
