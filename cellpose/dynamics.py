@@ -911,6 +911,8 @@ def compute_masks(dP, cellprob, p=None, niter=200, cellprob_threshold=0.0,
         else:
             p_final = p_final.int()
         # calculate masks
+        if device.type == "mps":
+            p_final = p_final.to(torch.device("cpu"))
         mask = get_masks_torch(p_final, inds, dP.shape[1:], 
                                max_size_fraction=max_size_fraction)
         del p_final
