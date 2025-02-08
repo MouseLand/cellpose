@@ -503,9 +503,13 @@ def steps_interp(dP, inds, niter, device=torch.device("cpu")):
             pt[..., k] *= shape[k]
 
         if ndim==3:
-            return pt[..., [2, 1, 0]].squeeze().T
+            pt = pt[..., [2, 1, 0]].squeeze()
+            pt = pt.unsqueeze(0) if pt.ndim==1 else pt 
+            return pt.T
         else:
-            return pt[..., [1, 0]].squeeze().T
+            pt = pt[..., [1, 0]].squeeze()
+            pt = pt.unsqueeze(0) if pt.ndim==1 else pt
+            return pt.T
 
     else:
         p = np.zeros((ndim, len(inds[0])), "float32")
@@ -763,6 +767,10 @@ def get_masks_torch(pt, inds, shape0, rpad=20, max_size_fraction=0.4):
     hmax1 = hmax1.squeeze()
     seeds1 = torch.nonzero((h1 - hmax1 > -1e-6) * (h1 > 10))
     del hmax1
+    if len(seeds1) == 0:
+        dynamics_logger.warning("no seeds found in get_masks_torch - no masks found.")
+        return np.zeros(shape0, dtype="uint16")
+    
     npts = h1[tuple(seeds1.T)]
     isort1 = npts.argsort()
     seeds1 = seeds1[isort1]
