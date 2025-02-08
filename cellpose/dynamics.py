@@ -65,10 +65,14 @@ def _extend_centers_gpu(neighbors, meds, isneighbor, shape, n_iter=200,
         torch.Tensor: Generated flows.
 
     """
-    if torch.prod(torch.tensor(shape)) > 4e7:
-        T = torch.zeros(shape, dtype=torch.float, device=device)
+    if device.type == "mps":
+        T = torch.zeros(shape, dtype=torch.float, device=device) # MPS only supports float32
     else:
-        T = torch.zeros(shape, dtype=torch.double, device=device)
+
+        if torch.prod(torch.tensor(shape)) > 4e7:
+            T = torch.zeros(shape, dtype=torch.float, device=device)
+        else:
+            T = torch.zeros(shape, dtype=torch.double, device=device)
 
     for i in range(n_iter):
         T[tuple(meds.T)] += 1
