@@ -559,6 +559,7 @@ class CellposeDenoiseModel():
             styles (list, np.ndarray): style vector summarizing each image of size 256.
             imgs (list of 2D/3D arrays): Restored images
         """
+        
         if isinstance(normalize, dict):
             normalize_params = {**normalize_default, **normalize}
         elif not isinstance(normalize, bool):
@@ -578,8 +579,11 @@ class CellposeDenoiseModel():
         # turn off special normalization for segmentation
         normalize_params = normalize_default
 
-        # change channels for segmentation (denoise model outputs up to 2 channels)
-        channels_new = [0, 0] if channels[0] == 0 else [1, 2]
+        # change channels for segmentation
+        if channels is not None:
+            channels_new = [0, 0] if channels[0] == 0 else [1, 2]
+        else:
+            channels_new = None
         # change diameter if self.ratio > 1 (upsampled to self.dn.diam_mean)
         diameter = self.dn.diam_mean if self.dn.ratio > 1 else diameter
         masks, flows, styles = self.cp.eval(
@@ -759,7 +763,7 @@ class DenoiseModel():
         else:
             # reshape image
             x = transforms.convert_image(x, channels, channel_axis=channel_axis,
-                                         z_axis=z_axis, do_3D=do_3D)
+                                         z_axis=z_axis, do_3D=do_3D, nchan=None)
             if x.ndim < 4:
                 squeeze = True
                 x = x[np.newaxis, ...]
@@ -790,7 +794,7 @@ class DenoiseModel():
             elif rescale is None:
                 rescale = 1.0
 
-            if np.ptp(x[..., -1]) < 1e-3 or channels[-1] == 0:
+            if np.ptp(x[..., -1]) < 1e-3 or (channels is not None and channels[-1] == 0):
                 x = x[..., :1]
 
             for c in range(x.shape[-1]):
