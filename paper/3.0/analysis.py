@@ -4,7 +4,7 @@ Copyright © 2023 Howard Hughes Medical Institute, Authored by Carsen Stringer a
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.ndimage import gaussian_filter, gaussian_filter1d
-from cellpose import io, transforms, models, metrics, denoise
+from cellpose import io, transforms, models, metrics, denoise, dynamics, utils
 from natsort import natsorted
 from pathlib import Path
 import torch
@@ -31,7 +31,6 @@ except Exception as e:
     print("need to install segmentation_models_pytorch to run transformer")
 
 model_names = {"poisson": "denoise", "blur": "deblur", "downsample": "upsample"}
-
 
 def seg_eval_cp3(folder, noise_type="poisson"):
     """ need to download test_poisson.npy, test_blur.npy, test_downsample.npy

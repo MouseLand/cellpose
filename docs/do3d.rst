@@ -72,6 +72,41 @@ greater than or equal to the ``stitch_threshold``. Alternatively, you can train 
 YX slices vs ZY and ZX slices, and then specify the separate model for ZY/ZX slices 
 using the ``pretrained_model_ortho`` option in ``CellposeModel``.
 
+Another option is to try to deblur and upsample anisotropic volumes, as described in the 
+Cellpose3 paper. We have trained a model for this on cyto2 and on nuclei, 
+the models are ``aniso_cyto2`` and ``aniso_nuclei``. You can apply each model to 
+each channel in a volume one at a time and then use both channels for segmentation. 
+Here is example code for a 3D stack with one channel (ZYX) 
+with 3x less sampling in Z than in XY:
+
+::
+    from cellpose import io, denoise, transforms
+    io.logger_setup()
+    img0 = io.imread("volume.tif")
+    anisotropy = 3
+    shape = img0.shape 
+    print(shape)
+
+    # upsample Z dimension to make the volume isotropic
+    new_shape = [shape[0] * anisotropy, shape[1], shape[2]]
+    img = transforms.resize_image(img0.astype("float32").transpose(1,0,2), Ly=new_shape[0], Lx=new_shape[2],
+                                no_channels=True).transpose(1,0,2)
+    img = transforms.resize_image(img, Ly=new_shape[1], Lx=new_shape[2],
+                                no_channels=True)
+    print(img.shape)
+
+    # create DenoiseModel with anisotropic deblurring+upsampling model
+    dn_model = denoise.DenoiseModel(model_type="aniso_cyto2", gpu=True)
+
+    # apply model on ZY slices
+    img_iso = dn_model.eval(img.transpose(1, 0, 2), diameter=30, z_axis=0, channels=[0,0])
+    img_iso = img_iso.squeeze().transpose(1, 0, 2)
+    # (optional) apply model on ZX slices and average with ZY
+    img_iso2 = dn_model.eval(img.transpose(2, 0, 1), diameter=30, z_axis=0, channels=[0,0])
+    img_iso2 = img_iso2.squeeze().transpose(1, 2, 0)
+    img_iso += img_iso2
+    img_iso /= 2
+
 3D segmentation ignores the ``flow_threshold`` because we did not find that
 it helped to filter out false positives in our test 3D cell volume. Instead, 
 we found that setting ``min_size`` is a good way to remove false positives.
