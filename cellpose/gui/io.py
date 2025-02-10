@@ -580,13 +580,16 @@ def _save_flows(parent):
     """ save flows and cellprob to tiff """
     filename = parent.filename
     base = os.path.splitext(filename)[0]
+    print("GUI_INFO: saving flows and cellprob to tiff")
     if len(parent.flows) > 0:
         imsave(base + "_cp_cellprob.tif", parent.flows[1])
         for i in range(3):
             imsave(base + f"_cp_flow_{i}.tif", parent.flows[0][..., i])
         if len(parent.flows) > 2:
             imsave(base + "_cp_flow.tif", parent.flows[2])
-
+        print("GUI_INFO: saved flows and cellprob")
+    else:
+        print("ERROR: no flows or cellprob found")
 
 def _save_rois(parent):
     """ save masks as rois in .zip file for ImageJ """
