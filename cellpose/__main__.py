@@ -240,7 +240,9 @@ def main():
                                           diams=diams, restore_type=restore_type,
                                           ratio=1.)
                 if saving_something:
-                    io.save_masks(image, masks, flows, image_name, png=args.save_png,
+                    suffix = args.output_name if len(args.output_name) > 0 else "_cp_masks"
+                    io.save_masks(image, masks, flows, image_name, 
+                                  suffix=suffix, png=args.save_png,
                                   tif=args.save_tif, save_flows=args.save_flows,
                                   save_outlines=args.save_outlines,
                                   dir_above=args.dir_above, savedir=args.savedir,

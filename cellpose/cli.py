@@ -146,6 +146,9 @@ def get_arg_parser():
     output_args.add_argument(
         "--save_tif", action="store_true",
         help="save masks as tif and outlines as text file for ImageJ")
+    output_args.add_argument(
+        "--output_name", default=[], type=str,
+        help="suffix for saved masks, default is _cp_masks")
     output_args.add_argument("--no_npy", action="store_true",
                              help="suppress saving of npy")
     output_args.add_argument(
