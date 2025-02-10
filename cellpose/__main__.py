@@ -246,7 +246,8 @@ def main():
                         else: suffix = "_cp_masks"      # otherwise is the default value.
                     else:                               # (2) If `savedir` is defined,
                         if args.savedir != args.dir:    # and different from `dir` then
-                            suffix = args.output_name   # takes the value passed as a param. (which can be empty string)!
+                            suffix = args.output_name   # takes the value passed as a param. (which can be empty string),
+                        else: suffix = "_cp_masks"      # otherwise is the default value.
 
                     io.save_masks(image, masks, flows, image_name,
                                   suffix=suffix, png=args.save_png,
