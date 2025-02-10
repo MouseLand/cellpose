@@ -62,7 +62,9 @@ additional CPU and GPU memory, so for 3D you may want to set ``resample=False`` 
 
 3D segmentation ignores the ``flow_threshold`` because we did not find that
 it helped to filter out false positives in our test 3D cell volume. Instead, 
-we found that setting ``min_size`` is a good way to remove false positives.
+we found that setting ``min_size`` is a good way to remove false positives. 
+Note that ``min_size`` applies per slice when ``stitch_threshold`` is used, 
+you will need to remove masks afterwards if you have a 3D minimum size to apply.
 
 There may be additional differences in YZ and XZ slices 
 that make them unable to be used for 3D segmentation. 
