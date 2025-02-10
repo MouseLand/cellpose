@@ -60,6 +60,10 @@ is enabled, then the image will then be upsampled for finding the masks. This wi
 additional CPU and GPU memory, so for 3D you may want to set ``resample=False`` or in the CLI ``--no_resample`` 
 (more details here :ref:`resample`).
 
+3D segmentation ignores the ``flow_threshold`` because we did not find that
+it helped to filter out false positives in our test 3D cell volume. Instead, 
+we found that setting ``min_size`` is a good way to remove false positives.
+
 There may be additional differences in YZ and XZ slices 
 that make them unable to be used for 3D segmentation. 
 I'd recommend viewing the volume in those dimensions if 
@@ -80,7 +84,7 @@ Here is example code for a 3D stack with one channel (ZYX)
 with 3x less sampling in Z than in XY:
 
 ::
-    
+
     from cellpose import io, denoise, transforms
     io.logger_setup()
     img0 = io.imread("volume.tif")
@@ -107,10 +111,6 @@ with 3x less sampling in Z than in XY:
     img_iso2 = img_iso2.squeeze().transpose(1, 2, 0)
     img_iso += img_iso2
     img_iso /= 2
-
-3D segmentation ignores the ``flow_threshold`` because we did not find that
-it helped to filter out false positives in our test 3D cell volume. Instead, 
-we found that setting ``min_size`` is a good way to remove false positives.
 
 Training for 3D segmentation
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
