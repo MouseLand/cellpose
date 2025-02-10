@@ -140,10 +140,10 @@ def _load_image(parent, filename=None, load_seg=True, load_3D=False):
 
 
 def _initialize_images(parent, image, load_3D=False):
-    """ format image for GUI 
-    
+    """ format image for GUI
+
     assumes image is Z x channels x W x H
-    
+
     """
     load_3D = parent.load_3D if load_3D is False else load_3D
     parent.nchan = 3
@@ -581,8 +581,11 @@ def _save_flows(parent):
     filename = parent.filename
     base = os.path.splitext(filename)[0]
     if len(parent.flows) > 0:
-        imsave(base + "_cp_flows.tif", parent.flows[4][:-1])
-        imsave(base + "_cp_cellprob.tif", parent.flows[4][-1])
+        imsave(base + "_cp_cellprob.tif", parent.flows[1])
+        for i in range(3):
+            imsave(base + f"_cp_flow_{i}.tif", parent.flows[0][..., i])
+        if len(parent.flows) > 2:
+            imsave(base + "_cp_flow.tif", parent.flows[2])
 
 
 def _save_rois(parent):
