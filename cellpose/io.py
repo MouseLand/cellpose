@@ -290,7 +290,8 @@ def get_image_files(folder, mask_filter, imf=None, look_one_level_down=False):
         ValueError: If no images are found in the specified folder with the supported file extensions.
         ValueError: If no images are found in the specified folder without the mask or flow file endings.
     """
-    mask_filters = ["_cp_masks", "_cp_output", "_flows", "_masks", mask_filter]
+    mask_filters = ["_cp_output", "_flows", "_flows_0", "_flows_1", 
+                    "_flows_2", "_cellprob", "_masks", mask_filter]
     image_names = []
     if imf is None:
         imf = ""
@@ -338,7 +339,7 @@ def get_image_files(folder, mask_filter, imf=None, look_one_level_down=False):
 
     if len(image_names) == 0:
         raise ValueError(
-            "ERROR: no images in --dir folder without _masks or _flows ending")
+            "ERROR: no images in --dir folder without _masks or _flows or _cellprob ending")
 
     return image_names
 
