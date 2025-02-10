@@ -240,17 +240,13 @@ def main():
                                           diams=diams, restore_type=restore_type,
                                           ratio=1.)
                 if saving_something:
-
-                    # `savedir` not define..
-                    if args.savedir == None:
-                        # ..imposes `suffix` to exists, otherwise default value
-                        suffix = args.output_name if len(args.output_name) > 0 else "_cp_masks"
-                    # `savedir` defined..
-                    else:
-                        # ..and different than `dir`..
-                        if args.savedir != args.dir:
-                            #..allows `suffix` to be null
-                            suffix = args.output_name
+                    if args.savedir == None:            # (1) If `savedir` is not defined,
+                        if len(args.output_name) > 0:   # then must have a non-zero `suffix`
+                            suffix = args.output_name   # which takes the value passes as a param.,
+                        else: suffix = "_cp_masks"      # otherwise is the default value.
+                    else:                               # (2) If `savedir` is defined,
+                        if args.savedir != args.dir:    # and different from `dir` then
+                            suffix = args.output_name   # takes the value passed as a param. (which can be empty string)!
 
                     io.save_masks(image, masks, flows, image_name,
                                   suffix=suffix, png=args.save_png,
