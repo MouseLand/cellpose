@@ -80,6 +80,7 @@ Here is example code for a 3D stack with one channel (ZYX)
 with 3x less sampling in Z than in XY:
 
 ::
+    
     from cellpose import io, denoise, transforms
     io.logger_setup()
     img0 = io.imread("volume.tif")
