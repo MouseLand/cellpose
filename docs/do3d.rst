@@ -49,7 +49,7 @@ Specify this segmentation format in the notebook with ``do_3D=True`` or in the C
 (with the CLI it will segment all tiffs in the folder as 3D tiffs if possible).
 
 If you see many cells that are fragmented, you can smooth the flows before the dynamics 
-are run in 3D using the ``dP_smooth`` parameter, which specifies the standard deviation of 
+are run in 3D using the ``flow3D_smooth`` parameter, which specifies the standard deviation of 
 a Gaussian for smoothing the flows. The default is 0.0, which means no smoothing. Alternatively/additionally,
 you may want to train a model on 2D slices from your 3D data to improve the segmentation (see below).
 

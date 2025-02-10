@@ -301,7 +301,7 @@ class MainW(QMainWindow):
 
         self.load_3D = False
         self.stitch_threshold = 0.
-        self.dP_smooth = 0.
+        self.flow3D_smooth = 0.
         self.anisotropy = 1.
         self.min_size = 15
         self.resample = True
@@ -2420,8 +2420,8 @@ class MainW(QMainWindow):
                 self.stitch_threshold, float) else self.stitch_threshold
             anisotropy = float(self.anisotropy.text()) if not isinstance(
                 self.anisotropy, float) else self.anisotropy
-            dP_smooth = float(self.dP_smooth.text()) if not isinstance(
-                self.dP_smooth, float) else self.dP_smooth
+            flow3D_smooth = float(self.flow3D_smooth.text()) if not isinstance(
+                self.flow3D_smooth, float) else self.flow3D_smooth
             min_size = int(self.min_size.text()) if not isinstance(
                 self.min_size, int) else self.min_size
             resample = self.resample.isChecked() if not isinstance(
@@ -2446,7 +2446,7 @@ class MainW(QMainWindow):
                     cellprob_threshold=cellprob_threshold,
                     flow_threshold=flow_threshold, do_3D=do_3D, niter=niter,
                     normalize=normalize_params, stitch_threshold=stitch_threshold,
-                    anisotropy=anisotropy, resample=resample, dP_smooth=dP_smooth,
+                    anisotropy=anisotropy, resample=resample, flow3D_smooth=flow3D_smooth,
                     min_size=min_size,
                     progress=self.progress, z_axis=0 if self.NZ > 1 else None)[:2]
             except Exception as e:

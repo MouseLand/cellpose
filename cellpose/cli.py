@@ -115,7 +115,7 @@ def get_arg_parser():
         "--min_size", required=False, default=15, type=int,
         help="minimum number of pixels per mask, can turn off with -1")
     algorithm_args.add_argument(
-        "--dP_smooth", required=False, default=0, type=float,
+        "--flow3D_smooth", required=False, default=0, type=float,
         help="stddev of gaussian for smoothing of dP for dynamics in 3D, default of 0 means no smoothing")
 
     algorithm_args.add_argument(

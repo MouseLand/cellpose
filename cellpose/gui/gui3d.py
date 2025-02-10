@@ -165,20 +165,20 @@ class MainW_3d(MainW):
         )
         self.segBoxG.addWidget(self.stitch_threshold, b, 4, 1, 1)
 
-        label = QLabel("dP_smooth:")
+        label = QLabel("flow3D_smooth:")
         label.setToolTip(
-            "for 3D volumes, smooth flows by a Gaussian with standard deviation dP_smooth (see docs for details)"
+            "for 3D volumes, smooth flows by a Gaussian with standard deviation flow3D_smooth (see docs for details)"
         )
         label.setFont(self.medfont)
         self.segBoxG.addWidget(label, b, 5, 1, 3)
-        self.dP_smooth = QLineEdit()
-        self.dP_smooth.setText("0.0")
-        self.dP_smooth.setFixedWidth(30)
-        self.dP_smooth.setFont(self.medfont)
-        self.dP_smooth.setToolTip(
-            "for 3D volumes, smooth flows by a Gaussian with standard deviation dP_smooth (see docs for details)"
+        self.flow3D_smooth = QLineEdit()
+        self.flow3D_smooth.setText("0.0")
+        self.flow3D_smooth.setFixedWidth(30)
+        self.flow3D_smooth.setFont(self.medfont)
+        self.flow3D_smooth.setToolTip(
+            "for 3D volumes, smooth flows by a Gaussian with standard deviation flow3D_smooth (see docs for details)"
         )
-        self.segBoxG.addWidget(self.dP_smooth, b, 8, 1, 1)
+        self.segBoxG.addWidget(self.flow3D_smooth, b, 8, 1, 1)
 
         b+=1
         label = QLabel("anisotropy:")

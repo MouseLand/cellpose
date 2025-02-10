@@ -608,7 +608,7 @@ def save_rois(masks, file_name, multiprocessing=None):
 
 
 def save_masks(images, masks, flows, file_names, png=True, tif=False, channels=[0, 0],
-               suffix="", save_flows=False, save_outlines=False, dir_above=False,
+               suffix="_cp_masks", save_flows=False, save_outlines=False, dir_above=False,
                in_folders=False, savedir=None, save_txt=False, save_mpl=False):
     """ Save masks + nicely plotted segmentation image to png and/or tiff.
 
@@ -630,7 +630,7 @@ def save_masks(images, masks, flows, file_names, png=True, tif=False, channels=[
         png (bool, optional): Save masks to PNG. Defaults to True.
         tif (bool, optional): Save masks to TIF. Defaults to False.
         channels (list, int, optional): Channels used to run Cellpose. Defaults to [0,0].
-        suffix (str, optional): Add name to saved masks. Defaults to "".
+        suffix (str, optional): Add name to saved masks. Defaults to "_cp_masks".
         save_flows (bool, optional): Save flows output from Cellpose.eval. Defaults to False.
         save_outlines (bool, optional): Save outlines of masks. Defaults to False.
         dir_above (bool, optional): Save masks/flows in directory above. Defaults to False.
@@ -709,8 +709,7 @@ def save_masks(images, masks, flows, file_names, png=True, tif=False, channels=[
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         for ext in exts:
-
-            imsave(os.path.join(maskdir, basename + "_cp_masks" + suffix + ext), masks)
+            imsave(os.path.join(maskdir, basename + suffix + ext), masks)
 
     if save_mpl and png and MATPLOTLIB and not min(images.shape) > 3:
         # Make and save original/segmentation/flows image
