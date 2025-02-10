@@ -140,10 +140,10 @@ def _load_image(parent, filename=None, load_seg=True, load_3D=False):
 
 
 def _initialize_images(parent, image, load_3D=False):
-    """ format image for GUI 
-    
+    """ format image for GUI
+
     assumes image is Z x channels x W x H
-    
+
     """
     load_3D = parent.load_3D if load_3D is False else load_3D
     parent.nchan = 3
@@ -580,10 +580,16 @@ def _save_flows(parent):
     """ save flows and cellprob to tiff """
     filename = parent.filename
     base = os.path.splitext(filename)[0]
+    print("GUI_INFO: saving flows and cellprob to tiff")
     if len(parent.flows) > 0:
-        imsave(base + "_cp_flows.tif", parent.flows[4][:-1])
-        imsave(base + "_cp_cellprob.tif", parent.flows[4][-1])
-
+        imsave(base + "_cp_cellprob.tif", parent.flows[1])
+        for i in range(3):
+            imsave(base + f"_cp_flows_{i}.tif", parent.flows[0][..., i])
+        if len(parent.flows) > 2:
+            imsave(base + "_cp_flows.tif", parent.flows[2])
+        print("GUI_INFO: saved flows and cellprob")
+    else:
+        print("ERROR: no flows or cellprob found")
 
 def _save_rois(parent):
     """ save masks as rois in .zip file for ImageJ """
