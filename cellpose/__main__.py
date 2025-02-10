@@ -31,7 +31,7 @@ def main():
     """
 
     args = get_arg_parser().parse_args(
-    )  # this has to be in a seperate file for autodoc to work
+    )  # this has to be in a separate file for autodoc to work
 
     if args.version:
         print(version_str)
@@ -240,8 +240,19 @@ def main():
                                           diams=diams, restore_type=restore_type,
                                           ratio=1.)
                 if saving_something:
-                    suffix = args.output_name if len(args.output_name) > 0 else "_cp_masks"
-                    io.save_masks(image, masks, flows, image_name, 
+
+                    # `savedir` not define..
+                    if args.savedir == None:
+                        # ..imposes `suffix` to exists, otherwise default value
+                        suffix = args.output_name if len(args.output_name) > 0 else "_cp_masks"
+                    # `savedir` defined..
+                    else:
+                        # ..and different than `dir`..
+                        if args.savedir != args.dir:
+                            #..allows `suffix` to be null
+                            suffix = args.output_name
+
+                    io.save_masks(image, masks, flows, image_name,
                                   suffix=suffix, png=args.save_png,
                                   tif=args.save_tif, save_flows=args.save_flows,
                                   save_outlines=args.save_outlines,
