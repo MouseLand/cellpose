@@ -470,6 +470,7 @@ def convert_image(x, channels, channel_axis=None, z_axis=None, do_3D=False, ncha
     """
     # check if image is a torch array instead of numpy array
     # converts torch to numpy
+    ndim = x.ndim
     if torch.is_tensor(x):
         transforms_logger.warning("torch array used as input, converting to numpy")
         x = x.cpu().numpy()
@@ -516,7 +517,7 @@ def convert_image(x, channels, channel_axis=None, z_axis=None, do_3D=False, ncha
         x = x[:, :, np.newaxis]
 
     if do_3D:
-        if x.ndim < 3:
+        if ndim < 3:
             transforms_logger.critical("ERROR: cannot process 2D images in 3D mode")
             raise ValueError("ERROR: cannot process 2D images in 3D mode")
         elif x.ndim < 4:
