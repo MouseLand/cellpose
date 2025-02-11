@@ -22,13 +22,12 @@ Cellpose was written by Carsen Stringer and Marius Pachitariu. To learn about Ce
 
 Please see install instructions [below](README.md/#Installation), and also check out the detailed documentation at [**cellpose.readthedocs.io**](https://cellpose.readthedocs.io/en/latest/) for more information. Example notebooks:
 
-* [run_cellpose3.ipynb](https://github.com/MouseLand/cellpose/blob/main/notebooks/run_cellpose3.ipynb) [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/MouseLand/cellpose/blob/main/notebooks/run_cellpose3.ipynb) shows how to run image restoration using new `CellposeDenoiseModel` from Cellpose3
-* [run_cyto3.ipynb](https://github.com/MouseLand/cellpose/blob/main/notebooks/run_cellpose3.ipynb) [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/MouseLand/cellpose/blob/main/notebooks/run_cyto3.ipynb) shows how to use new super-generalist "cyto3" model with `model_type="cyto3"`.
-* [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/MouseLand/cellpose/blob/main/notebooks/run_cellpose_2.ipynb) 
-Train your own models with Cellpose.
-* [run_cellpose_GPU.ipynb](https://github.com/MouseLand/cellpose/blob/main/notebooks/run_cellpose_GPU.ipynb) [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/MouseLand/cellpose/blob/main/notebooks/run_cellpose_GPU.ipynb) runs Cellpose segmentation in 2D and 3D
-* [Cellpose_cell_segmentation_2D_prediction_only.ipynb](https://github.com/MouseLand/cellpose/blob/main/notebooks/Cellpose_cell_segmentation_2D_prediction_only.ipynb) [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/MouseLand/cellpose/blob/main/notebooks/Cellpose_cell_segmentation_2D_prediction_only.ipynb) a user-friendly notebook for 2D segmentation written by [@pr4deepr](https://github.com/pr4deepr)
-* [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/HenriquesLab/ZeroCostDL4Mic/blob/master/Colab_notebooks/Beta%20notebooks/Cellpose_2D_ZeroCostDL4Mic.ipynb) a user-friendly [ZeroCostDL4Mic](https://github.com/HenriquesLab/ZeroCostDL4Mic) notebook that includes training cellpose models, written by [@guijacquemet](https://github.com/guijacquemet)
+* [run_cellpose3.ipynb](https://github.com/MouseLand/cellpose/blob/main/notebooks/run_cellpose3.ipynb) [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/MouseLand/cellpose/blob/main/notebooks/run_cellpose3.ipynb): run image restoration and segmentation with Cellpose3
+* [run_cyto3.ipynb](https://github.com/MouseLand/cellpose/blob/main/notebooks/run_cellpose3.ipynb) [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/MouseLand/cellpose/blob/main/notebooks/run_cyto3.ipynb): segment with the new super-generalist "cyto3" model
+* [run_cellpose_2.ipynb](https://github.com/MouseLand/cellpose/blob/main/notebooks/run_cellpose_2.ipynb) [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/MouseLand/cellpose/blob/main/notebooks/run_cellpose_2.ipynb): train your own models with Cellpose2
+* [run_cellpose_GPU.ipynb](https://github.com/MouseLand/cellpose/blob/main/notebooks/run_cellpose_GPU.ipynb) [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/MouseLand/cellpose/blob/main/notebooks/run_cellpose_GPU.ipynb): run Cellpose segmentation in 2D and 3D
+* [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/MouseLand/cellpose/blob/main/notebooks/Cellpose_cell_segmentation_2D_prediction_only.ipynb): a user-friendly notebook for 2D segmentation written by [@pr4deepr](https://github.com/pr4deepr)
+* [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/HenriquesLab/ZeroCostDL4Mic/blob/master/Colab_notebooks/Beta%20notebooks/Cellpose_2D_ZeroCostDL4Mic.ipynb): a user-friendly [ZeroCostDL4Mic](https://github.com/HenriquesLab/ZeroCostDL4Mic) notebook that includes training cellpose models, written by [@guijacquemet](https://github.com/guijacquemet)
 
 :triangular_flag_on_post: All models in Cellpose, except `yeast_BF_cp3`, `yeast_PhC_cp3`, and `deepbacs_cp3`, are trained on some amount of data that is **CC-BY-NC**. The Cellpose annotated dataset is also CC-BY-NC.
 
@@ -180,7 +179,7 @@ python -m cellpose
 
 The first time cellpose runs it downloads the latest available trained model weights from the website.
 
-You can now **drag and drop** any images (*.tif, *.png, *.jpg, *.gif) into the GUI and run Cellpose, and/or manually segment them. When the GUI is processing, you will see the progress bar fill up and during this time you cannot click on anything in the GUI. For more information about what the GUI is doing you can look at the terminal/prompt you opened the GUI with. For example data, see [website](https://www.cellpose.org) or this [zip file](https://www.cellpose.org/static/images/demo_images.zip). For best accuracy and runtime performance, resize images so cells are less than 100 pixels across. 
+You can now **drag and drop** any images (*.tif, *.png, *.jpg, *.gif) into the GUI and run Cellpose, and/or manually segment them. When the GUI is processing, you will see the progress bar fill up and during this time you cannot click on anything in the GUI. For more information about what the GUI is doing you can look at the terminal/prompt you opened the GUI with. For example data, see [website](https://www.cellpose.org) or this [zip file](https://www.cellpose.org/static/images/demo_images.zip). For best accuracy and runtime performance, resize images so cells are less than 100 pixels across. If you have 3D tiffs, open the GUI with `python -m cellpose --Zstack
 
 ## Step-by-step demo
 
@@ -198,7 +197,7 @@ On the demo images each of these steps should run in less than a few seconds on 
 
 ### 3D segmentation
 
-For multi-channel, multi-Z tiff's, the expected format is Z x channels x Ly x Lx.
+For multi-channel, multi-Z tiff's, the expected format is Z x channels x Ly x Lx. Open the GUI for 3D stacks with `python -m cellpose --Zstack`.
 
 ### Download of pretrained models
 
