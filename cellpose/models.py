@@ -432,6 +432,7 @@ class CellposeModel():
             progress (QProgressBar, optional): pyqt progress bar. Defaults to None.
 
         Returns:
+            A tuple containing (masks, flows, styles, diams): 
             masks (list of 2D arrays or single 3D array): Labelled image, where 0=no masks; 1,2,...=mask labels;
             flows (list of lists 2D arrays or list of 3D arrays): flows[k][0] = XY flow in HSV 0-255; flows[k][1] = XY flows at each pixel; 
             flows[k][2] = cell probability (if > cellprob_threshold, pixel used for dynamics); 

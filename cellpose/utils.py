@@ -561,7 +561,7 @@ def diameters(masks):
     masks (ndarray): masks (0=no cells, 1=first cell, 2=second cell,...)
 
     Returns:
-    tuple: A tuple containing the median diameter and an array of diameters for each object.
+        tuple: A tuple containing the median diameter and an array of diameters for each object.
 
     Examples:
     >>> masks = np.array([[0, 1, 1], [1, 0, 0], [1, 1, 0]])
@@ -586,10 +586,7 @@ def radius_distribution(masks, bins):
         bins (int): Number of bins for the histogram.
 
     Returns:
-        tuple: A tuple containing:
-            - nb (ndarray): Normalized histogram of radii.
-            - md (float): Median radius.
-            - radii (ndarray): Array of radii.
+        A tuple containing a normalized histogram of radii, median radius, array of radii.
 
     """
     unique, counts = np.unique(masks, return_counts=True)
@@ -634,9 +631,9 @@ def fill_holes_and_remove_small_masks(masks, min_size=15):
         Set to -1 to turn off this functionality. Default is 15.
 
     Returns:
-    ndarray: Int, 2D or 3D array of masks with holes filled and small masks removed.
-        0 represents no mask, while positive integers represent mask labels.
-        The size is [Ly x Lx] or [Lz x Ly x Lx].
+        ndarray: Int, 2D or 3D array of masks with holes filled and small masks removed.
+            0 represents no mask, while positive integers represent mask labels.
+            The size is [Ly x Lx] or [Lz x Ly x Lx].
     """
 
     if masks.ndim > 3 or masks.ndim < 2:
