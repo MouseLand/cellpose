@@ -457,12 +457,8 @@ def load_train_test_data(train_dir, test_dir=None, image_filter=None,
         look_one_level_down (bool, optional): Whether to look for data in subdirectories of train_dir and test_dir. Defaults to False.
 
     Returns:
-        images (list): A list of training images.
-        labels (list): A list of labels corresponding to the training images.
-        image_names (list): A list of names of the training images.
-        test_images (list, optional): A list of testing images. None if test_dir is not provided.
-        test_labels (list, optional): A list of labels corresponding to the testing images. None if test_dir is not provided.
-        test_image_names (list, optional): A list of names of the testing images. None if test_dir is not provided.
+        images, labels, image_names, test_images, test_labels, test_image_names
+
     """
     images, labels, image_names = load_images_labels(train_dir, mask_filter,
                                                      image_filter, look_one_level_down)

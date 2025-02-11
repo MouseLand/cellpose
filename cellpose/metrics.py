@@ -245,7 +245,7 @@ def flow_error(maski, dP_net, device=None):
         dP_net (np.ndarray, float): ND flows where dP_net.shape[1:] = maski.shape.
 
     Returns:
-        flow_errors (np.ndarray, float): Mean squared error between predicted flows and flows from masks.
+        A tuple containing (flow_errors, dP_masks): flow_errors (np.ndarray, float): Mean squared error between predicted flows and flows from masks; 
         dP_masks (np.ndarray, float): ND flows produced from the predicted masks.
     """
     if dP_net.shape[1:] != maski.shape:

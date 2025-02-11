@@ -80,8 +80,7 @@ def assign_device(use_torch=True, gpu=False, device=0):
         device (int or str, optional): The device index or name to be used. Defaults to 0.
 
     Returns:
-        torch.device: The assigned device.
-        bool: True if GPU is used, False otherwise.
+        torch.device, bool (True if GPU is used, False otherwise)
     """
 
     if isinstance(device, str):
@@ -212,9 +211,9 @@ def run_net(net, imgi, batch_size=8, augment=False, tile_overlap=0.1, bsize=224,
         bsize (int, optional): Size of tiles to use in pixels [bsize x bsize]. Defaults to 224.
 
     Returns:
-        y (np.ndarray): output of network, if tiled it is averaged in tile overlaps. Size of [Ly x Lx x 3] or [Lz x Ly x Lx x 3].
-            y[...,0] is Y flow; y[...,1] is X flow; y[...,2] is cell probability.
-        style (np.ndarray): 1D array of size 256 summarizing the style of the image, if tiled it is averaged over tiles.
+        Tuple[numpy.ndarray, numpy.ndarray]: outputs of network y and style. If tiled `y` is averaged in tile overlaps. Size of [Ly x Lx x 3] or [Lz x Ly x Lx x 3].
+            y[...,0] is Y flow; y[...,1] is X flow; y[...,2] is cell probability. 
+            style is a 1D array of size 256 summarizing the style of the image, if tiled `style` is averaged over tiles.
     """
     # run network
     nout = net.nout
@@ -300,9 +299,9 @@ def run_3D(net, imgs, batch_size=8, augment=False,
         progress (QProgressBar, optional): pyqt progress bar. Defaults to None.
 
     Returns:
-        y (np.ndarray): output of network, if tiled it is averaged in tile overlaps. Size of [Ly x Lx x 3] or [Lz x Ly x Lx x 3].
-            y[...,0] is Y flow; y[...,1] is X flow; y[...,2] is cell probability.
-        style (np.ndarray): 1D array of size 256 summarizing the style of the image, if tiled it is averaged over tiles.
+        Tuple[numpy.ndarray, numpy.ndarray]: outputs of network y and style. If tiled `y` is averaged in tile overlaps. Size of [Ly x Lx x 3] or [Lz x Ly x Lx x 3].
+            y[...,0] is Z flow; y[...,1] is Y flow; y[...,2] is X flow; y[...,3] is cell probability. 
+            style is a 1D array of size 256 summarizing the style of the image, if tiled `style` is averaged over tiles.
     """
     sstr = ["YX", "ZY", "ZX"]
     pm = [(0, 1, 2, 3), (1, 0, 2, 3), (2, 0, 1, 3)]

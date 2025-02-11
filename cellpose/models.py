@@ -162,15 +162,12 @@ class Cellpose():
             do_3D (bool, optional): Set to True to run 3D segmentation on 4D image input. Defaults to False.
 
         Returns:
-            tuple containing
-                - masks (list of 2D arrays or single 3D array): Labelled image, where 0=no masks; 1,2,...=mask labels.
-                - flows (list of lists 2D arrays or list of 3D arrays): 
-                    - flows[k][0] = XY flow in HSV 0-255
-                    - flows[k][1] = XY flows at each pixel
-                    - flows[k][2] = cell probability (if > cellprob_threshold, pixel used for dynamics)
-                    - flows[k][3] = final pixel locations after Euler integration
-                - styles (list of 1D arrays of length 256 or single 1D array): Style vector summarizing each image, also used to estimate size of objects in image.
-                - diams (list of diameters or float): List of diameters or float (if do_3D=True).
+            A tuple containing (masks, flows, styles, diams): masks (list of 2D arrays or single 3D array): Labelled image, where 0=no masks; 1,2,...=mask labels;
+            flows (list of lists 2D arrays or list of 3D arrays): flows[k][0] = XY flow in HSV 0-255; flows[k][1] = XY flows at each pixel; 
+            flows[k][2] = cell probability (if > cellprob_threshold, pixel used for dynamics); 
+            flows[k][3] = final pixel locations after Euler integration; 
+            styles (list of 1D arrays of length 256 or single 1D array): Style vector summarizing each image, also used to estimate size of objects in image;
+            diams (list of diameters or float): List of diameters or float (if do_3D=True).
 
         """
 
@@ -435,10 +432,11 @@ class CellposeModel():
             progress (QProgressBar, optional): pyqt progress bar. Defaults to None.
 
         Returns:
-            A tuple containing:
-                - masks (list, np.ndarray): labelled image(s), where 0=no masks; 1,2,...=mask labels
-                - flows (list): list of lists: flows[k][0] = XY flow in HSV 0-255; flows[k][1] = XY(Z) flows at each pixel; flows[k][2] = cell probability (if > cellprob_threshold, pixel used for dynamics); flows[k][3] = final pixel locations after Euler integration 
-                - styles (list, np.ndarray): style vector summarizing each image of size 256.
+            masks (list of 2D arrays or single 3D array): Labelled image, where 0=no masks; 1,2,...=mask labels;
+            flows (list of lists 2D arrays or list of 3D arrays): flows[k][0] = XY flow in HSV 0-255; flows[k][1] = XY flows at each pixel; 
+            flows[k][2] = cell probability (if > cellprob_threshold, pixel used for dynamics); 
+            flows[k][3] = final pixel locations after Euler integration; 
+            styles (list of 1D arrays of length 256 or single 1D array): Style vector summarizing each image, also used to estimate size of objects in image.
             
         """
         if isinstance(x, list) or x.squeeze().ndim == 5:
@@ -733,9 +731,9 @@ class SizeModel():
 
 
         Returns:
-            A tuple containing:
-                - diam (np.ndarray): Final estimated diameters from images x or styles style after running both steps.
-                - diam_style (np.ndarray): Estimated diameters from style alone.
+            A tuple containing (diam, diam_style):
+            diam (np.ndarray): Final estimated diameters from images x or styles style after running both steps;
+            diam_style (np.ndarray): Estimated diameters from style alone.
         """
         if isinstance(x, list):
             self.timing = []

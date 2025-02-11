@@ -554,10 +554,10 @@ class CellposeDenoiseModel():
             interp (bool, optional): interpolate during 2D dynamics (not available in 3D) . Defaults to True.
             
         Returns:
-            masks (list, np.ndarray): labelled image(s), where 0=no masks; 1,2,...=mask labels
-            flows (list): list of lists: flows[k][0] = XY flow in HSV 0-255; flows[k][1] = XY(Z) flows at each pixel; flows[k][2] = cell probability (if > cellprob_threshold, pixel used for dynamics); flows[k][3] = final pixel locations after Euler integration 
-            styles (list, np.ndarray): style vector summarizing each image of size 256.
-            imgs (list of 2D/3D arrays): Restored images
+            A tuple containing (masks, flows, styles, imgs); masks: labelled image(s), where 0=no masks; 1,2,...=mask labels; 
+            flows: list of lists: flows[k][0] = XY flow in HSV 0-255; flows[k][1] = XY(Z) flows at each pixel; flows[k][2] = cell probability (if > cellprob_threshold, pixel used for dynamics); flows[k][3] = final pixel locations after Euler integration;
+            styles: style vector summarizing each image of size 256;
+            imgs: Restored images.
         """
         
         if isinstance(normalize, dict):
@@ -729,9 +729,9 @@ class DenoiseModel():
             diameter (float, optional):  diameter for each image, 
                 if diameter is None, set to diam_mean or diam_train if available. Defaults to None.
             tile_overlap (float, optional): fraction of overlap of tiles when computing flows. Defaults to 0.1.
-            
+              
         Returns:
-            imgs (list of 2D/3D arrays): Restored images
+            list: A list of 2D/3D arrays of restored images
 
         """
         if isinstance(x, list) or x.squeeze().ndim == 5:
@@ -836,7 +836,7 @@ class DenoiseModel():
             tile_overlap (float, optional): fraction of overlap of tiles when computing flows. Defaults to 0.1.
             
         Returns:
-            imgs (list of 2D/3D arrays): Restored images
+            list: A list of 2D/3D arrays of restored images
 
         """
         if isinstance(normalize, dict):

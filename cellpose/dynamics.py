@@ -105,9 +105,7 @@ def get_centers(masks, slices):
         slices (ndarray): The slices of the masks.
 
     Returns:
-        tuple containing
-            - centers (ndarray): The centers of the masks.
-            - ext (ndarray): The extents of the masks.
+        A tuple containing the centers of the masks and the extents of the masks.
     """
     centers = np.zeros((len(slices), 2), "int32")
     ext = np.zeros((len(slices),), "int32")
@@ -131,16 +129,20 @@ def get_centers(masks, slices):
 def masks_to_flows_gpu(masks, device=torch.device("cpu"), niter=None):
     """Convert masks to flows using diffusion from center pixel.
 
-    Center of masks where diffusion starts is defined using COM.
+    Center of masks where diffusion starts is defined by pixel closest to median within the mask.
 
     Args:
         masks (int, 2D or 3D array): Labelled masks. 0=NO masks; 1,2,...=mask labels.
+        device (torch.device, optional): The device to run the computation on. Defaults to torch.device("cpu").
+        niter (int, optional): Number of iterations for the diffusion process. Defaults to None.
 
     Returns:
-        tuple containing
-            - mu (float, 3D or 4D array): Flows in Y = mu[-2], flows in X = mu[-1].
-                If masks are 3D, flows in Z = mu[0].
-            - meds_p (float, 2D or 3D array): cell centers
+        np.ndarray: A 4D array representing the flows for each pixel in Z, X, and Y.
+       
+
+    Returns:
+        A tuple containing (mu, meds_p). mu is float 3D or 4D array of flows in (Z)XY. 
+        meds_p are cell centers.
     """
     if device is None:
         device = torch.device('cuda') if torch.cuda.is_available() else torch.device('mps') if torch.backends.mps.is_available() else None
@@ -200,11 +202,12 @@ def masks_to_flows_gpu_3d(masks, device=None, niter=None):
 
     Args:
         masks (int, 2D or 3D array): Labelled masks. 0=NO masks; 1,2,...=mask labels.
+        device (torch.device, optional): The device to run the computation on. Defaults to None.
+        niter (int, optional): Number of iterations for the diffusion process. Defaults to None.
 
     Returns:
-        tuple containing
-            - mu (float, 3D or 4D array): Flows in Y = mu[-2], flows in X = mu[-1]. If masks are 3D, flows in Z = mu[0].
-            - mu_c (float, 2D or 3D array): zeros
+        np.ndarray: A 4D array representing the flows for each pixel in Z, X, and Y.
+        
     """
     if device is None:
         device = torch.device('cuda') if torch.cuda.is_available() else torch.device('mps') if torch.backends.mps.is_available() else None
@@ -264,11 +267,10 @@ def masks_to_flows_gpu_3d(masks, device=None, niter=None):
     # put into original image
     mu0 = np.zeros((3, Lz0, Ly0, Lx0))
     mu0[:, z.cpu().numpy() - 1, y.cpu().numpy() - 1, x.cpu().numpy() - 1] = mu
-    mu_c = np.zeros_like(mu0)
-    return mu0, mu_c
+    return mu0
 
 
-def masks_to_flows_cpu(masks, device=None, niter=None):
+def masks_to_flows_cpu(masks, niter=None, device=None):
     """Convert masks to flows using diffusion from center pixel.
 
     Center of masks where diffusion starts is defined to be the closest pixel to the mean of all pixels that is inside the mask.
@@ -276,12 +278,11 @@ def masks_to_flows_cpu(masks, device=None, niter=None):
 
     Args:
         masks (int, 2D or 3D array): Labelled masks 0=NO masks; 1,2,...=mask labels
-
+        niter (int, optional): Number of iterations for computing flows. Defaults to None.
+    
     Returns:
-        tuple containing
-            - mu (float, 3D or 4D array): Flows in Y = mu[-2], flows in X = mu[-1].
-                If masks are 3D, flows in Z = mu[0].
-            - meds (float, 2D or 3D array): cell centers
+        A tuple containing (mu, meds_p). mu is float 3D or 4D array of flows in (Z)XY. 
+        meds_p are cell centers.
     """
     Ly, Lx = masks.shape
     mu = np.zeros((2, Ly, Lx), np.float64)
@@ -327,8 +328,7 @@ def masks_to_flows(masks, device=torch.device("cpu"), niter=None):
         masks (int, 2D or 3D array): Labelled masks 0=NO masks; 1,2,...=mask labels
 
     Returns:
-        mu (float, 3D or 4D array): Flows in Y = mu[-2], flows in X = mu[-1].
-                If masks are 3D, flows in Z = mu[0].
+        np.ndarray: mu is float 3D or 4D array of flows in (Z)XY.
     """
     if masks.max() == 0:
         dynamics_logger.warning("empty masks!")
@@ -583,9 +583,8 @@ def follow_flows(dP, inds, niter=200, interp=True, device=torch.device("cpu")):
         device (torch.device, optional): Device to use for computation. Default is None.
 
     Returns:
-        tuple containing:
-            - p (np.ndarray): Final locations of each pixel after dynamics; [axis x Ly x Lx] or [axis x Lz x Ly x Lx].
-            - inds (np.ndarray): Indices of pixels used for dynamics; [axis x Ly x Lx] or [axis x Lz x Ly x Lx].
+        A tuple containing (p, inds): p (np.ndarray): Final locations of each pixel after dynamics; [axis x Ly x Lx] or [axis x Lz x Ly x Lx]; 
+        inds (np.ndarray): Indices of pixels used for dynamics; [axis x Ly x Lx] or [axis x Lz x Ly x Lx].
     """
     shape = np.array(dP.shape[1:]).astype(np.int32)
     ndim = len(inds)

@@ -371,9 +371,8 @@ def train_seg(net, train_data=None, train_labels=None, train_files=None,
         model_name (str, optional): String - name of the network. Defaults to None.
 
     Returns:
-        Path: path to saved model weights
-        np.ndarray: training losses
-        np.ndarray: test losses
+        tuple: A tuple containing the path to the saved model weights, training losses, and test losses.
+       
     """
     device = net.device
 

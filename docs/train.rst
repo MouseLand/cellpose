@@ -1,6 +1,10 @@
 Training
 ---------------------------
 
+.. warning::
+    MPS support for pytorch is incomplete, and so training on Macs with MPS may give NaN's, 
+    if so please use the CPU instead
+
 At the beginning of training, cellpose computes the flow field representation for each 
 mask image (``dynamics.labels_to_flows``).
 
