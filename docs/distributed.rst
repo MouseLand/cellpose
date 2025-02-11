@@ -13,7 +13,7 @@ Built to run on workstations or clusters. Blocks can be run in parallel, in seri
 Compute resources (GPUs, CPUs, and RAM) can be arbitrarily partitioned for parallel computing.
 Currently workstations (your own machine) and LSF clusters are supported. SLURM clusters are
 an easy addition - if you need this to run on a SLURM cluster `please post a feature request issue
-to the github repository<https://github.com/MouseLand/cellpose/issues>`_ and tag @GFleishman.
+to the github repository <https://github.com/MouseLand/cellpose/issues>`_ and tag @GFleishman.
 
 The input data format must be a zarr array. Some functions are provided in the module to help
 convert your data to a zarr array, but not all formats or situations are covered. These are
@@ -23,10 +23,11 @@ but making it available in the GUI is another good PR or feature request.
 Examples
 ~~~~~~~~
 
-Run distributed Cellpose on half the resources of a workstation with 16 cpus, 1 gpu, and 128GB system memory:
+Run distributed Cellpose on half the resources of a workstation that has 16 cpus, 1 gpu, and 128GB system memory:
 ............................
 
 .. code-block:: python
+
    from cellpose.contrib.distributed_segmentation import distributed_eval
 
     # parameterize cellpose however you like
