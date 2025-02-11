@@ -142,13 +142,13 @@ def get_arg_parser():
     output_args = parser.add_argument_group("Output Arguments")
     output_args.add_argument(
         "--save_png", action="store_true",
-        help="save masks as png and outlines as text file for ImageJ")
+        help="save masks as png")
     output_args.add_argument(
         "--save_tif", action="store_true",
-        help="save masks as tif and outlines as text file for ImageJ")
+        help="save masks as tif")
     output_args.add_argument(
-        "--output_name", default=[], type=str,
-        help="suffix for saved masks, default is _cp_masks")
+        "--output_name", default=None, type=str,
+        help="suffix for saved masks, default is _cp_masks, can be empty if `savedir` used and different of `dir`")
     output_args.add_argument("--no_npy", action="store_true",
                              help="suppress saving of npy")
     output_args.add_argument(

@@ -31,7 +31,7 @@ def main():
     """
 
     args = get_arg_parser().parse_args(
-    )  # this has to be in a seperate file for autodoc to work
+    )  # this has to be in a separate file for autodoc to work
 
     if args.version:
         print(version_str)
@@ -148,6 +148,10 @@ def main():
                     raise ValueError(f"ERROR: no file found at {args.image_path}")
             nimg = len(image_names)
 
+            if args.savedir:
+                if not os.path.exists(args.savedir):
+                    raise FileExistsError("--savedir {args.savedir} does not exist")
+
             cstr0 = ["GRAY", "RED", "GREEN", "BLUE"]
             cstr1 = ["NONE", "RED", "GREEN", "BLUE"]
             logger.info(
@@ -240,8 +244,17 @@ def main():
                                           diams=diams, restore_type=restore_type,
                                           ratio=1.)
                 if saving_something:
-                    suffix = args.output_name if len(args.output_name) > 0 else "_cp_masks"
-                    io.save_masks(image, masks, flows, image_name, 
+                    suffix = "_cp_masks"
+                    if args.output_name is not None: 
+                        # (1) If `savedir` is not defined, then must have a non-zero `suffix`
+                        if args.savedir is None and len(args.output_name) > 0:
+                            suffix = args.output_name
+                        elif args.savedir is not None and not os.path.samefile(args.savedir, args.dir):
+                            # (2) If `savedir` is defined, and different from `dir` then                              
+                            # takes the value passed as a param. (which can be empty string)
+                            suffix = args.output_name
+
+                    io.save_masks(image, masks, flows, image_name,
                                   suffix=suffix, png=args.save_png,
                                   tif=args.save_tif, save_flows=args.save_flows,
                                   save_outlines=args.save_outlines,
