@@ -23,12 +23,14 @@ Cellpose was written by Carsen Stringer and Marius Pachitariu. To learn about Ce
 Please see install instructions [below](README.md/#Installation), and also check out the detailed documentation at [**cellpose.readthedocs.io**](https://cellpose.readthedocs.io/en/latest/) for more information. Example notebooks:
 
 * [run_cellpose3.ipynb](https://github.com/MouseLand/cellpose/blob/main/notebooks/run_cellpose3.ipynb) [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/MouseLand/cellpose/blob/main/notebooks/run_cellpose3.ipynb) shows how to run image restoration using new `CellposeDenoiseModel` from Cellpose3
-* * [run_cyto3.ipynb](https://github.com/MouseLand/cellpose/blob/main/notebooks/run_cellpose3.ipynb) [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/MouseLand/cellpose/blob/main/notebooks/run_cyto3.ipynb) shows how to use new super-generalist "cyto3" model with `model_type="cyto3"`.
+* [run_cyto3.ipynb](https://github.com/MouseLand/cellpose/blob/main/notebooks/run_cellpose3.ipynb) [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/MouseLand/cellpose/blob/main/notebooks/run_cyto3.ipynb) shows how to use new super-generalist "cyto3" model with `model_type="cyto3"`.
 * [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/MouseLand/cellpose/blob/main/notebooks/run_cellpose_2.ipynb) 
 Train your own models with Cellpose.
 * [run_cellpose_GPU.ipynb](https://github.com/MouseLand/cellpose/blob/main/notebooks/run_cellpose_GPU.ipynb) [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/MouseLand/cellpose/blob/main/notebooks/run_cellpose_GPU.ipynb) runs Cellpose segmentation in 2D and 3D
 * [Cellpose_cell_segmentation_2D_prediction_only.ipynb](https://github.com/MouseLand/cellpose/blob/main/notebooks/Cellpose_cell_segmentation_2D_prediction_only.ipynb) [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/MouseLand/cellpose/blob/main/notebooks/Cellpose_cell_segmentation_2D_prediction_only.ipynb) a user-friendly notebook for 2D segmentation written by [@pr4deepr](https://github.com/pr4deepr)
 * [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/HenriquesLab/ZeroCostDL4Mic/blob/master/Colab_notebooks/Beta%20notebooks/Cellpose_2D_ZeroCostDL4Mic.ipynb) a user-friendly [ZeroCostDL4Mic](https://github.com/HenriquesLab/ZeroCostDL4Mic) notebook that includes training cellpose models, written by [@guijacquemet](https://github.com/guijacquemet)
+
+:triangular_flag_on_post: All models in Cellpose, except `yeast_BF_cp3`, `yeast_PhC_cp3`, and `deepbacs_cp3`, are trained on some amount of data that is **CC-BY-NC**. The Cellpose annotated dataset is also CC-BY-NC.
 
 ### CITATION
 
@@ -40,8 +42,6 @@ Pachitariu, M. & Stringer, C. (2022). Cellpose 2.0: how to train your own model.
 
 **If you use the new image restoration models or cyto3, please also cite the Cellpose3 [paper](https://www.biorxiv.org/content/10.1101/2024.02.10.579780v1):**  
 Stringer, C. & Pachitariu, M. (2024). Cellpose3: one-click image restoration for improved segmentation. <em>bioRxiv</em>.
-
-:triangular_flag_on_post: All models in Cellpose, except `yeast_BF_cp3`, `yeast_PhC_cp3`, and `deepbacs_cp3`, are trained on some amount of data that is **CC-BY-NC**. The Cellpose annotated dataset is also CC-BY-NC.
 
 ### :star2: v3 (Feb 2024) :star2:
 
