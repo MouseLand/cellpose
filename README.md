@@ -20,19 +20,15 @@ A generalist algorithm for cell and nucleus segmentation (v1.0) that can be opti
 
 Cellpose was written by Carsen Stringer and Marius Pachitariu. To learn about Cellpose3 (image restoration), read the [paper](https://www.biorxiv.org/content/10.1101/2024.02.10.579780v1). To learn about Cellpose 2.0 (human-in-the-loop), read the [paper](https://www.nature.com/articles/s41592-022-01663-4) or watch the [talk](https://www.youtube.com/watch?v=3ydtAhfq6H0). To learn about Cellpose 1.0, read the [paper](https://t.co/kBMXmPp3Yn?amp=1) or watch the [talk](https://t.co/JChCsTD0SK?amp=1). For support, please open an [issue](https://github.com/MouseLand/cellpose/issues). 
 
-Please see install instructions [below](README.md/#Installation), and also check out the detailed documentation at [**cellpose.readthedocs.io**](https://cellpose.readthedocs.io/en/latest/) for more information.
+Please see install instructions [below](README.md/#Installation), and also check out the detailed documentation at [**cellpose.readthedocs.io**](https://cellpose.readthedocs.io/en/latest/) for more information. Example notebooks in colab for install-free option:
 
-### :star2: v3 (Feb 2024) :star2:
-
-Cellpose3 enables image restoration in the GUI, API and CLI (saved to `_seg.npy`). To learn more...
-* Check out the [paper](https://www.biorxiv.org/content/10.1101/2024.02.10.579780v1).
-* API documentation [here](https://cellpose.readthedocs.io/en/latest/restore.html)
-* Example google colab notebook for image restoration: [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/MouseLand/cellpose/blob/main/notebooks/run_cellpose3.ipynb), using new `CellposeDenoiseModel`.
-* Example google colab notebook with new super-generalist "cyto3" model: [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/MouseLand/cellpose/blob/main/notebooks/run_cyto3.ipynb). Try out the new `cyto3` super-generalist Cellpose model with `model_type="cyto3"`.
-
-denoising             |  deblurring                  |  upsampling
-:-------------------------:|:-------------------------:|:-------------------------:
-<img src="http://www.cellpose.org/static/images/poisson_cp3.gif?raw=True" width="350" title="cellpose denoising" alt="cellpose denoising examples"> | <img src="http://www.cellpose.org/static/images/blur_cp3.gif?raw=True" width="350" title="cellpose deblurring" alt="cellpose deblurring examples"> | <img src="http://www.cellpose.org/static/images/downsample_cp3.gif?raw=True" width="350" title="cellpose upsampling" alt="cellpose upsampling examples">
+* [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/MouseLand/cellpose/blob/main/notebooks/run_cellpose3.ipynb) Example google colab notebook for image restoration using new `CellposeDenoiseModel` from Cellpose3
+* [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/MouseLand/cellpose/blob/main/notebooks/run_cyto3.ipynb) Example google colab notebook with new super-generalist "cyto3" model, try out the new `cyto3` super-generalist Cellpose model with `model_type="cyto3"`.
+* [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/MouseLand/cellpose/blob/main/notebooks/run_cellpose_2.ipynb) 
+Train your own models with Cellpose.
+* [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/MouseLand/cellpose/blob/main/notebooks/run_cellpose_GPU.ipynb) example notebook for Cellpose1 for 2D and 3D segmentation
+* [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/MouseLand/cellpose/blob/main/notebooks/Cellpose_cell_segmentation_2D_prediction_only.ipynb) a user-friendly notebook for 2D segmentation written by [@pr4deepr](https://github.com/pr4deepr)
+* [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/HenriquesLab/ZeroCostDL4Mic/blob/master/Colab_notebooks/Beta%20notebooks/Cellpose_2D_ZeroCostDL4Mic.ipynb) a user-friendly [ZeroCostDL4Mic](https://github.com/HenriquesLab/ZeroCostDL4Mic) notebook that includes training cellpose models, written by [@guijacquemet](https://github.com/guijacquemet)
 
 ### CITATION
 
@@ -47,17 +43,19 @@ Stringer, C. & Pachitariu, M. (2024). Cellpose3: one-click image restoration for
 
 :triangular_flag_on_post: All models in Cellpose, except `yeast_BF_cp3`, `yeast_PhC_cp3`, and `deepbacs_cp3`, are trained on some amount of data that is **CC-BY-NC**. The Cellpose annotated dataset is also CC-BY-NC.
 
+### :star2: v3 (Feb 2024) :star2:
+
+Cellpose3 enables image restoration in the GUI, API and CLI (saved to `_seg.npy`). To learn more...
+* Check out the [paper](https://www.biorxiv.org/content/10.1101/2024.02.10.579780v1).
+* API documentation [here](https://cellpose.readthedocs.io/en/latest/restore.html)
+
+denoising             |  deblurring                  |  upsampling
+:-------------------------:|:-------------------------:|:-------------------------:
+<img src="http://www.cellpose.org/static/images/poisson_cp3.gif?raw=True" width="350" title="cellpose denoising" alt="cellpose denoising examples"> | <img src="http://www.cellpose.org/static/images/blur_cp3.gif?raw=True" width="350" title="cellpose deblurring" alt="cellpose deblurring examples"> | <img src="http://www.cellpose.org/static/images/downsample_cp3.gif?raw=True" width="350" title="cellpose upsampling" alt="cellpose upsampling examples">
+
 ### :star2: v2.0 (April 2022) :star2:
 
-Cellpose 2.0 allows human-in-the-loop training of models! To learn more...
-* Check out the twitter [thread](https://twitter.com/marius10p/status/1511415409047650307?s=20&t=umTVIG1CFKIWHYMrQqFKyQ) for an overview.
-* Check out the [paper](https://www.nature.com/articles/s41592-022-01663-4) for more details on the algorithm and the performance. Also, there's a short review of the paper available [here](https://www.nature.com/articles/s41592-022-01664-3).
-* Watch the short overview [talk](https://youtu.be/wB7XYh4QRiI) and watch the longer [tutorial talk](https://youtu.be/5qANHWoubZU) which goes through running Cellpose 2.0 in the GUI and a jupyter notebook.
-* Check out the full human-in-the-loop [video](https://youtu.be/3Y1VKcxjNy4). 
-* Check out the colab notebook to get cloud access to a GPU to train your models or run your custom models: [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/MouseLand/cellpose/blob/main/notebooks/run_cellpose_2.ipynb).
-* See how to use it yourself in the [docs](https://cellpose.readthedocs.io/en/latest/gui.html#training-your-own-cellpose-model) and also check out the help info in the `Models` menu in the GUI.
-
-Mxnet is no longer supported in cellpose. To use mxnet, please use v1.0.2 (not recommended).
+Cellpose 2.0 allows human-in-the-loop training of models! To learn more, check out the twitter [thread](https://twitter.com/marius10p/status/1511415409047650307?s=20&t=umTVIG1CFKIWHYMrQqFKyQ), [paper](https://www.nature.com/articles/s41592-022-01663-4), [review](https://www.nature.com/articles/s41592-022-01664-3), [short talk](https://youtu.be/wB7XYh4QRiI), and the [tutorial talk](https://youtu.be/5qANHWoubZU) which goes through running Cellpose 2.0 in the GUI and a jupyter notebook. Check out the full human-in-the-loop [video](https://youtu.be/3Y1VKcxjNy4). See how to use it yourself in the [docs](https://cellpose.readthedocs.io/en/latest/gui.html#training-your-own-cellpose-model) and also check out the help info in the `Models` menu in the GUI.
 
 # Installation
 
@@ -78,6 +76,10 @@ cellpose relies on the following excellent packages (which are automatically ins
 - [numba](http://numba.pydata.org/numba-doc/latest/user/5minguide.html)
 - [scipy](https://www.scipy.org/)
 - [natsort](https://natsort.readthedocs.io/en/master/)
+- [tifffile](https://github.com/cgohlke/tifffile)
+- [imagecodecs](https://github.com/cgohlke/imagecodecs)
+- [roifile](https://github.com/cgohlke/roifile)
+- [fastremap](https://github.com/seung-lab/fastremap/)
 
 ### Option 1: Installation Instructions with conda 
 
@@ -157,14 +159,7 @@ If you want edit ability to the code, in the github repository folder, run `pip 
 
 ## Run cellpose 1.0 without local python installation
 
-You can quickly try out Cellpose on the [website](https://www.cellpose.org) first (many features disabled). 
-
-You can also run Cellpose in google colab with a GPU: 
-* a code-based notebook: [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/MouseLand/cellpose/blob/main/notebooks/run_cellpose_GPU.ipynb)
-* a more user-friendly notebook for 2D segmentation written by [@pr4deepr](https://github.com/pr4deepr): [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/MouseLand/cellpose/blob/main/notebooks/Cellpose_cell_segmentation_2D_prediction_only.ipynb)
-* a user-friendly [ZeroCostDL4Mic](https://github.com/HenriquesLab/ZeroCostDL4Mic) notebook that includes training cellpose models, written by [@guijacquemet](https://github.com/guijacquemet): [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/HenriquesLab/ZeroCostDL4Mic/blob/master/Colab_notebooks/Beta%20notebooks/Cellpose_2D_ZeroCostDL4Mic.ipynb)
-
-The colab notebooks are recommended if you have issues with MKL or run speed on your local computer (and are running 3D volumes). Colab does not allow you to run the GUI, but you can save `*_seg.npy` files in colab that you can download and open in the GUI.
+You can quickly try out Cellpose on the [website](https://www.cellpose.org) first (many features disabled). The colab notebooks are also recommended if you have issues with MKL or run speed on your local computer (and are running 3D volumes). Colab does not allow you to run the GUI, but you can save `*_seg.npy` files in colab that you can download and open in the GUI.
 
 **Executable file**: You can download an executable file for [*Windows 10*](http://www.cellpose.org/windows) or for [*Mac OS*](http://www.cellpose.org/mac) (High Sierra or greater) that were made using PyInstaller on Intel processors (MKL acceleration works, but no GPU support). Note in both cases it will take a few seconds to open.
 
@@ -208,30 +203,3 @@ For multi-channel, multi-Z tiff's, the expected format is Z x channels x Ly x Lx
 ### Download of pretrained models
 
 The models will be downloaded automatically from the [website](https://www.cellpose.org) when you first run a pretrained model in cellpose. If you are having issues with the downloads, you can download them from this [google drive zip file](https://drive.google.com/file/d/1zHGFYCqRCTwTPwgEUMNZu0EhQy2zaovg/view?usp=sharing), unzip the file and put the models in your home directory under the path .cellpose/models/, e.g. on Windows this would be C:/Users/YOUR_USERNAME/.cellpose/models/ or on Linux this would be /home/YOUR_USERNAME/.cellpose/models/, so /home/YOUR_USERNAME/.cellpose/models/cyto_0 is the full path to one model for example. If you cannot access google drive, the models are also available on baidu: Link：https://pan.baidu.com/s/1CARpRGCBHIYaz7KeyoX-fg ; Fetch code：pose ; thanks to @qixinbo!
-
-# Older software releases
-
-### UPDATE v1.0 (Jan 2022)
-
-Cellpose has been relatively stable for a while now. Small bugs will continue to be fixed, but we are now releasing a reference 1.0 version. Larger updates to Cellpose will go towards a new 2.0 candidate version to be released soon.  
-
-This update fixes bugs in GUI and plotting. It also stops model weight reloading to improve speed. `resample=True` is default again as in earlier releases, turn off with `--no_resample`. Now logging is turned off by default. Turn on in CLI with `--verbose` flag or in a script/notebook by
-```
-from cellpose.io import logger_setup
-logger_setup();
-```
-
-To install this version please use
-```
-pip install cellpose==1.0.2
-```
-
-### UPDATE v0.7 (Nov 2021)
-
-Check out [Omnipose](https://github.com/kevinjohncutler/omnipose), an extension of Cellpose for long filamentous bacteria. Omnipose was written by Kevin Cutler ([@kevinjohncutler](https://github.com/kevinjohncutler)). To learn about Omnipose, read the [paper](http://biorxiv.org/content/early/2021/11/04/2021.11.03.467199).
-
-### UPDATE v0.6 (Dec 2020)
-
-Pytorch is now the default deep neural network software for cellpose. Mxnet will still be supported. To install mxnet (CPU), run `pip install mxnet-mkl`. To use mxnet in a notebook, declare `torch=False` when creating a model, e.g. `model = models.Cellpose(torch=False)`. To use mxnet on the command line, add the flag `--mxnet`, e.g. `python -m cellpose --dir ~/images/ --mxnet`. The pytorch implementation is 20% faster than the mxnet implementation when running on the GPU and 20% slower when running on the CPU. 
-
-Dynamics are computed using bilinear interpolation by default instead of nearest neighbor interpolation. Set `interp=False` in `model.eval` to turn off. The bilinear interpolation will be slightly slower on the CPU, but it is faster than nearest neighbor if using torch and the GPU is enabled.
