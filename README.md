@@ -18,7 +18,7 @@
 
 A generalist algorithm for cell and nucleus segmentation (v1.0) that can be optimized for your own data (v2.0) and (**NEW**) perform image restoration (v3.0).
 
-Cellpose was written by Carsen Stringer and Marius Pachitariu. To learn about Cellpose3 (image restoration), read the [paper](https://www.biorxiv.org/content/10.1101/2024.02.10.579780v1). To learn about Cellpose 2.0 (human-in-the-loop), read the [paper](https://www.nature.com/articles/s41592-022-01663-4) or watch the [talk](https://www.youtube.com/watch?v=3ydtAhfq6H0). To learn about Cellpose 1.0, read the [paper](https://t.co/kBMXmPp3Yn?amp=1) or watch the [talk](https://t.co/JChCsTD0SK?amp=1). For support, please open an [issue](https://github.com/MouseLand/cellpose/issues). 
+Cellpose was written by Carsen Stringer and Marius Pachitariu. To learn about Cellpose3 (image restoration), read the [paper](https://www.biorxiv.org/content/10.1101/2024.02.10.579780v1) or watch the [talk](https://youtu.be/TZZZlGk6AKo). To learn about Cellpose 2.0 (human-in-the-loop), read the [paper](https://www.nature.com/articles/s41592-022-01663-4) or watch the [talk](https://www.youtube.com/watch?v=3ydtAhfq6H0). To learn about Cellpose 1.0, read the [paper](https://t.co/kBMXmPp3Yn?amp=1) or watch the [talk](https://t.co/JChCsTD0SK?amp=1). For support, please open an [issue](https://github.com/MouseLand/cellpose/issues). 
 
 Please see install instructions [below](README.md/#Installation), and also check out the detailed documentation at [**cellpose.readthedocs.io**](https://cellpose.readthedocs.io/en/latest/) for more information. Example notebooks:
 
