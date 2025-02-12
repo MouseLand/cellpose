@@ -29,7 +29,7 @@ and mask have the same field of view. So you can give a huge image and a small m
 physical length of the axes (number of voxels times the voxel size in physical units) is the same.
 
 Preprocessing (for example Gaussian smoothing) can sometimes improve Cellpose performance. But
-preprocessing big data can be inconvenient. Distriuted Cellpose can take a list of
+preprocessing big data can be inconvenient. Distributed Cellpose can take a list of
 preprocessing steps, which is a list of functions and their arguments, and it will run those
 functions on the blocks before running Cellpose. This distributes any preprocessing steps you
 like along with Cellpose itself. This can be used in very creative ways. For example,
@@ -213,7 +213,7 @@ Use preprocessing_steps and a mask:
     # You can sneak other big datasets into the distribution through pp steps
     # the crop parameter contains the slices you need to get the correct block
     def pp_step_two(image, crop):
-        return image - background_channel_zarr[crop]    # make sure the other dataset is also zarr
+        return image - background_channel_zarr[crop] # make sure the other dataset is also zarr
 
     # finally, put all preprocessing steps together
     preprocessing_steps = [(pp_step_one, {'sigma':2.0}), (pp_step_two, {}),]
@@ -244,7 +244,7 @@ Multi-channel segmentation using preprocessing_steps:
     model_kwargs = {'gpu':True, 'model_type':'cyto3'}  # can also use 'pretrained_model'
     eval_kwargs = {'diameter':30,
                    'z_axis':0,
-                   'channels':[2,1],  # two channels
+                   'channels':[2,1],  # two channels along first axis
                    'do_3D':True,
     }
 
@@ -256,11 +256,10 @@ Multi-channel segmentation using preprocessing_steps:
         'threads_per_worker':1,
     }
 
-    def combine_channels(image, crop):
-        return np.stack((image, second_channel_zarr[crop]), axis=1)  # second channel is also a zarr array
-
-    # finally, put all preprocessing steps together
-    preprocessing_steps = [(combine_channels, {}),]
+    # preprocessing step to stack second channel onto first
+    def stack_channels(image, crop):
+        return np.stack((image, second_channel_zarr[crop]), axis=1) # second channel is also a zarr array
+    preprocessing_steps = [(stack_channels, {}),]
 
     # run segmentation
     # outputs:
