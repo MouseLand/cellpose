@@ -37,6 +37,7 @@ distributed_deps = [
     'zarr',
     'dask_jobqueue',
     'bokeh',
+    'pyarrow',
 ]
 
 bioimageio_deps = [
