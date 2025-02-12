@@ -11,7 +11,7 @@ of the whole dataset.
 
 Built to run on workstations or clusters. Blocks can be run in parallel, in series, or both. 
 Compute resources (GPUs, CPUs, and RAM) can be arbitrarily partitioned for parallel computing.
-Currently workstations (your own machine) and LSF clusters are supported. SLURM clusters are
+Currently workstations  and LSF clusters are supported. SLURM clusters are
 an easy addition - if you need this to run on a SLURM cluster `please post a feature request issue
 to the github repository <https://github.com/MouseLand/cellpose/issues>`_ and tag @GFleishman.
 
@@ -19,6 +19,14 @@ The input data format must be a zarr array. Some functions are provided in the m
 convert your data to a zarr array, but not all formats or situations are covered. These are
 good opportunities to submit pull requests. Currently, the module must be run via the Python API,
 but making it available in the GUI is another good PR or feature request.
+
+All user facing functions in the module have verbose docstrings that explain inputs and outputs.
+You can access these docstrings like this:
+
+.. code-block:: python
+
+    from cellpose.contrib.distributed_segmentation import distributed_eval
+    distributed_eval?
 
 Examples
 ~~~~~~~~
@@ -94,6 +102,31 @@ Test run a single block before distributing the whole dataset (always a good ide
     )
 
 
+Convert a single large (but still smaller than system memory) tiff image to a zarr array:
+
+.. code-block:: python
+
+    # Note full image will be loaded in system memory
+    import tifffile
+    from cellpose.contrib.distributed_segmentation import numpy_array_to_zarr
+
+    data_numpy = tifffile.imread('/path/to/image.tiff')
+    data_zarr = numpy_array_to_zarr('/path/to/output.zarr', data_numpy, chunks=(256, 256, 256))
+    del data_numpy  # assumption is data is large, don't keep in memory copy around
+
+
+Wrap a folder of tiff images/tiles into a single zarr array without duplicating any data:
+
+.. code-block:: python
+
+    # Note tiff filenames must indicate the position of each file in the overall tile grid
+    from cellpose.contrib.distributed_segmentation import wrap_folder_of_tiffs
+    reconstructed_virtual_zarr_array = wrap_folder_of_tiffs(
+        filname_pattern='/path/to/folder/of/*.tiff',
+        block_index_pattern=r'_(Z)(\d+)(Y)(\d+)(X)(\d+)',
+    )
+
+
 Run distributed Cellpose on an LSF cluster with 128 GPUs (e.g. Janelia cluster):
 
 .. code-block:: python
@@ -129,3 +162,4 @@ Run distributed Cellpose on an LSF cluster with 128 GPUs (e.g. Janelia cluster):
         eval_kwargs=eval_kwargs,
         cluster_kwargs=cluster_kwargs,
     )
+
