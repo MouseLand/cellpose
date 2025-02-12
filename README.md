@@ -18,7 +18,7 @@
 
 A generalist algorithm for cell and nucleus segmentation (v1.0) that can be optimized for your own data (v2.0) and (**NEW**) perform image restoration (v3.0).
 
-Cellpose was written by Carsen Stringer and Marius Pachitariu. To learn about Cellpose3 (image restoration), read the [paper](https://www.biorxiv.org/content/10.1101/2024.02.10.579780v1). To learn about Cellpose 2.0 (human-in-the-loop), read the [paper](https://www.nature.com/articles/s41592-022-01663-4) or watch the [talk](https://www.youtube.com/watch?v=3ydtAhfq6H0). To learn about Cellpose 1.0, read the [paper](https://t.co/kBMXmPp3Yn?amp=1) or watch the [talk](https://t.co/JChCsTD0SK?amp=1). For support, please open an [issue](https://github.com/MouseLand/cellpose/issues). 
+Cellpose was written by Carsen Stringer and Marius Pachitariu. To learn about Cellpose3 (image restoration), read the [paper](https://www.nature.com/articles/s41592-025-02595-5) or watch the [talk](https://youtu.be/TZZZlGk6AKo). To learn about Cellpose 2.0 (human-in-the-loop), read the [paper](https://www.nature.com/articles/s41592-022-01663-4) or watch the [talk](https://www.youtube.com/watch?v=3ydtAhfq6H0). To learn about Cellpose 1.0, read the [paper](https://t.co/kBMXmPp3Yn?amp=1) or watch the [talk](https://t.co/JChCsTD0SK?amp=1). For support, please open an [issue](https://github.com/MouseLand/cellpose/issues). 
 
 Please see install instructions [below](README.md/#Installation), and also check out the detailed documentation at [**cellpose.readthedocs.io**](https://cellpose.readthedocs.io/en/latest/) for more information. Example notebooks:
 
@@ -39,18 +39,30 @@ Stringer, C., Wang, T., Michaelos, M., & Pachitariu, M. (2021). Cellpose: a gene
 **If you use the human-in-the-loop training, please also cite the Cellpose 2.0 [paper](https://www.nature.com/articles/s41592-022-01663-4):**  
 Pachitariu, M. & Stringer, C. (2022). Cellpose 2.0: how to train your own model. <em>Nature methods</em>, 1-8.
 
-**If you use the new image restoration models or cyto3, please also cite the Cellpose3 [paper](https://www.biorxiv.org/content/10.1101/2024.02.10.579780v1):**  
-Stringer, C. & Pachitariu, M. (2024). Cellpose3: one-click image restoration for improved segmentation. <em>bioRxiv</em>.
+**If you use the new image restoration models or cyto3, please also cite the Cellpose3 [paper](https://www.nature.com/articles/s41592-025-02595-5):**  
+Stringer, C. & Pachitariu, M. (2025). Cellpose3: one-click image restoration for improved segmentation. <em>Nature Methods</em>.
+
+### v3.1+ update (Feb 2025)
+
+`pip install cellpose --upgrade` to get all the new features and bug fixes!
+
+* support for **big data** contributed by [@GFleishman](https://github.com/GFleishman), usage info [here](https://cellpose.readthedocs.io/en/latest/distributed.html)
+* new options to improve 3D segmentation like `flow3D_smooth` and `pretrained_model_ortho`, more info [here](https://cellpose.readthedocs.io/en/latest/do3d.html#segmentation-settings)
+* GPU-accelerated mask creation in 2D and 3D ([benchmarks](https://cellpose.readthedocs.io/en/latest/benchmark.html))
+* better support for Mac Silicon chips (MPS), although new mask creation code not supported by Mac yet
 
 ### :star2: v3 (Feb 2024) :star2:
 
 Cellpose3 enables image restoration in the GUI, API and CLI (saved to `_seg.npy`). To learn more...
-* Check out the [paper](https://www.biorxiv.org/content/10.1101/2024.02.10.579780v1).
+* Check out the [paper](https://www.nature.com/articles/s41592-025-02595-5)
+* Tutorial [talk](https://youtu.be/TZZZlGk6AKo) about the algorithm and how to use it
 * API documentation [here](https://cellpose.readthedocs.io/en/latest/restore.html)
 
-denoising             |  deblurring                  |  upsampling
-:-------------------------:|:-------------------------:|:-------------------------:
-<img src="http://www.cellpose.org/static/images/poisson_cp3.gif?raw=True" width="350" title="cellpose denoising" alt="cellpose denoising examples"> | <img src="http://www.cellpose.org/static/images/blur_cp3.gif?raw=True" width="350" title="cellpose deblurring" alt="cellpose deblurring examples"> | <img src="http://www.cellpose.org/static/images/downsample_cp3.gif?raw=True" width="350" title="cellpose upsampling" alt="cellpose upsampling examples">
+<img src="http://www.cellpose.org/static/images/poisson_cp3.gif?raw=True" width="350" title="cellpose denoising" alt="cellpose denoising examples">
+
+<img src="http://www.cellpose.org/static/images/blur_cp3.gif?raw=True" width="350" title="cellpose deblurring" alt="cellpose deblurring examples">
+
+<img src="http://www.cellpose.org/static/images/downsample_cp3.gif?raw=True" width="350" title="cellpose upsampling" alt="cellpose upsampling examples">
 
 ### :star2: v2.0 (April 2022) :star2:
 

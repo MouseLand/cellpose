@@ -588,7 +588,7 @@ class CellposeDenoiseModel():
         diameter = self.dn.diam_mean if self.dn.ratio > 1 else diameter
         masks, flows, styles = self.cp.eval(
             img_restore, batch_size=batch_size, channels=channels_new, channel_axis=-1,
-            z_axis=0 if img_restore.ndim > 3 and img_restore.shape[0] > 0 else None,
+            z_axis=0 if not isinstance(img_restore, list) and img_restore.ndim > 3 and img_restore.shape[0] > 0 else None,
             normalize=normalize_params, rescale=rescale, diameter=diameter,
             tile_overlap=tile_overlap, augment=augment, resample=resample,
             invert=invert, flow_threshold=flow_threshold,
