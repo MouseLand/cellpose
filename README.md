@@ -44,7 +44,7 @@ Stringer, C. & Pachitariu, M. (2025). Cellpose3: one-click image restoration for
 
 ### [v3.1.1](https://github.com/MouseLand/cellpose/releases/tag/v3.1.1) update (Feb 2025)
 
-Faster mask creation in 2D and 3D ([benchmarks](https://cellpose.readthedocs.io/en/latest/benchmark.html)), and support for big larger-than-memory data by @GFleishman, usage info [here](https://cellpose.readthedocs.io/en/latest/distributed.html)!
+`pip install cellpose --upgrade` for faster mask creation in 2D and 3D ([benchmarks](https://cellpose.readthedocs.io/en/latest/benchmark.html)), and support for big larger-than-memory data by [@GFleishman](https://github.com/GFleishman), usage info [here](https://cellpose.readthedocs.io/en/latest/distributed.html). Also, better support for Mac Silicon chips (MPS) included.
 
 ### :star2: v3 (Feb 2024) :star2:
 
