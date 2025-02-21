@@ -156,12 +156,10 @@ def _label_overlap(x, y):
     # preallocate a "contact map" matrix
     overlap = np.zeros((1 + x.max(), 1 + y.max()), dtype=np.uint)
 
-    # loop over the labels in x and add to the corresponding
-    # overlap entry. If label A in x and label B in y share P
-    # pixels, then the resulting overlap is P
-    # len(x)=len(y), the number of pixels in the whole image
-    for i in range(len(x)):
-        overlap[x[i], y[i]] += 1
+    # Count overlaps using vectorized operations
+    # `np.add.at` adds 1 to the `overlap` matrix at the positions specified by the pairs of labels in `x` and `y`.
+    # For example, if `x[i] = A` and `y[i] = B`, it increments `overlap[A, B]` by 1.
+    np.add.at(overlap, (x, y), 1)
     return overlap
 
 
