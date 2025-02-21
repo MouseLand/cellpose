@@ -14,6 +14,7 @@ install_deps = [
     'fastremap',
     'imagecodecs',
     'roifile',
+    'fill-voids',
 ]
 
 image_deps = ['nd2', 'pynrrd']
