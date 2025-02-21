@@ -11,6 +11,7 @@ from scipy.spatial import ConvexHull
 import numpy as np
 import colorsys
 import fastremap
+import fill_voids
 from multiprocessing import Pool, cpu_count
 
 from . import metrics
@@ -619,7 +620,7 @@ def size_distribution(masks):
 def fill_holes_and_remove_small_masks(masks, min_size=15):
     """ Fills holes in masks (2D/3D) and discards masks smaller than min_size.
 
-    This function fills holes in each mask using scipy.ndimage.morphology.binary_fill_holes.
+    This function fills holes in each mask using fill_voids.fill.
     It also removes masks that are smaller than the specified min_size.
 
     Parameters:
@@ -652,10 +653,9 @@ def fill_holes_and_remove_small_masks(masks, min_size=15):
         if slc is not None:
             msk = masks[slc] == (i + 1)
             if msk.ndim == 3:
-                for k in range(msk.shape[0]):
-                    msk[k] = binary_fill_holes(msk[k])
+                msk = np.array([fill_voids.fill(msk[k]) for k in range(msk.shape[0])])
             else:
-                msk = binary_fill_holes(msk)
+                msk = fill_voids.fill(msk)
             masks[slc][msk] = (j + 1)
             j += 1
     return masks
