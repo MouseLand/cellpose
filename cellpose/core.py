@@ -224,7 +224,7 @@ def run_net(net, imgi, batch_size=8, augment=False, tile_overlap=0.1, bsize=224,
         Lyr, Lxr = int(Ly0 * rsz[0]), int(Lx0 * rsz[1])
     else:
         Lyr, Lxr = Ly0, Lx0
-    ypad1, ypad2, xpad1, xpad2 = transforms.get_pad_yx(Lyr, Lxr)
+    ypad1, ypad2, xpad1, xpad2 = transforms.get_pad_yx(Lyr, Lxr, min_size=(bsize, bsize))
     pads = np.array([[0, 0], [ypad1, ypad2], [xpad1, xpad2]])
     Ly, Lx = Lyr + ypad1 + ypad2, Lxr + xpad1 + xpad2
     if augment:
