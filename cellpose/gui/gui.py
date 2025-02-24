@@ -283,6 +283,8 @@ class MainW(QMainWindow):
         self.ratio = 1.
         self.reset()
 
+        self.load_3D = False
+
         # if called with image, load it
         if image is not None:
             self.filename = image
@@ -299,7 +301,6 @@ class MainW(QMainWindow):
             "model_name": "CP" + d.strftime("_%Y%m%d_%H%M%S"),
         }
 
-        self.load_3D = False
         self.stitch_threshold = 0.
         self.flow3D_smooth = 0.
         self.anisotropy = 1.
