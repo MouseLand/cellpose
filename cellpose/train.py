@@ -330,11 +330,13 @@ def train_seg(net, train_data=None, train_labels=None, train_files=None,
               train_labels_files=None, train_probs=None, test_data=None,
               test_labels=None, test_files=None, test_labels_files=None,
               test_probs=None, load_files=True, batch_size=8, learning_rate=0.005,
-              n_epochs=2000, weight_decay=1e-5, momentum=0.9, SGD=False, channels=None,
-              channel_axis=None, rgb=False, normalize=True, compute_flows=False,
+              n_epochs=2000, weight_decay=1e-5, momentum=0.9, SGD=False, 
+              soft_start=False, channels=None, channel_axis=None, rgb=False, 
+              normalize=True, compute_flows=False,
               save_path=None, save_every=100, save_each=False, nimg_per_epoch=None,
               nimg_test_per_epoch=None, rescale=True, scale_range=None, bsize=224,
-              min_train_masks=5, model_name=None):
+              min_train_masks=5, model_name=None,
+              weight_decay_net=False,opt_params=None, seed=0):
     """
     Train the network with images for segmentation.
 
@@ -376,8 +378,8 @@ def train_seg(net, train_data=None, train_labels=None, train_files=None,
     """
     device = net.device
 
-    scale_range0 = 0.5 if rescale else 1.0
-    scale_range = scale_range if scale_range is not None else scale_range0
+    scale_range = 0.5 if rescale and scale_range is None else scale_range
+    opt_params = net.parameters() if opt_params is None else opt_params
 
     if isinstance(normalize, dict):
         normalize_params = {**models.normalize_default, **normalize}
@@ -420,8 +422,11 @@ def train_seg(net, train_data=None, train_labels=None, train_files=None,
     nimg_test_per_epoch = nimg_test if nimg_test_per_epoch is None else nimg_test_per_epoch
 
     # learning rate schedule
-    LR = np.linspace(0, learning_rate, 10)
-    LR = np.append(LR, learning_rate * np.ones(max(0, n_epochs - 10)))
+    if soft_start:
+        LR = np.linspace(0, learning_rate, 10)
+        LR = np.append(LR, learning_rate * np.ones(max(0, n_epochs - 10)))
+    else:
+        LR = learning_rate * np.ones(n_epochs)
     if n_epochs > 300:
         LR = LR[:-100]
         for i in range(10):
@@ -430,22 +435,26 @@ def train_seg(net, train_data=None, train_labels=None, train_files=None,
         LR = LR[:-50]
         for i in range(10):
             LR = np.append(LR, LR[-1] / 2 * np.ones(5))
+    elif n_epochs > 10:
+        LR[-10:-5] = LR[-1] / 2 * np.ones(5)
+        LR[-5:] = LR[-1] / 4 * np.ones(5)
 
     train_logger.info(f">>> n_epochs={n_epochs}, n_train={nimg}, n_test={nimg_test}")
 
-    if not SGD:
-        train_logger.info(
-            f">>> AdamW, learning_rate={learning_rate:0.5f}, weight_decay={weight_decay:0.5f}"
+    optim_fcn = torch.optim.AdamW if not SGD else torch.optim.SGD
+    optim_str = "AdamW" if not SGD else "SGD"
+    train_kwargs = {"lr": learning_rate, 
+                    "weight_decay": weight_decay if not weight_decay_net else 0}
+    if SGD:
+        train_kwargs["momentum"] = momentum
+    train_logger.info(
+            f">>> {optim_str}, lr={learning_rate:0.5f}, weight_decay={weight_decay:0.5f}"
         )
-        optimizer = torch.optim.AdamW(net.parameters(), lr=learning_rate,
-                                      weight_decay=weight_decay)
-    else:
-        train_logger.info(
-            f">>> SGD, learning_rate={learning_rate:0.5f}, weight_decay={weight_decay:0.5f}, momentum={momentum:0.3f}"
-        )
-        optimizer = torch.optim.SGD(net.parameters(), lr=learning_rate,
-                                    weight_decay=weight_decay, momentum=momentum)
-
+    optimizer = optim_fcn(opt_params, **train_kwargs)
+    
+    import copy
+    net0 = copy.deepcopy(net)
+    
     t0 = time.time()
     model_name = f"cellpose_{t0}" if model_name is None else model_name
     save_path = Path.cwd() if save_path is None else Path(save_path)
@@ -457,7 +466,7 @@ def train_seg(net, train_data=None, train_labels=None, train_files=None,
     lavg, nsum = 0, 0
     train_losses, test_losses = np.zeros(n_epochs), np.zeros(n_epochs)
     for iepoch in range(n_epochs):
-        np.random.seed(iepoch)
+        np.random.seed(iepoch + seed)
         if nimg != nimg_per_epoch:
             # choose random images for epoch with probability train_probs
             rperm = np.random.choice(np.arange(0, nimg), size=(nimg_per_epoch,),
@@ -469,6 +478,12 @@ def train_seg(net, train_data=None, train_labels=None, train_files=None,
             param_group["lr"] = LR[iepoch] # set learning rate
         net.train()
         for k in range(0, nimg_per_epoch, batch_size):
+            if weight_decay_net:
+                with torch.no_grad():
+                    wd_fact = weight_decay * LR[iepoch] * batch_size #/ 20
+                    for p,q in zip(net.parameters(), net0.parameters()):
+                        p.data.mul_(1- wd_fact).add_(q.data, alpha= wd_fact)#*(1-wd_fact))
+                
             kend = min(k + batch_size, nimg_per_epoch)
             inds = rperm[k:kend]
             imgs, lbls = _get_batch(inds, data=train_data, labels=train_labels,
@@ -489,7 +504,7 @@ def train_seg(net, train_data=None, train_labels=None, train_files=None,
             loss.backward()
             optimizer.step()
             train_loss = loss.item()
-            train_loss *= len(imgi)
+            train_loss *= len(imgi)            
 
             # keep track of average training loss across epochs
             lavg += train_loss
@@ -498,7 +513,7 @@ def train_seg(net, train_data=None, train_labels=None, train_files=None,
             train_losses[iepoch] += train_loss
         train_losses[iepoch] /= nimg_per_epoch
 
-        if iepoch == 5 or iepoch % 10 == 0:
+        if iepoch == 5 or iepoch % 10 == 0 or iepoch == n_epochs - 1:
             lavgt = 0.
             if test_data is not None or test_files is not None:
                 np.random.seed(42)

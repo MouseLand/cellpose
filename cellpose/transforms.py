@@ -829,7 +829,10 @@ def resize_image(img0, Ly=None, Lx=None, rsz=None, interpolation=cv2.INTER_LINEA
                     imgs = np.zeros((img0.shape[0], Ly, Lx, img0.shape[-1]), imgi.dtype)
             imgs[i] = imgi if imgi.ndim > 2 or no_channels else imgi[..., np.newaxis]
     else:
+        ndim = img0.ndim
         imgs = resize_safe(img0, Ly, Lx, interpolation=interpolation)
+        if imgs.ndim < ndim:
+            imgs = imgs[..., np.newaxis]
     return imgs
 
 def get_pad_yx(Ly, Lx, div=16, extra=1, min_size=None):
@@ -912,7 +915,7 @@ def random_rotate_and_resize(X, Y=None, scale_range=1., xy=(224, 224), do_3D=Fal
         lbl (ND-array, float): Transformed labels in array [nimg x nchan x xy[0] x xy[1]]; 
         scale (array, float): Amount each image was resized by.
     """
-    scale_range = max(0, min(2, float(scale_range)))
+    scale_range = max(0, min(2, float(scale_range))) if scale_range is not None else scale_range
     nimg = len(X)
     if X[0].ndim > 2:
         nchan = X[0].shape[0]
@@ -941,7 +944,10 @@ def random_rotate_and_resize(X, Y=None, scale_range=1., xy=(224, 224), do_3D=Fal
             # generate random augmentation parameters
             flip = np.random.rand() > .5
             theta = np.random.rand() * np.pi * 2 if rotate else 0.
-            scale[n] =  (1 - scale_range / 2) + scale_range * np.random.rand()
+            if scale_range is not None:
+                scale[n] =  (1 - scale_range / 2) + scale_range * np.random.rand()
+            else:
+                scale[n] = 2**(-2 + np.random.rand()*4)
             if rescale is not None:
                 scale[n] *= 1. / rescale[n]
             dxy = np.maximum(0, np.array([Lx * scale[n] - xy[1],

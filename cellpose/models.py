@@ -560,7 +560,7 @@ class CellposeModel():
                 x = transforms.resize_image(x.transpose(1,0,2,3),
                                         Ly=int(Lz*anisotropy*rescale), 
                                         Lx=int(Lx*rescale)).transpose(1,0,2,3)
-            yf, styles = run_3D(self.net, x,
+            yf, styles = run_3D(self.net, x, bsize=bsize,
                                 batch_size=batch_size, augment=augment,  
                                 tile_overlap=tile_overlap, net_ortho=self.net_ortho)
             if resample:
