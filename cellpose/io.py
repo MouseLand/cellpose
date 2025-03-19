@@ -265,7 +265,7 @@ def imsave(filename, arr):
     """
     ext = os.path.splitext(filename)[-1].lower()
     if ext == ".tif" or ext == ".tiff":
-        tifffile.imwrite(filename, arr)
+        tifffile.imwrite(filename, data=arr, compression="zlib")
     else:
         if len(arr.shape) > 2:
             arr = cv2.cvtColor(arr, cv2.COLOR_BGR2RGB)
@@ -290,7 +290,7 @@ def get_image_files(folder, mask_filter, imf=None, look_one_level_down=False):
         ValueError: If no images are found in the specified folder with the supported file extensions.
         ValueError: If no images are found in the specified folder without the mask or flow file endings.
     """
-    mask_filters = ["_cp_output", "_flows", "_flows_0", "_flows_1", 
+    mask_filters = ["_cp_output", "_flows", "_flows_0", "_flows_1",
                     "_flows_2", "_cellprob", "_masks", mask_filter]
     image_names = []
     if imf is None:
@@ -427,7 +427,7 @@ def load_images_labels(tdir, mask_filter="_masks", image_filter=None,
     labels = []
     k = 0
     for n in range(nimg):
-        if (os.path.isfile(label_names[n]) or 
+        if (os.path.isfile(label_names[n]) or
             (flow_names is not None and os.path.isfile(flow_names[0]))):
             image = imread(image_names[n])
             if label_names is not None:
@@ -478,7 +478,7 @@ def masks_flows_to_seg(images, masks, flows, file_names, diams=30., channels=Non
     Can be list output (run on multiple images) or single output (run on single image).
 
     Saved to file_names[k]+"_seg.npy".
-    
+
     Args:
         images (list): Images input into cellpose.
         masks (list): Masks output from Cellpose.eval, where 0=NO masks; 1,2,...=mask labels.
@@ -584,7 +584,7 @@ def save_rois(masks, file_name, multiprocessing=None):
     Args:
         masks (np.ndarray): masks output from Cellpose.eval, where 0=NO masks; 1,2,...=mask labels
         file_name (str): name to save the .zip file to
-    
+
     Returns:
         None
     """
@@ -636,7 +636,7 @@ def save_masks(images, masks, flows, file_names, png=True, tif=False, channels=[
         save_txt (bool, optional): Save masks as list of outlines for ImageJ. Defaults to False.
         save_mpl (bool, optional): If True, saves a matplotlib figure of the original image/segmentation/flows. Does not work for 3D.
                 This takes a long time for large images. Defaults to False.
-    
+
     Returns:
         None
     """
@@ -753,4 +753,4 @@ def save_masks(images, masks, flows, file_names, png=True, tif=False, channels=[
         imsave(os.path.join(flowdir, basename + "_flows" + suffix + ".tif"),
                (flows[0] * (2**16 - 1)).astype(np.uint16))
         #save full flow data
-        imsave(os.path.join(flowdir, basename + '_dP' + suffix + '.tif'), flows[1]) 
+        imsave(os.path.join(flowdir, basename + '_dP' + suffix + '.tif'), flows[1])
