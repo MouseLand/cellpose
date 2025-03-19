@@ -436,8 +436,8 @@ def train_seg(net, train_data=None, train_labels=None, train_files=None,
         for i in range(10):
             LR = np.append(LR, LR[-1] / 2 * np.ones(5))
     elif n_epochs > 10:
-        LR[-10:-5] = LR[-1] / 2 * np.ones(5)
-        LR[-5:] = LR[-1] / 4 * np.ones(5)
+        LR[-10:] = np.linspace(LR[-1], 0, 11)[:-1] #LR[-1] / 2 * np.ones(5)
+        #LR[-5:] = LR[-1] / 4 * np.ones(5)
 
     train_logger.info(f">>> n_epochs={n_epochs}, n_train={nimg}, n_test={nimg_test}")
 
