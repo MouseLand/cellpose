@@ -1,6 +1,10 @@
 Training
 ---------------------------
 
+.. warning::
+    MPS support for pytorch is incomplete, and so training on Macs with MPS may give NaN's, 
+    if so please use the CPU instead
+
 At the beginning of training, cellpose computes the flow field representation for each 
 mask image (``dynamics.labels_to_flows``).
 
@@ -75,14 +79,16 @@ In a notebook, you can train with the `train_seg` function:
     # e.g. retrain a Cellpose model
     model = models.CellposeModel(model_type="cyto3")
     
-    model_path = train.train_seg(model.net, train_data=images, train_labels=labels,
+    model_path, train_losses, test_losses = train.train_seg(model.net, 
+                                train_data=images, train_labels=labels,
                                 channels=[1,2], normalize=True,
                                 test_data=test_images, test_labels=test_labels,
                                 weight_decay=1e-4, SGD=True, learning_rate=0.1,
                                 n_epochs=100, model_name="my_new_model")
 
 
-Training arguments on the CLI
+CLI training options
+~~~~~~~~~~~~~~~~~~~~
 
 ::
 
@@ -113,3 +119,22 @@ Training arguments on the CLI
                             Name of model to save as, defaults to name describing
                             model architecture. Model is saved in the folder
                             specified by --dir in models subfolder.
+
+
+Re-training a model 
+~~~~~~~~~~~~~~~~~~~
+
+We find that for re-training, using SGD generally works better, and it is the default in the GUI. 
+The options in the code above are the default options for retraining in the GUI and in the Cellpose 2.0 paper
+``(weight_decay=1e-4, SGD=True, learning_rate=0.1, n_epochs=100)``, 
+although in the paper we often use 300 epochs instead of 100 epochs, and it may help to use more epochs, 
+especially when you have more training data.
+
+When re-training, keep in mind that the normalization happens per image that you train on, and often these are image crops from full images. 
+These crops may look different after normalization than the full images. To approximate per-crop normalization on the full images, we have the option for 
+tile normalization that can be set in ``model.eval``: ``normalize={"tile_norm_blocksize": 128}``. Alternatively/additionally, you may want to change 
+the overall normalization scaling on the full images, e.g. ``normalize={"percentile": [3, 98]``. You can visualize how the normalization looks in 
+a notebook for example with ``from cellpose import transforms; plt.imshow(transforms.normalize99(img, lower=3, upper=98))``. The default 
+that will be used for training on the image crops is ``[1, 99]``. 
+
+See :ref:`do3d` for info on training on 3D data.

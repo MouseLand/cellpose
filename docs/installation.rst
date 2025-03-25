@@ -28,11 +28,12 @@ this code at the beginning of your notebook before you import cellpose:
    import os 
    os.environ["CELLPOSE_LOCAL_MODELS_PATH"] = "/PATH_FOR_MODELS/"
 
-M1 Mac installation
+M1-M3 Mac installation
 ~~~~~~~~~~~~~~~~~~~~~~~
 
-Please use the instructions provided on `image.sc <https://forum.image.sc/t/cellpose-on-macos-m1-pro-apple-silicon-arm64/68018/4>` 
-by Peter Sobolewski. From the command line you can choose the Mac device with
+Support for M1-M3 should work out-of-the-box with Cellpose now! Please submit an issue if it's not working.
+
+From the command line you can choose the Mac device with
 
 ::
 
@@ -57,6 +58,15 @@ Be warned that the ROCm project is significantly less mature than CUDA, and you 
 
 Common issues
 ~~~~~~~~~~~~~~~~~~~~~~~
+
+If you receive an issue with Qt "xcb", you may need to install xcb libraries, e.g.:
+
+:: 
+   sudo apt install libxcb-cursor0
+   sudo apt install libxcb-xinerama0
+
+There is also more advice here: https://github.com/NVlabs/instant-ngp/discussions/300.
+
 
 If you are having issues with CUDA on Windows, or want to use 
 Cuda Toolkit 10, please follow these `instructions <https://github.com/MouseLand/cellpose/issues/481#issuecomment-1080137885>`_:

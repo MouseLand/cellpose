@@ -133,6 +133,8 @@ def _load_image(parent, filename=None, load_seg=True, load_3D=False):
     if filename is None:
         name = QFileDialog.getOpenFileName(parent, "Load image")
         filename = name[0]
+        if filename == "":
+            return
     manual_file = os.path.splitext(filename)[0] + "_seg.npy"
     load_mask = False
     if load_seg:
@@ -167,7 +169,11 @@ def _load_image(parent, filename=None, load_seg=True, load_3D=False):
 
 
 def _initialize_images(parent, image, load_3D=False):
-    """ format image for GUI """
+    """ format image for GUI
+
+    assumes image is Z x channels x W x H
+
+    """
     load_3D = parent.load_3D if load_3D is False else load_3D
     parent.nchan = 3
     if image.ndim > 4:
@@ -176,16 +182,15 @@ def _initialize_images(parent, image, load_3D=False):
             raise ValueError("cannot load 4D stack, reduce dimensions")
     elif image.ndim == 1:
         raise ValueError("cannot load 1D stack, increase dimensions")
-
     if image.ndim == 4:
         if not load_3D:
             raise ValueError(
                 "cannot load 3D stack, run 'python -m cellpose --Zstack' for 3D GUI")
         else:
-            # make tiff Z x channels x W x H
-            if image.shape[0] < 4:
-                # tiff is channels x Z x W x H
-                image = image.transpose((1, 2, 3, 0))
+            # check if tiff is channels first
+            if image.shape[0] < 4 and image.shape[0] == min(image.shape) and image.shape[0] < image.shape[1]:
+                # tiff is channels x Z x W x H => Z x channels x W x H
+                image = image.transpose((1, 0, 2, 3))
             image = np.transpose(image, (0, 2, 3, 1))
     elif image.ndim == 3:
         if not load_3D:
@@ -205,7 +210,6 @@ def _initialize_images(parent, image, load_3D=False):
         else:
             raise ValueError(
                 "cannot load 2D stack in 3D mode, run 'python -m cellpose' for 2D GUI")
-
     if image.shape[-1] > 3:
         print("WARNING: image has more than 3 channels, keeping only first 3")
         image = image[..., :3]
@@ -219,6 +223,7 @@ def _initialize_images(parent, image, load_3D=False):
         parent.nchan = 1
 
     parent.stack = image
+    print(f"GUI_INFO: image shape: {image.shape}")
     if load_3D:
         parent.NZ = len(parent.stack)
         parent.scroll.setMaximum(parent.NZ - 1)
@@ -504,9 +509,13 @@ def _masks_to_gui(parent, masks, outlines=None, colors=None):
     """ masks loaded into GUI """
     # get unique values
     shape = masks.shape
-    masks = masks.flatten()
-    fastremap.renumber(masks, in_place=True)
-    masks = masks.reshape(shape)
+    if len(fastremap.unique(masks)) != masks.max() + 1:
+        print("GUI_INFO: renumbering masks")
+        fastremap.renumber(masks, in_place=True)
+        outlines = None
+        masks = masks.reshape(shape)
+    if masks.ndim == 2:
+        outlines = None
     masks = masks.astype(np.uint16) if masks.max() < 2**16 - 1 else masks.astype(
         np.uint32)
     if parent.restore and "upsample" in parent.restore:
@@ -545,9 +554,6 @@ def _masks_to_gui(parent, masks, outlines=None, colors=None):
             parent.outpix_resize = parent.outpix.copy()
     else:
         parent.outpix = outlines
-        shape = parent.outpix.shape
-        fastremap.renumber(parent.outpix, in_place=True)
-        parent.outpix = np.reshape(parent.outpix, shape)
         if parent.restore and "upsample" in parent.restore:
             parent.outpix_resize = parent.outpix.copy()
             parent.outpix_orig = np.zeros_like(parent.cellpix_orig)
@@ -603,10 +609,16 @@ def _save_flows(parent):
     """ save flows and cellprob to tiff """
     filename = parent.filename
     base = os.path.splitext(filename)[0]
+    print("GUI_INFO: saving flows and cellprob to tiff")
     if len(parent.flows) > 0:
-        imsave(base + "_cp_flows.tif", parent.flows[4][:-1])
-        imsave(base + "_cp_cellprob.tif", parent.flows[4][-1])
-
+        imsave(base + "_cp_cellprob.tif", parent.flows[1])
+        for i in range(3):
+            imsave(base + f"_cp_flows_{i}.tif", parent.flows[0][..., i])
+        if len(parent.flows) > 2:
+            imsave(base + "_cp_flows.tif", parent.flows[2])
+        print("GUI_INFO: saved flows and cellprob")
+    else:
+        print("ERROR: no flows or cellprob found")
 
 def _save_rois(parent):
     """ save masks as rois in .zip file for ImageJ """
@@ -677,7 +689,6 @@ def _save_sets(parent):
             "diameter":
                 parent.diameter
         }
-        print(dat["masks"].shape)
         if parent.restore is not None:
             dat["img_restore"] = parent.stack_filtered
         np.save(base + "_seg.npy", dat)
@@ -719,7 +730,6 @@ def _save_sets(parent):
             "diameter":
                 parent.diameter
         }
-        print(dat["masks"].shape)
         if parent.restore is not None:
             dat["img_restore"] = parent.stack_filtered
         np.save(base + "_seg.npy", dat)

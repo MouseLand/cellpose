@@ -233,6 +233,13 @@ class TrainWindow(QDialog):
             self.edits[-1].setFixedWidth(200)
             self.l0.addWidget(self.edits[-1], i + yoff, 1, 1, 1)
 
+        yoff += 1
+        use_SGD = "SGD"
+        self.useSGD = QCheckBox(f"{use_SGD}")
+        self.useSGD.setToolTip("use SGD, if unchecked uses AdamW (recommended learning_rate then 0.001)")
+        self.useSGD.setChecked(True)
+        self.l0.addWidget(self.useSGD, i+yoff, 1, 1, 1)
+
         yoff += len(labels)
 
         yoff += 1
@@ -278,10 +285,6 @@ class TrainWindow(QDialog):
             self.l0.addWidget(qlabel, i + 1, 5, 1, 1)
 
     def accept(self, parent):
-        # set channels
-        for i in range(2):
-            parent.ChannelChoose[i].setCurrentIndex(
-                self.ChannelChoose[i].currentIndex())
         # set training params
         parent.training_params = {
             "model_index": self.ModelChoose.currentIndex(),
@@ -289,6 +292,9 @@ class TrainWindow(QDialog):
             "weight_decay": float(self.edits[1].text()),
             "n_epochs": int(self.edits[2].text()),
             "model_name": self.edits[3].text(),
+            "SGD": True if self.useSGD.isChecked() else False,
+            "channels": [self.ChannelChoose[0].currentIndex(),
+                            self.ChannelChoose[1].currentIndex()],
             #"use_norm": True if self.use_norm.isChecked() else False,
         }
         self.done(1)

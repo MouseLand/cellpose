@@ -47,19 +47,24 @@ except:
 
 io_logger = logging.getLogger(__name__)
 
-
-def logger_setup():
-    cp_dir = pathlib.Path.home().joinpath(".cellpose")
+def logger_setup(cp_path=".cellpose", logfile_name="run.log", stdout_file_replacement=None):
+    cp_dir = pathlib.Path.home().joinpath(cp_path)
     cp_dir.mkdir(exist_ok=True)
-    log_file = cp_dir.joinpath("run.log")
+    log_file = cp_dir.joinpath(logfile_name)
     try:
         log_file.unlink()
     except:
-        print("creating new log file")
+        print('creating new log file')
+    handlers = [logging.FileHandler(log_file),]
+    if stdout_file_replacement is not None:
+        handlers.append(logging.FileHandler(stdout_file_replacement))
+    else:
+        handlers.append(logging.StreamHandler(sys.stdout))
     logging.basicConfig(
-        level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s",
-        handlers=[logging.FileHandler(log_file),
-                  logging.StreamHandler(sys.stdout)])
+                    level=logging.INFO,
+                    format="%(asctime)s [%(levelname)s] %(message)s",
+                    handlers=handlers,
+    )
     logger = logging.getLogger(__name__)
     logger.info(f"WRITING LOG OUTPUT TO {log_file}")
     logger.info(version_str)
@@ -70,8 +75,7 @@ def logger_setup():
 
 from . import utils, plot, transforms
 
-
-# helper function to check for a path; if it doesn"t exist, make it
+# helper function to check for a path; if it doesn't exist, make it
 def check_dir(path):
     if not os.path.isdir(path):
         os.mkdir(path)
@@ -156,7 +160,7 @@ def imread(filename):
     """
     # ensure that extension check is not case sensitive
     ext = os.path.splitext(filename)[-1].lower()
-    if ext == ".tif" or ext == ".tiff":
+    if ext == ".tif" or ext == ".tiff" or ext == ".flex":
         with tifffile.TiffFile(filename) as tif:
             ltif = len(tif.pages)
             try:
@@ -285,7 +289,8 @@ def get_image_files(folder, mask_filter, imf=None, look_one_level_down=False):
         ValueError: If no images are found in the specified folder with the supported file extensions.
         ValueError: If no images are found in the specified folder without the mask or flow file endings.
     """
-    mask_filters = ["_cp_masks", "_cp_output", "_flows", "_masks", mask_filter]
+    mask_filters = ["_cp_output", "_flows", "_flows_0", "_flows_1", 
+                    "_flows_2", "_cellprob", "_masks", mask_filter]
     image_names = []
     if imf is None:
         imf = ""
@@ -294,7 +299,7 @@ def get_image_files(folder, mask_filter, imf=None, look_one_level_down=False):
     if look_one_level_down:
         folders = natsorted(glob.glob(os.path.join(folder, "*/")))
     folders.append(folder)
-    exts = [".png", ".jpg", ".jpeg", ".tif", ".tiff", ".dax", ".nd2", ".nrrd"]
+    exts = [".png", ".jpg", ".jpeg", ".tif", ".tiff", ".flex", ".dax", ".nd2", ".nrrd"]
     l0 = 0
     al = 0
     for folder in folders:
@@ -310,7 +315,7 @@ def get_image_files(folder, mask_filter, imf=None, look_one_level_down=False):
         raise ValueError("ERROR: no files in --dir folder ")
     elif l0 == 0:
         raise ValueError(
-            "ERROR: no images in --dir folder with extensions .png, .jpg, .jpeg, .tif, .tiff"
+            "ERROR: no images in --dir folder with extensions .png, .jpg, .jpeg, .tif, .tiff, .flex"
         )
 
     image_names = natsorted(image_names)
@@ -333,10 +338,9 @@ def get_image_files(folder, mask_filter, imf=None, look_one_level_down=False):
 
     if len(image_names) == 0:
         raise ValueError(
-            "ERROR: no images in --dir folder without _masks or _flows ending")
+            "ERROR: no images in --dir folder without _masks or _flows or _cellprob ending")
 
     return image_names
-
 
 def get_label_files(image_names, mask_filter, imf=None):
     """
@@ -451,16 +455,11 @@ def load_train_test_data(train_dir, test_dir=None, image_filter=None,
         look_one_level_down (bool, optional): Whether to look for data in subdirectories of train_dir and test_dir. Defaults to False.
 
     Returns:
-        images (list): A list of training images.
-        labels (list): A list of labels corresponding to the training images.
-        image_names (list): A list of names of the training images.
-        test_images (list, optional): A list of testing images. None if test_dir is not provided.
-        test_labels (list, optional): A list of labels corresponding to the testing images. None if test_dir is not provided.
-        test_image_names (list, optional): A list of names of the testing images. None if test_dir is not provided.
+        images, labels, image_names, test_images, test_labels, test_image_names
+
     """
     images, labels, image_names = load_images_labels(train_dir, mask_filter,
                                                      image_filter, look_one_level_down)
-
     # testing data
     test_images, test_labels, test_image_names = None, None, None
     if test_dir is not None:
@@ -531,7 +530,10 @@ def masks_flows_to_seg(images, masks, flows, file_names, diams=30., channels=Non
             (np.clip(transforms.normalize99(flows[2]), 0, 1) * 255).astype(np.uint8))
         flowi.append((flows[1][0] / 10 * 127 + 127).astype(np.uint8))
     if len(flows) > 2:
-        flowi.append(flows[3])
+        if len(flows) > 3:
+            flowi.append(flows[3])
+        else:
+            flowi.append([])
         flowi.append(np.concatenate((flows[1], flows[2][np.newaxis, ...]), axis=0))
     outlines = masks * utils.masks_to_outlines(masks)
     base = os.path.splitext(file_names)[0]
@@ -561,15 +563,15 @@ def masks_flows_to_seg(images, masks, flows, file_names, diams=30., channels=Non
     np.save(base + "_seg.npy", dat)
 
 def save_to_png(images, masks, flows, file_names):
-    """ deprecated (runs io.save_masks with png=True) 
-    
+    """ deprecated (runs io.save_masks with png=True)
+
         does not work for 3D images
-    
+
     """
     save_masks(images, masks, flows, file_names, png=True)
 
 
-def save_rois(masks, file_name):
+def save_rois(masks, file_name, multiprocessing=None):
     """ save masks to .roi files in .zip archive for ImageJ/Fiji
 
     Args:
@@ -579,9 +581,13 @@ def save_rois(masks, file_name):
     Returns:
         None
     """
-    outlines = utils.outlines_list(masks)
-    rois = [ImagejRoi.frompoints(outline) for outline in outlines]
-    file_name = os.path.splitext(file_name)[0] + "_rois.zip"
+    outlines = utils.outlines_list(masks, multiprocessing=multiprocessing)
+    nonempty_outlines = [outline for outline in outlines if len(outline)!=0]
+    if len(outlines)!=len(nonempty_outlines):
+        print(f"empty outlines found, saving {len(nonempty_outlines)} ImageJ ROIs to .zip archive.")
+    rois = [ImagejRoi.frompoints(outline) for outline in nonempty_outlines]
+    file_name = os.path.splitext(file_name)[0] + '_rois.zip'
+
 
     # Delete file if it exists; the roifile lib appends to existing zip files.
     # If the user removed a mask it will still be in the zip file
@@ -593,9 +599,8 @@ def save_rois(masks, file_name):
 
 
 def save_masks(images, masks, flows, file_names, png=True, tif=False, channels=[0, 0],
-               suffix="", save_flows=False, save_outlines=False, 
-               dir_above=False, in_folders=False, savedir=None, save_txt=False,
-               save_mpl=False):
+               suffix="_cp_masks", save_flows=False, save_outlines=False, dir_above=False,
+               in_folders=False, savedir=None, save_txt=False, save_mpl=False):
     """ Save masks + nicely plotted segmentation image to png and/or tiff.
 
     Can save masks, flows to different directories, if in_folders is True.
@@ -616,7 +621,7 @@ def save_masks(images, masks, flows, file_names, png=True, tif=False, channels=[
         png (bool, optional): Save masks to PNG. Defaults to True.
         tif (bool, optional): Save masks to TIF. Defaults to False.
         channels (list, int, optional): Channels used to run Cellpose. Defaults to [0,0].
-        suffix (str, optional): Add name to saved masks. Defaults to "".
+        suffix (str, optional): Add name to saved masks. Defaults to "_cp_masks".
         save_flows (bool, optional): Save flows output from Cellpose.eval. Defaults to False.
         save_outlines (bool, optional): Save outlines of masks. Defaults to False.
         dir_above (bool, optional): Save masks/flows in directory above. Defaults to False.
@@ -696,8 +701,7 @@ def save_masks(images, masks, flows, file_names, png=True, tif=False, channels=[
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         for ext in exts:
-
-            imsave(os.path.join(maskdir, basename + "_cp_masks" + suffix + ext), masks)
+            imsave(os.path.join(maskdir, basename + suffix + ext), masks)
 
     if save_mpl and png and MATPLOTLIB and not min(images.shape) > 3:
         # Make and save original/segmentation/flows image
@@ -744,43 +748,4 @@ def save_masks(images, masks, flows, file_names, png=True, tif=False, channels=[
         imsave(os.path.join(flowdir, basename + "_flows" + suffix + ".tif"),
                (flows[0] * (2**16 - 1)).astype(np.uint16))
         #save full flow data
-        imsave(os.path.join(flowdir, basename + "_dP" + suffix + ".tif"), flows[1])
-
-
-def save_server(parent=None, filename=None):
-    """ Uploads a *_seg.npy file to the bucket.
-    
-    Args:
-        parent (PyQt.MainWindow, optional): GUI window to grab file info from. Defaults to None.
-        filename (str, optional): if no GUI, send this file to server. Defaults to None.
-    """
-    if parent is not None:
-        q = QMessageBox.question(
-            parent, "Send to server",
-            "Are you sure? Only send complete and fully manually segmented data.\n (do not send partially automated segmentations)",
-            QMessageBox.Yes | QMessageBox.No)
-        if q != QMessageBox.Yes:
-            return
-        else:
-            filename = parent.filename
-
-    if filename is not None:
-        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = os.path.join(
-            os.path.dirname(os.path.realpath(__file__)),
-            "key/cellpose-data-writer.json")
-        bucket_name = "cellpose_data"
-        base = os.path.splitext(filename)[0]
-        source_file_name = base + "_seg.npy"
-        io_logger.info(f"sending {source_file_name} to server")
-        time = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S.%f")
-        filestring = time + ".npy"
-        io_logger.info(f"name on server: {filestring}")
-        destination_blob_name = filestring
-        storage_client = storage.Client()
-        bucket = storage_client.bucket(bucket_name)
-        blob = bucket.blob(destination_blob_name)
-
-        blob.upload_from_filename(source_file_name)
-
-        io_logger.info("File {} uploaded to {}.".format(source_file_name,
-                                                        destination_blob_name))
+        imsave(os.path.join(flowdir, basename + '_dP' + suffix + '.tif'), flows[1]) 

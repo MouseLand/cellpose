@@ -4,11 +4,13 @@ Settings
 --------------------------
 
 The important settings are described on this page. 
-See the :ref:`cpclass` for all run options.
+See the :ref:`cpmclass` for all run options.
 
 Here is an example of calling the Cellpose class and
 running a list of images for reference:
-::code-block::
+
+::
+
     from cellpose import models
     from cellpose.io import imread
 
@@ -42,6 +44,15 @@ On the command line the above would be ``--chan 0 --chan2 0`` or ``--chan 2 --ch
 Note, if you set the first channel input to use grayscale ``0``, then no nuclear channel will be used 
 (the second channel will be filled with zeros).
 
+The nuclear model in cellpose is trained on two-channel images, where 
+the first channel is the channel to segment, and the second channel is 
+always set to an array of zeros. Therefore set the first channel as 
+0=grayscale, 1=red, 2=green, 3=blue; and set the second channel to zero, e.g.
+``channels = [0,0]`` if you want to segment nuclei in grayscale or for single channel images, or 
+``channels = [3,0]`` if you want to segment blue nuclei.
+
+If the nuclear model isn't working well, try the cytoplasmic model.
+
 .. _diameter:
 
 Diameter 
@@ -69,6 +80,8 @@ outputs. When the diameter is set smaller than the true size
 then cellpose may over-split cells. Similarly, if the diameter 
 is set too big then cellpose may over-merge cells.
 
+.. _resample:
+
 Resample
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -80,15 +93,6 @@ size (``resample=False``), or the dynamics can be run on the resampled, interpol
 at the true image size (``resample=True``). ``resample=True`` will create smoother ROIs when the 
 cells are large but will be slower in case; ``resample=False`` will find more ROIs when the cells 
 are small but will be slower in this case. By default in versions >=1.0 ``resample=True``.
-
-The nuclear model in cellpose is trained on two-channel images, where 
-the first channel is the channel to segment, and the second channel is 
-always set to an array of zeros. Therefore set the first channel as 
-0=grayscale, 1=red, 2=green, 3=blue; and set the second channel to zero, e.g.
-``channels = [0,0]`` if you want to segment nuclei in grayscale or for single channel images, or 
-``channels = [3,0]`` if you want to segment blue nuclei.
-
-If the nuclear model isn't working well, try the cytoplasmic model.
 
 Flow threshold
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -131,27 +135,6 @@ The pixels that converge to the same position make up a single ROI. The default 
 or ``niter=0`` sets the number of iterations to be proportional to the ROI diameter.
 For longer ROIs, more iterations might be needed, for example ``niter=2000``, for convergence.
 
-3D settings
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Volumetric stacks do not always have the same sampling in XY as they do in Z. 
-Therefore you can set an ``anisotropy`` parameter to allow for differences in 
-sampling, e.g. set to 2.0 if Z is sampled half as dense as X or Y. 
-
-There may be additional differences in YZ and XZ slices 
-that make them unable to be used for 3D segmentation. 
-I'd recommend viewing the volume in those dimensions if 
-the segmentation is failing. In those instances, you may want to turn off 
-3D segmentation (``do_3D=False``) and run instead with ``stitch_threshold>0``. 
-Cellpose will create ROIs in 2D on each XY slice and then stitch them across 
-slices if the IoU between the mask on the current slice and the next slice is 
-greater than or equal to the ``stitch_threshold``. 
-
-3D segmentation ignores the ``flow_threshold`` because we did not find that
-it helped to filter out false positives in our test 3D cell volume. Instead, 
-we found that setting ``min_size`` is a good way to remove false positives.
-
-
-
+For info about 3D data, see :ref:`do3d`.
 
 

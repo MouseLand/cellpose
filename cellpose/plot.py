@@ -23,36 +23,26 @@ except:
 
 
 # modified to use sinebow color
-def dx_to_circ(dP, transparency=False, mask=None):
+def dx_to_circ(dP):
     """Converts the optic flow representation to a circular color representation.
 
     Args:
         dP (ndarray): Flow field components [dy, dx].
-        transparency (bool, optional): Controls the opacity based on the magnitude of flow. Defaults to False.
-        mask (ndarray, optional): Multiplies each RGB component to suppress noise.
-
+        
     Returns:
         ndarray: The circular color representation of the optic flow.
 
     """
-    dP = np.array(dP)
-    mag = np.clip(transforms.normalize99(np.sqrt(np.sum(dP**2, axis=0))), 0, 1.)
+    mag = 255 * np.clip(transforms.normalize99(np.sqrt(np.sum(dP**2, axis=0))), 0, 1.)
     angles = np.arctan2(dP[1], dP[0]) + np.pi
     a = 2
-    r = ((np.cos(angles) + 1) / a)
-    g = ((np.cos(angles + 2 * np.pi / 3) + 1) / a)
-    b = ((np.cos(angles + 4 * np.pi / 3) + 1) / a)
-
-    if transparency:
-        im = np.stack((r, g, b, mag), axis=-1)
-    else:
-        im = np.stack((r * mag, g * mag, b * mag), axis=-1)
-
-    if mask is not None and transparency and dP.shape[0] < 3:
-        im[:, :, -1] *= mask
-
-    im = (np.clip(im, 0, 1) * 255).astype(np.uint8)
-    return im
+    mag /= a
+    rgb = np.zeros((*dP.shape[1:], 3), "uint8")
+    rgb[..., 0] = np.clip(mag * (np.cos(angles) + 1), 0, 255).astype("uint8")
+    rgb[..., 1] = np.clip(mag * (np.cos(angles + 2 * np.pi / 3) + 1), 0, 255).astype("uint8")
+    rgb[..., 2] = np.clip(mag * (np.cos(angles + 4 * np.pi / 3) + 1), 0, 255).astype("uint8")
+    
+    return rgb
 
 
 def show_segmentation(fig, img, maski, flowi, channels=[0, 0], file_name=None):

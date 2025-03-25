@@ -66,7 +66,7 @@ def get_arg_parser():
 
     # model settings
     model_args = parser.add_argument_group("Model Arguments")
-    model_args.add_argument("--pretrained_model", required=False, default="cyto",
+    model_args.add_argument("--pretrained_model", required=False, default="cyto3",
                             type=str,
                             help="model to use for running or starting training")
     model_args.add_argument("--restore_type", required=False, default=None, type=str,
@@ -79,7 +79,10 @@ def get_arg_parser():
     model_args.add_argument(
         "--transformer", action="store_true", help=
         "use transformer backbone (pretrained_model from Cellpose3 is transformer_cp3)")
-
+    model_args.add_argument("--pretrained_model_ortho", required=False, default=None,
+                            type=str,
+                            help="model to use for running 3D ortho views (ZY and ZX)")
+    
     # algorithm settings
     algorithm_args = parser.add_argument_group("Algorithm Arguments")
     algorithm_args.add_argument(
@@ -91,6 +94,12 @@ def get_arg_parser():
         help="do not interpolate when running dynamics (was default)")
     algorithm_args.add_argument("--no_norm", action="store_true",
                                 help="do not normalize images (normalize=False)")
+    parser.add_argument(
+    '--norm_percentile',
+    nargs=2,  # Require exactly two values
+    metavar=('VALUE1', 'VALUE2'),
+    help="Provide two float values to set norm_percentile (e.g., --norm_percentile 1 99)"
+    )
     algorithm_args.add_argument(
         "--do_3D", action="store_true",
         help="process images as 3D stacks of images (nplanes x nchan x Ly x Lx")
@@ -105,6 +114,9 @@ def get_arg_parser():
     algorithm_args.add_argument(
         "--min_size", required=False, default=15, type=int,
         help="minimum number of pixels per mask, can turn off with -1")
+    algorithm_args.add_argument(
+        "--flow3D_smooth", required=False, default=0, type=float,
+        help="stddev of gaussian for smoothing of dP for dynamics in 3D, default of 0 means no smoothing")
 
     algorithm_args.add_argument(
         "--flow_threshold", default=0.4, type=float, help=
@@ -130,10 +142,13 @@ def get_arg_parser():
     output_args = parser.add_argument_group("Output Arguments")
     output_args.add_argument(
         "--save_png", action="store_true",
-        help="save masks as png and outlines as text file for ImageJ")
+        help="save masks as png")
     output_args.add_argument(
         "--save_tif", action="store_true",
-        help="save masks as tif and outlines as text file for ImageJ")
+        help="save masks as tif")
+    output_args.add_argument(
+        "--output_name", default=None, type=str,
+        help="suffix for saved masks, default is _cp_masks, can be empty if `savedir` used and different of `dir`")
     output_args.add_argument("--no_npy", action="store_true",
                              help="suppress saving of npy")
     output_args.add_argument(

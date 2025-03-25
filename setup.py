@@ -2,9 +2,7 @@ import setuptools
 from setuptools import setup
 
 install_deps = [
-    'pandas',
-    'matplotlib',
-    'numpy>=1.20.0,<2.0.0',
+    'numpy>=1.20.0,<2.1',
     'scipy',
     'natsort',
     'tifffile',
@@ -40,8 +38,16 @@ docs_deps = [
 
 distributed_deps = [
     'dask',
+    'distributed',
     'dask_image',
-    'scikit-learn',
+    'pyyaml',
+    'zarr',
+    'dask_jobqueue',
+    'bokeh',
+]
+
+bioimageio_deps = [
+    'bioimageio.core',
 ]
 
 try:
@@ -94,7 +100,8 @@ setup(
         'docs': docs_deps,
         'gui': gui_deps,
         'distributed': distributed_deps,
-        'all': gui_deps + distributed_deps + image_deps,
+        'bioimageio': bioimageio_deps,
+        'all': gui_deps + distributed_deps + image_deps + bioimageio_deps,
     }, include_package_data=True, classifiers=(
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: BSD License",

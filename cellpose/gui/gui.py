@@ -330,11 +330,16 @@ class MainW(QMainWindow):
             "learning_rate": 0.1,
             "weight_decay": 0.0001,
             "n_epochs": 100,
+            "SGD": True,
             "model_name": "CP" + d.strftime("_%Y%m%d_%H%M%S"),
         }
 
         self.load_3D = False
         self.stitch_threshold = 0.
+        self.flow3D_smooth = 0.
+        self.anisotropy = 1.
+        self.min_size = 15
+        self.resample = True
 
         self.setAcceptDrops(True)
         self.win.show()
@@ -742,15 +747,16 @@ class MainW(QMainWindow):
         self.modelBoxG.addWidget(self.ModelButtonC, b0, 8, 1, 1)
         self.ModelButtonC.setEnabled(False)
 
-        # compute segmentation with style model
         self.net_names = [
             "nuclei", "cyto2_cp3", "tissuenet_cp3", "livecell_cp3", "yeast_PhC_cp3",
-            "yeast_BF_cp3", "bact_phase_cp3", "bact_fluor_cp3", "deepbacs_cp3"
-        ]
+            "yeast_BF_cp3", "bact_phase_cp3", "bact_fluor_cp3", "deepbacs_cp3",
+            "cyto", "cyto2", "CPx"]
+
         nett = [
             "nuclei", "cellpose (cyto2_cp3)", "tissuenet_cp3", "livecell_cp3",
             "yeast_PhC_cp3", "yeast_BF_cp3", "bact_phase_cp3", "bact_fluor_cp3",
-            "deepbacs_cp3"
+            "deepbacs_cp3", "cyto", "cyto2",
+            "CPx (from Cellpose2)"
         ]
         b0 += 1
         self.ModelChooseB = QComboBox()
@@ -780,32 +786,31 @@ class MainW(QMainWindow):
         self.l0.addWidget(self.denoiseBox, b, 0, 1, 9)
 
         b0 = 0
-        self.denoiseBoxG.addWidget(QLabel("mode:"), b0, 0, 1, 3)
-
+        
         # DENOISING
         self.DenoiseButtons = []
         nett = [
-            "filter image (settings below)",
             "clear restore/filter",
+            "filter image (settings below)",
             "denoise (please set cell diameter first)",
             "deblur (please set cell diameter first)",
             "upsample to 30. diameter (cyto3) or 17. diameter (nuclei) (please set cell diameter first) (disabled in 3D)",
+            "one-click model trained to denoise+deblur+upsample (please set cell diameter first)"
         ]
-        self.denoise_text = ["filter", "none", "denoise", "deblur", "upsample"]
+        self.denoise_text = ["none", "filter", "denoise", "deblur", "upsample", "one-click"]
         self.restore = None
         self.ratio = 1.
-        jj = 3
+        jj = 0
+        w = 3
         for j in range(len(self.denoise_text)):
             self.DenoiseButtons.append(
                 guiparts.DenoiseButton(self, self.denoise_text[j]))
-            w = 3
             self.denoiseBoxG.addWidget(self.DenoiseButtons[-1], b0, jj, 1, w)
-            jj += w
             self.DenoiseButtons[-1].setFixedWidth(75)
             self.DenoiseButtons[-1].setToolTip(nett[j])
             self.DenoiseButtons[-1].setFont(self.medfont)
-            b0 += 1 if j == 1 else 0
-            jj = 0 if j == 1 else jj
+            b0 += 1 if j%2==1 else 0
+            jj = 0 if j%2==1 else jj + w
 
         # b0+=1
         self.save_norm = QCheckBox("save restored/filtered image")
@@ -814,22 +819,23 @@ class MainW(QMainWindow):
         self.save_norm.setChecked(True)
         # self.denoiseBoxG.addWidget(self.save_norm, b0, 0, 1, 8)
 
-        b0 += 1
-        label = QLabel("Cellpose3 model type:")
+        b0 -= 3
+        label = QLabel("restore-dataset:")
         label.setToolTip(
-            "choose model type and click [denoise], [deblur], or [upsample]")
+            "choose dataset and click [denoise], [deblur], [upsample], or [one-click]")
         label.setFont(self.medfont)
-        self.denoiseBoxG.addWidget(label, b0, 0, 1, 4)
+        self.denoiseBoxG.addWidget(label, b0, 6, 1, 3)
 
+        b0 += 1
         self.DenoiseChoose = QComboBox()
         self.DenoiseChoose.setFont(self.medfont)
-        self.DenoiseChoose.addItems(["one-click", "nuclei"])
-        self.DenoiseChoose.setFixedWidth(100)
+        self.DenoiseChoose.addItems(["cyto3", "cyto2", "nuclei"])
+        self.DenoiseChoose.setFixedWidth(85)
         tipstr = "choose model type and click [denoise], [deblur], or [upsample]"
         self.DenoiseChoose.setToolTip(tipstr)
-        self.denoiseBoxG.addWidget(self.DenoiseChoose, b0, 5, 1, 4)
+        self.denoiseBoxG.addWidget(self.DenoiseChoose, b0, 6, 1, 3)
 
-        b0 += 1
+        b0 += 2
         # FILTERING
         self.filtBox = QCollapsible("custom filter settings")
         self.filtBox._toggle_btn.setFont(self.medfont)
@@ -1136,7 +1142,7 @@ class MainW(QMainWindow):
         for i in range(len(self.DenoiseButtons)):
             self.DenoiseButtons[i].setEnabled(True)
         if self.load_3D:
-            self.DenoiseButtons[-1].setEnabled(False)
+            self.DenoiseButtons[-2].setEnabled(False)
         self.ModelButtonB.setEnabled(True)
         self.SizeButton.setEnabled(True)
         self.newmodel.setEnabled(True)
@@ -1876,6 +1882,8 @@ class MainW(QMainWindow):
                     if self.NZ == 1:
                         # only save after each cell if single image
                         io._save_sets_with_check(self)
+            else:
+                print("GUI_ERROR: cell too small, not drawn")
             self.current_stroke = []
             self.strokes = []
             self.current_point_set = []
@@ -1884,7 +1892,7 @@ class MainW(QMainWindow):
     def add_mask(self, points=None, color=(100, 200, 50), dense=True):
         # points is list of strokes
         points_all = np.concatenate(points, axis=0)
-
+        
         # loop over z values
         median = []
         zdraw = np.unique(points_all[:, 0])
@@ -1904,29 +1912,29 @@ class MainW(QMainWindow):
             ar, ac = ar + vr.min() - 2, ac + vc.min() - 2
             # get dense outline
             contours = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
-            pvc, pvr = contours[-2][0].squeeze().T
+            pvc, pvr = contours[-2][0][:,0].T
             vr, vc = pvr + vr.min() - 2, pvc + vc.min() - 2
             # concatenate all points
             ar, ac = np.hstack((np.vstack((vr, vc)), np.vstack((ar, ac))))
             # if these pixels are overlapping with another cell, reassign them
             ioverlap = self.cellpix[z][ar, ac] > 0
-            if (~ioverlap).sum() < 8:
-                print("ERROR: cell too small without overlaps, not drawn")
+            if (~ioverlap).sum() < 10:
+                print("GUI_ERROR: cell < 10 pixels without overlaps, not drawn")
                 return None
             elif ioverlap.sum() > 0:
                 ar, ac = ar[~ioverlap], ac[~ioverlap]
                 # compute outline of new mask
-                mask = np.zeros((np.ptp(ar) + 4, np.ptp(ac) + 4), np.uint8)
-                mask[ar - ar.min() + 2, ac - ac.min() + 2] = 1
+                mask = np.zeros((np.ptp(vr) + 4, np.ptp(vc) + 4), np.uint8)
+                mask[ar - vr.min() + 2, ac - vc.min() + 2] = 1
                 contours = cv2.findContours(mask, cv2.RETR_EXTERNAL,
                                             cv2.CHAIN_APPROX_NONE)
-                pvc, pvr = contours[-2][0].squeeze().T
-                vr, vc = pvr + ar.min() - 2, pvc + ac.min() - 2
+                pvc, pvr = contours[-2][0][:,0].T
+                vr, vc = pvr + vr.min() - 2, pvc + vc.min() - 2
             ars = np.concatenate((ars, ar), axis=0)
             acs = np.concatenate((acs, ac), axis=0)
             vrs = np.concatenate((vrs, vr), axis=0)
             vcs = np.concatenate((vcs, vc), axis=0)
-
+            
         self.draw_mask(z, ars, acs, vrs, vcs, color)
         median.append(np.array([np.median(ars), np.median(acs)]))
 
@@ -2340,7 +2348,8 @@ class MainW(QMainWindow):
             model_type = None
             self.logger.info(f"training new model starting from scratch")
         self.current_model = model_type
-        self.channels = self.get_channels()
+        self.channels = self.training_params["channels"]
+        
         self.logger.info(
             f"training with chan = {self.ChannelChoose[0].currentText()}, chan2 = {self.ChannelChoose[1].currentText()}"
         )
@@ -2351,14 +2360,18 @@ class MainW(QMainWindow):
         save_path = os.path.dirname(self.filename)
 
         print("GUI_INFO: name of new model: " + self.training_params["model_name"])
-        self.new_model_path = train.train_seg(
+        print(f"GUI_INFO: SGD activated: {self.training_params['SGD']}")
+        self.new_model_path, train_losses = train.train_seg(
             self.model.net, train_data=self.train_data, train_labels=self.train_labels,
             channels=self.channels, normalize=normalize_params, min_train_masks=0,
-            save_path=save_path, nimg_per_epoch=max(8, len(self.train_data)), SGD=True,
+            save_path=save_path, nimg_per_epoch=max(8, len(self.train_data)),
             learning_rate=self.training_params["learning_rate"],
             weight_decay=self.training_params["weight_decay"],
             n_epochs=self.training_params["n_epochs"],
-            model_name=self.training_params["model_name"])
+            SGD=self.training_params["SGD"],
+            model_name=self.training_params["model_name"])[:2]
+        # save train losses
+        np.save(str(self.new_model_path) + "_train_losses.npy", train_losses)
         # run model on next image
         io._add_model(self, self.new_model_path)
         diam_labels = self.model.net.diam_labels.item()  #.copy()
@@ -2374,7 +2387,7 @@ class MainW(QMainWindow):
         self.logger.info(f">>>> diameter set to diam_labels ( = {diam_labels: 0.3f} )")
         self.restore = restore
         self.set_normalize_params(normalize_params)
-        self.get_next_image(load_seg=True)
+        self.get_next_image(load_seg=False)
 
         self.compute_segmentation(custom=True)
         self.logger.info(
@@ -2395,7 +2408,7 @@ class MainW(QMainWindow):
                         self.DenoiseChoose.setCurrentIndex(1)
                 if "upsample" in self.restore:
                     i = self.DenoiseChoose.currentIndex()
-                    diam_up = 30. if i == 0 else 17.
+                    diam_up = 30. if i==0 or i==1 else 17.
                     print(diam_up, self.ratio)
                     self.Diameter.setText(str(diam_up / self.ratio))
                 self.compute_denoise_model(model_type=model_type)
@@ -2446,16 +2459,16 @@ class MainW(QMainWindow):
         self.progress.setValue(0)
         try:
             tic = time.time()
-            nstr = "cyto3" if self.DenoiseChoose.currentText(
-            ) == "one-click" else "nuclei"
-            print(model_type)
+            nstr = self.DenoiseChoose.currentText()
+            nstr.replace("-", "")
             self.clear_restore()
             model_name = model_type + "_" + nstr
+            print(model_name)
             # denoising model
             self.denoise_model = denoise.DenoiseModel(gpu=self.useGPU.isChecked(),
                                                       model_type=model_name)
             self.progress.setValue(10)
-            diam_up = 30. if "cyto3" in model_name else 17.
+            diam_up = 30. if "cyto" in model_name else 17.
 
             # params
             channels = self.get_channels()
@@ -2587,6 +2600,15 @@ class MainW(QMainWindow):
             do_3D = self.load_3D
             stitch_threshold = float(self.stitch_threshold.text()) if not isinstance(
                 self.stitch_threshold, float) else self.stitch_threshold
+            anisotropy = float(self.anisotropy.text()) if not isinstance(
+                self.anisotropy, float) else self.anisotropy
+            flow3D_smooth = float(self.flow3D_smooth.text()) if not isinstance(
+                self.flow3D_smooth, float) else self.flow3D_smooth
+            min_size = int(self.min_size.text()) if not isinstance(
+                self.min_size, int) else self.min_size
+            resample = self.resample.isChecked() if not isinstance(
+                self.resample, bool) else self.resample
+            
             do_3D = False if stitch_threshold > 0. else do_3D
 
             channels = self.get_channels()
@@ -2606,7 +2628,9 @@ class MainW(QMainWindow):
                     cellprob_threshold=cellprob_threshold,
                     flow_threshold=flow_threshold, do_3D=do_3D, niter=niter,
                     normalize=normalize_params, stitch_threshold=stitch_threshold,
-                    progress=self.progress)[:2]
+                    anisotropy=anisotropy, resample=resample, flow3D_smooth=flow3D_smooth,
+                    min_size=min_size,
+                    progress=self.progress, z_axis=0 if self.NZ > 1 else None)[:2]
             except Exception as e:
                 print("NET ERROR: %s" % e)
                 self.progress.setValue(0)
@@ -2625,17 +2649,38 @@ class MainW(QMainWindow):
                 else:
                     flows_new.append(np.zeros(flows[1][0].shape, dtype="uint8"))
 
-            if self.restore and "upsample" in self.restore:
-                self.Ly, self.Lx = self.Lyr, self.Lxr
+            if not self.load_3D:
+                if self.restore and "upsample" in self.restore:
+                    self.Ly, self.Lx = self.Lyr, self.Lxr
 
-            if flows_new[0].shape[-3:-1] != (self.Ly, self.Lx):
-                self.flows = []
-                for j in range(len(flows_new)):
-                    self.flows.append(
-                        resize_image(flows_new[j], Ly=self.Ly, Lx=self.Lx,
-                                     interpolation=cv2.INTER_NEAREST))
+                if flows_new[0].shape[-3:-1] != (self.Ly, self.Lx):
+                    self.flows = []
+                    for j in range(len(flows_new)):
+                        self.flows.append(
+                            resize_image(flows_new[j], Ly=self.Ly, Lx=self.Lx,
+                                        interpolation=cv2.INTER_NEAREST))
+                else:
+                    self.flows = flows_new
             else:
-                self.flows = flows_new
+                if not resample:
+                    self.flows = []
+                    Lz, Ly, Lx = self.NZ, self.Ly, self.Lx
+                    Lz0, Ly0, Lx0 = flows_new[0].shape[:3]
+                    print("GUI_INFO: resizing flows to original image size")
+                    for j in range(len(flows_new)):
+                        flow0 = flows_new[j]
+                        if Ly0 != Ly:
+                            flow0 = resize_image(flow0, Ly=Ly, Lx=Lx,
+                                                no_channels=flow0.ndim==3, 
+                                                interpolation=cv2.INTER_NEAREST)
+                        if Lz0 != Lz:
+                            flow0 = np.swapaxes(resize_image(np.swapaxes(flow0, 0, 1),
+                                                Ly=Lz, Lx=Lx,
+                                                no_channels=flow0.ndim==3, 
+                                                interpolation=cv2.INTER_NEAREST), 0, 1)
+                        self.flows.append(flow0)
+                else:
+                    self.flows = flows_new
 
             # add first axis
             if self.NZ == 1:

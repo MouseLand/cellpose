@@ -9,6 +9,8 @@ Cellpose class
 .. autoclass:: cellpose.models.Cellpose
    :members:
 
+.. _cpmclass:
+
 CellposeModel
 ~~~~~~~~~~~~~~~~~~
 
