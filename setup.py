@@ -90,12 +90,12 @@ with open("README.md", "r") as fh:
 setup(
     name="cellpose_plus", license="BSD", author="Israel Huaman",
     author_email="ihuaman@itmo.ru",
-    description="cell segmenetation framework based on cellpose", long_description=long_description,
+    description="cell segmentation framework based on cellpose", long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/ITMO-MMRM-lab/cellpose", setup_requires=[
         'pytest-runner',
         'setuptools_scm',
-    ], packages=setuptools.find_packages(), version="0.0.10",
+    ], packages=setuptools.find_packages(), version="0.0.11",
     install_requires=install_deps, tests_require=['pytest'], extras_require={
         'docs': docs_deps,
         'gui': gui_deps,
