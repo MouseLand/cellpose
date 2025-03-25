@@ -164,6 +164,6 @@ def CSM_for_graph(vor):
         for coordinate in region:
             if coordinate != None:
                 polygon.append(coordinate)
-        CSM_array.append(CSM_calc(polygon))
+        CSM_array.append(round(CSM_calc(polygon), 3))
 
     return CSM_array

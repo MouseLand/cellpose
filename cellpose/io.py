@@ -267,7 +267,6 @@ def imsave(filename, arr):
             arr = cv2.cvtColor(arr, cv2.COLOR_BGR2RGB)
         cv2.imwrite(filename, arr)
 
-
 def get_image_files(folder, mask_filter, imf=None, look_one_level_down=False):
     """
     Finds all images in a folder and its subfolders (if specified) with the given file extensions.
@@ -423,8 +422,7 @@ def load_images_labels(tdir, mask_filter="_masks", image_filter=None,
     labels = []
     k = 0
     for n in range(nimg):
-        if (os.path.isfile(label_names[n]) or 
-            (flow_names is not None and os.path.isfile(flow_names[0]))):
+        if os.path.isfile(label_names[n]) or os.path.isfile(flow_names[0]):
             image = imread(image_names[n])
             if label_names is not None:
                 label = imread(label_names[n])
@@ -439,7 +437,6 @@ def load_images_labels(tdir, mask_filter="_masks", image_filter=None,
             k += 1
     io_logger.info(f"{k} / {nimg} images in {tdir} folder have labels")
     return images, labels, image_names
-
 
 def load_train_test_data(train_dir, test_dir=None, image_filter=None,
                          mask_filter="_masks", look_one_level_down=False):
@@ -472,9 +469,8 @@ def load_train_test_data(train_dir, test_dir=None, image_filter=None,
 
     return images, labels, image_names, test_images, test_labels, test_image_names
 
-
 def masks_flows_to_seg(images, masks, flows, file_names, diams=30., channels=None,
-                       imgs_restore=None, restore_type=None, ratio=1.):
+                        imgs_restore=None, restore_type=None, ratio=1.):
     """Save output of model eval to be loaded in GUI.
 
     Can be list output (run on multiple images) or single output (run on single image).
@@ -500,12 +496,9 @@ def masks_flows_to_seg(images, masks, flows, file_names, diams=30., channels=Non
         if not isinstance(diams, (list, np.ndarray)):
             diams = diams * np.ones(len(masks), np.float32)
         if imgs_restore is None:
-            imgs_restore = [None] * len(masks)
-        if isinstance(file_names, str):
-            file_names = [file_names] * len(masks)
-        for k, [image, mask, flow, diam, file_name, img_restore
-               ] in enumerate(zip(images, masks, flows, diams, file_names,
-                                  imgs_restore)):
+            imgs_restore = [] * len(masks)
+        for k, [image, mask, flow, diam,
+                file_name, img_restore] in enumerate(zip(images, masks, flows, diams, file_names, imgs_restore)):
             channels_img = channels
             if channels_img is not None and len(channels) > 2:
                 channels_img = channels[k]
@@ -543,31 +536,29 @@ def masks_flows_to_seg(images, masks, flows, file_names, diams=30., channels=Non
     outlines = masks * utils.masks_to_outlines(masks)
     base = os.path.splitext(file_names)[0]
 
-    dat = {
-        "outlines":
-            outlines.astype(np.uint16) if outlines.max() < 2**16 -
-            1 else outlines.astype(np.uint32),
-        "masks":
-            masks.astype(np.uint16) if outlines.max() < 2**16 -
-            1 else masks.astype(np.uint32),
-        "chan_choose":
-            channels,
-        "ismanual":
-            np.zeros(masks.max(), bool),
-        "filename":
-            file_names,
-        "flows":
-            flowi,
-        "diameter":
-            diams
-    }
+    dat = {"outlines":
+                outlines.astype(np.uint16)
+                if outlines.max() < 2**16 - 1 else outlines.astype(np.uint32),
+            "masks":
+                masks.astype(np.uint16)
+                if outlines.max() < 2**16 - 1 else masks.astype(np.uint32),
+            "chan_choose":
+                channels,
+            "ismanual":
+                np.zeros(masks.max(), bool),
+            "filename":
+                file_names,
+            "flows":
+                flowi,
+            "diameter":
+                diams
+            }
     if restore_type is not None and imgs_restore is not None:
         dat["restore"] = restore_type
-        dat["ratio"] = ratio
+        dat["ratio"] = ratio 
         dat["img_restore"] = imgs_restore
 
     np.save(base + "_seg.npy", dat)
-
 
 def save_to_png(images, masks, flows, file_names):
     """ deprecated (runs io.save_masks with png=True) 
@@ -600,9 +591,11 @@ def save_rois(masks, file_name):
     roiwrite(file_name, rois)
 
 
+
 def save_masks(images, masks, flows, file_names, png=True, tif=False, channels=[0, 0],
-               suffix="", save_flows=False, save_outlines=False, dir_above=False,
-               in_folders=False, savedir=None, save_txt=False, save_mpl=False):
+               suffix="", save_flows=False, save_outlines=False, 
+               dir_above=False, in_folders=False, savedir=None, save_txt=False,
+               save_mpl=False):
     """ Save masks + nicely plotted segmentation image to png and/or tiff.
 
     Can save masks, flows to different directories, if in_folders is True.
@@ -641,8 +634,9 @@ def save_masks(images, masks, flows, file_names, png=True, tif=False, channels=[
         for image, mask, flow, file_name in zip(images, masks, flows, file_names):
             save_masks(image, mask, flow, file_name, png=png, tif=tif, suffix=suffix,
                        dir_above=dir_above, save_flows=save_flows,
-                       save_outlines=save_outlines, savedir=savedir, save_txt=save_txt,
-                       in_folders=in_folders, save_mpl=save_mpl)
+                       save_outlines=save_outlines, 
+                       savedir=savedir, save_txt=save_txt, in_folders=in_folders,
+                       save_mpl=save_mpl)
         return
 
     if masks.ndim > 2 and not tif:
@@ -751,3 +745,42 @@ def save_masks(images, masks, flows, file_names, png=True, tif=False, channels=[
                (flows[0] * (2**16 - 1)).astype(np.uint16))
         #save full flow data
         imsave(os.path.join(flowdir, basename + "_dP" + suffix + ".tif"), flows[1])
+
+
+def save_server(parent=None, filename=None):
+    """ Uploads a *_seg.npy file to the bucket.
+    
+    Args:
+        parent (PyQt.MainWindow, optional): GUI window to grab file info from. Defaults to None.
+        filename (str, optional): if no GUI, send this file to server. Defaults to None.
+    """
+    if parent is not None:
+        q = QMessageBox.question(
+            parent, "Send to server",
+            "Are you sure? Only send complete and fully manually segmented data.\n (do not send partially automated segmentations)",
+            QMessageBox.Yes | QMessageBox.No)
+        if q != QMessageBox.Yes:
+            return
+        else:
+            filename = parent.filename
+
+    if filename is not None:
+        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = os.path.join(
+            os.path.dirname(os.path.realpath(__file__)),
+            "key/cellpose-data-writer.json")
+        bucket_name = "cellpose_data"
+        base = os.path.splitext(filename)[0]
+        source_file_name = base + "_seg.npy"
+        io_logger.info(f"sending {source_file_name} to server")
+        time = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S.%f")
+        filestring = time + ".npy"
+        io_logger.info(f"name on server: {filestring}")
+        destination_blob_name = filestring
+        storage_client = storage.Client()
+        bucket = storage_client.bucket(bucket_name)
+        blob = bucket.blob(destination_blob_name)
+
+        blob.upload_from_filename(source_file_name)
+
+        io_logger.info("File {} uploaded to {}.".format(source_file_name,
+                                                        destination_blob_name))

@@ -10,7 +10,7 @@ from scipy.stats import mode
 import cv2
 
 from scipy.ndimage import find_objects
-from scipy.spatial import Voronoi, voronoi_plot_2d
+from scipy.spatial import Voronoi, voronoi_plot_2d, ConvexHull, convex_hull_plot_2d
 from scipy import ndimage
 import diplib as dip
 from PIL import Image, ImageDraw, ImageFont
@@ -60,10 +60,23 @@ class FeatureExtraction():
             if self.indexCytoMask > -1:
                 full_name = temp_output_name + " " + self.temp_masks[self.indexCytoMask][0]
                 newImage = QAction(full_name, gui_self)
-                newImage.triggered.connect(lambda checked, image=image, name=full_name: self.select_image(image, name))
+                newImage.triggered.connect(lambda checked, image=image, name=full_name: self.select_image(gui_self, image, name))
                 self.main_images_menu.addAction(newImage)
 
         gui_self.logger.info(str(temp_output_name) + " mask stored temporarily")
+
+    def scale_contour(self, cnt, scale):
+        M = cv2.moments(cnt)
+        cx = int(M['m10']/M['m00'])
+        cy = int(M['m01']/M['m00'])
+
+        cnt_norm = cnt - [cx, cy]
+        cnt_scaled = cnt_norm * scale
+        cnt_scaled = cnt_scaled + [cx, cy]
+        cnt_scaled = cnt_scaled.astype(np.int32)
+
+        return cnt_scaled
+
 
     def save_labeled_masks(self, gui_self):
         """ save masks to *_mask.jpg """
@@ -88,6 +101,25 @@ class FeatureExtraction():
             im = Image.fromarray(mask)
             label_name = labels_dir + '/' + str(idx + 1) + '.png'
             im.save(label_name)
+
+        tmp_cellpix = np.copy(gui_self.cellpix[0])
+        new_cellpix = np.zeros_like(tmp_cellpix)
+        for idx in range(gui_self.cellpix[0].max()):
+            tmp_mask = np.copy(gui_self.cellpix[0])
+            tmp_mask[idx + 1 != gui_self.cellpix[0]] = 0
+            tmp_mask[idx + 1 == gui_self.cellpix[0]] = 255
+            
+            contours, _ = cv2.findContours(tmp_mask.astype(np.uint8), cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
+            contours = [self.scale_contour(contour, 0.95) for contour in contours]
+            new_contours = cv2.drawContours(new_cellpix, contours, -1, (255,255,255), -1)
+            # new_cellpix[self.scale_contour(contours[0], 0.9) == 255] = 255
+            # new_cellpix[tmp_mask == 255] = 255
+    
+        mask_tmp = new_cellpix.astype(np.uint8)
+
+        im_tmp = Image.fromarray(mask_tmp)
+        label_name = labels_dir + '/' + 'total_mask.png'
+        im_tmp.save(label_name)
 
     def create_colormap_mask(self, mask):
         colormap = ((np.random.rand(1000000,3)*0.8+0.1)*255).astype(np.uint8)
@@ -130,7 +162,7 @@ class FeatureExtraction():
         im_mask_labeled = im_mask.copy()
 
         font_path = pathlib.Path.home().joinpath(".cellpose", "DejaVuSans.ttf")
-        font = ImageFont.truetype(str(font_path), size=40)
+        font = ImageFont.truetype(str(font_path), size=20)
         
         I1 = ImageDraw.Draw(im_mask_labeled)
         
@@ -263,7 +295,7 @@ class FeatureExtraction():
 
         # Voronoi entropy
         voronoi_entropy = -sum(p * math.log(p) for p in proportions.values() if p > 0)
-        return voronoi_entropy
+        return round(voronoi_entropy, 3)
 
     def save_metrics(self, masks_img, center_coords, metric_cells, metric_name, out_csv, out_name, out_dir, gui_self):
         layerz_cell = self.create_colormap_mask(masks_img)
@@ -304,7 +336,7 @@ class FeatureExtraction():
             os.makedirs(results_dir)
         if not os.path.exists(primary_results_dir):
             os.makedirs(primary_results_dir)
-        if not os.path.exists(secondary_results_dir) and not comparison:
+        if not os.path.exists(secondary_results_dir): #and not comparison:
             os.makedirs(secondary_results_dir)
 
         output_csv_primary = []
@@ -375,17 +407,35 @@ class FeatureExtraction():
                                                 gui_self)
 
         if gui_self.calcVoronoi:
+            img = plt.imread(gui_self.filename)
+            
             output_csv_coords = pd.DataFrame(output_csv_coords)
-            output_csv_coords[1] = 1440 - output_csv_coords[1]
+            output_csv_coords[1] = img.shape[0] - output_csv_coords[1]
 
             vor = Voronoi(output_csv_coords)
             fig = voronoi_plot_2d(vor)
 
-            img = plt.imread(gui_self.filename)
             fig, ax = plt.subplots()
             ax.imshow(ndimage.rotate(np.fliplr(img), 180))
             fig = voronoi_plot_2d(vor, point_size=10, ax=ax, line_colors='red')
             plt.savefig(results_dir + '/' + 'voronoi.png')
+
+            ### Convex Hull
+
+            conhull = ConvexHull(output_csv_coords)
+            fig = convex_hull_plot_2d(conhull)
+
+            fig, ax = plt.subplots()
+            ax.imshow(ndimage.rotate(np.fliplr(img), 180))
+            fig = convex_hull_plot_2d(conhull, ax=ax)
+            plt.savefig(results_dir + '/' + 'hull.png')
+
+            conhull_area = conhull.area
+            np.savetxt(results_dir + "/" + gui_self.filename.split('/')[-1].split(".")[0] + "_convex_hull_area.csv",
+                [round(conhull_area, 3)],
+                delimiter =", ",
+                fmt ='% s')
+            ###
 
             voronoi_entropy = self.get_voronoi_entropy(vor)
             np.savetxt(results_dir + "/" + gui_self.filename.split('/')[-1].split(".")[0] + "_vornoi_entropy.csv",
@@ -395,7 +445,7 @@ class FeatureExtraction():
 
             CSM_array = symmetry.CSM_for_graph(vor)
             np.savetxt(results_dir + "/" + gui_self.filename.split('/')[-1].split(".")[0] + "_CSM_values.csv",
-                CSM_array,
+                [round(np.asarray(CSM_array).mean(), 3)],
                 delimiter =", ",
                 fmt ='% s')
 
@@ -424,9 +474,9 @@ class FeatureExtraction():
         # self.CalculateButton.setStyleSheet(self.styleUnpressed if self.indexCytoMask > -1 else self.styleInactive)
         gui_self.CalculateButton.setEnabled(self.indexCytoMask > -1)
 
-    def select_image(self, img_layer, name):
+    def select_image(self, gui_self, img_layer, name):
         if self.currentImageMask != name:
-            self.layer.setImage(np.asarray(img_layer), autoLevels=False)
+            gui_self.layer.setImage(np.asarray(img_layer), autoLevels=False)
             self.currentImageMask = name
         else:
             self.update_layer()
