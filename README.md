@@ -101,6 +101,15 @@ After clicking "calculate" it will take a few moments until we get a folder with
 
 ### Citation
 
-Here to add the DOI or direct link of the paper
+If you find our project helpful, use the following bibtex to reference our [paper](https://arxiv.org/abs/2410.18738).
+
+~~~
+@article{huaman2024cellpose+,
+  title={Cellpose+, a morphological analysis tool for feature extraction of stained cell images},
+  author={Huaman, Israel A and Ghorabe, Fares DE and Chumakova, Sofya S and Pisarenko, Alexandra A and Dudaev, Alexey E and Volova, Tatiana G and Ryltseva, Galina A and Ulasevich, Sviatlana A and Shishatskaya, Ekaterina I and Skorb, Ekaterina V and others},
+  journal={arXiv preprint arXiv:2410.18738},
+  year={2024}
+}
+~~~
 
 As we work over Cellpose, we ask you to also cite the Cellpose [paper](https://t.co/kBMXmPp3Yn?amp=1).

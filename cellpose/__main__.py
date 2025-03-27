@@ -52,7 +52,7 @@ def main():
                     print(
                         "GUI FAILED: GUI dependencies may not be installed, to install, run"
                     )
-                    print("     pip install 'cellpose[gui]'")
+                    print("     pip install 'cellpose_plus[gui]'")
             else:
                 if args.Zstack:
                     gui3d.run()
