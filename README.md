@@ -13,11 +13,33 @@
 <!-- [![GitHub forks](https://img.shields.io/github/forks/ITMO-MMRM-lab/cellpose?style=social)](https://github.com/ITMO-MMRM-lab/cellpose/) -->
 
 Cellpose plus is a morphological analysis tool that builds on a forked branch of the state-of-the-art image segmentation framework [Cellpose](https://github.com/MouseLand/cellpose). 
-We add feature extraction algorithms to asses morphological properties of cells and nuclei. Achieving a single workflow to study stained cells, from raw images to labeled masks with their corresponding measures. 
+We add feature extraction algorithms to asses morphological properties of cells and nuclei. Achieving a single workflow to study stained cells, from raw images to labeled masks with their corresponding measures. \
+As the main Cellpose branch continues to grow actively, we aim to keep our forked repository up to date. The latest additions and bug fixes are also present in our repository.
 
 Developed by the InfoChemistry scientific center, part of ITMO university.
 
-### Metrics
+### Installation
+
+We suggest installing our fork using conda and pip (with >=python3.8).
+
+1. Install [Anaconda](https://www.anaconda.com/download/).
+2. Open an anaconda prompt / command prompt which has conda for python 3 in the path.
+3. For a new environment for CPU only, run:\
+ `conda create -n cellpose_plus 'python==3.9' pytorch` \
+4. To activate the new environment, run `conda activate cellpose_plus`
+5. For NVIDIA GPUs, run:\
+ `pip install torch torchvision --index-url https://download.pytorch.org/whl/cu126` \
+   If there are problems with the latest version, we suggest to install CUDA 11.8
+6. To install the latest PyPi release of Cellpose plus and its dependencies (see [setup.py](https://github.com/ITMO-MMRM-lab/cellpose/blob/main/setup.py)), run:\
+  `pip install cellpose-plus[gui]`\
+  or `pip install cellpose-plus` for a version without GUI.
+
+### Ssytem requirements
+
+Linux, Windows and Mac OS are supported for running the code. For running the graphical interface you will need a Mac OS later than Yosemite. At least 8GB of RAM is required to run the software. 16GB-32GB may be required for larger images. The software has been tested on Windows 10, Windows 11, Ubuntu 24.04 and limitedly tested on Mac OS.
+
+### New features
+As a novelty, we contribute with the addition of capabilities to calculate the following metrics:
 
 * Area of subject (𝜇𝑚2).
 * Roundness (0.0 - 1.0), having 1.0 for a perfect circle.
@@ -26,12 +48,13 @@ Developed by the InfoChemistry scientific center, part of ITMO university.
 * Relative center coordinates.
 * Voronoi diagram.
 * Voronoi entropy.
+* Convex Hull
 * Continuous symmetry measure (CSM). 
 
-### Workflow
+### General workflow
 
 <!-- ![Cellpose Plus](repo/workflow.png) -->
-<img src="repo/workflow.png" width="800" />
+<img src="https://raw.githubusercontent.com/ITMO-MMRM-lab/cellpose/refs/heads/main/repo/workflow.png" width="800" />
 
 In order to obtain metrics from segmented cells, the initial stained images are merged into a
 single image and organized into sub folders to be processed. A cell segmentation
@@ -42,29 +65,39 @@ and finally we store results in the form of images and CSV files.
 ### Try out online!
 
 You can run Cellpose plus in google colab with a GPU: 
-* We provide a commented code-based example notebook: [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://github.com/ITMO-MMRM-lab/cellpose/blob/main/repo/Cellpose_plus_online.ipynb) showing each part of our workflow.
+* We provide a commented code-based example notebook: [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1_yDbBQb0Ndc4QcTvONOUbfVziwB6Ykev?authuser=1#scrollTo=imGtXZPMu_al) showing each part of our workflow.
 
 
-### Installation
-
-We suggest installing our fork using conda and pip (with >=python3.8).
-
-1. Install [Anaconda](https://www.anaconda.com/download/).
-2. Open an anaconda prompt / command prompt which has conda for python 3 in the path.
-3. For a new environment for CPU only, run:\
- `conda create -n cellpose_plus 'python==3.9' pytorch` \
- For NVIDIA GPUs, add these additional arguments:\
- `torchvision pytorch-cuda=11.8 -c pytorch -c nvidia`\
-4. To activate the new environment, run `conda activate cellpose_plus`
-5. To install the latest PyPi release of Cellpose plus, run:\
-  `pip install cellpose-plus[gui]`\
-  or `pip install cellpose-plus` for a version without GUI.
 ### How to use
 
-Maybe to attach a link to the manual we wrote, if possible
+Here we present a usage example:
 
-<img src="repo/demo_gif.gif" width="800" />
+<img src="https://raw.githubusercontent.com/ITMO-MMRM-lab/cellpose/refs/heads/main/repo/demo_gif.gif" width="800" />
 <!-- <img src="repo/cellpose_gui.png" width="800" /> -->
+
+After the segmentation process, we can save the masks in a folder with the same name as the image and place them in the same location by clicking the "Save labeled  mask" button. If we want to calculate metrics for the current segmentation, we can save it as a snapshot by clicking the "Save mask temporarily" button.
+
+<img src="https://raw.githubusercontent.com/ITMO-MMRM-lab/cellpose/refs/heads/main/repo/mask_menu.png" width="300" />
+
+In the image below, we can see a saved snapshot from a mask calculated using a cyto3 model. As it is the first snapshot from this model, the final snapshot name is cyto3_1.
+
+<img src="https://raw.githubusercontent.com/ITMO-MMRM-lab/cellpose/refs/heads/main/repo/mask_type_selection.png" width="450" />
+
+Each snapshot should represent the segmentation of a subject type (cytoplasm or nuclei), to define this, we select one of the options pictured above (main or secondary mask). Here, we see an example of cyto3_1 selected as the main mask and nuclei_1 as the secondary mask.
+
+<img src="https://raw.githubusercontent.com/ITMO-MMRM-lab/cellpose/refs/heads/main/repo/mask_snapshots.png" width="300" />
+
+At the bottom of the GUI, we find the metrics panel with the following options: \
+Area and roundness are clickable when having a snapshot selected as primary. If there is a primary and a secondary snapshot available, the values are calculated separately per subject (cells and/or nuclei).
+Ratio and Voronoi are clickable when having a primary and a secondary snapshot selected. To obtain results, both snapshots are necessary.
+
+<img src="https://raw.githubusercontent.com/ITMO-MMRM-lab/cellpose/refs/heads/main/repo/metrics_panel.png" width="300" />
+
+After clicking "calculate" it will take a few moments until we get a folder with the same name as the source image, containing the result values ​​in .csv and .png formats. For extra feedback about the processes and alerts, we suggest to stay pending of the python shell.
+
+<img src="https://raw.githubusercontent.com/ITMO-MMRM-lab/cellpose/refs/heads/main/repo/results_folder_example.png" width="850" />
+
+"primary" and "secondary" folders contain individual results per snapshot. For example: primary -> area and roundness of cells, secondary -> area and roundness of nuclei.
 
 ### Citation
 

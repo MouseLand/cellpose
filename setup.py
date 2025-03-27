@@ -3,6 +3,8 @@ from setuptools import setup
 
 install_deps = [
     'numpy>=1.20.0,<2.1',
+    'pandas',
+    'matplotlib',
     'scipy',
     'natsort',
     'tifffile',
