@@ -97,7 +97,7 @@ setup(
     url="https://github.com/ITMO-MMRM-lab/cellpose", setup_requires=[
         'pytest-runner',
         'setuptools_scm',
-    ], packages=setuptools.find_packages(), version="0.0.11",
+    ], packages=setuptools.find_packages(), version="0.0.12",
     install_requires=install_deps, tests_require=['pytest'], extras_require={
         'docs': docs_deps,
         'gui': gui_deps,
