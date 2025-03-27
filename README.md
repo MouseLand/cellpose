@@ -72,7 +72,7 @@ You can run Cellpose plus in Google Colab with a GPU:
 
 Here we present a usage example:
 
-<img src="https://raw.githubusercontent.com/ITMO-MMRM-lab/cellpose/refs/heads/main/repo/demo_gif.gif" width="800" />
+![demo_gif](https://github.com/ITMO-MMRM-lab/cellpose/raw/main/repo/demo_gif.gif)
 <!-- <img src="repo/cellpose_gui.png" width="800" /> -->
 
 After the segmentation process, possibly including manual editing of the masks, we can save the masks in a folder with the same name as the image and place them in the same location by clicking the "Save labeled  mask" button. If we want to calculate metrics for the current segmentation, we can save it as a snapshot by clicking the "Save mask temporarily" button.
