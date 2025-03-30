@@ -313,9 +313,22 @@ class FeatureExtraction():
         out_csv = metric_cells if len(out_csv) == 0 else [self.out_concat(out_csv[idx], single_metric) for idx, single_metric in enumerate(metric_cells)]
 
         # Metric csv
+        header_title = []
+        if out_name == 'size':
+            header_title = 'area'
+        elif out_name == 'size_roundness':
+            header_title = 'area,roundness'
+        elif out_name == 'roundness':
+            header_title = 'roundness'
+        elif out_name == 'Center':
+            header_title = 'x,y'
+        elif out_name == 'ratio':
+            header_title = 'cell_id,nuclei_id,cell_nuclei_ratio'
         np.savetxt(out_dir + "/" + gui_self.filename.split('/')[-1].split(".")[0] + "_" + out_name + ".csv",
             out_csv,
             delimiter =", ",
+            header = header_title,
+            comments = '',
             fmt ='% s')
 
         return out_csv
@@ -441,12 +454,16 @@ class FeatureExtraction():
             np.savetxt(results_dir + "/" + gui_self.filename.split('/')[-1].split(".")[0] + "_vornoi_entropy.csv",
                 [voronoi_entropy],
                 delimiter =", ",
+                header = 'voronoi_entropy',
+                comments = '',
                 fmt ='% s')
 
             CSM_array = symmetry.CSM_for_graph(vor)
             np.savetxt(results_dir + "/" + gui_self.filename.split('/')[-1].split(".")[0] + "_CSM_values.csv",
                 [round(np.asarray(CSM_array).mean(), 3)],
                 delimiter =", ",
+                header = 'CSM_array',
+                comments = '',
                 fmt ='% s')
 
         return size_cells_main, center_coords_main
