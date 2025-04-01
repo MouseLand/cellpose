@@ -447,6 +447,8 @@ class FeatureExtraction():
             np.savetxt(results_dir + "/" + gui_self.filename.split('/')[-1].split(".")[0] + "_convex_hull_area.csv",
                 [round(conhull_area, 3)],
                 delimiter =", ",
+                header = 'convex_hull_area',
+                comments = '',
                 fmt ='% s')
             ###
 

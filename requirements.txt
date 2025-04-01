@@ -1,0 +1,15 @@
+Cython>=3.0.12
+fastremap>=1.15.1
+imagecodecs>=2024.12.30
+llvmlite>=0.43.0
+matplotlib>=3.9.4
+natsort>=8.4.0
+numba>=0.60.0
+numpy>=2.0.2
+opencv-python>=4.11.0.86
+pandas>=2.2.3
+roifile>=2024.9.15
+scipy>=1.13.1
+tifffile>=2024.8.30
+torch>=2.6.0
+tqdm>=4.67.1
