@@ -1,6 +1,7 @@
 import pytest
 import os, sys, shutil
 from cellpose import utils
+import zipfile
 
 from pathlib import Path
 
@@ -12,58 +13,16 @@ def image_names():
     ]
     return image_names
 
+def extract_zip(cached_file, url, data_path):
+    utils.download_url_to_file(url, cached_file)        
+    with zipfile.ZipFile(cached_file,"r") as zip_ref:
+        zip_ref.extractall(data_path)
 
 @pytest.fixture()
 def data_dir(image_names):
     cp_dir = Path.home().joinpath(".cellpose")
     cp_dir.mkdir(exist_ok=True)
+    extract_zip(cp_dir.joinpath("data.zip"), "https://osf.io/download/67f022eb033d25194f82a4ee/", cp_dir)
     data_dir = cp_dir.joinpath("data")
-    data_dir.mkdir(exist_ok=True)
-    data_dir_2D = data_dir.joinpath("2D")
-    data_dir_2D.mkdir(exist_ok=True)
-    data_dir_3D = data_dir.joinpath("3D")
-    data_dir_3D.mkdir(exist_ok=True)
-    
-    for i, image_name in enumerate(image_names):
-        url = "https://www.cellpose.org/static/data/" + image_name
-        if i < 3:
-            cached_file = str(data_dir_2D.joinpath(image_name))
-            ext = ".png"
-        elif i < 5:
-            cached_file = str(data_dir_3D.joinpath(image_name))
-            ext = ".tif"
-        else:
-            cached_file = str(data_dir_distributed.joinpath(image_name))
-            ext = ".tif"
-        if not os.path.exists(cached_file):
-            print(url)
-            utils.download_url_to_file(url, cached_file)
-
-        # check if mask downloaded (and clear potential previous test data)
-        if i < 2:
-            train_dir = data_dir_2D.joinpath("train")
-            train_dir.mkdir(exist_ok=True)
-            shutil.copyfile(cached_file, train_dir.joinpath(image_name))
-
-        name = os.path.splitext(cached_file)[0]
-        mask_file = name + "_cp_masks" + ext
-        if os.path.exists(mask_file):
-            os.remove(mask_file)
-        if i==1 or i==4:
-            cached_mask_files = [
-                name + "_cyto_masks" + ext, name + "_nuclei_masks" + ext
-            ]
-        else:
-            cached_mask_files = [name + "_cyto_masks" + ext]
-        for c, cached_mask_file in enumerate(cached_mask_files):
-            url = "https://www.cellpose.org/static/data/" + os.path.split(
-                cached_mask_file)[-1]
-            if not os.path.exists(cached_mask_file):
-                print(cached_mask_file)
-                utils.download_url_to_file(url, cached_mask_file, progress=True)
-            if i < 2 and c == 0:
-                shutil.copyfile(
-                    cached_mask_file,
-                    train_dir.joinpath(
-                        os.path.splitext(image_name)[0] + "_cyto_masks" + ext))
     return data_dir
+    
