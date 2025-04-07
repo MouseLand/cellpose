@@ -1,0 +1,30 @@
+name: cellpose
+dependencies:
+  - python==3.8.5
+  - pip
+  - pip:
+    - qtpy
+#    - PyQt5.sip
+    - numpy>=1.20.0
+    - numba>=0.43.1
+    - scipy
+    - torch>=1.6
+    - opencv-python-headless
+    - pyqtgraph>=0.11.0rc0
+    - natsort
+    - google-cloud-storage
+    - tqdm
+    - tifffile
+    - fastremap
+    - cellpose
+    - roifile
+    - pyqt5
+    - dask
+    - distributed
+    - dask-image
+    - pyyaml
+    - zarr
+    - dask_jobqueue
+    - bokeh
+    - fill-voids
+  
