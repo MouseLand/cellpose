@@ -11,6 +11,7 @@ from scipy.spatial import ConvexHull
 import numpy as np
 import colorsys
 import fastremap
+import fill_voids
 from multiprocessing import Pool, cpu_count
 
 from . import metrics
@@ -619,7 +620,7 @@ def size_distribution(masks):
 def fill_holes_and_remove_small_masks(masks, min_size=15):
     """ Fills holes in masks (2D/3D) and discards masks smaller than min_size.
 
-    This function fills holes in each mask using scipy.ndimage.morphology.binary_fill_holes.
+    This function fills holes in each mask using fill_voids.fill.
     It also removes masks that are smaller than the specified min_size.
 
     Parameters:
@@ -640,20 +641,25 @@ def fill_holes_and_remove_small_masks(masks, min_size=15):
         raise ValueError("masks_to_outlines takes 2D or 3D array, not %dD array" %
                          masks.ndim)
 
+    # Filter small masks
+    counts = fastremap.unique(masks, return_counts=True)[1][1:]
+    if min_size > 0:
+        masks = fastremap.mask(masks, np.nonzero(counts < min_size)[0] + 1)
+        fastremap.renumber(masks, in_place=True)
+        
     slices = find_objects(masks)
     j = 0
-    for i, slc in enumerate(slices):
+    for i in np.arange(0, len(slices)):
+        slc = slices[i]
         if slc is not None:
             msk = masks[slc] == (i + 1)
-            npix = msk.sum()
-            if min_size > 0 and npix < min_size:
-                masks[slc][msk] = 0
-            elif npix > 0:
-                if msk.ndim == 3:
-                    for k in range(msk.shape[0]):
-                        msk[k] = binary_fill_holes(msk[k])
-                else:
-                    msk = binary_fill_holes(msk)
-                masks[slc][msk] = (j + 1)
-                j += 1
+            msk = fill_voids.fill(msk)
+            masks[slc][msk] = (j + 1)
+            j += 1
+
+    if min_size > 0:
+        counts = fastremap.unique(masks, return_counts=True)[1][1:]
+        masks = fastremap.mask(masks, np.nonzero(counts < min_size)[0] + 1)
+        fastremap.renumber(masks, in_place=True)
+    
     return masks
