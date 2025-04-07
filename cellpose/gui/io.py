@@ -665,7 +665,6 @@ def _save_sets(parent):
         }
         if parent.restore is not None:
             dat["img_restore"] = parent.stack_filtered
-        np.save(base + "_seg.npy", dat)
     else:
         dat = {
             "outlines":
@@ -706,7 +705,10 @@ def _save_sets(parent):
         }
         if parent.restore is not None:
             dat["img_restore"] = parent.stack_filtered
+    try:
         np.save(base + "_seg.npy", dat)
+        print("GUI_INFO: %d ROIs saved to %s" % (parent.ncells, base + "_seg.npy"))
+    except Exception as e:
+        print(f"ERROR: {e}")
     del dat
     #print(parent.point_sets)
-    print("GUI_INFO: %d ROIs saved to %s" % (parent.ncells, base + "_seg.npy"))
