@@ -15,7 +15,6 @@ from . import transforms, utils
 
 import torch
 from torch import nn
-from torch.utils import mkldnn as mkldnn_utils
 
 TORCH_ENABLED = True
 
@@ -118,28 +117,6 @@ def assign_device(use_torch=True, gpu=False, device=0):
     return device, gpu
 
 
-def check_mkl(use_torch=True):
-    """
-    Checks if MKL-DNN is enabled and working.
-
-    Args:
-        use_torch (bool, optional): Whether to use torch. Defaults to True.
-
-    Returns:
-        bool: True if MKL-DNN is enabled, False otherwise.
-    """
-    mkl_enabled = torch.backends.mkldnn.is_available()
-    if mkl_enabled:
-        mkl_enabled = True
-    else:
-        core_logger.info(
-            "WARNING: MKL version on torch not working/installed - CPU version will be slightly slower."
-        )
-        core_logger.info(
-            "see https://pytorch.org/docs/stable/backends.html?highlight=mkl")
-    return mkl_enabled
-
-
 def _to_device(x, device):
     """
     Converts the input tensor or numpy array to the specified device.
@@ -184,8 +161,6 @@ def _forward(net, x):
     """
     X = _to_device(x, device=net.device)
     net.eval()
-    if net.mkldnn:
-        net = mkldnn_utils.to_mkldnn(net)
     with torch.no_grad():
         y, style = net(X)[:2]
     del X

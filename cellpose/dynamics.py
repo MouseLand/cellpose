@@ -20,7 +20,6 @@ from . import utils, transforms
 import torch
 from torch import optim, nn
 import torch.nn.functional as F
-from . import resnet_torch
 
 def _extend_centers_gpu(neighbors, meds, isneighbor, shape, n_iter=200, 
                         device=torch.device("cpu")):

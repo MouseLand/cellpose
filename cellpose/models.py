@@ -17,8 +17,8 @@ import logging
 models_logger = logging.getLogger(__name__)
 
 from . import transforms, dynamics, utils, plot
-from .resnet_torch import CPnet
-from .core import assign_device, check_mkl, run_net, run_3D
+from .vit_sam import Transformer
+from .core import assign_device, run_net, run_3D
 
 _MODEL_URL = "https://www.cellpose.org/models"
 _MODEL_DIR_ENV = os.environ.get("CELLPOSE_LOCAL_MODELS_PATH")
@@ -93,7 +93,7 @@ def get_user_models():
     return model_strings
 
 
-def get_model_params(pretrained_model, model_type, pretrained_model_ortho, default_model="cyto3"):
+def get_model_params(pretrained_model, model_type, default_model="cyto3"):
     """ return pretrained_model path, diam_mean and if model is builtin """
     builtin = False
     use_default = False
@@ -135,17 +135,9 @@ def get_model_params(pretrained_model, model_type, pretrained_model_ortho, defau
                 builtin = True
                 diam_mean = 17.
 
-    if pretrained_model_ortho:
-        if pretrained_model_ortho in all_models:
-            pretrained_model_ortho = model_path(pretrained_model_ortho)
-        elif Path(pretrained_model_ortho).exists():
-            pass
-        else:
-            pretrained_model_ortho = None 
-
     pretrained_model = model_path(default_model) if use_default else pretrained_model
     builtin = True if use_default else builtin
-    return pretrained_model, diam_mean, builtin, pretrained_model_ortho
+    return pretrained_model, diam_mean, builtin
     
 
 class CellposeModel():
@@ -156,7 +148,6 @@ class CellposeModel():
         diam_mean (float): Mean "diameter" value for the model.
         builtin (bool): Whether the model is a built-in model or not.
         device (torch device): Device used for model running / training.
-        mkldnn (None or bool): MKLDNN flag for the model.
         nchan (int): Number of channels used as input to the network.
         nclasses (int): Number of classes in the model.
         nbase (list): List of base values for the model.
@@ -175,8 +166,7 @@ class CellposeModel():
     """
 
     def __init__(self, gpu=False, pretrained_model=False, model_type=None,
-                 mkldnn=True, diam_mean=30., device=None, nchan=2, 
-                 pretrained_model_ortho=None, backbone="default"):
+                 diam_mean=30., device=None, nchan=3):
         """
         Initialize the CellposeModel.
 
@@ -184,24 +174,13 @@ class CellposeModel():
             gpu (bool, optional): Whether or not to save model to GPU, will check if GPU available.
             pretrained_model (str or list of strings, optional): Full path to pretrained cellpose model(s), if None or False, no model loaded.
             model_type (str, optional): Any model that is available in the GUI, use name in GUI e.g. "livecell" (can be user-trained or model zoo).
-            mkldnn (bool, optional): Use MKLDNN for CPU inference, faster but not always supported.
             diam_mean (float, optional): Mean "diameter", 30. is built-in value for "cyto" model; 17. is built-in value for "nuclei" model; if saved in custom model file (cellpose>=2.0) then it will be loaded automatically and overwrite this value.
             device (torch device, optional): Device used for model running / training (torch.device("cuda") or torch.device("cpu")), overrides gpu input, recommended if you want to use a specific GPU (e.g. torch.device("cuda:1")).
-            nchan (int, optional): Number of channels to use as input to network, default is 2 (cyto + nuclei) or (nuclei + zeros).
+            nchan (int, optional): Number of channels to use as input to network, default is 3 (RGB).
         """
         self.diam_mean = diam_mean
 
-        ### set model path
-        default_model = "cyto3" if backbone == "default" else "transformer_cp3"
-        pretrained_model, diam_mean, builtin, pretrained_model_ortho = get_model_params(
-                                                                pretrained_model, 
-                                                                model_type, 
-                                                                pretrained_model_ortho,
-                                                                 default_model)
-        self.diam_mean = diam_mean if diam_mean is not None else self.diam_mean
-        
         ### assign model device
-        self.mkldnn = None
         self.device = assign_device(gpu=gpu)[0] if device is None else device
         if torch.cuda.is_available():
             device_gpu = self.device.type == "cuda"
@@ -210,52 +189,35 @@ class CellposeModel():
         else:
             device_gpu = False
         self.gpu = device_gpu
-        if not self.gpu:
-            self.mkldnn = check_mkl(True) if mkldnn else False
-
+        
         ### create neural network
         self.nchan = nchan
         self.nclasses = 3
-        nbase = [32, 64, 128, 256]
-        self.nbase = [nchan, *nbase]
         self.pretrained_model = pretrained_model
-        if backbone == "default":
-            self.net = CPnet(self.nbase, self.nclasses, sz=3, mkldnn=self.mkldnn,
-                             max_pool=True, diam_mean=self.diam_mean).to(self.device)
-        else:
-            from .segformer import Transformer
-            self.net = Transformer(
-                encoder_weights="imagenet" if not self.pretrained_model else None,
-                diam_mean=self.diam_mean).to(self.device)
-
+        self.net = Transformer(nout=self.nclasses).to(self.device)
+        self.net.load_model(pretrained_model, device=self.device)
+        
         ### load model weights
-        if self.pretrained_model:
-            models_logger.info(f">>>> loading model {pretrained_model}")
-            self.net.load_model(self.pretrained_model, device=self.device)
-            if not builtin:
-                self.diam_mean = self.net.diam_mean.data.cpu().numpy()[0]
-            self.diam_labels = self.net.diam_labels.data.cpu().numpy()[0]
-            models_logger.info(
-                f">>>> model diam_mean = {self.diam_mean: .3f} (ROIs rescaled to this size during training)"
-            )
-            if not builtin:
-                models_logger.info(
-                    f">>>> model diam_labels = {self.diam_labels: .3f} (mean diameter of training ROIs)"
-                )
-            if pretrained_model_ortho is not None:
-                models_logger.info(f">>>> loading ortho model {pretrained_model_ortho}")
-                self.net_ortho = CPnet(self.nbase, self.nclasses, sz=3, mkldnn=self.mkldnn,
-                                        max_pool=True, diam_mean=self.diam_mean).to(self.device)
-                self.net_ortho.load_model(pretrained_model_ortho, device=self.device)
-            else:
-                self.net_ortho = None
-        else:
-            models_logger.info(f">>>> no model weights loaded")
-            self.diam_labels = self.diam_mean
+        # if self.pretrained_model:
+        #     models_logger.info(f">>>> loading model {pretrained_model}")
+        #     self.net.load_model(self.pretrained_model, device=self.device)
+        #     if not builtin:
+        #         self.diam_mean = self.net.diam_mean.data.cpu().numpy()[0]
+        #     self.diam_labels = self.net.diam_labels.data.cpu().numpy()[0]
+        #     models_logger.info(
+        #         f">>>> model diam_mean = {self.diam_mean: .3f} (ROIs rescaled to this size during training)"
+        #     )
+        #     if not builtin:
+        #         models_logger.info(
+        #             f">>>> model diam_labels = {self.diam_labels: .3f} (mean diameter of training ROIs)"
+        #         )
+        # else:
+        #     models_logger.info(f">>>> no model weights loaded")
+        #     self.diam_labels = self.diam_mean
 
-        self.net_type = f"cellpose_{backbone}"
+        self.net_type = f"cellposeSAM"
 
-    def eval(self, x, batch_size=8, resample=True, channels=None, channel_axis=None,
+    def eval(self, x, batch_size=8, resample=True, channel_axis=None,
              z_axis=None, normalize=True, invert=False, rescale=None, diameter=None,
              flow_threshold=0.4, cellprob_threshold=0.0, do_3D=False, anisotropy=None,
              flow3D_smooth=0, stitch_threshold=0.0, 
@@ -269,13 +231,6 @@ class CellposeModel():
             batch_size (int, optional): number of 224x224 patches to run simultaneously on the GPU
                 (can make smaller or bigger depending on GPU memory usage). Defaults to 8.
             resample (bool, optional): run dynamics at original image size (will be slower but create more accurate boundaries). Defaults to True.
-            channels (list, optional): list of channels, either of length 2 or of length number of images by 2.
-                First element of list is the channel to segment (0=grayscale, 1=red, 2=green, 3=blue).
-                Second element of list is the optional nuclear channel (0=none, 1=red, 2=green, 3=blue).
-                For instance, to segment grayscale images, input [0,0]. To segment images with cells
-                in green and nuclei in blue, input [2,3]. To segment one grayscale image and one
-                image with cells in green and nuclei in blue, input [[0,0], [2,3]].
-                Defaults to None.
             channel_axis (int, optional): channel axis in element of list x, or of np.ndarray x. 
                 if None, channels dimension is attempted to be automatically determined. Defaults to None.
             z_axis  (int, optional): z axis in element of list x, or of np.ndarray x. 
@@ -331,11 +286,7 @@ class CellposeModel():
                 tic = time.time()
                 maski, flowi, stylei = self.eval(
                     x[i], batch_size=batch_size,
-                    channels=channels[i] if channels is not None and
-                    ((len(channels) == len(x) and
-                      (isinstance(channels[i], list) or
-                       isinstance(channels[i], np.ndarray)) and len(channels[i]) == 2))
-                    else channels, channel_axis=channel_axis, z_axis=z_axis,
+                    channel_axis=channel_axis, z_axis=z_axis,
                     normalize=normalize, invert=invert,
                     rescale=rescale[i] if isinstance(rescale, list) or
                     isinstance(rescale, np.ndarray) else rescale,
@@ -356,7 +307,7 @@ class CellposeModel():
 
         else:
             # reshape image
-            x = transforms.convert_image(x, channels, channel_axis=channel_axis,
+            x = transforms.convert_image(x, channel_axis=channel_axis,
                                          z_axis=z_axis, do_3D=(do_3D or
                                                                stitch_threshold > 0),
                                          nchan=self.nchan)
@@ -367,7 +318,7 @@ class CellposeModel():
             if diameter is not None and diameter > 0:
                 rescale = self.diam_mean / diameter
             elif rescale is None:
-                rescale = self.diam_mean / self.diam_labels
+                rescale = 1.0
 
             # normalize image
             normalize_params = normalize_default

@@ -37,11 +37,6 @@ def main():
         print(version_str)
         return
 
-    if args.check_mkl:
-        mkl_enabled = models.check_mkl()
-    else:
-        mkl_enabled = True
-
     if len(args.dir) == 0 and len(args.image_path) == 0:
         if args.add_model:
             io.add_model(args.add_model)

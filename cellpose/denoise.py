@@ -657,16 +657,13 @@ class DenoiseModel():
                 denoise_logger.info(f">>>> loading model {pretrained_model_string}")
 
         # assign network device
-        self.mkldnn = None
         if device is None:
             sdevice, gpu = assign_device(use_torch=True, gpu=gpu)
         self.device = device if device is not None else sdevice
         if device is not None:
             device_gpu = self.device.type == "cuda"
         self.gpu = gpu if device is None else device_gpu
-        if not self.gpu:
-            self.mkldnn = check_mkl(True)
-
+        
         # create network
         self.nchan = nchan
         self.nclasses = 1
@@ -674,7 +671,7 @@ class DenoiseModel():
         self.nchan = nchan
         self.nbase = [nchan, *nbase]
 
-        self.net = CPnet(self.nbase, self.nclasses, sz=3, mkldnn=self.mkldnn,
+        self.net = CPnet(self.nbase, self.nclasses, sz=3, 
                          max_pool=True, diam_mean=diam_mean).to(self.device)
 
         self.pretrained_model = pretrained_model
@@ -689,7 +686,7 @@ class DenoiseModel():
                     os.path.split(self.pretrained_model)[-1].split("_")[0] + "_nuclei")
                 print(f"loading model for chan2: {os.path.split(str(chan2_path))[-1]}")
                 self.net_chan2 = CPnet(self.nbase, self.nclasses, sz=3,
-                                       mkldnn=self.mkldnn, max_pool=True,
+                                        max_pool=True,
                                        diam_mean=17.).to(self.device)
                 self.net_chan2.load_model(chan2_path, device=self.device)
         self.net_type = "cellpose_denoise"
@@ -1387,9 +1384,6 @@ def seg_train_noisy(model, train_data, train_labels, test_data=None, test_labels
 
     ksave = 0
 
-    # cannot train with mkldnn
-    model.net.mkldnn = False
-
     # get indices for each epoch for training
     np.random.seed(0)
     inds_all = np.zeros((0,), "int32")
@@ -1479,6 +1473,4 @@ def seg_train_noisy(model, train_data, train_labels, test_data=None, test_labels
         else:
             filename = save_path
 
-    # reset to mkldnn if available
-    model.net.mkldnn = model.mkldnn
     return filename

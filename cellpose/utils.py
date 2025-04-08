@@ -641,22 +641,14 @@ def fill_holes_and_remove_small_masks(masks, min_size=15):
                          masks.ndim)
 
     # Filter small masks
-    counts = fastremap.unique(masks, return_counts=True)[1][1:]
     if min_size > 0:
+        counts = fastremap.unique(masks, return_counts=True)[1][1:]
         masks = fastremap.mask(masks, np.nonzero(counts < min_size)[0] + 1)
-        masks, inum = fastremap.renumber(masks)
-        counts_new = np.zeros(masks.max(), "int")
-        for k in inum.keys():
-            if inum[k] != 0:
-                counts_new[inum[k]-1] = counts[k-1]
-        isort = counts_new.argsort()[::-1]
-    else:
-        isort = np.arange(0, len(slices))
+        fastremap.renumber(masks, in_place=True)
         
     slices = find_objects(masks)
     j = 0
-    for i in isort:
-        slc = slices[i]
+    for i, slc in enumerate(slices):
         if slc is not None:
             msk = masks[slc] == (i + 1)
             msk = fill_voids.fill(msk)
