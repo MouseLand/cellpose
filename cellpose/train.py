@@ -1,13 +1,12 @@
 import time
 import os
 import numpy as np
-from cellpose import io, transforms, utils, models, dynamics, metrics, resnet_torch
+from cellpose import io, transforms, utils, models, dynamics, resnet_torch
 from cellpose.transforms import normalize_img
 from pathlib import Path
 import torch
 from torch import nn
 from tqdm import trange
-from numba import prange
 
 import logging
 

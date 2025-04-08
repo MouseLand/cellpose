@@ -220,7 +220,7 @@ def main():
                     cellprob_threshold=args.cellprob_threshold,
                     stitch_threshold=args.stitch_threshold, min_size=args.min_size,
                     invert=args.invert, batch_size=args.batch_size,
-                    interp=(not args.no_interp), normalize=normalize,
+                    normalize=normalize,
                     channel_axis=args.channel_axis, z_axis=args.z_axis,
                     anisotropy=args.anisotropy, niter=args.niter,
                     flow3D_smooth=args.flow3D_smooth)

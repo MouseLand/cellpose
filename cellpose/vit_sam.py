@@ -37,7 +37,9 @@ class Transformer(nn.Module):
         for blk in self.encoder.blocks:
             blk.window_size = 0
         
-    def forward(self, x):        
+        self.mkldnn = False
+
+    def forward(self, x):      
         # same progression as SAM until readout
         x = self.encoder.patch_embed(x)
         
@@ -54,9 +56,10 @@ class Transformer(nn.Module):
         x1 = F.conv_transpose2d(x1, self.W2, stride = self.ps, padding = 0)
         
         # maintain the second output of feature size 256 for backwards compatibility
+           
         return x1, torch.randn((x.shape[0], 256), device=x.device)
     
-    def load(self, PATH, device, multigpu = True, strict = False):        
+    def load_model(self, PATH, device, multigpu = True, strict = False):        
         if multigpu:
             state_dict = torch.load(PATH, map_location = device)
             from collections import OrderedDict
@@ -67,4 +70,25 @@ class Transformer(nn.Module):
             self.load_state_dict(new_state_dict, strict = strict)
         else:
             self.load_state_dict(torch.load(PATH), strict = strict)
+
+    
+    @property
+    def device(self):
+        """
+        Get the device of the model.
+
+        Returns:
+            torch.device: The device of the model.
+        """
+        return next(self.parameters()).device
+
+    def save_model(self, filename):
+        """
+        Save the model to a file.
+
+        Args:
+            filename (str): The path to the file where the model will be saved.
+        """
+        torch.save(self.state_dict(), filename)
+    
 
