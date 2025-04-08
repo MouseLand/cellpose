@@ -193,9 +193,9 @@ class CellposeModel():
         ### create neural network
         self.nchan = nchan
         self.nclasses = 3
-        self.pretrained_model = pretrained_model
+        self.pretrained_model = pretrained_model if pretrained_model else MODEL_DIR / "cpsam8_0_600_8_115637540"
         self.net = Transformer(nout=self.nclasses).to(self.device)
-        self.net.load_model(pretrained_model, device=self.device)
+        self.net.load_model(self.pretrained_model, device=self.device)
         
         ### load model weights
         # if self.pretrained_model:
