@@ -13,8 +13,7 @@ import colorsys
 import fastremap
 import fill_voids
 from multiprocessing import Pool, cpu_count
-
-from . import metrics
+from cellpose import metrics
 
 try:
     from skimage.morphology import remove_small_holes
@@ -642,15 +641,14 @@ def fill_holes_and_remove_small_masks(masks, min_size=15):
                          masks.ndim)
 
     # Filter small masks
-    counts = fastremap.unique(masks, return_counts=True)[1][1:]
     if min_size > 0:
+        counts = fastremap.unique(masks, return_counts=True)[1][1:]
         masks = fastremap.mask(masks, np.nonzero(counts < min_size)[0] + 1)
         fastremap.renumber(masks, in_place=True)
         
     slices = find_objects(masks)
     j = 0
-    for i in np.arange(0, len(slices)):
-        slc = slices[i]
+    for i, slc in enumerate(slices):
         if slc is not None:
             msk = masks[slc] == (i + 1)
             msk = fill_voids.fill(msk)

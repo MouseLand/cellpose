@@ -3,9 +3,9 @@ Copyright © 2023 Howard Hughes Medical Institute, Authored by Carsen Stringer a
 """
 import numpy as np
 from . import utils, dynamics
-from numba import jit
 from scipy.optimize import linear_sum_assignment
 from scipy.ndimage import convolve, mean
+from scipy.sparse import csr_matrix 
 
 
 def mask_ious(masks_true, masks_pred):
@@ -136,35 +136,6 @@ def average_precision(masks_true, masks_pred, threshold=[0.5, 0.75, 0.9]):
     return ap, tp, fp, fn
 
 
-@jit(nopython=True)
-def _label_overlap(x, y):
-    """Fast function to get pixel overlaps between masks in x and y.
-
-    Args:
-        x (np.ndarray, int): Where 0=NO masks; 1,2... are mask labels.
-        y (np.ndarray, int): Where 0=NO masks; 1,2... are mask labels.
-
-    Returns:
-        overlap (np.ndarray, int): Matrix of pixel overlaps of size [x.max()+1, y.max()+1].
-    """
-    # put label arrays into standard form then flatten them
-    #     x = (utils.format_labels(x)).ravel()
-    #     y = (utils.format_labels(y)).ravel()
-    x = x.ravel()
-    y = y.ravel()
-
-    # preallocate a "contact map" matrix
-    overlap = np.zeros((1 + x.max(), 1 + y.max()), dtype=np.uint)
-
-    # loop over the labels in x and add to the corresponding
-    # overlap entry. If label A in x and label B in y share P
-    # pixels, then the resulting overlap is P
-    # len(x)=len(y), the number of pixels in the whole image
-    for i in range(len(x)):
-        overlap[x[i], y[i]] += 1
-    return overlap
-
-
 def _intersection_over_union(masks_true, masks_pred):
     """Calculate the intersection over union of all mask pairs.
 
@@ -190,7 +161,12 @@ def _intersection_over_union(masks_true, masks_pred):
         except for the duplicated overlap area, so the overlap matrix is
         subtracted to find the union matrix. 
     """
-    overlap = _label_overlap(masks_true, masks_pred)
+    if masks_true.size != masks_pred.size:
+        raise ValueError("masks_true.size != masks_pred.size")
+    overlap = csr_matrix((np.ones((masks_true.size,), "int"), 
+                         (masks_true.flatten(), masks_pred.flatten())),
+                         shape=(masks_true.max()+1, masks_pred.max()+1))
+    overlap = overlap.toarray()
     n_pixels_pred = np.sum(overlap, axis=0, keepdims=True)
     n_pixels_true = np.sum(overlap, axis=1, keepdims=True)
     iou = overlap / (n_pixels_pred + n_pixels_true - overlap)
@@ -227,38 +203,3 @@ def _true_positive(iou, th):
     match_ok = iou[true_ind, pred_ind] >= th
     tp = match_ok.sum()
     return tp
-
-
-def flow_error(maski, dP_net, device=None):
-    """Error in flows from predicted masks vs flows predicted by network run on image.
-
-    This function serves to benchmark the quality of masks. It works as follows:
-    1. The predicted masks are used to create a flow diagram.
-    2. The mask-flows are compared to the flows that the network predicted.
-
-    If there is a discrepancy between the flows, it suggests that the mask is incorrect.
-    Masks with flow_errors greater than 0.4 are discarded by default. This setting can be
-    changed in Cellpose.eval or CellposeModel.eval.
-
-    Args:
-        maski (np.ndarray, int): Masks produced from running dynamics on dP_net, where 0=NO masks; 1,2... are mask labels.
-        dP_net (np.ndarray, float): ND flows where dP_net.shape[1:] = maski.shape.
-
-    Returns:
-        A tuple containing (flow_errors, dP_masks): flow_errors (np.ndarray, float): Mean squared error between predicted flows and flows from masks; 
-        dP_masks (np.ndarray, float): ND flows produced from the predicted masks.
-    """
-    if dP_net.shape[1:] != maski.shape:
-        print("ERROR: net flow is not same size as predicted masks")
-        return
-
-    # flows predicted from estimated masks
-    dP_masks = dynamics.masks_to_flows(maski, device=device)
-    # difference between predicted flows vs mask flows
-    flow_errors = np.zeros(maski.max())
-    for i in range(dP_masks.shape[0]):
-        flow_errors += mean((dP_masks[i] - dP_net[i] / 5.)**2, maski,
-                            index=np.arange(1,
-                                            maski.max() + 1))
-
-    return flow_errors, dP_masks

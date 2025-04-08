@@ -11,11 +11,10 @@ import tempfile
 import cv2
 from scipy.stats import mode
 import fastremap
-from . import transforms, dynamics, utils, plot, metrics, resnet_torch
+from . import transforms, utils
 
 import torch
 from torch import nn
-from torch.utils import mkldnn as mkldnn_utils
 
 TORCH_ENABLED = True
 
@@ -118,28 +117,6 @@ def assign_device(use_torch=True, gpu=False, device=0):
     return device, gpu
 
 
-def check_mkl(use_torch=True):
-    """
-    Checks if MKL-DNN is enabled and working.
-
-    Args:
-        use_torch (bool, optional): Whether to use torch. Defaults to True.
-
-    Returns:
-        bool: True if MKL-DNN is enabled, False otherwise.
-    """
-    mkl_enabled = torch.backends.mkldnn.is_available()
-    if mkl_enabled:
-        mkl_enabled = True
-    else:
-        core_logger.info(
-            "WARNING: MKL version on torch not working/installed - CPU version will be slightly slower."
-        )
-        core_logger.info(
-            "see https://pytorch.org/docs/stable/backends.html?highlight=mkl")
-    return mkl_enabled
-
-
 def _to_device(x, device):
     """
     Converts the input tensor or numpy array to the specified device.
@@ -182,10 +159,8 @@ def _forward(net, x):
     Returns:
         Tuple[numpy.ndarray, numpy.ndarray]: The output predictions (flows and cellprob) and style features.
     """
-    X = _to_device(x, net.device)
+    X = _to_device(x, device=net.device)
     net.eval()
-    if net.mkldnn:
-        net = mkldnn_utils.to_mkldnn(net)
     with torch.no_grad():
         y, style = net(X)[:2]
     del X
@@ -216,7 +191,7 @@ def run_net(net, imgi, batch_size=8, augment=False, tile_overlap=0.1, bsize=224,
             style is a 1D array of size 256 summarizing the style of the image, if tiled `style` is averaged over tiles.
     """
     # run network
-    nout = net.nout
+    nout = 3#net.nout
     Lz, Ly0, Lx0, nchan = imgi.shape 
     if rsz is not None:
         if not isinstance(rsz, list) and not isinstance(rsz, np.ndarray):
@@ -224,17 +199,19 @@ def run_net(net, imgi, batch_size=8, augment=False, tile_overlap=0.1, bsize=224,
         Lyr, Lxr = int(Ly0 * rsz[0]), int(Lx0 * rsz[1])
     else:
         Lyr, Lxr = Ly0, Lx0
-    ypad1, ypad2, xpad1, xpad2 = transforms.get_pad_yx(Lyr, Lxr)
-    pads = np.array([[0, 0], [ypad1, ypad2], [xpad1, xpad2]])
+    
+    ly, lx = bsize, bsize
+    ypad1, ypad2, xpad1, xpad2 = transforms.get_pad_yx(Lyr, Lxr, min_size=(bsize, bsize))
     Ly, Lx = Lyr + ypad1 + ypad2, Lxr + xpad1 + xpad2
+    pads = np.array([[0, 0], [ypad1, ypad2], [xpad1, xpad2]])
+    
     if augment:
         ny = max(2, int(np.ceil(2. * Ly / bsize)))
         nx = max(2, int(np.ceil(2. * Lx / bsize)))
-        ly, lx = bsize, bsize
     else:
         ny = 1 if Ly <= bsize else int(np.ceil((1. + 2 * tile_overlap) * Ly / bsize))
         nx = 1 if Lx <= bsize else int(np.ceil((1. + 2 * tile_overlap) * Lx / bsize))
-        ly, lx = min(bsize, Ly), min(bsize, Lx)
+    
     yf = np.zeros((Lz, nout, Ly, Lx), "float32")
     styles = np.zeros((Lz, 256), "float32")
     

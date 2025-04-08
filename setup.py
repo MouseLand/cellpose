@@ -7,7 +7,6 @@ install_deps = [
     'natsort',
     'tifffile',
     'tqdm',
-    'numba>=0.53.0',
     'llvmlite',
     'torch>=1.6',
     'opencv-python-headless',

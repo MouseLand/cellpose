@@ -5,8 +5,7 @@ from torch import nn
 import torch.nn.functional as F
 
 class Transformer(nn.Module):
-    def __init__(self, backbone="vit_l", ps=8, nout = 3, bsize = 256, checkpoint = None   ):
-        # only have pretrained weights for vit_l right now
+    def __init__(self, backbone="vit_l", ps=8, nout=3, bsize=256, checkpoint=None):
         super(Transformer, self).__init__()
 
         # instantiate the vit model, default to not loading SAM
@@ -36,8 +35,8 @@ class Transformer(nn.Module):
         # set attention to global in every layer
         for blk in self.encoder.blocks:
             blk.window_size = 0
-        
-    def forward(self, x):        
+
+    def forward(self, x):      
         # same progression as SAM until readout
         x = self.encoder.patch_embed(x)
         
@@ -54,9 +53,10 @@ class Transformer(nn.Module):
         x1 = F.conv_transpose2d(x1, self.W2, stride = self.ps, padding = 0)
         
         # maintain the second output of feature size 256 for backwards compatibility
+           
         return x1, torch.randn((x.shape[0], 256), device=x.device)
     
-    def load(self, PATH, device, multigpu = True, strict = False):        
+    def load_model(self, PATH, device, multigpu = True, strict = False):        
         if multigpu:
             state_dict = torch.load(PATH, map_location = device)
             from collections import OrderedDict
@@ -67,4 +67,87 @@ class Transformer(nn.Module):
             self.load_state_dict(new_state_dict, strict = strict)
         else:
             self.load_state_dict(torch.load(PATH), strict = strict)
+
+    
+    @property
+    def device(self):
+        """
+        Get the device of the model.
+
+        Returns:
+            torch.device: The device of the model.
+        """
+        return next(self.parameters()).device
+
+    def save_model(self, filename):
+        """
+        Save the model to a file.
+
+        Args:
+            filename (str): The path to the file where the model will be saved.
+        """
+        torch.save(self.state_dict(), filename)
+
+
+
+class CPnetBioImageIO(Transformer):
+    """
+    A subclass of the CP-SAM model compatible with the BioImage.IO Spec.
+
+    This subclass addresses the limitation of CPnet's incompatibility with the BioImage.IO Spec,
+    allowing the CPnet model to use the weights uploaded to the BioImage.IO Model Zoo.
+    """
+
+    def forward(self, x):
+        """
+        Perform a forward pass of the CPnet model and return unpacked tensors.
+
+        Args:
+            x (torch.Tensor): Input tensor.
+
+        Returns:
+            tuple: A tuple containing the output tensor, style tensor, and downsampled tensors.
+        """
+        output_tensor, style_tensor, downsampled_tensors = super().forward(x)
+        return output_tensor, style_tensor, *downsampled_tensors
+    
+
+    def load_model(self, filename, device=None):
+        """
+        Load the model from a file.
+
+        Args:
+            filename (str): The path to the file where the model is saved.
+            device (torch.device, optional): The device to load the model on. Defaults to None.
+        """
+        if (device is not None) and (device.type != "cpu"):
+            state_dict = torch.load(filename, map_location=device, weights_only=True)
+        else:
+            self.__init__(self.nout)
+            state_dict = torch.load(filename, map_location=torch.device("cpu"), 
+                                    weights_only=True)
+
+        self.load_state_dict(state_dict)
+
+    def load_state_dict(self, state_dict):
+        """
+        Load the state dictionary into the model.
+
+        This method overrides the default `load_state_dict` to handle Cellpose's custom
+        loading mechanism and ensures compatibility with BioImage.IO Core.
+
+        Args:
+            state_dict (Mapping[str, Any]): A state dictionary to load into the model
+        """
+        if state_dict["output.2.weight"].shape[0] != self.nout:
+            for name in self.state_dict():
+                if "output" not in name:
+                    self.state_dict()[name].copy_(state_dict[name])
+        else:
+            super().load_state_dict(
+                {name: param for name, param in state_dict.items()},
+                strict=False)
+
+
+    
 

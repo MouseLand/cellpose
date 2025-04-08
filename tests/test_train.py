@@ -1,4 +1,4 @@
-from cellpose import io, models, train, metrics, plot
+from cellpose import io, models, train, plot
 from pathlib import Path
 from subprocess import check_output, STDOUT
 import os, shutil

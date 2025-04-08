@@ -1,4 +1,4 @@
-from cellpose import io, models, metrics, plot, utils
+from cellpose import io, models, plot, utils, metrics
 from pathlib import Path
 from subprocess import check_output, STDOUT
 import os, shutil
@@ -55,10 +55,10 @@ def test_cyto2_to_seg(data_dir, image_names):
     ]
     imgs = [io.imread(file_name) for file_name in file_names]
     model_type = "cyto2"
-    model = models.Cellpose(model_type=model_type)
+    model = models.CellposeModel(model_type=model_type)
     channels = [2, 1]
-    masks, flows, styles, diams = model.eval(imgs, diameter=30, channels=channels)
-    io.masks_flows_to_seg(imgs, masks, flows, file_names, diams=diams)
+    masks, flows, styles = model.eval(imgs, diameter=30, channels=channels)
+    io.masks_flows_to_seg(imgs, masks, flows, file_names, diams=30)
 
 
 def test_class_3D(data_dir, image_names):
@@ -68,7 +68,7 @@ def test_class_3D(data_dir, image_names):
     chan = [1]
     chan2 = [0]
     for m, model_type in enumerate(model_types):
-        model = models.Cellpose(model_type="nuclei")
+        model = models.CellposeModel(model_type="nuclei")
         masks = model.eval(img, do_3D=True, diameter=25, 
                            channels=[chan[m], chan2[m]], resample=True)[0]
         io.imsave(str(data_dir.joinpath("3D").joinpath("rgb_3D_cp_masks.tif")), masks)
@@ -171,7 +171,7 @@ def compare_masks(data_dir, image_names, runtype, model_type):
                 masks_true = io.imread(output_true)
                 print("masks", np.unique(masks_test), np.unique(masks_true),
                       output_test, output_true)
-                thresholds = [0.5, 0.75, 0.9]
+                thresholds = [0.5, 0.75]
                 ap = metrics.average_precision(masks_true, masks_test, 
                                                threshold=thresholds)[0]
                 print("average precision of ", ap)
