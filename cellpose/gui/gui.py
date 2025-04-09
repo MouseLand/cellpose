@@ -268,6 +268,7 @@ class MainW(QMainWindow):
         for i in range(3):
             self.cmap.append(
                 make_cmap(i).getLookupTable(start=0.0, stop=255.0, alpha=False))
+        self.manualPatternSide = 6
 
         if MATPLOTLIB:
             self.colormap = (plt.get_cmap("gist_ncar")(np.linspace(0.0, .9, 1000000)) *
@@ -431,6 +432,15 @@ class MainW(QMainWindow):
         self.MCheckBox.setChecked(True)
         self.MCheckBox.toggled.connect(self.toggle_masks)
         self.drawBoxG.addWidget(self.MCheckBox, b0, 0, 1, 5)
+
+        b0 += 1
+        # don't distinguish masks of manually labelled cells
+        self.markManualMasksOn = True
+        self.MMCheckBox = QCheckBox("DISTINGUISH MANUAL [M]")
+        self.MMCheckBox.setFont(self.medfont)
+        self.MMCheckBox.setChecked(True)
+        self.MMCheckBox.toggled.connect(self.toggle_masks)
+        self.drawBoxG.addWidget(self.MMCheckBox, b0, 0, 1, 5)
 
         b0 += 1
         # turn off outlines
@@ -884,6 +894,8 @@ class MainW(QMainWindow):
                                                        1).isEnabled())
                     if event.key() == QtCore.Qt.Key_X:
                         self.MCheckBox.toggle()
+                    if event.key() == QtCore.Qt.Key_M:
+                        self.MMCheckBox.toggle()
                     if event.key() == QtCore.Qt.Key_Z:
                         self.OCheckBox.toggle()
                     if event.key() == QtCore.Qt.Key_Left or event.key(
@@ -1151,6 +1163,10 @@ class MainW(QMainWindow):
             self.masksOn = True
         else:
             self.masksOn = False
+        if self.MMCheckBox.isChecked():
+            self.markManualMasksOn = True
+        else:
+            self.markManualMasksOn = False
         if self.OCheckBox.isChecked():
             self.outlinesOn = True
         else:
@@ -1809,7 +1825,17 @@ class MainW(QMainWindow):
         if z == self.currentZ:
             self.layerz[ar, ac, :3] = color
             if self.masksOn:
-                self.layerz[ar, ac, -1] = self.opacity
+                if self.markManualMasksOn:
+                    c = np.tile(np.array([[True, False], [False, True]]),
+                                (self.cellpix.shape[1:] + 
+                                 np.array((self.manualPatternSide - 1,) * 2))
+                                 // (2 * self.manualPatternSide)
+                                ).repeat(self.manualPatternSide, axis=1) \
+                                 .repeat(self.manualPatternSide, axis=0)
+                    self.layerz[ar, ac, -1] = self.opacity * np.logical_not(
+                        c[ar, ac]).astype(np.uint8)
+                else:
+                    self.layerz[ar, ac, -1] = self.opacity
             if self.outlinesOn:
                 self.layerz[vr, vc] = np.array(self.outcolor)
 
@@ -1859,13 +1885,23 @@ class MainW(QMainWindow):
         #print(self.cellpix.shape, self.outpix.shape, self.cellpix.max(), self.outpix.max())
         self.layerz = np.zeros((self.Ly, self.Lx, 4), np.uint8)
         if self.masksOn:
-            self.layerz[..., :3] = self.cellcolors[self.cellpix[self.currentZ], :]
-            self.layerz[..., 3] = self.opacity * (self.cellpix[self.currentZ]
-                                                  > 0).astype(np.uint8)
-            if self.selected > 0:
-                self.layerz[self.cellpix[self.currentZ] == self.selected] = np.array(
-                    [255, 255, 255, self.opacity])
             cZ = self.currentZ
+            self.layerz[..., :3] = self.cellcolors[self.cellpix[cZ], :]
+            self.layerz[..., 3] = self.opacity * (self.cellpix[cZ] > 0).astype(np.uint8)
+            if self.markManualMasksOn and self.ismanual.sum() > 0:
+              c = np.tile(np.array([[True, False], [False, True]]),
+                          (self.cellpix.shape[1:] + 
+                           np.array((self.manualPatternSide - 1,) * 2))
+                               // (2 * self.manualPatternSide)
+                          ).repeat(self.manualPatternSide, axis=1) \
+                           .repeat(self.manualPatternSide, axis=0)
+              self.layerz[..., 3] -= self.opacity * (
+                self.ismanual[np.maximum(self.cellpix[cZ], 1) - 1] &
+                c[:self.cellpix.shape[1], :self.cellpix.shape[2]] & \
+                (self.cellpix[cZ] > 0)).astype(np.uint8)
+            if self.selected > 0:
+                self.layerz[self.cellpix[cZ] == self.selected] = np.array(
+                    [255, 255, 255, self.opacity])
             stroke_z = np.array([s[0][0] for s in self.strokes])
             inZ = np.nonzero(stroke_z == cZ)[0]
             if len(inZ) > 0:
