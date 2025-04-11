@@ -33,46 +33,29 @@ def clear_output(data_dir, image_names):
 
 def test_class_2D(data_dir, image_names):
     clear_output(data_dir, image_names)
+    img_file = data_dir / '2D' / image_names[0]
 
-    for image_name in image_names[0:5]:
+    img = io.imread(img_file)
+    flowps = io.imread(img_file.parent / (img_file.stem + "_flowp.tif"))
+    use_gpu = torch.cuda.is_available()
 
-        img = io.imread(str(data_dir.joinpath("2D").joinpath(image_name)))
-        flowps = io.imread(str(data_dir.joinpath("2D").joinpath(image_name.replace("img", "flowps"))))
-        use_gpu = torch.cuda.is_available()
+    model = models.CellposeModel(gpu=use_gpu, nchan=3)
 
-        # model = models.Cellpose(model_type=model_type)
-        model = models.CellposeModel(gpu=use_gpu, nchan=3)
-        # masks_pred, flows_pred, _, _ = model.eval(img, diameter=0, cellprob_threshold=0,
-        #                                 resample=False)
-        # _, flows_pred, _ = model.eval(img, diameter=None, augment=False,
-        #                         bsize=256, tile_overlap=0.1, batch_size=64,
-        #                         flow_threshold=0.4, cellprob_threshold=0, normalize=False)
-        
-        ### ^^ Those two calls aren't equivalent. The first gives and error for some tensor size thing but the second works
-        # I think that's a bug
+    _, flows_pred, _ = model.eval(img, bsize=256, batch_size=64, normalize=True)
 
-        _, flows_pred, _ = model.eval(img, bsize=256, batch_size=64, normalize=False)
+    flowsp_pred = np.concatenate([flows_pred[1], flows_pred[2][None, ...]], axis=0)
 
-        flowsp_pred = np.concatenate([flows_pred[1], flows_pred[2][None, ...]], axis=0)
+    mse = np.sqrt((flowsp_pred - flowps) ** 2).sum()
+    assert mse.sum() < 1e-8, "MSE of flows is too high: %f" % mse.sum()
+    print("MSE of flows is %f" % mse.mean())
 
-        l2_err = np.sqrt((flowsp_pred - flowps) ** 2).sum()
-        assert l2_err.sum() < 1e-8, "L2 error of flows is too high: %f" % l2_err.sum()
-        print("L2 error of flows is %f" % l2_err.mean())
-
-        clear_output(data_dir, image_names)
-        # if MATPLOTLIB:
-        #     fig = plt.figure(figsize=(8, 3))
-        #     plot.show_segmentation(fig, img, masks, flows[0],
-        #                            channels=[chan[m], chan2[m]])
+    clear_output(data_dir, image_names)
 
 
 def test_cyto2_to_seg(data_dir, image_names):
     clear_output(data_dir, image_names)
     use_gpu = torch.cuda.is_available()
-    image_names = image_names[0:5]
-    file_names = [
-        str(data_dir.joinpath("2D").joinpath(image_name)) for image_name in image_names
-    ]
+    file_names = [data_dir / "2D" / n for n in image_names]
     imgs = [io.imread(file_name) for file_name in file_names]
     model = models.CellposeModel(gpu=use_gpu)
 
@@ -99,19 +82,15 @@ def test_class_3D(data_dir, image_names):
 
 def test_cli_2D(data_dir, image_names):
     clear_output(data_dir, image_names)
-    model_types = ["cyto"]
-    chan = [2]
-    chan2 = [1]
-    for m, model_type in enumerate(model_types):
-        cmd = "python -m cellpose --dir %s --pretrained_model %s --no_resample --chan %d --chan2 %d --diameter 0 --save_png --verbose" % (
-            str(data_dir.joinpath("2D")), model_type, chan[m], chan2[m])
-        try:
-            cmd_stdout = check_output(cmd, stderr=STDOUT, shell=True).decode()
-            print(cmd_stdout)
-        except Exception as e:
-            print(e)
-            raise ValueError(e)
-        compare_masks(data_dir, image_names, "2D", model_type)
+    cmd = "python -m cellpose --dir %s --no_resample --diameter 0 --save_png --verbose" % (
+        str(data_dir / "2D"))
+    try:
+        cmd_stdout = check_output(cmd, stderr=STDOUT, shell=True).decode()
+        print(cmd_stdout)
+    except Exception as e:
+        print(e)
+        raise ValueError(e)
+    compare_masks(data_dir, image_names, "2D", model_type)
     clear_output(data_dir, image_names)
 
 
