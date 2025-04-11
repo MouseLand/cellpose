@@ -205,8 +205,10 @@ def get_arg_parser():
                                help="weight decay. Default: %(default)s")
     training_args.add_argument("--n_epochs", default=500, type=int,
                                help="number of epochs. Default: %(default)s")
-    training_args.add_argument("--batch_size", default=8, type=int,
+    training_args.add_argument("--batch_size", default=64, type=int,
                                help="batch size. Default: %(default)s")
+    training_args.add_argument("--bsize", default=224, type=int,
+                               help="block size for tiles. Default: %(default)s")
     training_args.add_argument(
         "--nimg_per_epoch", default=None, type=int,
         help="number of train images per epoch. Default is to use all train images.")

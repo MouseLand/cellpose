@@ -11,7 +11,7 @@ import logging, pathlib, sys
 from tqdm import tqdm
 from pathlib import Path
 import re
-from . import version_str
+from .version import version_str
 from roifile import ImagejRoi, roiwrite
 
 try:

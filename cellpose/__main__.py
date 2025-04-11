@@ -6,7 +6,8 @@ import sys, os, glob, pathlib, time
 import numpy as np
 from natsort import natsorted
 from tqdm import tqdm
-from cellpose import utils, models, io, version_str, train, denoise
+from cellpose import utils, models, io, train, denoise
+from .version import version_str
 from cellpose.cli import get_arg_parser
 
 try:
@@ -155,8 +156,7 @@ def main():
 
             # handle built-in model exceptions
             if builtin_size and restore_type is None and not args.pretrained_model_ortho:
-                model = models.Cellpose(gpu=gpu, device=device, model_type=model_type,
-                                        backbone=backbone)
+                model = models.CellposeModel(gpu=gpu, device=device, model_type=model_type)
             else:
                 builtin_size = False
                 if args.all_channels:
@@ -209,12 +209,13 @@ def main():
             for image_name in tqdm(image_names, file=tqdm_out):
                 image = io.imread(image_name)
                 out = model.eval(
-                    image, channels=channels, diameter=diameter, do_3D=args.do_3D,
+                    image, diameter=diameter, do_3D=args.do_3D,
                     augment=args.augment, resample=(not args.no_resample),
                     flow_threshold=args.flow_threshold,
                     cellprob_threshold=args.cellprob_threshold,
                     stitch_threshold=args.stitch_threshold, min_size=args.min_size,
                     invert=args.invert, batch_size=args.batch_size,
+                    bsize=args.bsize,
                     normalize=normalize,
                     channel_axis=args.channel_axis, z_axis=args.z_axis,
                     anisotropy=args.anisotropy, niter=args.niter,
@@ -332,43 +333,43 @@ def main():
                 model.pretrained_model = cpmodel_path
                 logger.info(">>>> model trained and saved to %s" % cpmodel_path)
 
-            # train size model
-            if args.train_size:
-                sz_model = models.SizeModel(cp_model=model, device=device)
-                # data has already been normalized and reshaped
-                sz_model.params = train.train_size(
-                    model.net, model.pretrained_model, images, labels,
-                    train_files=image_names, test_data=test_images,
-                    test_labels=test_labels, test_files=image_names_test,
-                    train_probs=train_probs, test_probs=test_probs,
-                    load_files=load_files, channels=channels,
-                    min_train_masks=args.min_train_masks,
-                    channel_axis=args.channel_axis, rgb=(nchan == 3),
-                    nimg_per_epoch=args.nimg_per_epoch, normalize=normalize,
-                    nimg_test_per_epoch=args.nimg_test_per_epoch,
-                    batch_size=args.batch_size)
-                if test_images is not None:
-                    test_masks = [lbl[0] for lbl in test_labels
-                                 ] if test_labels is not None else test_labels
-                    predicted_diams, diams_style = sz_model.eval(
-                        test_images, channels=channels)
-                    ccs = np.corrcoef(
-                        diams_style,
-                        np.array([utils.diameters(lbl)[0] for lbl in test_masks]))[0, 1]
-                    cc = np.corrcoef(
-                        predicted_diams,
-                        np.array([utils.diameters(lbl)[0] for lbl in test_masks]))[0, 1]
-                    logger.info(
-                        "style test correlation: %0.4f; final test correlation: %0.4f" %
-                        (ccs, cc))
-                    np.save(
-                        os.path.join(
-                            args.test_dir,
-                            "%s_predicted_diams.npy" % os.path.split(cpmodel_path)[1]),
-                        {
-                            "predicted_diams": predicted_diams,
-                            "diams_style": diams_style
-                        })
+            # # train size model
+            # if args.train_size:
+            #     sz_model = models.SizeModel(cp_model=model, device=device)
+            #     # data has already been normalized and reshaped
+            #     sz_model.params = train.train_size(
+            #         model.net, model.pretrained_model, images, labels,
+            #         train_files=image_names, test_data=test_images,
+            #         test_labels=test_labels, test_files=image_names_test,
+            #         train_probs=train_probs, test_probs=test_probs,
+            #         load_files=load_files, channels=channels,
+            #         min_train_masks=args.min_train_masks,
+            #         channel_axis=args.channel_axis, rgb=(nchan == 3),
+            #         nimg_per_epoch=args.nimg_per_epoch, normalize=normalize,
+            #         nimg_test_per_epoch=args.nimg_test_per_epoch,
+            #         batch_size=args.batch_size)
+            #     if test_images is not None:
+            #         test_masks = [lbl[0] for lbl in test_labels
+            #                      ] if test_labels is not None else test_labels
+            #         predicted_diams, diams_style = sz_model.eval(
+            #             test_images, channels=channels)
+            #         ccs = np.corrcoef(
+            #             diams_style,
+            #             np.array([utils.diameters(lbl)[0] for lbl in test_masks]))[0, 1]
+            #         cc = np.corrcoef(
+            #             predicted_diams,
+            #             np.array([utils.diameters(lbl)[0] for lbl in test_masks]))[0, 1]
+            #         logger.info(
+            #             "style test correlation: %0.4f; final test correlation: %0.4f" %
+            #             (ccs, cc))
+            #         np.save(
+            #             os.path.join(
+            #                 args.test_dir,
+            #                 "%s_predicted_diams.npy" % os.path.split(cpmodel_path)[1]),
+            #             {
+            #                 "predicted_diams": predicted_diams,
+            #                 "diams_style": diams_style
+            #             })
 
 
 if __name__ == "__main__":

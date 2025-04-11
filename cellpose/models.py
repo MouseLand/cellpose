@@ -217,7 +217,7 @@ class CellposeModel():
 
         self.net_type = f"cellposeSAM"
 
-    def eval(self, x, batch_size=8, resample=True, channel_axis=None,
+    def eval(self, x, batch_size=64, resample=True, channel_axis=None,
              z_axis=None, normalize=True, invert=False, rescale=None, diameter=None,
              flow_threshold=0.4, cellprob_threshold=0.0, do_3D=False, anisotropy=None,
              flow3D_smooth=0, stitch_threshold=0.0, 
@@ -229,7 +229,7 @@ class CellposeModel():
         Args:
             x (list, np.ndarry): can be list of 2D/3D/4D images, or array of 2D/3D/4D images
             batch_size (int, optional): number of 224x224 patches to run simultaneously on the GPU
-                (can make smaller or bigger depending on GPU memory usage). Defaults to 8.
+                (can make smaller or bigger depending on GPU memory usage). Defaults to 64.
             resample (bool, optional): run dynamics at original image size (will be slower but create more accurate boundaries). Defaults to True.
             channel_axis (int, optional): channel axis in element of list x, or of np.ndarray x. 
                 if None, channels dimension is attempted to be automatically determined. Defaults to None.
@@ -269,9 +269,11 @@ class CellposeModel():
         Returns:
             A tuple containing (masks, flows, styles, diams): 
             masks (list of 2D arrays or single 3D array): Labelled image, where 0=no masks; 1,2,...=mask labels;
-            flows (list of lists 2D arrays or list of 3D arrays): flows[k][0] = XY flow in HSV 0-255; flows[k][1] = XY flows at each pixel; 
-            flows[k][2] = cell probability (if > cellprob_threshold, pixel used for dynamics); 
-            flows[k][3] = final pixel locations after Euler integration; 
+            flows (list of lists 2D arrays or list of 3D arrays): 
+                flows[k][0] = XY flow in HSV 0-255; 
+                flows[k][1] = XY flows at each pixel; 
+                flows[k][2] = cell probability (if > cellprob_threshold, pixel used for dynamics); 
+                flows[k][3] = final pixel locations after Euler integration; 
             styles (list of 1D arrays of length 256 or single 1D array): Style vector summarizing each image, also used to estimate size of objects in image.
             
         """
