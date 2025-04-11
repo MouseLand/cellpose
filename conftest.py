@@ -8,9 +8,7 @@ from pathlib import Path
 
 @pytest.fixture()
 def image_names():
-    image_names = [
-        "gray_2D.png", "rgb_2D.png", "rgb_2D_tif.tif", "gray_3D.tif", "rgb_3D.tif",
-    ]
+    image_names = [ f"{str(i).zfill(3)}_img.tif" for i in range(0, 91) ] 
     return image_names
 
 def extract_zip(cached_file, url, data_path):

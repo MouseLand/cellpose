@@ -3,6 +3,10 @@ from pathlib import Path
 from subprocess import check_output, STDOUT
 import os, shutil
 import numpy as np
+
+import gc
+import torch
+
 try:
     import matplotlib.pyplot as plt
     MATPLOTLIB = True
@@ -29,35 +33,52 @@ def clear_output(data_dir, image_names):
 
 def test_class_2D(data_dir, image_names):
     clear_output(data_dir, image_names)
-    image_name = "rgb_2D.png"
-    img = io.imread(str(data_dir.joinpath("2D").joinpath(image_name)))
-    model_types = ["nuclei"]
-    chan = [1]
-    chan2 = [0]
-    for m, model_type in enumerate(model_types):
-        model = models.Cellpose(model_type=model_type)
-        masks, flows, _, _ = model.eval(img, diameter=0, cellprob_threshold=0,
-                                        channels=[chan[m], chan2[m]], resample=False)
-        io.imsave(str(data_dir.joinpath("2D").joinpath("rgb_2D_cp_masks.png")), masks)
-        compare_masks(data_dir, [image_name], "2D", model_type)
+
+    for image_name in image_names[0:5]:
+
+        img = io.imread(str(data_dir.joinpath("2D").joinpath(image_name)))
+        flowps = io.imread(str(data_dir.joinpath("2D").joinpath(image_name.replace("img", "flowps"))))
+        use_gpu = torch.cuda.is_available()
+
+        # model = models.Cellpose(model_type=model_type)
+        model = models.CellposeModel(gpu=use_gpu, nchan=3)
+        # masks_pred, flows_pred, _, _ = model.eval(img, diameter=0, cellprob_threshold=0,
+        #                                 resample=False)
+        # _, flows_pred, _ = model.eval(img, diameter=None, augment=False,
+        #                         bsize=256, tile_overlap=0.1, batch_size=64,
+        #                         flow_threshold=0.4, cellprob_threshold=0, normalize=False)
+        
+        ### ^^ Those two calls aren't equivalent. The first gives and error for some tensor size thing but the second works
+        # I think that's a bug
+
+        _, flows_pred, _ = model.eval(img, bsize=256, batch_size=64, normalize=False)
+
+        flowsp_pred = np.concatenate([flows_pred[1], flows_pred[2][None, ...]], axis=0)
+
+        l2_err = np.sqrt((flowsp_pred - flowps) ** 2).sum()
+        assert l2_err.sum() < 1e-8, "L2 error of flows is too high: %f" % l2_err.sum()
+        print("L2 error of flows is %f" % l2_err.mean())
+
         clear_output(data_dir, image_names)
-        if MATPLOTLIB:
-            fig = plt.figure(figsize=(8, 3))
-            plot.show_segmentation(fig, img, masks, flows[0],
-                                   channels=[chan[m], chan2[m]])
+        # if MATPLOTLIB:
+        #     fig = plt.figure(figsize=(8, 3))
+        #     plot.show_segmentation(fig, img, masks, flows[0],
+        #                            channels=[chan[m], chan2[m]])
 
 
 def test_cyto2_to_seg(data_dir, image_names):
     clear_output(data_dir, image_names)
-    image_names = ["rgb_2D.png", "rgb_2D_tif.tif"]
+    use_gpu = torch.cuda.is_available()
+    image_names = image_names[0:5]
     file_names = [
         str(data_dir.joinpath("2D").joinpath(image_name)) for image_name in image_names
     ]
     imgs = [io.imread(file_name) for file_name in file_names]
-    model_type = "cyto2"
-    model = models.CellposeModel(model_type=model_type)
-    channels = [2, 1]
-    masks, flows, styles = model.eval(imgs, diameter=30, channels=channels)
+    model = models.CellposeModel(gpu=use_gpu)
+
+    # masks, flows, styles = model.eval(imgs, diameter=30)  # Errors during SAM stuff
+    masks, flows, _ = model.eval(imgs, bsize=256, batch_size=64, normalize=False)
+
     io.masks_flows_to_seg(imgs, masks, flows, file_names, diams=30)
 
 
