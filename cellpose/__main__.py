@@ -31,8 +31,7 @@ def main():
     """ Run cellpose from command line
     """
 
-    args = get_arg_parser().parse_args(
-    )  # this has to be in a separate file for autodoc to work
+    args = get_arg_parser().parse_args()  # this has to be in a separate file for autodoc to work
 
     if args.version:
         print(version_str)
@@ -65,7 +64,6 @@ def main():
             print("No --verbose => no progress or info printed")
             logger = logging.getLogger(__name__)
 
-        use_gpu = False
         channels = [args.chan, args.chan2]
 
         # find images
@@ -121,10 +119,10 @@ def main():
                 model_type = default_model
                 logger.warning(
                     f"pretrained model has incorrect path, using {default_model}")
-            if model_type == "nuclei":
-                szmean = 17.
-            else:
-                szmean = 30.
+            # if model_type == "nuclei":
+            #     szmean = 17.
+            # else:
+            #     szmean = 30.
         builtin_size = (model_type == "cyto" or model_type == "cyto2" or
                         model_type == "nuclei" or model_type == "cyto3")
 
@@ -185,31 +183,36 @@ def main():
                         model_type=model_type, restore_type=restore_type, nchan=nchan,
                         chan2_restore=args.chan2_restore)
 
-            # handle diameters
-            if args.diameter == 0:
-                if builtin_size:
-                    diameter = None
-                    logger.info(">>>> estimating diameter for each image")
-                else:
-                    if restore_type is None:
-                        logger.info(
-                            ">>>> not using cyto3, cyto, cyto2, or nuclei model, cannot auto-estimate diameter"
-                        )
-                    else:
-                        logger.info(
-                            ">>>> cannot auto-estimate diameter for image restoration")
-                    diameter = model.diam_labels
-                    logger.info(">>>> using diameter %0.3f for all images" % diameter)
-            else:
-                diameter = args.diameter
-                logger.info(">>>> using diameter %0.3f for all images" % diameter)
+            # # handle diameters
+            # if args.diameter == 0:
+            #     if builtin_size:
+            #         diameter = None
+            #         logger.info(">>>> estimating diameter for each image")
+            #     else:
+            #         if restore_type is None:
+            #             logger.info(
+            #                 ">>>> not using cyto3, cyto, cyto2, or nuclei model, cannot auto-estimate diameter"
+            #             )
+            #         else:
+            #             logger.info(
+            #                 ">>>> cannot auto-estimate diameter for image restoration")
+            #         diameter = model.diam_labels
+            #         logger.info(">>>> using diameter %0.3f for all images" % diameter)
+            # else:
+            #     diameter = args.diameter
+            #     logger.info(">>>> using diameter %0.3f for all images" % diameter)
 
             tqdm_out = utils.TqdmToLogger(logger, level=logging.INFO)
 
             for image_name in tqdm(image_names, file=tqdm_out):
                 image = io.imread(image_name)
+                if len(image.shape) == 2:
+                    # create 3 channel image if 2d:
+                    image = np.stack([image, image, image], axis=-1)
                 out = model.eval(
-                    image, diameter=diameter, do_3D=args.do_3D,
+                    image, 
+                    # diameter=diameter, 
+                    do_3D=args.do_3D,
                     augment=args.augment, resample=(not args.no_resample),
                     flow_threshold=args.flow_threshold,
                     cellprob_threshold=args.cellprob_threshold,
@@ -221,23 +224,25 @@ def main():
                     anisotropy=args.anisotropy, niter=args.niter,
                     flow3D_smooth=args.flow3D_smooth)
                 masks, flows = out[:2]
-                if len(out) > 3 and restore_type is None:
-                    diams = out[-1]
-                else:
-                    diams = diameter
-                ratio = 1.
-                if restore_type is not None:
-                    imgs_dn = out[-1]
-                    ratio = diams / model.dn.diam_mean if "upsample" in restore_type else 1.
-                    diams = model.dn.diam_mean if "upsample" in restore_type and model.dn.diam_mean > diams else diams
-                else:
-                    imgs_dn = None
+                # if len(out) > 3 and restore_type is None:
+                #     diams = out[-1]
+                # else:
+                #     diams = diameter
+                # ratio = 1.
+                # if restore_type is not None:
+                #     imgs_dn = out[-1]
+                #     ratio = diams / model.dn.diam_mean if "upsample" in restore_type else 1.
+                #     diams = model.dn.diam_mean if "upsample" in restore_type and model.dn.diam_mean > diams else diams
+                # else:
+                #     imgs_dn = None
                 if args.exclude_on_edges:
                     masks = utils.remove_edge_masks(masks)
                 if not args.no_npy:
                     io.masks_flows_to_seg(image, masks, flows, image_name,
-                                          imgs_restore=imgs_dn, channels=channels,
-                                          diams=diams, restore_type=restore_type,
+                                          imgs_restore=None, 
+                                        #   channels=channels,
+                                        #   diams=diams, 
+                                          restore_type=restore_type,
                                           ratio=1.)
                 if saving_something:
                     suffix = "_cp_masks"
@@ -295,7 +300,7 @@ def main():
                 nchan = 2
 
             # model path
-            szmean = args.diam_mean
+            # szmean = args.diam_mean
             if not os.path.exists(pretrained_model) and model_type is None:
                 if not args.train:
                     error_message = "ERROR: model path missing or incorrect - cannot train size model"
@@ -310,7 +315,9 @@ def main():
 
             # initialize model
             model = models.CellposeModel(
-                device=device, model_type=model_type, diam_mean=szmean, nchan=nchan,
+                device=device, model_type=model_type, 
+                # diam_mean=szmean, 
+                nchan=nchan,
                 pretrained_model=pretrained_model if model_type is None else None,
                 backbone=backbone)
 

@@ -62,7 +62,7 @@ def test_cyto2_to_seg(data_dir, image_names):
     # masks, flows, styles = model.eval(imgs, diameter=30)  # Errors during SAM stuff
     masks, flows, _ = model.eval(imgs, bsize=256, batch_size=64, normalize=False)
 
-    io.masks_flows_to_seg(imgs, masks, flows, file_names, diams=30)
+    io.masks_flows_to_seg(imgs, masks, flows, file_names)
 
 
 def test_class_3D(data_dir, image_names):
@@ -90,7 +90,7 @@ def test_cli_2D(data_dir, image_names):
     except Exception as e:
         print(e)
         raise ValueError(e)
-    compare_masks(data_dir, image_names, "2D", model_type)
+    compare_masks(data_dir, image_names, "2D")
     clear_output(data_dir, image_names)
 
 
@@ -142,7 +142,7 @@ def test_outlines_list(data_dir, image_names):
     assert all(outlines_matched), "Not all outlines in outlines_multi were matched"
 
 
-def compare_masks(data_dir, image_names, runtype, model_type):
+def compare_masks(data_dir, image_names, runtype):
     """
     Helper function to check if outputs given by a test are exactly the same
     as the ground truth outputs.
@@ -155,13 +155,13 @@ def compare_masks(data_dir, image_names, runtype, model_type):
             image_file = str(data_dir_2D.joinpath(image_name))
             name = os.path.splitext(image_file)[0]
             output_test = name + "_cp_masks.png"
-            output_true = name + "_%s_masks.png" % model_type
+            output_true = name + "_masks.png"
             check = True
         elif "3D" in runtype and "3D" in image_name:
             image_file = str(data_dir_3D.joinpath(image_name))
             name = os.path.splitext(image_file)[0]
             output_test = name + "_cp_masks.tif"
-            output_true = name + "_%s_masks.tif" % model_type
+            output_true = name + "_masks.tif"
             check = True
 
         if check:

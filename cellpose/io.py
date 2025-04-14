@@ -471,7 +471,9 @@ def load_train_test_data(train_dir, test_dir=None, image_filter=None,
     return images, labels, image_names, test_images, test_labels, test_image_names
 
 
-def masks_flows_to_seg(images, masks, flows, file_names, diams=30., channels=None,
+def masks_flows_to_seg(images, masks, flows, file_names, 
+                    #    diams=30., 
+                       channels=None,
                        imgs_restore=None, restore_type=None, ratio=1.):
     """Save output of model eval to be loaded in GUI.
 
@@ -484,7 +486,7 @@ def masks_flows_to_seg(images, masks, flows, file_names, diams=30., channels=Non
         masks (list): Masks output from Cellpose.eval, where 0=NO masks; 1,2,...=mask labels.
         flows (list): Flows output from Cellpose.eval.
         file_names (list, str): Names of files of images.
-        diams (float array): Diameters used to run Cellpose. Defaults to 30.
+        diams (float array): Diameters used to run Cellpose. Defaults to 30. TODO: remove this
         channels (list, int, optional): Channels used to run Cellpose. Defaults to None.
 
     Returns:
@@ -495,19 +497,24 @@ def masks_flows_to_seg(images, masks, flows, file_names, diams=30., channels=Non
         channels = [0, 0]
 
     if isinstance(masks, list):
-        if not isinstance(diams, (list, np.ndarray)):
-            diams = diams * np.ones(len(masks), np.float32)
+        # if not isinstance(diams, (list, np.ndarray)):
+        #     diams = diams * np.ones(len(masks), np.float32)
         if imgs_restore is None:
             imgs_restore = [None] * len(masks)
         if isinstance(file_names, str):
             file_names = [file_names] * len(masks)
-        for k, [image, mask, flow, diam, file_name, img_restore
-               ] in enumerate(zip(images, masks, flows, diams, file_names,
+        for k, [image, mask, flow, 
+                # diam, 
+                file_name, img_restore
+               ] in enumerate(zip(images, masks, flows, 
+                                #   diams, 
+                                  file_names,
                                   imgs_restore)):
             channels_img = channels
             if channels_img is not None and len(channels) > 2:
                 channels_img = channels[k]
-            masks_flows_to_seg(image, mask, flow, file_name, diams=diam,
+            masks_flows_to_seg(image, mask, flow, file_name, 
+                            #    diams=diam,
                                channels=channels_img, imgs_restore=img_restore,
                                restore_type=restore_type, ratio=ratio)
         return
@@ -560,7 +567,7 @@ def masks_flows_to_seg(images, masks, flows, file_names, diams=30., channels=Non
         "flows":
             flowi,
         "diameter":
-            diams
+            np.nan
     }
     if restore_type is not None and imgs_restore is not None:
         dat["restore"] = restore_type

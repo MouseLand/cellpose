@@ -101,9 +101,13 @@ def get_arg_parser():
     algorithm_args.add_argument(
         "--do_3D", action="store_true",
         help="process images as 3D stacks of images (nplanes x nchan x Ly x Lx")
+    # algorithm_args.add_argument(
+    #     "--diameter", required=False, default=30., type=float, help=
+    #     "cell diameter, if 0 will use the diameter of the training labels used in the model, or with built-in model will estimate diameter for each image"
+    # )
     algorithm_args.add_argument(
-        "--diameter", required=False, default=30., type=float, help=
-        "cell diameter, if 0 will use the diameter of the training labels used in the model, or with built-in model will estimate diameter for each image"
+        "--diameter", required=False, default=None, type=float, help=
+        "Deprecated in v4.0.0. Value not used."
     )
     algorithm_args.add_argument(
         "--stitch_threshold", required=False, default=0.0, type=float,
@@ -195,10 +199,15 @@ def get_arg_parser():
         "--mask_filter", default="_masks", type=str, help=
         "end string for masks to run on. use '_seg.npy' for manual annotations from the GUI. Default: %(default)s"
     )
+    # training_args.add_argument(
+    #     "--diam_mean", default=30., type=float, help=
+    #     "mean diameter to resize cells to during training -- if starting from pretrained models it cannot be changed from 30.0"
+    # )
     training_args.add_argument(
-        "--diam_mean", default=30., type=float, help=
-        "mean diameter to resize cells to during training -- if starting from pretrained models it cannot be changed from 30.0"
-    )
+        "--diam_mean", default=None, type=float, help=
+        "Deprecated in v4.0.0. Value not used."
+        )
+
     training_args.add_argument("--learning_rate", default=0.2, type=float,
                                help="learning rate. Default: %(default)s")
     training_args.add_argument("--weight_decay", default=0.00001, type=float,
@@ -207,7 +216,7 @@ def get_arg_parser():
                                help="number of epochs. Default: %(default)s")
     training_args.add_argument("--batch_size", default=64, type=int,
                                help="batch size. Default: %(default)s")
-    training_args.add_argument("--bsize", default=224, type=int,
+    training_args.add_argument("--bsize", default=256, type=int,
                                help="block size for tiles. Default: %(default)s")
     training_args.add_argument(
         "--nimg_per_epoch", default=None, type=int,
