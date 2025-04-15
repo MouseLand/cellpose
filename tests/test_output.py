@@ -72,14 +72,14 @@ def test_cyto2_to_seg(data_dir, image_names):
 
 def test_class_3D(data_dir, image_names):
     clear_output(data_dir, image_names)
-    img = io.imread(str(data_dir.joinpath("3D").joinpath("rgb_3D.tif")))
+    img = io.imread(data_dir / "3D" / "rgb_3D.tif")
 
     img2 = np.zeros((img.shape[0], 3, img.shape[2], img.shape[3]), dtype=np.float32)
     img2[:, :2, :, :] = img
 
     model = models.CellposeModel(gpu=True)
     masks = model.eval(img2, do_3D=True)[0]
-    io.imsave(str(data_dir.joinpath("3D").joinpath("rgb_3D_cp_masks.tif")), masks)
+    io.imsave(data_dir / "3D" / "rgb_3D_cp_masks.tif", masks)
     compare_masks(data_dir, ["rgb_3D.tif"], "3D")
     clear_output(data_dir, image_names)
 
