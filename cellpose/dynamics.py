@@ -566,22 +566,24 @@ def resize_and_compute_masks(dP, cellprob, niter=200, cellprob_threshold=0.0,
                             device=device)
 
     if resize is not None:
-        if len(resize) == 2:
-            mask = transforms.resize_image(mask, resize[0], resize[1], no_channels=True,
-                                           interpolation=cv2.INTER_NEAREST)
-        else:
-            Lz, Ly, Lx = resize
-            if mask.shape[0] != Lz or mask.shape[1] != Ly:
-                dynamics_logger.info("resizing 3D masks to original image size")
-                if mask.shape[1] != Ly:
-                    mask = transforms.resize_image(mask, Ly=Ly, Lx=Lx,
-                                                no_channels=True, 
-                                                interpolation=cv2.INTER_NEAREST)
-                if mask.shape[0] != Lz:
-                    mask = transforms.resize_image(mask.transpose(1,0,2),
-                                                    Ly=Lz, Lx=Lx,
-                                                    no_channels=True, 
-                                                    interpolation=cv2.INTER_NEAREST).transpose(1,0,2)
+        dynamics_logger.warning("Resizing is depricated in v4.0.1+")
+
+        # if len(resize) == 2:
+        #     mask = transforms.resize_image(mask, resize[0], resize[1], no_channels=True,
+        #                                    interpolation=cv2.INTER_NEAREST)
+        # else:
+        #     Lz, Ly, Lx = resize
+        #     if mask.shape[0] != Lz or mask.shape[1] != Ly:
+        #         dynamics_logger.info("resizing 3D masks to original image size")
+        #         if mask.shape[1] != Ly:
+        #             mask = transforms.resize_image(mask, Ly=Ly, Lx=Lx,
+        #                                         no_channels=True, 
+        #                                         interpolation=cv2.INTER_NEAREST)
+        #         if mask.shape[0] != Lz:
+        #             mask = transforms.resize_image(mask.transpose(1,0,2),
+        #                                             Ly=Lz, Lx=Lx,
+        #                                             no_channels=True, 
+        #                                             interpolation=cv2.INTER_NEAREST).transpose(1,0,2)
 
     mask = utils.fill_holes_and_remove_small_masks(mask, min_size=min_size)
 
