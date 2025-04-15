@@ -68,16 +68,15 @@ def test_cyto2_to_seg(data_dir, image_names):
 def test_class_3D(data_dir, image_names):
     clear_output(data_dir, image_names)
     img = io.imread(str(data_dir.joinpath("3D").joinpath("rgb_3D.tif")))
-    model_types = ["nuclei"]
-    chan = [1]
-    chan2 = [0]
-    for m, model_type in enumerate(model_types):
-        model = models.CellposeModel(model_type="nuclei")
-        masks = model.eval(img, do_3D=True, diameter=25, 
-                           channels=[chan[m], chan2[m]], resample=True)[0]
-        io.imsave(str(data_dir.joinpath("3D").joinpath("rgb_3D_cp_masks.tif")), masks)
-        compare_masks(data_dir, ["rgb_3D.tif"], "3D", model_type)
-        clear_output(data_dir, image_names)
+
+    img2 = np.zeros((img.shape[0], 3, img.shape[2], img.shape[3]), dtype=np.float32)
+    img2[:, :2, :, :] = img
+
+    model = models.CellposeModel(gpu=True)
+    masks = model.eval(img2, do_3D=True)[0]
+    io.imsave(str(data_dir.joinpath("3D").joinpath("rgb_3D_cp_masks.tif")), masks)
+    compare_masks(data_dir, ["rgb_3D.tif"], "3D")
+    clear_output(data_dir, image_names)
 
 
 def test_cli_2D(data_dir, image_names):

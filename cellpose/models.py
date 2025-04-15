@@ -226,13 +226,13 @@ class CellposeModel():
              flow_threshold=0.4, cellprob_threshold=0.0, do_3D=False, anisotropy=None,
              flow3D_smooth=0, stitch_threshold=0.0, 
              min_size=15, max_size_fraction=0.4, niter=None, 
-             augment=False, tile_overlap=0.1, bsize=224, 
+             augment=False, tile_overlap=0.1, bsize=256, 
              compute_masks=True, progress=None):
         """ segment list of images x, or 4D array - Z x nchan x Y x X
 
         Args:
             x (list, np.ndarry): can be list of 2D/3D/4D images, or array of 2D/3D/4D images
-            batch_size (int, optional): number of 224x224 patches to run simultaneously on the GPU
+            batch_size (int, optional): number of 256x256 patches to run simultaneously on the GPU
                 (can make smaller or bigger depending on GPU memory usage). Defaults to 64.
             resample (bool, optional): deprecated in v4.0.1+, resample is not used
             channel_axis (int, optional): channel axis in element of list x, or of np.ndarray x. 
@@ -408,7 +408,10 @@ class CellposeModel():
                                         Lx=int(Lx)).transpose(1,0,2,3)
             yf, styles = run_3D(self.net, x,
                                 batch_size=batch_size, augment=augment,  
-                                tile_overlap=tile_overlap, net_ortho=self.net_ortho)
+                                tile_overlap=tile_overlap, 
+                                bsize=bsize
+                                # net_ortho=self.net_ortho
+                                )
             # if resample:
             #     if rescale != 1.0 or Lz != yf.shape[0]:
             #         models_logger.info("resizing 3D flows and cellprob to original image size")
