@@ -231,7 +231,7 @@ class CellposeModel():
         """ segment list of images x, or 4D array - Z x nchan x Y x X
 
         Args:
-            x (list, np.ndarry): can be list of 2D/3D/4D images, or array of 2D/3D/4D images
+            x (list, np.ndarry): can be list of 2D/3D/4D images, or array of 2D/3D/4D images. Images must have 3 channels.
             batch_size (int, optional): number of 256x256 patches to run simultaneously on the GPU
                 (can make smaller or bigger depending on GPU memory usage). Defaults to 64.
             resample (bool, optional): deprecated in v4.0.1+, resample is not used

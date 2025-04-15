@@ -205,10 +205,10 @@ def main():
             tqdm_out = utils.TqdmToLogger(logger, level=logging.INFO)
 
             for image_name in tqdm(image_names, file=tqdm_out):
-                image = io.imread(image_name)
-                if len(image.shape) == 2:
-                    # create 3 channel image if 2d:
-                    image = np.stack([image, image, image], axis=-1)
+                if args.do_3D:
+                    image = io.imread_3D_to_3chan(image_name)
+                else:
+                    image = io.imread_2D_to_3chan(image_name)
                 out = model.eval(
                     image, 
                     # diameter=diameter, 

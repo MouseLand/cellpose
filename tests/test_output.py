@@ -38,7 +38,7 @@ def test_class_2D(data_dir, image_names):
         
         img_file = data_dir / '2D' / image_name
 
-        img = io.imread(img_file)
+        img = io.imread_2D_to_3chan(img_file)
         flowps = io.imread(img_file.parent / (img_file.stem + "_flowp.tif"))
         use_gpu = torch.cuda.is_available()
 
@@ -61,7 +61,7 @@ def test_cyto2_to_seg(data_dir, image_names):
     clear_output(data_dir, image_names)
     use_gpu = torch.cuda.is_available()
     file_names = [data_dir / "2D" / n for n in image_names]
-    imgs = [io.imread(file_name) for file_name in file_names]
+    imgs = [io.imread_2D_to_3chan(file_name) for file_name in file_names]
     model = models.CellposeModel(gpu=use_gpu)
 
     # masks, flows, styles = model.eval(imgs, diameter=30)  # Errors during SAM stuff
@@ -70,18 +70,20 @@ def test_cyto2_to_seg(data_dir, image_names):
     io.masks_flows_to_seg(imgs, masks, flows, file_names)
 
 
-def test_class_3D(data_dir, image_names):
-    clear_output(data_dir, image_names)
-    img = io.imread(data_dir / "3D" / "rgb_3D.tif")
+def test_class_3D(data_dir, image_names_3d):
+    clear_output(data_dir, image_names_3d)
+    use_gpu = torch.cuda.is_available()
 
-    img2 = np.zeros((img.shape[0], 3, img.shape[2], img.shape[3]), dtype=np.float32)
-    img2[:, :2, :, :] = img
+    for image_name in image_names_3d:
+        img_file = data_dir / '3D' / image_name
 
-    model = models.CellposeModel(gpu=True)
-    masks = model.eval(img2, do_3D=True)[0]
-    io.imsave(data_dir / "3D" / "rgb_3D_cp_masks.tif", masks)
-    compare_masks(data_dir, ["rgb_3D.tif"], "3D")
-    clear_output(data_dir, image_names)
+        img = io.imread_3D_to_3chan(img_file)
+
+        model = models.CellposeModel(gpu=use_gpu)
+        masks = model.eval(img, do_3D=True)[0]
+        io.imsave(data_dir / "3D" / (img_file.stem + "_cp_masks.tif"), masks)
+    compare_masks(data_dir, image_names_3d, "3D")
+    clear_output(data_dir, image_names_3d)
 
 
 def test_cli_2D(data_dir, image_names):
