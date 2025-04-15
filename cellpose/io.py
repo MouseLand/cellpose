@@ -219,6 +219,67 @@ def imread(filename):
             return None
 
 
+def imread_2D_to_3chan(img_file):
+    """
+    Read in a 2D image file and convert it to a 3-channel image. Attempts to do this for multi-channel and grayscale images.
+    
+    Args:
+        img_file (str): The path to the image file.
+
+    Returns:
+        img_out (numpy.ndarray): The 3-channel image data as a NumPy array.
+    """
+    img = imread(img_file)
+
+    if img.ndim == 3:
+        if img.shape[2] == 3:
+            # already has 3 channels
+            return img
+        
+        # ensure there are 3 channels
+        img_out = np.zeros((img.shape[0], img.shape[1], 3), dtype=img.dtype)
+        img_out[:, :, :img.shape[2]] = img
+
+    elif img.ndim == 2:
+        # add a channel dimension
+        img_out = np.zeros((img.shape[0], img.shape[1], 3), dtype=img.dtype)
+        img_out[:, :, 0] = img
+
+    return img_out
+
+
+def imread_3D_to_3chan(img_file):
+    """
+    Read in a 3D image file and convert it to a 3-channel image. Attempts to do this for multi-channel and grayscale images.
+    
+    Args:
+        img_file (str): The path to the image file.
+
+    Returns:
+        img_out (numpy.ndarray): The 3-channel image data as a NumPy array.
+    """
+    img = imread(img_file)
+
+    if img.ndim == 3:
+        # add a channel dimension
+        img_out = np.zeros((img.shape[0], 3, img.shape[1], img.shape[2]), dtype=img.dtype)
+        img_out[:, 0, :, :] = img
+
+    elif img.ndim == 4:
+        # already has a channel dimension, justmake sure it's 3
+        img_out = np.zeros((img.shape[0], 3, img.shape[2], img.shape[3]), dtype=img.dtype)
+
+        for i in range(0, img.shape[1]):
+            img_out[:, i, :, :] = img[:, i, :, :]
+            if i == 2:
+                # stop after 3 channels
+                break
+    else:
+        raise ValueError("Image should have 3 or 4 dimensions, shape: %s" % img.shape)
+    
+    return img_out
+
+
 def remove_model(filename, delete=False):
     """ remove model from .cellpose custom model list """
     filename = os.path.split(filename)[-1]
