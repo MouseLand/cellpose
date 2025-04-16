@@ -88,33 +88,36 @@ def test_class_3D(data_dir, image_names_3d):
 
 def test_cli_2D(data_dir, image_names):
     clear_output(data_dir, image_names)
-    cmd = "python -m cellpose --dir %s --no_resample --diameter 0 --save_png --verbose" % (
-        str(data_dir / "2D"))
+    use_gpu = torch.cuda.is_available()
+    gpu_string = "--use_gpu" if use_gpu else ""
+    cmd = f"python -m cellpose --image_path {str(data_dir/"2D"/image_names[0])} --no_resample --diameter 0 --save_png --verbose {gpu_string}"
     try:
         cmd_stdout = check_output(cmd, stderr=STDOUT, shell=True).decode()
         print(cmd_stdout)
     except Exception as e:
         print(e)
         raise ValueError(e)
-    compare_masks(data_dir, image_names, "2D")
+    compare_masks(data_dir, image_names[0], "2D")
     clear_output(data_dir, image_names)
 
 
-def test_cli_3D(data_dir, image_names):
-    clear_output(data_dir, image_names)
+def test_cli_3D(data_dir, image_names_3d):
+    clear_output(data_dir, image_names_3d)
+    use_gpu = torch.cuda.is_available()
+    gpu_string = "--use_gpu" if use_gpu else ""
     model_types = ["cyto"]
     chan = [2]
     chan2 = [1]
     for m, model_type in enumerate(model_types):
-        cmd = "python -m cellpose --dir %s --do_3D --pretrained_model %s --no_resample --cellprob_threshold 0 --chan %d --chan2 %d --diameter 25 --save_tif" % (
-            str(data_dir.joinpath("3D")), model_type, chan[m], chan2[m])
+        cmd = "python -m cellpose --image_path %s --do_3D --pretrained_model %s --no_resample --cellprob_threshold 0 --chan %d --chan2 %d --diameter 25 --save_tif %s" % (
+            str(data_dir / "3D" / image_names_3d[0]), model_type, chan[m], chan2[m], gpu_string)
         try:
             cmd_stdout = check_output(cmd, stderr=STDOUT, shell=True).decode()
         except Exception as e:
             print(e)
             raise ValueError(e)
-        compare_masks(data_dir, image_names, "3D", model_type)
-        clear_output(data_dir, image_names)
+        compare_masks(data_dir, image_names_3d[0], "3D")
+        clear_output(data_dir, image_names_3d)
 
 def test_outlines_list(data_dir, image_names):
     """ test both single and multithreaded by comparing them"""
@@ -126,8 +129,8 @@ def test_outlines_list(data_dir, image_names):
     file_name = str(data_dir.joinpath("2D").joinpath(image_name))
     img = io.imread(file_name)
 
-    model = models.Cellpose(model_type=model_type)
-    masks, _, _, _ = model.eval(img, diameter=30, channels=channels)
+    model = models.CellposeModel(model_type=model_type)
+    masks, _, _ = model.eval(img, diameter=30)
     outlines_single = utils.outlines_list(masks, multiprocessing=False)
     outlines_multi = utils.outlines_list(masks, multiprocessing=True)
 
