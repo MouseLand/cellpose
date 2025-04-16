@@ -10,7 +10,7 @@ import tifffile
 import logging
 import fastremap
 
-from ..io import imread, imsave, outlines_to_text, add_model, remove_model, save_rois
+from ..io import imread, imread_2D_to_3chan, imread_3D_to_3chan, imsave, outlines_to_text, add_model, remove_model, save_rois
 from ..models import normalize_default, MODEL_DIR, MODEL_LIST_PATH, get_user_models
 from ..utils import masks_to_outlines, outlines_list
 
@@ -124,7 +124,10 @@ def _load_image(parent, filename=None, load_seg=True, load_3D=False):
             load_mask = True if os.path.isfile(mask_file) else False
     try:
         print(f"GUI_INFO: loading image: {filename}")
-        image = imread(filename)
+        if not load_3D:
+            image = imread_2D_to_3chan(filename)
+        else:
+            image = imread_3D_to_3chan(filename)
         parent.loaded = True
     except Exception as e:
         print("ERROR: images not compatible")
@@ -355,9 +358,9 @@ def _load_seg(parent, filename=None, image=None, image_file=None, load_3D=False)
 
     _initialize_images(parent, image, load_3D=load_3D)
     print(parent.stack.shape)
-    if "chan_choose" in dat:
-        parent.ChannelChoose[0].setCurrentIndex(dat["chan_choose"][0])
-        parent.ChannelChoose[1].setCurrentIndex(dat["chan_choose"][1])
+    # if "chan_choose" in dat:
+    #     parent.ChannelChoose[0].setCurrentIndex(dat["chan_choose"][0])
+    #     parent.ChannelChoose[1].setCurrentIndex(dat["chan_choose"][1])
 
     if "outlines" in dat:
         if isinstance(dat["outlines"], list):
@@ -387,10 +390,10 @@ def _load_seg(parent, filename=None, image=None, image_file=None, load_3D=False)
             _masks_to_gui(parent, dat["masks"], outlines=dat["outlines"], colors=colors)
 
             parent.draw_layer()
-            if "est_diam" in dat:
-                parent.Diameter.setText("%0.1f" % dat["est_diam"])
-                parent.diameter = dat["est_diam"]
-                parent.compute_scale()
+            # if "est_diam" in dat:
+            #     parent.Diameter.setText("%0.1f" % dat["est_diam"])
+            #     parent.diameter = dat["est_diam"]
+            #     parent.compute_scale()
 
         if "manual_changes" in dat:
             parent.track_changes = dat["manual_changes"]

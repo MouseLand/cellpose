@@ -110,31 +110,31 @@ class DarkPalette(QtGui.QPalette):
         )
 
 
-def create_channel_choose():
-    # choose channel
-    ChannelChoose = [QComboBox(), QComboBox()]
-    ChannelLabels = []
-    ChannelChoose[0].addItems(["gray", "red", "green", "blue"])
-    ChannelChoose[1].addItems(["none", "red", "green", "blue"])
-    cstr = ["chan to segment:", "chan2 (optional): "]
-    for i in range(2):
-        ChannelLabels.append(QLabel(cstr[i]))
-        if i == 0:
-            ChannelLabels[i].setToolTip(
-                "this is the channel in which the cytoplasm or nuclei exist \
-            that you want to segment")
-            ChannelChoose[i].setToolTip(
-                "this is the channel in which the cytoplasm or nuclei exist \
-            that you want to segment")
-        else:
-            ChannelLabels[i].setToolTip(
-                "if <em>cytoplasm</em> model is chosen, and you also have a \
-            nuclear channel, then choose the nuclear channel for this option")
-            ChannelChoose[i].setToolTip(
-                "if <em>cytoplasm</em> model is chosen, and you also have a \
-            nuclear channel, then choose the nuclear channel for this option")
+# def create_channel_choose():
+#     # choose channel
+#     ChannelChoose = [QComboBox(), QComboBox()]
+#     ChannelLabels = []
+#     ChannelChoose[0].addItems(["gray", "red", "green", "blue"])
+#     ChannelChoose[1].addItems(["none", "red", "green", "blue"])
+#     cstr = ["chan to segment:", "chan2 (optional): "]
+#     for i in range(2):
+#         ChannelLabels.append(QLabel(cstr[i]))
+#         if i == 0:
+#             ChannelLabels[i].setToolTip(
+#                 "this is the channel in which the cytoplasm or nuclei exist \
+#             that you want to segment")
+#             ChannelChoose[i].setToolTip(
+#                 "this is the channel in which the cytoplasm or nuclei exist \
+#             that you want to segment")
+#         else:
+#             ChannelLabels[i].setToolTip(
+#                 "if <em>cytoplasm</em> model is chosen, and you also have a \
+#             nuclear channel, then choose the nuclear channel for this option")
+#             ChannelChoose[i].setToolTip(
+#                 "if <em>cytoplasm</em> model is chosen, and you also have a \
+#             nuclear channel, then choose the nuclear channel for this option")
 
-    return ChannelChoose, ChannelLabels
+#     return ChannelChoose, ChannelLabels
 
 
 class ModelButton(QPushButton):
@@ -211,14 +211,14 @@ class TrainWindow(QDialog):
         self.l0.addWidget(qlabel, yoff, 0, 1, 1)
 
         # choose channels
-        self.ChannelChoose, self.ChannelLabels = create_channel_choose()
-        for i in range(2):
-            yoff += 1
-            self.ChannelChoose[i].setFixedWidth(150)
-            self.ChannelChoose[i].setCurrentIndex(
-                parent.ChannelChoose[i].currentIndex())
-            self.l0.addWidget(self.ChannelLabels[i], yoff, 0, 1, 1)
-            self.l0.addWidget(self.ChannelChoose[i], yoff, 1, 1, 1)
+        # self.ChannelChoose, self.ChannelLabels = create_channel_choose()
+        # for i in range(2):
+        #     yoff += 1
+        #     self.ChannelChoose[i].setFixedWidth(150)
+        #     self.ChannelChoose[i].setCurrentIndex(
+        #         parent.ChannelChoose[i].currentIndex())
+        #     self.l0.addWidget(self.ChannelLabels[i], yoff, 0, 1, 1)
+        #     self.l0.addWidget(self.ChannelChoose[i], yoff, 1, 1, 1)
 
         # choose parameters
         labels = ["learning_rate", "weight_decay", "n_epochs", "model_name"]

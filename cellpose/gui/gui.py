@@ -486,60 +486,60 @@ class MainW(QMainWindow):
         self.l0.addWidget(self.segBox, b, 0, 1, 9)
         self.segBox.setFont(self.boldfont)
 
-        self.diameter = 30
-        label = QLabel("diameter (pixels):")
-        label.setFont(self.medfont)
-        label.setToolTip(
-            'you can manually enter the approximate diameter for your cells, \nor press “calibrate” to let the model estimate it. \nThe size is represented by a disk at the bottom of the view window \n(can turn this disk off by unchecking “scale disk on”)'
-        )
-        self.segBoxG.addWidget(label, b0, 0, 1, 4)
-        self.Diameter = QLineEdit()
-        self.Diameter.setToolTip(
-            'you can manually enter the approximate diameter for your cells, \nor press “calibrate” to let the "cyto3" model estimate it. \nThe size is represented by a disk at the bottom of the view window \n(can turn this disk off by unchecking “scale disk on”)'
-        )
-        self.Diameter.setText(str(self.diameter))
-        self.Diameter.setFont(self.medfont)
-        self.Diameter.returnPressed.connect(self.update_scale)
-        self.Diameter.setFixedWidth(50)
-        self.segBoxG.addWidget(self.Diameter, b0, 4, 1, 2)
+        # self.diameter = 30
+        # label = QLabel("diameter (pixels):")
+        # label.setFont(self.medfont)
+        # label.setToolTip(
+        #     'you can manually enter the approximate diameter for your cells, \nor press “calibrate” to let the model estimate it. \nThe size is represented by a disk at the bottom of the view window \n(can turn this disk off by unchecking “scale disk on”)'
+        # )
+        # self.segBoxG.addWidget(label, b0, 0, 1, 4)
+        # self.Diameter = QLineEdit()
+        # self.Diameter.setToolTip(
+        #     'you can manually enter the approximate diameter for your cells, \nor press “calibrate” to let the "cyto3" model estimate it. \nThe size is represented by a disk at the bottom of the view window \n(can turn this disk off by unchecking “scale disk on”)'
+        # )
+        # self.Diameter.setText(str(self.diameter))
+        # self.Diameter.setFont(self.medfont)
+        # self.Diameter.returnPressed.connect(self.update_scale)
+        # self.Diameter.setFixedWidth(50)
+        # self.segBoxG.addWidget(self.Diameter, b0, 4, 1, 2)
 
         # compute diameter
-        self.SizeButton = QPushButton("calibrate")
-        self.SizeButton.setFont(self.medfont)
-        self.SizeButton.clicked.connect(self.calibrate_size)
-        self.segBoxG.addWidget(self.SizeButton, b0, 6, 1, 3)
-        #self.SizeButton.setFixedWidth(65)
-        self.SizeButton.setEnabled(False)
-        self.SizeButton.setToolTip(
-            'you can manually enter the approximate diameter for your cells, \nor press “calibrate” to let the cyto3 model estimate it. \nThe size is represented by a disk at the bottom of the view window \n(can turn this disk off by unchecking “scale disk on”)'
-        )
+        # self.SizeButton = QPushButton("calibrate")
+        # self.SizeButton.setFont(self.medfont)
+        # # self.SizeButton.clicked.connect(self.calibrate_size)
+        # self.segBoxG.addWidget(self.SizeButton, b0, 6, 1, 3)
+        # #self.SizeButton.setFixedWidth(65)
+        # self.SizeButton.setEnabled(False)
+        # self.SizeButton.setToolTip(
+        #     'you can manually enter the approximate diameter for your cells, \nor press “calibrate” to let the cyto3 model estimate it. \nThe size is represented by a disk at the bottom of the view window \n(can turn this disk off by unchecking “scale disk on”)'
+        # )
 
         b0 += 1
         # choose channel
-        self.ChannelChoose = [QComboBox(), QComboBox()]
-        self.ChannelChoose[0].addItems(["0: gray", "1: red", "2: green", "3: blue"])
-        self.ChannelChoose[1].addItems(["0: none", "1: red", "2: green", "3: blue"])
-        cstr = ["chan to segment:", "chan2 (optional): "]
-        for i in range(2):
-            self.ChannelChoose[i].setFont(self.medfont)
-            label = QLabel(cstr[i])
-            label.setFont(self.medfont)
-            if i == 0:
-                label.setToolTip(
-                    "this is the channel in which the cytoplasm or nuclei exist that you want to segment"
-                )
-                self.ChannelChoose[i].setToolTip(
-                    "this is the channel in which the cytoplasm or nuclei exist that you want to segment"
-                )
-            else:
-                label.setToolTip(
-                    "if <em>cytoplasm</em> model is chosen, and you also have a nuclear channel, then choose the nuclear channel for this option"
-                )
-                self.ChannelChoose[i].setToolTip(
-                    "if <em>cytoplasm</em> model is chosen, and you also have a nuclear channel, then choose the nuclear channel for this option"
-                )
-            self.segBoxG.addWidget(label, b0 + i, 0, 1, 4)
-            self.segBoxG.addWidget(self.ChannelChoose[i], b0 + i, 4, 1, 5)
+        # self.ChannelChoose = [QComboBox(), QComboBox()]
+        # self.ChannelChoose[0].addItems(["0: gray", "1: red", "2: green", "3: blue"])
+        # self.ChannelChoose[1].addItems(["0: none", "1: red", "2: green", "3: blue"])
+        # cstr = ["chan to segment:", "chan2 (optional): "]
+        # for i in range(2):
+        #     self.ChannelChoose[i].setFont(self.medfont)
+        #     label = QLabel(cstr[i])
+        #     label.setFont(self.medfont)
+        #     if i == 0:
+        #         label.setToolTip(
+        #             "this is the channel in which the cytoplasm or nuclei exist that you want to segment"
+        #         )
+        #         self.ChannelChoose[i].setToolTip(
+        #             "this is the channel in which the cytoplasm or nuclei exist that you want to segment"
+        #         )
+        #     else:
+        #         label.setToolTip(
+        #             "if <em>cytoplasm</em> model is chosen, and you also have a nuclear channel, then choose the nuclear channel for this option"
+        #         )
+        #         self.ChannelChoose[i].setToolTip(
+        #             "if <em>cytoplasm</em> model is chosen, and you also have a nuclear channel, then choose the nuclear channel for this option"
+        #         )
+        #     self.segBoxG.addWidget(label, b0 + i, 0, 1, 4)
+        #     self.segBoxG.addWidget(self.ChannelChoose[i], b0 + i, 4, 1, 5)
 
         b0 += 2
 
@@ -553,7 +553,7 @@ class MainW(QMainWindow):
         self.segBoxG.addWidget(self.useGPU, b0, 0, 1, 3)
 
         # compute segmentation with general models
-        self.net_text = ["run cyto3"]
+        self.net_text = ["run CPSAM"]
         nett = ["cellpose super-generalist model"]
 
         #label = QLabel("Run:")
@@ -851,7 +851,7 @@ class MainW(QMainWindow):
         self.ScaleOn.setFont(self.medfont)
         self.ScaleOn.setStyleSheet("color: rgb(150,50,150);")
         self.ScaleOn.setChecked(True)
-        self.ScaleOn.setToolTip("see current diameter as red disk at bottom")
+        # self.ScaleOn.setToolTip("see current diameter as red disk at bottom")
         self.ScaleOn.toggled.connect(self.toggle_scale)
         self.l0.addWidget(self.ScaleOn, b, 0, 1, 5)
 
@@ -957,30 +957,31 @@ class MainW(QMainWindow):
             self.useGPU.setStyleSheet("color: rgb(80,80,80);")
 
     def get_channels(self):
-        channels = [
-            self.ChannelChoose[0].currentIndex(), self.ChannelChoose[1].currentIndex()
-        ]
-        if hasattr(self, "current_model"):
-            if self.current_model == "nuclei":
-                channels[1] = 0
-        if channels[0] == 0:
-            channels[1] = 0
-        if self.nchan == 1:
-            channels = [0, 0]
-        elif self.nchan == 2:
-            if channels[0] == 3:
-                channels[0] = 1 if channels[1] != 1 else 2
-                print(
-                    f"GUI_WARNING: only two channels in image, cannot use blue channel, changing channels"
-                )
-            if channels[1] == 3:
-                channels[1] = 1 if channels[0] != 1 else 2
-                print(
-                    f"GUI_WARNING: only two channels in image, cannot use blue channel, changing channels"
-                )
-        self.ChannelChoose[0].setCurrentIndex(channels[0])
-        self.ChannelChoose[1].setCurrentIndex(channels[1])
-        return channels
+        # channels = [
+        #     self.ChannelChoose[0].currentIndex(), self.ChannelChoose[1].currentIndex()
+        # ]
+        # if hasattr(self, "current_model"):
+        #     if self.current_model == "nuclei":
+        #         channels[1] = 0
+        # if channels[0] == 0:
+        #     channels[1] = 0
+        # if self.nchan == 1:
+        #     channels = [0, 0]
+        # elif self.nchan == 2:
+        #     if channels[0] == 3:
+        #         channels[0] = 1 if channels[1] != 1 else 2
+        #         print(
+        #             f"GUI_WARNING: only two channels in image, cannot use blue channel, changing channels"
+        #         )
+        #     if channels[1] == 3:
+        #         channels[1] = 1 if channels[0] != 1 else 2
+        #         print(
+        #             f"GUI_WARNING: only two channels in image, cannot use blue channel, changing channels"
+        #         )
+        # self.ChannelChoose[0].setCurrentIndex(channels[0])
+        # self.ChannelChoose[1].setCurrentIndex(channels[1])
+        # return channels
+        pass
 
     def model_choose(self, custom=False):
         index = self.ModelChooseC.currentIndex(
@@ -992,23 +993,23 @@ class MainW(QMainWindow):
                 model_name = self.net_names[index - 1]
             print(f"GUI_INFO: selected model {model_name}, loading now")
             self.initialize_model(model_name=model_name, custom=custom)
-            self.diameter = self.model.diam_labels
-            self.Diameter.setText("%0.2f" % self.diameter)
-            print(
-                f"GUI_INFO: diameter set to {self.diameter: 0.2f} (but can be changed)")
+            # self.diameter = self.model.diam_labels
+            # self.Diameter.setText("%0.2f" % self.diameter)
+            # print(
+            #     f"GUI_INFO: diameter set to {self.diameter: 0.2f} (but can be changed)")
 
-    def calibrate_size(self):
-        self.initialize_model(model_name="cyto3")
-        diams, _ = self.model.sz.eval(self.stack[self.currentZ].copy(),
-                                      channels=self.get_channels(),
-                                      progress=self.progress)
-        diams = np.maximum(5.0, diams)
-        self.logger.info("estimated diameter of cells using %s model = %0.1f pixels" %
-                         (self.current_model, diams))
-        self.Diameter.setText("%0.1f" % diams)
-        self.diameter = diams
-        self.update_scale()
-        self.progress.setValue(100)
+    # def calibrate_size(self):
+    #     self.initialize_model(model_name="cyto3")
+    #     diams, _ = self.model.sz.eval(self.stack[self.currentZ].copy(),
+    #                                   channels=self.get_channels(),
+    #                                   progress=self.progress)
+    #     diams = np.maximum(5.0, diams)
+    #     self.logger.info("estimated diameter of cells using %s model = %0.1f pixels" %
+    #                      (self.current_model, diams))
+    #     self.Diameter.setText("%0.1f" % diams)
+    #     self.diameter = diams
+    #     self.update_scale()
+    #     self.progress.setValue(100)
 
     def toggle_scale(self):
         if self.scale_on:
@@ -1028,7 +1029,7 @@ class MainW(QMainWindow):
         if self.load_3D:
             self.DenoiseButtons[-2].setEnabled(False)
         self.ModelButtonB.setEnabled(True)
-        self.SizeButton.setEnabled(True)
+        # self.SizeButton.setEnabled(True)
         self.newmodel.setEnabled(True)
         self.loadMasks.setEnabled(True)
 
@@ -1048,7 +1049,7 @@ class MainW(QMainWindow):
         for i in range(len(self.StyleButtons)):
             self.StyleButtons[i].setEnabled(False)
         self.ModelButtonB.setEnabled(False)
-        self.SizeButton.setEnabled(False)
+        # self.SizeButton.setEnabled(False)
         self.newmodel.setEnabled(False)
         self.loadMasks.setEnabled(False)
         self.saveSet.setEnabled(False)
@@ -1208,7 +1209,7 @@ class MainW(QMainWindow):
         # -- zero out image stack -- #
         self.opacity = 128  # how opaque masks should be
         self.outcolor = [200, 200, 255, 200]
-        self.NZ, self.Ly, self.Lx = 1, 224, 224
+        self.NZ, self.Ly, self.Lx = 1, 256, 256
         self.saturation = []
         for r in range(3):
             self.saturation.append([[0, 255] for n in range(self.NZ)])
@@ -1814,19 +1815,20 @@ class MainW(QMainWindow):
                 self.layerz[vr, vc] = np.array(self.outcolor)
 
     def compute_scale(self):
-        self.diameter = float(self.Diameter.text())
-        self.pr = int(float(self.Diameter.text()))
-        self.radii_padding = int(self.pr * 1.25)
-        self.radii = np.zeros((self.Ly + self.radii_padding, self.Lx, 4), np.uint8)
-        yy, xx = disk([self.Ly + self.radii_padding / 2 - 1, self.pr / 2 + 1],
-                      self.pr / 2, self.Ly + self.radii_padding, self.Lx)
+        # self.diameter = float(self.Diameter.text())
+        # self.pr = int(float(self.Diameter.text()))
+        # self.radii_padding = int(self.pr * 1.25)
+        # self.radii = np.zeros((self.Ly + self.radii_padding, self.Lx, 4), np.uint8)
+        # yy, xx = disk([self.Ly + self.radii_padding / 2 - 1, self.pr / 2 + 1],
+        #               self.pr / 2, self.Ly + self.radii_padding, self.Lx)
         # rgb(150,50,150)
-        self.radii[yy, xx, 0] = 150
-        self.radii[yy, xx, 1] = 50
-        self.radii[yy, xx, 2] = 150
-        self.radii[yy, xx, 3] = 255
-        self.p0.setYRange(0, self.Ly + self.radii_padding)
-        self.p0.setXRange(0, self.Lx)
+        # self.radii[yy, xx, 0] = 150
+        # self.radii[yy, xx, 1] = 50
+        # self.radii[yy, xx, 2] = 150
+        # self.radii[yy, xx, 3] = 255
+        # self.p0.setYRange(0, self.Ly + self.radii_padding)
+        # self.p0.setXRange(0, self.Lx)
+        pass
 
     def update_scale(self):
         self.compute_scale()
@@ -1985,7 +1987,7 @@ class MainW(QMainWindow):
         tile_norm = norm["tile_norm_blocksize"]
 
         # if grayscale, use gray img
-        channels = self.get_channels()
+        channels = [2]
         if channels[0] == 0:
             img_norm = self.stack.mean(axis=-1, keepdims=True)
         elif sharpen > 0 or smooth > 0 or tile_norm > 0:
@@ -2079,17 +2081,17 @@ class MainW(QMainWindow):
         self.autobtn.setChecked(True)
         self.update_plot()
 
-    def chanchoose(self, image):
-        if image.ndim > 2 and self.nchan > 1:
-            if self.ChannelChoose[0].currentIndex() == 0:
-                return image.mean(axis=-1, keepdims=True)
-            else:
-                chanid = [self.ChannelChoose[0].currentIndex() - 1]
-                if self.ChannelChoose[1].currentIndex() > 0:
-                    chanid.append(self.ChannelChoose[1].currentIndex() - 1)
-                return image[:, :, chanid]
-        else:
-            return image
+    # def chanchoose(self, image):
+    #     if image.ndim > 2 and self.nchan > 1:
+    #         if self.ChannelChoose[0].currentIndex() == 0:
+    #             return image.mean(axis=-1, keepdims=True)
+    #         else:
+    #             chanid = [self.ChannelChoose[0].currentIndex() - 1]
+    #             if self.ChannelChoose[1].currentIndex() > 0:
+    #                 chanid.append(self.ChannelChoose[1].currentIndex() - 1)
+    #             return image[:, :, chanid]
+    #     else:
+    #         return image
 
     def get_model_path(self, custom=False):
         if custom:
@@ -2175,7 +2177,7 @@ class MainW(QMainWindow):
 
         self.model = models.CellposeModel(gpu=self.useGPU.isChecked(),
                                           model_type=model_type)
-        self.SizeButton.setEnabled(False)
+        # self.SizeButton.setEnabled(False)
         save_path = os.path.dirname(self.filename)
 
         print("GUI_INFO: name of new model: " + self.training_params["model_name"])
@@ -2201,9 +2203,9 @@ class MainW(QMainWindow):
         # keep same channels
         self.ChannelChoose[0].setCurrentIndex(channels[0])
         self.ChannelChoose[1].setCurrentIndex(channels[1])
-        self.diameter = diam_labels
-        self.Diameter.setText("%0.2f" % self.diameter)
-        self.logger.info(f">>>> diameter set to diam_labels ( = {diam_labels: 0.3f} )")
+        # self.diameter = diam_labels
+        # self.Diameter.setText("%0.2f" % self.diameter)
+        # self.logger.info(f">>>> diameter set to diam_labels ( = {diam_labels: 0.3f} )")
         self.restore = restore
         self.set_normalize_params(normalize_params)
         self.get_next_image(load_seg=False)
@@ -2229,7 +2231,7 @@ class MainW(QMainWindow):
                     i = self.DenoiseChoose.currentIndex()
                     diam_up = 30. if i==0 or i==1 else 17.
                     print(diam_up, self.ratio)
-                    self.Diameter.setText(str(diam_up / self.ratio))
+                    # self.Diameter.setText(str(diam_up / self.ratio))
                 self.compute_denoise_model(model_type=model_type)
             else:
                 self.compute_saturation()
@@ -2287,34 +2289,34 @@ class MainW(QMainWindow):
             self.denoise_model = denoise.DenoiseModel(gpu=self.useGPU.isChecked(),
                                                       model_type=model_name)
             self.progress.setValue(10)
-            diam_up = 30. if "cyto" in model_name else 17.
+            # diam_up = 30. if "cyto" in model_name else 17.
 
             # params
-            channels = self.get_channels()
-            self.diameter = float(self.Diameter.text())
+            # channels = self.get_channels()
+            # self.diameter = float(self.Diameter.text())
             normalize_params = self.get_normalize_params()
-            print("GUI_INFO: channels: ", channels)
+            # print("GUI_INFO: channels: ", channels)
             print("GUI_INFO: normalize_params: ", normalize_params)
-            print("GUI_INFO: diameter (before upsampling): ", self.diameter)
+            # print("GUI_INFO: diameter (before upsampling): ", self.diameter)
 
             data = self.stack.copy()
             print(data.shape)
             self.Ly, self.Lx = data.shape[-3:-1]
             if "upsample" in model_name:
                 # get upsampling factor
-                if self.diameter >= diam_up:
-                    print(
-                        f"GUI_ERROR: cannot upsample, already set to pixel diameter >= {diam_up}"
-                    )
-                    self.progress.setValue(0)
-                    return
-                self.ratio = diam_up / self.diameter
+                # if self.diameter >= diam_up:
+                #     print(
+                #         f"GUI_ERROR: cannot upsample, already set to pixel diameter >= {diam_up}"
+                #     )
+                #     self.progress.setValue(0)
+                #     return
+                # self.ratio = diam_up / self.diameter
                 print(
                     "GUI_WARNING: upsampling image, this will also duplicate mask layer and resize it, will use more RAM"
                 )
-                print(
-                    f"GUI_INFO: upsampling image to {diam_up} pixel diameter ({self.ratio:0.2f} times)"
-                )
+                # print(
+                #     f"GUI_INFO: upsampling image to {diam_up} pixel diameter ({self.ratio:0.2f} times)"
+                # )
                 self.Lyr, self.Lxr = int(self.Ly * self.ratio), int(self.Lx *
                                                                     self.ratio)
                 self.Ly0, self.Lx0 = self.Ly, self.Lx
@@ -2325,14 +2327,15 @@ class MainW(QMainWindow):
             else:
                 self.Lyr, self.Lxr = self.Ly, self.Lx
                 self.Ly0, self.Lx0 = self.Ly, self.Lx
-                diam_up = self.diameter
+                # diam_up = self.diameter
 
             img_norm = self.denoise_model.eval(data, channels=channels, z_axis=0,
-                                               channel_axis=3, diameter=self.diameter,
+                                               channel_axis=3, 
+                                            #    diameter=self.diameter,
                                                normalize=normalize_params)
             print(img_norm.shape)
-            self.diameter = diam_up
-            self.Diameter.setText(str(diam_up))
+            # self.diameter = diam_up
+            # self.Diameter.setText(str(diam_up))
 
             if img_norm.ndim == 2:
                 img_norm = img_norm[:, :, np.newaxis]
@@ -2430,20 +2433,27 @@ class MainW(QMainWindow):
             
             do_3D = False if stitch_threshold > 0. else do_3D
 
-            channels = self.get_channels()
+            # channels = self.get_channels()
             if self.restore is not None and self.restore != "filter":
                 data = self.stack_filtered.copy().squeeze()
             else:
                 data = self.stack.copy().squeeze()
             flow_threshold, cellprob_threshold = self.get_thresholds()
-            self.diameter = float(self.Diameter.text())
+            # self.diameter = float(self.Diameter.text())
+            if data.ndim == 2:
+                data_new = np.zeros((data.shape[0], data.shape[1], 3), dtype=data.dtype)
+                data_new[..., 0] = data
+                data = data_new
+
             niter = max(0, int(self.niter.text()))
             niter = None if niter == 0 else niter
             normalize_params = self.get_normalize_params()
             print(normalize_params)
             try:
                 masks, flows = self.model.eval(
-                    data, channels=channels, diameter=self.diameter,
+                    data, 
+                    # channels=channels, 
+                    # diameter=self.diameter,
                     cellprob_threshold=cellprob_threshold,
                     flow_threshold=flow_threshold, do_3D=do_3D, niter=niter,
                     normalize=normalize_params, stitch_threshold=stitch_threshold,
