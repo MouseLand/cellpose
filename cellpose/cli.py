@@ -188,8 +188,7 @@ def get_arg_parser():
     training_args.add_argument("--train", action="store_true",
                                help="train network using images in dir")
     training_args.add_argument("--train_size", action="store_true", 
-                               deprecated=True,
-                               help="train size network at end of training")
+                               help="train size network at end of training") # TODO: remove/mark deprecated
     training_args.add_argument("--test_dir", default=[], type=str,
                                help="folder containing test data (optional)")
     training_args.add_argument(
@@ -203,8 +202,7 @@ def get_arg_parser():
     training_args.add_argument(
         "--diam_mean", default=30., type=float, help=
         "mean diameter to resize cells to during training -- if starting from pretrained models it cannot be changed from 30.0",
-        deprecated=True
-    )
+    ) # TODO: remove/mark deprecated
 
     training_args.add_argument("--learning_rate", default=0.2, type=float,
                                help="learning rate. Default: %(default)s")

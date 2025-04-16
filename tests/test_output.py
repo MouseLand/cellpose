@@ -39,7 +39,7 @@ def test_class_2D(data_dir, image_names):
         img_file = data_dir / '2D' / image_name
 
         img = io.imread_2D_to_3chan(img_file)
-        flowps = io.imread(img_file.parent / (img_file.stem + "_flowp.tif"))
+        flowps = io.imread(img_file.parent / (img_file.stem + "_flowps.tif"))
         use_gpu = torch.cuda.is_available()
 
         model = models.CellposeModel(gpu=use_gpu, nchan=3)
