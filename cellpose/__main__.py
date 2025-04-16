@@ -25,6 +25,33 @@ except Exception as err:
 
 import logging
 
+# Example refactor:
+# def main():
+#     """Run Cellpose from the command line."""
+#     args = parse_arguments()
+
+#     if args.version:
+#         print(version_str)
+#         return
+
+#     if len(args.dir) == 0 and len(args.image_path) == 0:
+#         if args.add_model:
+#             io.add_model(args.add_model)
+#         elif GUI_ENABLED:
+#             run_gui(args)
+#         else:
+#             print("GUI ERROR:", GUI_ERROR)
+#             print("To install GUI dependencies, run: pip install 'cellpose[gui]'")
+#     else:
+#         logger = logger_setup() if args.verbose else logging.getLogger(__name__)
+#         model = initialize_model(args, logger)
+
+#         if args.train or args.train_size:
+#             train_model(args, model, logger)
+#         else:
+#             process_images(args, model, logger)
+
+
 
 # settings re-grouped a bit
 def main():
@@ -144,7 +171,7 @@ def main():
 
             if args.savedir:
                 if not os.path.exists(args.savedir):
-                    raise FileExistsError("--savedir {args.savedir} does not exist")
+                    raise FileExistsError(f"--savedir {args.savedir} does not exist")
 
             cstr0 = ["GRAY", "RED", "GREEN", "BLUE"]
             cstr1 = ["NONE", "RED", "GREEN", "BLUE"]
@@ -213,15 +240,20 @@ def main():
                     image, 
                     # diameter=diameter, 
                     do_3D=args.do_3D,
-                    augment=args.augment, resample=(not args.no_resample),
+                    augment=args.augment, 
+                    resample=(not args.no_resample),
                     flow_threshold=args.flow_threshold,
                     cellprob_threshold=args.cellprob_threshold,
-                    stitch_threshold=args.stitch_threshold, min_size=args.min_size,
-                    invert=args.invert, batch_size=args.batch_size,
+                    stitch_threshold=args.stitch_threshold, 
+                    min_size=args.min_size,
+                    invert=args.invert, 
+                    batch_size=args.batch_size,
                     bsize=args.bsize,
                     normalize=normalize,
-                    channel_axis=args.channel_axis, z_axis=args.z_axis,
-                    anisotropy=args.anisotropy, niter=args.niter,
+                    channel_axis=args.channel_axis, 
+                    z_axis=args.z_axis,
+                    anisotropy=args.anisotropy, 
+                    niter=args.niter,
                     flow3D_smooth=args.flow3D_smooth)
                 masks, flows = out[:2]
                 # if len(out) > 3 and restore_type is None:

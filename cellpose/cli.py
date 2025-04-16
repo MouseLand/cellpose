@@ -59,8 +59,8 @@ def get_arg_parser():
     input_img_args.add_argument("--invert", action="store_true",
                                 help="invert grayscale channel")
     input_img_args.add_argument(
-        "--all_channels", action="store_true", help=
-        "use all channels in image if using own model and images with special channels")
+        "--all_channels", action="store_true", 
+        help="use all channels in image if using own model and images with special channels")
 
     # model settings
     model_args = parser.add_argument_group("Model Arguments")
@@ -93,10 +93,10 @@ def get_arg_parser():
     algorithm_args.add_argument("--no_norm", action="store_true",
                                 help="do not normalize images (normalize=False)")
     parser.add_argument(
-    '--norm_percentile',
-    nargs=2,  # Require exactly two values
-    metavar=('VALUE1', 'VALUE2'),
-    help="Provide two float values to set norm_percentile (e.g., --norm_percentile 1 99)"
+        '--norm_percentile',
+        nargs=2,  # Require exactly two values
+        metavar=('VALUE1', 'VALUE2'),
+        help="Provide two float values to set norm_percentile (e.g., --norm_percentile 1 99)"
     )
     algorithm_args.add_argument(
         "--do_3D", action="store_true",
@@ -107,7 +107,7 @@ def get_arg_parser():
     # )
     algorithm_args.add_argument(
         "--diameter", required=False, default=None, type=float, help=
-        "Deprecated in v4.0.0. Value not used."
+        "use to resize cells to the training diameter (30 pixels)"
     )
     algorithm_args.add_argument(
         "--stitch_threshold", required=False, default=0.0, type=float,
@@ -187,7 +187,8 @@ def get_arg_parser():
     training_args = parser.add_argument_group("Training Arguments")
     training_args.add_argument("--train", action="store_true",
                                help="train network using images in dir")
-    training_args.add_argument("--train_size", action="store_true",
+    training_args.add_argument("--train_size", action="store_true", 
+                               deprecated=True,
                                help="train size network at end of training")
     training_args.add_argument("--test_dir", default=[], type=str,
                                help="folder containing test data (optional)")
@@ -199,14 +200,11 @@ def get_arg_parser():
         "--mask_filter", default="_masks", type=str, help=
         "end string for masks to run on. use '_seg.npy' for manual annotations from the GUI. Default: %(default)s"
     )
-    # training_args.add_argument(
-    #     "--diam_mean", default=30., type=float, help=
-    #     "mean diameter to resize cells to during training -- if starting from pretrained models it cannot be changed from 30.0"
-    # )
     training_args.add_argument(
-        "--diam_mean", default=None, type=float, help=
-        "Deprecated in v4.0.0. Value not used."
-        )
+        "--diam_mean", default=30., type=float, help=
+        "mean diameter to resize cells to during training -- if starting from pretrained models it cannot be changed from 30.0",
+        deprecated=True
+    )
 
     training_args.add_argument("--learning_rate", default=0.2, type=float,
                                help="learning rate. Default: %(default)s")
