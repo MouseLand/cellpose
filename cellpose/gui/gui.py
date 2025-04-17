@@ -336,7 +336,7 @@ class MainW(QMainWindow):
         self.satBox.setLayout(self.satBoxG)
         self.l0.addWidget(self.satBox, b, 0, 1, 9)
 
-        b0 = 0
+        widget_row = 0
         self.view = 0  # 0=image, 1=flowsXY, 2=flowsZ, 3=cellprob
         self.color = 0  # 0=RGB, 1=gray, 2=R, 3=G, 4=B
         self.RGBDropDown = QComboBox()
@@ -344,54 +344,54 @@ class MainW(QMainWindow):
             ["RGB", "red=R", "green=G", "blue=B", "gray", "spectral"])
         self.RGBDropDown.setFont(self.medfont)
         self.RGBDropDown.currentIndexChanged.connect(self.color_choose)
-        self.satBoxG.addWidget(self.RGBDropDown, b0, 0, 1, 3)
+        self.satBoxG.addWidget(self.RGBDropDown, widget_row, 0, 1, 3)
 
         label = QLabel("<p>[&uarr; / &darr; or W/S]</p>")
         label.setFont(self.smallfont)
-        self.satBoxG.addWidget(label, b0, 3, 1, 3)
+        self.satBoxG.addWidget(label, widget_row, 3, 1, 3)
         label = QLabel("[R / G / B \n toggles color ]")
         label.setFont(self.smallfont)
-        self.satBoxG.addWidget(label, b0, 6, 1, 3)
+        self.satBoxG.addWidget(label, widget_row, 6, 1, 3)
 
-        b0 += 1
+        widget_row += 1
         self.ViewDropDown = QComboBox()
         self.ViewDropDown.addItems(["image", "gradXY", "cellprob", "restored"])
         self.ViewDropDown.setFont(self.medfont)
         self.ViewDropDown.model().item(3).setEnabled(False)
         self.ViewDropDown.currentIndexChanged.connect(self.update_plot)
-        self.satBoxG.addWidget(self.ViewDropDown, b0, 0, 2, 3)
+        self.satBoxG.addWidget(self.ViewDropDown, widget_row, 0, 2, 3)
 
         label = QLabel("[pageup / pagedown]")
         label.setFont(self.smallfont)
-        self.satBoxG.addWidget(label, b0, 3, 1, 5)
+        self.satBoxG.addWidget(label, widget_row, 3, 1, 5)
 
-        b0 += 2
+        widget_row += 2
         label = QLabel("")
         label.setToolTip(
             "NOTE: manually changing the saturation bars does not affect normalization in segmentation"
         )
-        self.satBoxG.addWidget(label, b0, 0, 1, 5)
+        self.satBoxG.addWidget(label, widget_row, 0, 1, 5)
 
         self.autobtn = QCheckBox("auto-adjust saturation")
         self.autobtn.setToolTip("sets scale-bars as normalized for segmentation")
         self.autobtn.setFont(self.medfont)
         self.autobtn.setChecked(True)
-        self.satBoxG.addWidget(self.autobtn, b0, 1, 1, 8)
+        self.satBoxG.addWidget(self.autobtn, widget_row, 1, 1, 8)
 
-        b0 += 1
+        widget_row += 1
         self.sliders = []
         colors = [[255, 0, 0], [0, 255, 0], [0, 0, 255], [100, 100, 100]]
         colornames = ["red", "Chartreuse", "DodgerBlue"]
         names = ["red", "green", "blue"]
         for r in range(3):
-            b0 += 1
+            widget_row += 1
             if r == 0:
                 label = QLabel('<font color="gray">gray/</font><br>red')
             else:
                 label = QLabel(names[r] + ":")
             label.setStyleSheet(f"color: {colornames[r]}")
             label.setFont(self.boldmedfont)
-            self.satBoxG.addWidget(label, b0, 0, 1, 2)
+            self.satBoxG.addWidget(label, widget_row, 0, 1, 2)
             self.sliders.append(Slider(self, names[r], colors[r]))
             self.sliders[-1].setMinimum(-.1)
             self.sliders[-1].setMaximum(255.1)
@@ -400,7 +400,7 @@ class MainW(QMainWindow):
                 "NOTE: manually changing the saturation bars does not affect normalization in segmentation"
             )
             #self.sliders[-1].setTickPosition(QSlider.TicksRight)
-            self.satBoxG.addWidget(self.sliders[-1], b0, 2, 1, 7)
+            self.satBoxG.addWidget(self.sliders[-1], widget_row, 2, 1, 7)
 
         b += 1
         self.drawBox = QGroupBox("Drawing")
@@ -410,19 +410,19 @@ class MainW(QMainWindow):
         self.l0.addWidget(self.drawBox, b, 0, 1, 9)
         self.autosave = True
 
-        b0 = 0
+        widget_row = 0
         self.brush_size = 3
         self.BrushChoose = QComboBox()
         self.BrushChoose.addItems(["1", "3", "5", "7", "9"])
         self.BrushChoose.currentIndexChanged.connect(self.brush_choose)
         self.BrushChoose.setFixedWidth(40)
         self.BrushChoose.setFont(self.medfont)
-        self.drawBoxG.addWidget(self.BrushChoose, b0, 3, 1, 2)
+        self.drawBoxG.addWidget(self.BrushChoose, widget_row, 3, 1, 2)
         label = QLabel("brush size:")
         label.setFont(self.medfont)
-        self.drawBoxG.addWidget(label, b0, 0, 1, 3)
+        self.drawBoxG.addWidget(label, widget_row, 0, 1, 3)
 
-        b0 += 1
+        widget_row += 1
         # turn off masks
         self.layer_off = False
         self.masksOn = True
@@ -430,24 +430,24 @@ class MainW(QMainWindow):
         self.MCheckBox.setFont(self.medfont)
         self.MCheckBox.setChecked(True)
         self.MCheckBox.toggled.connect(self.toggle_masks)
-        self.drawBoxG.addWidget(self.MCheckBox, b0, 0, 1, 5)
+        self.drawBoxG.addWidget(self.MCheckBox, widget_row, 0, 1, 5)
 
-        b0 += 1
+        widget_row += 1
         # turn off outlines
         self.outlinesOn = False  # turn off by default
         self.OCheckBox = QCheckBox("outlines on [Z]")
         self.OCheckBox.setFont(self.medfont)
-        self.drawBoxG.addWidget(self.OCheckBox, b0, 0, 1, 5)
+        self.drawBoxG.addWidget(self.OCheckBox, widget_row, 0, 1, 5)
         self.OCheckBox.setChecked(False)
         self.OCheckBox.toggled.connect(self.toggle_masks)
 
-        b0 += 1
+        widget_row += 1
         self.SCheckBox = QCheckBox("single stroke")
         self.SCheckBox.setFont(self.medfont)
         self.SCheckBox.setChecked(True)
         self.SCheckBox.toggled.connect(self.autosave_on)
         self.SCheckBox.setEnabled(True)
-        self.drawBoxG.addWidget(self.SCheckBox, b0, 0, 1, 5)
+        self.drawBoxG.addWidget(self.SCheckBox, widget_row, 0, 1, 5)
 
         # buttons for deleting multiple cells
         self.deleteBox = QGroupBox("delete multiple ROIs")
@@ -479,7 +479,7 @@ class MainW(QMainWindow):
         self.CancelDeleteMultipleROIButton.setFixedWidth(35)
 
         b += 1
-        b0 = 0
+        widget_row = 0
         self.segBox = QGroupBox("Segmentation")
         self.segBoxG = QGridLayout()
         self.segBox.setLayout(self.segBoxG)
@@ -514,7 +514,7 @@ class MainW(QMainWindow):
         #     'you can manually enter the approximate diameter for your cells, \nor press “calibrate” to let the cyto3 model estimate it. \nThe size is represented by a disk at the bottom of the view window \n(can turn this disk off by unchecking “scale disk on”)'
         # )
 
-        b0 += 1
+        widget_row += 1
         # choose channel
         # self.ChannelChoose = [QComboBox(), QComboBox()]
         # self.ChannelChoose[0].addItems(["0: gray", "1: red", "2: green", "3: blue"])
@@ -541,7 +541,7 @@ class MainW(QMainWindow):
         #     self.segBoxG.addWidget(label, b0 + i, 0, 1, 4)
         #     self.segBoxG.addWidget(self.ChannelChoose[i], b0 + i, 4, 1, 5)
 
-        b0 += 2
+        widget_row += 2
 
         # use GPU
         self.useGPU = QCheckBox("use GPU")
@@ -550,7 +550,7 @@ class MainW(QMainWindow):
         )
         self.useGPU.setFont(self.medfont)
         self.check_gpu()
-        self.segBoxG.addWidget(self.useGPU, b0, 0, 1, 3)
+        self.segBoxG.addWidget(self.useGPU, widget_row, 0, 1, 3)
 
         # compute segmentation with general models
         self.net_text = ["run CPSAM"]
@@ -566,21 +566,21 @@ class MainW(QMainWindow):
             self.StyleButtons.append(
                 guiparts.ModelButton(self, self.net_text[j], self.net_text[j]))
             w = 5
-            self.segBoxG.addWidget(self.StyleButtons[-1], b0, jj, 1, w)
+            self.segBoxG.addWidget(self.StyleButtons[-1], widget_row, jj, 1, w)
             jj += w
             #self.StyleButtons[-1].setFixedWidth(140)
             self.StyleButtons[-1].setToolTip(nett[j])
 
-        b0 += 1
+        widget_row += 1
         self.roi_count = QLabel("0 ROIs")
         self.roi_count.setFont(self.boldfont)
         self.roi_count.setAlignment(QtCore.Qt.AlignLeft)
-        self.segBoxG.addWidget(self.roi_count, b0, 0, 1, 4)
+        self.segBoxG.addWidget(self.roi_count, widget_row, 0, 1, 4)
 
         self.progress = QProgressBar(self)
-        self.segBoxG.addWidget(self.progress, b0, 4, 1, 5)
+        self.segBoxG.addWidget(self.progress, widget_row, 4, 1, 5)
 
-        b0 += 1
+        widget_row += 1
         self.segaBox = QCollapsible("additional settings")
         self.segaBox.setFont(self.medfont)
         self.segaBox._toggle_btn.setFont(self.medfont)
@@ -591,22 +591,35 @@ class MainW(QMainWindow):
         _content.setMinimumHeight(0)
         #_content.layout().setContentsMargins(QtCore.QMargins(0, -20, -20, -20))
         self.segaBox.setContent(_content)
-        self.segBoxG.addWidget(self.segaBox, b0, 0, 1, 9)
+        self.segBoxG.addWidget(self.segaBox, widget_row, 0, 1, 9)
 
-        b0 = 0
+        widget_row = 0
         # post-hoc paramater tuning
+        diam_qlabel = QLabel("diameter:")
+        diam_qlabel.setToolTip("diameter of cells in pixels. If not 30, image will be resized to this")
+        diam_qlabel.setFont(self.medfont)
+        self.segaBoxG.addWidget(diam_qlabel, widget_row, 0, 1, 2)
+        self.diameter = QLineEdit()
+        self.diameter.setText("30.0")
+        self.diameter.setFont(self.medfont)
+        self.diameter.setToolTip("diameter of cells in pixels. If not 30, image will be resized to this")
+        self.diameter.setFixedWidth(40)
+        self.segaBoxG.addWidget(self.diameter, widget_row, 2, 1, 2)
+
+        widget_row += 1
+
         label = QLabel("flow\nthreshold:")
         label.setToolTip(
             "threshold on flow error to accept a mask (set higher to get more cells, e.g. in range from (0.1, 3.0), OR set to 0.0 to turn off so no cells discarded);\n press enter to recompute if model already run"
         )
         label.setFont(self.medfont)
-        self.segaBoxG.addWidget(label, b0, 0, 1, 2)
+        self.segaBoxG.addWidget(label, widget_row, 0, 1, 2)
         self.flow_threshold = QLineEdit()
         self.flow_threshold.setText("0.4")
         self.flow_threshold.returnPressed.connect(self.compute_cprob)
         self.flow_threshold.setFixedWidth(40)
         self.flow_threshold.setFont(self.medfont)
-        self.segaBoxG.addWidget(self.flow_threshold, b0, 2, 1, 2)
+        self.segaBoxG.addWidget(self.flow_threshold, widget_row, 2, 1, 2)
         self.flow_threshold.setToolTip(
             "threshold on flow error to accept a mask (set higher to get more cells, e.g. in range from (0.1, 3.0), OR set to 0.0 to turn off so no cells discarded);\n press enter to recompute if model already run"
         )
@@ -616,7 +629,7 @@ class MainW(QMainWindow):
             "threshold on cellprob output to seed cell masks (set lower to include more pixels or higher to include fewer, e.g. in range from (-6, 6)); \n press enter to recompute if model already run"
         )
         label.setFont(self.medfont)
-        self.segaBoxG.addWidget(label, b0, 4, 1, 2)
+        self.segaBoxG.addWidget(label, widget_row, 4, 1, 2)
         self.cellprob_threshold = QLineEdit()
         self.cellprob_threshold.setText("0.0")
         self.cellprob_threshold.returnPressed.connect(self.compute_cprob)
@@ -625,17 +638,17 @@ class MainW(QMainWindow):
         self.cellprob_threshold.setToolTip(
             "threshold on cellprob output to seed cell masks (set lower to include more pixels or higher to include fewer, e.g. in range from (-6, 6)); \n press enter to recompute if model already run"
         )
-        self.segaBoxG.addWidget(self.cellprob_threshold, b0, 6, 1, 2)
+        self.segaBoxG.addWidget(self.cellprob_threshold, widget_row, 6, 1, 2)
 
-        b0 += 1
+        widget_row += 1
         label = QLabel("norm percentiles:")
         label.setToolTip(
             "sets normalization percentiles for segmentation and denoising\n(pixels at lower percentile set to 0.0 and at upper set to 1.0 for network)"
         )
         label.setFont(self.medfont)
-        self.segaBoxG.addWidget(label, b0, 0, 1, 8)
+        self.segaBoxG.addWidget(label, widget_row, 0, 1, 8)
 
-        b0 += 1
+        widget_row += 1
         self.norm_vals = [1., 99.]
         self.norm_edits = []
         labels = ["lower", "upper"]
@@ -647,21 +660,21 @@ class MainW(QMainWindow):
             label = QLabel(f"{labels[p]}:")
             label.setToolTip(tooltips[p])
             label.setFont(self.medfont)
-            self.segaBoxG.addWidget(label, b0, 4 * (p % 2), 1, 2)
+            self.segaBoxG.addWidget(label, widget_row, 4 * (p % 2), 1, 2)
             self.norm_edits.append(QLineEdit())
             self.norm_edits[p].setText(str(self.norm_vals[p]))
             self.norm_edits[p].setFixedWidth(40)
             self.norm_edits[p].setFont(self.medfont)
-            self.segaBoxG.addWidget(self.norm_edits[p], b0, 4 * (p % 2) + 2, 1, 2)
+            self.segaBoxG.addWidget(self.norm_edits[p], widget_row, 4 * (p % 2) + 2, 1, 2)
             self.norm_edits[p].setToolTip(tooltips[p])
 
-        b0 += 1
+        widget_row += 1
         label = QLabel("niter dynamics:")
         label.setFont(self.medfont)
         label.setToolTip(
             "number of iterations for dynamics (0 uses default based on diameter); use 2000 for bacteria"
         )
-        self.segaBoxG.addWidget(label, b0, 0, 1, 4)
+        self.segaBoxG.addWidget(label, widget_row, 0, 1, 4)
         self.niter = QLineEdit()
         self.niter.setText("0")
         self.niter.setFixedWidth(40)
@@ -669,10 +682,10 @@ class MainW(QMainWindow):
         self.niter.setToolTip(
             "number of iterations for dynamics (0 uses default based on diameter); use 2000 for bacteria"
         )
-        self.segaBoxG.addWidget(self.niter, b0, 4, 1, 2)
+        self.segaBoxG.addWidget(self.niter, widget_row, 4, 1, 2)
 
         b += 1
-        b0 = 0
+        widget_row = 0
         self.modelBox = QGroupBox("Other models")
         self.modelBoxG = QGridLayout()
         self.modelBox.setLayout(self.modelBoxG)
@@ -690,7 +703,7 @@ class MainW(QMainWindow):
         tipstr = 'add or train your own models in the "Models" file menu and choose model here'
         self.ModelChooseC.setToolTip(tipstr)
         self.ModelChooseC.activated.connect(lambda: self.model_choose(custom=True))
-        self.modelBoxG.addWidget(self.ModelChooseC, b0, 0, 1, 8)
+        self.modelBoxG.addWidget(self.ModelChooseC, widget_row, 0, 1, 8)
 
         # compute segmentation w/ custom model
         self.ModelButtonC = QPushButton(u"run")
@@ -698,7 +711,7 @@ class MainW(QMainWindow):
         self.ModelButtonC.setFixedWidth(35)
         self.ModelButtonC.clicked.connect(
             lambda: self.compute_segmentation(custom=True))
-        self.modelBoxG.addWidget(self.ModelButtonC, b0, 8, 1, 1)
+        self.modelBoxG.addWidget(self.ModelButtonC, widget_row, 8, 1, 1)
         self.ModelButtonC.setEnabled(False)
 
         self.net_names = [
@@ -712,7 +725,7 @@ class MainW(QMainWindow):
             "deepbacs_cp3", "cyto", "cyto2",
             "CPx (from Cellpose2)"
         ]
-        b0 += 1
+        widget_row += 1
         self.ModelChooseB = QComboBox()
         self.ModelChooseB.setFont(self.medfont)
         self.ModelChooseB.addItems(["dataset-specific models"])
@@ -721,7 +734,7 @@ class MainW(QMainWindow):
         tipstr = "dataset-specific models"
         self.ModelChooseB.setToolTip(tipstr)
         self.ModelChooseB.activated.connect(lambda: self.model_choose(custom=False))
-        self.modelBoxG.addWidget(self.ModelChooseB, b0, 0, 1, 8)
+        self.modelBoxG.addWidget(self.ModelChooseB, widget_row, 0, 1, 8)
 
         # compute segmentation w/ cp model
         self.ModelButtonB = QPushButton(u"run")
@@ -729,7 +742,7 @@ class MainW(QMainWindow):
         self.ModelButtonB.setFixedWidth(35)
         self.ModelButtonB.clicked.connect(
             lambda: self.compute_segmentation(custom=False))
-        self.modelBoxG.addWidget(self.ModelButtonB, b0, 8, 1, 1)
+        self.modelBoxG.addWidget(self.ModelButtonB, widget_row, 8, 1, 1)
         self.ModelButtonB.setEnabled(False)
 
         b += 1
@@ -739,7 +752,7 @@ class MainW(QMainWindow):
         self.denoiseBox.setLayout(self.denoiseBoxG)
         self.l0.addWidget(self.denoiseBox, b, 0, 1, 9)
 
-        b0 = 0
+        widget_row = 0
         
         # DENOISING
         self.DenoiseButtons = []
@@ -759,11 +772,11 @@ class MainW(QMainWindow):
         for j in range(len(self.denoise_text)):
             self.DenoiseButtons.append(
                 guiparts.DenoiseButton(self, self.denoise_text[j]))
-            self.denoiseBoxG.addWidget(self.DenoiseButtons[-1], b0, jj, 1, w)
+            self.denoiseBoxG.addWidget(self.DenoiseButtons[-1], widget_row, jj, 1, w)
             self.DenoiseButtons[-1].setFixedWidth(75)
             self.DenoiseButtons[-1].setToolTip(nett[j])
             self.DenoiseButtons[-1].setFont(self.medfont)
-            b0 += 1 if j%2==1 else 0
+            widget_row += 1 if j%2==1 else 0
             jj = 0 if j%2==1 else jj + w
 
         # b0+=1
@@ -773,23 +786,23 @@ class MainW(QMainWindow):
         self.save_norm.setChecked(True)
         # self.denoiseBoxG.addWidget(self.save_norm, b0, 0, 1, 8)
 
-        b0 -= 3
+        widget_row -= 3
         label = QLabel("restore-dataset:")
         label.setToolTip(
             "choose dataset and click [denoise], [deblur], [upsample], or [one-click]")
         label.setFont(self.medfont)
-        self.denoiseBoxG.addWidget(label, b0, 6, 1, 3)
+        self.denoiseBoxG.addWidget(label, widget_row, 6, 1, 3)
 
-        b0 += 1
+        widget_row += 1
         self.DenoiseChoose = QComboBox()
         self.DenoiseChoose.setFont(self.medfont)
         self.DenoiseChoose.addItems(["cyto3", "cyto2", "nuclei"])
         self.DenoiseChoose.setFixedWidth(85)
         tipstr = "choose model type and click [denoise], [deblur], or [upsample]"
         self.DenoiseChoose.setToolTip(tipstr)
-        self.denoiseBoxG.addWidget(self.DenoiseChoose, b0, 6, 1, 3)
+        self.denoiseBoxG.addWidget(self.DenoiseChoose, widget_row, 6, 1, 3)
 
-        b0 += 2
+        widget_row += 2
         # FILTERING
         self.filtBox = QCollapsible("custom filter settings")
         self.filtBox._toggle_btn.setFont(self.medfont)
@@ -800,7 +813,7 @@ class MainW(QMainWindow):
         _content.setMinimumHeight(0)
         #_content.layout().setContentsMargins(QtCore.QMargins(0, -20, -20, -20))
         self.filtBox.setContent(_content)
-        self.denoiseBoxG.addWidget(self.filtBox, b0, 0, 1, 9)
+        self.denoiseBoxG.addWidget(self.filtBox, widget_row, 0, 1, 9)
 
         self.filt_vals = [0., 0., 0., 0.]
         self.filt_edits = []
@@ -819,26 +832,26 @@ class MainW(QMainWindow):
             label = QLabel(f"{labels[p]}:")
             label.setToolTip(tooltips[p])
             label.setFont(self.medfont)
-            self.filtBoxG.addWidget(label, b0 + p // 2, 4 * (p % 2), 1, 2)
+            self.filtBoxG.addWidget(label, widget_row + p // 2, 4 * (p % 2), 1, 2)
             self.filt_edits.append(QLineEdit())
             self.filt_edits[p].setText(str(self.filt_vals[p]))
             self.filt_edits[p].setFixedWidth(40)
             self.filt_edits[p].setFont(self.medfont)
-            self.filtBoxG.addWidget(self.filt_edits[p], b0 + p // 2, 4 * (p % 2) + 2, 1,
+            self.filtBoxG.addWidget(self.filt_edits[p], widget_row + p // 2, 4 * (p % 2) + 2, 1,
                                     2)
             self.filt_edits[p].setToolTip(tooltips[p])
 
-        b0 += 3
+        widget_row += 3
         self.norm3D_cb = QCheckBox("norm3D")
         self.norm3D_cb.setFont(self.medfont)
         self.norm3D_cb.setChecked(True)
         self.norm3D_cb.setToolTip("run same normalization across planes")
-        self.filtBoxG.addWidget(self.norm3D_cb, b0, 0, 1, 3)
+        self.filtBoxG.addWidget(self.norm3D_cb, widget_row, 0, 1, 3)
 
         self.invert_cb = QCheckBox("invert")
         self.invert_cb.setFont(self.medfont)
         self.invert_cb.setToolTip("invert image")
-        self.filtBoxG.addWidget(self.invert_cb, b0, 3, 1, 3)
+        self.filtBoxG.addWidget(self.invert_cb, widget_row, 3, 1, 3)
 
         b += 1
         self.l0.addWidget(QLabel(""), b, 0, 1, 9)
