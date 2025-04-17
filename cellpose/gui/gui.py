@@ -1366,13 +1366,13 @@ class MainW(QMainWindow):
         for i in idx:
             self.remove_single_cell(i)
         self.ncells -= len(idx)  # _save_sets uses ncells
+        self.update_layer()
 
         if self.ncells == 0:
             self.ClearButton.setEnabled(False)
         if self.NZ == 1:
             io._save_sets_with_check(self)
 
-        self.update_layer()
 
     def remove_single_cell(self, idx):
         # remove from manual array
