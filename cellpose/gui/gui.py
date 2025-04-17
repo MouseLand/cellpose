@@ -599,12 +599,12 @@ class MainW(QMainWindow):
         diam_qlabel.setToolTip("diameter of cells in pixels. If not 30, image will be resized to this")
         diam_qlabel.setFont(self.medfont)
         self.segaBoxG.addWidget(diam_qlabel, widget_row, 0, 1, 2)
-        self.diameter = QLineEdit()
-        self.diameter.setText("30.0")
-        self.diameter.setFont(self.medfont)
-        self.diameter.setToolTip("diameter of cells in pixels. If not 30, image will be resized to this")
-        self.diameter.setFixedWidth(40)
-        self.segaBoxG.addWidget(self.diameter, widget_row, 2, 1, 2)
+        self.diameter_box = QLineEdit()
+        self.diameter_box.setText("30.0")
+        self.diameter_box.setFont(self.medfont)
+        self.diameter_box.setToolTip("diameter of cells in pixels. If not 30, image will be resized to this")
+        self.diameter_box.setFixedWidth(40)
+        self.segaBoxG.addWidget(self.diameter_box, widget_row, 2, 1, 2)
 
         widget_row += 1
 
@@ -1041,7 +1041,7 @@ class MainW(QMainWindow):
         #     self.DenoiseButtons[i].setEnabled(True)
         # if self.load_3D:
         #     self.DenoiseButtons[-2].setEnabled(False)
-        self.ModelButtonB.setEnabled(True)
+        # self.ModelButtonB.setEnabled(True)
         # self.SizeButton.setEnabled(True)
         self.newmodel.setEnabled(True)
         self.loadMasks.setEnabled(True)
@@ -1061,7 +1061,7 @@ class MainW(QMainWindow):
             self.ModelButtonC.setEnabled(False)
         for i in range(len(self.StyleButtons)):
             self.StyleButtons[i].setEnabled(False)
-        self.ModelButtonB.setEnabled(False)
+        # self.ModelButtonB.setEnabled(False)
         # self.SizeButton.setEnabled(False)
         self.newmodel.setEnabled(False)
         self.loadMasks.setEnabled(False)
@@ -1828,20 +1828,19 @@ class MainW(QMainWindow):
                 self.layerz[vr, vc] = np.array(self.outcolor)
 
     def compute_scale(self):
-        # self.diameter = float(self.Diameter.text())
-        # self.pr = int(float(self.Diameter.text()))
-        # self.radii_padding = int(self.pr * 1.25)
-        # self.radii = np.zeros((self.Ly + self.radii_padding, self.Lx, 4), np.uint8)
-        # yy, xx = disk([self.Ly + self.radii_padding / 2 - 1, self.pr / 2 + 1],
-        #               self.pr / 2, self.Ly + self.radii_padding, self.Lx)
+        self.diameter = float(self.diameter_box.text())
+        self.pr = int(float(self.diameter_box.text()))
+        self.radii_padding = int(self.pr * 1.25)
+        self.radii = np.zeros((self.Ly + self.radii_padding, self.Lx, 4), np.uint8)
+        yy, xx = disk([self.Ly + self.radii_padding / 2 - 1, self.pr / 2 + 1],
+                      self.pr / 2, self.Ly + self.radii_padding, self.Lx)
         # rgb(150,50,150)
-        # self.radii[yy, xx, 0] = 150
-        # self.radii[yy, xx, 1] = 50
-        # self.radii[yy, xx, 2] = 150
-        # self.radii[yy, xx, 3] = 255
-        # self.p0.setYRange(0, self.Ly + self.radii_padding)
-        # self.p0.setXRange(0, self.Lx)
-        pass
+        self.radii[yy, xx, 0] = 150
+        self.radii[yy, xx, 1] = 50
+        self.radii[yy, xx, 2] = 150
+        self.radii[yy, xx, 3] = 255
+        self.p0.setYRange(0, self.Ly + self.radii_padding)
+        self.p0.setXRange(0, self.Lx)
 
     def update_scale(self):
         self.compute_scale()
