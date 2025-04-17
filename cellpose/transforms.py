@@ -466,82 +466,127 @@ def convert_image(x, channel_axis=None, z_axis=None, do_3D=False, nchan=3):
         ValueError: If the input image is 2D and do_3D is True.
         ValueError: If the input image is 4D and do_3D is False.
     """
+
+    if channel_axis is not None:
+        assert False, "channel_axis not implemented yet"
+    if z_axis is not None:
+        assert False, "z_axis not implemented yet"
+
     # check if image is a torch array instead of numpy array
     # converts torch to numpy
     ndim = x.ndim
     if torch.is_tensor(x):
         transforms_logger.warning("torch array used as input, converting to numpy")
         x = x.cpu().numpy()
+    
+    # do image padding and channel conversion
+    if ndim == 2:
+        # grayscale image, make 3 channels
+        x_out = np.zeros((x.shape[0], x.shape[1], 3), dtype=x.dtype)
+        x_out[..., 0] = x
+        x = x_out
+        del x_out
+    elif ndim == 3 and not do_3D:
+        # assume 2d with channels
+        # find dim with smaller size between first and last dims
+        move_channel_axis = x.shape[0] < x.shape[2]
+        if move_channel_axis:
+            x = x.transpose((1, 2, 0))
 
-    # squeeze image, and if channel_axis or z_axis given, transpose image
-    if x.ndim > 3:
-        to_squeeze = np.array([int(isq) for isq, s in enumerate(x.shape) if s == 1])
-        # remove channel axis if number of channels is 1
-        if len(to_squeeze) > 0:
-            channel_axis = update_axis(
-                channel_axis, to_squeeze,
-                x.ndim) if channel_axis is not None else None
-            z_axis = update_axis(z_axis, to_squeeze,
-                                 x.ndim) if z_axis is not None else None
-            x = x.squeeze()
+        # zero padding up to 3 channels: 
+        num_channels = x.shape[-1]
+        if num_channels > 3: 
+            num_channels = 3
+        x_out = np.zeros((x.shape[0], x.shape[1], 3), dtype=x.dtype)
+        x_out[..., :num_channels] = x[..., :num_channels]
+        x = x_out
+        del x_out
+    elif ndim == 4 and do_3D:
+        # pad the channels if necessary
+        x_out = np.zeros((x.shape[0], x.shape[1], x.shape[2], 3), dtype=x.dtype)
+        num_channels = x.shape[-1]
+        if num_channels > 3:
+            num_channels = 3
+        x_out[..., :num_channels] = x[..., :num_channels]
+        x = x_out
+        del x_out
+    else:
+        # something is wrong: yell
+        transforms_logger.critical(f"ERROR: Unexpected image shape: {str(x.shape)}")
+        raise ValueError(f"ERROR: Unexpected image shape: {str(x.shape)}")
 
-    # put z axis first
-    if z_axis is not None and x.ndim > 2 and z_axis != 0:
-        x = move_axis(x, m_axis=z_axis, first=True)
-        if channel_axis is not None:
-            channel_axis += 1
-        z_axis = 0
-    elif z_axis is None and x.ndim > 2 and min(x.shape) > 5 :
-        # if there are > 5 channels and channels!=None, assume first dimension is z
-        min_dim = min(x.shape)
-        if min_dim != channel_axis:
-            z_axis = (x.shape).index(min_dim)
-            if z_axis != 0:
-                x = move_axis(x, m_axis=z_axis, first=True)
-                if channel_axis is not None:
-                    channel_axis += 1
-            transforms_logger.warning(f"z_axis not specified, assuming it is dim {z_axis}")
-            transforms_logger.warning(f"if this is actually the channel_axis, use 'model.eval(channel_axis={z_axis}, ...)'")
-            z_axis = 0
+    
 
-    if z_axis is not None:
-        if x.ndim == 3:
-            x = x[..., np.newaxis]
 
-    # put channel axis last
-    if channel_axis is not None and x.ndim > 2:
-        x = move_axis(x, m_axis=channel_axis, first=False)
-    elif x.ndim == 2:
-        x = x[:, :, np.newaxis]
+    # # squeeze image, and if channel_axis or z_axis given, transpose image
+    # if x.ndim > 3:
+    #     to_squeeze = np.array([int(isq) for isq, s in enumerate(x.shape) if s == 1])
+    #     # remove channel axis if number of channels is 1
+    #     if len(to_squeeze) > 0:
+    #         channel_axis = update_axis(
+    #             channel_axis, to_squeeze,
+    #             x.ndim) if channel_axis is not None else None
+    #         z_axis = update_axis(z_axis, to_squeeze,
+    #                              x.ndim) if z_axis is not None else None
+    #         x = x.squeeze()
 
-    if do_3D:
-        if ndim < 3:
-            transforms_logger.critical("ERROR: cannot process 2D images in 3D mode")
-            raise ValueError("ERROR: cannot process 2D images in 3D mode")
-        elif x.ndim < 4:
-            x = x[..., np.newaxis]
+    # # put z axis first
+    # if z_axis is not None and x.ndim > 2 and z_axis != 0:
+    #     x = move_axis(x, m_axis=z_axis, first=True)
+    #     if channel_axis is not None:
+    #         channel_axis += 1
+    #     z_axis = 0
+    # elif z_axis is None and x.ndim > 2 and min(x.shape) > 5 :
+    #     # if there are > 5 channels and channels!=None, assume first dimension is z
+    #     min_dim = min(x.shape)
+    #     if min_dim != channel_axis:
+    #         z_axis = (x.shape).index(min_dim)
+    #         if z_axis != 0:
+    #             x = move_axis(x, m_axis=z_axis, first=True)
+    #             if channel_axis is not None:
+    #                 channel_axis += 1
+    #         transforms_logger.warning(f"z_axis not specified, assuming it is dim {z_axis}")
+    #         transforms_logger.warning(f"if this is actually the channel_axis, use 'model.eval(channel_axis={z_axis}, ...)'")
+    #         z_axis = 0
 
-    if channel_axis is None:
-        x = move_min_dim(x)
+    # if z_axis is not None:
+    #     if x.ndim == 3:
+    #         x = x[..., np.newaxis]
 
-    if x.ndim > 3:
-        transforms_logger.info(
-            "multi-stack tiff read in as having %d planes %d channels" %
-            (x.shape[0], x.shape[-1]))
+    # # put channel axis last
+    # if channel_axis is not None and x.ndim > 2:
+    #     x = move_axis(x, m_axis=channel_axis, first=False)
+    # elif x.ndim == 2:
+    #     x = x[:, :, np.newaxis]
 
-    # convert to float32
-    x = x.astype("float32")
+    # if do_3D:
+    #     if ndim < 3:
+    #         transforms_logger.critical("ERROR: cannot process 2D images in 3D mode")
+    #         raise ValueError("ERROR: cannot process 2D images in 3D mode")
+    #     elif x.ndim < 4:
+    #         x = x[..., np.newaxis]
 
-    # code above put channels last
-    if nchan is not None and x.shape[-1] > nchan:
-        transforms_logger.warning(
-            "WARNING: more than %d channels given - just using first %d channels to run processing"
-            % (nchan, nchan))
-        x = x[..., :nchan]
+    # if channel_axis is None:
+    #     x = move_min_dim(x)
 
-        if nchan is not None and x.shape[-1] < nchan:
-            x = np.concatenate((x, np.tile(np.zeros_like(x), (1, 1, nchan - 1))),
-                               axis=-1)
+    # if x.ndim > 3:
+    #     transforms_logger.info(
+    #         "multi-stack tiff read in as having %d planes %d channels" %
+    #         (x.shape[0], x.shape[-1]))
+
+    # # convert to float32
+    # x = x.astype("float32")
+
+    # # code above put channels last
+    # if nchan is not None and x.shape[-1] > nchan:
+    #     transforms_logger.warning(
+    #         "WARNING: more than %d channels given - just using first %d channels to run processing"
+    #         % (nchan, nchan))
+    #     x = x[..., :nchan]
+
+    #     if nchan is not None and x.shape[-1] < nchan:
+    #         x = np.concatenate((x, np.tile(np.zeros_like(x), (1, 1, nchan - 1))),
+    #                            axis=-1)
 
     return x
 

@@ -180,7 +180,11 @@ def test_cp_regressions_test():
 
     ap, tp, fp, fn = metrics.average_precision(masks_true, masks_pred, threshold=.5)
 
-    assert np.isclose(ap.mean(), 0.85268956, atol=1e-5)
+    assert np.isclose(ap.mean(), 0.85268956, atol=1e-5), "ap score is not close enough to previous version: %f" % ap.mean()
+
+
+def test_diameter_resizing_in_eval():
+    assert False, "TODO"
 
 
 def compare_masks(data_dir, image_names, runtype):
