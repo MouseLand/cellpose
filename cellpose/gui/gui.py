@@ -686,66 +686,66 @@ class MainW(QMainWindow):
 
         b += 1
         widget_row = 0
-        self.modelBox = QGroupBox("Other models")
-        self.modelBoxG = QGridLayout()
-        self.modelBox.setLayout(self.modelBoxG)
-        self.l0.addWidget(self.modelBox, b, 0, 1, 9)
-        self.modelBox.setFont(self.boldfont)
-        # choose models
-        self.ModelChooseC = QComboBox()
-        self.ModelChooseC.setFont(self.medfont)
-        current_index = 0
-        self.ModelChooseC.addItems(["custom models"])
-        if len(self.model_strings) > 0:
-            self.ModelChooseC.addItems(self.model_strings)
-        self.ModelChooseC.setFixedWidth(175)
-        self.ModelChooseC.setCurrentIndex(current_index)
-        tipstr = 'add or train your own models in the "Models" file menu and choose model here'
-        self.ModelChooseC.setToolTip(tipstr)
-        self.ModelChooseC.activated.connect(lambda: self.model_choose(custom=True))
-        self.modelBoxG.addWidget(self.ModelChooseC, widget_row, 0, 1, 8)
+        # self.modelBox = QGroupBox("Other models")
+        # self.modelBoxG = QGridLayout()
+        # self.modelBox.setLayout(self.modelBoxG)
+        # self.l0.addWidget(self.modelBox, b, 0, 1, 9)
+        # self.modelBox.setFont(self.boldfont)
+        # # choose models
+        # self.ModelChooseC = QComboBox()
+        # self.ModelChooseC.setFont(self.medfont)
+        # current_index = 0
+        # self.ModelChooseC.addItems(["custom models"])
+        # if len(self.model_strings) > 0:
+        #     self.ModelChooseC.addItems(self.model_strings)
+        # self.ModelChooseC.setFixedWidth(175)
+        # self.ModelChooseC.setCurrentIndex(current_index)
+        # tipstr = 'add or train your own models in the "Models" file menu and choose model here'
+        # self.ModelChooseC.setToolTip(tipstr)
+        # self.ModelChooseC.activated.connect(lambda: self.model_choose(custom=True))
+        # self.modelBoxG.addWidget(self.ModelChooseC, widget_row, 0, 1, 8)
 
-        # compute segmentation w/ custom model
-        self.ModelButtonC = QPushButton(u"run")
-        self.ModelButtonC.setFont(self.medfont)
-        self.ModelButtonC.setFixedWidth(35)
-        self.ModelButtonC.clicked.connect(
-            lambda: self.compute_segmentation(custom=True))
-        self.modelBoxG.addWidget(self.ModelButtonC, widget_row, 8, 1, 1)
-        self.ModelButtonC.setEnabled(False)
+        # # compute segmentation w/ custom model
+        # self.ModelButtonC = QPushButton(u"run")
+        # self.ModelButtonC.setFont(self.medfont)
+        # self.ModelButtonC.setFixedWidth(35)
+        # self.ModelButtonC.clicked.connect(
+        #     lambda: self.compute_segmentation(custom=True))
+        # self.modelBoxG.addWidget(self.ModelButtonC, widget_row, 8, 1, 1)
+        # self.ModelButtonC.setEnabled(False)
 
-        self.net_names = [
-            "nuclei", "cyto2_cp3", "tissuenet_cp3", "livecell_cp3", "yeast_PhC_cp3",
-            "yeast_BF_cp3", "bact_phase_cp3", "bact_fluor_cp3", "deepbacs_cp3",
-            "cyto", "cyto2", "CPx"]
+        # self.net_names = [
+        #     "nuclei", "cyto2_cp3", "tissuenet_cp3", "livecell_cp3", "yeast_PhC_cp3",
+        #     "yeast_BF_cp3", "bact_phase_cp3", "bact_fluor_cp3", "deepbacs_cp3",
+        #     "cyto", "cyto2", "CPx"]
 
-        nett = [
-            "nuclei", "cellpose (cyto2_cp3)", "tissuenet_cp3", "livecell_cp3",
-            "yeast_PhC_cp3", "yeast_BF_cp3", "bact_phase_cp3", "bact_fluor_cp3",
-            "deepbacs_cp3", "cyto", "cyto2",
-            "CPx (from Cellpose2)"
-        ]
-        widget_row += 1
-        self.ModelChooseB = QComboBox()
-        self.ModelChooseB.setFont(self.medfont)
-        self.ModelChooseB.addItems(["dataset-specific models"])
-        self.ModelChooseB.addItems(nett)
-        self.ModelChooseB.setFixedWidth(175)
-        tipstr = "dataset-specific models"
-        self.ModelChooseB.setToolTip(tipstr)
-        self.ModelChooseB.activated.connect(lambda: self.model_choose(custom=False))
-        self.modelBoxG.addWidget(self.ModelChooseB, widget_row, 0, 1, 8)
+        # nett = [
+        #     "nuclei", "cellpose (cyto2_cp3)", "tissuenet_cp3", "livecell_cp3",
+        #     "yeast_PhC_cp3", "yeast_BF_cp3", "bact_phase_cp3", "bact_fluor_cp3",
+        #     "deepbacs_cp3", "cyto", "cyto2",
+        #     "CPx (from Cellpose2)"
+        # ]
+        # widget_row += 1
+        # self.ModelChooseB = QComboBox()
+        # self.ModelChooseB.setFont(self.medfont)
+        # self.ModelChooseB.addItems(["dataset-specific models"])
+        # self.ModelChooseB.addItems(nett)
+        # self.ModelChooseB.setFixedWidth(175)
+        # tipstr = "dataset-specific models"
+        # self.ModelChooseB.setToolTip(tipstr)
+        # self.ModelChooseB.activated.connect(lambda: self.model_choose(custom=False))
+        # self.modelBoxG.addWidget(self.ModelChooseB, widget_row, 0, 1, 8)
 
-        # compute segmentation w/ cp model
-        self.ModelButtonB = QPushButton(u"run")
-        self.ModelButtonB.setFont(self.medfont)
-        self.ModelButtonB.setFixedWidth(35)
-        self.ModelButtonB.clicked.connect(
-            lambda: self.compute_segmentation(custom=False))
-        self.modelBoxG.addWidget(self.ModelButtonB, widget_row, 8, 1, 1)
-        self.ModelButtonB.setEnabled(False)
+        # # compute segmentation w/ cp model
+        # self.ModelButtonB = QPushButton(u"run")
+        # self.ModelButtonB.setFont(self.medfont)
+        # self.ModelButtonB.setFixedWidth(35)
+        # self.ModelButtonB.clicked.connect(
+        #     lambda: self.compute_segmentation(custom=False))
+        # self.modelBoxG.addWidget(self.ModelButtonB, widget_row, 8, 1, 1)
+        # self.ModelButtonB.setEnabled(False)
 
-        b += 1
+        # b += 1
         self.denoiseBox = QGroupBox("Image restoration")
         self.denoiseBox.setFont(self.boldfont)
         self.denoiseBoxG = QGridLayout()
@@ -754,56 +754,56 @@ class MainW(QMainWindow):
 
         widget_row = 0
         
-        # DENOISING
-        self.DenoiseButtons = []
-        nett = [
-            "clear restore/filter",
-            "filter image (settings below)",
-            "denoise (please set cell diameter first)",
-            "deblur (please set cell diameter first)",
-            "upsample to 30. diameter (cyto3) or 17. diameter (nuclei) (please set cell diameter first) (disabled in 3D)",
-            "one-click model trained to denoise+deblur+upsample (please set cell diameter first)"
-        ]
-        self.denoise_text = ["none", "filter", "denoise", "deblur", "upsample", "one-click"]
-        self.restore = None
-        self.ratio = 1.
-        jj = 0
-        w = 3
-        for j in range(len(self.denoise_text)):
-            self.DenoiseButtons.append(
-                guiparts.DenoiseButton(self, self.denoise_text[j]))
-            self.denoiseBoxG.addWidget(self.DenoiseButtons[-1], widget_row, jj, 1, w)
-            self.DenoiseButtons[-1].setFixedWidth(75)
-            self.DenoiseButtons[-1].setToolTip(nett[j])
-            self.DenoiseButtons[-1].setFont(self.medfont)
-            widget_row += 1 if j%2==1 else 0
-            jj = 0 if j%2==1 else jj + w
+        # # DENOISING
+        # self.DenoiseButtons = []
+        # nett = [
+        #     "clear restore/filter",
+        #     "filter image (settings below)",
+        #     "denoise (please set cell diameter first)",
+        #     "deblur (please set cell diameter first)",
+        #     "upsample to 30. diameter (cyto3) or 17. diameter (nuclei) (please set cell diameter first) (disabled in 3D)",
+        #     "one-click model trained to denoise+deblur+upsample (please set cell diameter first)"
+        # ]
+        # self.denoise_text = ["none", "filter", "denoise", "deblur", "upsample", "one-click"]
+        # self.restore = None
+        # self.ratio = 1.
+        # jj = 0
+        # w = 3
+        # for j in range(len(self.denoise_text)):
+        #     self.DenoiseButtons.append(
+        #         guiparts.DenoiseButton(self, self.denoise_text[j]))
+        #     self.denoiseBoxG.addWidget(self.DenoiseButtons[-1], widget_row, jj, 1, w)
+        #     self.DenoiseButtons[-1].setFixedWidth(75)
+        #     self.DenoiseButtons[-1].setToolTip(nett[j])
+        #     self.DenoiseButtons[-1].setFont(self.medfont)
+        #     widget_row += 1 if j%2==1 else 0
+        #     jj = 0 if j%2==1 else jj + w
 
-        # b0+=1
-        self.save_norm = QCheckBox("save restored/filtered image")
-        self.save_norm.setFont(self.medfont)
-        self.save_norm.setToolTip("save restored/filtered image in _seg.npy file")
-        self.save_norm.setChecked(True)
-        # self.denoiseBoxG.addWidget(self.save_norm, b0, 0, 1, 8)
+        # # b0+=1
+        # self.save_norm = QCheckBox("save restored/filtered image")
+        # self.save_norm.setFont(self.medfont)
+        # self.save_norm.setToolTip("save restored/filtered image in _seg.npy file")
+        # self.save_norm.setChecked(True)
+        # # self.denoiseBoxG.addWidget(self.save_norm, b0, 0, 1, 8)
 
-        widget_row -= 3
-        label = QLabel("restore-dataset:")
-        label.setToolTip(
-            "choose dataset and click [denoise], [deblur], [upsample], or [one-click]")
-        label.setFont(self.medfont)
-        self.denoiseBoxG.addWidget(label, widget_row, 6, 1, 3)
+        # widget_row -= 3
+        # label = QLabel("restore-dataset:")
+        # label.setToolTip(
+        #     "choose dataset and click [denoise], [deblur], [upsample], or [one-click]")
+        # label.setFont(self.medfont)
+        # self.denoiseBoxG.addWidget(label, widget_row, 6, 1, 3)
 
-        widget_row += 1
-        self.DenoiseChoose = QComboBox()
-        self.DenoiseChoose.setFont(self.medfont)
-        self.DenoiseChoose.addItems(["cyto3", "cyto2", "nuclei"])
-        self.DenoiseChoose.setFixedWidth(85)
-        tipstr = "choose model type and click [denoise], [deblur], or [upsample]"
-        self.DenoiseChoose.setToolTip(tipstr)
-        self.denoiseBoxG.addWidget(self.DenoiseChoose, widget_row, 6, 1, 3)
+        # widget_row += 1
+        # self.DenoiseChoose = QComboBox()
+        # self.DenoiseChoose.setFont(self.medfont)
+        # self.DenoiseChoose.addItems(["cyto3", "cyto2", "nuclei"])
+        # self.DenoiseChoose.setFixedWidth(85)
+        # tipstr = "choose model type and click [denoise], [deblur], or [upsample]"
+        # self.DenoiseChoose.setToolTip(tipstr)
+        # self.denoiseBoxG.addWidget(self.DenoiseChoose, widget_row, 6, 1, 3)
 
-        widget_row += 2
-        # FILTERING
+        # widget_row += 2
+        # # FILTERING
         self.filtBox = QCollapsible("custom filter settings")
         self.filtBox._toggle_btn.setFont(self.medfont)
         self.filtBoxG = QGridLayout()
@@ -815,31 +815,31 @@ class MainW(QMainWindow):
         self.filtBox.setContent(_content)
         self.denoiseBoxG.addWidget(self.filtBox, widget_row, 0, 1, 9)
 
-        self.filt_vals = [0., 0., 0., 0.]
-        self.filt_edits = []
-        labels = [
-            "sharpen\nradius", "smooth\nradius", "tile_norm\nblocksize",
-            "tile_norm\nsmooth3D"
-        ]
-        tooltips = [
-            "set size of surround-subtraction filter for sharpening image",
-            "set size of gaussian filter for smoothing image",
-            "set size of tiles to use to normalize image",
-            "set amount of smoothing of normalization values across planes"
-        ]
+        # self.filt_vals = [0., 0., 0., 0.]
+        # self.filt_edits = []
+        # labels = [
+        #     "sharpen\nradius", "smooth\nradius", "tile_norm\nblocksize",
+        #     "tile_norm\nsmooth3D"
+        # ]
+        # tooltips = [
+        #     "set size of surround-subtraction filter for sharpening image",
+        #     "set size of gaussian filter for smoothing image",
+        #     "set size of tiles to use to normalize image",
+        #     "set amount of smoothing of normalization values across planes"
+        # ]
 
-        for p in range(4):
-            label = QLabel(f"{labels[p]}:")
-            label.setToolTip(tooltips[p])
-            label.setFont(self.medfont)
-            self.filtBoxG.addWidget(label, widget_row + p // 2, 4 * (p % 2), 1, 2)
-            self.filt_edits.append(QLineEdit())
-            self.filt_edits[p].setText(str(self.filt_vals[p]))
-            self.filt_edits[p].setFixedWidth(40)
-            self.filt_edits[p].setFont(self.medfont)
-            self.filtBoxG.addWidget(self.filt_edits[p], widget_row + p // 2, 4 * (p % 2) + 2, 1,
-                                    2)
-            self.filt_edits[p].setToolTip(tooltips[p])
+        # for p in range(4):
+        #     label = QLabel(f"{labels[p]}:")
+        #     label.setToolTip(tooltips[p])
+        #     label.setFont(self.medfont)
+        #     self.filtBoxG.addWidget(label, widget_row + p // 2, 4 * (p % 2), 1, 2)
+        #     self.filt_edits.append(QLineEdit())
+        #     self.filt_edits[p].setText(str(self.filt_vals[p]))
+        #     self.filt_edits[p].setFixedWidth(40)
+        #     self.filt_edits[p].setFont(self.medfont)
+        #     self.filtBoxG.addWidget(self.filt_edits[p], widget_row + p // 2, 4 * (p % 2) + 2, 1,
+        #                             2)
+        #     self.filt_edits[p].setToolTip(tooltips[p])
 
         widget_row += 3
         self.norm3D_cb = QCheckBox("norm3D")
@@ -1037,10 +1037,10 @@ class MainW(QMainWindow):
             self.ModelButtonC.setEnabled(True)
         for i in range(len(self.StyleButtons)):
             self.StyleButtons[i].setEnabled(True)
-        for i in range(len(self.DenoiseButtons)):
-            self.DenoiseButtons[i].setEnabled(True)
-        if self.load_3D:
-            self.DenoiseButtons[-2].setEnabled(False)
+        # for i in range(len(self.DenoiseButtons)):
+        #     self.DenoiseButtons[i].setEnabled(True)
+        # if self.load_3D:
+        #     self.DenoiseButtons[-2].setEnabled(False)
         self.ModelButtonB.setEnabled(True)
         # self.SizeButton.setEnabled(True)
         self.newmodel.setEnabled(True)
@@ -1896,15 +1896,16 @@ class MainW(QMainWindow):
                 self.outcolor).astype(np.uint8)
 
     def set_restore_button(self):
-        keys = self.denoise_text
-        for i, key in enumerate(keys):
-            if key != "none" and (self.restore and key in self.restore):
-                self.DenoiseButtons[i].setStyleSheet(self.stylePressed)
-            elif key == "none" and self.restore is None:
-                self.DenoiseButtons[i].setStyleSheet(self.stylePressed)
-            else:
-                if self.DenoiseButtons[i].isEnabled():
-                    self.DenoiseButtons[i].setStyleSheet(self.styleUnpressed)
+        # keys = self.denoise_text
+        # for i, key in enumerate(keys):
+        #     if key != "none" and (self.restore and key in self.restore):
+        #         self.DenoiseButtons[i].setStyleSheet(self.stylePressed)
+        #     elif key == "none" and self.restore is None:
+        #         self.DenoiseButtons[i].setStyleSheet(self.stylePressed)
+        #     else:
+        #         if self.DenoiseButtons[i].isEnabled():
+        #             self.DenoiseButtons[i].setStyleSheet(self.styleUnpressed)
+        pass
 
     def set_normalize_params(self, normalize_params):
         from cellpose.models import normalize_default
