@@ -3,6 +3,8 @@ from pathlib import Path
 from subprocess import check_output, STDOUT
 import os, shutil
 import numpy as np
+import tifffile
+from natsort import natsorted
 
 import gc
 import torch
@@ -149,6 +151,36 @@ def test_outlines_list(data_dir, image_names):
                 outline_single)
 
     assert all(outlines_matched), "Not all outlines in outlines_multi were matched"
+
+
+def test_cp_regressions_test():
+    # make sure that the current version gives a similar ap score to previous using carsen's data
+    
+    use_gpu = torch.cuda.is_available()
+    data_dir = Path('.').resolve() / "carsen" / "test"
+
+    test_files = natsorted([f for f in data_dir.glob("*.tif") if "flows" not in f.name and "masks" not in f.name])
+
+    ind_im = np.array([68, 69, 71, 72, 73, 74, 75, 76, 84, 86, 89, 90])
+    ind_im = np.concatenate((np.arange(55, dtype = 'int32'), ind_im), 0)
+
+    imgs = [tifffile.imread(test_files[i]) for i in ind_im]
+    imgs = [np.concatenate((np.zeros_like(img[:1]), img), axis=0) for img in imgs]
+    test_labels = [tifffile.imread(str(test_files[i]).replace(".tif", "_flows.tif")) for i in ind_im]
+    masks_true = [tl[0].astype("uint16") for tl in test_labels]
+
+    model = models.CellposeModel(gpu=use_gpu)
+
+    masks_pred = []
+    for img in imgs:
+        masks_pred0, _, _ = model.eval(img, diameter=None, augment=False,
+                                    bsize=256, tile_overlap=0.1, batch_size=64,
+                                    flow_threshold=0.4, cellprob_threshold=0, normalize=False)
+        masks_pred.append(masks_pred0)
+
+    ap, tp, fp, fn = metrics.average_precision(masks_true, masks_pred, threshold=.5)
+
+    assert np.isclose(ap.mean(), 0.85268956, atol=1e-5)
 
 
 def compare_masks(data_dir, image_names, runtype):
