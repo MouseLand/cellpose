@@ -40,25 +40,23 @@ def test_shape_stitch():
     img = np.zeros((5, 224, 224, 2)) # 5 layer 3d input, 2 channels
     model = models.CellposeModel()
     masks, _, _ = model.eval(img, channels=[0, 0],
-                                    stitch_threshold=0.9)
+                                    stitch_threshold=0.9, 
+                                    channel_axis=3, z_axis=0, 
+                                    do_3D=True)
     assert masks.shape == (5, 224, 224)
 
 
 def test_shape_3D():
-    # This fails because the input suggests a 3D image, but ndim suggests 2D
-    img = np.zeros((224, 224, 5))
+    img = np.zeros((224, 224, 5, 1))
     model = models.CellposeModel()
-    masks, flows, _ = model.eval(img, diameter=30, channels=[0, 0],
-                                    channel_axis=None, z_axis=3)
+    masks, flows, _ = model.eval(img, channel_axis=3, z_axis=2, do_3D=True)
     assert masks.shape == (5, 224, 224)
 
 
 def test_shape_3D_1ch():
-    # This fails because the and channel_axis z_axis args are deprecated
     img = np.zeros((5, 224, 224, 1))
     model = models.CellposeModel()
-    masks, flows, _ = model.eval(img, diameter=30, channels=[0, 0],
-                                    channel_axis=None, z_axis=3)
+    masks, flows, _ = model.eval(img, channel_axis=3, z_axis=0, do_3D=True)
     assert masks.shape == (5, 224, 224)
 
 
