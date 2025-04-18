@@ -449,7 +449,55 @@ def update_axis(m_axis, to_squeeze, ndim):
     return m_axis
 
 
-def convert_image(x, channel_axis=None, z_axis=None, do_3D=False, nchan=3):
+def convert_image_3d(x, channel_axis=None, z_axis=None):
+    """Convert image to have ZXYC
+    """
+
+    if channel_axis is None or z_axis is None:
+        raise ValueError("both channel_axis and z_axis must be specified when segmenting 3D images")
+    assert x.ndim == 4, f"input image must have ndim == 4, ndim={x.ndim}"
+    
+    x_dim_shapes = list(x.shape)
+    num_z_layers = x_dim_shapes[z_axis]
+    num_channels = x_dim_shapes[channel_axis]
+    x_xy_axes = [i for i in range(x.ndim)]
+    
+    # need to remove the z and channels from the shapes:
+    # delete the one with the bigger index first 
+    if z_axis > channel_axis:
+        del x_dim_shapes[z_axis]
+        del x_dim_shapes[channel_axis]
+
+        del x_xy_axes[z_axis]
+        del x_xy_axes[channel_axis]
+
+    else: 
+        del x_dim_shapes[channel_axis]
+        del x_dim_shapes[z_axis]
+
+        del x_xy_axes[channel_axis]
+        del x_xy_axes[z_axis]
+
+    x = x.transpose((z_axis, x_xy_axes[0], x_xy_axes[1], channel_axis))
+
+    # Handle cases with not 3 channels:
+    if num_channels != 3:
+        x_chans_to_copy = min(3, num_channels)
+
+        if num_channels > 3:
+            transforms_logger.warning("more than 3 channels provided, only segmenting on first 3 channels")
+            x = x[..., :x_chans_to_copy]
+        else: 
+            # less than 3 channels: pad up to 
+            x_out = np.zeros((num_z_layers, x_dim_shapes[0], x_dim_shapes[1], 3), dtype=x.dtype)
+            x_out[..., :x_chans_to_copy] = x[...]
+            x = x_out
+            del x_out
+
+    return x
+
+
+def convert_image(x, channel_axis=None, z_axis=None, do_3D=False):
     """Converts the image to have the z-axis first, channels last.
 
     Args:
@@ -467,18 +515,46 @@ def convert_image(x, channel_axis=None, z_axis=None, do_3D=False, nchan=3):
         ValueError: If the input image is 4D and do_3D is False.
     """
 
-    if channel_axis is not None:
-        assert False, "channel_axis not implemented yet"
-    if z_axis is not None:
-        assert False, "z_axis not implemented yet"
-
-    # check if image is a torch array instead of numpy array
-    # converts torch to numpy
+    # check if image is a torch array instead of numpy array, convert to numpy
     ndim = x.ndim
     if torch.is_tensor(x):
         transforms_logger.warning("torch array used as input, converting to numpy")
         x = x.cpu().numpy()
+
+    # make sure that channel_axis and z_axis are specified if 3D
+    if do_3D:
+        return convert_image_3d(x, channel_axis=channel_axis, z_axis=z_axis)
     
+    if ndim == 4:
+        raise ValueError("3D input image provided, but do_3D is False. Set do_3D=True to process 3D images.")
+
+    ######################## 2D reshaping ########################
+    # if user specifies channel axis, return early
+    if channel_axis is not None:
+        # Put it last:
+        # Find the indices of the dims that need to be put in dim 0 and 1
+        n_channels = x.shape[channel_axis]
+        x_shape_dims = list(x.shape)
+        del x_shape_dims[channel_axis]
+        dimension_indicies = [i for i in range(x.ndim)]
+        del dimension_indicies[channel_axis]
+
+        x = x.transpose((dimension_indicies[0], dimension_indicies[1], channel_axis))
+
+        if n_channels != 3:
+            x_chans_to_copy = min(3, n_channels)
+
+            if n_channels > 3: 
+                transforms_logger.warning("more than 3 channels provided, only segmenting on first 3 channels")
+                x = x[..., :x_chans_to_copy]
+            else: 
+                x_out = np.zeros((x_shape_dims[0], x_shape_dims[1], 3), dtype=x.dtype)
+                x_out[..., :x_chans_to_copy] = x[...]
+                x = x_out
+                del x_out
+
+        return x
+
     # do image padding and channel conversion
     if ndim == 2:
         # grayscale image, make 3 channels
@@ -486,7 +562,7 @@ def convert_image(x, channel_axis=None, z_axis=None, do_3D=False, nchan=3):
         x_out[..., 0] = x
         x = x_out
         del x_out
-    elif ndim == 3 and not do_3D:
+    elif ndim == 3:
         # assume 2d with channels
         # find dim with smaller size between first and last dims
         move_channel_axis = x.shape[0] < x.shape[2]
@@ -496,17 +572,9 @@ def convert_image(x, channel_axis=None, z_axis=None, do_3D=False, nchan=3):
         # zero padding up to 3 channels: 
         num_channels = x.shape[-1]
         if num_channels > 3: 
+            transforms_logger.warning("Found more than 3 channels, only using first 3")
             num_channels = 3
         x_out = np.zeros((x.shape[0], x.shape[1], 3), dtype=x.dtype)
-        x_out[..., :num_channels] = x[..., :num_channels]
-        x = x_out
-        del x_out
-    elif ndim == 4 and do_3D:
-        # pad the channels if necessary
-        x_out = np.zeros((x.shape[0], x.shape[1], x.shape[2], 3), dtype=x.dtype)
-        num_channels = x.shape[-1]
-        if num_channels > 3:
-            num_channels = 3
         x_out[..., :num_channels] = x[..., :num_channels]
         x = x_out
         del x_out
@@ -515,6 +583,7 @@ def convert_image(x, channel_axis=None, z_axis=None, do_3D=False, nchan=3):
         transforms_logger.critical(f"ERROR: Unexpected image shape: {str(x.shape)}")
         raise ValueError(f"ERROR: Unexpected image shape: {str(x.shape)}")
 
+    return x
     
 
 

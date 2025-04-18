@@ -148,7 +148,6 @@ class CellposeModel():
         diam_mean (float): Mean "diameter" value for the model.
         builtin (bool): Whether the model is a built-in model or not.
         device (torch device): Device used for model running / training.
-        nchan (int): Number of channels used as input to the network.
         nclasses (int): Number of classes in the model.
         nbase (list): List of base values for the model.
         net (CPnet): Cellpose network.
@@ -157,16 +156,16 @@ class CellposeModel():
         backbone (str): Type of network ("default" is the standard res-unet, "transformer" for the segformer).
 
     Methods:
-        __init__(self, gpu=False, pretrained_model=False, model_type=None, diam_mean=30., device=None, nchan=2):
+        __init__(self, gpu=False, pretrained_model=False, model_type=None, diam_mean=30., device=None):
             Initialize the CellposeModel.
         
         eval(self, x, batch_size=8, resample=True, channels=None, channel_axis=None, z_axis=None, normalize=True, invert=False, rescale=None, diameter=None, flow_threshold=0.4, cellprob_threshold=0.0, do_3D=False, anisotropy=None, stitch_threshold=0.0, min_size=15, niter=None, augment=False, tile_overlap=0.1, bsize=224, interp=True, compute_masks=True, progress=None):
-            Segment list of images x, or 4D array - Z x nchan x Y x X.
+            Segment list of images x, or 4D array - Z x C x Y x X.
 
     """
 
     def __init__(self, gpu=False, pretrained_model=False, model_type=None,
-                 diam_mean=None, device=None, nchan=3):
+                 diam_mean=None, device=None):
         """
         Initialize the CellposeModel.
 
@@ -176,7 +175,6 @@ class CellposeModel():
             model_type (str, optional): Any model that is available in the GUI, use name in GUI e.g. "livecell" (can be user-trained or model zoo).
             diam_mean (float, optional): Mean "diameter", 30. is built-in value for "cyto" model; 17. is built-in value for "nuclei" model; if saved in custom model file (cellpose>=2.0) then it will be loaded automatically and overwrite this value.
             device (torch device, optional): Device used for model running / training (torch.device("cuda") or torch.device("cpu")), overrides gpu input, recommended if you want to use a specific GPU (e.g. torch.device("cuda:1")).
-            nchan (int, optional): Number of channels to use as input to network, default is 3 (RGB).
         """
         # self.diam_mean = diam_mean
         if diam_mean is not None:
@@ -195,7 +193,6 @@ class CellposeModel():
         self.gpu = device_gpu
         
         ### create neural network
-        self.nchan = nchan
         self.nclasses = 3
         self.pretrained_model = pretrained_model if pretrained_model else MODEL_DIR / "cpsam8_0_600_8_115637540"
         self.net = Transformer(nout=self.nclasses).to(self.device)
@@ -228,7 +225,7 @@ class CellposeModel():
              min_size=15, max_size_fraction=0.4, niter=None, 
              augment=False, tile_overlap=0.1, bsize=256, 
              compute_masks=True, progress=None):
-        """ segment list of images x, or 4D array - Z x nchan x Y x X
+        """ segment list of images x, or 4D array - Z x 3 x Y x X
 
         Args:
             x (list, np.ndarry): can be list of 2D/3D/4D images, or array of 2D/3D/4D images. Images must have 3 channels.
@@ -332,8 +329,7 @@ class CellposeModel():
         # reshape image
         x = transforms.convert_image(x, channel_axis=channel_axis,
                                         z_axis=z_axis, 
-                                        do_3D=(do_3D or stitch_threshold > 0),
-                                        nchan=self.nchan)
+                                        do_3D=(do_3D or stitch_threshold > 0))
         
         # Add batch dimension if not present
         if x.ndim < 4:
