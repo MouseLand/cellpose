@@ -51,11 +51,10 @@ def get_arg_parser():
                                 help="axis of image which corresponds to Z dimension")
     input_img_args.add_argument(
         "--chan", default=0, type=int, help=
-        "channel to segment; 0: GRAY, 1: RED, 2: GREEN, 3: BLUE. Default: %(default)s")
+        "Deprecated in v4.0.1+, not used. ")
     input_img_args.add_argument(
         "--chan2", default=0, type=int, help=
-        "nuclear channel (if cyto, optional); 0: NONE, 1: RED, 2: GREEN, 3: BLUE. Default: %(default)s"
-    )
+        'Deprecated in v4.0.1+, not used. ')
     input_img_args.add_argument("--invert", action="store_true",
                                 help="invert grayscale channel")
     input_img_args.add_argument(
@@ -83,10 +82,10 @@ def get_arg_parser():
     
     # algorithm settings
     algorithm_args = parser.add_argument_group("Algorithm Arguments")
-    algorithm_args.add_argument(
-        "--no_resample", action="store_true", help=
-        "disable dynamics on full image (makes algorithm faster for images with large diameters)"
-    )
+    # algorithm_args.add_argument(
+    #     "--no_resample", action="store_true", help=
+    #     "disable dynamics on full image (makes algorithm faster for images with large diameters)"
+    # )
     algorithm_args.add_argument(
         "--no_interp", action="store_true",
         help="do not interpolate when running dynamics (was default)")
