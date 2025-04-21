@@ -184,16 +184,16 @@ def main():
                 model = models.CellposeModel(gpu=gpu, device=device, model_type=model_type)
             else:
                 builtin_size = False
-                if args.all_channels:
-                    channels = None
-                    img = io.imread(image_names[0])
-                    if img.ndim == 3:
-                        nchan = min(img.shape)
-                    elif img.ndim == 2:
-                        nchan = 1
-                    channels = None
-                else:
-                    nchan = 2
+                # if args.all_channels:
+                #     channels = None
+                #     img = io.imread(image_names[0])
+                #     if img.ndim == 3:
+                #         nchan = min(img.shape)
+                #     elif img.ndim == 2:
+                #         nchan = 1
+                #     channels = None
+                # else:
+                #     nchan = 2
 
                 pretrained_model = None if model_type is not None else pretrained_model
                 if restore_type is None:
@@ -231,17 +231,25 @@ def main():
 
             tqdm_out = utils.TqdmToLogger(logger, level=logging.INFO)
 
+            channel_axis = args.channel_axis
+            z_axis = args.z_axis
+
             for image_name in tqdm(image_names, file=tqdm_out):
                 if args.do_3D:
-                    image = io.imread_3D_to_3chan(image_name)
+                    image = io.imread_3D(image_name)
+                    if channel_axis is None:
+                        channel_axis = 3
+                    if z_axis is None:
+                        z_axis = 0
+                    
                 else:
-                    image = io.imread_2D_to_3chan(image_name)
+                    image = io.imread_2D(image_name)
                 out = model.eval(
                     image, 
-                    # diameter=diameter, 
+                    diameter=args.diameter, 
                     do_3D=args.do_3D,
                     augment=args.augment, 
-                    resample=(not args.no_resample),
+                    # resample=(not args.no_resample),
                     flow_threshold=args.flow_threshold,
                     cellprob_threshold=args.cellprob_threshold,
                     stitch_threshold=args.stitch_threshold, 
@@ -250,8 +258,8 @@ def main():
                     batch_size=args.batch_size,
                     bsize=args.bsize,
                     normalize=normalize,
-                    channel_axis=args.channel_axis, 
-                    z_axis=args.z_axis,
+                    channel_axis=channel_axis, 
+                    z_axis=z_axis,
                     anisotropy=args.anisotropy, 
                     niter=args.niter,
                     flow3D_smooth=args.flow3D_smooth)
