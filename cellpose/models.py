@@ -165,7 +165,7 @@ class CellposeModel():
     """
 
     def __init__(self, gpu=False, pretrained_model=False, model_type=None,
-                 diam_mean=None, device=None):
+                 diam_mean=None, device=None, nchan=None):
         """
         Initialize the CellposeModel.
 
@@ -217,6 +217,9 @@ class CellposeModel():
         #     self.diam_labels = self.diam_mean
 
         self.net_type = f"cellposeSAM"
+
+        if nchan is not None:
+            models_logger.warning("nchan argument is deprecated in v4.0.1+. Ignoring this argument")
 
     def eval(self, x, batch_size=64, resample=None, channels=None, channel_axis=None,
              z_axis=None, normalize=True, invert=False, rescale=None, diameter=None,
@@ -341,9 +344,8 @@ class CellposeModel():
         # elif rescale is None:
         #     rescale = 1.0
         
+        image_scaling = None
         if diameter is not None:
-            if do_3D:
-                assert False, "diameter not implemented for 3D"
             image_scaling = 30. / diameter
 
             x = transforms.resize_image(x,
@@ -405,6 +407,14 @@ class CellposeModel():
         else:
             masks = np.zeros(0) #pass back zeros if not compute_masks
         
+        # undo diameter resizing:
+        if image_scaling is not None:
+            masks = transforms.resize_image(masks, rsz=1/image_scaling, no_channels=True)
+
+            # should resize the flows and cellprobs ? 
+            # dP = transforms.resize_image(dP, rsz=1/image_scaling, no_channels=True)
+            # cellprob = transforms.resize_image(cellprob, rsz=1/image_scaling, no_channels=True)
+
         masks, dP, cellprob = masks.squeeze(), dP.squeeze(), cellprob.squeeze()
 
         return masks, [plot.dx_to_circ(dP), dP, cellprob], styles
