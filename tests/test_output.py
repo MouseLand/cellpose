@@ -36,23 +36,24 @@ def clear_output(data_dir, image_names):
 def test_class_2D(data_dir, image_names):
     clear_output(data_dir, image_names)
 
+    use_gpu = torch.cuda.is_available()
+    model = models.CellposeModel(gpu=use_gpu)
+
     for image_name in image_names:
         
         img_file = data_dir / '2D' / image_name
 
         img = io.imread_2D_to_3chan(img_file)
         flowps = io.imread(img_file.parent / (img_file.stem + "_flowps.tif"))
-        use_gpu = torch.cuda.is_available()
 
-        model = models.CellposeModel(gpu=use_gpu, nchan=3)
-
-        masks_pred, flows_pred, _ = model.eval(img, bsize=256, batch_size=64, normalize=True)
+        masks_pred, flows_pred, _ = model.eval(img, normalize=True)
         io.imsave(data_dir / '2D' / (img_file.stem + "_cp_masks.png"), masks_pred)
 
         flowsp_pred = np.concatenate([flows_pred[1], flows_pred[2][None, ...]], axis=0)
+        io.imsave(data_dir / '2D' / (img_file.stem + "_flowps_test.tif"), flowsp_pred)
 
         mse = np.sqrt((flowsp_pred - flowps) ** 2).sum()
-        assert mse.sum() < 1e-8, "MSE of flows is too high: %f" % mse.sum()
+        assert mse.sum() < 1e-8, f"MSE of flows is too high: {mse.sum()} on image {image_name}"
         print("MSE of flows is %f" % mse.mean())
 
     compare_masks(data_dir, image_names, "2D")
@@ -82,7 +83,7 @@ def test_class_3D(data_dir, image_names_3d):
         img = io.imread_3D_to_3chan(img_file)
 
         model = models.CellposeModel(gpu=use_gpu)
-        masks = model.eval(img, do_3D=True)[0]
+        masks = model.eval(img, do_3D=True, channel_axis=-1, z_axis=0)[0]
         io.imsave(data_dir / "3D" / (img_file.stem + "_cp_masks.tif"), masks)
     compare_masks(data_dir, image_names_3d, "3D")
     clear_output(data_dir, image_names_3d)
