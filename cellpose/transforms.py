@@ -531,7 +531,10 @@ def convert_image(x, channel_axis=None, z_axis=None, do_3D=False):
     ######################## 2D reshaping ########################
     # if user specifies channel axis, return early
     if channel_axis is not None:
-        # Put it last:
+        if ndim == 2:
+            raise ValueError("2D image provided, but channel_axis is not None. Set channel_axis=None to process 2D images.")
+        
+        # Put channel axis last:
         # Find the indices of the dims that need to be put in dim 0 and 1
         n_channels = x.shape[channel_axis]
         x_shape_dims = list(x.shape)
