@@ -219,7 +219,7 @@ def imread(filename):
             return None
 
 
-def imread_2D_to_3chan(img_file):
+def imread_2D(img_file):
     """
     Read in a 2D image file and convert it to a 3-channel image. Attempts to do this for multi-channel and grayscale images.
     
@@ -248,32 +248,23 @@ def imread_2D_to_3chan(img_file):
     return img_out
 
 
-def imread_3D_to_3chan(img_file):
+def imread_3D(img_file):
     """
-    Read in a 3D image file and convert it to a 3-channel image. Attempts to do this for multi-channel and grayscale images.
+    Read in a 3D image file and convert it to have a channel axis last. Attempts to do this for multi-channel and grayscale images.
     
     Args:
         img_file (str): The path to the image file.
 
     Returns:
-        img_out (numpy.ndarray): The 3-channel image data as a NumPy array.
+        img_out (numpy.ndarray): The image data as a NumPy array.
     """
     img = imread(img_file)
 
     if img.ndim == 3:
         # add a channel dimension
-        img_out = np.zeros((img.shape[0], 3, img.shape[1], img.shape[2]), dtype=img.dtype)
-        img_out[:, 0, :, :] = img
+        img_out = np.zeros((img.shape[0], img.shape[1], img.shape[2], 3), dtype=img.dtype)
+        img_out[:, :, :, 0] = img
 
-    elif img.ndim == 4:
-        # already has a channel dimension, justmake sure it's 3
-        img_out = np.zeros((img.shape[0], 3, img.shape[2], img.shape[3]), dtype=img.dtype)
-
-        for i in range(0, img.shape[1]):
-            img_out[:, i, :, :] = img[:, i, :, :]
-            if i == 2:
-                # stop after 3 channels
-                break
     else:
         raise ValueError("Image should have 3 or 4 dimensions, shape: %s" % img.shape)
     

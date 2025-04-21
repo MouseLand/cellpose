@@ -43,7 +43,7 @@ def test_class_2D(data_dir, image_names):
         
         img_file = data_dir / '2D' / image_name
 
-        img = io.imread_2D_to_3chan(img_file)
+        img = io.imread_2D(img_file)
         flowps = io.imread(img_file.parent / (img_file.stem + "_flowps.tif"))
 
         masks_pred, flows_pred, _ = model.eval(img, normalize=True)
@@ -64,7 +64,7 @@ def test_cyto2_to_seg(data_dir, image_names):
     clear_output(data_dir, image_names)
     use_gpu = torch.cuda.is_available()
     file_names = [data_dir / "2D" / n for n in image_names]
-    imgs = [io.imread_2D_to_3chan(file_name) for file_name in file_names]
+    imgs = [io.imread_2D(file_name) for file_name in file_names]
     model = models.CellposeModel(gpu=use_gpu)
 
     # masks, flows, styles = model.eval(imgs, diameter=30)  # Errors during SAM stuff
@@ -76,14 +76,16 @@ def test_cyto2_to_seg(data_dir, image_names):
 def test_class_3D(data_dir, image_names_3d):
     clear_output(data_dir, image_names_3d)
     use_gpu = torch.cuda.is_available()
+    model = models.CellposeModel(gpu=use_gpu)
 
     for image_name in image_names_3d:
         img_file = data_dir / '3D' / image_name
+        img = io.imread(img_file)
 
-        img = io.imread_3D_to_3chan(img_file)
+        if img.ndim == 3:
+            img = np.expand_dims(img, axis=1)
 
-        model = models.CellposeModel(gpu=use_gpu)
-        masks = model.eval(img, do_3D=True, channel_axis=-1, z_axis=0)[0]
+        masks = model.eval(img, do_3D=True, channel_axis=1, z_axis=0)[0]
         io.imsave(data_dir / "3D" / (img_file.stem + "_cp_masks.tif"), masks)
     compare_masks(data_dir, image_names_3d, "3D")
     clear_output(data_dir, image_names_3d)
@@ -182,10 +184,6 @@ def test_cp_regressions_test():
     ap, tp, fp, fn = metrics.average_precision(masks_true, masks_pred, threshold=.5)
 
     assert np.isclose(ap.mean(), 0.85268956, atol=1e-5), "ap score is not close enough to previous version: %f" % ap.mean()
-
-
-def test_diameter_resizing_in_eval():
-    assert False, "TODO"
 
 
 def compare_masks(data_dir, image_names, runtype):
