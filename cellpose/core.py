@@ -251,7 +251,7 @@ def run_net(net, imgi, batch_size=8, augment=False, tile_overlap=0.1, bsize=224,
             # pad image for net so Ly and Lx are divisible by 4
             imgb = transforms.resize_image(imgi[b], rsz=rsz) if rsz is not None else imgi[b].copy()
             imgb = np.pad(imgb.transpose(2,0,1), pads, mode="constant")
-            IMG, ysub, xsub, Ly, Lx = transforms.make_tiles(
+            IMG, ysub, xsub, Lyt, Lxt = transforms.make_tiles(
                 imgb, bsize=bsize, augment=augment,
                 tile_overlap=tile_overlap)
             IMGa[i * ntiles : (i+1) * ntiles] = np.reshape(IMG, 
@@ -268,7 +268,7 @@ def run_net(net, imgi, batch_size=8, augment=False, tile_overlap=0.1, bsize=224,
                 y = np.reshape(y, (ny, nx, 3, ly, lx))
                 y = transforms.unaugment_tiles(y)
                 y = np.reshape(y, (-1, 3, ly, lx))
-            yfi = transforms.average_tiles(y, ysub, xsub, Ly, Lx)
+            yfi = transforms.average_tiles(y, ysub, xsub, Lyt, Lxt)
             yf[b] = yfi[:, :imgb.shape[-2], :imgb.shape[-1]]
             stylei = stylea[i * ntiles:(i + 1) * ntiles].sum(axis=0)
             stylei /= (stylei**2).sum()**0.5
