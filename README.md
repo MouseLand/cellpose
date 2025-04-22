@@ -33,6 +33,7 @@ We suggest installing our fork using `conda` and `pip` (with `python>=3.8`).
 6. To install the latest PyPi release of Cellpose plus and its dependencies (see [setup.py](https://github.com/ITMO-MMRM-lab/cellpose/blob/main/setup.py)), run:\
   `pip install cellpose-plus[gui]`\
   or `pip install cellpose-plus` for a version without GUI.
+(Optional): To install dependencies, you can use requirements.txt via `pip install -r /cellpose_plus/requirements.txt`
 
 ### System requirements
 
