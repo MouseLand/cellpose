@@ -2452,7 +2452,7 @@ class MainW(QMainWindow):
             else:
                 data = self.stack.copy().squeeze()
             flow_threshold, cellprob_threshold = self.get_thresholds()
-            # self.diameter = float(self.Diameter.text())
+            diameter = float(self.diameter_box.text())
             if data.ndim == 2:
                 data_new = np.zeros((data.shape[0], data.shape[1], 3), dtype=data.dtype)
                 data_new[..., 0] = data
@@ -2466,12 +2466,12 @@ class MainW(QMainWindow):
                 masks, flows = self.model.eval(
                     data, 
                     # channels=channels, 
-                    # diameter=self.diameter,
+                    diameter=diameter,
                     cellprob_threshold=cellprob_threshold,
                     flow_threshold=flow_threshold, do_3D=do_3D, niter=niter,
                     normalize=normalize_params, stitch_threshold=stitch_threshold,
                     anisotropy=anisotropy, resample=resample, flow3D_smooth=flow3D_smooth,
-                    min_size=min_size,
+                    min_size=min_size, channel_axis=-1,
                     progress=self.progress, z_axis=0 if self.NZ > 1 else None)[:2]
             except Exception as e:
                 print("NET ERROR: %s" % e)
