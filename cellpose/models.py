@@ -179,7 +179,7 @@ class CellposeModel():
         # self.diam_mean = diam_mean
         if diam_mean is not None:
             models_logger.warning(
-                "diameter arguments are not used in v4.0.1+. Ignoring this argument"
+                "diam_mean argument are not used in v4.0.1+. Ignoring this argument..."
             )
 
         ### assign model device
