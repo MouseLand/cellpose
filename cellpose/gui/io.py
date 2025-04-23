@@ -386,6 +386,9 @@ def _load_seg(parent, filename=None, image=None, image_file=None, load_3D=False)
 
             _masks_to_gui(parent, dat["masks"], outlines=dat["outlines"], colors=colors)
 
+            if "ismanual" in dat and len(dat["ismanual"]) == parent.ncells:
+                parent.ismanual = dat["ismanual"]
+
             parent.draw_layer()
             if "est_diam" in dat:
                 parent.Diameter.setText("%0.1f" % dat["est_diam"])
