@@ -79,15 +79,11 @@ def test_shape_3D_1ch():
 
 
 def test_shape_3D_1ch_3ndim():
-    # This fails, current implementation requires 4D input
-    # Make a special case when z_axis is specified and ndim==3, allow to pass and assume greyscale
     img = np.zeros((5, 224, 224))
     use_gpu = torch.cuda.is_available()
     model = models.CellposeModel(gpu=use_gpu)
     masks, _, _ = model.eval(img, channel_axis=None, z_axis=0, do_3D=True)
     assert masks.shape == (5, 224, 224)
-
-
 
 
 def test_shape_3D_1ch_pass():

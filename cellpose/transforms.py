@@ -453,8 +453,17 @@ def convert_image_3d(x, channel_axis=None, z_axis=None):
     """Convert image to have ZXYC
     """
 
+    # if image is ndim==3, assume it is greyscale 3D and use provided z_axis
+    if x.ndim == 3 and z_axis is not None:
+        # add in channel axis
+        x = x[..., np.newaxis]
+        channel_axis = 3
+    elif x.ndim == 3 and z_axis is None:
+        raise ValueError("z_axis must be specified when segmenting 3D images of ndim=3")
+
+
     if channel_axis is None or z_axis is None:
-        raise ValueError("both channel_axis and z_axis must be specified when segmenting 3D images")
+        raise ValueError("both channel_axis and z_axis must be specified when segmenting 3D images of ndim=4")
     assert x.ndim == 4, f"input image must have ndim == 4, ndim={x.ndim}"
     
     x_dim_shapes = list(x.shape)
