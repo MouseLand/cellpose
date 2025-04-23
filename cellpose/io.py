@@ -268,10 +268,10 @@ def imread_3D(img_file):
         # assume it's opening as (z, c, y, x)
         img_out = np.zeros((img.shape[0], img.shape[2], img.shape[3], 3), dtype=img.dtype)
         img_out[:, :, :, :img.shape[1]] = img.transpose(0, 2, 3, 1)
-        return img
     else:
         raise ValueError("Image should have 3 or 4 dimensions, shape: %s" % img.shape)
     
+    del img
     return img_out
 
 
