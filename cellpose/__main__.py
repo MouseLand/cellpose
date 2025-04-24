@@ -25,31 +25,6 @@ except Exception as err:
 
 import logging
 
-# Example refactor:
-# def main():
-#     """Run Cellpose from the command line."""
-#     args = parse_arguments()
-
-#     if args.version:
-#         print(version_str)
-#         return
-
-#     if len(args.dir) == 0 and len(args.image_path) == 0:
-#         if args.add_model:
-#             io.add_model(args.add_model)
-#         elif GUI_ENABLED:
-#             run_gui(args)
-#         else:
-#             print("GUI ERROR:", GUI_ERROR)
-#             print("To install GUI dependencies, run: pip install 'cellpose[gui]'")
-#     else:
-#         logger = logger_setup() if args.verbose else logging.getLogger(__name__)
-#         model = initialize_model(args, logger)
-
-#         if args.train or args.train_size:
-#             train_model(args, model, logger)
-#         else:
-#             process_images(args, model, logger)
 
 
 
@@ -97,13 +72,9 @@ def main():
 
     # find images
     if len(args.img_filter) > 0:
-        imf = args.img_filter
+        image_filter = args.img_filter
     else:
-        imf = None
-
-    # Check with user if they REALLY mean to run without saving anything
-    if not args.train:
-        saving_something = args.save_png or args.save_tif or args.save_flows or args.save_txt
+        image_filter = None
 
     device, gpu = models.assign_device(use_torch=True, gpu=args.use_gpu,
                                         device=args.gpu_device)
@@ -126,85 +97,141 @@ def main():
     if args.transformer:
         logger.warning("the '--tranformer' flag is deprecated in v4.0.1+ and no longer used")
 
-    default_model = "cyto3"
-    backbone = "default"
-
     if args.norm_percentile is not None:
         value1, value2 = args.norm_percentile
         normalize = {'percentile': (float(value1), float(value2))} 
     else:
         normalize = (not args.no_norm)
-    
 
-    model_type = None
     if pretrained_model and not os.path.exists(pretrained_model):
-        model_type = pretrained_model if pretrained_model is not None else "cyto3"
+        # check if pretrained model is in the models directory
+        # TODO: this is broken?
         model_strings = models.get_user_models()
         all_models = models.MODEL_NAMES.copy()
         all_models.extend(model_strings)
-        if ~np.any([model_type == s for s in all_models]):
-            model_type = default_model
-            logger.warning(
-                f"pretrained model has incorrect path, using {default_model}")
-        # if model_type == "nuclei":
-        #     szmean = 17.
-        # else:
-        #     szmean = 30.
-    # builtin_size = (model_type == "cyto" or model_type == "cyto2" or
-    #                 model_type == "nuclei" or model_type == "cyto3")
+
 
     if len(args.image_path) > 0 and args.train:
         raise ValueError("ERROR: cannot train model with single image input")
 
     ## Run evaluation on images
     if not args.train:
-        tic = time.time()
-        if len(args.dir) > 0:
-            image_names = io.get_image_files(
+        _evaluate_cellposemodel_cli(args, logger, image_filter, device, gpu, pretrained_model, normalize)
+    
+    ## Train a model ##
+    else:
+        _train_cellposemodel_cli(args, logger, image_filter, device, pretrained_model, normalize)
+
+
+def _train_cellposemodel_cli(args, logger, image_filter, device, pretrained_model, normalize):
+    test_dir = None if len(args.test_dir) == 0 else args.test_dir
+    images, labels, image_names, train_probs = None, None, None, None
+    test_images, test_labels, image_names_test, test_probs = None, None, None, None
+    compute_flows = False
+    if len(args.file_list) > 0:
+        if os.path.exists(args.file_list):
+            dat = np.load(args.file_list, allow_pickle=True).item()
+            image_names = dat["train_files"]
+            image_names_test = dat.get("test_files", None)
+            train_probs = dat.get("train_probs", None)
+            test_probs = dat.get("test_probs", None)
+            compute_flows = dat.get("compute_flows", False)
+            load_files = False
+        else:
+            logger.critical(f"ERROR: {args.file_list} does not exist")
+    else:
+        output = io.load_train_test_data(args.dir, test_dir, image_filter,
+                                                args.mask_filter,
+                                                args.look_one_level_down)
+        images, labels, image_names, test_images, test_labels, image_names_test = output
+        load_files = True
+
+        # model path
+    if not os.path.exists(pretrained_model):
+        error_message = "ERROR: model path missing or incorrect - cannot train size model"
+        logger.critical(error_message)
+        raise ValueError(error_message)
+    
+    if pretrained_model:
+        logger.warning("ignoring --pretrained_model, using hardcoded model")
+        
+        # TODO: fix this
+    logger.info(
+            ">>>> during training rescaling images to fixed diameter of %0.1f pixels"
+            % args.diam_mean)
+
+        # initialize model
+    model = models.CellposeModel(device=device)
+
+        # train segmentation model
+    cpmodel_path = train.train_seg(
+            model.net, images, labels, train_files=image_names,
+            test_data=test_images, test_labels=test_labels,
+            test_files=image_names_test, train_probs=train_probs,
+            test_probs=test_probs, compute_flows=compute_flows,
+            load_files=load_files, normalize=normalize,
+            # channels=channels, 
+            channel_axis=args.channel_axis, 
+            # rgb=(nchan == 3),
+            learning_rate=args.learning_rate, weight_decay=args.weight_decay,
+            SGD=args.SGD, n_epochs=args.n_epochs, batch_size=args.batch_size,
+            min_train_masks=args.min_train_masks,
+            nimg_per_epoch=args.nimg_per_epoch,
+            nimg_test_per_epoch=args.nimg_test_per_epoch,
+            save_path=os.path.realpath(args.dir), save_every=args.save_every,
+            model_name=args.model_name_out)[0]
+    model.pretrained_model = cpmodel_path
+    logger.info(">>>> model trained and saved to %s" % cpmodel_path)
+    return model
+
+
+def _evaluate_cellposemodel_cli(args, logger, imf, device, gpu, pretrained_model, normalize):
+    # Check with user if they REALLY mean to run without saving anything
+    if not args.train:
+        saving_something = args.save_png or args.save_tif or args.save_flows or args.save_txt
+
+    tic = time.time()
+    if len(args.dir) > 0:
+        image_names = io.get_image_files(
                 args.dir, args.mask_filter, imf=imf,
                 look_one_level_down=args.look_one_level_down)
+    else:
+        if os.path.exists(args.image_path):
+            image_names = [args.image_path]
         else:
-            if os.path.exists(args.image_path):
-                image_names = [args.image_path]
-            else:
-                raise ValueError(f"ERROR: no file found at {args.image_path}")
-        nimg = len(image_names)
+            raise ValueError(f"ERROR: no file found at {args.image_path}")
+    nimg = len(image_names)
 
-        if args.savedir:
-            if not os.path.exists(args.savedir):
-                raise FileExistsError(f"--savedir {args.savedir} does not exist")
+    if args.savedir:
+        if not os.path.exists(args.savedir):
+            raise FileExistsError(f"--savedir {args.savedir} does not exist")
+        
+    if pretrained_model:
+        logger.warning("ignoring --pretrained_model, using hardcoded model")
 
-        logger.info(
+    logger.info(
             ">>>> running cellpose on %d images using all channels" % nimg)
 
-        # handle built-in model exceptions
-
-        pretrained_model = None if model_type is not None else pretrained_model
-        # pretrained_model_ortho = None if args.pretrained_model_ortho is None else args.pretrained_model_ortho
-        model = models.CellposeModel(gpu=gpu, device=device,
-                                        pretrained_model=pretrained_model,
-                                        model_type=model_type,
-                                        # nchan=nchan,
-                                        # backbone=backbone,
-                                        # pretrained_model_ortho=pretrained_model_ortho
+    # handle built-in model exceptions
+    model = models.CellposeModel(gpu=gpu, device=device,
                                         )
 
-        tqdm_out = utils.TqdmToLogger(logger, level=logging.INFO)
+    tqdm_out = utils.TqdmToLogger(logger, level=logging.INFO)
 
-        channel_axis = args.channel_axis
-        z_axis = args.z_axis
+    channel_axis = args.channel_axis
+    z_axis = args.z_axis
 
-        for image_name in tqdm(image_names, file=tqdm_out):
-            if args.do_3D:
-                image = io.imread_3D(image_name)
-                if channel_axis is None:
-                    channel_axis = 3
-                if z_axis is None:
-                    z_axis = 0
+    for image_name in tqdm(image_names, file=tqdm_out):
+        if args.do_3D:
+            image = io.imread_3D(image_name)
+            if channel_axis is None:
+                channel_axis = 3
+            if z_axis is None:
+                z_axis = 0
                 
-            else:
-                image = io.imread_2D(image_name)
-            out = model.eval(
+        else:
+            image = io.imread_2D(image_name)
+        out = model.eval(
                 image, 
                 diameter=args.diameter, 
                 do_3D=args.do_3D,
@@ -223,114 +250,40 @@ def main():
                 anisotropy=args.anisotropy, 
                 niter=args.niter,
                 flow3D_smooth=args.flow3D_smooth)
-            masks, flows = out[:2]
+        masks, flows = out[:2]
 
-            if args.exclude_on_edges:
-                masks = utils.remove_edge_masks(masks)
-            if not args.no_npy:
-                io.masks_flows_to_seg(image, masks, flows, image_name,
+        if args.exclude_on_edges:
+            masks = utils.remove_edge_masks(masks)
+        if not args.no_npy:
+            io.masks_flows_to_seg(image, masks, flows, image_name,
                                         imgs_restore=None, 
                                     #   channels=channels,
                                     #   diams=diams, 
                                         restore_type=None,
                                         ratio=1.)
-            if saving_something:
-                suffix = "_cp_masks"
-                if args.output_name is not None: 
+        if saving_something:
+            suffix = "_cp_masks"
+            if args.output_name is not None: 
                     # (1) If `savedir` is not defined, then must have a non-zero `suffix`
-                    if args.savedir is None and len(args.output_name) > 0:
-                        suffix = args.output_name
-                    elif args.savedir is not None and not os.path.samefile(args.savedir, args.dir):
+                if args.savedir is None and len(args.output_name) > 0:
+                    suffix = args.output_name
+                elif args.savedir is not None and not os.path.samefile(args.savedir, args.dir):
                         # (2) If `savedir` is defined, and different from `dir` then                              
                         # takes the value passed as a param. (which can be empty string)
-                        suffix = args.output_name
+                    suffix = args.output_name
 
-                io.save_masks(image, masks, flows, image_name,
+            io.save_masks(image, masks, flows, image_name,
                                 suffix=suffix, png=args.save_png,
                                 tif=args.save_tif, save_flows=args.save_flows,
                                 save_outlines=args.save_outlines,
                                 dir_above=args.dir_above, savedir=args.savedir,
                                 save_txt=args.save_txt, in_folders=args.in_folders,
                                 save_mpl=args.save_mpl)
-            if args.save_rois:
-                io.save_rois(masks, image_name)
-        logger.info(">>>> completed in %0.3f sec" % (time.time() - tic))
-    
-    ## Train a model ##
-    else:
-        test_dir = None if len(args.test_dir) == 0 else args.test_dir
-        images, labels, image_names, train_probs = None, None, None, None
-        test_images, test_labels, image_names_test, test_probs = None, None, None, None
-        compute_flows = False
-        if len(args.file_list) > 0:
-            if os.path.exists(args.file_list):
-                dat = np.load(args.file_list, allow_pickle=True).item()
-                image_names = dat["train_files"]
-                image_names_test = dat.get("test_files", None)
-                train_probs = dat.get("train_probs", None)
-                test_probs = dat.get("test_probs", None)
-                compute_flows = dat.get("compute_flows", False)
-                load_files = False
-            else:
-                logger.critical(f"ERROR: {args.file_list} does not exist")
-        else:
-            output = io.load_train_test_data(args.dir, test_dir, imf,
-                                                args.mask_filter,
-                                                args.look_one_level_down)
-            images, labels, image_names, test_images, test_labels, image_names_test = output
-            load_files = True
+        if args.save_rois:
+            io.save_rois(masks, image_name)
+    logger.info(">>>> completed in %0.3f sec" % (time.time() - tic))
 
-        # training with all channels
-        if args.all_channels:
-            img = images[0] if images is not None else io.imread(image_names[0])
-            if img.ndim == 3:
-                nchan = min(img.shape)
-            elif img.ndim == 2:
-                nchan = 1
-            channels = None
-        else:
-            nchan = 2
-
-        # model path
-        # szmean = args.diam_mean
-        if not os.path.exists(pretrained_model) and model_type is None:
-            if not args.train:
-                error_message = "ERROR: model path missing or incorrect - cannot train size model"
-                logger.critical(error_message)
-                raise ValueError(error_message)
-            pretrained_model = False
-            logger.info(">>>> training from scratch")
-        if args.train:
-            logger.info(
-                ">>>> during training rescaling images to fixed diameter of %0.1f pixels"
-                % args.diam_mean)
-
-        # initialize model
-        model = models.CellposeModel(
-            device=device, model_type=model_type, 
-            # diam_mean=szmean, 
-            # nchan=nchan,
-            pretrained_model=pretrained_model if model_type is None else None,
-            backbone=backbone)
-
-        # train segmentation model
-        if args.train:
-            cpmodel_path = train.train_seg(
-                model.net, images, labels, train_files=image_names,
-                test_data=test_images, test_labels=test_labels,
-                test_files=image_names_test, train_probs=train_probs,
-                test_probs=test_probs, compute_flows=compute_flows,
-                load_files=load_files, normalize=normalize,
-                channels=channels, channel_axis=args.channel_axis, rgb=(nchan == 3),
-                learning_rate=args.learning_rate, weight_decay=args.weight_decay,
-                SGD=args.SGD, n_epochs=args.n_epochs, batch_size=args.batch_size,
-                min_train_masks=args.min_train_masks,
-                nimg_per_epoch=args.nimg_per_epoch,
-                nimg_test_per_epoch=args.nimg_test_per_epoch,
-                save_path=os.path.realpath(args.dir), save_every=args.save_every,
-                model_name=args.model_name_out)[0]
-            model.pretrained_model = cpmodel_path
-            logger.info(">>>> model trained and saved to %s" % cpmodel_path)
+    return model
 
 
 if __name__ == "__main__":

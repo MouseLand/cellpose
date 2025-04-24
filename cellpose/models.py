@@ -181,6 +181,10 @@ class CellposeModel():
             models_logger.warning(
                 "diam_mean argument are not used in v4.0.1+. Ignoring this argument..."
             )
+        if model_type is not None:
+            models_logger.warning(
+                "model_type argument is not used in v4.0.1+. Ignoring this argument..."
+            )
 
         ### assign model device
         self.device = assign_device(gpu=gpu)[0] if device is None else device
