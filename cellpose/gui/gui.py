@@ -780,82 +780,7 @@ class MainW(QMainWindow):
         # self.modelBoxG.addWidget(self.ModelButtonB, widget_row, 8, 1, 1)
         # self.ModelButtonB.setEnabled(False)
 
-        # b += 1
-        # self.denoiseBox = QGroupBox("Image restoration")
-        # self.denoiseBox.setFont(self.boldfont)
-        # self.denoiseBoxG = QGridLayout()
-        # self.denoiseBox.setLayout(self.denoiseBoxG)
-        # self.l0.addWidget(self.denoiseBox, b, 0, 1, 9)
-
         widget_row = 0
-        
-        # # DENOISING
-        # self.DenoiseButtons = []
-        # nett = [
-        #     "clear restore/filter",
-        #     "filter image (settings below)",
-        #     "denoise (please set cell diameter first)",
-        #     "deblur (please set cell diameter first)",
-        #     "upsample to 30. diameter (cyto3) or 17. diameter (nuclei) (please set cell diameter first) (disabled in 3D)",
-        #     "one-click model trained to denoise+deblur+upsample (please set cell diameter first)"
-        # ]
-        # self.denoise_text = ["none", "filter", "denoise", "deblur", "upsample", "one-click"]
-        # self.restore = None
-        # self.ratio = 1.
-        # jj = 0
-        # w = 3
-        # for j in range(len(self.denoise_text)):
-        #     self.DenoiseButtons.append(
-        #         guiparts.DenoiseButton(self, self.denoise_text[j]))
-        #     self.denoiseBoxG.addWidget(self.DenoiseButtons[-1], widget_row, jj, 1, w)
-        #     self.DenoiseButtons[-1].setFixedWidth(75)
-        #     self.DenoiseButtons[-1].setToolTip(nett[j])
-        #     self.DenoiseButtons[-1].setFont(self.medfont)
-        #     widget_row += 1 if j%2==1 else 0
-        #     jj = 0 if j%2==1 else jj + w
-
-        # # b0+=1
-        # self.save_norm = QCheckBox("save restored/filtered image")
-        # self.save_norm.setFont(self.medfont)
-        # self.save_norm.setToolTip("save restored/filtered image in _seg.npy file")
-        # self.save_norm.setChecked(True)
-        # # self.denoiseBoxG.addWidget(self.save_norm, b0, 0, 1, 8)
-
-        # widget_row -= 3
-        # label = QLabel("restore-dataset:")
-        # label.setToolTip(
-        #     "choose dataset and click [denoise], [deblur], [upsample], or [one-click]")
-        # label.setFont(self.medfont)
-        # self.denoiseBoxG.addWidget(label, widget_row, 6, 1, 3)
-
-        # widget_row += 1
-        # self.DenoiseChoose = QComboBox()
-        # self.DenoiseChoose.setFont(self.medfont)
-        # self.DenoiseChoose.addItems(["cyto3", "cyto2", "nuclei"])
-        # self.DenoiseChoose.setFixedWidth(85)
-        # tipstr = "choose model type and click [denoise], [deblur], or [upsample]"
-        # self.DenoiseChoose.setToolTip(tipstr)
-        # self.denoiseBoxG.addWidget(self.DenoiseChoose, widget_row, 6, 1, 3)
-
-        # widget_row += 2
-        # # FILTERING
-        # self.filtBox = QCollapsible("custom filter settings")
-        # self.filtBox._toggle_btn.setFont(self.medfont)
-        # self.filtBoxG = QGridLayout()
-        # _content = QWidget()
-        # _content.setLayout(self.segaBoxG)
-        # _content.setMaximumHeight(0)
-        # _content.setMinimumHeight(0)
-        #_content.layout().setContentsMargins(QtCore.QMargins(0, -20, -20, -20))
-        # self.segaBox.setContent(_content)
-        # self.segaBox.addWidget(self.filtBox, widget_row, 0, 1, 9)
-
-
-
-        # self.invert_cb = QCheckBox("invert")
-        # self.invert_cb.setFont(self.medfont)
-        # self.invert_cb.setToolTip("invert image")
-        # self.filtBoxG.addWidget(self.invert_cb, widget_row, 3, 1, 3)
 
         b += 1
         self.l0.addWidget(QLabel(""), b, 0, 1, 9)
@@ -868,7 +793,7 @@ class MainW(QMainWindow):
         self.ScaleOn.setFont(self.medfont)
         self.ScaleOn.setStyleSheet("color: rgb(150,50,150);")
         self.ScaleOn.setChecked(True)
-        # self.ScaleOn.setToolTip("see current diameter as red disk at bottom")
+        self.ScaleOn.setToolTip("see current diameter as red disk at bottom")
         self.ScaleOn.toggled.connect(self.toggle_scale)
         self.l0.addWidget(self.ScaleOn, b, 0, 1, 5)
 
@@ -1041,12 +966,6 @@ class MainW(QMainWindow):
             self.ModelButtonC.setEnabled(True)
         for i in range(len(self.StyleButtons)):
             self.StyleButtons[i].setEnabled(True)
-        # for i in range(len(self.DenoiseButtons)):
-        #     self.DenoiseButtons[i].setEnabled(True)
-        # if self.load_3D:
-        #     self.DenoiseButtons[-2].setEnabled(False)
-        # self.ModelButtonB.setEnabled(True)
-        # self.SizeButton.setEnabled(True)
         self.newmodel.setEnabled(True)
         self.loadMasks.setEnabled(True)
 
@@ -1065,8 +984,6 @@ class MainW(QMainWindow):
             self.ModelButtonC.setEnabled(False)
         for i in range(len(self.StyleButtons)):
             self.StyleButtons[i].setEnabled(False)
-        # self.ModelButtonB.setEnabled(False)
-        # self.SizeButton.setEnabled(False)
         self.newmodel.setEnabled(False)
         self.loadMasks.setEnabled(False)
         self.saveSet.setEnabled(False)
@@ -1898,17 +1815,6 @@ class MainW(QMainWindow):
             self.layerz[self.outpix[self.currentZ] > 0] = np.array(
                 self.outcolor).astype(np.uint8)
 
-    def set_restore_button(self):
-        # keys = self.denoise_text
-        # for i, key in enumerate(keys):
-        #     if key != "none" and (self.restore and key in self.restore):
-        #         self.DenoiseButtons[i].setStyleSheet(self.stylePressed)
-        #     elif key == "none" and self.restore is None:
-        #         self.DenoiseButtons[i].setStyleSheet(self.stylePressed)
-        #     else:
-        #         if self.DenoiseButtons[i].isEnabled():
-        #             self.DenoiseButtons[i].setStyleSheet(self.styleUnpressed)
-        pass
 
     def set_normalize_params(self, normalize_params):
         from cellpose.models import normalize_default
@@ -2236,26 +2142,6 @@ class MainW(QMainWindow):
             f"!!! computed masks for {os.path.split(self.filename)[1]} from new model !!!"
         )
 
-    def compute_restore(self):
-        if self.restore:
-            self.logger.info(f"running image restoration {self.restore}")
-            if self.restore != "filter":
-                rstr = self.restore.split("_")
-                model_type = rstr[0]
-                if len(rstr) > 1:
-                    dset = rstr[1]
-                    if dset == "cyto3":
-                        self.DenoiseChoose.setCurrentIndex(0)
-                    else:
-                        self.DenoiseChoose.setCurrentIndex(1)
-                if "upsample" in self.restore:
-                    i = self.DenoiseChoose.currentIndex()
-                    diam_up = 30. if i==0 or i==1 else 17.
-                    print(diam_up, self.ratio)
-                    # self.Diameter.setText(str(diam_up / self.ratio))
-                self.compute_denoise_model(model_type=model_type)
-            else:
-                self.compute_saturation()
 
     def get_thresholds(self):
         try:
@@ -2297,139 +2183,6 @@ class MainW(QMainWindow):
             io._masks_to_gui(self, maski, outlines=None)
             self.show()
 
-    def compute_denoise_model(self, model_type=None):
-        self.progress.setValue(0)
-        try:
-            tic = time.time()
-            nstr = self.DenoiseChoose.currentText()
-            nstr.replace("-", "")
-            self.clear_restore()
-            model_name = model_type + "_" + nstr
-            print(model_name)
-            # denoising model
-            self.denoise_model = denoise.DenoiseModel(gpu=self.useGPU.isChecked(),
-                                                      model_type=model_name)
-            self.progress.setValue(10)
-            # diam_up = 30. if "cyto" in model_name else 17.
-
-            # params
-            # channels = self.get_channels()
-            # self.diameter = float(self.Diameter.text())
-            normalize_params = self.get_normalize_params()
-            # print("GUI_INFO: channels: ", channels)
-            print("GUI_INFO: normalize_params: ", normalize_params)
-            # print("GUI_INFO: diameter (before upsampling): ", self.diameter)
-
-            data = self.stack.copy()
-            print(data.shape)
-            self.Ly, self.Lx = data.shape[-3:-1]
-            if "upsample" in model_name:
-                # get upsampling factor
-                # if self.diameter >= diam_up:
-                #     print(
-                #         f"GUI_ERROR: cannot upsample, already set to pixel diameter >= {diam_up}"
-                #     )
-                #     self.progress.setValue(0)
-                #     return
-                # self.ratio = diam_up / self.diameter
-                print(
-                    "GUI_WARNING: upsampling image, this will also duplicate mask layer and resize it, will use more RAM"
-                )
-                # print(
-                #     f"GUI_INFO: upsampling image to {diam_up} pixel diameter ({self.ratio:0.2f} times)"
-                # )
-                self.Lyr, self.Lxr = int(self.Ly * self.ratio), int(self.Lx *
-                                                                    self.ratio)
-                self.Ly0, self.Lx0 = self.Ly, self.Lx
-                # moved resize into eval
-                #data = resize_image(data, Ly=self.Lyr, Lx=self.Lxr)
-                #self.diameter = diam_up
-                #self.Diameter.setText(str(diam_up))
-            else:
-                self.Lyr, self.Lxr = self.Ly, self.Lx
-                self.Ly0, self.Lx0 = self.Ly, self.Lx
-                # diam_up = self.diameter
-
-            img_norm = self.denoise_model.eval(data, channels=channels, z_axis=0,
-                                               channel_axis=3, 
-                                            #    diameter=self.diameter,
-                                               normalize=normalize_params)
-            print(img_norm.shape)
-            # self.diameter = diam_up
-            # self.Diameter.setText(str(diam_up))
-
-            if img_norm.ndim == 2:
-                img_norm = img_norm[:, :, np.newaxis]
-            if img_norm.ndim == 3:
-                img_norm = img_norm[np.newaxis, ...]
-
-            self.progress.setValue(100)
-            self.logger.info(f"{model_name} finished in %0.3f sec" %
-                             (time.time() - tic))
-
-            # compute saturation
-            percentile = normalize_params["percentile"]
-            img_norm_min = img_norm.min()
-            img_norm_max = img_norm.max()
-            chan = [0] if channels[0] == 0 else [channels[0] - 1, channels[1] - 1]
-            self.saturation = [[], [], []]
-            for c in range(img_norm.shape[-1]):
-                if np.ptp(img_norm[..., c]) > 1e-3:
-                    img_norm[..., c] -= img_norm_min
-                    img_norm[..., c] /= (img_norm_max - img_norm_min)
-                for z in range(self.NZ):
-                    x01 = np.percentile(img_norm[z, :, :, c], percentile[0]) * 255.
-                    x99 = np.percentile(img_norm[z, :, :, c], percentile[1]) * 255.
-                    self.saturation[chan[c]].append([x01, x99])
-            notchan = np.ones(3, "bool")
-            notchan[np.array(chan)] = False
-            notchan = np.nonzero(notchan)[0]
-            for c in notchan:
-                for z in range(self.NZ):
-                    self.saturation[c].append([0, 255.])
-
-            img_norm *= 255.
-            self.autobtn.setChecked(True)
-
-            # assign to denoised channels
-            self.stack_filtered = np.zeros(
-                (self.NZ, self.Lyr, self.Lxr, self.stack.shape[-1]), "float32")
-            for i, c in enumerate(chan[:img_norm.shape[-1]]):
-                for z in range(self.NZ):
-                    self.stack_filtered[z, :, :, c] = img_norm[z, :, :, i]
-
-            # make upsampled masks
-            if model_type == "upsample":
-                self.cellpix_orig = self.cellpix.copy()
-                self.outpix_orig = self.outpix.copy()
-                self.cellpix_resize = cv2.resize(
-                    self.cellpix_orig[0], (self.Lxr, self.Lyr),
-                    interpolation=cv2.INTER_NEAREST)[np.newaxis, :, :]
-                outlines = masks_to_outlines(self.cellpix_resize[0])[np.newaxis, :, :]
-                self.outpix_resize = outlines * self.cellpix_resize
-
-            self.restore = model_name
-
-            # draw plot
-            if model_type == "upsample":
-                self.resize = True
-            else:
-                self.resize = False
-            self.draw_layer()
-            self.update_layer()
-            self.update_scale()
-            # if denoised in grayscale, show in grayscale
-            if channels[0] == 0:
-                self.RGBDropDown.setCurrentIndex(4)
-
-            self.ViewDropDown.model().item(self.ViewDropDown.count() -
-                                           1).setEnabled(True)
-            self.ViewDropDown.setCurrentIndex(self.ViewDropDown.count() - 1)
-
-            self.update_plot()
-
-        except Exception as e:
-            print("ERROR: %s" % e)
 
     def compute_segmentation(self, custom=False, model_name=None, load_model=True):
         self.progress.setValue(0)
