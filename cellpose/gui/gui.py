@@ -815,31 +815,31 @@ class MainW(QMainWindow):
         self.filtBox.setContent(_content)
         self.denoiseBoxG.addWidget(self.filtBox, widget_row, 0, 1, 9)
 
-        # self.filt_vals = [0., 0., 0., 0.]
-        # self.filt_edits = []
-        # labels = [
-        #     "sharpen\nradius", "smooth\nradius", "tile_norm\nblocksize",
-        #     "tile_norm\nsmooth3D"
-        # ]
-        # tooltips = [
-        #     "set size of surround-subtraction filter for sharpening image",
-        #     "set size of gaussian filter for smoothing image",
-        #     "set size of tiles to use to normalize image",
-        #     "set amount of smoothing of normalization values across planes"
-        # ]
+        self.filt_vals = [0., 0.]
+        self.filt_edits = []
+        labels = [
+            # "sharpen\nradius", "smooth\nradius", 
+            "tile_norm\nblocksize",
+            "tile_norm\nsmooth3D"
+        ]
+        tooltips = [
+            # "set size of surround-subtraction filter for sharpening image",
+            # "set size of gaussian filter for smoothing image",
+            "set size of tiles to use to normalize image",
+            "set amount of smoothing of normalization values across planes"
+        ]
 
-        # for p in range(4):
-        #     label = QLabel(f"{labels[p]}:")
-        #     label.setToolTip(tooltips[p])
-        #     label.setFont(self.medfont)
-        #     self.filtBoxG.addWidget(label, widget_row + p // 2, 4 * (p % 2), 1, 2)
-        #     self.filt_edits.append(QLineEdit())
-        #     self.filt_edits[p].setText(str(self.filt_vals[p]))
-        #     self.filt_edits[p].setFixedWidth(40)
-        #     self.filt_edits[p].setFont(self.medfont)
-        #     self.filtBoxG.addWidget(self.filt_edits[p], widget_row + p // 2, 4 * (p % 2) + 2, 1,
-        #                             2)
-        #     self.filt_edits[p].setToolTip(tooltips[p])
+        for p in range(2):
+            label = QLabel(f"{labels[p]}:")
+            label.setToolTip(tooltips[p])
+            label.setFont(self.medfont)
+            self.filtBoxG.addWidget(label, widget_row + p // 2, 4 * (p % 2), 1, 2)
+            self.filt_edits.append(QLineEdit())
+            self.filt_edits[p].setText(str(self.filt_vals[p]))
+            self.filt_edits[p].setFixedWidth(40)
+            self.filt_edits[p].setFont(self.medfont)
+            self.filtBoxG.addWidget(self.filt_edits[p], widget_row + p // 2, 4 * (p % 2) + 2, 1, 2)
+            self.filt_edits[p].setToolTip(tooltips[p])
 
         widget_row += 3
         self.norm3D_cb = QCheckBox("norm3D")
@@ -848,10 +848,10 @@ class MainW(QMainWindow):
         self.norm3D_cb.setToolTip("run same normalization across planes")
         self.filtBoxG.addWidget(self.norm3D_cb, widget_row, 0, 1, 3)
 
-        self.invert_cb = QCheckBox("invert")
-        self.invert_cb.setFont(self.medfont)
-        self.invert_cb.setToolTip("invert image")
-        self.filtBoxG.addWidget(self.invert_cb, widget_row, 3, 1, 3)
+        # self.invert_cb = QCheckBox("invert")
+        # self.invert_cb.setFont(self.medfont)
+        # self.invert_cb.setToolTip("invert image")
+        # self.filtBoxG.addWidget(self.invert_cb, widget_row, 3, 1, 3)
 
         b += 1
         self.l0.addWidget(QLabel(""), b, 0, 1, 9)
@@ -1951,12 +1951,12 @@ class MainW(QMainWindow):
                 "GUI_ERROR: tile size (tile_norm) bigger than both image dimensions, disabling"
             )
             tile_norm = 0
-        self.filt_edits[0].setText(str(sharpen))
-        self.filt_edits[1].setText(str(smooth))
-        self.filt_edits[2].setText(str(tile_norm))
-        self.filt_edits[3].setText(str(smooth3D))
+        # self.filt_edits[0].setText(str(sharpen))
+        # self.filt_edits[1].setText(str(smooth))
+        self.filt_edits[0].setText(str(tile_norm))
+        self.filt_edits[1].setText(str(smooth3D))
         self.norm3D_cb.setChecked(norm3D)
-        self.invert_cb.setChecked(invert)
+        # self.invert_cb.setChecked(invert)
         return sharpen, smooth, tile_norm, smooth3D, norm3D, invert
 
     def get_normalize_params(self):
@@ -1968,20 +1968,24 @@ class MainW(QMainWindow):
         normalize_params = {"percentile": percentile}
         norm3D = self.norm3D_cb.isChecked()
         normalize_params["norm3D"] = norm3D
-        if self.restore == "filter":
-            sharpen = float(self.filt_edits[0].text())
-            smooth = float(self.filt_edits[1].text())
-            tile_norm = float(self.filt_edits[2].text())
-            smooth3D = float(self.filt_edits[3].text())
-            invert = self.invert_cb.isChecked()
-            out = self.check_filter_params(sharpen, smooth, tile_norm, smooth3D, norm3D,
-                                           invert)
-            sharpen, smooth, tile_norm, smooth3D, norm3D, invert = out
-            normalize_params["sharpen_radius"] = sharpen
-            normalize_params["smooth_radius"] = smooth
-            normalize_params["tile_norm_blocksize"] = tile_norm
-            normalize_params["tile_norm_smooth3D"] = smooth3D
-            normalize_params["invert"] = invert
+        # if self.restore == "filter":
+        # sharpen = float(self.filt_edits[0].text())
+        # smooth = float(self.filt_edits[1].text())
+        sharpen = 0
+        smooth = 0
+
+        tile_norm = float(self.filt_edits[0].text())
+        smooth3D = float(self.filt_edits[1].text())
+        # invert = self.invert_cb.isChecked()
+        invert = False
+        out = self.check_filter_params(sharpen, smooth, tile_norm, smooth3D, norm3D,
+                                        invert)
+        sharpen, smooth, tile_norm, smooth3D, norm3D, invert = out
+        normalize_params["sharpen_radius"] = sharpen
+        normalize_params["smooth_radius"] = smooth
+        normalize_params["tile_norm_blocksize"] = tile_norm
+        normalize_params["tile_norm_smooth3D"] = smooth3D
+        normalize_params["invert"] = invert
 
         from cellpose.models import normalize_default
         normalize_params = {**normalize_default, **normalize_params}
