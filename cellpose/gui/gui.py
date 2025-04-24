@@ -684,8 +684,43 @@ class MainW(QMainWindow):
         )
         self.segaBoxG.addWidget(self.niter, widget_row, 4, 1, 2)
 
-        b += 1
-        widget_row = 0
+        # b += 1
+        widget_row += 1
+
+        self.filt_vals = [0., 0.]
+        self.filt_edits = []
+        labels = [
+            # "sharpen\nradius", "smooth\nradius", 
+            "tile_norm\nblocksize",
+            "tile_norm\nsmooth3D"
+        ]
+        tooltips = [
+            # "set size of surround-subtraction filter for sharpening image",
+            # "set size of gaussian filter for smoothing image",
+            "set size of tiles to use to normalize image",
+            "set amount of smoothing of normalization values across planes"
+        ]
+
+        for p in range(2):
+            label = QLabel(f"{labels[p]}:")
+            label.setToolTip(tooltips[p])
+            label.setFont(self.medfont)
+            self.segaBoxG.addWidget(label, widget_row + p // 2, 4 * (p % 2), 1, 2)
+            self.filt_edits.append(QLineEdit())
+            self.filt_edits[p].setText(str(self.filt_vals[p]))
+            self.filt_edits[p].setFixedWidth(40)
+            self.filt_edits[p].setFont(self.medfont)
+            self.segaBoxG.addWidget(self.filt_edits[p], widget_row + p // 2, 4 * (p % 2) + 2, 1, 2)
+            self.filt_edits[p].setToolTip(tooltips[p])
+
+        widget_row += 3
+        self.norm3D_cb = QCheckBox("norm3D")
+        self.norm3D_cb.setFont(self.medfont)
+        self.norm3D_cb.setChecked(True)
+        self.norm3D_cb.setToolTip("run same normalization across planes")
+        self.segaBoxG.addWidget(self.norm3D_cb, widget_row, 0, 1, 3)
+
+
         # self.modelBox = QGroupBox("Other models")
         # self.modelBoxG = QGridLayout()
         # self.modelBox.setLayout(self.modelBoxG)
@@ -746,11 +781,11 @@ class MainW(QMainWindow):
         # self.ModelButtonB.setEnabled(False)
 
         # b += 1
-        self.denoiseBox = QGroupBox("Image restoration")
-        self.denoiseBox.setFont(self.boldfont)
-        self.denoiseBoxG = QGridLayout()
-        self.denoiseBox.setLayout(self.denoiseBoxG)
-        self.l0.addWidget(self.denoiseBox, b, 0, 1, 9)
+        # self.denoiseBox = QGroupBox("Image restoration")
+        # self.denoiseBox.setFont(self.boldfont)
+        # self.denoiseBoxG = QGridLayout()
+        # self.denoiseBox.setLayout(self.denoiseBoxG)
+        # self.l0.addWidget(self.denoiseBox, b, 0, 1, 9)
 
         widget_row = 0
         
@@ -804,49 +839,18 @@ class MainW(QMainWindow):
 
         # widget_row += 2
         # # FILTERING
-        self.filtBox = QCollapsible("custom filter settings")
-        self.filtBox._toggle_btn.setFont(self.medfont)
-        self.filtBoxG = QGridLayout()
-        _content = QWidget()
-        _content.setLayout(self.filtBoxG)
-        _content.setMaximumHeight(0)
-        _content.setMinimumHeight(0)
+        # self.filtBox = QCollapsible("custom filter settings")
+        # self.filtBox._toggle_btn.setFont(self.medfont)
+        # self.filtBoxG = QGridLayout()
+        # _content = QWidget()
+        # _content.setLayout(self.segaBoxG)
+        # _content.setMaximumHeight(0)
+        # _content.setMinimumHeight(0)
         #_content.layout().setContentsMargins(QtCore.QMargins(0, -20, -20, -20))
-        self.filtBox.setContent(_content)
-        self.denoiseBoxG.addWidget(self.filtBox, widget_row, 0, 1, 9)
+        # self.segaBox.setContent(_content)
+        # self.segaBox.addWidget(self.filtBox, widget_row, 0, 1, 9)
 
-        self.filt_vals = [0., 0.]
-        self.filt_edits = []
-        labels = [
-            # "sharpen\nradius", "smooth\nradius", 
-            "tile_norm\nblocksize",
-            "tile_norm\nsmooth3D"
-        ]
-        tooltips = [
-            # "set size of surround-subtraction filter for sharpening image",
-            # "set size of gaussian filter for smoothing image",
-            "set size of tiles to use to normalize image",
-            "set amount of smoothing of normalization values across planes"
-        ]
 
-        for p in range(2):
-            label = QLabel(f"{labels[p]}:")
-            label.setToolTip(tooltips[p])
-            label.setFont(self.medfont)
-            self.filtBoxG.addWidget(label, widget_row + p // 2, 4 * (p % 2), 1, 2)
-            self.filt_edits.append(QLineEdit())
-            self.filt_edits[p].setText(str(self.filt_vals[p]))
-            self.filt_edits[p].setFixedWidth(40)
-            self.filt_edits[p].setFont(self.medfont)
-            self.filtBoxG.addWidget(self.filt_edits[p], widget_row + p // 2, 4 * (p % 2) + 2, 1, 2)
-            self.filt_edits[p].setToolTip(tooltips[p])
-
-        widget_row += 3
-        self.norm3D_cb = QCheckBox("norm3D")
-        self.norm3D_cb.setFont(self.medfont)
-        self.norm3D_cb.setChecked(True)
-        self.norm3D_cb.setToolTip("run same normalization across planes")
-        self.filtBoxG.addWidget(self.norm3D_cb, widget_row, 0, 1, 3)
 
         # self.invert_cb = QCheckBox("invert")
         # self.invert_cb.setFont(self.medfont)
