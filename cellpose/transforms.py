@@ -432,7 +432,7 @@ def update_axis(m_axis, to_squeeze, ndim):
         ndim (int): The number of dimensions.
 
     Returns:
-        int or None: The updated axis value.
+        m_axis (int or None): The updated axis value.
     """
     if m_axis == -1:
         m_axis = ndim - 1
@@ -450,7 +450,30 @@ def update_axis(m_axis, to_squeeze, ndim):
 
 
 def convert_image_3d(x, channel_axis=None, z_axis=None):
-    """Convert image to have ZXYC
+    """
+    Convert a 3D or 4D image array to have dimensions ordered as (Z, X, Y, C).
+    
+    Args:
+        x (numpy.ndarray): Input image array. Must be either 3D (assumed to be grayscale 3D) or 4D. 
+        channel_axis (int): The axis index corresponding to the channel dimension in the input array. \
+            Must be specified for 4D images.
+        z_axis (int): The axis index corresponding to the depth (Z) dimension in the input array. \
+            Must be specified for both 3D and 4D images.
+
+    Returns:
+        numpy.ndarray: A 4D image array with dimensions ordered as (Z, X, Y, C), where C is the channel 
+        dimension. If the input has fewer than 3 channels, the output will be padded with zeros to \
+            have 3 channels. If the input has more than 3 channels, only the first 3 channels will be retained.
+    
+    Raises:
+        ValueError: If `z_axis` is not specified for 3D images. If either `channel_axis` or `z_axis` \
+            is not specified for 4D images. If the input image does not have 3 or 4 dimensions.
+
+    Notes:
+        - For 3D images (ndim=3), the function assumes the input is grayscale and adds a singleton channel dimension.
+        - The function reorders the dimensions of the input array to ensure the output has the desired (Z, X, Y, C) order.
+        - If the number of channels is not equal to 3, the function either truncates or pads the \
+            channels to ensure the output has exactly 3 channels.
     """
 
     # if image is ndim==3, assume it is greyscale 3D and use provided z_axis
