@@ -86,6 +86,14 @@ def test_shape_3D_1ch_3ndim():
     assert masks.shape == (5, 224, 224)
 
 
+def test_shape_3D_1ch_3ndim_diam():
+    img = np.zeros((5, 224, 224))
+    use_gpu = torch.cuda.is_available()
+    model = models.CellposeModel(gpu=use_gpu)
+    masks, _, _ = model.eval(img, channel_axis=None, diameter=20, z_axis=0, do_3D=True)
+    assert masks.shape == (5, 224, 224)
+
+
 def test_shape_3D_1ch():
     img = np.zeros((224, 2, 224, 10))
     use_gpu = torch.cuda.is_available()
@@ -99,5 +107,13 @@ def test_shape_3D_rgb_diam():
     use_gpu = torch.cuda.is_available()
     model = models.CellposeModel(gpu=use_gpu)
     masks, _, _ = model.eval(img, diameter=20, channels=[0, 0],
+                                    channel_axis=3, z_axis=0, do_3D=True)
+    assert masks.shape == (5, 224, 224)
+    
+def test_shape_3D_rgb():
+    img = np.zeros((5, 224, 224, 3))
+    use_gpu = torch.cuda.is_available()
+    model = models.CellposeModel(gpu=use_gpu)
+    masks, _, _ = model.eval(img, channels=[0, 0],
                                     channel_axis=3, z_axis=0, do_3D=True)
     assert masks.shape == (5, 224, 224)

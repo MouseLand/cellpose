@@ -114,7 +114,7 @@ def test_cli_2D(data_dir, image_names):
     clear_output(data_dir, image_names)
 
 
-def test_cli_3D(data_dir, image_names_3d):
+def test_cli_3D_diam(data_dir, image_names_3d):
     clear_output(data_dir, image_names_3d)
     use_gpu = torch.cuda.is_available()
     gpu_string = "--use_gpu" if use_gpu else ""
@@ -127,6 +127,7 @@ def test_cli_3D(data_dir, image_names_3d):
         raise ValueError(e)
     compare_masks_cp4(data_dir, image_names_3d[0], "3D")
     clear_output(data_dir, image_names_3d)
+
 
 def test_outlines_list(data_dir, image_names):
     """ test both single and multithreaded by comparing them"""
