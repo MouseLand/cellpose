@@ -92,11 +92,23 @@ def main():
         logger.warning("the '--train_size' flag is deprecated in v4.0.1+ and no longer used")
     if args.chan or args.chan2:
         logger.warning('--chan and --chan2 are deprecated, all channels are used by default')
+    if args.all_channels:
+        logger.warning("the '--all_channels' flag is deprecated in v4.0.1+ and no longer used")
     if args.restore_type:
         logger.warning("the '--restore_type' flag is deprecated in v4.0.1+ and no longer used")
     if args.transformer:
         logger.warning("the '--tranformer' flag is deprecated in v4.0.1+ and no longer used")
-
+    if args.invert:
+        logger.warning("the '--invert' flag is deprecated in v4.0.1+ and no longer used")
+    if args.chan2_restore:
+        logger.warning("the '--chan2_restore' flag is deprecated in v4.0.1+ and no longer used")
+    if not args.no_resample:
+        logger.warning("the '--no_resample' flag is deprecated in v4.0.1+ and no longer used")
+    if args.diam_mean:
+        logger.warning("the '--diam_mean' flag is deprecated in v4.0.1+ and no longer used")
+    if args.train_size:
+        logger.warning("the '--train_size' flag is deprecated in v4.0.1+ and no longer used")
+    
     if args.norm_percentile is not None:
         value1, value2 = args.norm_percentile
         normalize = {'percentile': (float(value1), float(value2))} 
@@ -109,7 +121,6 @@ def main():
         model_strings = models.get_user_models()
         all_models = models.MODEL_NAMES.copy()
         all_models.extend(model_strings)
-
 
     if len(args.image_path) > 0 and args.train:
         raise ValueError("ERROR: cannot train model with single image input")
@@ -241,7 +252,6 @@ def _evaluate_cellposemodel_cli(args, logger, imf, device, gpu, pretrained_model
                 cellprob_threshold=args.cellprob_threshold,
                 stitch_threshold=args.stitch_threshold, 
                 min_size=args.min_size,
-                invert=args.invert, 
                 batch_size=args.batch_size,
                 bsize=args.bsize,
                 normalize=normalize,
