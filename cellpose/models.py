@@ -417,7 +417,10 @@ class CellposeModel():
         # undo diameter resizing:
         if image_scaling is not None:
             masks = transforms.resize_image(masks, Ly=Ly_0, Lx=Lx_0, no_channels=True)
-            dP = transforms.resize_image(dP, Ly=Ly_0, Lx=Lx_0, no_channels=True)
+            if do_3D:
+                dP = transforms.resize_image(dP, Ly=Ly_0, Lx=Lx_0, no_channels=False)
+            else:
+                dP = transforms.resize_image(dP, Ly=Ly_0, Lx=Lx_0, no_channels=True)
             cellprob = transforms.resize_image(cellprob, Ly=Ly_0, Lx=Lx_0, no_channels=True)
 
         return masks, [plot.dx_to_circ(dP), dP, cellprob], styles

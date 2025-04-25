@@ -1610,7 +1610,7 @@ class MainW(QMainWindow):
 
     def update_layer(self):
         if self.masksOn or self.outlinesOn:
-            #self.draw_layer()
+            self.draw_layer()
             self.layer.setImage(self.layerz, autoLevels=False)
         self.update_roi_count()
         self.win.show()
@@ -2214,6 +2214,7 @@ class MainW(QMainWindow):
                 data = self.stack.copy().squeeze()
             flow_threshold, cellprob_threshold = self.get_thresholds()
             diameter = float(self.diameter_box.text())
+            diameter = None if np.isclose(diameter, 30, 1) else diameter
             if data.ndim == 2:
                 data_new = np.zeros((data.shape[0], data.shape[1], 3), dtype=data.dtype)
                 data_new[..., 0] = data

@@ -321,7 +321,7 @@ def _load_seg(parent, filename=None, image=None, image_file=None, load_3D=False)
         parent.restore = None if "restore" not in dat else dat["restore"]
         print(f"GUI_INFO: restore: {parent.restore}")
         parent.set_normalize_params(dat["normalize_params"])
-        parent.set_restore_button()
+        # parent.set_restore_button()
 
     # if "img_restore" in dat:
     #     img = dat["img_restore"]

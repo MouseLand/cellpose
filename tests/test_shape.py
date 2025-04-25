@@ -86,7 +86,7 @@ def test_shape_3D_1ch_3ndim():
     assert masks.shape == (5, 224, 224)
 
 
-def test_shape_3D_1ch_pass():
+def test_shape_3D_1ch():
     img = np.zeros((224, 2, 224, 10))
     use_gpu = torch.cuda.is_available()
     model = models.CellposeModel(gpu=use_gpu)

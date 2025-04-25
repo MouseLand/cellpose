@@ -24,14 +24,23 @@ def clear_output(data_dir, image_names):
     for image_name in image_names:
         if "2D" in image_name:
             cached_file = str(data_dir_2D.joinpath(image_name))
-            ext = ".png"
         else:
             cached_file = str(data_dir_3D.joinpath(image_name))
-            ext = ".tif"
-        name, ext = os.path.splitext(cached_file)
-        output = name + "_cp_masks" + ext
-        if os.path.exists(output):
-            os.remove(output)
+        name, _ = os.path.splitext(cached_file)
+        output_png = name + "_cp_masks.png"
+        if os.path.exists(output_png):
+            os.remove(output_png)
+        output_tif = name + "_cp_masks.tif"
+        if os.path.exists(output_tif):
+            os.remove(output_tif)
+        flowp_output = name + "_flowps_test.tif"
+        if os.path.exists(flowp_output):
+            os.remove(flowp_output)
+        npy_output = name + "_seg.npy"
+        if os.path.exists(npy_output):
+            os.remove(npy_output)
+        
+
 
 def test_class_2D(data_dir, image_names):
     clear_output(data_dir, image_names)
@@ -44,19 +53,17 @@ def test_class_2D(data_dir, image_names):
         img_file = data_dir / '2D' / image_name
 
         img = io.imread_2D(img_file)
-        flowps = io.imread(img_file.parent / (img_file.stem + "_flowps.tif"))
+        flowps = io.imread(img_file.parent / (img_file.stem + "_cp4_gt_flowps.tif"))
 
         masks_pred, flows_pred, _ = model.eval(img, normalize=True)
         io.imsave(data_dir / '2D' / (img_file.stem + "_cp_masks.png"), masks_pred)
 
         flowsp_pred = np.concatenate([flows_pred[1], flows_pred[2][None, ...]], axis=0)
-        io.imsave(data_dir / '2D' / (img_file.stem + "_flowps_test.tif"), flowsp_pred)
 
         mse = np.sqrt((flowsp_pred - flowps) ** 2).sum()
         assert mse.sum() < 1e-8, f"MSE of flows is too high: {mse.sum()} on image {image_name}"
         print("MSE of flows is %f" % mse.mean())
 
-    compare_masks(data_dir, image_names, "2D")
     clear_output(data_dir, image_names)
 
 
@@ -68,9 +75,14 @@ def test_cyto2_to_seg(data_dir, image_names):
     model = models.CellposeModel(gpu=use_gpu)
 
     # masks, flows, styles = model.eval(imgs, diameter=30)  # Errors during SAM stuff
-    masks, flows, _ = model.eval(imgs, bsize=256, batch_size=64, normalize=False)
+    masks, flows, _ = model.eval(imgs, bsize=256, batch_size=64, normalize=True)
+
+    for file_name, mask in zip(file_names, masks):
+        io.imsave(data_dir/'2D'/(file_name.stem + '_cp_masks.png'), mask)
 
     io.masks_flows_to_seg(imgs, masks, flows, file_names)
+    compare_masks_cp4(data_dir, image_names, "2D")
+    clear_output(data_dir, image_names)
 
 
 def test_class_3D(data_dir, image_names_3d):
@@ -80,14 +92,10 @@ def test_class_3D(data_dir, image_names_3d):
 
     for image_name in image_names_3d:
         img_file = data_dir / '3D' / image_name
-        img = io.imread(img_file)
-
-        if img.ndim == 3:
-            img = np.expand_dims(img, axis=1)
-
-        masks = model.eval(img, do_3D=True, channel_axis=1, z_axis=0)[0]
+        img = io.imread_3D(img_file)
+        masks = model.eval(img, do_3D=True, channel_axis=-1, z_axis=0)[0]
         io.imsave(data_dir / "3D" / (img_file.stem + "_cp_masks.tif"), masks)
-    compare_masks(data_dir, image_names_3d, "3D")
+    compare_masks_cp4(data_dir, image_names_3d, "3D")
     clear_output(data_dir, image_names_3d)
 
 
@@ -102,7 +110,7 @@ def test_cli_2D(data_dir, image_names):
     except Exception as e:
         print(e)
         raise ValueError(e)
-    compare_masks(data_dir, image_names[0], "2D")
+    compare_masks_cp4(data_dir, image_names[0], "2D")
     clear_output(data_dir, image_names)
 
 
@@ -117,7 +125,7 @@ def test_cli_3D(data_dir, image_names_3d):
     except Exception as e:
         print(e)
         raise ValueError(e)
-    compare_masks(data_dir, image_names_3d[0], "3D")
+    compare_masks_cp4(data_dir, image_names_3d[0], "3D")
     clear_output(data_dir, image_names_3d)
 
 def test_outlines_list(data_dir, image_names):
@@ -152,6 +160,7 @@ def test_outlines_list(data_dir, image_names):
     assert all(outlines_matched), "Not all outlines in outlines_multi were matched"
 
 
+# TODO: Remove this before pushing to main
 def test_cp_regressions_test():
     # make sure that the current version gives a similar ap score to previous using carsen's data
     
@@ -182,7 +191,7 @@ def test_cp_regressions_test():
     assert np.isclose(ap.mean(), 0.85268956, atol=1e-5), "ap score is not close enough to previous version: %f" % ap.mean()
 
 
-def compare_masks(data_dir, image_names, runtype):
+def compare_masks_cp4(data_dir, image_names, runtype):
     """
     Helper function to check if outputs given by a test are exactly the same
     as the ground truth outputs.
@@ -195,13 +204,13 @@ def compare_masks(data_dir, image_names, runtype):
             image_file = str(data_dir_2D.joinpath(image_name))
             name = os.path.splitext(image_file)[0]
             output_test = name + "_cp_masks.png"
-            output_true = name + "_masks.png"
+            output_true = name + "_cp4_gt_masks.png"
             check = True
         elif "3D" in runtype and "3D" in image_name:
             image_file = str(data_dir_3D.joinpath(image_name))
             name = os.path.splitext(image_file)[0]
             output_test = name + "_cp_masks.tif"
-            output_true = name + "_masks.tif"
+            output_true = name + "_cp4_gt_masks.tif"
             check = True
 
         if check:
