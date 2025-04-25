@@ -349,9 +349,10 @@ class CellposeModel():
         #     rescale = 1.0
         
         image_scaling = None
+        Ly_0 = x.shape[1]
+        Lx_0 = x.shape[2]
         if diameter is not None:
             image_scaling = 30. / diameter
-
             x = transforms.resize_image(x,
                                         Ly=int(x.shape[1] * image_scaling),
                                         Lx=int(x.shape[2] * image_scaling))
@@ -411,15 +412,13 @@ class CellposeModel():
         else:
             masks = np.zeros(0) #pass back zeros if not compute_masks
         
+        masks, dP, cellprob = masks.squeeze(), dP.squeeze(), cellprob.squeeze()
+
         # undo diameter resizing:
         if image_scaling is not None:
-            masks = transforms.resize_image(masks, rsz=1/image_scaling, no_channels=True)
-
-            # should resize the flows and cellprobs ? 
-            # dP = transforms.resize_image(dP, rsz=1/image_scaling, no_channels=True)
-            # cellprob = transforms.resize_image(cellprob, rsz=1/image_scaling, no_channels=True)
-
-        masks, dP, cellprob = masks.squeeze(), dP.squeeze(), cellprob.squeeze()
+            masks = transforms.resize_image(masks, Ly=Ly_0, Lx=Lx_0, no_channels=True)
+            dP = transforms.resize_image(dP, Ly=Ly_0, Lx=Lx_0, no_channels=True)
+            cellprob = transforms.resize_image(cellprob, Ly=Ly_0, Lx=Lx_0, no_channels=True)
 
         return masks, [plot.dx_to_circ(dP), dP, cellprob], styles
 
