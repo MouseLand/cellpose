@@ -2,18 +2,20 @@ import setuptools
 from setuptools import setup
 
 install_deps = [
-    'numpy>=1.20.0,<2.1',
+    'numpy>=1.20.0',
     'scipy',
     'natsort',
     'tifffile',
     'tqdm',
     'llvmlite',
     'torch>=1.6',
+    'torchvision',
     'opencv-python-headless',
     'fastremap',
     'imagecodecs',
     'roifile',
     'fill-voids',
+    'segment_anything'
 ]
 
 image_deps = ['nd2', 'pynrrd']
