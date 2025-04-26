@@ -460,7 +460,7 @@ class CellposeModel():
             #             yf = transforms.resize_image(yf.transpose(1,0,2,3),
             #                                 Ly=Lz, Lx=Lx).transpose(1,0,2,3)
             cellprob = yf[..., -1]
-            dP = yf[..., -4:-1].transpose((3, 0, 1, 2))
+            dP = yf[..., :-1].transpose((3, 0, 1, 2))
         else:
             yf, styles = run_net(self.net, x, bsize=bsize, augment=augment,
                                 batch_size=batch_size,  
