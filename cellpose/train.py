@@ -70,7 +70,7 @@ def _reshape_norm(data, normalize_params={"normalize": False}):
             if td.ndim == 3 and np.array(td.shape).argmin() == 2:
                 td = np.transpose(td, (2, 0, 1))
             if td.ndim == 2 or (td.ndim == 3 and td.shape[0] == 1):
-                td = [np.stack((td, 0*td, 0*td), axis=0) for td in data]
+                td = np.stack((td, 0*td, 0*td), axis=0)
             elif td.ndim == 3 and td.shape[0] < 3:
                 td = np.concatenate((td, 0*td[:1]), axis=0)
             data_new.append(td)
