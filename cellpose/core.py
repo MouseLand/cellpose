@@ -244,7 +244,7 @@ def run_net(net, imgi, batch_size=8, augment=False, tile_overlap=0.1, bsize=224,
 
         # average tiles
         for i, b in enumerate(inds):
-            if i==0:
+            if i==0 and k==0:
                 yf = np.zeros((Lz, nout, Ly, Lx), "float32")
                 styles = np.zeros((Lz, 256), "float32")
             y = ya[i * ntiles : (i + 1) * ntiles]
