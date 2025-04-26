@@ -1,7 +1,7 @@
 import time
 import os
 import numpy as np
-from cellpose import io, transforms, utils, models, dynamics, resnet_torch
+from cellpose import io, transforms, utils, models, dynamics
 from cellpose.transforms import normalize_img
 from pathlib import Path
 import torch
@@ -12,6 +12,23 @@ import logging
 
 train_logger = logging.getLogger(__name__)
 
+def _loss_fn_class(lbl, y, class_weights=None):
+    """
+    Calculates the loss function between true labels lbl and prediction y.
+
+    Args:
+        lbl (numpy.ndarray): True labels (cellprob, flowsY, flowsX).
+        y (torch.Tensor): Predicted values (flowsY, flowsX, cellprob).
+        
+    Returns:
+        torch.Tensor: Loss value.
+
+    """
+
+    criterion3 = nn.CrossEntropyLoss(reduction="mean", weight=class_weights)
+    loss3 = criterion3(y[:, :-3], lbl[:, 0].long())
+    
+    return loss3
 
 def _loss_fn_seg(lbl, y, device):
     """
@@ -28,16 +45,44 @@ def _loss_fn_seg(lbl, y, device):
     """
     criterion = nn.MSELoss(reduction="mean")
     criterion2 = nn.BCEWithLogitsLoss(reduction="mean")
-    veci = 5. * torch.from_numpy(lbl[:, 1:]).to(device)
-    loss = criterion(y[:, :2], veci)
+    veci = 5. * lbl[:, -2:]
+    loss = criterion(y[:, -3:-1], veci)
     loss /= 2.
-    loss2 = criterion2(y[:, -1], torch.from_numpy(lbl[:, 0] > 0.5).to(device).float())
+    loss2 = criterion2(y[:, -1], (lbl[:, -3] > 0.5).float())
     loss = loss + loss2
     return loss
 
+def _reshape_norm(data, normalize_params={"normalize": False}):
+    """
+    Reshapes and normalizes the input data.
+
+    Args:
+        data (list): List of input data, with channels axis first or last.
+        normalize_params (dict, optional): Dictionary of normalization parameters. Defaults to {"normalize": False}.
+
+    Returns:
+        list: List of reshaped and normalized data.
+    """
+    if (np.array([td.ndim!=3 for td in data]).sum() > 0 or
+        np.array([td.shape[0]!=3 for td in data]).sum() > 0):
+        data_new = []
+        for td in data:
+            if td.ndim == 3 and np.array(td.shape).argmin() == 2:
+                td = np.transpose(td, (2, 0, 1))
+            if td.ndim == 2 or (td.ndim == 3 and td.shape[0] == 1):
+                td = [np.stack((td, 0*td, 0*td), axis=0) for td in data]
+            elif td.ndim == 3 and td.shape[0] < 3:
+                td = np.concatenate((td, 0*td[:1]), axis=0)
+            data_new.append(td)
+        data = data_new
+    if normalize_params["normalize"]:
+        data = [
+            transforms.normalize_img(td, normalize=normalize_params, axis=0)
+            for td in data
+        ]
+    return data
 
 def _get_batch(inds, data=None, labels=None, files=None, labels_files=None,
-               channels=None, channel_axis=None, rgb=False,
                normalize_params={"normalize": False}):
     """
     Get a batch of images and labels.
@@ -48,8 +93,6 @@ def _get_batch(inds, data=None, labels=None, files=None, labels_files=None,
         labels (list or None): List of label data. If None, labels will be loaded from files.
         files (list or None): List of file paths for images.
         labels_files (list or None): List of file paths for labels.
-        channels (list or None): List of channel indices to extract from images.
-        channel_axis (int or None): Axis along which the channels are located.
         normalize_params (dict): Dictionary of parameters for image normalization (will be faster, if loading from files to pre-normalize).
 
     Returns:
@@ -58,72 +101,13 @@ def _get_batch(inds, data=None, labels=None, files=None, labels_files=None,
     if data is None:
         lbls = None
         imgs = [io.imread(files[i]) for i in inds]
-        imgs = _reshape_norm(imgs, channels=channels, channel_axis=channel_axis,
-                             rgb=rgb, normalize_params=normalize_params)
+        imgs = _reshape_norm(imgs, normalize_params=normalize_params)
         if labels_files is not None:
             lbls = [io.imread(labels_files[i])[1:] for i in inds]
     else:
         imgs = [data[i] for i in inds]
         lbls = [labels[i][1:] for i in inds]
     return imgs, lbls
-
-
-def pad_to_rgb(img):
-    if img.ndim == 2 or np.ptp(img[1]) < 1e-3:
-        if img.ndim == 2:
-            img = img[np.newaxis, :, :]
-        img = np.tile(img[:1], (3, 1, 1))
-    elif img.shape[0] < 3:
-        nc, Ly, Lx = img.shape
-        # randomly flip channels
-        if np.random.rand() > 0.5:
-            img = img[::-1]
-        # randomly insert blank channel
-        ic = np.random.randint(3)
-        img = np.insert(img, ic, np.zeros((3 - nc, Ly, Lx), dtype=img.dtype), axis=0)
-    return img
-
-
-def convert_to_rgb(img):
-    if img.ndim == 2:
-        img = img[np.newaxis, :, :]
-        img = np.tile(img, (3, 1, 1))
-    elif img.shape[0] < 3:
-        img = img.mean(axis=0, keepdims=True)
-        img = transforms.normalize99(img)
-        img = np.tile(img, (3, 1, 1))
-    return img
-
-
-def _reshape_norm(data, channels=None, channel_axis=None, rgb=False,
-                  normalize_params={"normalize": False}):
-    """
-    Reshapes and normalizes the input data.
-
-    Args:
-        data (list): List of input data.
-        channels (int or list, optional): Number of channels or list of channel indices to keep. Defaults to None.
-        channel_axis (int, optional): Axis along which the channels are located. Defaults to None.
-        normalize_params (dict, optional): Dictionary of normalization parameters. Defaults to {"normalize": False}.
-
-    Returns:
-        list: List of reshaped and normalized data.
-    """
-    if channels is not None or channel_axis is not None:
-        data = [
-            transforms.convert_image(td, channels=channels, channel_axis=channel_axis)
-            for td in data
-        ]
-        data = [td.transpose(2, 0, 1) for td in data]
-    if normalize_params["normalize"]:
-        data = [
-            transforms.normalize_img(td, normalize=normalize_params, axis=0)
-            for td in data
-        ]
-    if rgb:
-        data = [pad_to_rgb(td) for td in data]
-    return data
-
 
 def _reshape_norm_save(files, channels=None, channel_axis=None,
                        normalize_params={"normalize": False}):
@@ -153,9 +137,8 @@ def _process_train_test(train_data=None, train_labels=None, train_files=None,
                         train_labels_files=None, train_probs=None, test_data=None,
                         test_labels=None, test_files=None, test_labels_files=None,
                         test_probs=None, load_files=True, min_train_masks=5,
-                        compute_flows=False, channels=None, channel_axis=None,
-                        rgb=False, normalize_params={"normalize": False
-                                                    }, device=None):
+                        compute_flows=False, normalize_params={"normalize": False}, 
+                        device=None):
     """
     Process train and test data.
 
@@ -305,20 +288,13 @@ def _process_train_test(train_data=None, train_labels=None, train_files=None,
 
     ### reshape and normalize train / test data
     normed = False
-    if channels is not None or normalize_params["normalize"]:
-        if channels:
-            train_logger.info(f">>> using channels {channels}")
-        if normalize_params["normalize"]:
-            train_logger.info(f">>> normalizing {normalize_params}")
-        if train_data is not None:
-            train_data = _reshape_norm(train_data, channels=channels,
-                                       channel_axis=channel_axis, rgb=rgb,
-                                       normalize_params=normalize_params)
-            normed = True
-        if test_data is not None:
-            test_data = _reshape_norm(test_data, channels=channels,
-                                      channel_axis=channel_axis, rgb=rgb,
-                                      normalize_params=normalize_params)
+    if normalize_params["normalize"]:
+        train_logger.info(f">>> normalizing {normalize_params}")
+    if train_data is not None:
+        train_data = _reshape_norm(train_data, normalize_params=normalize_params)
+        normed = True
+    if test_data is not None:
+        test_data = _reshape_norm(test_data, normalize_params=normalize_params)
 
     return (train_data, train_labels, train_files, train_labels_files, train_probs,
             diam_train, test_data, test_labels, test_files, test_labels_files,
@@ -328,12 +304,11 @@ def _process_train_test(train_data=None, train_labels=None, train_files=None,
 def train_seg(net, train_data=None, train_labels=None, train_files=None,
               train_labels_files=None, train_probs=None, test_data=None,
               test_labels=None, test_files=None, test_labels_files=None,
-              test_probs=None, load_files=True, batch_size=8, learning_rate=0.005,
-              n_epochs=2000, weight_decay=1e-5, momentum=0.9, SGD=False, channels=None,
-              channel_axis=None, rgb=False, normalize=True, compute_flows=False,
+              test_probs=None, load_files=True, batch_size=8, learning_rate=5e-5,
+              n_epochs=100, weight_decay=0.1, normalize=True, compute_flows=False,
               save_path=None, save_every=100, save_each=False, nimg_per_epoch=None,
-              nimg_test_per_epoch=None, rescale=True, scale_range=None, bsize=224,
-              min_train_masks=5, model_name=None):
+              nimg_test_per_epoch=None, rescale=False, scale_range=None, bsize=256,
+              min_train_masks=5, model_name=None, class_weights=None):
     """
     Train the network with images for segmentation.
 
@@ -356,8 +331,6 @@ def train_seg(net, train_data=None, train_labels=None, train_files=None,
         weight_decay (float, optional): Float - weight decay for the optimizer. Defaults to 1e-5.
         momentum (float, optional): Float - momentum for the optimizer. Defaults to 0.9.
         SGD (bool, optional): Boolean - whether to use SGD as optimization instead of RAdam. Defaults to False.
-        channels (List[int], optional): List of ints - channels to use for training. Defaults to None.
-        channel_axis (int, optional): Integer - axis of the channel dimension in the input data. Defaults to None.
         normalize (bool or dict, optional): Boolean or dictionary - whether to normalize the data. Defaults to True.
         compute_flows (bool, optional): Boolean - whether to compute flows during training. Defaults to False.
         save_path (str, optional): String - where to save the trained model. Defaults to None.
@@ -375,8 +348,7 @@ def train_seg(net, train_data=None, train_labels=None, train_files=None,
     """
     device = net.device
 
-    scale_range0 = 0.5 if rescale else 1.0
-    scale_range = scale_range if scale_range is not None else scale_range0
+    scale_range = 0.5 if scale_range is None else scale_range
 
     if isinstance(normalize, dict):
         normalize_params = {**models.normalize_default, **normalize}
@@ -393,8 +365,7 @@ def train_seg(net, train_data=None, train_labels=None, train_files=None,
                               test_files=test_files, test_labels_files=test_labels_files,
                               test_probs=test_probs,
                               load_files=load_files, min_train_masks=min_train_masks,
-                              compute_flows=compute_flows, channels=channels,
-                              channel_axis=channel_axis, rgb=rgb,
+                              compute_flows=compute_flows,
                               normalize_params=normalize_params, device=net.device)
     (train_data, train_labels, train_files, train_labels_files, train_probs, diam_train,
      test_data, test_labels, test_files, test_labels_files, test_probs, diam_test,
@@ -403,14 +374,13 @@ def train_seg(net, train_data=None, train_labels=None, train_files=None,
     if normed:
         kwargs = {}
     else:
-        kwargs = {
-            "normalize_params": normalize_params,
-            "channels": channels,
-            "channel_axis": channel_axis,
-            "rgb": rgb
-        }
+        kwargs = {"normalize_params": normalize_params,}
     
     net.diam_labels.data = torch.Tensor([diam_train.mean()]).to(device)
+
+    if class_weights is not None and isinstance(class_weights, (list, np.ndarray, tuple)):
+        class_weights = torch.from_numpy(class_weights).to(device).float()
+        print(class_weights)
 
     nimg = len(train_data) if train_data is not None else len(train_files)
     nimg_test = len(test_data) if test_data is not None else None
@@ -425,25 +395,17 @@ def train_seg(net, train_data=None, train_labels=None, train_files=None,
         LR = LR[:-100]
         for i in range(10):
             LR = np.append(LR, LR[-1] / 2 * np.ones(10))
-    elif n_epochs > 100:
+    elif n_epochs > 99:
         LR = LR[:-50]
         for i in range(10):
             LR = np.append(LR, LR[-1] / 2 * np.ones(5))
 
     train_logger.info(f">>> n_epochs={n_epochs}, n_train={nimg}, n_test={nimg_test}")
-
-    if not SGD:
-        train_logger.info(
-            f">>> AdamW, learning_rate={learning_rate:0.5f}, weight_decay={weight_decay:0.5f}"
-        )
-        optimizer = torch.optim.AdamW(net.parameters(), lr=learning_rate,
-                                      weight_decay=weight_decay)
-    else:
-        train_logger.info(
-            f">>> SGD, learning_rate={learning_rate:0.5f}, weight_decay={weight_decay:0.5f}, momentum={momentum:0.3f}"
-        )
-        optimizer = torch.optim.SGD(net.parameters(), lr=learning_rate,
-                                    weight_decay=weight_decay, momentum=momentum)
+    train_logger.info(
+        f">>> AdamW, learning_rate={learning_rate:0.5f}, weight_decay={weight_decay:0.5f}"
+    )
+    optimizer = torch.optim.AdamW(net.parameters(), lr=learning_rate,
+                                    weight_decay=weight_decay)
 
     t0 = time.time()
     model_name = f"cellpose_{t0}" if model_name is None else model_name
@@ -482,8 +444,12 @@ def train_seg(net, train_data=None, train_labels=None, train_files=None,
                                                             xy=(bsize, bsize))[:2]
             # network and loss optimization
             X = torch.from_numpy(imgi).to(device)
+            lbl = torch.from_numpy(lbl).to(device)
             y = net(X)[0]
             loss = _loss_fn_seg(lbl, y, device)
+            if y.shape[1] > 3:
+                loss3 = _loss_fn_class(lbl, y, class_weights=class_weights)
+                loss += loss3
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
@@ -521,8 +487,12 @@ def train_seg(net, train_data=None, train_labels=None, train_files=None,
                             imgs, Y=lbls, rescale=rsc, scale_range=scale_range,
                             xy=(bsize, bsize))[:2]
                         X = torch.from_numpy(imgi).to(device)
+                        lbl = torch.from_numpy(lbl).to(device)
                         y = net(X)[0]
                         loss = _loss_fn_seg(lbl, y, device)
+                        if y.shape[1] > 3:
+                            loss3 = _loss_fn_class(lbl, y, class_weights=class_weights)
+                            loss += loss3            
                         test_loss = loss.item()
                         test_loss *= len(imgi)
                         lavgt += test_loss

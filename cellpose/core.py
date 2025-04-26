@@ -191,7 +191,6 @@ def run_net(net, imgi, batch_size=8, augment=False, tile_overlap=0.1, bsize=224,
             style is a 1D array of size 256 summarizing the style of the image, if tiled `style` is averaged over tiles.
     """
     # run network
-    nout = 3#net.nout
     Lz, Ly0, Lx0, nchan = imgi.shape 
     if rsz is not None:
         if not isinstance(rsz, list) and not isinstance(rsz, np.ndarray):
@@ -212,8 +211,6 @@ def run_net(net, imgi, batch_size=8, augment=False, tile_overlap=0.1, bsize=224,
         ny = 1 if Ly <= bsize else int(np.ceil((1. + 2 * tile_overlap) * Ly / bsize))
         nx = 1 if Lx <= bsize else int(np.ceil((1. + 2 * tile_overlap) * Lx / bsize))
     
-    yf = np.zeros((Lz, nout, Ly, Lx), "float32")
-    styles = np.zeros((Lz, 256), "float32")
     
     # run multiple slices at the same time
     ntiles = ny * nx
@@ -234,12 +231,22 @@ def run_net(net, imgi, batch_size=8, augment=False, tile_overlap=0.1, bsize=224,
             IMGa[i * ntiles : (i+1) * ntiles] = np.reshape(IMG, 
                                             (ny * nx, nchan, ly, lx))
         
-        ya = np.zeros((IMGa.shape[0], nout, ly, lx), "float32")
-        stylea = np.zeros((IMGa.shape[0], 256), "float32")
+        # run network
         for j in range(0, IMGa.shape[0], batch_size):
             bslc = slice(j, min(j + batch_size, IMGa.shape[0]))
-            ya[bslc], stylea[bslc] = _forward(net, IMGa[bslc])
+            ya0, stylea0 = _forward(net, IMGa[bslc])
+            if j == 0:
+                nout = ya0.shape[1]
+                ya = np.zeros((IMGa.shape[0], nout, ly, lx), "float32")
+                stylea = np.zeros((IMGa.shape[0], 256), "float32")
+            ya[bslc] = ya0
+            stylea[bslc] = stylea0
+
+        # average tiles
         for i, b in enumerate(inds):
+            if i==0:
+                yf = np.zeros((Lz, nout, Ly, Lx), "float32")
+                styles = np.zeros((Lz, 256), "float32")
             y = ya[i * ntiles : (i + 1) * ntiles]
             if augment:
                 y = np.reshape(y, (ny, nx, 3, ly, lx))

@@ -846,7 +846,7 @@ def random_rotate_and_resize(X, Y=None, scale_range=1., xy=(224, 224), do_3D=Fal
         lbl (ND-array, float): Transformed labels in array [nimg x nchan x xy[0] x xy[1]]; 
         scale (array, float): Amount each image was resized by.
     """
-    scale_range = max(0, min(2, float(scale_range)))
+    scale_range = max(0, min(2, float(scale_range))) if scale_range is not None else scale_range
     nimg = len(X)
     if X[0].ndim > 2:
         nchan = X[0].shape[0]
@@ -875,7 +875,10 @@ def random_rotate_and_resize(X, Y=None, scale_range=1., xy=(224, 224), do_3D=Fal
             # generate random augmentation parameters
             flip = np.random.rand() > .5
             theta = np.random.rand() * np.pi * 2 if rotate else 0.
-            scale[n] =  (1 - scale_range / 2) + scale_range * np.random.rand()
+            if scale_range is None:
+                scale[n] = 2 ** (4 * np.random.rand() - 2)
+            else:
+                scale[n] =  (1 - scale_range / 2) + scale_range * np.random.rand()
             if rescale is not None:
                 scale[n] *= 1. / rescale[n]
             dxy = np.maximum(0, np.array([Lx * scale[n] - xy[1],
@@ -943,7 +946,7 @@ def random_rotate_and_resize(X, Y=None, scale_range=1., xy=(224, 224), do_3D=Fal
 
         if Y is not None:
             for k in range(nt):
-                flag = cv2.INTER_NEAREST if k == 0 else cv2.INTER_LINEAR
+                flag = cv2.INTER_NEAREST if k < nt-2 else cv2.INTER_LINEAR
                 if do_3D:
                     lbl0 = np.zeros((lz, xy[0], xy[1]), "float32")
                     for z in range(lz):

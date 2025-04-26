@@ -223,6 +223,57 @@ def masks_to_flows_gpu_3d(masks, device=None, niter=None):
     mu0[:, z.cpu().numpy() - 1, y.cpu().numpy() - 1, x.cpu().numpy() - 1] = mu
     return mu0
 
+def labels_to_flows(labels, files=None, device=None, redo_flows=False, niter=None,
+                    return_flows=True):
+    """Converts labels (list of masks or flows) to flows for training model.
+
+    Args:
+        labels (list of ND-arrays): The labels to convert. labels[k] can be 2D or 3D. If [3 x Ly x Lx], 
+            it is assumed that flows were precomputed. Otherwise, labels[k][0] or labels[k] (if 2D) 
+            is used to create flows and cell probabilities.
+        files (list of str, optional): The files to save the flows to. If provided, flows are saved to 
+            files to be reused. Defaults to None.
+        device (str, optional): The device to use for computation. Defaults to None.
+        redo_flows (bool, optional): Whether to recompute the flows. Defaults to False.
+        niter (int, optional): The number of iterations for computing flows. Defaults to None.
+
+    Returns:
+        list of [4 x Ly x Lx] arrays: The flows for training the model. flows[k][0] is labels[k], 
+        flows[k][1] is cell distance transform, flows[k][2] is Y flow, flows[k][3] is X flow, 
+        and flows[k][4] is heat distribution.
+    """
+    nimg = len(labels)
+    if labels[0].ndim < 3:
+        labels = [labels[n][np.newaxis, :, :] for n in range(nimg)]
+
+    flows = []
+    # flows need to be recomputed
+    if labels[0].shape[0] == 1 or labels[0].ndim < 3 or redo_flows:
+        dynamics_logger.info("computing flows for labels")
+
+        # compute flows; labels are fixed here to be unique, so they need to be passed back
+        # make sure labels are unique!
+        labels = [fastremap.renumber(label, in_place=True)[0] for label in labels]
+        iterator = trange if nimg > 1 else range
+        for n in iterator(nimg):
+            labels[n][0] = fastremap.renumber(labels[n][0], in_place=True)[0]
+            vecn = masks_to_flows_gpu(labels[n][0].astype(int), device=device, niter=niter)
+
+            # concatenate labels, distance transform, vector flows, heat (boundary and mask are computed in augmentations)
+            flow = np.concatenate((labels[n], labels[n] > 0.5, vecn),
+                                  axis=0).astype(np.float32)
+            if files is not None:
+                file_name = os.path.splitext(files[n])[0]
+                tifffile.imwrite(file_name + "_flows.tif", flow)
+            if return_flows:
+                flows.append(flow)
+    else:
+        dynamics_logger.info("flows precomputed")
+        if return_flows:
+            flows = [labels[n].astype(np.float32) for n in range(nimg)]
+    return flows
+
+
 def flow_error(maski, dP_net, device=None):
     """Error in flows from predicted masks vs flows predicted by network run on image.
 

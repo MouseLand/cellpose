@@ -391,7 +391,7 @@ class CellposeModel():
                 x = transforms.resize_image(x.transpose(1,0,2,3),
                                         Ly=int(Lz*anisotropy*rescale), 
                                         Lx=int(Lx*rescale)).transpose(1,0,2,3)
-            yf, styles = run_3D(self.net, x,
+            yf, styles = run_3D(self.net, x, bsize=bsize,
                                 batch_size=batch_size, augment=augment,  
                                 tile_overlap=tile_overlap, net_ortho=self.net_ortho)
             if resample:
@@ -403,7 +403,7 @@ class CellposeModel():
                         yf = transforms.resize_image(yf.transpose(1,0,2,3),
                                             Ly=Lz, Lx=Lx).transpose(1,0,2,3)
             cellprob = yf[..., -1]
-            dP = yf[..., :-1].transpose((3, 0, 1, 2))
+            dP = yf[..., -4:-1].transpose((3, 0, 1, 2))
         else:
             yf, styles = run_net(self.net, x, bsize=bsize, augment=augment,
                                 batch_size=batch_size,  
@@ -412,9 +412,10 @@ class CellposeModel():
             if resample:
                 if rescale != 1.0:
                     yf = transforms.resize_image(yf, shape[1], shape[2])
-            cellprob = yf[..., 2]
-            dP = yf[..., :2].transpose((3, 0, 1, 2))
-        
+            cellprob = yf[..., -1]
+            dP = yf[..., -3:-1].transpose((3, 0, 1, 2))
+            if yf.shape[-1] > 3:
+                styles = yf[..., :-3]
         styles = styles.squeeze()
 
         net_time = time.time() - tic

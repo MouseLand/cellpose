@@ -5,7 +5,8 @@ from torch import nn
 import torch.nn.functional as F
 
 class Transformer(nn.Module):
-    def __init__(self, backbone="vit_l", ps=8, nout=3, bsize=256, checkpoint=None):
+    def __init__(self, backbone="vit_l", ps=8, nout=3, bsize=256, rdrop=0.4,
+                  checkpoint=None):
         super(Transformer, self).__init__()
 
         # instantiate the vit model, default to not loading SAM
@@ -32,6 +33,14 @@ class Transformer(nn.Module):
         self.W2 = nn.Parameter(torch.eye(self.nout * ps**2).reshape(self.nout*ps**2, self.nout, ps, ps), 
                                requires_grad=False)
         
+        # fraction of layers to drop at random during training
+        self.rdrop = rdrop
+
+        # average diameter of ROIs from training images from fine-tuning 
+        self.diam_labels = nn.Parameter(torch.tensor([30.]), requires_grad=False)
+        # average diameter of ROIs during main training
+        self.diam_mean = nn.Parameter(torch.tensor([30.]), requires_grad=False)
+        
         # set attention to global in every layer
         for blk in self.encoder.blocks:
             blk.window_size = 0
@@ -43,8 +52,16 @@ class Transformer(nn.Module):
         if self.encoder.pos_embed is not None:
             x = x + self.encoder.pos_embed
         
-        for blk in self.encoder.blocks:
-            x = blk(x)
+        if self.training and self.rdrop > 0:
+            nlay = len(self.encoder.blocks)
+            rdrop = (torch.rand((len(x), nlay), device=x.device) < 
+                     torch.linspace(0, self.rdrop, nlay, device=x.device)).float()
+            for i, blk in enumerate(self.encoder.blocks):            
+                mask = rdrop[:,i].unsqueeze(-1).unsqueeze(-1).unsqueeze(-1)
+                x = x * mask + blk(x) * (1-mask)
+        else:
+            for blk in self.encoder.blocks:
+                x = blk(x)
 
         x = self.encoder.neck(x.permute(0, 3, 1, 2))
 
@@ -58,7 +75,7 @@ class Transformer(nn.Module):
     
     def load_model(self, PATH, device, multigpu = True, strict = False):        
         if multigpu:
-            state_dict = torch.load(PATH, map_location = device)
+            state_dict = torch.load(PATH, map_location = device, weights_only=True)
             from collections import OrderedDict
             new_state_dict = OrderedDict()
             for k, v in state_dict.items():
@@ -66,7 +83,7 @@ class Transformer(nn.Module):
                 new_state_dict[name] = v
             self.load_state_dict(new_state_dict, strict = strict)
         else:
-            self.load_state_dict(torch.load(PATH), strict = strict)
+            self.load_state_dict(torch.load(PATH, weights_only=True), strict = strict)
 
     
     @property
