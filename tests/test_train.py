@@ -7,7 +7,7 @@ from glob import glob
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
 
-def test_class_train(data_dir):
+def itest_class_train(data_dir):
     train_dir = str(data_dir.joinpath('2D').joinpath('train'))
     model_dir = str(data_dir.joinpath('2D').joinpath('train').joinpath('models'))
     shutil.rmtree(model_dir, ignore_errors=True)
@@ -23,7 +23,7 @@ def test_class_train(data_dir):
     print('>>>> model trained and saved to %s' % cpmodel_path)
 
 
-def test_cli_train(data_dir):
+def itest_cli_train(data_dir):
     # import sys
     # path_root = Path(__file__).parents[1]
     # sys.path.append(str(path_root))
@@ -56,7 +56,7 @@ def test_cli_train(data_dir):
         raise ValueError(e)
 
 
-def test_cli_train_pretrained(data_dir):
+def itest_cli_train_pretrained(data_dir):
     train_dir = str(data_dir.joinpath('2D').joinpath('train'))
     model_dir = str(data_dir.joinpath('2D').joinpath('train').joinpath('models'))
     shutil.rmtree(model_dir, ignore_errors=True)

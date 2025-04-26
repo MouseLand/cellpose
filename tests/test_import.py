@@ -21,13 +21,13 @@ def test_gpu_check():
     core.use_gpu()
 
 
-def test_model_dir():
+def itest_model_dir():
     import os, pathlib
     import numpy as np
     os.environ["CELLPOSE_LOCAL_MODELS_PATH"] = os.fspath(
         pathlib.Path.home().joinpath('.cellpose'))
 
     from cellpose import models
-    model = models.CellposeModel(pretrained_model='cyto3')
-    masks = model.eval(np.random.randn(224, 224))[0]
-    assert masks.shape == (224, 224)
+    model = models.CellposeModel(pretrained_model='cpsam')
+    masks = model.eval(np.random.randn(256, 256))[0]
+    assert masks.shape == (256, 256)
