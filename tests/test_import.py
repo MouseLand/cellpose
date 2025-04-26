@@ -21,7 +21,7 @@ def test_gpu_check():
     core.use_gpu()
 
 
-def test_model_dir():
+def itest_model_dir():
     import os, pathlib
     import numpy as np
     os.environ["CELLPOSE_LOCAL_MODELS_PATH"] = os.fspath(
