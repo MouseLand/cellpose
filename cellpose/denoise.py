@@ -16,10 +16,9 @@ import logging
 
 denoise_logger = logging.getLogger(__name__)
 
-from cellpose import transforms, resnet_torch, utils, io
+from cellpose import transforms, utils, io
 from cellpose.core import run_net
-from cellpose.resnet_torch import CPnet
-from cellpose.models import CellposeModel, model_path, normalize_default, assign_device, check_mkl
+from cellpose.models import CellposeModel, model_path, normalize_default, assign_device
 
 MODEL_NAMES = []
 for ctype in ["cyto3", "cyto2", "nuclei"]:

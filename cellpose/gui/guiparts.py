@@ -110,31 +110,31 @@ class DarkPalette(QtGui.QPalette):
         )
 
 
-def create_channel_choose():
-    # choose channel
-    ChannelChoose = [QComboBox(), QComboBox()]
-    ChannelLabels = []
-    ChannelChoose[0].addItems(["gray", "red", "green", "blue"])
-    ChannelChoose[1].addItems(["none", "red", "green", "blue"])
-    cstr = ["chan to segment:", "chan2 (optional): "]
-    for i in range(2):
-        ChannelLabels.append(QLabel(cstr[i]))
-        if i == 0:
-            ChannelLabels[i].setToolTip(
-                "this is the channel in which the cytoplasm or nuclei exist \
-            that you want to segment")
-            ChannelChoose[i].setToolTip(
-                "this is the channel in which the cytoplasm or nuclei exist \
-            that you want to segment")
-        else:
-            ChannelLabels[i].setToolTip(
-                "if <em>cytoplasm</em> model is chosen, and you also have a \
-            nuclear channel, then choose the nuclear channel for this option")
-            ChannelChoose[i].setToolTip(
-                "if <em>cytoplasm</em> model is chosen, and you also have a \
-            nuclear channel, then choose the nuclear channel for this option")
+# def create_channel_choose():
+#     # choose channel
+#     ChannelChoose = [QComboBox(), QComboBox()]
+#     ChannelLabels = []
+#     ChannelChoose[0].addItems(["gray", "red", "green", "blue"])
+#     ChannelChoose[1].addItems(["none", "red", "green", "blue"])
+#     cstr = ["chan to segment:", "chan2 (optional): "]
+#     for i in range(2):
+#         ChannelLabels.append(QLabel(cstr[i]))
+#         if i == 0:
+#             ChannelLabels[i].setToolTip(
+#                 "this is the channel in which the cytoplasm or nuclei exist \
+#             that you want to segment")
+#             ChannelChoose[i].setToolTip(
+#                 "this is the channel in which the cytoplasm or nuclei exist \
+#             that you want to segment")
+#         else:
+#             ChannelLabels[i].setToolTip(
+#                 "if <em>cytoplasm</em> model is chosen, and you also have a \
+#             nuclear channel, then choose the nuclear channel for this option")
+#             ChannelChoose[i].setToolTip(
+#                 "if <em>cytoplasm</em> model is chosen, and you also have a \
+#             nuclear channel, then choose the nuclear channel for this option")
 
-    return ChannelChoose, ChannelLabels
+#     return ChannelChoose, ChannelLabels
 
 
 class ModelButton(QPushButton):
@@ -151,34 +151,34 @@ class ModelButton(QPushButton):
         parent.compute_segmentation(model_name=self.model_name)
 
 
-class DenoiseButton(QPushButton):
+# class DenoiseButton(QPushButton):
 
-    def __init__(self, parent, text):
-        super().__init__()
-        self.setEnabled(False)
-        self.model_type = text
-        self.setText(text)
-        self.setFont(parent.medfont)
-        self.clicked.connect(lambda: self.press(parent))
+#     def __init__(self, parent, text):
+#         super().__init__()
+#         self.setEnabled(False)
+#         self.model_type = text
+#         self.setText(text)
+#         self.setFont(parent.medfont)
+#         self.clicked.connect(lambda: self.press(parent))
 
-    def press(self, parent):
-        if self.model_type == "filter":
-            parent.restore = "filter"
-            normalize_params = parent.get_normalize_params()
-            if (normalize_params["sharpen_radius"] == 0 and
-                    normalize_params["smooth_radius"] == 0 and
-                    normalize_params["tile_norm_blocksize"] == 0):
-                print(
-                    "GUI_ERROR: no filtering settings on (use custom filter settings)")
-                parent.restore = None
-                return
-            parent.restore = self.model_type
-            parent.compute_saturation()
-        elif self.model_type != "none":
-            parent.compute_denoise_model(model_type=self.model_type)
-        else:
-            parent.clear_restore()
-        parent.set_restore_button()
+#     def press(self, parent):
+#         if self.model_type == "filter":
+#             parent.restore = "filter"
+#             normalize_params = parent.get_normalize_params()
+#             if (normalize_params["sharpen_radius"] == 0 and
+#                     normalize_params["smooth_radius"] == 0 and
+#                     normalize_params["tile_norm_blocksize"] == 0):
+#                 print(
+#                     "GUI_ERROR: no filtering settings on (use custom filter settings)")
+#                 parent.restore = None
+#                 return
+#             parent.restore = self.model_type
+#             parent.compute_saturation()
+#         elif self.model_type != "none":
+#             parent.compute_denoise_model(model_type=self.model_type)
+#         else:
+#             parent.clear_restore()
+#         parent.set_restore_button()
 
 
 class TrainWindow(QDialog):
@@ -211,14 +211,14 @@ class TrainWindow(QDialog):
         self.l0.addWidget(qlabel, yoff, 0, 1, 1)
 
         # choose channels
-        self.ChannelChoose, self.ChannelLabels = create_channel_choose()
-        for i in range(2):
-            yoff += 1
-            self.ChannelChoose[i].setFixedWidth(150)
-            self.ChannelChoose[i].setCurrentIndex(
-                parent.ChannelChoose[i].currentIndex())
-            self.l0.addWidget(self.ChannelLabels[i], yoff, 0, 1, 1)
-            self.l0.addWidget(self.ChannelChoose[i], yoff, 1, 1, 1)
+        # self.ChannelChoose, self.ChannelLabels = create_channel_choose()
+        # for i in range(2):
+        #     yoff += 1
+        #     self.ChannelChoose[i].setFixedWidth(150)
+        #     self.ChannelChoose[i].setCurrentIndex(
+        #         parent.ChannelChoose[i].currentIndex())
+        #     self.l0.addWidget(self.ChannelLabels[i], yoff, 0, 1, 1)
+        #     self.l0.addWidget(self.ChannelChoose[i], yoff, 1, 1, 1)
 
         # choose parameters
         labels = ["learning_rate", "weight_decay", "n_epochs", "model_name"]

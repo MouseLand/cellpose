@@ -28,6 +28,6 @@ def test_model_dir():
         pathlib.Path.home().joinpath('.cellpose'))
 
     from cellpose import models
-    model = models.CellposeModel(pretrained_model='cyto3')
-    masks = model.eval(np.random.randn(224, 224))[0]
-    assert masks.shape == (224, 224)
+    model = models.CellposeModel(pretrained_model='cpsam')
+    masks = model.eval(np.random.randn(256, 256))[0]
+    assert masks.shape == (256, 256)

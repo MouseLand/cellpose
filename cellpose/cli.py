@@ -49,61 +49,57 @@ def get_arg_parser():
         help="axis of image which corresponds to image channels")
     input_img_args.add_argument("--z_axis", default=None, type=int,
                                 help="axis of image which corresponds to Z dimension")
+    
+    # TODO: remove deprecated in future version
     input_img_args.add_argument(
         "--chan", default=0, type=int, help=
-        "channel to segment; 0: GRAY, 1: RED, 2: GREEN, 3: BLUE. Default: %(default)s")
+        "Deprecated in v4.0.1+, not used. ")
     input_img_args.add_argument(
         "--chan2", default=0, type=int, help=
-        "nuclear channel (if cyto, optional); 0: NONE, 1: RED, 2: GREEN, 3: BLUE. Default: %(default)s"
-    )
-    input_img_args.add_argument("--invert", action="store_true",
-                                help="invert grayscale channel")
+        'Deprecated in v4.0.1+, not used. ')
+    input_img_args.add_argument("--invert", action="store_true", help=
+        'Deprecated in v4.0.1+, not used. ')
     input_img_args.add_argument(
         "--all_channels", action="store_true", help=
-        "use all channels in image if using own model and images with special channels")
+        'Deprecated in v4.0.1+, not used. ')
 
     # model settings
     model_args = parser.add_argument_group("Model Arguments")
     model_args.add_argument("--pretrained_model", required=False, default="cyto3",
                             type=str,
                             help="model to use for running or starting training")
-    model_args.add_argument("--restore_type", required=False, default=None, type=str,
-                            help="model to use for image restoration")
-    model_args.add_argument("--chan2_restore", action="store_true",
-                            help="use nuclei restore model for second channel")
     model_args.add_argument(
         "--add_model", required=False, default=None, type=str,
         help="model path to copy model to hidden .cellpose folder for using in GUI/CLI")
-    model_args.add_argument(
-        "--transformer", action="store_true", help=
-        "use transformer backbone (pretrained_model from Cellpose3 is transformer_cp3)")
     model_args.add_argument("--pretrained_model_ortho", required=False, default=None,
                             type=str,
                             help="model to use for running 3D ortho views (ZY and ZX)")
     
+    # TODO: remove deprecated in future version
+    model_args.add_argument("--restore_type", required=False, default=None, type=str, help=
+        'Deprecated in v4.0.1+, not used. ')
+    model_args.add_argument("--chan2_restore", action="store_true", help=
+        'Deprecated in v4.0.1+, not used. ')
+    model_args.add_argument(
+        "--transformer", action="store_true", help=
+        "use transformer backbone (pretrained_model from Cellpose3 is transformer_cp3)")
+    
     # algorithm settings
     algorithm_args = parser.add_argument_group("Algorithm Arguments")
-    algorithm_args.add_argument(
-        "--no_resample", action="store_true", help=
-        "disable dynamics on full image (makes algorithm faster for images with large diameters)"
-    )
-    algorithm_args.add_argument(
-        "--no_interp", action="store_true",
-        help="do not interpolate when running dynamics (was default)")
     algorithm_args.add_argument("--no_norm", action="store_true",
                                 help="do not normalize images (normalize=False)")
-    parser.add_argument(
-    '--norm_percentile',
-    nargs=2,  # Require exactly two values
-    metavar=('VALUE1', 'VALUE2'),
-    help="Provide two float values to set norm_percentile (e.g., --norm_percentile 1 99)"
+    algorithm_args.add_argument(
+        '--norm_percentile',
+        nargs=2,  # Require exactly two values
+        metavar=('VALUE1', 'VALUE2'),
+        help="Provide two float values to set norm_percentile (e.g., --norm_percentile 1 99)"
     )
     algorithm_args.add_argument(
         "--do_3D", action="store_true",
         help="process images as 3D stacks of images (nplanes x nchan x Ly x Lx")
     algorithm_args.add_argument(
-        "--diameter", required=False, default=30., type=float, help=
-        "cell diameter, if 0 will use the diameter of the training labels used in the model, or with built-in model will estimate diameter for each image"
+        "--diameter", required=False, default=None, type=float, help=
+        "use to resize cells to the training diameter (30 pixels)"
     )
     algorithm_args.add_argument(
         "--stitch_threshold", required=False, default=0.0, type=float,
@@ -115,7 +111,6 @@ def get_arg_parser():
     algorithm_args.add_argument(
         "--flow3D_smooth", required=False, default=0, type=float,
         help="stddev of gaussian for smoothing of dP for dynamics in 3D, default of 0 means no smoothing")
-
     algorithm_args.add_argument(
         "--flow_threshold", default=0.4, type=float, help=
         "flow error threshold, 0 turns off this optional QC step. Default: %(default)s")
@@ -126,7 +121,6 @@ def get_arg_parser():
         "--niter", default=0, type=int, help=
         "niter, number of iterations for dynamics for mask creation, default of 0 means it is proportional to diameter, set to a larger number like 2000 for very long ROIs"
     )
-
     algorithm_args.add_argument("--anisotropy", required=False, default=1.0, type=float,
                                 help="anisotropy of volume in 3D")
     algorithm_args.add_argument("--exclude_on_edges", action="store_true",
@@ -135,6 +129,14 @@ def get_arg_parser():
         "--augment", action="store_true",
         help="tiles image with overlapping tiles and flips overlapped regions to augment"
     )
+
+    # TODO: remove deprecated in future version
+    algorithm_args.add_argument(
+        "--no_resample", action="store_true", help=
+        'Deprecated in v4.0.1+, not used. ')
+    algorithm_args.add_argument(
+        "--no_interp", action="store_true",
+        help="do not interpolate when running dynamics (was default)")
 
     # output settings
     output_args = parser.add_argument_group("Output Arguments")
@@ -183,8 +185,6 @@ def get_arg_parser():
     training_args = parser.add_argument_group("Training Arguments")
     training_args.add_argument("--train", action="store_true",
                                help="train network using images in dir")
-    training_args.add_argument("--train_size", action="store_true",
-                               help="train size network at end of training")
     training_args.add_argument("--test_dir", default=[], type=str,
                                help="folder containing test data (optional)")
     training_args.add_argument(
@@ -195,18 +195,16 @@ def get_arg_parser():
         "--mask_filter", default="_masks", type=str, help=
         "end string for masks to run on. use '_seg.npy' for manual annotations from the GUI. Default: %(default)s"
     )
-    training_args.add_argument(
-        "--diam_mean", default=30., type=float, help=
-        "mean diameter to resize cells to during training -- if starting from pretrained models it cannot be changed from 30.0"
-    )
     training_args.add_argument("--learning_rate", default=0.2, type=float,
                                help="learning rate. Default: %(default)s")
     training_args.add_argument("--weight_decay", default=0.00001, type=float,
                                help="weight decay. Default: %(default)s")
     training_args.add_argument("--n_epochs", default=500, type=int,
                                help="number of epochs. Default: %(default)s")
-    training_args.add_argument("--batch_size", default=8, type=int,
+    training_args.add_argument("--batch_size", default=64, type=int,
                                help="batch size. Default: %(default)s")
+    training_args.add_argument("--bsize", default=256, type=int,
+                               help="block size for tiles. Default: %(default)s")
     training_args.add_argument(
         "--nimg_per_epoch", default=None, type=int,
         help="number of train images per epoch. Default is to use all train images.")
@@ -225,5 +223,12 @@ def get_arg_parser():
         "--model_name_out", default=None, type=str,
         help="Name of model to save as, defaults to name describing model architecture. "
         "Model is saved in the folder specified by --dir in models subfolder.")
+    
+    # TODO: remove deprecated in future version
+    training_args.add_argument(
+        "--diam_mean", default=30., type=float, help=
+        'Deprecated in v4.0.1+, not used. ')
+    training_args.add_argument("--train_size", action="store_true", help=
+        'Deprecated in v4.0.1+, not used. ')
 
     return parser
