@@ -470,8 +470,10 @@ class CellposeModel():
             # if resample:
             #     if rescale != 1.0:
             #         yf = transforms.resize_image(yf, shape[1], shape[2])
-            cellprob = yf[..., 2]
-            dP = yf[..., :2].transpose((3, 0, 1, 2))
+            cellprob = yf[..., -1]
+            dP = yf[..., -3:-1].transpose((3, 0, 1, 2))
+            if yf.shape[-1] > 3:
+                styles = yf[..., :-3]
         
         styles = styles.squeeze()
 
