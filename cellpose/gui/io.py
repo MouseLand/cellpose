@@ -117,7 +117,12 @@ def _load_image(parent, filename=None, load_seg=True, load_3D=False):
     load_mask = False
     if load_seg:
         if os.path.isfile(manual_file) and not parent.autoloadMasks.isChecked():
-            _load_seg(parent, manual_file, image=imread(filename), image_file=filename,
+            if filename is not None:
+                image = (imread_2D(filename) if not load_3D else 
+                         imread_3D(filename))
+            else:
+                image = None
+            _load_seg(parent, manual_file, image=image, image_file=filename,
                       load_3D=load_3D)
             return
         elif parent.autoloadMasks.isChecked():
@@ -298,7 +303,8 @@ def _load_seg(parent, filename=None, image=None, image_file=None, load_3D=False)
         if found_image:
             try:
                 print(parent.filename)
-                image = imread(parent.filename)
+                image = (imread_2D(parent.filename) if not load_3D else 
+                         imread_3D(parent.filename))
             except:
                 parent.loaded = False
                 found_image = False
@@ -318,8 +324,6 @@ def _load_seg(parent, filename=None, image=None, image_file=None, load_3D=False)
     parent.ratio = 1.
 
     if "normalize_params" in dat:
-        parent.restore = None if "restore" not in dat else dat["restore"]
-        print(f"GUI_INFO: restore: {parent.restore}")
         parent.set_normalize_params(dat["normalize_params"])
         # parent.set_restore_button()
 
@@ -682,10 +686,6 @@ def _save_sets(parent):
             "masks":
                 parent.cellpix.squeeze() if parent.restore is None or
                 not "upsample" in parent.restore else parent.cellpix_resize.squeeze(),
-            "chan_choose": [
-                parent.ChannelChoose[0].currentIndex(),
-                parent.ChannelChoose[1].currentIndex()
-            ],
             "filename":
                 parent.filename,
             "flows":

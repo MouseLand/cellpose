@@ -294,11 +294,10 @@ class MainW(QMainWindow):
         d = datetime.datetime.now()
         self.training_params = {
             "model_index": 0,
-            "learning_rate": 0.1,
-            "weight_decay": 0.0001,
+            "learning_rate": 1e-5,
+            "weight_decay": 0.1,
             "n_epochs": 100,
-            "SGD": True,
-            "model_name": "CP" + d.strftime("_%Y%m%d_%H%M%S"),
+            "model_name": "cpsam" + d.strftime("_%Y%m%d_%H%M%S"),
         }
 
         self.stitch_threshold = 0.
@@ -721,64 +720,34 @@ class MainW(QMainWindow):
         self.segaBoxG.addWidget(self.norm3D_cb, widget_row, 0, 1, 3)
 
 
-        # self.modelBox = QGroupBox("Other models")
-        # self.modelBoxG = QGridLayout()
-        # self.modelBox.setLayout(self.modelBoxG)
-        # self.l0.addWidget(self.modelBox, b, 0, 1, 9)
-        # self.modelBox.setFont(self.boldfont)
-        # # choose models
-        # self.ModelChooseC = QComboBox()
-        # self.ModelChooseC.setFont(self.medfont)
-        # current_index = 0
-        # self.ModelChooseC.addItems(["custom models"])
-        # if len(self.model_strings) > 0:
-        #     self.ModelChooseC.addItems(self.model_strings)
-        # self.ModelChooseC.setFixedWidth(175)
-        # self.ModelChooseC.setCurrentIndex(current_index)
-        # tipstr = 'add or train your own models in the "Models" file menu and choose model here'
-        # self.ModelChooseC.setToolTip(tipstr)
-        # self.ModelChooseC.activated.connect(lambda: self.model_choose(custom=True))
-        # self.modelBoxG.addWidget(self.ModelChooseC, widget_row, 0, 1, 8)
+        b += 1
+        self.modelBox = QGroupBox("user-trained models")
+        self.modelBoxG = QGridLayout()
+        self.modelBox.setLayout(self.modelBoxG)
+        self.l0.addWidget(self.modelBox, b, 0, 1, 9)
+        self.modelBox.setFont(self.boldfont)
+        # choose models
+        self.ModelChooseC = QComboBox()
+        self.ModelChooseC.setFont(self.medfont)
+        current_index = 0
+        self.ModelChooseC.addItems(["custom models"])
+        if len(self.model_strings) > 0:
+            self.ModelChooseC.addItems(self.model_strings)
+        self.ModelChooseC.setFixedWidth(175)
+        self.ModelChooseC.setCurrentIndex(current_index)
+        tipstr = 'add or train your own models in the "Models" file menu and choose model here'
+        self.ModelChooseC.setToolTip(tipstr)
+        self.ModelChooseC.activated.connect(lambda: self.model_choose(custom=True))
+        self.modelBoxG.addWidget(self.ModelChooseC, widget_row, 0, 1, 8)
 
-        # # compute segmentation w/ custom model
-        # self.ModelButtonC = QPushButton(u"run")
-        # self.ModelButtonC.setFont(self.medfont)
-        # self.ModelButtonC.setFixedWidth(35)
-        # self.ModelButtonC.clicked.connect(
-        #     lambda: self.compute_segmentation(custom=True))
-        # self.modelBoxG.addWidget(self.ModelButtonC, widget_row, 8, 1, 1)
-        # self.ModelButtonC.setEnabled(False)
-
-        # self.net_names = [
-        #     "nuclei", "cyto2_cp3", "tissuenet_cp3", "livecell_cp3", "yeast_PhC_cp3",
-        #     "yeast_BF_cp3", "bact_phase_cp3", "bact_fluor_cp3", "deepbacs_cp3",
-        #     "cyto", "cyto2", "CPx"]
-
-        # nett = [
-        #     "nuclei", "cellpose (cyto2_cp3)", "tissuenet_cp3", "livecell_cp3",
-        #     "yeast_PhC_cp3", "yeast_BF_cp3", "bact_phase_cp3", "bact_fluor_cp3",
-        #     "deepbacs_cp3", "cyto", "cyto2",
-        #     "CPx (from Cellpose2)"
-        # ]
-        # widget_row += 1
-        # self.ModelChooseB = QComboBox()
-        # self.ModelChooseB.setFont(self.medfont)
-        # self.ModelChooseB.addItems(["dataset-specific models"])
-        # self.ModelChooseB.addItems(nett)
-        # self.ModelChooseB.setFixedWidth(175)
-        # tipstr = "dataset-specific models"
-        # self.ModelChooseB.setToolTip(tipstr)
-        # self.ModelChooseB.activated.connect(lambda: self.model_choose(custom=False))
-        # self.modelBoxG.addWidget(self.ModelChooseB, widget_row, 0, 1, 8)
-
-        # # compute segmentation w/ cp model
-        # self.ModelButtonB = QPushButton(u"run")
-        # self.ModelButtonB.setFont(self.medfont)
-        # self.ModelButtonB.setFixedWidth(35)
-        # self.ModelButtonB.clicked.connect(
-        #     lambda: self.compute_segmentation(custom=False))
-        # self.modelBoxG.addWidget(self.ModelButtonB, widget_row, 8, 1, 1)
-        # self.ModelButtonB.setEnabled(False)
+        # compute segmentation w/ custom model
+        self.ModelButtonC = QPushButton(u"run")
+        self.ModelButtonC.setFont(self.medfont)
+        self.ModelButtonC.setFixedWidth(35)
+        self.ModelButtonC.clicked.connect(
+            lambda: self.compute_segmentation(custom=True))
+        self.modelBoxG.addWidget(self.ModelButtonC, widget_row, 8, 1, 1)
+        self.ModelButtonC.setEnabled(False)
 
         widget_row = 0
 
@@ -1610,7 +1579,7 @@ class MainW(QMainWindow):
 
     def update_layer(self):
         if self.masksOn or self.outlinesOn:
-            self.draw_layer()
+            #self.draw_layer()
             self.layer.setImage(self.layerz, autoLevels=False)
         self.update_roi_count()
         self.win.show()
@@ -1814,6 +1783,7 @@ class MainW(QMainWindow):
         if self.outlinesOn:
             self.layerz[self.outpix[self.currentZ] > 0] = np.array(
                 self.outcolor).astype(np.uint8)
+
 
 
     def set_normalize_params(self, normalize_params):
@@ -2032,9 +2002,8 @@ class MainW(QMainWindow):
             self.current_model_path = models.model_path(self.current_model)
 
     def initialize_model(self, model_name=None, custom=False):
-        if model_name == "dataset-specific models":
-            raise ValueError("need to specify model (use dropdown)")
-        elif model_name is None or custom:
+        print(model_name, custom)
+        if model_name is None or custom:
             self.get_model_path(custom=custom)
             if not os.path.exists(self.current_model_path):
                 raise ValueError("need to specify model (use dropdown)")
@@ -2044,20 +2013,11 @@ class MainW(QMainWindow):
                                               pretrained_model=self.current_model_path)
         else:
             self.current_model = model_name
-            if self.current_model == "cyto" or self.current_model == "nuclei":
-                self.current_model_path = models.model_path(self.current_model, 0)
-            else:
-                self.current_model_path = os.fspath(
-                    models.MODEL_DIR.joinpath(self.current_model))
+            self.current_model_path = os.fspath(
+                models.MODEL_DIR.joinpath(self.current_model))
 
-            if self.current_model != "cyto3":
-                diam_mean = 17. if self.current_model == "nuclei" else 30.
-                self.model = models.CellposeModel(gpu=self.useGPU.isChecked(),
-                                                  diam_mean=diam_mean,
-                                                  model_type=self.current_model)
-            else:
-                self.model = models.Cellpose(gpu=self.useGPU.isChecked(),
-                                             model_type=self.current_model)
+            self.model = models.CellposeModel(gpu=self.useGPU.isChecked(),
+                                             pretrained_model=self.current_model)
 
     def add_model(self):
         io._add_model(self)
@@ -2089,34 +2049,23 @@ class MainW(QMainWindow):
         from cellpose.models import normalize_default
         if normalize_params is None:
             normalize_params = copy.deepcopy(normalize_default)
-        if self.training_params["model_index"] < len(models.MODEL_NAMES):
-            model_type = models.MODEL_NAMES[self.training_params["model_index"]]
-            self.logger.info(f"training new model starting at model {model_type}")
-        else:
-            model_type = None
-            self.logger.info(f"training new model starting from scratch")
+        model_type = models.MODEL_NAMES[self.training_params["model_index"]]
+        self.logger.info(f"training new model starting at model {model_type}")
         self.current_model = model_type
-        self.channels = self.training_params["channels"]
         
-        self.logger.info(
-            f"training with chan = {self.ChannelChoose[0].currentText()}, chan2 = {self.ChannelChoose[1].currentText()}"
-        )
-
         self.model = models.CellposeModel(gpu=self.useGPU.isChecked(),
                                           model_type=model_type)
         # self.SizeButton.setEnabled(False)
         save_path = os.path.dirname(self.filename)
 
         print("GUI_INFO: name of new model: " + self.training_params["model_name"])
-        print(f"GUI_INFO: SGD activated: {self.training_params['SGD']}")
         self.new_model_path, train_losses = train.train_seg(
             self.model.net, train_data=self.train_data, train_labels=self.train_labels,
-            channels=self.channels, normalize=normalize_params, min_train_masks=0,
+            normalize=normalize_params, min_train_masks=0,
             save_path=save_path, nimg_per_epoch=max(8, len(self.train_data)),
             learning_rate=self.training_params["learning_rate"],
             weight_decay=self.training_params["weight_decay"],
             n_epochs=self.training_params["n_epochs"],
-            SGD=self.training_params["SGD"],
             model_name=self.training_params["model_name"])[:2]
         # save train losses
         np.save(str(self.new_model_path) + "_train_losses.npy", train_losses)
@@ -2125,11 +2074,7 @@ class MainW(QMainWindow):
         diam_labels = self.model.net.diam_labels.item()  #.copy()
         self.new_model_ind = len(self.model_strings)
         self.autorun = True
-        channels = self.channels.copy()
         self.clear_all()
-        # keep same channels
-        self.ChannelChoose[0].setCurrentIndex(channels[0])
-        self.ChannelChoose[1].setCurrentIndex(channels[1])
         # self.diameter = diam_labels
         # self.Diameter.setText("%0.2f" % self.diameter)
         # self.logger.info(f">>>> diameter set to diam_labels ( = {diam_labels: 0.3f} )")
@@ -2202,8 +2147,6 @@ class MainW(QMainWindow):
                 self.flow3D_smooth, float) else self.flow3D_smooth
             min_size = int(self.min_size.text()) if not isinstance(
                 self.min_size, int) else self.min_size
-            resample = self.resample.isChecked() if not isinstance(
-                self.resample, bool) else self.resample
             
             do_3D = False if stitch_threshold > 0. else do_3D
 
@@ -2232,7 +2175,7 @@ class MainW(QMainWindow):
                     cellprob_threshold=cellprob_threshold,
                     flow_threshold=flow_threshold, do_3D=do_3D, niter=niter,
                     normalize=normalize_params, stitch_threshold=stitch_threshold,
-                    anisotropy=anisotropy, resample=resample, flow3D_smooth=flow3D_smooth,
+                    anisotropy=anisotropy, flow3D_smooth=flow3D_smooth,
                     min_size=min_size, channel_axis=-1,
                     progress=self.progress, z_axis=0 if self.NZ > 1 else None)[:2]
             except Exception as e:

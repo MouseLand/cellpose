@@ -52,7 +52,7 @@ def _loss_fn_seg(lbl, y, device):
     loss = loss + loss2
     return loss
 
-def _reshape_norm(data, normalize_params={"normalize": False}):
+def _reshape_norm(data, channel_axis=None, normalize_params={"normalize": False}):
     """
     Reshapes and normalizes the input data.
 
@@ -67,8 +67,11 @@ def _reshape_norm(data, normalize_params={"normalize": False}):
         np.array([td.shape[0]!=3 for td in data]).sum() > 0):
         data_new = []
         for td in data:
-            if td.ndim == 3 and np.array(td.shape).argmin() == 2:
-                td = np.transpose(td, (2, 0, 1))
+            if td.ndim == 3:
+                channel_axis0 = channel_axis if channel_axis is not None else np.array(td.shape).argmin()
+                # put channel axis first 
+                td = np.moveaxis(td, channel_axis0, 0)
+                td = td[:3] # keep at most 3 channels
             if td.ndim == 2 or (td.ndim == 3 and td.shape[0] == 1):
                 td = np.stack((td, 0*td, 0*td), axis=0)
             elif td.ndim == 3 and td.shape[0] < 3:
@@ -138,7 +141,7 @@ def _process_train_test(train_data=None, train_labels=None, train_files=None,
                         test_labels=None, test_files=None, test_labels_files=None,
                         test_probs=None, load_files=True, min_train_masks=5,
                         compute_flows=False, normalize_params={"normalize": False}, 
-                        device=None):
+                        channel_axis=None, device=None):
     """
     Process train and test data.
 
@@ -291,10 +294,12 @@ def _process_train_test(train_data=None, train_labels=None, train_files=None,
     if normalize_params["normalize"]:
         train_logger.info(f">>> normalizing {normalize_params}")
     if train_data is not None:
-        train_data = _reshape_norm(train_data, normalize_params=normalize_params)
+        train_data = _reshape_norm(train_data, channel_axis=channel_axis, 
+                                   normalize_params=normalize_params)
         normed = True
     if test_data is not None:
-        test_data = _reshape_norm(test_data, normalize_params=normalize_params)
+        test_data = _reshape_norm(test_data, channel_axis=channel_axis,
+                                  normalize_params=normalize_params)
 
     return (train_data, train_labels, train_files, train_labels_files, train_probs,
             diam_train, test_data, test_labels, test_files, test_labels_files,
@@ -304,7 +309,8 @@ def _process_train_test(train_data=None, train_labels=None, train_files=None,
 def train_seg(net, train_data=None, train_labels=None, train_files=None,
               train_labels_files=None, train_probs=None, test_data=None,
               test_labels=None, test_files=None, test_labels_files=None,
-              test_probs=None, load_files=True, batch_size=8, learning_rate=5e-5,
+              test_probs=None, channel_axis=None,
+              load_files=True, batch_size=8, learning_rate=5e-5, SGD=False,
               n_epochs=100, weight_decay=0.1, normalize=True, compute_flows=False,
               save_path=None, save_every=100, save_each=False, nimg_per_epoch=None,
               nimg_test_per_epoch=None, rescale=False, scale_range=None, bsize=256,
@@ -330,7 +336,7 @@ def train_seg(net, train_data=None, train_labels=None, train_files=None,
         n_epochs (int, optional): Integer - number of times to go through the whole training set during training. Defaults to 2000.
         weight_decay (float, optional): Float - weight decay for the optimizer. Defaults to 1e-5.
         momentum (float, optional): Float - momentum for the optimizer. Defaults to 0.9.
-        SGD (bool, optional): Boolean - whether to use SGD as optimization instead of RAdam. Defaults to False.
+        SGD (bool, optional): Deprecated in v4.0.1+ - AdamW always used.
         normalize (bool or dict, optional): Boolean or dictionary - whether to normalize the data. Defaults to True.
         compute_flows (bool, optional): Boolean - whether to compute flows during training. Defaults to False.
         save_path (str, optional): String - where to save the trained model. Defaults to None.
@@ -346,6 +352,9 @@ def train_seg(net, train_data=None, train_labels=None, train_files=None,
         tuple: A tuple containing the path to the saved model weights, training losses, and test losses.
        
     """
+    if SGD:
+        train_logger.warning("SGD is deprecated, using AdamW instead")
+
     device = net.device
 
     scale_range = 0.5 if scale_range is None else scale_range
@@ -365,7 +374,7 @@ def train_seg(net, train_data=None, train_labels=None, train_files=None,
                               test_files=test_files, test_labels_files=test_labels_files,
                               test_probs=test_probs,
                               load_files=load_files, min_train_masks=min_train_masks,
-                              compute_flows=compute_flows,
+                              compute_flows=compute_flows, channel_axis=channel_axis,
                               normalize_params=normalize_params, device=net.device)
     (train_data, train_labels, train_files, train_labels_files, train_probs, diam_train,
      test_data, test_labels, test_files, test_labels_files, test_probs, diam_test,
@@ -374,7 +383,7 @@ def train_seg(net, train_data=None, train_labels=None, train_files=None,
     if normed:
         kwargs = {}
     else:
-        kwargs = {"normalize_params": normalize_params,}
+        kwargs = {"normalize_params": normalize_params, "channel_axis": channel_axis}
     
     net.diam_labels.data = torch.Tensor([diam_train.mean()]).to(device)
 
@@ -515,164 +524,3 @@ def train_seg(net, train_data=None, train_labels=None, train_files=None,
     net.save_model(filename)
 
     return filename, train_losses, test_losses
-
-
-def train_size(net, pretrained_model, train_data=None, train_labels=None,
-               train_files=None, train_labels_files=None, train_probs=None,
-               test_data=None, test_labels=None, test_files=None,
-               test_labels_files=None, test_probs=None, load_files=True,
-               min_train_masks=5, channels=None, channel_axis=None, rgb=False,
-               normalize=True, nimg_per_epoch=None, nimg_test_per_epoch=None,
-               batch_size=64, scale_range=1.0, bsize=512, l2_regularization=1.0,
-               n_epochs=10):
-    """Train the size model.
-
-    Args:
-        net (object): The neural network model.
-        pretrained_model (str): The path to the pretrained model.
-        train_data (numpy.ndarray, optional): The training data. Defaults to None.
-        train_labels (numpy.ndarray, optional): The training labels. Defaults to None.
-        train_files (list, optional): The training file paths. Defaults to None.
-        train_labels_files (list, optional): The training label file paths. Defaults to None.
-        train_probs (numpy.ndarray, optional): The training probabilities. Defaults to None.
-        test_data (numpy.ndarray, optional): The test data. Defaults to None.
-        test_labels (numpy.ndarray, optional): The test labels. Defaults to None.
-        test_files (list, optional): The test file paths. Defaults to None.
-        test_labels_files (list, optional): The test label file paths. Defaults to None.
-        test_probs (numpy.ndarray, optional): The test probabilities. Defaults to None.
-        load_files (bool, optional): Whether to load files. Defaults to True.
-        min_train_masks (int, optional): The minimum number of training masks. Defaults to 5.
-        channels (list, optional): The channels. Defaults to None.
-        channel_axis (int, optional): The channel axis. Defaults to None.
-        normalize (bool or dict, optional): Whether to normalize the data. Defaults to True.
-        nimg_per_epoch (int, optional): The number of images per epoch. Defaults to None.
-        nimg_test_per_epoch (int, optional): The number of test images per epoch. Defaults to None.
-        batch_size (int, optional): The batch size. Defaults to 64.
-        l2_regularization (float, optional): The L2 regularization factor. Defaults to 1.0.
-        n_epochs (int, optional): The number of epochs. Defaults to 10.
-
-    Returns:
-        dict: The trained size model parameters.
-    """
-    if isinstance(normalize, dict):
-        normalize_params = {**models.normalize_default, **normalize}
-    elif not isinstance(normalize, bool):
-        raise ValueError("normalize parameter must be a bool or a dict")
-    else:
-        normalize_params = models.normalize_default
-        normalize_params["normalize"] = normalize
-
-    out = _process_train_test(
-        train_data=train_data, train_labels=train_labels, train_files=train_files,
-        train_labels_files=train_labels_files, train_probs=train_probs,
-        test_data=test_data, test_labels=test_labels, test_files=test_files,
-        test_labels_files=test_labels_files, test_probs=test_probs,
-        load_files=load_files, min_train_masks=min_train_masks, compute_flows=False,
-        channels=channels, channel_axis=channel_axis, normalize_params=normalize_params,
-        device=net.device)
-    (train_data, train_labels, train_files, train_labels_files, train_probs, diam_train,
-     test_data, test_labels, test_files, test_labels_files, test_probs, diam_test,
-     normed) = out
-
-    # already normalized, do not normalize during training
-    if normed:
-        kwargs = {}
-    else:
-        kwargs = {
-            "normalize_params": normalize_params,
-            "channels": channels,
-            "channel_axis": channel_axis,
-            "rgb": rgb
-        }
-
-    nimg = len(train_data) if train_data is not None else len(train_files)
-    nimg_test = len(test_data) if test_data is not None else None
-    nimg_test = len(test_files) if test_files is not None else nimg_test
-    nimg_per_epoch = nimg if nimg_per_epoch is None else nimg_per_epoch
-    nimg_test_per_epoch = nimg_test if nimg_test_per_epoch is None else nimg_test_per_epoch
-
-    diam_mean = net.diam_mean.item()
-    device = net.device
-    net.eval()
-
-    styles = np.zeros((n_epochs * nimg_per_epoch, 256), np.float32)
-    diams = np.zeros((n_epochs * nimg_per_epoch,), np.float32)
-    tic = time.time()
-    for iepoch in range(n_epochs):
-        np.random.seed(iepoch)
-        if nimg != nimg_per_epoch:
-            rperm = np.random.choice(np.arange(0, nimg), size=(nimg_per_epoch,),
-                                     p=train_probs)
-        else:
-            rperm = np.random.permutation(np.arange(0, nimg))
-        for ibatch in range(0, nimg_per_epoch, batch_size):
-            inds_batch = np.arange(ibatch, min(nimg_per_epoch, ibatch + batch_size))
-            inds = rperm[inds_batch]
-            imgs, lbls = _get_batch(inds, data=train_data, labels=train_labels,
-                                    files=train_files, **kwargs)
-            diami = diam_train[inds].copy()
-            imgi, lbl, scale = transforms.random_rotate_and_resize(
-                imgs, scale_range=scale_range, xy=(bsize, bsize))
-            imgi = torch.from_numpy(imgi).to(device)
-            with torch.no_grad():
-                feat = net(imgi)[1]
-            indsi = inds_batch + nimg_per_epoch * iepoch
-            styles[indsi] = feat.cpu().numpy()
-            diams[indsi] = np.log(diami) - np.log(diam_mean) + np.log(scale)
-        del feat
-        train_logger.info("ran %d epochs in %0.3f sec" %
-                          (iepoch + 1, time.time() - tic))
-
-    l2_regularization = 1.
-
-    # create model
-    smean = styles.copy().mean(axis=0)
-    X = ((styles.copy() - smean).T).copy()
-    ymean = diams.copy().mean()
-    y = diams.copy() - ymean
-
-    A = np.linalg.solve(X @ X.T + l2_regularization * np.eye(X.shape[0]), X @ y)
-    ypred = A @ X
-
-    train_logger.info("train correlation: %0.4f" % np.corrcoef(y, ypred)[0, 1])
-
-    if nimg_test:
-        np.random.seed(0)
-        styles_test = np.zeros((nimg_test_per_epoch, 256), np.float32)
-        diams_test = np.zeros((nimg_test_per_epoch,), np.float32)
-        diams_test0 = np.zeros((nimg_test_per_epoch,), np.float32)
-        if nimg_test != nimg_test_per_epoch:
-            rperm = np.random.choice(np.arange(0, nimg_test),
-                                     size=(nimg_test_per_epoch,), p=test_probs)
-        else:
-            rperm = np.random.permutation(np.arange(0, nimg_test))
-        for ibatch in range(0, nimg_test_per_epoch, batch_size):
-            inds_batch = np.arange(ibatch, min(nimg_test_per_epoch,
-                                               ibatch + batch_size))
-            inds = rperm[inds_batch]
-            imgs, lbls = _get_batch(inds, data=test_data, labels=test_labels,
-                                    files=test_files, labels_files=test_labels_files,
-                                    **kwargs)
-            diami = diam_test[inds].copy()
-            imgi, lbl, scale = transforms.random_rotate_and_resize(
-                imgs, Y=lbls, scale_range=scale_range, xy=(bsize, bsize))
-            imgi = torch.from_numpy(imgi).to(device)
-            diamt = np.array([utils.diameters(lbl0[0])[0] for lbl0 in lbl])
-            diamt = np.maximum(5., diamt)
-            with torch.no_grad():
-                feat = net(imgi)[1]
-            styles_test[inds_batch] = feat.cpu().numpy()
-            diams_test[inds_batch] = np.log(diami) - np.log(diam_mean) + np.log(scale)
-            diams_test0[inds_batch] = diamt
-
-        diam_test_pred = np.exp(A @ (styles_test - smean).T + np.log(diam_mean) + ymean)
-        diam_test_pred = np.maximum(5., diam_test_pred)
-        train_logger.info("test correlation: %0.4f" %
-                          np.corrcoef(diams_test0, diam_test_pred)[0, 1])
-
-    pretrained_size = str(pretrained_model) + "_size.npy"
-    params = {"A": A, "smean": smean, "diam_mean": diam_mean, "ymean": ymean}
-    np.save(pretrained_size, params)
-    train_logger.info("model saved to " + pretrained_size)
-
-    return params

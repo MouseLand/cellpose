@@ -80,7 +80,8 @@ def main():
                                         device=args.gpu_device)
 
     if args.pretrained_model is None or args.pretrained_model == "None" or args.pretrained_model == "False" or args.pretrained_model == "0":
-        pretrained_model = False
+        pretrained_model = "cpsam"
+        logger.warning("training from scratch is disabled, using 'cpsam' model")
     else:
         pretrained_model = args.pretrained_model
 
@@ -115,19 +116,13 @@ def main():
     else:
         normalize = (not args.no_norm)
 
-    if pretrained_model and not os.path.exists(pretrained_model):
-        # check if pretrained model is in the models directory
-        # TODO: this is broken?
-        model_strings = models.get_user_models()
-        all_models = models.MODEL_NAMES.copy()
-        all_models.extend(model_strings)
 
     if len(args.image_path) > 0 and args.train:
         raise ValueError("ERROR: cannot train model with single image input")
 
     ## Run evaluation on images
     if not args.train:
-        _evaluate_cellposemodel_cli(args, logger, image_filter, device, gpu, pretrained_model, normalize)
+        _evaluate_cellposemodel_cli(args, logger, image_filter, device, pretrained_model, normalize)
     
     ## Train a model ##
     else:
@@ -158,21 +153,22 @@ def _train_cellposemodel_cli(args, logger, image_filter, device, pretrained_mode
         load_files = True
 
         # model path
-    if not os.path.exists(pretrained_model):
-        error_message = "ERROR: model path missing or incorrect - cannot train size model"
-        logger.critical(error_message)
-        raise ValueError(error_message)
+    # move all checking to main function
+    # if not os.path.exists(pretrained_model):
+    #     error_message = "ERROR: model path missing or incorrect - cannot train model"
+    #     logger.critical(error_message)
+    #     raise ValueError(error_message)
     
-    if pretrained_model:
-        logger.warning("ignoring --pretrained_model, using hardcoded model")
+    # if pretrained_model:
+    #     logger.warning("ignoring --pretrained_model, using hardcoded model")
         
-        # TODO: fix this
-    logger.info(
-            ">>>> during training rescaling images to fixed diameter of %0.1f pixels"
-            % args.diam_mean)
+    # TODO: fix this (I think we can just remove this)
+    # logger.info(
+    #         ">>>> during training rescaling images to fixed diameter of %0.1f pixels"
+    #         % args.diam_mean)
 
-        # initialize model
-    model = models.CellposeModel(device=device)
+    # initialize model
+    model = models.CellposeModel(device=device, pretrained_model=pretrained_model)
 
         # train segmentation model
     cpmodel_path = train.train_seg(
@@ -196,7 +192,7 @@ def _train_cellposemodel_cli(args, logger, image_filter, device, pretrained_mode
     return model
 
 
-def _evaluate_cellposemodel_cli(args, logger, imf, device, gpu, pretrained_model, normalize):
+def _evaluate_cellposemodel_cli(args, logger, imf, device, pretrained_model, normalize):
     # Check with user if they REALLY mean to run without saving anything
     if not args.train:
         saving_something = args.save_png or args.save_tif or args.save_flows or args.save_txt
@@ -217,15 +213,14 @@ def _evaluate_cellposemodel_cli(args, logger, imf, device, gpu, pretrained_model
         if not os.path.exists(args.savedir):
             raise FileExistsError(f"--savedir {args.savedir} does not exist")
         
-    if pretrained_model:
-        logger.warning("ignoring --pretrained_model, using hardcoded model")
+    # if pretrained_model:
+    #     logger.warning("ignoring --pretrained_model, using hardcoded model")
 
     logger.info(
             ">>>> running cellpose on %d images using all channels" % nimg)
 
     # handle built-in model exceptions
-    model = models.CellposeModel(gpu=gpu, device=device,
-                                        )
+    model = models.CellposeModel(device=device, pretrained_model=pretrained_model,)
 
     tqdm_out = utils.TqdmToLogger(logger, level=logging.INFO)
 

@@ -65,7 +65,7 @@ def get_arg_parser():
 
     # model settings
     model_args = parser.add_argument_group("Model Arguments")
-    model_args.add_argument("--pretrained_model", required=False, default="cyto3",
+    model_args.add_argument("--pretrained_model", required=False, default="cpsam",
                             type=str,
                             help="model to use for running or starting training")
     model_args.add_argument(
@@ -73,7 +73,7 @@ def get_arg_parser():
         help="model path to copy model to hidden .cellpose folder for using in GUI/CLI")
     model_args.add_argument("--pretrained_model_ortho", required=False, default=None,
                             type=str,
-                            help="model to use for running 3D ortho views (ZY and ZX)")
+                            help="Deprecated in v4.0.1+, not used. ")
     
     # TODO: remove deprecated in future version
     model_args.add_argument("--restore_type", required=False, default=None, type=str, help=
@@ -195,13 +195,13 @@ def get_arg_parser():
         "--mask_filter", default="_masks", type=str, help=
         "end string for masks to run on. use '_seg.npy' for manual annotations from the GUI. Default: %(default)s"
     )
-    training_args.add_argument("--learning_rate", default=0.2, type=float,
+    training_args.add_argument("--learning_rate", default=5e-5, type=float,
                                help="learning rate. Default: %(default)s")
-    training_args.add_argument("--weight_decay", default=0.00001, type=float,
+    training_args.add_argument("--weight_decay", default=0.1, type=float,
                                help="weight decay. Default: %(default)s")
-    training_args.add_argument("--n_epochs", default=500, type=int,
+    training_args.add_argument("--n_epochs", default=100, type=int,
                                help="number of epochs. Default: %(default)s")
-    training_args.add_argument("--batch_size", default=64, type=int,
+    training_args.add_argument("--batch_size", default=1, type=int,
                                help="batch size. Default: %(default)s")
     training_args.add_argument("--bsize", default=256, type=int,
                                help="block size for tiles. Default: %(default)s")
@@ -215,7 +215,8 @@ def get_arg_parser():
         "--min_train_masks", default=5, type=int, help=
         "minimum number of masks a training image must have to be used. Default: %(default)s"
     )
-    training_args.add_argument("--SGD", default=1, type=int, help="use SGD")
+    training_args.add_argument("--SGD", default=0, type=int, 
+                               help="Deprecated in v4.0.1+, not used - AdamW used instead. ")
     training_args.add_argument(
         "--save_every", default=100, type=int,
         help="number of epochs to skip between saves. Default: %(default)s")

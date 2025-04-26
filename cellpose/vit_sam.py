@@ -73,9 +73,10 @@ class Transformer(nn.Module):
            
         return x1, torch.randn((x.shape[0], 256), device=x.device)
     
-    def load_model(self, PATH, device, multigpu = True, strict = False):        
-        if multigpu:
-            state_dict = torch.load(PATH, map_location = device, weights_only=True)
+    def load_model(self, PATH, device, strict = False):        
+        state_dict = torch.load(PATH, map_location = device, weights_only=True)
+        keys = [k for k in state_dict.keys()]
+        if keys[0][:7] == "module.":
             from collections import OrderedDict
             new_state_dict = OrderedDict()
             for k, v in state_dict.items():
@@ -83,7 +84,7 @@ class Transformer(nn.Module):
                 new_state_dict[name] = v
             self.load_state_dict(new_state_dict, strict = strict)
         else:
-            self.load_state_dict(torch.load(PATH, weights_only=True), strict = strict)
+            self.load_state_dict(state_dict, strict = strict)
 
     
     @property

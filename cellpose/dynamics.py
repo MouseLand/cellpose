@@ -108,47 +108,50 @@ def masks_to_flows_gpu(masks, device=torch.device("cpu"), niter=None):
     if device is None:
         device = torch.device('cuda') if torch.cuda.is_available() else torch.device('mps') if torch.backends.mps.is_available() else None
 
-    Ly0, Lx0 = masks.shape
-    Ly, Lx = Ly0 + 2, Lx0 + 2
-    
-    masks_padded = torch.from_numpy(masks.astype("int64")).to(device)
-    masks_padded = F.pad(masks_padded, (1, 1, 1, 1))
-    shape = masks_padded.shape
-    
-    ### get mask pixel neighbors
-    y, x = torch.nonzero(masks_padded, as_tuple=True)
-    y = y.int()
-    x = x.int()
-    neighbors = torch.zeros((2, 9, y.shape[0]), dtype=torch.int, device=device)
-    yxi = [[0, -1, 1, 0, 0, -1, -1, 1, 1], [0, 0, 0, -1, 1, -1, 1, -1, 1]]
-    for i in range(9):
-        neighbors[0, i] = y + yxi[0][i]
-        neighbors[1, i] = x + yxi[1][i]
-    isneighbor = torch.ones((9, y.shape[0]), dtype=torch.bool, device=device)
-    m0 = masks_padded[neighbors[0, 0], neighbors[1, 0]]
-    for i in range(1, 9):
-        isneighbor[i] = masks_padded[neighbors[0, i], neighbors[1, i]] == m0
-    del m0, masks_padded
-    
-    ### get center-of-mass within cell
-    slices = find_objects(masks)
-    centers, ext = get_centers(masks, slices)
-    meds_p = torch.from_numpy(centers).to(device).long()
-    meds_p += 1  # for padding
+    if masks.max() > 0:
+        Ly0, Lx0 = masks.shape
+        Ly, Lx = Ly0 + 2, Lx0 + 2
+        
+        masks_padded = torch.from_numpy(masks.astype("int64")).to(device)
+        masks_padded = F.pad(masks_padded, (1, 1, 1, 1))
+        shape = masks_padded.shape
+        
+        ### get mask pixel neighbors
+        y, x = torch.nonzero(masks_padded, as_tuple=True)
+        y = y.int()
+        x = x.int()
+        neighbors = torch.zeros((2, 9, y.shape[0]), dtype=torch.int, device=device)
+        yxi = [[0, -1, 1, 0, 0, -1, -1, 1, 1], [0, 0, 0, -1, 1, -1, 1, -1, 1]]
+        for i in range(9):
+            neighbors[0, i] = y + yxi[0][i]
+            neighbors[1, i] = x + yxi[1][i]
+        isneighbor = torch.ones((9, y.shape[0]), dtype=torch.bool, device=device)
+        m0 = masks_padded[neighbors[0, 0], neighbors[1, 0]]
+        for i in range(1, 9):
+            isneighbor[i] = masks_padded[neighbors[0, i], neighbors[1, i]] == m0
+        del m0, masks_padded
+        
+        ### get center-of-mass within cell
+        slices = find_objects(masks)
+        centers, ext = get_centers(masks, slices)
+        meds_p = torch.from_numpy(centers).to(device).long()
+        meds_p += 1  # for padding
 
-    ### run diffusion
-    n_iter = 2 * ext.max() if niter is None else niter
-    mu = _extend_centers_gpu(neighbors, meds_p, isneighbor, shape, n_iter=n_iter,
-                             device=device)
-    mu = mu.astype("float64")
+        ### run diffusion
+        n_iter = 2 * ext.max() if niter is None else niter
+        mu = _extend_centers_gpu(neighbors, meds_p, isneighbor, shape, n_iter=n_iter,
+                                device=device)
+        mu = mu.astype("float64")
 
-    # new normalization
-    mu /= (1e-60 + (mu**2).sum(axis=0)**0.5)
+        # new normalization
+        mu /= (1e-60 + (mu**2).sum(axis=0)**0.5)
 
-    # put into original image
-    mu0 = np.zeros((2, Ly0, Lx0))
-    mu0[:, y.cpu().numpy() - 1, x.cpu().numpy() - 1] = mu
-
+        # put into original image
+        mu0 = np.zeros((2, Ly0, Lx0))
+        mu0[:, y.cpu().numpy() - 1, x.cpu().numpy() - 1] = mu
+    else:
+        # no masks, return empty flows
+        mu0 = np.zeros((2, masks.shape[0], masks.shape[1]))
     return mu0
 
 def masks_to_flows_gpu_3d(masks, device=None, niter=None):

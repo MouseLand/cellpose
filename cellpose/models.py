@@ -25,13 +25,7 @@ _MODEL_DIR_ENV = os.environ.get("CELLPOSE_LOCAL_MODELS_PATH")
 _MODEL_DIR_DEFAULT = pathlib.Path.home().joinpath(".cellpose", "models")
 MODEL_DIR = pathlib.Path(_MODEL_DIR_ENV) if _MODEL_DIR_ENV else _MODEL_DIR_DEFAULT
 
-MODEL_NAMES = [
-    "cyto3", "nuclei", "cyto2_cp3", "tissuenet_cp3", "livecell_cp3", "yeast_PhC_cp3",
-    "yeast_BF_cp3", "bact_phase_cp3", "bact_fluor_cp3", "deepbacs_cp3", "cyto2", "cyto", "CPx",
-    "transformer_cp3", "neurips_cellpose_default", "neurips_cellpose_transformer",
-    "neurips_grayscale_cyto2",
-    "CP", "CPx", "TN1", "TN2", "TN3", "LC1", "LC2", "LC3", "LC4"
-]
+MODEL_NAMES = ["cpsam"]
 
 MODEL_LIST_PATH = os.fspath(MODEL_DIR.joinpath("gui_models.txt"))
 
@@ -93,53 +87,6 @@ def get_user_models():
     return model_strings
 
 
-def get_model_params(pretrained_model, model_type, default_model="cyto3"):
-    """ return pretrained_model path, diam_mean and if model is builtin """
-    builtin = False
-    use_default = False
-    diam_mean = None
-    model_strings = get_user_models()
-    all_models = MODEL_NAMES.copy()
-    all_models.extend(model_strings)
-    
-    # check if pretrained_model is builtin or custom user model saved in .cellpose/models
-    # if yes, then set to model_type
-    if (pretrained_model and not Path(pretrained_model).exists() and
-            np.any([pretrained_model == s for s in all_models])):
-        model_type = pretrained_model
-        
-    # check if model_type is builtin or custom user model saved in .cellpose/models
-    if model_type is not None and np.any([model_type == s for s in all_models]):
-        if np.any([model_type == s for s in MODEL_NAMES]):
-            builtin = True
-        models_logger.info(f">> {model_type} << model set to be used")
-        if model_type == "nuclei":
-            diam_mean = 17.
-        pretrained_model = model_path(model_type)
-    # if model_type is not None and does not exist, use default model
-    elif model_type is not None:
-        if Path(model_type).exists():
-            pretrained_model = model_type
-        else:
-            models_logger.warning("model_type does not exist, using default model")
-            use_default = True
-    # if model_type is None...
-    else:
-        # if pretrained_model does not exist, use default model
-        if pretrained_model and not Path(pretrained_model).exists():
-            models_logger.warning(
-                "pretrained_model path does not exist, using default model")
-            use_default = True
-        elif pretrained_model:
-            if pretrained_model[-13:] == "nucleitorch_0":
-                builtin = True
-                diam_mean = 17.
-
-    pretrained_model = model_path(default_model) if use_default else pretrained_model
-    builtin = True if use_default else builtin
-    return pretrained_model, diam_mean, builtin
-    
-
 class CellposeModel():
     """
     Class representing a Cellpose model.
@@ -164,7 +111,7 @@ class CellposeModel():
 
     """
 
-    def __init__(self, gpu=False, pretrained_model=False, model_type=None,
+    def __init__(self, gpu=False, pretrained_model="cpsam", model_type=None,
                  diam_mean=None, device=None, nchan=None):
         """
         Initialize the CellposeModel.
@@ -185,6 +132,8 @@ class CellposeModel():
             models_logger.warning(
                 "model_type argument is not used in v4.0.1+. Ignoring this argument..."
             )
+        if nchan is not None:
+            models_logger.warning("nchan argument is deprecated in v4.0.1+. Ignoring this argument")
 
         ### assign model device
         self.device = assign_device(gpu=gpu)[0] if device is None else device
@@ -197,34 +146,25 @@ class CellposeModel():
         self.gpu = device_gpu
         
         ### create neural network
-        self.nclasses = 3
-        self.pretrained_model = pretrained_model if pretrained_model else MODEL_DIR / "cpsam8_0_600_8_115637540"
-        self.net = Transformer(nout=self.nclasses).to(self.device)
+        if pretrained_model and not os.path.exists(pretrained_model):
+            # check if pretrained model is in the models directory
+            model_strings = get_user_models()
+            all_models = MODEL_NAMES.copy()
+            all_models.extend(model_strings)
+            if pretrained_model in all_models:
+                pretrained_model = os.path.join(MODEL_DIR, pretrained_model)
+            else:
+                pretrained_model = os.path.join(MODEL_DIR, "cpsam")
+                models_logger.warning(
+                    f"pretrained model {pretrained_model} not found, using default model"
+                )
+
+        self.pretrained_model = pretrained_model
+        self.net = Transformer().to(self.device)
+        models_logger.info(f">>>> loading model {self.pretrained_model}")
         self.net.load_model(self.pretrained_model, device=self.device)
         
-        ### load model weights
-        # if self.pretrained_model:
-        #     models_logger.info(f">>>> loading model {pretrained_model}")
-        #     self.net.load_model(self.pretrained_model, device=self.device)
-        #     if not builtin:
-        #         self.diam_mean = self.net.diam_mean.data.cpu().numpy()[0]
-        #     self.diam_labels = self.net.diam_labels.data.cpu().numpy()[0]
-        #     models_logger.info(
-        #         f">>>> model diam_mean = {self.diam_mean: .3f} (ROIs rescaled to this size during training)"
-        #     )
-        #     if not builtin:
-        #         models_logger.info(
-        #             f">>>> model diam_labels = {self.diam_labels: .3f} (mean diameter of training ROIs)"
-        #         )
-        # else:
-        #     models_logger.info(f">>>> no model weights loaded")
-        #     self.diam_labels = self.diam_mean
-
-        self.net_type = f"cellposeSAM"
-
-        if nchan is not None:
-            models_logger.warning("nchan argument is deprecated in v4.0.1+. Ignoring this argument")
-
+        
     def eval(self, x, batch_size=64, resample=None, channels=None, channel_axis=None,
              z_axis=None, normalize=True, invert=False, rescale=None, diameter=None,
              flow_threshold=0.4, cellprob_threshold=0.0, do_3D=False, anisotropy=None,

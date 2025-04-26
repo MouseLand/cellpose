@@ -25,7 +25,7 @@ def test_class_train(data_dir):
     print('>>>> model trained and saved to %s' % cpmodel_path)
 
 
-def itest_cli_train(data_dir):
+def test_cli_train(data_dir):
     # import sys
     # path_root = Path(__file__).parents[1]
     # sys.path.append(str(path_root))
@@ -33,7 +33,9 @@ def itest_cli_train(data_dir):
     train_dir = str(data_dir.joinpath('2D').joinpath('train'))
     model_dir = str(data_dir.joinpath('2D').joinpath('train').joinpath('models'))
     shutil.rmtree(model_dir, ignore_errors=True)
-    cmd = 'python -m cellpose --train --train_size --n_epochs 3 --dir %s --mask_filter _cyto_masks --pretrained_model None --chan 2 --chan2 1 --diam_mean 40' % train_dir
+    use_gpu = torch.cuda.is_available()
+    gpu_str = "--use_gpu" if use_gpu else ""
+    cmd = 'python -m cellpose %s --train --n_epochs 3 --dir %s --mask_filter _cyto_masks --pretrained_model None' % (gpu_str, train_dir)
     try:
         cmd_stdout = check_output(cmd, stderr=STDOUT, shell=True).decode()
     except Exception as e:

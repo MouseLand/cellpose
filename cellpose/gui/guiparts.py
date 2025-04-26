@@ -202,23 +202,12 @@ class TrainWindow(QDialog):
         yoff += 1
         self.ModelChoose = QComboBox()
         self.ModelChoose.addItems(model_strings)
-        self.ModelChoose.addItems(["scratch"])
         self.ModelChoose.setFixedWidth(150)
         self.ModelChoose.setCurrentIndex(parent.training_params["model_index"])
         self.l0.addWidget(self.ModelChoose, yoff, 1, 1, 1)
         qlabel = QLabel("initial model: ")
         qlabel.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
         self.l0.addWidget(qlabel, yoff, 0, 1, 1)
-
-        # choose channels
-        # self.ChannelChoose, self.ChannelLabels = create_channel_choose()
-        # for i in range(2):
-        #     yoff += 1
-        #     self.ChannelChoose[i].setFixedWidth(150)
-        #     self.ChannelChoose[i].setCurrentIndex(
-        #         parent.ChannelChoose[i].currentIndex())
-        #     self.l0.addWidget(self.ChannelLabels[i], yoff, 0, 1, 1)
-        #     self.l0.addWidget(self.ChannelChoose[i], yoff, 1, 1, 1)
 
         # choose parameters
         labels = ["learning_rate", "weight_decay", "n_epochs", "model_name"]
@@ -232,13 +221,6 @@ class TrainWindow(QDialog):
             self.edits[-1].setText(str(parent.training_params[label]))
             self.edits[-1].setFixedWidth(200)
             self.l0.addWidget(self.edits[-1], i + yoff, 1, 1, 1)
-
-        yoff += 1
-        use_SGD = "SGD"
-        self.useSGD = QCheckBox(f"{use_SGD}")
-        self.useSGD.setToolTip("use SGD, if unchecked uses AdamW (recommended learning_rate then 0.001)")
-        self.useSGD.setChecked(True)
-        self.l0.addWidget(self.useSGD, i+yoff, 1, 1, 1)
 
         yoff += len(labels)
 
@@ -292,9 +274,6 @@ class TrainWindow(QDialog):
             "weight_decay": float(self.edits[1].text()),
             "n_epochs": int(self.edits[2].text()),
             "model_name": self.edits[3].text(),
-            "SGD": True if self.useSGD.isChecked() else False,
-            "channels": [self.ChannelChoose[0].currentIndex(),
-                            self.ChannelChoose[1].currentIndex()],
             #"use_norm": True if self.use_norm.isChecked() else False,
         }
         self.done(1)
