@@ -141,22 +141,18 @@ If you are using a GPU, make sure its drivers and the cuda libraries are correct
 
 If you plan on running many images, you may want to install a GPU version of *torch*. To use your NVIDIA GPU with python, you will need to make sure the NVIDIA driver for your GPU is installed, check out this [website](https://www.nvidia.com/Download/index.aspx?lang=en-us) to download it. You can also install the CUDA toolkit, or use the pytorch cudatoolkit (installed below with conda). If you have trouble with the below install, we recommend installing the CUDA toolkit yourself, choosing one of the 11.x releases [here](https://developer.nvidia.com/cuda-toolkit-archive).
 
-With the latest versions of pytorch, as long as the NVIDIA drivers are installed, the GPU version is installed by default with pip. You can check if the GPU support is working by opening the GUI. If the GPU is working then the `GPU` box will be checked and the `CUDA` version will be displayed in the command line. 
+With the latest versions of pytorch on Linux, as long as the NVIDIA drivers are installed, the GPU version is installed by default with pip. You can check if the GPU support is working by opening the GUI. If the GPU is working then the `GPU` box will be checked and the `CUDA` version will be displayed in the command line. 
 
 If it's not working, we will need to remove the CPU version of torch:
 ~~~
 pip uninstall torch
 ~~~
 
-To install the GPU version of torch, follow the instructions [here](https://pytorch.org/get-started/locally/). The conda install is strongly recommended, and then choose the CUDA version that is supported by your GPU (newer GPUs may need newer CUDA versions > 10.2). For instance this command will install the 11.6 version on Linux and Windows (note the `torchvision` and `torchaudio` commands are removed because cellpose doesn't require them):
+To install the GPU version of torch, follow the instructions [here](https://pytorch.org/get-started/locally/). The pip or conda installs should work across platforms, you will need torch and torchvision, e.g. for windows + cuda 12.6 the command is
 ~~~
-conda install pytorch pytorch-cuda=11.6 -c pytorch -c nvidia
+pip3 install torch torchvision --index-url https://download.pytorch.org/whl/cu126
 ~~~
 
-If the latest CUDA versions don't work, try an older version like cuda 11.3:
-~~~
-conda install pytorch==1.12.0 cudatoolkit=11.3 -c pytorch
-~~~~
 Info on how to install several older versions is available [here](https://pytorch.org/get-started/previous-versions/). After install you can check `conda list` for `pytorch`, and its version info should have `cuXX.X`, not `cpu`.
 
 ### Installation of github version
