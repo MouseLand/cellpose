@@ -1,9 +1,8 @@
-from cellpose import io, models, train, plot
-from pathlib import Path
+from cellpose import io, models, train
 from subprocess import check_output, STDOUT
 import os, shutil
-from glob import glob
 import torch
+
 
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 

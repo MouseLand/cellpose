@@ -1,12 +1,8 @@
-from cellpose import io, models, plot, utils, metrics
-from pathlib import Path
+from cellpose import io, metrics
 from subprocess import check_output, STDOUT
-import os, shutil
+import os
 import numpy as np
-import tifffile
-from natsort import natsorted
 
-import gc
 import torch
 
 try:
@@ -42,20 +38,17 @@ def clear_output(data_dir, image_names):
         
 
 
-def test_class_2D(data_dir, image_names):
+def test_class_2D(data_dir, image_names, cellposemodel_fixture):
     clear_output(data_dir, image_names)
-
-    use_gpu = torch.cuda.is_available()
-    model = models.CellposeModel(gpu=use_gpu)
 
     for image_name in image_names:
         
         img_file = data_dir / '2D' / image_name
 
         img = io.imread_2D(img_file)
-        flowps = io.imread(img_file.parent / (img_file.stem + "_cp4_gt_flowps.tif"))
+        # flowps = io.imread(img_file.parent / (img_file.stem + "_cp4_gt_flowps.tif"))
 
-        masks_pred, flows_pred, _ = model.eval(img, normalize=True)
+        masks_pred, flows_pred, _ = cellposemodel_fixture.eval(img, normalize=True)
         io.imsave(data_dir / '2D' / (img_file.stem + "_cp_masks.png"), masks_pred)
         # flowsp_pred = np.concatenate([flows_pred[1], flows_pred[2][None, ...]], axis=0)
         # mse = np.sqrt((flowsp_pred - flowps) ** 2).sum()
@@ -84,15 +77,14 @@ def test_class_2D(data_dir, image_names):
 #     clear_output(data_dir, image_names)
 
 
-def test_class_3D(data_dir, image_names_3d):
+def test_class_3D(data_dir, image_names_3d, cellposemodel_fixture):
     clear_output(data_dir, image_names_3d)
     use_gpu = torch.cuda.is_available()
-    model = models.CellposeModel(gpu=use_gpu)
 
     for image_name in image_names_3d:
         img_file = data_dir / '3D' / image_name
         img = io.imread_3D(img_file)
-        masks = model.eval(img, do_3D=True, channel_axis=-1, z_axis=0)[0]
+        masks = cellposemodel_fixture.eval(img, do_3D=True, channel_axis=-1, z_axis=0)[0]
         io.imsave(data_dir / "3D" / (img_file.stem + "_cp_masks.tif"), masks)
     compare_masks_cp4(data_dir, image_names_3d, "3D")
     clear_output(data_dir, image_names_3d)
