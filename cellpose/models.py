@@ -2,14 +2,12 @@
 Copyright © 2023 Howard Hughes Medical Institute, Authored by Carsen Stringer and Marius Pachitariu.
 """
 
-import os, sys, time, shutil, tempfile, datetime, pathlib, subprocess
+import os, time
 from pathlib import Path
 import numpy as np
-from tqdm import trange, tqdm
-from urllib.parse import urlparse
+from tqdm import trange
 import torch
 from scipy.ndimage import gaussian_filter
-import cv2
 import gc
 
 import logging
@@ -22,8 +20,8 @@ from .core import assign_device, run_net, run_3D
 
 _MODEL_URL = "https://www.cellpose.org/models"
 _MODEL_DIR_ENV = os.environ.get("CELLPOSE_LOCAL_MODELS_PATH")
-_MODEL_DIR_DEFAULT = pathlib.Path.home().joinpath(".cellpose", "models")
-MODEL_DIR = pathlib.Path(_MODEL_DIR_ENV) if _MODEL_DIR_ENV else _MODEL_DIR_DEFAULT
+_MODEL_DIR_DEFAULT = Path.home().joinpath(".cellpose", "models")
+MODEL_DIR = Path(_MODEL_DIR_ENV) if _MODEL_DIR_ENV else _MODEL_DIR_DEFAULT
 
 MODEL_NAMES = ["cpsam"]
 

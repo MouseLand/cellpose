@@ -6,7 +6,7 @@ import os, tempfile, shutil, io
 from tqdm import tqdm, trange
 from urllib.request import urlopen
 import cv2
-from scipy.ndimage import find_objects, gaussian_filter, generate_binary_structure, label, maximum_filter1d, binary_fill_holes
+from scipy.ndimage import find_objects, gaussian_filter, generate_binary_structure, label
 from scipy.spatial import ConvexHull
 import numpy as np
 import colorsys

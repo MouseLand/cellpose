@@ -1,8 +1,6 @@
-import sys, os, argparse, glob, pathlib, time
+import os, argparse
 import numpy as np
-from natsort import natsorted
-from tqdm import tqdm
-from cellpose import utils, models, io, core, version_str, transforms
+from cellpose import io, transforms
 
 
 def main():

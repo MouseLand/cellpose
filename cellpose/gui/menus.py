@@ -2,10 +2,8 @@
 Copyright © 2023 Howard Hughes Medical Institute, Authored by Carsen Stringer and Marius Pachitariu.
 """
 
-import qtpy
 from qtpy.QtWidgets import QAction
 from . import io
-from .. import models
 
 
 def mainmenu(parent):

@@ -2,23 +2,21 @@
 Copyright © 2023 Howard Hughes Medical Institute, Authored by Carsen Stringer and Marius Pachitariu.
 """
 
-import time, os
-from scipy.ndimage import maximum_filter1d, find_objects, center_of_mass, mean
+import os
+from scipy.ndimage import find_objects, center_of_mass, mean
 import torch
 import numpy as np
 import tifffile
 from tqdm import trange
-import cv2
 import fastremap
 
 import logging
 
 dynamics_logger = logging.getLogger(__name__)
 
-from . import utils, transforms
+from . import utils
 
 import torch
-from torch import optim, nn
 import torch.nn.functional as F
 
 def _extend_centers_gpu(neighbors, meds, isneighbor, shape, n_iter=200, 

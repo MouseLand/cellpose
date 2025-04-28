@@ -2,11 +2,10 @@
 Copyright © 2023 Howard Hughes Medical Institute, Authored by Carsen Stringer and Marius Pachitariu.
 """
 
-import sys, os, glob, pathlib, time
+import os, time
 import numpy as np
-from natsort import natsorted
 from tqdm import tqdm
-from cellpose import utils, models, io, train, denoise
+from cellpose import utils, models, io, train
 from .version import version_str
 from cellpose.cli import get_arg_parser
 
@@ -26,9 +25,6 @@ except Exception as err:
 import logging
 
 
-
-
-# settings re-grouped a bit
 def main():
     """ Run cellpose from command line
     """
@@ -152,25 +148,10 @@ def _train_cellposemodel_cli(args, logger, image_filter, device, pretrained_mode
         images, labels, image_names, test_images, test_labels, image_names_test = output
         load_files = True
 
-        # model path
-    # move all checking to main function
-    # if not os.path.exists(pretrained_model):
-    #     error_message = "ERROR: model path missing or incorrect - cannot train model"
-    #     logger.critical(error_message)
-    #     raise ValueError(error_message)
-    
-    # if pretrained_model:
-    #     logger.warning("ignoring --pretrained_model, using hardcoded model")
-        
-    # TODO: fix this (I think we can just remove this)
-    # logger.info(
-    #         ">>>> during training rescaling images to fixed diameter of %0.1f pixels"
-    #         % args.diam_mean)
-
     # initialize model
     model = models.CellposeModel(device=device, pretrained_model=pretrained_model)
 
-        # train segmentation model
+    # train segmentation model
     cpmodel_path = train.train_seg(
             model.net, images, labels, train_files=image_names,
             test_data=test_images, test_labels=test_labels,
@@ -213,9 +194,6 @@ def _evaluate_cellposemodel_cli(args, logger, imf, device, pretrained_model, nor
         if not os.path.exists(args.savedir):
             raise FileExistsError(f"--savedir {args.savedir} does not exist")
         
-    # if pretrained_model:
-    #     logger.warning("ignoring --pretrained_model, using hardcoded model")
-
     logger.info(
             ">>>> running cellpose on %d images using all channels" % nimg)
 

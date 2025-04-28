@@ -2,24 +2,18 @@
 Copyright © 2023 Howard Hughes Medical Institute, Authored by Carsen Stringer and Marius Pachitariu.
 """
 
-import sys, os, pathlib, warnings, datetime, time
+import sys, pathlib, warnings
 
 from qtpy import QtGui, QtCore
-from superqt import QRangeSlider
-from qtpy.QtWidgets import QScrollArea, QMainWindow, QApplication, QWidget, QScrollBar, QComboBox, QGridLayout, QPushButton, QFrame, QCheckBox, QLabel, QProgressBar, QLineEdit, QMessageBox, QGroupBox
+from qtpy.QtWidgets import QApplication, QScrollBar, QCheckBox, QLabel, QLineEdit
 import pyqtgraph as pg
 
 import numpy as np
 from scipy.stats import mode
 import cv2
 
-from . import guiparts, menus, io
-from .. import models, core, dynamics, version
-from ..utils import download_url_to_file, masks_to_outlines, diameters
-from ..io import get_image_files, imsave, imread
-from ..transforms import resize_image, normalize99  #fixed import
-from ..plot import disk
-from ..transforms import normalize99_tile, smooth_sharpen_img
+from . import guiparts, io
+from ..utils import download_url_to_file, masks_to_outlines
 from .gui import MainW
 
 try:

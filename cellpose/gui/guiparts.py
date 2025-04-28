@@ -2,12 +2,10 @@
 Copyright © 2023 Howard Hughes Medical Institute, Authored by Carsen Stringer and Marius Pachitariu.
 """
 
-from qtpy import QtGui, QtCore, QtWidgets
-from qtpy.QtGui import QPainter, QPixmap
-from qtpy.QtWidgets import QApplication, QRadioButton, QWidget, QDialog, QButtonGroup, QSlider, QStyle, QStyleOptionSlider, QGridLayout, QPushButton, QLabel, QLineEdit, QDialogButtonBox, QComboBox, QCheckBox
+from qtpy import QtGui, QtCore
+from qtpy.QtGui import QPixmap
+from qtpy.QtWidgets import QWidget, QDialog, QGridLayout, QPushButton, QLabel, QLineEdit, QDialogButtonBox, QComboBox, QCheckBox
 import pyqtgraph as pg
-from pyqtgraph import functions as fn
-from pyqtgraph import Point
 import numpy as np
 import pathlib, os
 

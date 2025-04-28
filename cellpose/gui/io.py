@@ -2,12 +2,9 @@
 Copyright © 2023 Howard Hughes Medical Institute, Authored by Carsen Stringer and Marius Pachitariu.
 """
 
-import os, datetime, gc, warnings, glob, shutil, copy
-from natsort import natsorted
+import os, gc
 import numpy as np
 import cv2
-import tifffile
-import logging
 import fastremap
 
 from ..io import imread, imread_2D, imread_3D, imsave, outlines_to_text, add_model, remove_model, save_rois

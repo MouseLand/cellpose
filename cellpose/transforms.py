@@ -3,7 +3,6 @@ Copyright © 2023 Howard Hughes Medical Institute, Authored by Carsen Stringer a
 """
 
 import logging
-import warnings
 
 import cv2
 import numpy as np
