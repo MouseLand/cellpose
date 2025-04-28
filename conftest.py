@@ -36,5 +36,7 @@ def data_dir(image_names):
 @pytest.fixture()
 def cellposemodel_fixture():
     use_gpu = torch.cuda.is_available()
-    model = models.CellposeModel(gpu=use_gpu)
+    use_mps = 'mps' if torch.backends.mps.is_available() else False
+    gpu = use_gpu or use_mps
+    model = models.CellposeModel(gpu=gpu)
     yield model
