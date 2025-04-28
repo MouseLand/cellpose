@@ -304,7 +304,7 @@ class MainW(QMainWindow):
         self.flow3D_smooth = 0.
         self.anisotropy = 1.
         self.min_size = 15
-        self.resample = True
+        # self.resample = True
 
         self.setAcceptDrops(True)
         self.win.show()
@@ -2209,25 +2209,26 @@ class MainW(QMainWindow):
                 else:
                     self.flows = flows_new
             else:
-                if not resample:
-                    self.flows = []
-                    Lz, Ly, Lx = self.NZ, self.Ly, self.Lx
-                    Lz0, Ly0, Lx0 = flows_new[0].shape[:3]
-                    print("GUI_INFO: resizing flows to original image size")
-                    for j in range(len(flows_new)):
-                        flow0 = flows_new[j]
-                        if Ly0 != Ly:
-                            flow0 = resize_image(flow0, Ly=Ly, Lx=Lx,
-                                                no_channels=flow0.ndim==3, 
-                                                interpolation=cv2.INTER_NEAREST)
-                        if Lz0 != Lz:
-                            flow0 = np.swapaxes(resize_image(np.swapaxes(flow0, 0, 1),
-                                                Ly=Lz, Lx=Lx,
-                                                no_channels=flow0.ndim==3, 
-                                                interpolation=cv2.INTER_NEAREST), 0, 1)
-                        self.flows.append(flow0)
-                else:
-                    self.flows = flows_new
+                # Resample is removed:
+                # if not resample:
+                self.flows = []
+                Lz, Ly, Lx = self.NZ, self.Ly, self.Lx
+                Lz0, Ly0, Lx0 = flows_new[0].shape[:3]
+                print("GUI_INFO: resizing flows to original image size")
+                for j in range(len(flows_new)):
+                    flow0 = flows_new[j]
+                    if Ly0 != Ly:
+                        flow0 = resize_image(flow0, Ly=Ly, Lx=Lx,
+                                            no_channels=flow0.ndim==3, 
+                                            interpolation=cv2.INTER_NEAREST)
+                    if Lz0 != Lz:
+                        flow0 = np.swapaxes(resize_image(np.swapaxes(flow0, 0, 1),
+                                            Ly=Lz, Lx=Lx,
+                                            no_channels=flow0.ndim==3, 
+                                            interpolation=cv2.INTER_NEAREST), 0, 1)
+                    self.flows.append(flow0)
+                # else:
+                #     self.flows = flows_new
 
             # add first axis
             if self.NZ == 1:

@@ -190,11 +190,11 @@ class MainW_3d(MainW):
         )
         self.segBoxG.addWidget(self.anisotropy, b, 4, 1, 1)
 
-        self.resample = QCheckBox("resample")
-        self.resample.setToolTip("reample before creating masks; if diameter > 30 resample will use more CPU+GPU memory (see docs for more details)")
-        self.resample.setFont(self.medfont)
-        self.resample.setChecked(True)
-        self.segBoxG.addWidget(self.resample, b, 5, 1, 4)
+        # self.resample = QCheckBox("resample")
+        # self.resample.setToolTip("reample before creating masks; if diameter > 30 resample will use more CPU+GPU memory (see docs for more details)")
+        # self.resample.setFont(self.medfont)
+        # self.resample.setChecked(True)
+        # self.segBoxG.addWidget(self.resample, b, 5, 1, 4)
 
         b+=1
         label = QLabel("min_size:")
