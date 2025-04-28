@@ -18,7 +18,7 @@ from . import transforms, dynamics, utils, plot
 from .vit_sam import Transformer
 from .core import assign_device, run_net, run_3D
 
-_MODEL_URL = "https://www.cellpose.org/models"
+_CPSAM_MODEL_URL = "https://osf.io/download/d7c8e/"
 _MODEL_DIR_ENV = os.environ.get("CELLPOSE_LOCAL_MODELS_PATH")
 _MODEL_DIR_DEFAULT = Path.home().joinpath(".cellpose", "models")
 MODEL_DIR = Path(_MODEL_DIR_ENV) if _MODEL_DIR_ENV else _MODEL_DIR_DEFAULT
@@ -40,38 +40,37 @@ normalize_default = {
 }
 
 
-def model_path(model_type, model_index=0):
-    torch_str = "torch"
-    if model_type == "cyto" or model_type == "cyto2" or model_type == "nuclei":
-        basename = "%s%s_%d" % (model_type, torch_str, model_index)
-    else:
-        basename = model_type
-    return cache_model_path(basename)
+# def model_path(model_type, model_index=0):
+#     torch_str = "torch"
+#     if model_type == "cyto" or model_type == "cyto2" or model_type == "nuclei":
+#         basename = "%s%s_%d" % (model_type, torch_str, model_index)
+#     else:
+#         basename = model_type
+#     return cache_model_path(basename)
 
 
-def size_model_path(model_type):
-    torch_str = "torch"
-    if (model_type == "cyto" or model_type == "nuclei" or 
-        model_type == "cyto2" or model_type == "cyto3"):
-        if model_type == "cyto3":
-            basename = "size_%s.npy" % model_type
-        else:
-            basename = "size_%s%s_0.npy" % (model_type, torch_str)
-        return cache_model_path(basename)
-    else:
-        if os.path.exists(model_type) and os.path.exists(model_type + "_size.npy"):
-            return model_type + "_size.npy"
-        else:
-            raise FileNotFoundError(f"size model not found ({model_type + '_size.npy'})")            
+# def size_model_path(model_type):
+#     torch_str = "torch"
+#     if (model_type == "cyto" or model_type == "nuclei" or 
+#         model_type == "cyto2" or model_type == "cyto3"):
+#         if model_type == "cyto3":
+#             basename = "size_%s.npy" % model_type
+#         else:
+#             basename = "size_%s%s_0.npy" % (model_type, torch_str)
+#         return cache_model_path(basename)
+#     else:
+#         if os.path.exists(model_type) and os.path.exists(model_type + "_size.npy"):
+#             return model_type + "_size.npy"
+#         else:
+#             raise FileNotFoundError(f"size model not found ({model_type + '_size.npy'})")            
         
 
-def cache_model_path(basename):
+def cache_CPSAM_model_path():
     MODEL_DIR.mkdir(parents=True, exist_ok=True)
-    url = f"{_MODEL_URL}/{basename}"
-    cached_file = os.fspath(MODEL_DIR.joinpath(basename))
+    cached_file = os.fspath(MODEL_DIR.joinpath('cpsam'))
     if not os.path.exists(cached_file):
-        models_logger.info('Downloading: "{}" to {}\n'.format(url, cached_file))
-        utils.download_url_to_file(url, cached_file, progress=True)
+        models_logger.info('Downloading: "{}" to {}\n'.format(_CPSAM_MODEL_URL, cached_file))
+        utils.download_url_to_file(_CPSAM_MODEL_URL, cached_file, progress=True)
     return cached_file
 
 
@@ -159,8 +158,15 @@ class CellposeModel():
 
         self.pretrained_model = pretrained_model
         self.net = Transformer().to(self.device)
-        models_logger.info(f">>>> loading model {self.pretrained_model}")
-        self.net.load_model(self.pretrained_model, device=self.device)
+
+        if os.path.exists(self.pretrained_model):
+            models_logger.info(f">>>> loading model {self.pretrained_model}")
+            self.net.load_model(self.pretrained_model, device=self.device)
+        else:
+            if self.pretrained_model.split('/')[-1] != 'cpsam':
+                raise FileNotFoundError('model file not recognized')
+            cache_CPSAM_model_path()
+            self.net.load_model(self.pretrained_model, device=self.device)
         
         
     def eval(self, x, batch_size=64, resample=None, channels=None, channel_axis=None,
