@@ -321,6 +321,10 @@ class CellposeModel():
         if do_normalization:
             x = transforms.normalize_img(x, **normalize_params)
 
+        # ajust the anisotropy when diameter is specified and images are resized:
+        if isinstance(anisotropy, (float, int)) and image_scaling:
+            anisotropy = image_scaling * anisotropy
+
         dP, cellprob, styles = self._run_net(
             x, 
             # rescale=rescale, 
