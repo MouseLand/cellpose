@@ -28,7 +28,7 @@ def extract_zip(cached_file, url, data_path):
 def data_dir(image_names):
     cp_dir = Path.home().joinpath(".cellpose")
     cp_dir.mkdir(exist_ok=True)
-    extract_zip(cp_dir.joinpath("data.zip"), "https://osf.io/download/692pb/", cp_dir)
+    extract_zip(cp_dir.joinpath("data.zip"), "https://osf.io/download/s52q3/", cp_dir)
     data_dir = cp_dir.joinpath("data")
     return data_dir
 
