@@ -94,7 +94,8 @@ def test_cli_2D(data_dir, image_names):
     clear_output(data_dir, image_names)
     use_gpu = torch.cuda.is_available()
     gpu_string = "--use_gpu" if use_gpu else ""
-    cmd = f"python -m cellpose --image_path {str(data_dir/"2D"/image_names[0])} --save_png --verbose {gpu_string}"
+    image_path_string = str(data_dir/"2D"/image_names[0])
+    cmd = f"python -m cellpose --image_path {image_path_string} --save_png --verbose {gpu_string}"
     try:
         cmd_stdout = check_output(cmd, stderr=STDOUT, shell=True).decode()
         print(cmd_stdout)
