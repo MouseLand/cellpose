@@ -485,62 +485,7 @@ class MainW(QMainWindow):
         self.l0.addWidget(self.segBox, b, 0, 1, 9)
         self.segBox.setFont(self.boldfont)
 
-        # self.diameter = 30
-        # label = QLabel("diameter (pixels):")
-        # label.setFont(self.medfont)
-        # label.setToolTip(
-        #     'you can manually enter the approximate diameter for your cells, \nor press “calibrate” to let the model estimate it. \nThe size is represented by a disk at the bottom of the view window \n(can turn this disk off by unchecking “scale disk on”)'
-        # )
-        # self.segBoxG.addWidget(label, b0, 0, 1, 4)
-        # self.Diameter = QLineEdit()
-        # self.Diameter.setToolTip(
-        #     'you can manually enter the approximate diameter for your cells, \nor press “calibrate” to let the "cyto3" model estimate it. \nThe size is represented by a disk at the bottom of the view window \n(can turn this disk off by unchecking “scale disk on”)'
-        # )
-        # self.Diameter.setText(str(self.diameter))
-        # self.Diameter.setFont(self.medfont)
-        # self.Diameter.returnPressed.connect(self.update_scale)
-        # self.Diameter.setFixedWidth(50)
-        # self.segBoxG.addWidget(self.Diameter, b0, 4, 1, 2)
-
-        # compute diameter
-        # self.SizeButton = QPushButton("calibrate")
-        # self.SizeButton.setFont(self.medfont)
-        # # self.SizeButton.clicked.connect(self.calibrate_size)
-        # self.segBoxG.addWidget(self.SizeButton, b0, 6, 1, 3)
-        # #self.SizeButton.setFixedWidth(65)
-        # self.SizeButton.setEnabled(False)
-        # self.SizeButton.setToolTip(
-        #     'you can manually enter the approximate diameter for your cells, \nor press “calibrate” to let the cyto3 model estimate it. \nThe size is represented by a disk at the bottom of the view window \n(can turn this disk off by unchecking “scale disk on”)'
-        # )
-
         widget_row += 1
-        # choose channel
-        # self.ChannelChoose = [QComboBox(), QComboBox()]
-        # self.ChannelChoose[0].addItems(["0: gray", "1: red", "2: green", "3: blue"])
-        # self.ChannelChoose[1].addItems(["0: none", "1: red", "2: green", "3: blue"])
-        # cstr = ["chan to segment:", "chan2 (optional): "]
-        # for i in range(2):
-        #     self.ChannelChoose[i].setFont(self.medfont)
-        #     label = QLabel(cstr[i])
-        #     label.setFont(self.medfont)
-        #     if i == 0:
-        #         label.setToolTip(
-        #             "this is the channel in which the cytoplasm or nuclei exist that you want to segment"
-        #         )
-        #         self.ChannelChoose[i].setToolTip(
-        #             "this is the channel in which the cytoplasm or nuclei exist that you want to segment"
-        #         )
-        #     else:
-        #         label.setToolTip(
-        #             "if <em>cytoplasm</em> model is chosen, and you also have a nuclear channel, then choose the nuclear channel for this option"
-        #         )
-        #         self.ChannelChoose[i].setToolTip(
-        #             "if <em>cytoplasm</em> model is chosen, and you also have a nuclear channel, then choose the nuclear channel for this option"
-        #         )
-        #     self.segBoxG.addWidget(label, b0 + i, 0, 1, 4)
-        #     self.segBoxG.addWidget(self.ChannelChoose[i], b0 + i, 4, 1, 5)
-
-        widget_row += 2
 
         # use GPU
         self.useGPU = QCheckBox("use GPU")
@@ -555,10 +500,6 @@ class MainW(QMainWindow):
         self.net_text = ["run CPSAM"]
         nett = ["cellpose super-generalist model"]
 
-        #label = QLabel("Run:")
-        #label.setFont(self.boldfont)
-        #label.setFont(self.medfont)
-        #self.segBoxG.addWidget(label, b0, 0, 1, 2)
         self.StyleButtons = []
         jj = 4
         for j in range(len(self.net_text)):
@@ -567,7 +508,6 @@ class MainW(QMainWindow):
             w = 5
             self.segBoxG.addWidget(self.StyleButtons[-1], widget_row, jj, 1, w)
             jj += w
-            #self.StyleButtons[-1].setFixedWidth(140)
             self.StyleButtons[-1].setToolTip(nett[j])
 
         widget_row += 1
@@ -588,7 +528,6 @@ class MainW(QMainWindow):
         _content.setLayout(self.segaBoxG)
         _content.setMaximumHeight(0)
         _content.setMinimumHeight(0)
-        #_content.layout().setContentsMargins(QtCore.QMargins(0, -20, -20, -20))
         self.segaBox.setContent(_content)
         self.segBoxG.addWidget(self.segaBox, widget_row, 0, 1, 9)
 
@@ -683,43 +622,6 @@ class MainW(QMainWindow):
         )
         self.segaBoxG.addWidget(self.niter, widget_row, 4, 1, 2)
 
-        # b += 1
-        widget_row += 1
-
-        self.filt_vals = [0., 0.]
-        self.filt_edits = []
-        labels = [
-            # "sharpen\nradius", "smooth\nradius", 
-            "tile_norm\nblocksize",
-            "tile_norm\nsmooth3D"
-        ]
-        tooltips = [
-            # "set size of surround-subtraction filter for sharpening image",
-            # "set size of gaussian filter for smoothing image",
-            "set size of tiles to use to normalize image",
-            "set amount of smoothing of normalization values across planes"
-        ]
-
-        for p in range(2):
-            label = QLabel(f"{labels[p]}:")
-            label.setToolTip(tooltips[p])
-            label.setFont(self.medfont)
-            self.segaBoxG.addWidget(label, widget_row + p // 2, 4 * (p % 2), 1, 2)
-            self.filt_edits.append(QLineEdit())
-            self.filt_edits[p].setText(str(self.filt_vals[p]))
-            self.filt_edits[p].setFixedWidth(40)
-            self.filt_edits[p].setFont(self.medfont)
-            self.segaBoxG.addWidget(self.filt_edits[p], widget_row + p // 2, 4 * (p % 2) + 2, 1, 2)
-            self.filt_edits[p].setToolTip(tooltips[p])
-
-        widget_row += 3
-        self.norm3D_cb = QCheckBox("norm3D")
-        self.norm3D_cb.setFont(self.medfont)
-        self.norm3D_cb.setChecked(True)
-        self.norm3D_cb.setToolTip("run same normalization across planes")
-        self.segaBoxG.addWidget(self.norm3D_cb, widget_row, 0, 1, 3)
-
-
         b += 1
         self.modelBox = QGroupBox("user-trained models")
         self.modelBoxG = QGridLayout()
@@ -749,22 +651,91 @@ class MainW(QMainWindow):
         self.modelBoxG.addWidget(self.ModelButtonC, widget_row, 8, 1, 1)
         self.ModelButtonC.setEnabled(False)
 
+
+        b += 1
+        self.filterBox = QGroupBox("Image filtering")
+        self.filterBox.setFont(self.boldfont)
+        self.filterBox_grid_layout = QGridLayout()
+        self.filterBox.setLayout(self.filterBox_grid_layout)
+        self.l0.addWidget(self.filterBox, b, 0, 1, 9)
+
         widget_row = 0
+        
+        # Filtering
+        self.FilterButtons = []
+        nett = [
+            "clear restore/filter",
+            "filter image (settings below)",
+        ]
+        self.filter_text = ["none", 
+                             "filter", 
+                             ]
+        self.restore = None
+        self.ratio = 1.
+        jj = 0
+        w = 3
+        for j in range(len(self.filter_text)):
+            self.FilterButtons.append(
+                guiparts.FilterButton(self, self.filter_text[j]))
+            self.filterBox_grid_layout.addWidget(self.FilterButtons[-1], widget_row, jj, 1, w)
+            self.FilterButtons[-1].setFixedWidth(75)
+            self.FilterButtons[-1].setToolTip(nett[j])
+            self.FilterButtons[-1].setFont(self.medfont)
+            widget_row += 1 if j%2==1 else 0
+            jj = 0 if j%2==1 else jj + w
 
-        b += 1
-        self.l0.addWidget(QLabel(""), b, 0, 1, 9)
-        self.l0.setRowStretch(b, 100)
+        self.save_norm = QCheckBox("save restored/filtered image")
+        self.save_norm.setFont(self.medfont)
+        self.save_norm.setToolTip("save restored/filtered image in _seg.npy file")
+        self.save_norm.setChecked(True)
 
-        b += 1
-        # scale toggle
-        self.scale_on = True
-        self.ScaleOn = QCheckBox("scale disk on")
-        self.ScaleOn.setFont(self.medfont)
-        self.ScaleOn.setStyleSheet("color: rgb(150,50,150);")
-        self.ScaleOn.setChecked(True)
-        self.ScaleOn.setToolTip("see current diameter as red disk at bottom")
-        self.ScaleOn.toggled.connect(self.toggle_scale)
-        self.l0.addWidget(self.ScaleOn, b, 0, 1, 5)
+
+
+        widget_row += 2
+
+        self.filtBox = QCollapsible("custom filter settings")
+        self.filtBox._toggle_btn.setFont(self.medfont)
+        self.filtBoxG = QGridLayout()
+        _content = QWidget()
+        _content.setLayout(self.filtBoxG)
+        _content.setMaximumHeight(0)
+        _content.setMinimumHeight(0)
+        self.filtBox.setContent(_content)
+        self.filterBox_grid_layout.addWidget(self.filtBox, widget_row, 0, 1, 9)
+
+        self.filt_vals = [0., 0., 0., 0.]
+        self.filt_edits = []
+        labels = [
+            "sharpen\nradius", "smooth\nradius", "tile_norm\nblocksize",
+            "tile_norm\nsmooth3D"
+        ]
+        tooltips = [
+            "set size of surround-subtraction filter for sharpening image",
+            "set size of gaussian filter for smoothing image",
+            "set size of tiles to use to normalize image",
+            "set amount of smoothing of normalization values across planes"
+        ]
+
+        for p in range(4):
+            label = QLabel(f"{labels[p]}:")
+            label.setToolTip(tooltips[p])
+            label.setFont(self.medfont)
+            self.filtBoxG.addWidget(label, widget_row + p // 2, 4 * (p % 2), 1, 2)
+            self.filt_edits.append(QLineEdit())
+            self.filt_edits[p].setText(str(self.filt_vals[p]))
+            self.filt_edits[p].setFixedWidth(40)
+            self.filt_edits[p].setFont(self.medfont)
+            self.filtBoxG.addWidget(self.filt_edits[p], widget_row + p // 2, 4 * (p % 2) + 2, 1,
+                                    2)
+            self.filt_edits[p].setToolTip(tooltips[p])
+
+        widget_row += 3
+        self.norm3D_cb = QCheckBox("norm3D")
+        self.norm3D_cb.setFont(self.medfont)
+        self.norm3D_cb.setChecked(True)
+        self.norm3D_cb.setToolTip("run same normalization across planes")
+        self.filtBoxG.addWidget(self.norm3D_cb, widget_row, 0, 1, 3)
+
 
         return b
 
@@ -935,6 +906,12 @@ class MainW(QMainWindow):
             self.ModelButtonC.setEnabled(True)
         for i in range(len(self.StyleButtons)):
             self.StyleButtons[i].setEnabled(True)
+
+        for i in range(len(self.FilterButtons)):
+            self.FilterButtons[i].setEnabled(True)
+        if self.load_3D:
+            self.FilterButtons[-2].setEnabled(False)
+
         self.newmodel.setEnabled(True)
         self.loadMasks.setEnabled(True)
 
