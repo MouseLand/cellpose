@@ -1,4 +1,6 @@
 from cellpose import io, metrics
+from cellpose.models import CellposeModel
+import platform
 from subprocess import check_output, STDOUT
 import os
 import numpy as np
@@ -79,12 +81,18 @@ def test_class_2D(data_dir, image_names, cellposemodel_fixture):
 
 def test_class_3D(data_dir, image_names_3d, cellposemodel_fixture):
     clear_output(data_dir, image_names_3d)
-    use_gpu = torch.cuda.is_available()
+
+    # 3d doesn't work on mac with MPS, need to use no gpu
+    model = None
+    if platform.system() == 'Darwin':
+        model = CellposeModel(gpu=False)
+    else:
+        model = cellposemodel_fixture
 
     for image_name in image_names_3d:
         img_file = data_dir / '3D' / image_name
         img = io.imread_3D(img_file)
-        masks = cellposemodel_fixture.eval(img, do_3D=True, channel_axis=-1, z_axis=0)[0]
+        masks = model.eval(img, do_3D=True, channel_axis=-1, z_axis=0)[0]
         io.imsave(data_dir / "3D" / (img_file.stem + "_cp_masks.tif"), masks)
     compare_masks_cp4(data_dir, image_names_3d, "3D")
     clear_output(data_dir, image_names_3d)

@@ -1,3 +1,5 @@
+import platform
+from cellpose.models import CellposeModel
 import numpy as np
 
 
@@ -95,7 +97,15 @@ def test_shape_stitch(cellposemodel_fixture):
 
 def test_shape_3D_2ch(cellposemodel_fixture):
     img = np.zeros((80, 2, 80, 4))
-    masks, flows, _ = cellposemodel_fixture.eval(img, z_axis=-1, channel_axis=1, do_3D=True)
+
+    # 3d doesn't work on mac with MPS, need to use no gpu
+    model = None
+    if platform.system() == 'Darwin':
+        model = CellposeModel(gpu=False)
+    else:
+        model = cellposemodel_fixture
+        
+    masks, flows, _ = model.eval(img, z_axis=-1, channel_axis=1, do_3D=True)
     assert masks.shape == (4, 80, 80), 'mask shape mismatch'
     assert flows[1].shape == (3, 4, 80, 80), 'dP shape mismatch'
     assert flows[2].shape == (4, 80, 80), 'cellprob shape mismatch'
