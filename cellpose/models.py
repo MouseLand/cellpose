@@ -40,13 +40,8 @@ normalize_default = {
 }
 
 
-# def model_path(model_type, model_index=0):
-#     torch_str = "torch"
-#     if model_type == "cyto" or model_type == "cyto2" or model_type == "nuclei":
-#         basename = "%s%s_%d" % (model_type, torch_str, model_index)
-#     else:
-#         basename = model_type
-#     return cache_model_path(basename)
+def model_path(model_type, model_index=0):
+    return cache_CPSAM_model_path()
 
 
 # def size_model_path(model_type):
@@ -141,6 +136,9 @@ class CellposeModel():
         else:
             device_gpu = False
         self.gpu = device_gpu
+
+        if pretrained_model is None:
+            raise ValueError("Must specify a pretrained model, training from scratch is not implemented")
         
         ### create neural network
         if pretrained_model and not os.path.exists(pretrained_model):

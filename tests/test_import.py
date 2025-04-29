@@ -7,8 +7,7 @@ def test_cellpose_imports_without_error():
 def test_model_zoo_imports_without_error():
     from cellpose import models, denoise
     for model_name in models.MODEL_NAMES:
-        if "neurips" not in model_name and "transformer" not in model_name:
-            model = models.CellposeModel(model_type=model_name)
+        model = models.CellposeModel(pretrained_model=model_name)
 
 def test_gui_imports_without_error():
     from cellpose import gui
