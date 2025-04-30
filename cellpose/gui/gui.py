@@ -1814,12 +1814,11 @@ class MainW(QMainWindow):
                 "GUI_ERROR: tile size (tile_norm) bigger than both image dimensions, disabling"
             )
             tile_norm = 0
-        # self.filt_edits[0].setText(str(sharpen))
-        # self.filt_edits[1].setText(str(smooth))
-        self.filt_edits[0].setText(str(tile_norm))
-        self.filt_edits[1].setText(str(smooth3D))
+        self.filt_edits[0].setText(str(sharpen))
+        self.filt_edits[1].setText(str(smooth))
+        self.filt_edits[2].setText(str(tile_norm))
+        self.filt_edits[3].setText(str(smooth3D))
         self.norm3D_cb.setChecked(norm3D)
-        # self.invert_cb.setChecked(invert)
         return sharpen, smooth, tile_norm, smooth3D, norm3D, invert
 
     def get_normalize_params(self):
@@ -1832,14 +1831,10 @@ class MainW(QMainWindow):
         norm3D = self.norm3D_cb.isChecked()
         normalize_params["norm3D"] = norm3D
         # if self.restore == "filter":
-        # sharpen = float(self.filt_edits[0].text())
-        # smooth = float(self.filt_edits[1].text())
-        sharpen = 0
-        smooth = 0
-
-        tile_norm = float(self.filt_edits[0].text())
-        smooth3D = float(self.filt_edits[1].text())
-        # invert = self.invert_cb.isChecked()
+        sharpen = float(self.filt_edits[0].text())
+        smooth = float(self.filt_edits[1].text())
+        tile_norm = float(self.filt_edits[2].text())
+        smooth3D = float(self.filt_edits[3].text())
         invert = False
         out = self.check_filter_params(sharpen, smooth, tile_norm, smooth3D, norm3D,
                                         invert)
@@ -1876,7 +1871,7 @@ class MainW(QMainWindow):
             img_norm = self.stack
 
         if sharpen > 0 or smooth > 0 or tile_norm > 0:
-            self.clear_restore()
+            # self.clear_restore()
             self.restore = "filter"
             print(
                 "GUI_INFO: computing filtered image because sharpen > 0 or tile_norm > 0"
@@ -2134,7 +2129,7 @@ class MainW(QMainWindow):
             do_3D = False if stitch_threshold > 0. else do_3D
 
             # channels = self.get_channels()
-            if self.restore is not None and self.restore != "filter":
+            if self.restore == "filter":
                 data = self.stack_filtered.copy().squeeze()
             else:
                 data = self.stack.copy().squeeze()
