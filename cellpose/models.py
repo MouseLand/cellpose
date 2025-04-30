@@ -9,6 +9,7 @@ from tqdm import trange
 import torch
 from scipy.ndimage import gaussian_filter
 import gc
+import cv2
 
 import logging
 
@@ -362,7 +363,7 @@ class CellposeModel():
 
         # undo diameter resizing:
         if image_scaling is not None:
-            masks = transforms.resize_image(masks, Ly=Ly_0, Lx=Lx_0, no_channels=True)
+            masks = transforms.resize_image(masks, Ly=Ly_0, Lx=Lx_0, no_channels=True, interpolation=cv2.INTER_NEAREST)
             dP = transforms.resize_image(dP, Ly=Ly_0, Lx=Lx_0, no_channels=not do_3D)
             cellprob = transforms.resize_image(cellprob, Ly=Ly_0, Lx=Lx_0, no_channels=True)
 
