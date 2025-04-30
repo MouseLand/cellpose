@@ -172,8 +172,8 @@ class FilterButton(QPushButton):
                 return
             parent.restore = self.model_type
             parent.compute_saturation()
-        elif self.model_type != "none":
-            parent.compute_denoise_model(model_type=self.model_type)
+        # elif self.model_type != "none":
+        #     parent.compute_denoise_model(model_type=self.model_type)
         else:
             parent.clear_restore()
         # parent.set_restore_button()

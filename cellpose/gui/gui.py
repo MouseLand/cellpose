@@ -1107,11 +1107,11 @@ class MainW(QMainWindow):
         self.layerz = 0 * np.ones((self.Ly, self.Lx, 4), np.uint8)
         self.cellpix = np.zeros((1, self.Ly, self.Lx), np.uint16)
         self.outpix = np.zeros((1, self.Ly, self.Lx), np.uint16)
-        if self.restore and "upsample" in self.restore:
-            self.cellpix_resize = self.cellpix
-            self.cellpix_orig = self.cellpix
-            self.outpix_resize = self.cellpix
-            self.outpix_orig = self.cellpix
+        # if self.restore and "upsample" in self.restore:
+        #     self.cellpix_resize = self.cellpix
+        #     self.cellpix_orig = self.cellpix
+        #     self.outpix_resize = self.cellpix
+        #     self.outpix_orig = self.cellpix
         self.ismanual = np.zeros(0, "bool")
 
         # -- set menus to default -- #
@@ -1487,26 +1487,26 @@ class MainW(QMainWindow):
         self.view = self.ViewDropDown.currentIndex()
         self.Ly, self.Lx, _ = self.stack[self.currentZ].shape
 
-        if self.restore and "upsample" in self.restore:
-            if self.view != 0:
-                if self.view == 3:
-                    self.resize = True
-                elif len(self.flows[0]) > 0 and self.flows[0].shape[1] == self.Lyr:
-                    self.resize = True
-                else:
-                    self.resize = False
-            else:
-                self.resize = False
-            self.draw_layer()
-            self.update_scale()
-            self.update_layer()
+        # if self.restore and "upsample" in self.restore:
+        #     if self.view != 0:
+        #         if self.view == 3:
+        #             self.resize = True
+        #         elif len(self.flows[0]) > 0 and self.flows[0].shape[1] == self.Lyr:
+        #             self.resize = True
+        #         else:
+        #             self.resize = False
+        #     else:
+        #         self.resize = False
+        #     self.draw_layer()
+        #     self.update_scale()
+        #     self.update_layer()
 
         if self.view == 0 or self.view == self.ViewDropDown.count() - 1:
             image = self.stack[
                 self.currentZ] if self.view == 0 else self.stack_filtered[self.currentZ]
-            if self.nchan == 1:
-                # show single channel
-                image = image[..., 0]
+            # if self.nchan == 1:
+            #     # show single channel
+            #     image = image[..., 0]
             if self.color == 0:
                 self.img.setImage(image, autoLevels=False, lut=None)
                 if self.nchan > 1:
@@ -1722,11 +1722,11 @@ class MainW(QMainWindow):
         self.win.show()
         self.show()
 
-    def redraw_masks(self, masks=True, outlines=True, draw=True):
-        self.draw_layer()
+    # def redraw_masks(self, masks=True, outlines=True, draw=True):
+    #     self.draw_layer()
 
-    def draw_masks(self):
-        self.draw_layer()
+    # def draw_masks(self):
+    #     self.draw_layer()
 
     def draw_layer(self):
         if self.resize:
@@ -1861,11 +1861,11 @@ class MainW(QMainWindow):
         smooth3D = norm["tile_norm_smooth3D"]
         tile_norm = norm["tile_norm_blocksize"]
 
-        # if grayscale, use gray img
-        channels = [2]
-        if channels[0] == 0:
-            img_norm = self.stack.mean(axis=-1, keepdims=True)
-        elif sharpen > 0 or smooth > 0 or tile_norm > 0:
+        # # if grayscale, use gray img
+        # channels = [2]
+        # if channels[0] == 0:
+        #     img_norm = self.stack.mean(axis=-1, keepdims=True)
+        if sharpen > 0 or smooth > 0 or tile_norm > 0:
             img_norm = self.stack.copy()
         else:
             img_norm = self.stack
@@ -1900,8 +1900,8 @@ class MainW(QMainWindow):
             self.ViewDropDown.model().item(self.ViewDropDown.count() -
                                            1).setEnabled(True)
             self.ViewDropDown.setCurrentIndex(self.ViewDropDown.count() - 1)
-        elif invert:
-            img_norm = self.stack.copy()
+        # elif invert:
+        #     img_norm = self.stack.copy()
         else:
             img_norm = self.stack if self.restore is None or self.restore == "filter" else self.stack_filtered
 
@@ -1934,20 +1934,20 @@ class MainW(QMainWindow):
             else:
                 for n in range(self.NZ):
                     self.saturation[-1].append([0, 255.])
-        # if only 2 restore channels, add blue
-        if len(self.saturation) < 3:
-            for i in range(3 - len(self.saturation)):
-                self.saturation.append([])
-                for n in range(self.NZ):
-                    self.saturation[-1].append([0, 255.])
+        # # if only 2 restore channels, add blue
+        # if len(self.saturation) < 3:
+        #     for i in range(3 - len(self.saturation)):
+        #         self.saturation.append([])
+        #         for n in range(self.NZ):
+        #             self.saturation[-1].append([0, 255.])
         print(self.saturation[2][self.currentZ])
 
-        if invert:
-            img_norm = 255. - img_norm
-            self.stack_filtered = img_norm
-            self.ViewDropDown.model().item(self.ViewDropDown.count() -
-                                           1).setEnabled(True)
-            self.ViewDropDown.setCurrentIndex(self.ViewDropDown.count() - 1)
+        # if invert:
+        #     img_norm = 255. - img_norm
+        #     self.stack_filtered = img_norm
+        #     self.ViewDropDown.model().item(self.ViewDropDown.count() -
+        #                                    1).setEnabled(True)
+        #     self.ViewDropDown.setCurrentIndex(self.ViewDropDown.count() - 1)
 
         if img_norm.shape[-1] == 1:
             self.saturation.append(self.saturation[0])
@@ -2141,10 +2141,10 @@ class MainW(QMainWindow):
             except ValueError:
                 diameter = None
             
-            if data.ndim == 2:
-                data_new = np.zeros((data.shape[0], data.shape[1], 3), dtype=data.dtype)
-                data_new[..., 0] = data
-                data = data_new
+            # if data.ndim == 2:
+            #     data_new = np.zeros((data.shape[0], data.shape[1], 3), dtype=data.dtype)
+            #     data_new[..., 0] = data
+            #     data = data_new
 
             niter = max(0, int(self.niter.text()))
             niter = None if niter == 0 else niter
