@@ -4,6 +4,7 @@ Copyright © 2023 Howard Hughes Medical Institute, Authored by Carsen Stringer a
 
 from qtpy import QtGui, QtCore
 from PyQt5.QtCore import pyqtSignal
+from PyQt5.QtGui import QDoubleValidator
 from qtpy.QtGui import QPixmap
 from qtpy.QtWidgets import QWidget, QDialog, QGridLayout, QPushButton, QLabel, QLineEdit, QDialogButtonBox, QComboBox, QCheckBox, QVBoxLayout
 import pyqtgraph as pg
@@ -200,7 +201,7 @@ class ObservableVariable(QtCore.QObject):
         self._value = 0
 
     def __iadd__(self, amount):
-        if not isinstance(amount, (int)):
+        if not isinstance(amount, (int, float)):
             raise TypeError("Value must be numeric.")
         self.set(self._value + amount)
         return self
@@ -209,7 +210,7 @@ class ObservableVariable(QtCore.QObject):
         return other + self._value
     
     def __isub__(self, amount):
-        if not isinstance(amount, (int)):
+        if not isinstance(amount, (int, float)):
             raise TypeError("Value must be int.")
         self.set(self._value - amount)
         return self
@@ -225,6 +226,163 @@ class ObservableVariable(QtCore.QObject):
     
     def __eq__(self, x):
         return self._value == x
+
+
+class SegmentationSettings(QWidget):
+    def __init__(self, font):
+        super().__init__()
+
+        # Put everything in a grid layout:
+        grid_layout = QGridLayout()
+        widget_container = QWidget()
+        widget_container.setLayout(grid_layout)
+        row = 0
+
+        ########################### Diameter ###########################
+        # TODO: Validate inputs
+        diam_qlabel = QLabel("diameter:")
+        diam_qlabel.setToolTip("diameter of cells in pixels. If not 30, image will be resized to this")
+        diam_qlabel.setFont(font)
+        grid_layout.addWidget(diam_qlabel, row, 0, 1, 2)
+        self.diameter_box = QLineEdit()
+        self.diameter_box.setToolTip("diameter of cells in pixels. If not blank, image will be resized relative to 30 pixel cell diameters")
+        self.diameter_box.setFont(font)
+        self.diameter_box.setFixedWidth(40)
+        self.diameter_box.setText(' ')
+        grid_layout.addWidget(self.diameter_box, row, 2, 1, 2)
+
+        row += 1
+
+        ########################### Flow threshold ###########################
+        # TODO: Validate inputs
+        flow_threshold_qlabel = QLabel("flow\nthreshold:")
+        flow_threshold_qlabel.setToolTip("threshold on flow error to accept a mask (set higher to get more cells, e.g. in range from (0.1, 3.0), OR set to 0.0 to turn off so no cells discarded);\n press enter to recompute if model already run")
+        flow_threshold_qlabel.setFont(font)
+        grid_layout.addWidget(flow_threshold_qlabel, row, 0, 1, 2)
+        self.flow_threshold_box = QLineEdit()
+        self.flow_threshold_box.setText("0.4")
+        # self.flow_threshold_box.returnPressed.connect(self.compute_cprob) # TODO
+        self.flow_threshold_box.setFixedWidth(40)
+        self.flow_threshold_box.setFont(font)
+        grid_layout.addWidget(self.flow_threshold_box, row, 2, 1, 2)
+        self.flow_threshold_box.setToolTip("threshold on flow error to accept a mask (set higher to get more cells, e.g. in range from (0.1, 3.0), OR set to 0.0 to turn off so no cells discarded);\n press enter to recompute if model already run")
+        
+        ########################### Cellprob threshold ###########################
+        # TODO: Validate inputs
+        cellprob_qlabel = QLabel("cellprob\nthreshold:")
+        cellprob_qlabel.setToolTip("threshold on cellprob output to seed cell masks (set lower to include more pixels or higher to include fewer, e.g. in range from (-6, 6)); \n press enter to recompute if model already run")
+        cellprob_qlabel.setFont(font)
+        grid_layout.addWidget(cellprob_qlabel, row, 4, 1, 2)
+        self.cellprob_threshold_box = QLineEdit()
+        self.cellprob_threshold_box.setText("0.0")
+        # self.cellprob_threshold.returnPressed.connect(self.compute_cprob) # TODO
+        self.cellprob_threshold_box.setFixedWidth(40)
+        self.cellprob_threshold_box.setFont(font)
+        self.cellprob_threshold_box.setToolTip("threshold on cellprob output to seed cell masks (set lower to include more pixels or higher to include fewer, e.g. in range from (-6, 6)); \n press enter to recompute if model already run")
+        grid_layout.addWidget(self.cellprob_threshold_box, row, 6, 1, 2)
+
+        row += 1
+
+        ########################### Norm percentiles ###########################
+        norm_percentiles_qlabel = QLabel("norm percentiles:")
+        norm_percentiles_qlabel.setToolTip("sets normalization percentiles for segmentation and denoising\n(pixels at lower percentile set to 0.0 and at upper set to 1.0 for network)")
+        norm_percentiles_qlabel.setFont(font)
+        grid_layout.addWidget(norm_percentiles_qlabel, row, 0, 1, 8)
+
+        row += 1
+        validator = QDoubleValidator(0.0, 100.0, 2)
+        validator.setNotation(QDoubleValidator.StandardNotation)
+
+        low_norm_qlabel = QLabel('lower:')
+        low_norm_qlabel.setToolTip("pixels at this percentile set to 0 (default 1.0)")
+        low_norm_qlabel.setFont(font)
+        grid_layout.addWidget(low_norm_qlabel, row, 0, 1, 2)
+        self.norm_percentile_low_box = QLineEdit()
+        self.norm_percentile_low_box.setText("1.0")
+        self.norm_percentile_low_box.setFixedWidth(40)
+        self.norm_percentile_low_box.setToolTip("pixels at this percentile set to 0 (default 1.0)")
+        self.norm_percentile_low_box.setValidator(validator)
+        self.norm_percentile_low_box.textEdited.connect(self.validate_normalization_range)
+        grid_layout.addWidget(self.norm_percentile_low_box, row, 2, 1, 1)
+
+        high_norm_qlabel = QLabel('upper:')
+        high_norm_qlabel.setToolTip("pixels at this percentile set to 1 (default 99.0)")
+        high_norm_qlabel.setFont(font)
+        grid_layout.addWidget(high_norm_qlabel, row, 4, 1, 2)
+        self.norm_percentile_high_box = QLineEdit()
+        self.norm_percentile_high_box.setText("99.0")
+        self.norm_percentile_high_box.setFixedWidth(40)
+        self.norm_percentile_high_box.setToolTip("pixels at this percentile set to 1 (default 99.0)")
+        self.norm_percentile_high_box.setValidator(validator)
+        self.norm_percentile_high_box.textEdited.connect(self.validate_normalization_range)
+        grid_layout.addWidget(self.norm_percentile_high_box, row, 6, 1, 2)
+
+        row += 1
+
+        ########################### niter ###########################
+        # TODO: change this to follow the same default logic as 'diameter' above
+        # TODO: input validation
+        niter_qlabel = QLabel("niter dynamics:")
+        niter_qlabel.setFont(font)
+        niter_qlabel.setToolTip("number of iterations for dynamics (0 uses default based on diameter); use 2000 for bacteria")
+        grid_layout.addWidget(niter_qlabel, row, 0, 1, 4)
+        self.niter_box = QLineEdit()
+        self.niter_box.setText("0")
+        self.niter_box.setFixedWidth(40)
+        self.niter_box.setFont(font)
+        self.niter_box.setToolTip("number of iterations for dynamics (0 uses default based on diameter); use 2000 for bacteria")
+        grid_layout.addWidget(self.niter_box, row, 4, 1, 2)
+
+        self.setLayout(grid_layout)
+
+    def validate_normalization_range(self):
+        low_text = self.norm_percentile_low_box.text()
+        high_text = self.norm_percentile_high_box.text()
+        
+        if not low_text or not high_text:
+            return  # Don't validate if either field is empty
+
+        low = float(low_text)
+        high = float(high_text)
+
+        if low >= high:
+            # Invalid: show error and mark fields
+            self.norm_percentile_low_box.setStyleSheet("border: 1px solid red;")
+            self.norm_percentile_high_box.setStyleSheet("border: 1px solid red;")
+        else:
+            # Valid: clear style
+            self.norm_percentile_low_box.setStyleSheet("")
+            self.norm_percentile_high_box.setStyleSheet("")
+
+    @property
+    def low_percentile(self):
+        return float(self.norm_percentile_low_box.text())
+    
+    @property
+    def high_percentile(self):
+        return float(self.norm_percentile_high_box.text())
+    
+    @property
+    def diameter(self):
+        """ Get the diameter from the diameter box, if box isn't a number return None"""
+        try:
+            d = float(self.diameter_box.text())
+        except ValueError:
+            d = None
+        return d 
+    
+    @property
+    def flow_threshold(self):
+        return float(self.flow_threshold_box.text())
+    
+    @property
+    def cellprob_threshold(self):
+        return float(self.cellprob_threshold_box.text())
+    
+    @property
+    def niter(self):
+        return int(self.niter_box.text())
+
 
 
 class TrainWindow(QDialog):

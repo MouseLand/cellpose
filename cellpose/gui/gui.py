@@ -520,7 +520,6 @@ class MainW(QMainWindow):
         self.ncells.valueChanged.connect(
             lambda n: self.roi_count.setText(f'{str(n)} ROIs')
         )
-        # self.roi_count.setText("I should show up")
 
         self.segBoxG.addWidget(self.roi_count, widget_row, 0, 1, 4)
 
@@ -528,107 +527,116 @@ class MainW(QMainWindow):
         self.segBoxG.addWidget(self.progress, widget_row, 4, 1, 5)
 
         widget_row += 1
-        self.segaBox = QCollapsible("additional settings")
-        self.segaBox.setFont(self.medfont)
-        self.segaBox._toggle_btn.setFont(self.medfont)
-        self.segaBoxG = QGridLayout()
-        _content = QWidget()
-        _content.setLayout(self.segaBoxG)
-        _content.setMaximumHeight(0)
-        _content.setMinimumHeight(0)
-        self.segaBox.setContent(_content)
-        self.segBoxG.addWidget(self.segaBox, widget_row, 0, 1, 9)
+        self.additional_seg_settings_qcollapsible = QCollapsible("additional settings")
+        self.additional_seg_settings_qcollapsible.setFont(self.medfont)
+        self.additional_seg_settings_qcollapsible._toggle_btn.setFont(self.medfont)
+        self.segmentation_settings = guiparts.SegmentationSettings(self.medfont)
+        self.additional_seg_settings_qcollapsible.setContent(self.segmentation_settings)
+        self.segBoxG.addWidget(self.additional_seg_settings_qcollapsible, widget_row, 0, 1, 9)
 
-        widget_row = 0
-        # post-hoc paramater tuning
-        diam_qlabel = QLabel("diameter:")
-        diam_qlabel.setToolTip("diameter of cells in pixels. If not 30, image will be resized to this")
-        diam_qlabel.setFont(self.medfont)
-        self.segaBoxG.addWidget(diam_qlabel, widget_row, 0, 1, 2)
-        self.diameter_box = QLineEdit()
-        self.diameter_box.setText(" ")
-        self.diameter_box.setFont(self.medfont)
-        self.diameter_box.setToolTip("diameter of cells in pixels. If not blank, image will be resized relative to 30 pixel cell diameters")
-        self.diameter_box.setFixedWidth(40)
-        self.segaBoxG.addWidget(self.diameter_box, widget_row, 2, 1, 2)
+        # Needed to do this for the drop down to not be open on startup
+        self.additional_seg_settings_qcollapsible._toggle_btn.setChecked(True)
+        self.additional_seg_settings_qcollapsible._toggle_btn.setChecked(False)
+        
 
-        widget_row += 1
+        # self.segaBoxG = QGridLayout()
+        # _content = QWidget()
+        # _content.setLayout(self.segaBoxG)
+        # _content.setMaximumHeight(0)
+        # _content.setMinimumHeight(0)
+        # self.additional_seg_settings_qcollapsible.setContent(_content)
+        # self.segBoxG.addWidget(self.additional_seg_settings_qcollapsible, widget_row, 0, 1, 9)
 
-        label = QLabel("flow\nthreshold:")
-        label.setToolTip(
-            "threshold on flow error to accept a mask (set higher to get more cells, e.g. in range from (0.1, 3.0), OR set to 0.0 to turn off so no cells discarded);\n press enter to recompute if model already run"
-        )
-        label.setFont(self.medfont)
-        self.segaBoxG.addWidget(label, widget_row, 0, 1, 2)
-        self.flow_threshold = QLineEdit()
-        self.flow_threshold.setText("0.4")
-        self.flow_threshold.returnPressed.connect(self.compute_cprob)
-        self.flow_threshold.setFixedWidth(40)
-        self.flow_threshold.setFont(self.medfont)
-        self.segaBoxG.addWidget(self.flow_threshold, widget_row, 2, 1, 2)
-        self.flow_threshold.setToolTip(
-            "threshold on flow error to accept a mask (set higher to get more cells, e.g. in range from (0.1, 3.0), OR set to 0.0 to turn off so no cells discarded);\n press enter to recompute if model already run"
-        )
+        # widget_row = 0
+        # # post-hoc paramater tuning
+        # diam_qlabel = QLabel("diameter:")
+        # diam_qlabel.setToolTip("diameter of cells in pixels. If not 30, image will be resized to this")
+        # diam_qlabel.setFont(self.medfont)
+        # self.segaBoxG.addWidget(diam_qlabel, widget_row, 0, 1, 2)
+        # self.diameter_box = QLineEdit()
+        # self.diameter_box.setText(" ")
+        # self.diameter_box.setFont(self.medfont)
+        # self.diameter_box.setToolTip("diameter of cells in pixels. If not blank, image will be resized relative to 30 pixel cell diameters")
+        # self.diameter_box.setFixedWidth(40)
+        # self.segaBoxG.addWidget(self.diameter_box, widget_row, 2, 1, 2)
 
-        label = QLabel("cellprob\nthreshold:")
-        label.setToolTip(
-            "threshold on cellprob output to seed cell masks (set lower to include more pixels or higher to include fewer, e.g. in range from (-6, 6)); \n press enter to recompute if model already run"
-        )
-        label.setFont(self.medfont)
-        self.segaBoxG.addWidget(label, widget_row, 4, 1, 2)
-        self.cellprob_threshold = QLineEdit()
-        self.cellprob_threshold.setText("0.0")
-        self.cellprob_threshold.returnPressed.connect(self.compute_cprob)
-        self.cellprob_threshold.setFixedWidth(40)
-        self.cellprob_threshold.setFont(self.medfont)
-        self.cellprob_threshold.setToolTip(
-            "threshold on cellprob output to seed cell masks (set lower to include more pixels or higher to include fewer, e.g. in range from (-6, 6)); \n press enter to recompute if model already run"
-        )
-        self.segaBoxG.addWidget(self.cellprob_threshold, widget_row, 6, 1, 2)
+        # widget_row += 1
 
-        widget_row += 1
-        label = QLabel("norm percentiles:")
-        label.setToolTip(
-            "sets normalization percentiles for segmentation and denoising\n(pixels at lower percentile set to 0.0 and at upper set to 1.0 for network)"
-        )
-        label.setFont(self.medfont)
-        self.segaBoxG.addWidget(label, widget_row, 0, 1, 8)
+        # label = QLabel("flow\nthreshold:")
+        # label.setToolTip(
+        #     "threshold on flow error to accept a mask (set higher to get more cells, e.g. in range from (0.1, 3.0), OR set to 0.0 to turn off so no cells discarded);\n press enter to recompute if model already run"
+        # )
+        # label.setFont(self.medfont)
+        # self.segaBoxG.addWidget(label, widget_row, 0, 1, 2)
+        # self.flow_threshold = QLineEdit()
+        # self.flow_threshold.setText("0.4")
+        # self.flow_threshold.returnPressed.connect(self.compute_cprob)
+        # self.flow_threshold.setFixedWidth(40)
+        # self.flow_threshold.setFont(self.medfont)
+        # self.segaBoxG.addWidget(self.flow_threshold, widget_row, 2, 1, 2)
+        # self.flow_threshold.setToolTip(
+        #     "threshold on flow error to accept a mask (set higher to get more cells, e.g. in range from (0.1, 3.0), OR set to 0.0 to turn off so no cells discarded);\n press enter to recompute if model already run"
+        # )
 
-        widget_row += 1
-        self.norm_vals = [1., 99.]
-        self.norm_edits = []
-        labels = ["lower", "upper"]
-        tooltips = [
-            "pixels at this percentile set to 0 (default 1.0)",
-            "pixels at this percentile set to 1  (default 99.0)"
-        ]
-        for p in range(2):
-            label = QLabel(f"{labels[p]}:")
-            label.setToolTip(tooltips[p])
-            label.setFont(self.medfont)
-            self.segaBoxG.addWidget(label, widget_row, 4 * (p % 2), 1, 2)
-            self.norm_edits.append(QLineEdit())
-            self.norm_edits[p].setText(str(self.norm_vals[p]))
-            self.norm_edits[p].setFixedWidth(40)
-            self.norm_edits[p].setFont(self.medfont)
-            self.segaBoxG.addWidget(self.norm_edits[p], widget_row, 4 * (p % 2) + 2, 1, 2)
-            self.norm_edits[p].setToolTip(tooltips[p])
+        # label = QLabel("cellprob\nthreshold:")
+        # label.setToolTip(
+        #     "threshold on cellprob output to seed cell masks (set lower to include more pixels or higher to include fewer, e.g. in range from (-6, 6)); \n press enter to recompute if model already run"
+        # )
+        # label.setFont(self.medfont)
+        # self.segaBoxG.addWidget(label, widget_row, 4, 1, 2)
+        # self.cellprob_threshold = QLineEdit()
+        # self.cellprob_threshold.setText("0.0")
+        # self.cellprob_threshold.returnPressed.connect(self.compute_cprob)
+        # self.cellprob_threshold.setFixedWidth(40)
+        # self.cellprob_threshold.setFont(self.medfont)
+        # self.cellprob_threshold.setToolTip(
+        #     "threshold on cellprob output to seed cell masks (set lower to include more pixels or higher to include fewer, e.g. in range from (-6, 6)); \n press enter to recompute if model already run"
+        # )
+        # self.segaBoxG.addWidget(self.cellprob_threshold, widget_row, 6, 1, 2)
 
-        widget_row += 1
-        label = QLabel("niter dynamics:")
-        label.setFont(self.medfont)
-        label.setToolTip(
-            "number of iterations for dynamics (0 uses default based on diameter); use 2000 for bacteria"
-        )
-        self.segaBoxG.addWidget(label, widget_row, 0, 1, 4)
-        self.niter = QLineEdit()
-        self.niter.setText("0")
-        self.niter.setFixedWidth(40)
-        self.niter.setFont(self.medfont)
-        self.niter.setToolTip(
-            "number of iterations for dynamics (0 uses default based on diameter); use 2000 for bacteria"
-        )
-        self.segaBoxG.addWidget(self.niter, widget_row, 4, 1, 2)
+        # widget_row += 1
+        # label = QLabel("norm percentiles:")
+        # label.setToolTip(
+        #     "sets normalization percentiles for segmentation and denoising\n(pixels at lower percentile set to 0.0 and at upper set to 1.0 for network)"
+        # )
+        # label.setFont(self.medfont)
+        # self.segaBoxG.addWidget(label, widget_row, 0, 1, 8)
+
+        # widget_row += 1
+        # self.norm_vals = [1., 99.]
+        # self.norm_edits = []
+        # labels = ["lower", "upper"]
+        # tooltips = [
+        #     "pixels at this percentile set to 0 (default 1.0)",
+        #     "pixels at this percentile set to 1  (default 99.0)"
+        # ]
+        # for p in range(2):
+        #     label = QLabel(f"{labels[p]}:")
+        #     label.setToolTip(tooltips[p])
+        #     label.setFont(self.medfont)
+        #     self.segaBoxG.addWidget(label, widget_row, 4 * (p % 2), 1, 2)
+        #     self.norm_edits.append(QLineEdit())
+        #     self.norm_edits[p].setText(str(self.norm_vals[p]))
+        #     self.norm_edits[p].setFixedWidth(40)
+        #     self.norm_edits[p].setFont(self.medfont)
+        #     self.segaBoxG.addWidget(self.norm_edits[p], widget_row, 4 * (p % 2) + 2, 1, 2)
+        #     self.norm_edits[p].setToolTip(tooltips[p])
+
+        # widget_row += 1
+        # label = QLabel("niter dynamics:")
+        # label.setFont(self.medfont)
+        # label.setToolTip(
+        #     "number of iterations for dynamics (0 uses default based on diameter); use 2000 for bacteria"
+        # )
+        # self.segaBoxG.addWidget(label, widget_row, 0, 1, 4)
+        # self.niter = QLineEdit()
+        # self.niter.setText("0")
+        # self.niter.setFixedWidth(40)
+        # self.niter.setFont(self.medfont)
+        # self.niter.setToolTip(
+        #     "number of iterations for dynamics (0 uses default based on diameter); use 2000 for bacteria"
+        # )
+        # self.segaBoxG.addWidget(self.niter, widget_row, 4, 1, 2)
 
         b += 1
         self.modelBox = QGroupBox("user-trained models")
@@ -1702,13 +1710,11 @@ class MainW(QMainWindow):
 
     def compute_scale(self):
         # get diameter from gui
-        try:
-            self.diameter = float(self.diameter_box.text())
-        except ValueError:
-            # if it's not populated just set it to the default 30 pix
-            self.diameter = 30
+        diameter = self.segmentation_settings.diameter
+        if not diameter:
+            diameter = 30
 
-        self.pr = int(self.diameter)
+        self.pr = int(diameter)
         self.radii_padding = int(self.pr * 1.25)
         self.radii = np.zeros((self.Ly + self.radii_padding, self.Lx, 4), np.uint8)
         yy, xx = disk([self.Ly + self.radii_padding / 2 - 1, self.pr / 2 + 1],
@@ -1783,7 +1789,7 @@ class MainW(QMainWindow):
                 if key != "percentile":
                     normalize_params[key] = normalize_default[key]
         normalize_params = {**normalize_default, **normalize_params}
-        percentile = self.check_percentile_params(normalize_params["percentile"])
+        # percentile = self.check_percentile_params(normalize_params["percentile"])
         out = self.check_filter_params(normalize_params["sharpen_radius"],
                                        normalize_params["smooth_radius"],
                                        normalize_params["tile_norm_blocksize"],
@@ -1791,22 +1797,22 @@ class MainW(QMainWindow):
                                        normalize_params["norm3D"],
                                        normalize_params["invert"])
 
-    def check_percentile_params(self, percentile):
-        # check normalization params
-        if percentile is not None and not (percentile[0] >= 0 and percentile[1] > 0 and
-                                           percentile[0] < 100 and percentile[1] <= 100
-                                           and percentile[1] > percentile[0]):
-            print(
-                "GUI_ERROR: percentiles need be between 0 and 100, and upper > lower, using defaults"
-            )
-            self.norm_edits[0].setText("1.")
-            self.norm_edits[1].setText("99.")
-            percentile = [1., 99.]
-        elif percentile is None:
-            percentile = [1., 99.]
-        self.norm_edits[0].setText(str(percentile[0]))
-        self.norm_edits[1].setText(str(percentile[1]))
-        return percentile
+    # def check_percentile_params(self, percentile):
+    #     # check normalization params
+    #     if percentile is not None and not (percentile[0] >= 0 and percentile[1] > 0 and
+    #                                        percentile[0] < 100 and percentile[1] <= 100
+    #                                        and percentile[1] > percentile[0]):
+    #         print(
+    #             "GUI_ERROR: percentiles need be between 0 and 100, and upper > lower, using defaults"
+    #         )
+    #         self.norm_edits[0].setText("1.")
+    #         self.norm_edits[1].setText("99.")
+    #         percentile = [1., 99.]
+    #     elif percentile is None:
+    #         percentile = [1., 99.]
+    #     self.norm_edits[0].setText(str(percentile[0]))
+    #     self.norm_edits[1].setText(str(percentile[1]))
+    #     return percentile
 
     def check_filter_params(self, sharpen, smooth, tile_norm, smooth3D, norm3D, invert):
         tile_norm = 0 if tile_norm < 0 else tile_norm
@@ -1829,10 +1835,12 @@ class MainW(QMainWindow):
 
     def get_normalize_params(self):
         percentile = [
-            float(self.norm_edits[0].text()),
-            float(self.norm_edits[1].text())
+            # float(self.norm_edits[0].text()),
+            # float(self.norm_edits[1].text())
+            self.segmentation_settings.low_percentile,
+            self.segmentation_settings.high_percentile,
         ]
-        self.check_percentile_params(percentile)
+        # self.check_percentile_params(percentile)
         normalize_params = {"percentile": percentile}
         norm3D = self.norm3D_cb.isChecked()
         normalize_params["norm3D"] = norm3D
@@ -2072,30 +2080,26 @@ class MainW(QMainWindow):
         )
 
 
-    def get_thresholds(self):
-        try:
-            flow_threshold = float(self.flow_threshold.text())
-            cellprob_threshold = float(self.cellprob_threshold.text())
-            if flow_threshold == 0.0 or self.NZ > 1:
-                flow_threshold = None
-            return flow_threshold, cellprob_threshold
-        except Exception as e:
-            print(
-                "flow threshold or cellprob threshold not a valid number, setting to defaults"
-            )
-            self.flow_threshold.setText("0.4")
-            self.cellprob_threshold.setText("0.0")
-            return 0.4, 0.0
+    # def get_thresholds(self):
+    #     try:
+    #         flow_threshold = float(self.flow_threshold.text())
+    #         cellprob_threshold = float(self.cellprob_threshold.text())
+    #         if flow_threshold == 0.0 or self.NZ > 1:
+    #             flow_threshold = None
+    #         return flow_threshold, cellprob_threshold
+    #     except Exception as e:
+    #         print(
+    #             "flow threshold or cellprob threshold not a valid number, setting to defaults"
+    #         )
+    #         self.flow_threshold.setText("0.4")
+    #         self.cellprob_threshold.setText("0.0")
+    #         return 0.4, 0.0
 
     def compute_cprob(self):
         if self.recompute_masks:
-            flow_threshold, cellprob_threshold = self.get_thresholds()
-            if flow_threshold is None:
-                self.logger.info(
-                    "computing masks with cell prob=%0.3f, no flow error threshold" %
-                    (cellprob_threshold))
-            else:
-                self.logger.info(
+            flow_threshold = self.segmentation_settings.flow_threshold
+            cellprob_threshold = self.segmentation_settings.cellprob_threshold
+            self.logger.info(
                     "computing masks with cell prob=%0.3f, flow error threshold=%0.3f" %
                     (cellprob_threshold, flow_threshold))
             maski = dynamics.resize_and_compute_masks(
@@ -2139,21 +2143,17 @@ class MainW(QMainWindow):
                 data = self.stack_filtered.copy().squeeze()
             else:
                 data = self.stack.copy().squeeze()
-            flow_threshold, cellprob_threshold = self.get_thresholds()
-
-            # diameter resizing is done if there is a number in the diameter box:
-            try:
-                diameter = float(self.diameter_box.text())
-            except ValueError:
-                diameter = None
+            
+            flow_threshold = self.segmentation_settings.flow_threshold
+            cellprob_threshold = self.segmentation_settings.cellprob_threshold
+            diameter = self.segmentation_settings.diameter
+            niter = self.segmentation_settings.niter
             
             # if data.ndim == 2:
             #     data_new = np.zeros((data.shape[0], data.shape[1], 3), dtype=data.dtype)
             #     data_new[..., 0] = data
             #     data = data_new
 
-            niter = max(0, int(self.niter.text()))
-            niter = None if niter == 0 else niter
             normalize_params = self.get_normalize_params()
             print(normalize_params)
             try:

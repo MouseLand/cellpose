@@ -639,7 +639,9 @@ def _save_sets(parent):
     """
     filename = parent.filename
     base = os.path.splitext(filename)[0]
-    flow_threshold, cellprob_threshold = parent.get_thresholds()
+    flow_threshold = parent.segmentation_settings.flow_threshold
+    cellprob_threshold = parent.segmentation_settings.cellprob_threshold
+
     if parent.NZ > 1:
         dat = {
             "outlines":
