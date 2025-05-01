@@ -534,6 +534,9 @@ class MainW(QMainWindow):
         self.additional_seg_settings_qcollapsible.setContent(self.segmentation_settings)
         self.segBoxG.addWidget(self.additional_seg_settings_qcollapsible, widget_row, 0, 1, 9)
 
+        # connect edits to the diameter box to resizing the image: 
+        self.segmentation_settings.diameter_box.editingFinished.connect(self.update_scale)
+
         # Needed to do this for the drop down to not be open on startup
         self.additional_seg_settings_qcollapsible._toggle_btn.setChecked(True)
         self.additional_seg_settings_qcollapsible._toggle_btn.setChecked(False)
