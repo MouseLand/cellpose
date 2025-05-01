@@ -6,7 +6,9 @@ import sys, os, pathlib, warnings, datetime, time, copy
 
 from qtpy import QtGui, QtCore
 from superqt import QRangeSlider, QCollapsible
-from qtpy.QtWidgets import QScrollArea, QMainWindow, QApplication, QWidget, QScrollBar, QComboBox, QGridLayout, QPushButton, QFrame, QCheckBox, QLabel, QProgressBar, QLineEdit, QMessageBox, QGroupBox
+from qtpy.QtWidgets import QScrollArea, QMainWindow, QApplication, QWidget, QScrollBar, \
+    QComboBox, QGridLayout, QPushButton, QFrame, QCheckBox, QLabel, QProgressBar, \
+        QLineEdit, QMessageBox, QGroupBox, QMenu, QAction
 import pyqtgraph as pg
 
 import numpy as np
@@ -511,9 +513,15 @@ class MainW(QMainWindow):
             self.StyleButtons[-1].setToolTip(nett[j])
 
         widget_row += 1
-        self.roi_count = QLabel("0 ROIs")
+        self.ncells = guiparts.ObservableVariable(0)
+        self.roi_count = QLabel()
         self.roi_count.setFont(self.boldfont)
         self.roi_count.setAlignment(QtCore.Qt.AlignLeft)
+        self.ncells.valueChanged.connect(
+            lambda n: self.roi_count.setText(f'{str(n)} ROIs')
+        )
+        # self.roi_count.setText("I should show up")
+
         self.segBoxG.addWidget(self.roi_count, widget_row, 0, 1, 4)
 
         self.progress = QProgressBar(self)
@@ -688,8 +696,6 @@ class MainW(QMainWindow):
         self.save_norm.setFont(self.medfont)
         self.save_norm.setToolTip("save restored/filtered image in _seg.npy file")
         self.save_norm.setChecked(True)
-
-
 
         widget_row += 2
 
@@ -990,7 +996,7 @@ class MainW(QMainWindow):
         else:
             # remove previous cell
             if self.ncells > 0:
-                self.remove_cell(self.ncells)
+                self.remove_cell(self.ncells.get())
 
     def undo_remove_action(self):
         self.undo_remove_cell()
@@ -1081,7 +1087,7 @@ class MainW(QMainWindow):
         self.strokes = []
         self.stroke_appended = True
         self.resize = False
-        self.ncells = 0
+        self.ncells.reset()
         self.zdraw = []
         self.removed_cell = []
         self.cellcolors = np.array([255, 255, 255])[np.newaxis, :]
@@ -1178,7 +1184,7 @@ class MainW(QMainWindow):
             self.outpix = np.zeros((self.NZ, self.Ly, self.Lx), np.uint16)
 
         self.cellcolors = np.array([255, 255, 255])[np.newaxis, :]
-        self.ncells = 0
+        self.ncells.reset()
         self.toggle_removals()
         self.update_scale()
         self.update_layer()
@@ -1202,7 +1208,7 @@ class MainW(QMainWindow):
     def unselect_cell(self):
         if self.selected > 0:
             idx = self.selected
-            if idx < self.ncells + 1:
+            if idx < (self.ncells.get() + 1):
                 z = self.currentZ
                 self.layerz[self.cellpix[z] == idx] = np.append(
                     self.cellcolors[idx], self.opacity)
@@ -1558,19 +1564,19 @@ class MainW(QMainWindow):
         if self.masksOn or self.outlinesOn:
             #self.draw_layer()
             self.layer.setImage(self.layerz, autoLevels=False)
-        self.update_roi_count()
+        # self.update_roi_count()
         self.win.show()
         self.show()
 
-    def update_roi_count(self):
-        self.roi_count.setText(f"{self.ncells} ROIs")
+    # def update_roi_count(self):
+    #     self.roi_count.setText(f"{self.ncells} ROIs")
 
     def add_set(self):
         if len(self.current_point_set) > 0:
             while len(self.strokes) > 0:
                 self.remove_stroke(delete_points=False)
             if len(self.current_point_set[0]) > 8:
-                color = self.colormap[self.ncells, :3]
+                color = self.colormap[self.ncells.get(), :3]
                 median = self.add_mask(points=self.current_point_set, color=color)
                 if median is not None:
                     self.removed_cell = []

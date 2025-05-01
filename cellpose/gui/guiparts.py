@@ -3,8 +3,9 @@ Copyright © 2023 Howard Hughes Medical Institute, Authored by Carsen Stringer a
 """
 
 from qtpy import QtGui, QtCore
+from PyQt5.QtCore import pyqtSignal
 from qtpy.QtGui import QPixmap
-from qtpy.QtWidgets import QWidget, QDialog, QGridLayout, QPushButton, QLabel, QLineEdit, QDialogButtonBox, QComboBox, QCheckBox
+from qtpy.QtWidgets import QWidget, QDialog, QGridLayout, QPushButton, QLabel, QLineEdit, QDialogButtonBox, QComboBox, QCheckBox, QVBoxLayout
 import pyqtgraph as pg
 import numpy as np
 import pathlib, os
@@ -177,6 +178,53 @@ class FilterButton(QPushButton):
         else:
             parent.clear_restore()
         # parent.set_restore_button()
+
+
+class ObservableVariable(QtCore.QObject):
+    valueChanged = pyqtSignal(object) 
+
+    def __init__(self, initial=None):
+        super().__init__()
+        self._value = initial
+
+    def set(self, new_value):
+        """ Use this method to get emit the value changing and update the ROI count"""
+        if new_value != self._value:
+            self._value = new_value
+            self.valueChanged.emit(new_value)
+
+    def get(self):
+        return self._value
+
+    def reset(self):
+        self._value = 0
+
+    def __iadd__(self, amount):
+        if not isinstance(amount, (int)):
+            raise TypeError("Value must be numeric.")
+        self.set(self._value + amount)
+        return self
+    
+    def __radd__(self, other):
+        return other + self._value
+    
+    def __isub__(self, amount):
+        if not isinstance(amount, (int)):
+            raise TypeError("Value must be int.")
+        self.set(self._value - amount)
+        return self
+    
+    def __str__(self):
+        return str(self._value)
+    
+    def __lt__(self, x):
+        return self._value < x
+    
+    def __gt__(self, x):
+        return self._value > x
+    
+    def __eq__(self, x):
+        return self._value == x
 
 
 class TrainWindow(QDialog):
