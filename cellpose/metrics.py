@@ -2,9 +2,9 @@
 Copyright © 2023 Howard Hughes Medical Institute, Authored by Carsen Stringer and Marius Pachitariu.
 """
 import numpy as np
-from . import utils, dynamics
+from . import utils
 from scipy.optimize import linear_sum_assignment
-from scipy.ndimage import convolve, mean
+from scipy.ndimage import convolve
 from scipy.sparse import csr_matrix 
 
 

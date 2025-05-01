@@ -2,12 +2,12 @@
 Copyright © 2023 Howard Hughes Medical Institute, Authored by Carsen Stringer and Marius Pachitariu.
 """
 
-from qtpy import QtGui, QtCore, QtWidgets
-from qtpy.QtGui import QPainter, QPixmap
-from qtpy.QtWidgets import QApplication, QRadioButton, QWidget, QDialog, QButtonGroup, QSlider, QStyle, QStyleOptionSlider, QGridLayout, QPushButton, QLabel, QLineEdit, QDialogButtonBox, QComboBox, QCheckBox
+from qtpy import QtGui, QtCore
+from PyQt5.QtCore import pyqtSignal
+from PyQt5.QtGui import QDoubleValidator
+from qtpy.QtGui import QPixmap
+from qtpy.QtWidgets import QWidget, QDialog, QGridLayout, QPushButton, QLabel, QLineEdit, QDialogButtonBox, QComboBox, QCheckBox, QVBoxLayout
 import pyqtgraph as pg
-from pyqtgraph import functions as fn
-from pyqtgraph import Point
 import numpy as np
 import pathlib, os
 
@@ -151,34 +151,262 @@ class ModelButton(QPushButton):
         parent.compute_segmentation(model_name=self.model_name)
 
 
-# class DenoiseButton(QPushButton):
+class FilterButton(QPushButton):
 
-#     def __init__(self, parent, text):
-#         super().__init__()
-#         self.setEnabled(False)
-#         self.model_type = text
-#         self.setText(text)
-#         self.setFont(parent.medfont)
-#         self.clicked.connect(lambda: self.press(parent))
+    def __init__(self, parent, text):
+        super().__init__()
+        self.setEnabled(False)
+        self.model_type = text
+        self.setText(text)
+        self.setFont(parent.medfont)
+        self.clicked.connect(lambda: self.press(parent))
 
-#     def press(self, parent):
-#         if self.model_type == "filter":
-#             parent.restore = "filter"
-#             normalize_params = parent.get_normalize_params()
-#             if (normalize_params["sharpen_radius"] == 0 and
-#                     normalize_params["smooth_radius"] == 0 and
-#                     normalize_params["tile_norm_blocksize"] == 0):
-#                 print(
-#                     "GUI_ERROR: no filtering settings on (use custom filter settings)")
-#                 parent.restore = None
-#                 return
-#             parent.restore = self.model_type
-#             parent.compute_saturation()
-#         elif self.model_type != "none":
-#             parent.compute_denoise_model(model_type=self.model_type)
-#         else:
-#             parent.clear_restore()
-#         parent.set_restore_button()
+    def press(self, parent):
+        if self.model_type == "filter":
+            parent.restore = "filter"
+            normalize_params = parent.get_normalize_params()
+            if (normalize_params["sharpen_radius"] == 0 and
+                    normalize_params["smooth_radius"] == 0 and
+                    normalize_params["tile_norm_blocksize"] == 0):
+                print(
+                    "GUI_ERROR: no filtering settings on (use custom filter settings)")
+                parent.restore = None
+                return
+            parent.restore = self.model_type
+            parent.compute_saturation()
+        # elif self.model_type != "none":
+        #     parent.compute_denoise_model(model_type=self.model_type)
+        else:
+            parent.clear_restore()
+        # parent.set_restore_button()
+
+
+class ObservableVariable(QtCore.QObject):
+    valueChanged = pyqtSignal(object) 
+
+    def __init__(self, initial=None):
+        super().__init__()
+        self._value = initial
+
+    def set(self, new_value):
+        """ Use this method to get emit the value changing and update the ROI count"""
+        if new_value != self._value:
+            self._value = new_value
+            self.valueChanged.emit(new_value)
+
+    def get(self):
+        return self._value
+
+    def reset(self):
+        self._value = 0
+
+    def __iadd__(self, amount):
+        if not isinstance(amount, (int, float)):
+            raise TypeError("Value must be numeric.")
+        self.set(self._value + amount)
+        return self
+    
+    def __radd__(self, other):
+        return other + self._value
+    
+    def __isub__(self, amount):
+        if not isinstance(amount, (int, float)):
+            raise TypeError("Value must be numeric.")
+        self.set(self._value - amount)
+        return self
+    
+    def __str__(self):
+        return str(self._value)
+    
+    def __lt__(self, x):
+        return self._value < x
+    
+    def __gt__(self, x):
+        return self._value > x
+    
+    def __eq__(self, x):
+        return self._value == x
+
+
+class NormalizationSettings(QWidget):
+    # TODO
+    pass
+
+
+class SegmentationSettings(QWidget):
+    """ Container for gui settings. Validation is done automatically so any attributes can 
+    be acessed without concern.  
+    """
+    def __init__(self, font):
+        super().__init__()
+
+        # Put everything in a grid layout:
+        grid_layout = QGridLayout()
+        widget_container = QWidget()
+        widget_container.setLayout(grid_layout)
+        row = 0
+
+        ########################### Diameter ###########################
+        # TODO: Validate inputs
+        diam_qlabel = QLabel("diameter:")
+        diam_qlabel.setToolTip("diameter of cells in pixels. If not 30, image will be resized to this")
+        diam_qlabel.setFont(font)
+        grid_layout.addWidget(diam_qlabel, row, 0, 1, 2)
+        self.diameter_box = QLineEdit()
+        self.diameter_box.setToolTip("diameter of cells in pixels. If not blank, image will be resized relative to 30 pixel cell diameters")
+        self.diameter_box.setFont(font)
+        self.diameter_box.setFixedWidth(40)
+        self.diameter_box.setText(' ')
+        grid_layout.addWidget(self.diameter_box, row, 2, 1, 2)
+
+        row += 1
+
+        ########################### Flow threshold ###########################
+        # TODO: Validate inputs
+        flow_threshold_qlabel = QLabel("flow\nthreshold:")
+        flow_threshold_qlabel.setToolTip("threshold on flow error to accept a mask (set higher to get more cells, e.g. in range from (0.1, 3.0), OR set to 0.0 to turn off so no cells discarded);\n press enter to recompute if model already run")
+        flow_threshold_qlabel.setFont(font)
+        grid_layout.addWidget(flow_threshold_qlabel, row, 0, 1, 2)
+        self.flow_threshold_box = QLineEdit()
+        self.flow_threshold_box.setText("0.4")
+        # self.flow_threshold_box.returnPressed.connect(self.compute_cprob) # TODO
+        self.flow_threshold_box.setFixedWidth(40)
+        self.flow_threshold_box.setFont(font)
+        grid_layout.addWidget(self.flow_threshold_box, row, 2, 1, 2)
+        self.flow_threshold_box.setToolTip("threshold on flow error to accept a mask (set higher to get more cells, e.g. in range from (0.1, 3.0), OR set to 0.0 to turn off so no cells discarded);\n press enter to recompute if model already run")
+        
+        ########################### Cellprob threshold ###########################
+        # TODO: Validate inputs
+        cellprob_qlabel = QLabel("cellprob\nthreshold:")
+        cellprob_qlabel.setToolTip("threshold on cellprob output to seed cell masks (set lower to include more pixels or higher to include fewer, e.g. in range from (-6, 6)); \n press enter to recompute if model already run")
+        cellprob_qlabel.setFont(font)
+        grid_layout.addWidget(cellprob_qlabel, row, 4, 1, 2)
+        self.cellprob_threshold_box = QLineEdit()
+        self.cellprob_threshold_box.setText("0.0")
+        # self.cellprob_threshold.returnPressed.connect(self.compute_cprob) # TODO
+        self.cellprob_threshold_box.setFixedWidth(40)
+        self.cellprob_threshold_box.setFont(font)
+        self.cellprob_threshold_box.setToolTip("threshold on cellprob output to seed cell masks (set lower to include more pixels or higher to include fewer, e.g. in range from (-6, 6)); \n press enter to recompute if model already run")
+        grid_layout.addWidget(self.cellprob_threshold_box, row, 6, 1, 2)
+
+        row += 1
+
+        ########################### Norm percentiles ###########################
+        norm_percentiles_qlabel = QLabel("norm percentiles:")
+        norm_percentiles_qlabel.setToolTip("sets normalization percentiles for segmentation and denoising\n(pixels at lower percentile set to 0.0 and at upper set to 1.0 for network)")
+        norm_percentiles_qlabel.setFont(font)
+        grid_layout.addWidget(norm_percentiles_qlabel, row, 0, 1, 8)
+
+        row += 1
+        validator = QDoubleValidator(0.0, 100.0, 2)
+        validator.setNotation(QDoubleValidator.StandardNotation)
+
+        low_norm_qlabel = QLabel('lower:')
+        low_norm_qlabel.setToolTip("pixels at this percentile set to 0 (default 1.0)")
+        low_norm_qlabel.setFont(font)
+        grid_layout.addWidget(low_norm_qlabel, row, 0, 1, 2)
+        self.norm_percentile_low_box = QLineEdit()
+        self.norm_percentile_low_box.setText("1.0")
+        self.norm_percentile_low_box.setFont(font)
+        self.norm_percentile_low_box.setFixedWidth(40)
+        self.norm_percentile_low_box.setToolTip("pixels at this percentile set to 0 (default 1.0)")
+        self.norm_percentile_low_box.setValidator(validator)
+        self.norm_percentile_low_box.editingFinished.connect(self.validate_normalization_range)
+        grid_layout.addWidget(self.norm_percentile_low_box, row, 2, 1, 1)
+
+        high_norm_qlabel = QLabel('upper:')
+        high_norm_qlabel.setToolTip("pixels at this percentile set to 1 (default 99.0)")
+        high_norm_qlabel.setFont(font)
+        grid_layout.addWidget(high_norm_qlabel, row, 4, 1, 2)
+        self.norm_percentile_high_box = QLineEdit()
+        self.norm_percentile_high_box.setText("99.0")
+        self.norm_percentile_high_box.setFont(font)
+        self.norm_percentile_high_box.setFixedWidth(40)
+        self.norm_percentile_high_box.setToolTip("pixels at this percentile set to 1 (default 99.0)")
+        self.norm_percentile_high_box.setValidator(validator)
+        self.norm_percentile_high_box.editingFinished.connect(self.validate_normalization_range)
+        grid_layout.addWidget(self.norm_percentile_high_box, row, 6, 1, 2)
+
+        row += 1
+
+        ########################### niter ###########################
+        # TODO: change this to follow the same default logic as 'diameter' above
+        # TODO: input validation
+        niter_qlabel = QLabel("niter dynamics:")
+        niter_qlabel.setFont(font)
+        niter_qlabel.setToolTip("number of iterations for dynamics (0 uses default based on diameter); use 2000 for bacteria")
+        grid_layout.addWidget(niter_qlabel, row, 0, 1, 4)
+        self.niter_box = QLineEdit()
+        self.niter_box.setText("0")
+        self.niter_box.setFixedWidth(40)
+        self.niter_box.setFont(font)
+        self.niter_box.setToolTip("number of iterations for dynamics (0 uses default based on diameter); use 2000 for bacteria")
+        grid_layout.addWidget(self.niter_box, row, 4, 1, 2)
+
+        self.setLayout(grid_layout)
+
+    def validate_normalization_range(self):
+        low_text = self.norm_percentile_low_box.text()
+        high_text = self.norm_percentile_high_box.text()
+        
+        if not low_text or low_text.isspace():
+            self.norm_percentile_low_box.setText('1.0')
+            low_text = '1.0'
+        elif not high_text or high_text.isspace():
+            self.norm_percentile_high_box.setText('1.0')
+            high_text = '99.0'
+
+        low = float(low_text)
+        high = float(high_text)
+
+        if low >= high:
+            # Invalid: show error and mark fields
+            self.norm_percentile_low_box.setStyleSheet("border: 1px solid red;")
+            self.norm_percentile_high_box.setStyleSheet("border: 1px solid red;")
+        else:
+            # Valid: clear style
+            self.norm_percentile_low_box.setStyleSheet("")
+            self.norm_percentile_high_box.setStyleSheet("")
+
+    @property
+    def low_percentile(self):
+        """ Also validate the low input by returning 1.0 if text doesn't work """
+        low_text = self.norm_percentile_low_box.text()
+        if not low_text or low_text.isspace():
+            self.norm_percentile_low_box.setText('1.0')
+            low_text = '1.0'
+        return float(self.norm_percentile_low_box.text())
+    
+    @property
+    def high_percentile(self):
+        """ Also validate the high input by returning 99.0 if text doesn't work """
+        high_text = self.norm_percentile_high_box.text()
+        if not high_text or high_text.isspace():
+            self.norm_percentile_high_box.setText('99.0')
+            high_text = '99.0'
+        return float(self.norm_percentile_high_box.text())
+    
+    @property
+    def diameter(self):
+        """ Get the diameter from the diameter box, if box isn't a number return None"""
+        try:
+            d = float(self.diameter_box.text())
+        except ValueError:
+            d = None
+        return d 
+    
+    @property
+    def flow_threshold(self):
+        return float(self.flow_threshold_box.text())
+    
+    @property
+    def cellprob_threshold(self):
+        return float(self.cellprob_threshold_box.text())
+    
+    @property
+    def niter(self):
+        return int(self.niter_box.text())
+
 
 
 class TrainWindow(QDialog):
@@ -227,7 +455,6 @@ class TrainWindow(QDialog):
         yoff += 1
         self.use_norm = QCheckBox(f"use restored/filtered image")
         self.use_norm.setChecked(True)
-        #self.l0.addWidget(self.use_norm, yoff, 0, 2, 4)
 
         yoff += 2
         qlabel = QLabel(
@@ -385,8 +612,6 @@ class ImageDraw(pg.ImageItem):
 
     def __init__(self, image=None, viewbox=None, parent=None, **kargs):
         super(ImageDraw, self).__init__()
-        #self.image=None
-        #self.viewbox=viewbox
         self.levels = np.array([0, 255])
         self.lut = None
         self.autoDownsample = False
@@ -394,7 +619,6 @@ class ImageDraw(pg.ImageItem):
         self.removable = False
 
         self.parent = parent
-        #kernel[1,1] = 1
         self.setDrawKernel(kernel_size=self.parent.brush_size)
         self.parent.current_stroke = []
         self.parent.in_stroke = False
@@ -446,17 +670,14 @@ class ImageDraw(pg.ImageItem):
         return
 
     def hoverEvent(self, ev):
-        #QtWidgets.QApplication.setOverrideCursor(QtCore.Qt.CrossCursor)
         if self.parent.in_stroke:
             if self.parent.in_stroke:
                 # continue stroke if not at start
                 self.drawAt(ev.pos())
                 if self.is_at_start(ev.pos()):
-                    #self.parent.in_stroke = False
                     self.end_stroke()
         else:
             ev.acceptClicks(QtCore.Qt.RightButton)
-            #ev.acceptClicks(QtCore.Qt.LeftButton)
 
     def create_start(self, pos):
         self.scatter = pg.ScatterPlotItem([pos.x()], [pos.y()], pxMode=False,
@@ -476,7 +697,6 @@ class ImageDraw(pg.ImageItem):
             dist = (((stroke[1:, 1:] -
                       stroke[:1, 1:][np.newaxis, :, :])**2).sum(axis=-1))**0.5
             dist = dist.flatten()
-            #print(dist)
             has_left = (dist > thresh_out).nonzero()[0]
             if len(has_left) > 0:
                 first_left = np.sort(has_left)[0]
@@ -507,9 +727,6 @@ class ImageDraw(pg.ImageItem):
 
     def tabletEvent(self, ev):
         pass
-        #print(ev.device())
-        #print(ev.pointerType())
-        #print(ev.pressure())
 
     def drawAt(self, pos, ev=None):
         mask = self.strokemask

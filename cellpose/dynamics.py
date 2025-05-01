@@ -2,23 +2,21 @@
 Copyright © 2023 Howard Hughes Medical Institute, Authored by Carsen Stringer and Marius Pachitariu.
 """
 
-import time, os
-from scipy.ndimage import maximum_filter1d, find_objects, center_of_mass, mean
+import os
+from scipy.ndimage import find_objects, center_of_mass, mean
 import torch
 import numpy as np
 import tifffile
 from tqdm import trange
-import cv2
 import fastremap
 
 import logging
 
 dynamics_logger = logging.getLogger(__name__)
 
-from . import utils, transforms
+from . import utils
 
 import torch
-from torch import optim, nn
 import torch.nn.functional as F
 
 def _extend_centers_gpu(neighbors, meds, isneighbor, shape, n_iter=200, 
@@ -190,7 +188,6 @@ def masks_to_flows_gpu_3d(masks, device=None, niter=None):
     for i, si in enumerate(slices):
         if si is not None:
             sz, sy, sx = si
-            #lz, ly, lx = sr.stop - sr.start + 1, sc.stop - sc.start + 1
             zi, yi, xi = np.nonzero(masks[sz, sy, sx] == (i + 1))
             zi = zi.astype(np.int32) + 1  # add padding
             yi = yi.astype(np.int32) + 1  # add padding
@@ -621,23 +618,6 @@ def resize_and_compute_masks(dP, cellprob, niter=200, cellprob_threshold=0.0,
 
     if resize is not None:
         dynamics_logger.warning("Resizing is depricated in v4.0.1+")
-
-        # if len(resize) == 2:
-        #     mask = transforms.resize_image(mask, resize[0], resize[1], no_channels=True,
-        #                                    interpolation=cv2.INTER_NEAREST)
-        # else:
-        #     Lz, Ly, Lx = resize
-        #     if mask.shape[0] != Lz or mask.shape[1] != Ly:
-        #         dynamics_logger.info("resizing 3D masks to original image size")
-        #         if mask.shape[1] != Ly:
-        #             mask = transforms.resize_image(mask, Ly=Ly, Lx=Lx,
-        #                                         no_channels=True, 
-        #                                         interpolation=cv2.INTER_NEAREST)
-        #         if mask.shape[0] != Lz:
-        #             mask = transforms.resize_image(mask.transpose(1,0,2),
-        #                                             Ly=Lz, Lx=Lx,
-        #                                             no_channels=True, 
-        #                                             interpolation=cv2.INTER_NEAREST).transpose(1,0,2)
 
     mask = utils.fill_holes_and_remove_small_masks(mask, min_size=min_size)
 

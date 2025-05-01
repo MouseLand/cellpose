@@ -1,9 +1,8 @@
-from cellpose import io, models, train, plot
-from pathlib import Path
+from cellpose import io, models, train
 from subprocess import check_output, STDOUT
 import os, shutil
-from glob import glob
 import torch
+
 
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
@@ -15,7 +14,7 @@ def test_class_train(data_dir):
     output = io.load_train_test_data(train_dir, mask_filter='_cyto_masks')
     images, labels, image_names, test_images, test_labels, image_names_test = output
     use_gpu = torch.cuda.is_available()
-    model = models.CellposeModel(pretrained_model=None, gpu=use_gpu)
+    model = models.CellposeModel(gpu=use_gpu)
     cpmodel_path = train.train_seg(model.net, images, labels, train_files=image_names,
                                    test_data=test_images, test_labels=test_labels,
                                    test_files=image_names_test,

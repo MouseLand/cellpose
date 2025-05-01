@@ -1,8 +1,8 @@
 import time
 import os
 import numpy as np
-from cellpose import io, transforms, utils, models, dynamics
-from cellpose.transforms import normalize_img
+from cellpose import io, utils, models, dynamics
+from cellpose.transforms import normalize_img, random_rotate_and_resize
 from pathlib import Path
 import torch
 from torch import nn
@@ -80,7 +80,7 @@ def _reshape_norm(data, channel_axis=None, normalize_params={"normalize": False}
         data = data_new
     if normalize_params["normalize"]:
         data = [
-            transforms.normalize_img(td, normalize=normalize_params, axis=0)
+            normalize_img(td, normalize=normalize_params, axis=0)
             for td in data
         ]
     return data
@@ -119,11 +119,11 @@ def _reshape_norm_save(files, channels=None, channel_axis=None,
     for f in trange(files):
         td = io.imread(f)
         if channels is not None:
-            td = transforms.convert_image(td, channels=channels,
+            td = convert_image(td, channels=channels,
                                           channel_axis=channel_axis)
             td = td.transpose(2, 0, 1)
         if normalize_params["normalize"]:
-            td = transforms.normalize_img(td, normalize=normalize_params, axis=0)
+            td = normalize_img(td, normalize=normalize_params, axis=0)
         fnew = os.path.splitext(str(f))[0] + "_cpnorm.tif"
         io.imsave(fnew, td)
         files_new.append(fnew)
@@ -448,7 +448,7 @@ def train_seg(net, train_data=None, train_labels=None, train_files=None,
             rsc = diams / net.diam_mean.item() if rescale else np.ones(
                 len(diams), "float32")
             # augmentations
-            imgi, lbl = transforms.random_rotate_and_resize(imgs, Y=lbls, rescale=rsc,
+            imgi, lbl = random_rotate_and_resize(imgs, Y=lbls, rescale=rsc,
                                                             scale_range=scale_range,
                                                             xy=(bsize, bsize))[:2]
             # network and loss optimization
@@ -492,7 +492,7 @@ def train_seg(net, train_data=None, train_labels=None, train_files=None,
                         diams = np.array([diam_test[i] for i in inds])
                         rsc = diams / net.diam_mean.item() if rescale else np.ones(
                             len(diams), "float32")
-                        imgi, lbl = transforms.random_rotate_and_resize(
+                        imgi, lbl = random_rotate_and_resize(
                             imgs, Y=lbls, rescale=rsc, scale_range=scale_range,
                             xy=(bsize, bsize))[:2]
                         X = torch.from_numpy(imgi).to(device)
