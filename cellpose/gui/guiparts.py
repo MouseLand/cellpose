@@ -211,7 +211,7 @@ class ObservableVariable(QtCore.QObject):
     
     def __isub__(self, amount):
         if not isinstance(amount, (int, float)):
-            raise TypeError("Value must be int.")
+            raise TypeError("Value must be numeric.")
         self.set(self._value - amount)
         return self
     
@@ -303,7 +303,7 @@ class SegmentationSettings(QWidget):
         self.norm_percentile_low_box.setFixedWidth(40)
         self.norm_percentile_low_box.setToolTip("pixels at this percentile set to 0 (default 1.0)")
         self.norm_percentile_low_box.setValidator(validator)
-        self.norm_percentile_low_box.textEdited.connect(self.validate_normalization_range)
+        self.norm_percentile_low_box.editingFinished.connect(self.validate_normalization_range)
         grid_layout.addWidget(self.norm_percentile_low_box, row, 2, 1, 1)
 
         high_norm_qlabel = QLabel('upper:')
@@ -316,7 +316,7 @@ class SegmentationSettings(QWidget):
         self.norm_percentile_high_box.setFixedWidth(40)
         self.norm_percentile_high_box.setToolTip("pixels at this percentile set to 1 (default 99.0)")
         self.norm_percentile_high_box.setValidator(validator)
-        self.norm_percentile_high_box.textEdited.connect(self.validate_normalization_range)
+        self.norm_percentile_high_box.editingFinished.connect(self.validate_normalization_range)
         grid_layout.addWidget(self.norm_percentile_high_box, row, 6, 1, 2)
 
         row += 1
@@ -341,8 +341,12 @@ class SegmentationSettings(QWidget):
         low_text = self.norm_percentile_low_box.text()
         high_text = self.norm_percentile_high_box.text()
         
-        if not low_text or not high_text:
-            return  # Don't validate if either field is empty
+        if not low_text or low_text.isspace():
+            self.norm_percentile_low_box.setText('1.0')
+            low_text = '1.0'
+        elif not high_text or high_text.isspace():
+            self.norm_percentile_high_box.setText('1.0')
+            high_text = '99.0'
 
         low = float(low_text)
         high = float(high_text)
@@ -358,10 +362,20 @@ class SegmentationSettings(QWidget):
 
     @property
     def low_percentile(self):
+        """ Also validate the low input by returning 1.0 if text doesn't work """
+        low_text = self.norm_percentile_low_box.text()
+        if not low_text or low_text.isspace():
+            self.norm_percentile_low_box.setText('1.0')
+            low_text = '1.0'
         return float(self.norm_percentile_low_box.text())
     
     @property
     def high_percentile(self):
+        """ Also validate the high input by returning 99.0 if text doesn't work """
+        high_text = self.norm_percentile_high_box.text()
+        if not high_text or high_text.isspace():
+            self.norm_percentile_high_box.setText('99.0')
+            high_text = '99.0'
         return float(self.norm_percentile_high_box.text())
     
     @property
