@@ -63,7 +63,6 @@ class QHLine(QFrame):
     def __init__(self):
         super(QHLine, self).__init__()
         self.setFrameShape(QFrame.HLine)
-        #self.setFrameShadow(QFrame.Sunken)
         self.setLineWidth(8)
 
 
@@ -175,9 +174,7 @@ def run(image=None):
     app.setWindowIcon(app_icon)
     app.setStyle("Fusion")
     app.setPalette(guiparts.DarkPalette())
-    #app.setStyleSheet("QLineEdit { color: yellow }")
 
-    # models.download_model_weights() # does not exist
     MainW(image=image, logger=logger)
     ret = app.exec_()
     sys.exit(ret)
@@ -306,7 +303,6 @@ class MainW(QMainWindow):
         self.flow3D_smooth = 0.
         self.anisotropy = 1.
         self.min_size = 15
-        # self.resample = True
 
         self.setAcceptDrops(True)
         self.win.show()
@@ -400,7 +396,6 @@ class MainW(QMainWindow):
             self.sliders[-1].setToolTip(
                 "NOTE: manually changing the saturation bars does not affect normalization in segmentation"
             )
-            #self.sliders[-1].setTickPosition(QSlider.TicksRight)
             self.satBoxG.addWidget(self.sliders[-1], widget_row, 2, 1, 7)
 
         b += 1
@@ -527,6 +522,8 @@ class MainW(QMainWindow):
         self.segBoxG.addWidget(self.progress, widget_row, 4, 1, 5)
 
         widget_row += 1
+
+        ############################### Segmentation settings ###############################
         self.additional_seg_settings_qcollapsible = QCollapsible("additional settings")
         self.additional_seg_settings_qcollapsible.setFont(self.medfont)
         self.additional_seg_settings_qcollapsible._toggle_btn.setFont(self.medfont)
@@ -540,106 +537,6 @@ class MainW(QMainWindow):
         # Needed to do this for the drop down to not be open on startup
         self.additional_seg_settings_qcollapsible._toggle_btn.setChecked(True)
         self.additional_seg_settings_qcollapsible._toggle_btn.setChecked(False)
-        
-
-        # self.segaBoxG = QGridLayout()
-        # _content = QWidget()
-        # _content.setLayout(self.segaBoxG)
-        # _content.setMaximumHeight(0)
-        # _content.setMinimumHeight(0)
-        # self.additional_seg_settings_qcollapsible.setContent(_content)
-        # self.segBoxG.addWidget(self.additional_seg_settings_qcollapsible, widget_row, 0, 1, 9)
-
-        # widget_row = 0
-        # # post-hoc paramater tuning
-        # diam_qlabel = QLabel("diameter:")
-        # diam_qlabel.setToolTip("diameter of cells in pixels. If not 30, image will be resized to this")
-        # diam_qlabel.setFont(self.medfont)
-        # self.segaBoxG.addWidget(diam_qlabel, widget_row, 0, 1, 2)
-        # self.diameter_box = QLineEdit()
-        # self.diameter_box.setText(" ")
-        # self.diameter_box.setFont(self.medfont)
-        # self.diameter_box.setToolTip("diameter of cells in pixels. If not blank, image will be resized relative to 30 pixel cell diameters")
-        # self.diameter_box.setFixedWidth(40)
-        # self.segaBoxG.addWidget(self.diameter_box, widget_row, 2, 1, 2)
-
-        # widget_row += 1
-
-        # label = QLabel("flow\nthreshold:")
-        # label.setToolTip(
-        #     "threshold on flow error to accept a mask (set higher to get more cells, e.g. in range from (0.1, 3.0), OR set to 0.0 to turn off so no cells discarded);\n press enter to recompute if model already run"
-        # )
-        # label.setFont(self.medfont)
-        # self.segaBoxG.addWidget(label, widget_row, 0, 1, 2)
-        # self.flow_threshold = QLineEdit()
-        # self.flow_threshold.setText("0.4")
-        # self.flow_threshold.returnPressed.connect(self.compute_cprob)
-        # self.flow_threshold.setFixedWidth(40)
-        # self.flow_threshold.setFont(self.medfont)
-        # self.segaBoxG.addWidget(self.flow_threshold, widget_row, 2, 1, 2)
-        # self.flow_threshold.setToolTip(
-        #     "threshold on flow error to accept a mask (set higher to get more cells, e.g. in range from (0.1, 3.0), OR set to 0.0 to turn off so no cells discarded);\n press enter to recompute if model already run"
-        # )
-
-        # label = QLabel("cellprob\nthreshold:")
-        # label.setToolTip(
-        #     "threshold on cellprob output to seed cell masks (set lower to include more pixels or higher to include fewer, e.g. in range from (-6, 6)); \n press enter to recompute if model already run"
-        # )
-        # label.setFont(self.medfont)
-        # self.segaBoxG.addWidget(label, widget_row, 4, 1, 2)
-        # self.cellprob_threshold = QLineEdit()
-        # self.cellprob_threshold.setText("0.0")
-        # self.cellprob_threshold.returnPressed.connect(self.compute_cprob)
-        # self.cellprob_threshold.setFixedWidth(40)
-        # self.cellprob_threshold.setFont(self.medfont)
-        # self.cellprob_threshold.setToolTip(
-        #     "threshold on cellprob output to seed cell masks (set lower to include more pixels or higher to include fewer, e.g. in range from (-6, 6)); \n press enter to recompute if model already run"
-        # )
-        # self.segaBoxG.addWidget(self.cellprob_threshold, widget_row, 6, 1, 2)
-
-        # widget_row += 1
-        # label = QLabel("norm percentiles:")
-        # label.setToolTip(
-        #     "sets normalization percentiles for segmentation and denoising\n(pixels at lower percentile set to 0.0 and at upper set to 1.0 for network)"
-        # )
-        # label.setFont(self.medfont)
-        # self.segaBoxG.addWidget(label, widget_row, 0, 1, 8)
-
-        # widget_row += 1
-        # self.norm_vals = [1., 99.]
-        # self.norm_edits = []
-        # labels = ["lower", "upper"]
-        # tooltips = [
-        #     "pixels at this percentile set to 0 (default 1.0)",
-        #     "pixels at this percentile set to 1  (default 99.0)"
-        # ]
-        # for p in range(2):
-        #     label = QLabel(f"{labels[p]}:")
-        #     label.setToolTip(tooltips[p])
-        #     label.setFont(self.medfont)
-        #     self.segaBoxG.addWidget(label, widget_row, 4 * (p % 2), 1, 2)
-        #     self.norm_edits.append(QLineEdit())
-        #     self.norm_edits[p].setText(str(self.norm_vals[p]))
-        #     self.norm_edits[p].setFixedWidth(40)
-        #     self.norm_edits[p].setFont(self.medfont)
-        #     self.segaBoxG.addWidget(self.norm_edits[p], widget_row, 4 * (p % 2) + 2, 1, 2)
-        #     self.norm_edits[p].setToolTip(tooltips[p])
-
-        # widget_row += 1
-        # label = QLabel("niter dynamics:")
-        # label.setFont(self.medfont)
-        # label.setToolTip(
-        #     "number of iterations for dynamics (0 uses default based on diameter); use 2000 for bacteria"
-        # )
-        # self.segaBoxG.addWidget(label, widget_row, 0, 1, 4)
-        # self.niter = QLineEdit()
-        # self.niter.setText("0")
-        # self.niter.setFixedWidth(40)
-        # self.niter.setFont(self.medfont)
-        # self.niter.setToolTip(
-        #     "number of iterations for dynamics (0 uses default based on diameter); use 2000 for bacteria"
-        # )
-        # self.segaBoxG.addWidget(self.niter, widget_row, 4, 1, 2)
 
         b += 1
         self.modelBox = QGroupBox("user-trained models")
@@ -855,32 +752,6 @@ class MainW(QMainWindow):
         else:
             self.useGPU.setStyleSheet("color: rgb(80,80,80);")
 
-    def get_channels(self):
-        # channels = [
-        #     self.ChannelChoose[0].currentIndex(), self.ChannelChoose[1].currentIndex()
-        # ]
-        # if hasattr(self, "current_model"):
-        #     if self.current_model == "nuclei":
-        #         channels[1] = 0
-        # if channels[0] == 0:
-        #     channels[1] = 0
-        # if self.nchan == 1:
-        #     channels = [0, 0]
-        # elif self.nchan == 2:
-        #     if channels[0] == 3:
-        #         channels[0] = 1 if channels[1] != 1 else 2
-        #         print(
-        #             f"GUI_WARNING: only two channels in image, cannot use blue channel, changing channels"
-        #         )
-        #     if channels[1] == 3:
-        #         channels[1] = 1 if channels[0] != 1 else 2
-        #         print(
-        #             f"GUI_WARNING: only two channels in image, cannot use blue channel, changing channels"
-        #         )
-        # self.ChannelChoose[0].setCurrentIndex(channels[0])
-        # self.ChannelChoose[1].setCurrentIndex(channels[1])
-        # return channels
-        pass
 
     def model_choose(self, custom=False):
         index = self.ModelChooseC.currentIndex(
@@ -892,23 +763,7 @@ class MainW(QMainWindow):
                 model_name = self.net_names[index - 1]
             print(f"GUI_INFO: selected model {model_name}, loading now")
             self.initialize_model(model_name=model_name, custom=custom)
-            # self.diameter = self.model.diam_labels
-            # self.Diameter.setText("%0.2f" % self.diameter)
-            # print(
-            #     f"GUI_INFO: diameter set to {self.diameter: 0.2f} (but can be changed)")
 
-    # def calibrate_size(self):
-    #     self.initialize_model(model_name="cyto3")
-    #     diams, _ = self.model.sz.eval(self.stack[self.currentZ].copy(),
-    #                                   channels=self.get_channels(),
-    #                                   progress=self.progress)
-    #     diams = np.maximum(5.0, diams)
-    #     self.logger.info("estimated diameter of cells using %s model = %0.1f pixels" %
-    #                      (self.current_model, diams))
-    #     self.Diameter.setText("%0.1f" % diams)
-    #     self.diameter = diams
-    #     self.update_scale()
-    #     self.progress.setValue(100)
 
     def toggle_scale(self):
         if self.scale_on:
@@ -1081,7 +936,6 @@ class MainW(QMainWindow):
         self.scale = pg.ImageItem(viewbox=self.p0, parent=self)
         self.scale.setLevels([0, 255])
         self.p0.scene().contextMenuItem = self.p0
-        #self.p0.setMouseEnabled(x=False,y=False)
         self.Ly, self.Lx = 512, 512
         self.p0.addItem(self.img)
         self.p0.addItem(self.layer)
@@ -1124,11 +978,6 @@ class MainW(QMainWindow):
         self.layerz = 0 * np.ones((self.Ly, self.Lx, 4), np.uint8)
         self.cellpix = np.zeros((1, self.Ly, self.Lx), np.uint16)
         self.outpix = np.zeros((1, self.Ly, self.Lx), np.uint16)
-        # if self.restore and "upsample" in self.restore:
-        #     self.cellpix_resize = self.cellpix
-        #     self.cellpix_orig = self.cellpix
-        #     self.outpix_resize = self.cellpix
-        #     self.outpix_orig = self.cellpix
         self.ismanual = np.zeros(0, "bool")
 
         # -- set menus to default -- #
@@ -1141,7 +990,6 @@ class MainW(QMainWindow):
 
         self.clear_all()
 
-        #self.update_plot()
         self.filename = []
         self.loaded = False
         self.recompute_masks = False
@@ -1424,7 +1272,6 @@ class MainW(QMainWindow):
                 self.layerz[stroke[outpix, 1], stroke[outpix,
                                                       2]] = np.array(self.outcolor)
             if delete_points:
-                # self.current_point_set = self.current_point_set[:-1*(stroke[:,-1]==1).sum()]
                 del self.current_point_set[stroke_ind]
             self.update_layer()
 
@@ -1504,26 +1351,9 @@ class MainW(QMainWindow):
         self.view = self.ViewDropDown.currentIndex()
         self.Ly, self.Lx, _ = self.stack[self.currentZ].shape
 
-        # if self.restore and "upsample" in self.restore:
-        #     if self.view != 0:
-        #         if self.view == 3:
-        #             self.resize = True
-        #         elif len(self.flows[0]) > 0 and self.flows[0].shape[1] == self.Lyr:
-        #             self.resize = True
-        #         else:
-        #             self.resize = False
-        #     else:
-        #         self.resize = False
-        #     self.draw_layer()
-        #     self.update_scale()
-        #     self.update_layer()
-
         if self.view == 0 or self.view == self.ViewDropDown.count() - 1:
             image = self.stack[
                 self.currentZ] if self.view == 0 else self.stack_filtered[self.currentZ]
-            # if self.nchan == 1:
-            #     # show single channel
-            #     image = image[..., 0]
             if self.color == 0:
                 self.img.setImage(image, autoLevels=False, lut=None)
                 if self.nchan > 1:
@@ -1571,16 +1401,13 @@ class MainW(QMainWindow):
         self.win.show()
         self.show()
 
+
     def update_layer(self):
         if self.masksOn or self.outlinesOn:
-            #self.draw_layer()
             self.layer.setImage(self.layerz, autoLevels=False)
-        # self.update_roi_count()
         self.win.show()
         self.show()
 
-    # def update_roi_count(self):
-    #     self.roi_count.setText(f"{self.ncells} ROIs")
 
     def add_set(self):
         if len(self.current_point_set) > 0:
@@ -1737,11 +1564,6 @@ class MainW(QMainWindow):
         self.win.show()
         self.show()
 
-    # def redraw_masks(self, masks=True, outlines=True, draw=True):
-    #     self.draw_layer()
-
-    # def draw_masks(self):
-    #     self.draw_layer()
 
     def draw_layer(self):
         if self.resize:
@@ -1758,7 +1580,6 @@ class MainW(QMainWindow):
                     self.cellpix = self.cellpix_orig.copy()
                     self.outpix = self.outpix_orig.copy()
 
-        #print(self.cellpix.shape, self.outpix.shape, self.cellpix.max(), self.outpix.max())
         self.layerz = np.zeros((self.Ly, self.Lx, 4), np.uint8)
         if self.masksOn:
             self.layerz[..., :3] = self.cellcolors[self.cellpix[self.currentZ], :]
@@ -1792,7 +1613,6 @@ class MainW(QMainWindow):
                 if key != "percentile":
                     normalize_params[key] = normalize_default[key]
         normalize_params = {**normalize_default, **normalize_params}
-        # percentile = self.check_percentile_params(normalize_params["percentile"])
         out = self.check_filter_params(normalize_params["sharpen_radius"],
                                        normalize_params["smooth_radius"],
                                        normalize_params["tile_norm_blocksize"],
@@ -1800,22 +1620,6 @@ class MainW(QMainWindow):
                                        normalize_params["norm3D"],
                                        normalize_params["invert"])
 
-    # def check_percentile_params(self, percentile):
-    #     # check normalization params
-    #     if percentile is not None and not (percentile[0] >= 0 and percentile[1] > 0 and
-    #                                        percentile[0] < 100 and percentile[1] <= 100
-    #                                        and percentile[1] > percentile[0]):
-    #         print(
-    #             "GUI_ERROR: percentiles need be between 0 and 100, and upper > lower, using defaults"
-    #         )
-    #         self.norm_edits[0].setText("1.")
-    #         self.norm_edits[1].setText("99.")
-    #         percentile = [1., 99.]
-    #     elif percentile is None:
-    #         percentile = [1., 99.]
-    #     self.norm_edits[0].setText(str(percentile[0]))
-    #     self.norm_edits[1].setText(str(percentile[1]))
-    #     return percentile
 
     def check_filter_params(self, sharpen, smooth, tile_norm, smooth3D, norm3D, invert):
         tile_norm = 0 if tile_norm < 0 else tile_norm
@@ -1838,16 +1642,12 @@ class MainW(QMainWindow):
 
     def get_normalize_params(self):
         percentile = [
-            # float(self.norm_edits[0].text()),
-            # float(self.norm_edits[1].text())
             self.segmentation_settings.low_percentile,
             self.segmentation_settings.high_percentile,
         ]
-        # self.check_percentile_params(percentile)
         normalize_params = {"percentile": percentile}
         norm3D = self.norm3D_cb.isChecked()
         normalize_params["norm3D"] = norm3D
-        # if self.restore == "filter":
         sharpen = float(self.filt_edits[0].text())
         smooth = float(self.filt_edits[1].text())
         tile_norm = float(self.filt_edits[2].text())
@@ -1878,17 +1678,12 @@ class MainW(QMainWindow):
         smooth3D = norm["tile_norm_smooth3D"]
         tile_norm = norm["tile_norm_blocksize"]
 
-        # # if grayscale, use gray img
-        # channels = [2]
-        # if channels[0] == 0:
-        #     img_norm = self.stack.mean(axis=-1, keepdims=True)
         if sharpen > 0 or smooth > 0 or tile_norm > 0:
             img_norm = self.stack.copy()
         else:
             img_norm = self.stack
 
         if sharpen > 0 or smooth > 0 or tile_norm > 0:
-            # self.clear_restore()
             self.restore = "filter"
             print(
                 "GUI_INFO: computing filtered image because sharpen > 0 or tile_norm > 0"
@@ -1917,8 +1712,6 @@ class MainW(QMainWindow):
             self.ViewDropDown.model().item(self.ViewDropDown.count() -
                                            1).setEnabled(True)
             self.ViewDropDown.setCurrentIndex(self.ViewDropDown.count() - 1)
-        # elif invert:
-        #     img_norm = self.stack.copy()
         else:
             img_norm = self.stack if self.restore is None or self.restore == "filter" else self.stack_filtered
 
@@ -1951,20 +1744,7 @@ class MainW(QMainWindow):
             else:
                 for n in range(self.NZ):
                     self.saturation[-1].append([0, 255.])
-        # # if only 2 restore channels, add blue
-        # if len(self.saturation) < 3:
-        #     for i in range(3 - len(self.saturation)):
-        #         self.saturation.append([])
-        #         for n in range(self.NZ):
-        #             self.saturation[-1].append([0, 255.])
         print(self.saturation[2][self.currentZ])
-
-        # if invert:
-        #     img_norm = 255. - img_norm
-        #     self.stack_filtered = img_norm
-        #     self.ViewDropDown.model().item(self.ViewDropDown.count() -
-        #                                    1).setEnabled(True)
-        #     self.ViewDropDown.setCurrentIndex(self.ViewDropDown.count() - 1)
 
         if img_norm.shape[-1] == 1:
             self.saturation.append(self.saturation[0])
@@ -1973,17 +1753,6 @@ class MainW(QMainWindow):
         self.autobtn.setChecked(True)
         self.update_plot()
 
-    # def chanchoose(self, image):
-    #     if image.ndim > 2 and self.nchan > 1:
-    #         if self.ChannelChoose[0].currentIndex() == 0:
-    #             return image.mean(axis=-1, keepdims=True)
-    #         else:
-    #             chanid = [self.ChannelChoose[0].currentIndex() - 1]
-    #             if self.ChannelChoose[1].currentIndex() > 0:
-    #                 chanid.append(self.ChannelChoose[1].currentIndex() - 1)
-    #             return image[:, :, chanid]
-    #     else:
-    #         return image
 
     def get_model_path(self, custom=False):
         if custom:
@@ -2050,7 +1819,6 @@ class MainW(QMainWindow):
         
         self.model = models.CellposeModel(gpu=self.useGPU.isChecked(),
                                           model_type=model_type)
-        # self.SizeButton.setEnabled(False)
         save_path = os.path.dirname(self.filename)
 
         print("GUI_INFO: name of new model: " + self.training_params["model_name"])
@@ -2070,9 +1838,6 @@ class MainW(QMainWindow):
         self.new_model_ind = len(self.model_strings)
         self.autorun = True
         self.clear_all()
-        # self.diameter = diam_labels
-        # self.Diameter.setText("%0.2f" % self.diameter)
-        # self.logger.info(f">>>> diameter set to diam_labels ( = {diam_labels: 0.3f} )")
         self.restore = restore
         self.set_normalize_params(normalize_params)
         self.get_next_image(load_seg=False)
@@ -2082,21 +1847,6 @@ class MainW(QMainWindow):
             f"!!! computed masks for {os.path.split(self.filename)[1]} from new model !!!"
         )
 
-
-    # def get_thresholds(self):
-    #     try:
-    #         flow_threshold = float(self.flow_threshold.text())
-    #         cellprob_threshold = float(self.cellprob_threshold.text())
-    #         if flow_threshold == 0.0 or self.NZ > 1:
-    #             flow_threshold = None
-    #         return flow_threshold, cellprob_threshold
-    #     except Exception as e:
-    #         print(
-    #             "flow threshold or cellprob threshold not a valid number, setting to defaults"
-    #         )
-    #         self.flow_threshold.setText("0.4")
-    #         self.cellprob_threshold.setText("0.0")
-    #         return 0.4, 0.0
 
     def compute_cprob(self):
         if self.recompute_masks:
@@ -2141,7 +1891,6 @@ class MainW(QMainWindow):
             
             do_3D = False if stitch_threshold > 0. else do_3D
 
-            # channels = self.get_channels()
             if self.restore == "filter":
                 data = self.stack_filtered.copy().squeeze()
             else:
@@ -2152,17 +1901,11 @@ class MainW(QMainWindow):
             diameter = self.segmentation_settings.diameter
             niter = self.segmentation_settings.niter
             
-            # if data.ndim == 2:
-            #     data_new = np.zeros((data.shape[0], data.shape[1], 3), dtype=data.dtype)
-            #     data_new[..., 0] = data
-            #     data = data_new
-
             normalize_params = self.get_normalize_params()
             print(normalize_params)
             try:
                 masks, flows = self.model.eval(
                     data, 
-                    # channels=channels, 
                     diameter=diameter,
                     cellprob_threshold=cellprob_threshold,
                     flow_threshold=flow_threshold, do_3D=do_3D, niter=niter,
@@ -2201,8 +1944,6 @@ class MainW(QMainWindow):
                 else:
                     self.flows = flows_new
             else:
-                # Resample is removed:
-                # if not resample:
                 self.flows = []
                 Lz, Ly, Lx = self.NZ, self.Ly, self.Lx
                 Lz0, Ly0, Lx0 = flows_new[0].shape[:3]
@@ -2219,8 +1960,6 @@ class MainW(QMainWindow):
                                             no_channels=flow0.ndim==3, 
                                             interpolation=cv2.INTER_NEAREST), 0, 1)
                     self.flows.append(flow0)
-                # else:
-                #     self.flows = flows_new
 
             # add first axis
             if self.NZ == 1:

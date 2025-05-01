@@ -286,7 +286,6 @@ def run_3D(net, imgs, batch_size=8, augment=False,
     cp = [(1, 2), (0, 2), (0, 1)]
     cpy = [(0, 1), (0, 1), (0, 1)]
     shape = imgs.shape[:-1]
-    #cellprob = np.zeros(shape, "float32")
     yf = np.zeros((*shape, 4), "float32")
     for p in range(3):
         xsl = imgs.transpose(pm[p])
@@ -294,7 +293,6 @@ def run_3D(net, imgs, batch_size=8, augment=False,
         core_logger.info("running %s: %d planes of size (%d, %d)" %
                          (sstr[p], shape[pm[p][0]], shape[pm[p][1]], shape[pm[p][2]]))
         y, style = run_net(net,
-                        #    net if p==0 or net_ortho is None else net_ortho, 
                            xsl, batch_size=batch_size, augment=augment, 
                            bsize=bsize, tile_overlap=tile_overlap, 
                            rsz=None)

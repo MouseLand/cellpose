@@ -158,9 +158,7 @@ def _train_cellposemodel_cli(args, logger, image_filter, device, pretrained_mode
             test_files=image_names_test, train_probs=train_probs,
             test_probs=test_probs, compute_flows=compute_flows,
             load_files=load_files, normalize=normalize,
-            # channels=channels, 
             channel_axis=args.channel_axis, 
-            # rgb=(nchan == 3),
             learning_rate=args.learning_rate, weight_decay=args.weight_decay,
             SGD=args.SGD, n_epochs=args.n_epochs, batch_size=args.batch_size,
             min_train_masks=args.min_train_masks,
@@ -220,7 +218,6 @@ def _evaluate_cellposemodel_cli(args, logger, imf, device, pretrained_model, nor
                 diameter=args.diameter, 
                 do_3D=args.do_3D,
                 augment=args.augment, 
-                # resample=(not args.no_resample),
                 flow_threshold=args.flow_threshold,
                 cellprob_threshold=args.cellprob_threshold,
                 stitch_threshold=args.stitch_threshold, 
@@ -240,8 +237,6 @@ def _evaluate_cellposemodel_cli(args, logger, imf, device, pretrained_model, nor
         if not args.no_npy:
             io.masks_flows_to_seg(image, masks, flows, image_name,
                                         imgs_restore=None, 
-                                    #   channels=channels,
-                                    #   diams=diams, 
                                         restore_type=None,
                                         ratio=1.)
         if saving_something:

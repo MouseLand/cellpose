@@ -228,7 +228,15 @@ class ObservableVariable(QtCore.QObject):
         return self._value == x
 
 
+class NormalizationSettings(QWidget):
+    # TODO
+    pass
+
+
 class SegmentationSettings(QWidget):
+    """ Container for gui settings. Validation is done automatically so any attributes can 
+    be acessed without concern.  
+    """
     def __init__(self, font):
         super().__init__()
 
@@ -447,7 +455,6 @@ class TrainWindow(QDialog):
         yoff += 1
         self.use_norm = QCheckBox(f"use restored/filtered image")
         self.use_norm.setChecked(True)
-        #self.l0.addWidget(self.use_norm, yoff, 0, 2, 4)
 
         yoff += 2
         qlabel = QLabel(
@@ -605,8 +612,6 @@ class ImageDraw(pg.ImageItem):
 
     def __init__(self, image=None, viewbox=None, parent=None, **kargs):
         super(ImageDraw, self).__init__()
-        #self.image=None
-        #self.viewbox=viewbox
         self.levels = np.array([0, 255])
         self.lut = None
         self.autoDownsample = False
@@ -614,7 +619,6 @@ class ImageDraw(pg.ImageItem):
         self.removable = False
 
         self.parent = parent
-        #kernel[1,1] = 1
         self.setDrawKernel(kernel_size=self.parent.brush_size)
         self.parent.current_stroke = []
         self.parent.in_stroke = False
@@ -666,17 +670,14 @@ class ImageDraw(pg.ImageItem):
         return
 
     def hoverEvent(self, ev):
-        #QtWidgets.QApplication.setOverrideCursor(QtCore.Qt.CrossCursor)
         if self.parent.in_stroke:
             if self.parent.in_stroke:
                 # continue stroke if not at start
                 self.drawAt(ev.pos())
                 if self.is_at_start(ev.pos()):
-                    #self.parent.in_stroke = False
                     self.end_stroke()
         else:
             ev.acceptClicks(QtCore.Qt.RightButton)
-            #ev.acceptClicks(QtCore.Qt.LeftButton)
 
     def create_start(self, pos):
         self.scatter = pg.ScatterPlotItem([pos.x()], [pos.y()], pxMode=False,
@@ -696,7 +697,6 @@ class ImageDraw(pg.ImageItem):
             dist = (((stroke[1:, 1:] -
                       stroke[:1, 1:][np.newaxis, :, :])**2).sum(axis=-1))**0.5
             dist = dist.flatten()
-            #print(dist)
             has_left = (dist > thresh_out).nonzero()[0]
             if len(has_left) > 0:
                 first_left = np.sort(has_left)[0]
@@ -727,9 +727,6 @@ class ImageDraw(pg.ImageItem):
 
     def tabletEvent(self, ev):
         pass
-        #print(ev.device())
-        #print(ev.pointerType())
-        #print(ev.pressure())
 
     def drawAt(self, pos, ev=None):
         mask = self.strokemask

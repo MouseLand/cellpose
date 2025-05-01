@@ -65,9 +65,6 @@ def interpZ(mask, zdraw):
         plower = avg3d(mask[zlower[k]]) * (1 - zl)
         pupper = avg3d(mask[zupper[k]]) * zl
         mask[z] = (plower + pupper) > 0.33
-        #Ml, norml = avg3d(mask[zlower[k]], zl)
-        #Mu, normu = avg3d(mask[zupper[k]], 1-zl)
-        #mask[z] = (Ml + Mu) / (norml + normu)  > 0.5
     return mask, zfill
 
 
@@ -102,9 +99,6 @@ def run(image=None):
     app.setWindowIcon(app_icon)
     app.setStyle("Fusion")
     app.setPalette(guiparts.DarkPalette())
-    #app.setStyleSheet("QLineEdit { color: yellow }")
-
-    # models.download_model_weights() # does not exist
     MainW_3d(image=image, logger=logger)
     ret = app.exec_()
     sys.exit(ret)
@@ -189,12 +183,6 @@ class MainW_3d(MainW):
             "for 3D volumes, increase in sampling in Z vs XY as a ratio, e.g. set set to 2.0 if Z is sampled half as dense as X or Y (see docs for details)"
         )
         self.segBoxG.addWidget(self.anisotropy, b, 4, 1, 1)
-
-        # self.resample = QCheckBox("resample")
-        # self.resample.setToolTip("reample before creating masks; if diameter > 30 resample will use more CPU+GPU memory (see docs for more details)")
-        # self.resample.setFont(self.medfont)
-        # self.resample.setChecked(True)
-        # self.segBoxG.addWidget(self.resample, b, 5, 1, 4)
 
         b+=1
         label = QLabel("min_size:")
@@ -399,15 +387,10 @@ class MainW_3d(MainW):
         qGraphicsGridLayout.setRowStretchFactor(0, 2)
         qGraphicsGridLayout.setRowStretchFactor(1, 1)
 
-        #self.p0.linkView(self.p0.YAxis, self.pOrtho[0])
-        #self.p0.linkView(self.p0.XAxis, self.pOrtho[1])
-
         self.pOrtho[0].setYRange(0, self.Lx)
         self.pOrtho[0].setXRange(-self.dz / 3, self.dz * 2 + self.dz / 3)
         self.pOrtho[1].setYRange(-self.dz / 3, self.dz * 2 + self.dz / 3)
         self.pOrtho[1].setXRange(0, self.Ly)
-        #self.pOrtho[0].setLimits(minXRange=self.dz*2+self.dz/3*2)
-        #self.pOrtho[1].setLimits(minYRange=self.dz*2+self.dz/3*2)
 
         self.p0.addItem(self.vLine, ignoreBounds=False)
         self.p0.addItem(self.hLine, ignoreBounds=False)
@@ -416,8 +399,6 @@ class MainW_3d(MainW):
 
         self.win.show()
         self.show()
-
-        #self.p0.linkView(self.p0.XAxis, self.pOrtho[1])
 
     def remove_orthoviews(self):
         self.win.removeItem(self.pOrtho[0])

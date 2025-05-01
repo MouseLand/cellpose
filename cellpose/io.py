@@ -68,7 +68,6 @@ def logger_setup(cp_path=".cellpose", logfile_name="run.log", stdout_file_replac
     logger = logging.getLogger(__name__)
     logger.info(f"WRITING LOG OUTPUT TO {log_file}")
     logger.info(version_str)
-    #logger.handlers[1].stream = sys.stdout
 
     return logger, log_file
 
@@ -440,7 +439,7 @@ def get_label_files(image_names, mask_filter, imf=None):
         label_names = [label_names[n] + mask_filter + ".tiff" for n in range(nimg)]
     elif os.path.exists(label_names[0] + mask_filter + ".png"):
         label_names = [label_names[n] + mask_filter + ".png" for n in range(nimg)]
-    # todo, allow _seg.npy
+    # TODO, allow _seg.npy
     #elif os.path.exists(label_names[0] + "_seg.npy"):
     #    io_logger.info("labels found as _seg.npy files, converting to tif")
     else:
@@ -528,7 +527,6 @@ def load_train_test_data(train_dir, test_dir=None, image_filter=None,
 
 
 def masks_flows_to_seg(images, masks, flows, file_names, 
-                    #    diams=30., 
                        channels=None,
                        imgs_restore=None, restore_type=None, ratio=1.):
     """Save output of model eval to be loaded in GUI.
@@ -553,8 +551,6 @@ def masks_flows_to_seg(images, masks, flows, file_names,
         channels = [0, 0]
 
     if isinstance(masks, list):
-        # if not isinstance(diams, (list, np.ndarray)):
-        #     diams = diams * np.ones(len(masks), np.float32)
         if imgs_restore is None:
             imgs_restore = [None] * len(masks)
         if isinstance(file_names, str):

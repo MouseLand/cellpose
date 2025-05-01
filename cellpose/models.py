@@ -45,22 +45,6 @@ def model_path(model_type, model_index=0):
     return cache_CPSAM_model_path()
 
 
-# def size_model_path(model_type):
-#     torch_str = "torch"
-#     if (model_type == "cyto" or model_type == "nuclei" or 
-#         model_type == "cyto2" or model_type == "cyto3"):
-#         if model_type == "cyto3":
-#             basename = "size_%s.npy" % model_type
-#         else:
-#             basename = "size_%s%s_0.npy" % (model_type, torch_str)
-#         return cache_model_path(basename)
-#     else:
-#         if os.path.exists(model_type) and os.path.exists(model_type + "_size.npy"):
-#             return model_type + "_size.npy"
-#         else:
-#             raise FileNotFoundError(f"size model not found ({model_type + '_size.npy'})")            
-        
-
 def cache_CPSAM_model_path():
     MODEL_DIR.mkdir(parents=True, exist_ok=True)
     cached_file = os.fspath(MODEL_DIR.joinpath('cpsam'))
@@ -116,7 +100,6 @@ class CellposeModel():
             diam_mean (float, optional): Mean "diameter", 30. is built-in value for "cyto" model; 17. is built-in value for "nuclei" model; if saved in custom model file (cellpose>=2.0) then it will be loaded automatically and overwrite this value.
             device (torch device, optional): Device used for model running / training (torch.device("cuda") or torch.device("cpu")), overrides gpu input, recommended if you want to use a specific GPU (e.g. torch.device("cuda:1")).
         """
-        # self.diam_mean = diam_mean
         if diam_mean is not None:
             models_logger.warning(
                 "diam_mean argument are not used in v4.0.1+. Ignoring this argument..."
@@ -286,11 +269,6 @@ class CellposeModel():
             x = x[np.newaxis, ...]
         nimg = x.shape[0]
         
-        # if diameter is not None and diameter > 0:
-        #     rescale = self.diam_mean / diameter
-        # elif rescale is None:
-        #     rescale = 1.0
-        
         image_scaling = None
         Ly_0 = x.shape[1]
         Lx_0 = x.shape[2]
@@ -336,12 +314,10 @@ class CellposeModel():
 
         dP, cellprob, styles = self._run_net(
             x, 
-            # rescale=rescale, 
             augment=augment, 
             batch_size=batch_size, 
             tile_overlap=tile_overlap, 
             bsize=bsize,
-            # resample=resample, 
             do_3D=do_3D, 
             anisotropy=anisotropy)
 
@@ -353,7 +329,6 @@ class CellposeModel():
             gc.collect()
 
         if compute_masks:
-            # niter0 = 200 if not resample else (1 / rescale * 200)
             niter0 = 200
             niter = niter0 if niter is None or niter == 0 else niter
             masks = self._compute_masks(x.shape, dP, cellprob, flow_threshold=flow_threshold,
@@ -410,13 +385,8 @@ class CellposeModel():
 
         if do_3D:
             Lz, Ly, Lx = shape[:-1]
-            # if rescale != 1.0 or (anisotropy is not None and anisotropy != 1.0):
             if anisotropy is not None and anisotropy != 1.0:
                 models_logger.info(f"resizing 3D image with anisotropy={anisotropy}")
-                # anisotropy = 1.0 if anisotropy is None else anisotropy
-                # if rescale != 1.0:
-                #     x = transforms.resize_image(x, Ly=int(Ly*rescale), 
-                #                                   Lx=int(Lx*rescale))
                 x = transforms.resize_image(x.transpose(1,0,2,3),
                                         Ly=int(Lz*anisotropy), 
                                         Lx=int(Lx)).transpose(1,0,2,3)
@@ -424,27 +394,14 @@ class CellposeModel():
                                 batch_size=batch_size, augment=augment,  
                                 tile_overlap=tile_overlap, 
                                 bsize=bsize
-                                # net_ortho=self.net_ortho
                                 )
-            # if resample:
-            #     if rescale != 1.0 or Lz != yf.shape[0]:
-            #         models_logger.info("resizing 3D flows and cellprob to original image size")
-            #         if rescale != 1.0:
-            #             yf = transforms.resize_image(yf, Ly=Ly, Lx=Lx)
-            #         if Lz != yf.shape[0]:
-            #             yf = transforms.resize_image(yf.transpose(1,0,2,3),
-            #                                 Ly=Lz, Lx=Lx).transpose(1,0,2,3)
             cellprob = yf[..., -1]
             dP = yf[..., :-1].transpose((3, 0, 1, 2))
         else:
             yf, styles = run_net(self.net, x, bsize=bsize, augment=augment,
                                 batch_size=batch_size,  
                                 tile_overlap=tile_overlap, 
-                                # rsz=rescale if rescale!=1.0 else None
                                 )
-            # if resample:
-            #     if rescale != 1.0:
-            #         yf = transforms.resize_image(yf, shape[1], shape[2])
             cellprob = yf[..., -1]
             dP = yf[..., -3:-1].transpose((3, 0, 1, 2))
             if yf.shape[-1] > 3:

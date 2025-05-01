@@ -157,52 +157,6 @@ def _initialize_images(parent, image, load_3D=False):
 
     """
     load_3D = parent.load_3D if load_3D is False else load_3D
-    # parent.nchan = 3
-    # if image.ndim > 4:
-    #     image = image.squeeze()
-    #     if image.ndim > 4:
-    #         raise ValueError("cannot load 4D stack, reduce dimensions")
-    # elif image.ndim == 1:
-    #     raise ValueError("cannot load 1D stack, increase dimensions")
-    # if image.ndim == 4:
-    #     if not load_3D:
-    #         raise ValueError(
-    #             "cannot load 3D stack, run 'python -m cellpose --Zstack' for 3D GUI")
-    #     else:
-    #         # check if tiff is channels first
-    #         if image.shape[0] < 4 and image.shape[0] == min(image.shape) and image.shape[0] < image.shape[1]:
-    #             # tiff is channels x Z x W x H => Z x channels x W x H
-    #             image = image.transpose((1, 0, 2, 3))
-    #         image = np.transpose(image, (0, 2, 3, 1))
-    # elif image.ndim == 3:
-    #     if not load_3D:
-    #         # assume smallest dimension is channels and put last
-    #         c = np.array(image.shape).argmin()
-    #         image = image.transpose(((c + 1) % 3, (c + 2) % 3, c))
-    #     elif load_3D:
-    #         # assume smallest dimension is Z and put first if <3x max dim
-    #         shape = np.array(image.shape)
-    #         z = shape.argmin()
-    #         if shape[z] < shape.max() / 3:
-    #             image = image.transpose((z, (z + 1) % 3, (z + 2) % 3))
-    #         image = image[..., np.newaxis]
-    # elif image.ndim == 2:
-    #     if not load_3D:
-    #         image = image[..., np.newaxis]
-    #     else:
-    #         raise ValueError(
-    #             "cannot load 2D stack in 3D mode, run 'python -m cellpose' for 2D GUI")
-    # if image.shape[-1] > 3:
-    #     print("WARNING: image has more than 3 channels, keeping only first 3")
-    #     image = image[..., :3]
-    # elif image.shape[-1] == 2:
-    #     # fill in with blank channels to make 3 channels
-    #     shape = image.shape
-    #     image = np.concatenate(
-    #         (image, np.zeros((*shape[:-1], 3 - shape[-1]), dtype=np.uint8)), axis=-1)
-    #     parent.nchan = 2
-    # elif image.shape[-1] == 1:
-    #     parent.nchan = 1
 
     parent.stack = image
     print(f"GUI_INFO: image shape: {image.shape}")
@@ -322,50 +276,9 @@ def _load_seg(parent, filename=None, image=None, image_file=None, load_3D=False)
 
     if "normalize_params" in dat:
         parent.set_normalize_params(dat["normalize_params"])
-        # parent.set_restore_button()
-
-    # if "img_restore" in dat:
-    #     img = dat["img_restore"]
-    #     img_min = img.min()
-    #     img_max = img.max()
-    #     parent.stack_filtered = img.astype("float32")
-    #     parent.stack_filtered -= img_min
-    #     if img_max > img_min + 1e-3:
-    #         parent.stack_filtered /= (img_max - img_min)
-    #     parent.stack_filtered *= 255
-    #     if parent.stack_filtered.ndim < 4:
-    #         parent.stack_filtered = parent.stack_filtered[np.newaxis, ...]
-    #     if parent.stack_filtered.ndim < 4:
-    #         parent.stack_filtered = parent.stack_filtered[..., np.newaxis]
-    #     shape = parent.stack_filtered.shape
-    #     if shape[-1] == 2:
-    #         if "chan_choose" in dat:
-    #             channels = np.array(dat["chan_choose"]) - 1
-    #             img = np.zeros((*shape[:-1], 3), dtype="float32")
-    #             img[..., channels] = parent.stack_filtered
-    #             parent.stack_filtered = img
-    #         else:
-    #             parent.stack_filtered = np.concatenate(
-    #                 (parent.stack_filtered, np.zeros(
-    #                     (*shape[:-1], 1), dtype="float32")), axis=-1)
-    #     elif shape[-1] > 3:
-    #         parent.stack_filtered = parent.stack_filtered[..., :3]
-
-    #     parent.restore = dat["restore"]
-    #     parent.ViewDropDown.model().item(parent.ViewDropDown.count() -
-    #                                      1).setEnabled(True)
-    #     parent.view = parent.ViewDropDown.count() - 1
-    #     if parent.restore and "upsample" in parent.restore:
-    #         print(parent.stack_filtered.shape, image.shape)
-    #         parent.ratio = dat["ratio"]
-
-    # parent.set_restore_button()
 
     _initialize_images(parent, image, load_3D=load_3D)
     print(parent.stack.shape)
-    # if "chan_choose" in dat:
-    #     parent.ChannelChoose[0].setCurrentIndex(dat["chan_choose"][0])
-    #     parent.ChannelChoose[1].setCurrentIndex(dat["chan_choose"][1])
 
     if "outlines" in dat:
         if isinstance(dat["outlines"], list):
@@ -395,10 +308,6 @@ def _load_seg(parent, filename=None, image=None, image_file=None, load_3D=False)
             _masks_to_gui(parent, dat["masks"], outlines=dat["outlines"], colors=colors)
 
             parent.draw_layer()
-            # if "est_diam" in dat:
-            #     parent.Diameter.setText("%0.1f" % dat["est_diam"])
-            #     parent.diameter = dat["est_diam"]
-            #     parent.compute_scale()
 
         if "manual_changes" in dat:
             parent.track_changes = dat["manual_changes"]
@@ -408,7 +317,6 @@ def _load_seg(parent, filename=None, image=None, image_file=None, load_3D=False)
         else:
             parent.zdraw = [None for n in range(parent.ncells.get())]
         parent.loaded = True
-        #print(f"GUI_INFO: {parent.ncells} masks found in {filename}")
     else:
         parent.clear_all()
 
@@ -717,4 +625,3 @@ def _save_sets(parent):
     except Exception as e:
         print(f"ERROR: {e}")
     del dat
-    #print(parent.point_sets)
