@@ -294,6 +294,10 @@ class CellposeModel():
         image_scaling = None
         Ly_0 = x.shape[1]
         Lx_0 = x.shape[2]
+        if do_3D or stitch_threshold > 0:
+            Lz_0 = x.shape[0]
+        else:
+            Lz_0 = None
         if diameter is not None:
             image_scaling = 30. / diameter
             x = transforms.resize_image(x,
@@ -363,9 +367,33 @@ class CellposeModel():
 
         # undo diameter resizing:
         if image_scaling is not None:
-            masks = transforms.resize_image(masks, Ly=Ly_0, Lx=Lx_0, no_channels=True, interpolation=cv2.INTER_NEAREST)
-            dP = transforms.resize_image(dP, Ly=Ly_0, Lx=Lx_0, no_channels=not do_3D)
-            cellprob = transforms.resize_image(cellprob, Ly=Ly_0, Lx=Lx_0, no_channels=True)
+            if do_3D:
+                # Rescale xy then xz:
+                masks = transforms.resize_image(masks, Ly=Ly_0, Lx=Lx_0, no_channels=True, interpolation=cv2.INTER_NEAREST)
+                masks = masks.transpose(1, 0, 2)
+                masks = transforms.resize_image(masks, Ly=Lz_0, Lx=Lx_0, no_channels=True, interpolation=cv2.INTER_NEAREST)
+                masks = masks.transpose(1, 0, 2)
+
+                # cellprob is the same
+                cellprob = transforms.resize_image(cellprob, Ly=Ly_0, Lx=Lx_0, no_channels=True)
+                cellprob = cellprob.transpose(1, 0, 2)
+                cellprob = transforms.resize_image(cellprob, Ly=Lz_0, Lx=Lx_0, no_channels=True)
+                cellprob = cellprob.transpose(1, 0, 2)
+
+                # dP has gradients that can be treated as channels:
+                dP = dP.transpose(1, 2, 3, 0) # move gradients last:
+                dP = transforms.resize_image(dP, Ly=Ly_0, Lx=Lx_0, no_channels=False)
+                dP = dP.transpose(1, 0, 2, 3) # switch axes to resize again
+                dP = transforms.resize_image(dP, Ly=Lz_0, Lx=Lx_0, no_channels=False)
+                dP = dP.transpose(3, 1, 0, 2) # undo transposition
+
+            else:
+                # 2D or 3D stitching case:
+                masks = transforms.resize_image(masks, Ly=Ly_0, Lx=Lx_0, no_channels=True, interpolation=cv2.INTER_NEAREST)
+                cellprob = transforms.resize_image(cellprob, Ly=Ly_0, Lx=Lx_0, no_channels=True)
+                dP = np.moveaxis(dP, 0, -1) # Put gradients last
+                dP = transforms.resize_image(dP, Ly=Ly_0, Lx=Lx_0, no_channels=False)
+                dP = np.moveaxis(dP, -1, 0) # Put gradients first
 
         return masks, [plot.dx_to_circ(dP), dP, cellprob], styles
 
