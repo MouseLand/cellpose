@@ -579,7 +579,7 @@ def _save_sets(parent):
             "ratio":
                 parent.ratio,
             "diameter":
-                parent.diameter
+                parent.segmentation_settings.diameter
         }
         if parent.restore is not None:
             dat["img_restore"] = parent.stack_filtered
@@ -615,7 +615,7 @@ def _save_sets(parent):
             "ratio":
                 parent.ratio,
             "diameter":
-                parent.diameter
+                parent.segmentation_settings.diameter
         }
         if parent.restore is not None:
             dat["img_restore"] = parent.stack_filtered

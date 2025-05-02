@@ -197,6 +197,9 @@ class ObservableVariable(QtCore.QObject):
     def get(self):
         return self._value
 
+    def __call__(self):
+        return self._value
+    
     def reset(self):
         self._value = 0
 
@@ -208,7 +211,10 @@ class ObservableVariable(QtCore.QObject):
     
     def __radd__(self, other):
         return other + self._value
-    
+
+    def __add__(self, other):
+        return other + self._value
+        
     def __isub__(self, amount):
         if not isinstance(amount, (int, float)):
             raise TypeError("Value must be numeric.")
