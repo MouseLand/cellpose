@@ -3,9 +3,7 @@ Copyright © 2023 Howard Hughes Medical Institute, Authored by Carsen Stringer a
 """
 
 from qtpy import QtGui, QtCore
-from PyQt5.QtCore import pyqtSignal
-from PyQt5.QtGui import QDoubleValidator
-from qtpy.QtGui import QPixmap
+from qtpy.QtGui import QPixmap, QDoubleValidator
 from qtpy.QtWidgets import QWidget, QDialog, QGridLayout, QPushButton, QLabel, QLineEdit, QDialogButtonBox, QComboBox, QCheckBox, QVBoxLayout
 import pyqtgraph as pg
 import numpy as np
@@ -182,7 +180,7 @@ class FilterButton(QPushButton):
 
 
 class ObservableVariable(QtCore.QObject):
-    valueChanged = pyqtSignal(object) 
+    valueChanged = QtCore.Signal(object) 
 
     def __init__(self, initial=None):
         super().__init__()
@@ -197,6 +195,9 @@ class ObservableVariable(QtCore.QObject):
     def get(self):
         return self._value
 
+    def __call__(self):
+        return self._value
+    
     def reset(self):
         self._value = 0
 
@@ -208,7 +209,10 @@ class ObservableVariable(QtCore.QObject):
     
     def __radd__(self, other):
         return other + self._value
-    
+
+    def __add__(self, other):
+        return other + self._value
+        
     def __isub__(self, amount):
         if not isinstance(amount, (int, float)):
             raise TypeError("Value must be numeric.")
@@ -515,7 +519,7 @@ class ExampleGUI(QDialog):
         self.win = QWidget(self)
         layout = QGridLayout()
         self.win.setLayout(layout)
-        guip_path = pathlib.Path.home().joinpath(".cellpose", "cellpose_gui.png")
+        guip_path = pathlib.Path.home().joinpath(".cellpose", "cellposeSAM_gui.png")
         guip_path = str(guip_path.resolve())
         pixmap = QPixmap(guip_path)
         label = QLabel(self)

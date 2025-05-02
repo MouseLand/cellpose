@@ -133,19 +133,11 @@
         </tr>
         </tbody>
     </table>
-    <p class="has-line-data" data-line-start="36" data-line-end="37"><strong>Segmentation options \
+    <p class="has-line-data" data-line-start="36" data-line-end="37"><strong>Segmentation options 
         (2D only) </strong></p>
-    <p class="has-line-data" data-line-start="38" data-line-end="39">SIZE: you can manually enter the \
-        approximate diameter for your cells, or press “calibrate” to let the model estimate it. The size is \
-        represented by a disk at the bottom of the view window (can turn this disk of by unchecking \
-        “scale disk on”).</p>
-    <p class="has-line-data" data-line-start="40" data-line-end="41">use GPU: if you have specially \
-        installed the cuda version of mxnet, then you can activate this, but it won’t give huge speedups when \
-        running single 2D images in the GUI.</p>
-    <p class="has-line-data" data-line-start="42" data-line-end="43">MODEL: there is a <em>cytoplasm</em> \
-        model and a <em>nuclei</em> model, choose what you want to segment</p>
-    <p class="has-line-data" data-line-start="44" data-line-end="45">CHAN TO SEG: this is the channel in \
-        which the cytoplasm or nuclei exist</p>
-    <p class="has-line-data" data-line-start="46" data-line-end="47">CHAN2 (OPT): if <em>cytoplasm</em> model \
-        is chosen, then choose the nuclear channel for this option</p>
+    <p class="has-line-data" data-line-start="38" data-line-end="39">use GPU: if you have specially 
+        installed the cuda version of torch, then you can activate this. Due to the size of the 
+        transformer network, it will greatly speed up the processing time.</p>
+    <p class="has-line-data" data-line-start="40" data-line-end="41">There are no channel options
+        in v4.0.1+ since all 3 channels are used for segmentation. </p>
 </qt>
