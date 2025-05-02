@@ -129,6 +129,8 @@ def get_arg_parser():
         "--augment", action="store_true",
         help="tiles image with overlapping tiles and flips overlapped regions to augment"
     )
+    algorithm_args.add_argument("--batch_size", default=8, type=int,
+                               help="inference batch size. Default: %(default)s")
 
     # TODO: remove deprecated in future version
     algorithm_args.add_argument(
@@ -195,14 +197,14 @@ def get_arg_parser():
         "--mask_filter", default="_masks", type=str, help=
         "end string for masks to run on. use '_seg.npy' for manual annotations from the GUI. Default: %(default)s"
     )
-    training_args.add_argument("--learning_rate", default=5e-5, type=float,
+    training_args.add_argument("--learning_rate", default=1e-5, type=float,
                                help="learning rate. Default: %(default)s")
     training_args.add_argument("--weight_decay", default=0.1, type=float,
                                help="weight decay. Default: %(default)s")
     training_args.add_argument("--n_epochs", default=100, type=int,
                                help="number of epochs. Default: %(default)s")
-    training_args.add_argument("--batch_size", default=1, type=int,
-                               help="batch size. Default: %(default)s")
+    training_args.add_argument("--train_batch_size", default=1, type=int,
+                               help="training batch size. Default: %(default)s")
     training_args.add_argument("--bsize", default=256, type=int,
                                help="block size for tiles. Default: %(default)s")
     training_args.add_argument(

@@ -1,14 +1,6 @@
 Cellpose API Guide
 ------------------------
 
-.. _cpclass:
-
-Cellpose class
-~~~~~~~~~~~~~~~~~~~~~~~
-
-.. autoclass:: cellpose.models.Cellpose
-   :members:
-
 .. _cpmclass:
 
 CellposeModel
@@ -17,24 +9,6 @@ CellposeModel
 .. autoclass:: cellpose.models.CellposeModel
    :members:
 
-CellposeDenoiseModel
-~~~~~~~~~~~~~~~~~
-
-.. autoclass:: cellpose.denoise.CellposeDenoiseModel
-   :members:
-
-
-DenoiseModel
-~~~~~~~~~~~~~~~~~
-
-.. autoclass:: cellpose.denoise.DenoiseModel
-   :members:
-
-SizeModel
-~~~~~~~~~~~~~~~~~
-
-.. autoclass:: cellpose.models.SizeModel
-   :members:
 
 Training
 ~~~~~~~~~~~~~~~~~~
@@ -50,7 +24,7 @@ Metrics
    :members:
 
 
-Flows to masks
+Flows <=> masks
 ~~~~~~~~~~~~~~~~~~
 
 .. automodule:: cellpose.dynamics
@@ -60,13 +34,6 @@ Image transforms
 ~~~~~~~~~~~~~~~~~~
 
 .. automodule:: cellpose.transforms
-   :members:
-
-
-Plot functions
-~~~~~~~~~~~~~~~~~~
-
-.. automodule:: cellpose.plot
    :members:
 
 I/O functions
@@ -81,10 +48,17 @@ Utils functions
 .. automodule:: cellpose.utils
    :members:
 
-Network classes
+Plot functions
+~~~~~~~~~~~~~~~~~~
+
+.. automodule:: cellpose.plot
+   :members:
+
+
+Transformer class
 ~~~~~~~~~~~~~~~~~~~~~
 
-.. automodule:: cellpose.resnet_torch
+.. autoclass:: cellpose.vit_sam.Transformer
    :members:
 
 

@@ -33,8 +33,9 @@ For multi-Z 3D data, please use the 3D version of the GUI:
     image with ``_seg.npy`` appended, make sure you have WRITE access 
     in the folder, otherwise the file will not save.
 
-.. image:: https://www.cellpose.org/static/images/cellpose_gui.png
+.. image:: https://www.cellpose.org/static/images/cellposeSAM_gui.png
     :width: 600
+
 
 Using the GUI 
 ~~~~~~~~~~~~~~~~~~~~~~~
@@ -102,22 +103,6 @@ the bulk deletion.
     :width: 600
 
 
-Segmentation options
-~~~~~~~~~~~~~~~~~~~~~~~~
-
-SIZE: you can manually enter the approximate diameter for your cells, or
-press "calibrate" to let the model estimate it. The size is represented
-by a disk at the bottom of the view window (can turn this disk off by
-unchecking "scale disk on").
-
-use GPU: if you have installed the cuda version of mxnet, then you can activate this, but it won't give huge speedups when running single images in the GUI.
-
-MODEL: there is a *cytoplasm* model and a *nuclei* model, choose what you want to segment
-
-CHAN TO SEG: this is the channel in which the cytoplasm or nuclei exist
-
-CHAN2 (OPT): if *cytoplasm* model is chosen, then choose the nuclear channel for this option
-
 Training your own cellpose model
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -137,8 +122,8 @@ distinct. Then put these slices into a folder and start the human-in-the-loop tr
 You can then use the new custom model on new 3D data. 
 
 .. note::
-    You can only start training with one of the built-in Cellpose models or from scratch. 
-    When you start training from a built-in model or from scratch each time, then you are training 
+    You can only start training with the built-in cpsam model. 
+    When you start training from a built-in model, then you are training 
     the network on all the previously labelled images in the folder and weighting them equally in 
     your training set. 
 
@@ -149,21 +134,6 @@ You can then use the new custom model on new 3D data.
     that you want to be trained for the same model in the same folder so they are all used.
 
 See the Models doc for info on the new model zoo and suggestion mode.
-
-Contributing training data
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-We are very excited about receiving community contributions to the training data and re-training the cytoplasm model to make it better. Please follow these guidelines:
-
-1. Run cellpose on your data to see how well it does. Try varying the diameter, which can change results a little. 
-2. If there are relatively few mistakes, it won't help much to contribute labelled data. 
-3. If there are consistent mistakes, your data is likely very different from anything in the training set, and you should expect major improvements from contributing even just a few manually segmented images.
-4. For images that you contribute, the cells should be at least 10 pixels in diameter, and there should be **at least** several dozens of cells per image, ideally ~100. If your images are too small, consider combining multiple images into a single big one and then manually segmenting that. If they are too big, consider splitting them into smaller crops. 
-5. For the manual segmentation, please try to outline the boundaries of the cell, so that everything (membrane, cytoplasm, nucleus) is inside the boundaries. Do not just outline the cytoplasm and exclude the membrane, because that would be inconsistent with our own labelling and we wouldn't be able to use that. 
-6. Do not use the results of the algorithm in any way to do contributed manual segmentations. This can reinforce a vicious circle of mistakes, and compromise the dataset for further algorithm development. 
-
-If you are having problems with the nucleus model, please open an issue before contributing data. Nucleus images are generally much less diverse, and we think the current training dataset already covers a very large set of modalities. 
-Additionally, you can run a non-nuclear model on nuclear data such as cyto.
 
 
 Keyboard shortcuts 

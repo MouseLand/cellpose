@@ -6,7 +6,7 @@ For basic install instructions, look up the main github readme.
 Built-in model directory
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
-By default, the pretrained cellpose models are downloaded to ``$HOME/.cellpose/models/``.
+By default, the pretrained cellpose model(s) is downloaded to ``$HOME/.cellpose/models/``.
 This path on linux would look like ``/home/USERNAME/.cellpose/``, and on Windows, 
 ``C:/Users/USERNAME/.cellpose/models/``. These models are downloaded the first time you 
 try to use them, either on the command line, in the GUI or in a notebook.
@@ -33,7 +33,7 @@ M1-M3 Mac installation
 
 Support for M1-M3 should work out-of-the-box with Cellpose now! Please submit an issue if it's not working.
 
-From the command line you can choose the Mac device with
+From the command line you can choose the Mac device explicitly with
 
 ::
 

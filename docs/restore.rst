@@ -3,6 +3,13 @@
 Image Restoration
 =================
 
+Image restoration is only implemented in Cellpose3, not available in Cellpose-SAM. To install,
+
+::
+
+    pip install cellpose==3.1.1.2
+
+
 We introduce image restoration in the `Cellpose3 paper <https://www.biorxiv.org/content/10.1101/2024.02.10.579780v2>`_. 
 The image restoration module ``denoise`` provides functions for restoring degraded images. 
 There are two main classes, ``DenoiseModel`` for image restoration only, and 

@@ -151,7 +151,7 @@ class CellposeModel():
             self.net.load_model(self.pretrained_model, device=self.device)
         
         
-    def eval(self, x, batch_size=64, resample=None, channels=None, channel_axis=None,
+    def eval(self, x, batch_size=8, resample=None, channels=None, channel_axis=None,
              z_axis=None, normalize=True, invert=False, rescale=None, diameter=None,
              flow_threshold=0.4, cellprob_threshold=0.0, do_3D=False, anisotropy=None,
              flow3D_smooth=0, stitch_threshold=0.0, 
@@ -176,8 +176,8 @@ class CellposeModel():
                     - "sharpen"=0 ; sharpen image with high pass filter, recommended to be 1/4-1/8 diameter of cells in pixels
                     - "normalize"=True ; run normalization (if False, all following parameters ignored)
                     - "percentile"=None : pass in percentiles to use as list [perc_low, perc_high]
-                    - "tile_norm"=0 ; compute normalization in tiles across image to brighten dark areas, to turn on set to window size in pixels (e.g. 100)
-                    - "norm3D"=False ; compute normalization across entire z-stack rather than plane-by-plane in stitching mode.
+                    - "tile_norm_blocksize"=0 ; compute normalization in tiles across image to brighten dark areas, to turn on set to window size in pixels (e.g. 100)
+                    - "norm3D"=True ; compute normalization across entire z-stack rather than plane-by-plane in stitching mode.
                 Defaults to True.
             invert (bool, optional): invert image pixel intensity before running network. Defaults to False.
             rescale (float, optional): resize factor for each image, if None, set to 1.0;

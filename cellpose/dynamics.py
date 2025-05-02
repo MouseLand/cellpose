@@ -392,8 +392,7 @@ def follow_flows(dP, inds, niter=200, device=torch.device("cpu")):
     """
     shape = np.array(dP.shape[1:]).astype(np.int32)
     ndim = len(inds)
-    niter = np.uint32(niter)
-
+    
     p = steps_interp(dP, inds, niter, device=device)
         
     return p

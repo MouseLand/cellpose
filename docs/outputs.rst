@@ -10,8 +10,7 @@ when you run
     
     from cellpose import io, models
     img = io.imread("img.tif")
-    masks, flows, styles = models.CellposeModel(model_type='tissuenet_cp3').eval(img, 
-                                diameter=25, channels=[1,2])
+    masks, flows, styles = models.CellposeModel(gpu=True).eval(img)
 
 Internally, the network predicts 3 (or 4) outputs: 
 (flows in Z), flows in Y, flows in X, and cellprob. 
@@ -42,7 +41,6 @@ _seg.npy output
     - flows[1] is the cell probability in range 0-255 instead of -10.0 to 10.0
     - flows[2] is Z flow in range 0-255 (if it exists, otherwise zeros), 
     - flows[3] is [dY, dX, cellprob] (or [dZ, dY, dX, cellprob] for 3D), flows[4] is pixel destinations (for internal use)
-- *est_diam* : estimated diameter / diameter used
 - *zdraw* : for each mask, which planes were manually labelled (planes in between manually drawn have interpolated ROIs)
 
 Note: the 'img' is no longer saved in the ``*_seg.npy`` file to save time.

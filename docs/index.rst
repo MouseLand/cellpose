@@ -10,8 +10,14 @@ an `issue`_.
 We make pip installable releases of cellpose, here is the `pypi`_. You
 can install it as ``pip install cellpose[gui]``.
 
-You can try it out without installing at `cellpose.org`_. 
+You can try it out without installing at `https://huggingface.co/spaces/mouseland/cellpose`_. 
+
 Also check out these resources:
+
+Cellpose-SAM: superhuman generalization for cellular segmentation
+
+- `paper <https://www.biorxiv.org/content/10.1101/2025.04.28.651001v1>`_ on biorxiv
+
 
 Cellpose3: one-click image restoration for improved cellular segmentation
 
