@@ -151,7 +151,7 @@ def run(image=None):
     warnings.filterwarnings("ignore")
     app = QApplication(sys.argv)
     icon_path = pathlib.Path.home().joinpath(".cellpose", "logo.png")
-    guip_path = pathlib.Path.home().joinpath(".cellpose", "cellpose_gui.png")
+    guip_path = pathlib.Path.home().joinpath(".cellpose", "cellposeSAM_gui.png")
     if not icon_path.is_file():
         cp_dir = pathlib.Path.home().joinpath(".cellpose")
         cp_dir.mkdir(exist_ok=True)
@@ -161,7 +161,7 @@ def run(image=None):
             icon_path, progress=True)
     if not guip_path.is_file():
         print("downloading help window image")
-        download_url_to_file("https://www.cellpose.org/static/images/cellpose_gui.png",
+        download_url_to_file("https://www.cellpose.org/static/images/cellposeSAM_gui.png",
                              guip_path, progress=True)
     icon_path = str(icon_path.resolve())
     app_icon = QtGui.QIcon()
