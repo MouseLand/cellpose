@@ -100,7 +100,9 @@ def _get_train_set(image_names):
 
 
 def _load_image(parent, filename=None, load_seg=True, load_3D=False):
-    """ load image with filename; if None, open QFileDialog """
+    """ load image with filename; if None, open QFileDialog
+    if image is grey change view to default to grey scale 
+    """
 
     if parent.load_3D:
         load_3D = True
@@ -149,7 +151,13 @@ def _load_image(parent, filename=None, load_seg=True, load_3D=False):
         if load_mask:
             _load_masks(parent, filename=mask_file)
 
+    # check if gray and adjust viewer:
+    if len(np.unique(image[..., 1:])) == 1:
+        parent.color = 4
+        parent.RGBDropDown.setCurrentIndex(4) # gray
+        parent.update_plot()
 
+        
 def _initialize_images(parent, image, load_3D=False):
     """ format image for GUI
 
