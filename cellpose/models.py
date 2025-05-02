@@ -219,6 +219,9 @@ class CellposeModel():
         if channels is not None:
             models_logger.warning("channels deprecated in v4.0.1+. If data contain more than 3 channels, only the first 3 channels will be used")
 
+        if self.device.type == 'mps' and do_3D:
+            raise ValueError('MPS not working with 3D images. Disable GPU or use stitch threshold > 0')
+        
         if isinstance(x, list) or x.squeeze().ndim == 5:
             self.timing = []
             masks, styles, flows = [], [], []
@@ -272,10 +275,9 @@ class CellposeModel():
         image_scaling = None
         Ly_0 = x.shape[1]
         Lx_0 = x.shape[2]
+        Lz_0 = None
         if do_3D or stitch_threshold > 0:
             Lz_0 = x.shape[0]
-        else:
-            Lz_0 = None
         if diameter is not None:
             image_scaling = 30. / diameter
             x = transforms.resize_image(x,

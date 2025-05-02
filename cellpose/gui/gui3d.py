@@ -138,7 +138,7 @@ class MainW_3d(MainW):
 
         b = 22
 
-        label = QLabel("stitch threshold:")
+        label = QLabel("stitch\nthreshold:")
         label.setToolTip(
             "for 3D volumes, turn on stitch_threshold to stitch masks across planes instead of running cellpose in 3D (see docs for details)"
         )
@@ -151,14 +151,14 @@ class MainW_3d(MainW):
         self.stitch_threshold.setToolTip(
             "for 3D volumes, turn on stitch_threshold to stitch masks across planes instead of running cellpose in 3D (see docs for details)"
         )
-        self.segBoxG.addWidget(self.stitch_threshold, b, 4, 1, 1)
+        self.segBoxG.addWidget(self.stitch_threshold, b, 3, 1, 1)
 
-        label = QLabel("flow3D_smooth:")
+        label = QLabel("flow3D\nsmooth:")
         label.setToolTip(
             "for 3D volumes, smooth flows by a Gaussian with standard deviation flow3D_smooth (see docs for details)"
         )
         label.setFont(self.medfont)
-        self.segBoxG.addWidget(label, b, 5, 1, 3)
+        self.segBoxG.addWidget(label, b, 4, 1, 3)
         self.flow3D_smooth = QLineEdit()
         self.flow3D_smooth.setText("0.0")
         self.flow3D_smooth.setFixedWidth(30)
@@ -166,7 +166,7 @@ class MainW_3d(MainW):
         self.flow3D_smooth.setToolTip(
             "for 3D volumes, smooth flows by a Gaussian with standard deviation flow3D_smooth (see docs for details)"
         )
-        self.segBoxG.addWidget(self.flow3D_smooth, b, 8, 1, 1)
+        self.segBoxG.addWidget(self.flow3D_smooth, b, 7, 1, 1)
 
         b+=1
         label = QLabel("anisotropy:")
@@ -174,7 +174,7 @@ class MainW_3d(MainW):
             "for 3D volumes, increase in sampling in Z vs XY as a ratio, e.g. set set to 2.0 if Z is sampled half as dense as X or Y (see docs for details)"
         )
         label.setFont(self.medfont)
-        self.segBoxG.addWidget(label, b, 0, 1, 4)
+        self.segBoxG.addWidget(label, b, 0, 1, 3)
         self.anisotropy = QLineEdit()
         self.anisotropy.setText("1.0")
         self.anisotropy.setFixedWidth(30)
@@ -182,10 +182,10 @@ class MainW_3d(MainW):
         self.anisotropy.setToolTip(
             "for 3D volumes, increase in sampling in Z vs XY as a ratio, e.g. set set to 2.0 if Z is sampled half as dense as X or Y (see docs for details)"
         )
-        self.segBoxG.addWidget(self.anisotropy, b, 4, 1, 1)
+        self.segBoxG.addWidget(self.anisotropy, b, 3, 1, 1)
 
         b+=1
-        label = QLabel("min_size:")
+        label = QLabel("min\nsize:")
         label.setToolTip(
             "all masks less than this size in pixels (volume) will be removed"
         )
@@ -198,7 +198,7 @@ class MainW_3d(MainW):
         self.min_size.setToolTip(
             "all masks less than this size in pixels (volume) will be removed"
         )
-        self.segBoxG.addWidget(self.min_size, b, 4, 1, 3)
+        self.segBoxG.addWidget(self.min_size, b, 3, 1, 1)
 
         b += 1
         self.orthobtn = QCheckBox("ortho")

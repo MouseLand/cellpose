@@ -20,7 +20,7 @@ install_deps = [
 image_deps = ['nd2', 'pynrrd']
 
 gui_deps = [
-    'pyqtgraph>=0.11.0rc0', "pyqt6", "pyqt6.sip", 'qtpy', 'superqt',
+    'pyqtgraph>=0.12.4', "pyqt6", "pyqt6.sip", 'qtpy', 'superqt',
 ]
 
 docs_deps = [
