@@ -3,9 +3,7 @@ Copyright © 2023 Howard Hughes Medical Institute, Authored by Carsen Stringer a
 """
 
 from qtpy import QtGui, QtCore
-from PyQt5.QtCore import pyqtSignal
-from PyQt5.QtGui import QDoubleValidator
-from qtpy.QtGui import QPixmap
+from qtpy.QtGui import QPixmap, QDoubleValidator
 from qtpy.QtWidgets import QWidget, QDialog, QGridLayout, QPushButton, QLabel, QLineEdit, QDialogButtonBox, QComboBox, QCheckBox, QVBoxLayout
 import pyqtgraph as pg
 import numpy as np
@@ -182,7 +180,7 @@ class FilterButton(QPushButton):
 
 
 class ObservableVariable(QtCore.QObject):
-    valueChanged = pyqtSignal(object) 
+    valueChanged = QtCore.Signal(object) 
 
     def __init__(self, initial=None):
         super().__init__()
