@@ -33,8 +33,6 @@ For multi-Z 3D data, please use the 3D version of the GUI:
     image with ``_seg.npy`` appended, make sure you have WRITE access 
     in the folder, otherwise the file will not save.
 
-.. image:: https://www.cellpose.org/static/images/cellpose_gui.png
-    :width: 600
 
 Using the GUI 
 ~~~~~~~~~~~~~~~~~~~~~~~
