@@ -14,17 +14,17 @@ slightly faster if you have fewer cells/cell pixels.
 
 Table for 2D (RTX 4070S):
 
-.. image:: https://www.cellpose.org/static/images/benchmark_2d_4070.png
+.. image:: https://www.cellpose.org/static/images/benchmark_2D_4070.png
     :width: 800
 
 Table for 2D (A100):
 
-.. image:: https://www.cellpose.org/static/images/benchmark_2d.png
+.. image:: https://www.cellpose.org/static/images/benchmark_2D.png
     :width: 800
 
 Table for 3D (A100):
 
-.. image:: https://www.cellpose.org/static/images/benchmark_3d.png
+.. image:: https://www.cellpose.org/static/images/benchmark_3D.png
     :width: 800
 
 If you are running out of GPU memory for your images, you can reduce the 
