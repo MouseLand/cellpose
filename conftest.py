@@ -1,8 +1,9 @@
+import time
 import pytest
-from cellpose import utils, models
+from cellpose import utils, models, vit_sam
 import zipfile
 import torch
-
+import torch.nn.functional as F
 from pathlib import Path
 
 
@@ -34,9 +35,65 @@ def data_dir(image_names):
 
     
 @pytest.fixture()
-def cellposemodel_fixture():
+def cellposemodel_fixture_2D():
+    """ This is functionally identical to CellposeModel but uses mock class """
     use_gpu = torch.cuda.is_available()
     use_mps = 'mps' if torch.backends.mps.is_available() else False
     gpu = use_gpu or use_mps
-    model = models.CellposeModel(gpu=gpu)
+    model = MockCellposeModel(24, gpu=gpu)
     yield model
+
+
+@pytest.fixture()
+def cellposemodel_fixture_3D():
+    """ This is only uses 2 transformer blocks for speed """
+    use_gpu = torch.cuda.is_available() # Turn of gpu for mac 3d
+    model = MockCellposeModel(2, gpu=use_gpu)
+    yield model
+
+
+class MockTransformer(vit_sam.Transformer):
+    def __init__(self, use_layers: int):
+        """ use_layers: the number of layers use starting from the first layer """
+        super().__init__()
+
+        self.use_layers = use_layers
+
+
+    def forward(self, x):
+        # same progression as SAM until readout
+        x = self.encoder.patch_embed(x)
+        
+        if self.encoder.pos_embed is not None:
+            x = x + self.encoder.pos_embed
+        
+        # only use self.use_layers layers
+        for i, block in enumerate(self.encoder.blocks):
+            if i == self.use_layers:
+                break
+            x = block(x)
+
+        x = self.encoder.neck(x.permute(0, 3, 1, 2))
+
+        # readout is changed here
+        x1 = self.out(x)
+        x1 = F.conv_transpose2d(x1, self.W2, stride = self.ps, padding = 0)
+        
+        # maintain the second output of feature size 256 for backwards compatibility
+        return x1, torch.randn((x.shape[0], 256), device=x.device)
+
+
+class MockCellposeModel(models.CellposeModel):
+    def __init__(self, n_keep_layers=2, gpu=False):
+        super().__init__(gpu=gpu)
+
+        self.net = MockTransformer(n_keep_layers)
+        self.net.load_model(Path().home() / '.cellpose/models/cpsam', device=self.device)
+
+    def eval(self, x, **kwargs):
+        tic = time.time()
+        res = super().eval(x, **kwargs)
+        toc = time.time()
+
+        print(f'eval() time elapsed: {toc-tic}')
+        return res
