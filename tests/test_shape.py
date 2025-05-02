@@ -11,9 +11,9 @@ import numpy as np
 #     assert masks.shape == (224, 224)
 
 
-def test_shape_2D_chan_first_diam_resize(cellposemodel_fixture):
+def test_shape_2D_chan_first_diam_resize(cellposemodel_fixture_2D):
     img = np.zeros((1, 224, 224))
-    masks, flows, _ = cellposemodel_fixture.eval(img, diameter=50)
+    masks, flows, _ = cellposemodel_fixture_2D.eval(img, diameter=50)
     assert masks.shape == (224, 224), 'mask shape mismatch'
     assert flows[1].shape == (2, 224, 224), 'dP shape mismatch'
     assert flows[2].shape == (224, 224), 'cellprob shape mismatch'
@@ -26,9 +26,9 @@ def test_shape_2D_chan_first_diam_resize(cellposemodel_fixture):
 #     assert masks.shape == (224, 224)
 
 
-def test_shape_2D_chan_last(cellposemodel_fixture):
+def test_shape_2D_chan_last(cellposemodel_fixture_2D):
     img = np.zeros((224, 224, 2))
-    masks, flows, _ = cellposemodel_fixture.eval(img)
+    masks, flows, _ = cellposemodel_fixture_2D.eval(img)
     assert masks.shape == (224, 224), 'mask shape mismatch'
     assert flows[1].shape == (2, 224, 224), 'dP shape mismatch'
     assert flows[2].shape == (224, 224), 'cellprob shape mismatch'
@@ -42,18 +42,18 @@ def test_shape_2D_chan_last(cellposemodel_fixture):
 #     assert masks.shape == (224, 224)
 
 
-def test_shape_2D_2chan_specify(cellposemodel_fixture):
+def test_shape_2D_2chan_specify(cellposemodel_fixture_2D):
     img = np.zeros((224, 5, 224))
-    masks, flows, _ = cellposemodel_fixture.eval(img, channels=[2, 1], channel_axis=1)
+    masks, flows, _ = cellposemodel_fixture_2D.eval(img, channels=[2, 1], channel_axis=1)
     assert masks.shape == (224, 224), 'mask shape mismatch'
     assert flows[1].shape == (2, 224, 224), 'dP shape mismatch'
     assert flows[2].shape == (224, 224), 'cellprob shape mismatch'
     
 
 #################### 3D Tests ####################
-def test_shape_stitch(cellposemodel_fixture):
+def test_shape_stitch(cellposemodel_fixture_3D):
     img = np.zeros((5, 80, 80, 2)) # 5 layer 3d input, 2 channels
-    masks, flows, _ = cellposemodel_fixture.eval(img, channels=[0, 0],
+    masks, flows, _ = cellposemodel_fixture_3D.eval(img, channels=[0, 0],
                                     stitch_threshold=0.9, 
                                     channel_axis=3, z_axis=0, 
                                     do_3D=False)
@@ -95,17 +95,10 @@ def test_shape_stitch(cellposemodel_fixture):
 #     assert masks.shape == (5, 80, 80)
 
 
-def test_shape_3D_2ch(cellposemodel_fixture):
+def test_shape_3D_2ch(cellposemodel_fixture_3D):
     img = np.zeros((80, 2, 80, 4))
 
-    # 3d doesn't work on mac with MPS, need to use no gpu
-    model = None
-    if platform.system() == 'Darwin':
-        model = CellposeModel(gpu=False)
-    else:
-        model = cellposemodel_fixture
-        
-    masks, flows, _ = model.eval(img, z_axis=-1, channel_axis=1, do_3D=True)
+    masks, flows, _ = cellposemodel_fixture_3D.eval(img, z_axis=-1, channel_axis=1, do_3D=True)
     assert masks.shape == (4, 80, 80), 'mask shape mismatch'
     assert flows[1].shape == (3, 4, 80, 80), 'dP shape mismatch'
     assert flows[2].shape == (4, 80, 80), 'cellprob shape mismatch'
