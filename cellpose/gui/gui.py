@@ -187,7 +187,7 @@ class MainW(QMainWindow):
 
         self.logger = logger
         pg.setConfigOptions(imageAxisOrder="row-major")
-        self.setGeometry(50, 50, 1200, 1000)
+        self.setGeometry(50, 50, 2000, 1500)
         self.setWindowTitle(f"cellpose v{version}")
         self.cp_path = os.path.dirname(os.path.realpath(__file__))
         app_icon = QtGui.QIcon()
