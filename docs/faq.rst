@@ -20,7 +20,9 @@ FAQ
 
 **Q: How do I download the pretrained models?**
 
-    The models will be downloaded automatically from the `website <https://www.cellpose.org/>`_ when you first run a
+    The new Cellpose-SAM model (cpsam) will be downloaded from `https://huggingface.co/mouseland/cellpose-sam/blob/main/cpsam`_.
+    
+    The old models will be downloaded automatically from the `website <https://www.cellpose.org/>`_ when you first run a
     pretrained model in cellpose. If you are having issues with the downloads, you can download them from this
     `google drive zip file <https://drive.google.com/file/d/1zHGFYCqRCTwTPwgEUMNZu0EhQy2zaovg/view?usp=sharing>`_,
     unzip the file and put the models in your home directory under the path ``.cellpose/models/``,

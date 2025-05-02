@@ -160,7 +160,7 @@ def _train_cellposemodel_cli(args, logger, image_filter, device, pretrained_mode
             load_files=load_files, normalize=normalize,
             channel_axis=args.channel_axis, 
             learning_rate=args.learning_rate, weight_decay=args.weight_decay,
-            SGD=args.SGD, n_epochs=args.n_epochs, batch_size=args.batch_size,
+            SGD=args.SGD, n_epochs=args.n_epochs, batch_size=args.train_batch_size,
             min_train_masks=args.min_train_masks,
             nimg_per_epoch=args.nimg_per_epoch,
             nimg_test_per_epoch=args.nimg_test_per_epoch,

@@ -1,23 +1,26 @@
 Training
 ---------------------------
 
-.. warning::
-    MPS support for pytorch is incomplete, and so training on Macs with MPS may give NaN's, 
-    if so please use the CPU instead
-
 At the beginning of training, cellpose computes the flow field representation for each 
 mask image (``dynamics.labels_to_flows``).
 
-The cellpose pretrained models are trained using resized images so that the cells have the same median diameter across all images.
-If you choose to use a pretrained model, then this fixed median diameter is used.
+.. warning::
+    
+    You should only start training with the built-in cpsam model, which is the default. 
+    When you start training from a built-in model, then you are training 
+    the network on all the previously labelled images in the folder and weighting them equally in 
+    your training set. 
 
-If you choose to train from scratch, you can set the median diameter you want to use for rescaling with the ``--diam_mean`` flag.
-We trained all model zoo models with a diameter of 30.0 pixels, except the `nuclei` model which used a diameter of 17 pixels, 
-so if you want to start with a pretrained model, it will default to those values.
+    If you restart from a previous retraining, you are biasing the network towards the earlier 
+    images it has already been trained on. Conversely, if you have created a custom model 
+    with different images, and you retrain that model, then you are downweighting the images 
+    that you have already trained on and excluded from your new training set. Therefore, we recommend having all images 
+    that you want to be trained for the same model in the same folder so they are all used.
+
+By default, models are trained with the images and ROIs not resized, and expects that 
+the testing images will have a similar diameter distribution as the training data.
 
 The models will be saved in the image directory (``--dir``) in a folder called ``models/``.
-
-The same channel settings apply for training models. 
 
 Note Cellpose expects the labelled masks (0=no mask, 1,2...=masks) in a separate file, e.g:
 
@@ -41,31 +44,13 @@ If you use the --img_filter option (``--img_filter _img`` in this case):
     The path given to ``--dir`` and ``--test_dir`` should be an absolute path.
 
   
-To train on cytoplasmic images (green cyto and red nuclei) starting with a pretrained model from cellpose (one of the model zoo models), 
-we also have included the recommended training parameters in the command below:
+Here is the recommended training setup for fine-tuning the Cellpose-SAM model:
 
 ::
     
-    python -m cellpose --train --dir ~/images_cyto/train/ --test_dir ~/images_cyto/test/ --pretrained_model cyto --chan 2 --chan2 1 --learning_rate 0.1 --weight_decay 0.0001 --n_epochs 100
-
-You can train from scratch as well:
-
-::
-
-    python -m cellpose --train --dir ~/images_nuclei/train/ --pretrained_model None
-
-To train the cyto model from scratch using the same parameters we did, download the dataset and run
-
-::
-
-    python -m cellpose --train --train_size --use_gpu --dir ~/cellpose_dataset/train/ --test_dir ~/cellpose_dataset/test/ --img_filter _img --pretrained_model None --chan 2 --chan2 1
+    python -m cellpose --train --dir ~/images/train/ --test_dir ~/images/test/ --learning_rate 0.00001 --weight_decay 0.1 --n_epochs 100 --train_batch_size 1
 
 
-You can also specify the full path to a pretrained model to use:
-
-::
-
-    python -m cellpose --dir ~/images_cyto/test/ --pretrained_model ~/images_cyto/test/model/cellpose_35_0 --save_png
 
 In a notebook, you can train with the `train_seg` function:
 ::
@@ -76,14 +61,12 @@ In a notebook, you can train with the `train_seg` function:
                                     mask_filter="_masks", look_one_level_down=False)
     images, labels, image_names, test_images, test_labels, image_names_test = output
 
-    # e.g. retrain a Cellpose model
-    model = models.CellposeModel(model_type="cyto3")
+    model = models.CellposeModel(gpu=True)
     
     model_path, train_losses, test_losses = train.train_seg(model.net, 
                                 train_data=images, train_labels=labels,
-                                channels=[1,2], normalize=True,
                                 test_data=test_images, test_labels=test_labels,
-                                weight_decay=1e-4, SGD=True, learning_rate=0.1,
+                                weight_decay=0.1, learning_rate=1e-5,
                                 n_epochs=100, model_name="my_new_model")
 
 
@@ -93,26 +76,21 @@ CLI training options
 ::
 
     --train               train network using images in dir
-    --train_size          train size network at end of training
     --test_dir TEST_DIR   folder containing test data (optional)
     --mask_filter MASK_FILTER
                             end string for masks to run on. use '_seg.npy' for
                             manual annotations from the GUI. Default: _masks
-    --diam_mean DIAM_MEAN
-                            mean diameter to resize cells to during training -- if
-                            starting from pretrained models it cannot be changed
-                            from 30.0
+    
     --learning_rate LEARNING_RATE
-                            learning rate. Default: 0.2
+                            learning rate. Default: 1e-5
     --weight_decay WEIGHT_DECAY
-                            weight decay. Default: 1e-05
-    --n_epochs N_EPOCHS   number of epochs. Default: 500
-    --batch_size BATCH_SIZE
-                            batch size. Default: 8
+                            weight decay. Default: 0.1
+    --n_epochs N_EPOCHS   number of epochs. Default: 100
+    --train_batch_size TRAIN_BATCH_SIZE
+                            batch size for training. Default: 1
     --min_train_masks MIN_TRAIN_MASKS
                             minimum number of masks a training image must have to
                             be used. Default: 5
-    --SGD SGD             use SGD
     --save_every SAVE_EVERY
                             number of epochs to skip between saves. Default: 100
     --model_name_out MODEL_NAME_OUT
@@ -123,12 +101,6 @@ CLI training options
 
 Re-training a model 
 ~~~~~~~~~~~~~~~~~~~
-
-We find that for re-training, using SGD generally works better, and it is the default in the GUI. 
-The options in the code above are the default options for retraining in the GUI and in the Cellpose 2.0 paper
-``(weight_decay=1e-4, SGD=True, learning_rate=0.1, n_epochs=100)``, 
-although in the paper we often use 300 epochs instead of 100 epochs, and it may help to use more epochs, 
-especially when you have more training data.
 
 When re-training, keep in mind that the normalization happens per image that you train on, and often these are image crops from full images. 
 These crops may look different after normalization than the full images. To approximate per-crop normalization on the full images, we have the option for 

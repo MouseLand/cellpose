@@ -15,16 +15,14 @@ blue and save the output as a png (using default diameter 30):
 
 ::
 
-   python -m cellpose --dir ~/images_cyto/test/ --pretrained_model cyto --chan 2 --chan2 3 --save_png
+   python -m cellpose --dir /home/carsen/images_cyto/test/ --save_png
 
-You can specify the diameter for all the images or set to 0 if you want
-the algorithm to estimate it on an image by image basis. Here is how to
-run on nuclear data (grayscale) where the diameter is automatically
-estimated:
+To run on a single 3D image:
 
-::
+:: 
+   
+   python -m cellpose --image_path /home/carsen/image3D.tif --do_3D --flow3D_smooth 2 --save_tif
 
-   python -m cellpose --dir ~/images_nuclei/test/ --pretrained_model nuclei --diameter 0. --save_png
 
 .. warning:: 
-    The path given to ``--dir`` must be an absolute path.
+    The path given to ``--dir`` is recommended to be an absolute path.

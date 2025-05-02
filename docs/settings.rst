@@ -14,85 +14,54 @@ running a list of images for reference:
     from cellpose import models
     from cellpose.io import imread
 
-    # model_type='cyto' or model_type='nuclei'
-    model = models.Cellpose(gpu=False, model_type='cyto')
+    model = models.Cellpose(gpu=True)
 
     files = ['img0.tif', 'img1.tif']
     imgs = [imread(f) for f in files]
-    masks, flows, styles, diams = model.eval(imgs, diameter=None, channels=[0,0],
-                                             flow_threshold=0.4, do_3D=False)
-
-You can make lists of channels/diameter for each image, or set the same channels/diameter for all images
-as shown in the example above.
+    masks, flows, styles, diams = model.eval(imgs, flow_threshold=0.4, cellprob_threshold=0.0)
 
 Channels
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-There are two channels inputs. The first channel is the channel you want to segment. 
-The second channel is an optional channel that is helpful in models trained with images 
-with a nucleus channel. See more details in the models page.
+Channels are no longer an input to Cellpose-SAM - Cellpose-SAM has been trained to be invariant to the order of the channels in your image.
+Cellpose-SAM will use the first 3 channels of your image, truncating the rest. It has been trained with three 
+different channels for H&E images, and for cellular images it has been trained with the cytoplasm and nuclear channels in any order, 
+with the other channel set to zero.
 
-1. 0=grayscale, 1=red, 2=green, 3=blue 
-2. 0=None (will set to zero), 1=red, 2=green, 3=blue
+So, if you have two channels, cytoplasm and nuclei, you can put them in in any order. If you have a third channel in fluorescent imaging, 
+you will want to omit it from the input, or combine it with the cytoplasm channel, or train a new model with all three inputs, e.g.
 
-Set channels to a list with each of these elements, e.g.
-``channels = [0,0]`` if you want to segment cells in grayscale or for single channel images, or
-``channels = [2,3]`` if you green cells with blue nuclei.
+::
 
-On the command line the above would be ``--chan 0 --chan2 0`` or ``--chan 2 --chan2 3``.
+    from cellpose import models
+    from cellpose.io import imread
 
-Note, if you set the first channel input to use grayscale ``0``, then no nuclear channel will be used 
-(the second channel will be filled with zeros).
+    model = models.Cellpose(gpu=True)
 
-The nuclear model in cellpose is trained on two-channel images, where 
-the first channel is the channel to segment, and the second channel is 
-always set to an array of zeros. Therefore set the first channel as 
-0=grayscale, 1=red, 2=green, 3=blue; and set the second channel to zero, e.g.
-``channels = [0,0]`` if you want to segment nuclei in grayscale or for single channel images, or 
-``channels = [3,0]`` if you want to segment blue nuclei.
+    img = imread("img.tif") # tiff is n x 100 x 100 
+    
+    # if nuclei and cytoplasm are in first two channels 
+    img_cp = img[:2] # keep first two channels
 
-If the nuclear model isn't working well, try the cytoplasmic model.
+    # if nuclei and cytoplasm are in different channels from first two 
+    img_cp = img[[1, 3]] # keep 1 and 3 (2nd and 4th channels)
 
+    # if you want to combine two stains to create your "cytoplasm" channel 
+    # in this example indices 0 and 2 (1st and 3rd) have two cellular stains 
+    # and nuclei are in index 1 (2nd channel)
+    img_cp = np.stack((img[[0,2]].sum(axis=0), img[1]), axis=0)
+
+    masks, flows, styles = model.eval(img_cp)
+    
 .. _diameter:
 
 Diameter 
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
-The cellpose models have been trained on images which were rescaled 
-to all have the same diameter (30 pixels in the case of the `cyto` 
-model and 17 pixels in the case of the `nuclei` model). Therefore, 
-cellpose needs a user-defined cell diameter (in pixels) as input, or to estimate 
-the object size of an image-by-image basis.
-
-The automated estimation of the diameter is a two-step process using the `style` vector 
-from the network, a 64-dimensional summary of the input image. We trained a 
-linear regression model to predict the size of objects from these style vectors 
-on the training data. On a new image the procedure is as follows.
-
-1. Run the image through the cellpose network and obtain the style vector. Predict the size using the linear regression model from the style vector.
-2. Resize the image based on the predicted size and run cellpose again, and produce ROIs. Take the final estimated size as the median diameter of the predicted ROIs.
-
-For automated estimation set ``diameter = None`` or ``diameter = 0``. 
-However, if this estimate is incorrect please set the diameter by hand.
-
-Changing the diameter will change the results that the algorithm 
-outputs. When the diameter is set smaller than the true size 
-then cellpose may over-split cells. Similarly, if the diameter 
-is set too big then cellpose may over-merge cells.
-
-.. _resample:
-
-Resample
-~~~~~~~~~~~~~~~~~~~~~~~~
-
-The cellpose network is run on your rescaled image -- where the rescaling factor is determined 
-by the diameter you input (or determined automatically as above). For instance, if you have 
-an image with 60 pixel diameter cells, the rescaling factor is 30./60. = 0.5. After determining 
-the flows (dX, dY, cellprob), the model runs the dynamics. The dynamics can be run at the rescaled 
-size (``resample=False``), or the dynamics can be run on the resampled, interpolated flows 
-at the true image size (``resample=True``). ``resample=True`` will create smoother ROIs when the 
-cells are large but will be slower in case; ``resample=False`` will find more ROIs when the cells 
-are small but will be slower in this case. By default in versions >=1.0 ``resample=True``.
+Cellpose-SAM been trained on images with ROI diameters from size 7.5 to 120, with a mean diameter of 30 pixels.
+Thus the model has a good amount of size-invariance, meaning that specifying the diameter is optional. 
+However, if your cells are very big, you may want to use the diameter input to downsample them. For example if you input a diameter of 90, 
+then the image will be downsampled by a factor of 3, which will increase run speed.
 
 Flow threshold
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
