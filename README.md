@@ -16,22 +16,24 @@
 [![GitHub stars](https://img.shields.io/github/stars/MouseLand/cellpose?style=social)](https://github.com/MouseLand/cellpose/)
 [![GitHub forks](https://img.shields.io/github/forks/MouseLand/cellpose?style=social)](https://github.com/MouseLand/cellpose/)
 
-A generalist algorithm for cell and nucleus segmentation (v1.0) that can be optimized for your own data (v2.0) and (**NEW**) perform image restoration (v3.0).
+**Cellpose-SAM: cell and nucleus segmentation with superhuman generalization. It can be optimized for your own data, applied in 3D, works on noisy and blurry images.**
 
-Cellpose was written by Carsen Stringer and Marius Pachitariu. To learn about Cellpose3 (image restoration), read the [paper](https://www.nature.com/articles/s41592-025-02595-5) or watch the [talk](https://youtu.be/TZZZlGk6AKo). To learn about Cellpose 2.0 (human-in-the-loop), read the [paper](https://www.nature.com/articles/s41592-022-01663-4) or watch the [talk](https://www.youtube.com/watch?v=3ydtAhfq6H0). To learn about Cellpose 1.0, read the [paper](https://t.co/kBMXmPp3Yn?amp=1) or watch the [talk](https://t.co/JChCsTD0SK?amp=1). For support, please open an [issue](https://github.com/MouseLand/cellpose/issues). 
+To learn about Cellpose-SAM read the [paper](https://www.biorxiv.org/content/10.1101/2025.04.28.651001v1) or watch the [talk](https://t.co/JChCsTD0SK?amp=1). For info on fine-tuning a model, watch this [tutorial talk](https://youtu.be/5qANHWoubZU), and see this example [video](https://youtu.be/3Y1VKcxjNy4) of human-in-the-loop training. For support, please open an [issue](https://github.com/MouseLand/cellpose/issues). 
 
-Please see install instructions [below](README.md/#Installation), and also check out the detailed documentation at [**cellpose.readthedocs.io**](https://cellpose.readthedocs.io/en/latest/) for more information. Example notebooks:
+Please see install instructions [below](README.md/#Installation), and also check out the detailed documentation at <font size="4">[**cellpose.readthedocs.io**](https://cellpose.readthedocs.io/en/latest/)</font>.
 
-* [run_cellpose3.ipynb](https://github.com/MouseLand/cellpose/blob/main/notebooks/run_cellpose3.ipynb) [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/MouseLand/cellpose/blob/main/notebooks/run_cellpose3.ipynb): run image restoration and segmentation with Cellpose3
-* [run_cyto3.ipynb](https://github.com/MouseLand/cellpose/blob/main/notebooks/run_cellpose3.ipynb) [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/MouseLand/cellpose/blob/main/notebooks/run_cyto3.ipynb): segment with the new super-generalist "cyto3" model
-* [run_cellpose_2.ipynb](https://github.com/MouseLand/cellpose/blob/main/notebooks/run_cellpose_2.ipynb) [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/MouseLand/cellpose/blob/main/notebooks/run_cellpose_2.ipynb): train your own models with Cellpose2
-* [run_cellpose_GPU.ipynb](https://github.com/MouseLand/cellpose/blob/main/notebooks/run_cellpose_GPU.ipynb) [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/MouseLand/cellpose/blob/main/notebooks/run_cellpose_GPU.ipynb): run Cellpose segmentation in 2D and 3D
-* [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/MouseLand/cellpose/blob/main/notebooks/Cellpose_cell_segmentation_2D_prediction_only.ipynb): a user-friendly notebook for 2D segmentation written by [@pr4deepr](https://github.com/pr4deepr)
-* [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/HenriquesLab/ZeroCostDL4Mic/blob/master/Colab_notebooks/Beta%20notebooks/Cellpose_2D_ZeroCostDL4Mic.ipynb): a user-friendly [ZeroCostDL4Mic](https://github.com/HenriquesLab/ZeroCostDL4Mic) notebook that includes training cellpose models, written by [@guijacquemet](https://github.com/guijacquemet)
+Example notebooks:
 
-:triangular_flag_on_post: All models in Cellpose, except `yeast_BF_cp3`, `yeast_PhC_cp3`, and `deepbacs_cp3`, are trained on some amount of data that is **CC-BY-NC**. The Cellpose annotated dataset is also CC-BY-NC.
+* [run_Cellpose-SAM.ipynb](https://github.com/MouseLand/cellpose/blob/main/notebooks/run_Cellpose-SAM.ipynb) [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/MouseLand/cellpose/blob/main/notebooks/run_Cellpose-SAM.ipynb): run Cellpose-SAM on your own data, mounted in google drive
+* [test_Cellpose-SAM.ipynb](https://github.com/MouseLand/cellpose/blob/main/notebooks/test_Cellpose-SAM.ipynb) [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/MouseLand/cellpose/blob/main/notebooks/test_Cellpose-SAM.ipynb): shows running Cellpose-SAM using example data in 2D and 3D
+* [train_Cellpose-SAM.ipynb](https://github.com/MouseLand/cellpose/blob/main/notebooks/train_Cellpose-SAM.ipynb) [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/MouseLand/cellpose/blob/main/notebooks/train_Cellpose-SAM.ipynb): train Cellpose-SAM on your own labeled data (also optional example data provided)
+
+:triangular_flag_on_post: The Cellpose-SAM model is trained on data that is licensed under **CC-BY-NC**. The Cellpose annotated dataset is also CC-BY-NC.
 
 ### CITATION
+
+**If you use Cellpose-SAM, please cite the Cellpose-SAM [paper](https://www.biorxiv.org/content/10.1101/2025.04.28.651001v1):**
+Pachitariu, M., Rariden, M., & Stringer, C. (2025). Cellpose-SAM: superhuman generalization for cellular segmentation. <em>bioRxiv</em>.
 
 **If you use Cellpose 1, 2 or 3, please cite the Cellpose 1.0 [paper](https://t.co/kBMXmPp3Yn?amp=1):**  
 Stringer, C., Wang, T., Michaelos, M., & Pachitariu, M. (2021). Cellpose: a generalist algorithm for cellular segmentation. <em>Nature methods, 18</em>(1), 100-106.
@@ -42,9 +44,9 @@ Pachitariu, M. & Stringer, C. (2022). Cellpose 2.0: how to train your own model.
 **If you use the new image restoration models or cyto3, please also cite the Cellpose3 [paper](https://www.nature.com/articles/s41592-025-02595-5):**  
 Stringer, C. & Pachitariu, M. (2025). Cellpose3: one-click image restoration for improved segmentation. <em>Nature Methods</em>.
 
-### v3.1+ update (Feb 2025)
+## Old updates
 
-`pip install cellpose --upgrade` to get all the new features and bug fixes!
+### v3.1+ update (Feb 2025)
 
 * support for **big data** contributed by [@GFleishman](https://github.com/GFleishman), usage info [here](https://cellpose.readthedocs.io/en/latest/distributed.html)
 * new options to improve 3D segmentation like `flow3D_smooth` and `pretrained_model_ortho`, more info [here](https://cellpose.readthedocs.io/en/latest/do3d.html#segmentation-settings)
@@ -57,12 +59,6 @@ Cellpose3 enables image restoration in the GUI, API and CLI (saved to `_seg.npy`
 * Check out the [paper](https://www.nature.com/articles/s41592-025-02595-5)
 * Tutorial [talk](https://youtu.be/TZZZlGk6AKo) about the algorithm and how to use it
 * API documentation [here](https://cellpose.readthedocs.io/en/latest/restore.html)
-
-<img src="http://www.cellpose.org/static/images/poisson_cp3.gif?raw=True" width="350" title="cellpose denoising" alt="cellpose denoising examples">
-
-<img src="http://www.cellpose.org/static/images/blur_cp3.gif?raw=True" width="350" title="cellpose deblurring" alt="cellpose deblurring examples">
-
-<img src="http://www.cellpose.org/static/images/downsample_cp3.gif?raw=True" width="350" title="cellpose upsampling" alt="cellpose upsampling examples">
 
 ### :star2: v2.0 (April 2022) :star2:
 
@@ -82,15 +78,15 @@ Linux, Windows and Mac OS are supported for running the code. For running the gr
 cellpose relies on the following excellent packages (which are automatically installed with conda/pip if missing):
 - [pytorch](https://pytorch.org/)
 - [pyqtgraph](http://pyqtgraph.org/)
-- [PyQt5](http://pyqt.sourceforge.net/Docs/PyQt5/)
-- [numpy](http://www.numpy.org/) (>=1.16.0)
-- [numba](http://numba.pydata.org/numba-doc/latest/user/5minguide.html)
+- [PyQt6](https://www.riverbankcomputing.com/software/pyqt/) or PySide
+- [numpy](http://www.numpy.org/) (>=1.20.0)
 - [scipy](https://www.scipy.org/)
 - [natsort](https://natsort.readthedocs.io/en/master/)
 - [tifffile](https://github.com/cgohlke/tifffile)
 - [imagecodecs](https://github.com/cgohlke/imagecodecs)
 - [roifile](https://github.com/cgohlke/roifile)
 - [fastremap](https://github.com/seung-lab/fastremap/)
+- [fill_voids](https://github.com/seung-lab/fill_voids/)
 
 ### Option 1: Installation Instructions with conda 
 

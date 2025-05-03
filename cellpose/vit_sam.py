@@ -1,3 +1,7 @@
+"""
+Copyright © 2025 Howard Hughes Medical Institute, Authored by Carsen Stringer and Marius Pachitariu.
+"""
+
 import torch
 from segment_anything import sam_model_registry
 torch.backends.cuda.matmul.allow_tf32 = True

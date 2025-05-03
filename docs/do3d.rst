@@ -24,16 +24,12 @@ incorrect. If drag-and-drop works (you can see a tiff with multiple planes),
 then the GUI will automatically run 3D segmentation and display it in the GUI. Watch 
 the command line for progress. It is recommended to use a GPU to speed up processing.
 
-In the CLI/notebook, you can specify the ``z_axis`` and optionally the ``channel_axis``
+In the CLI/notebook, you need to specify the ``z_axis`` and the ``channel_axis``
 parameters to specify the axis (0-based) of the image which corresponds to the image channels and to the z axis. 
 For example an image with 2 channels of shape (1024,1024,2,105,1) can be 
-specified with ``channel_axis=2`` and ``z_axis=3``. If ``channel_axis=None`` 
-cellpose will try to automatically determine the channel axis by choosing 
-the dimension with the minimal size after squeezing. If ``z_axis=None`` 
-cellpose will automatically select the first non-channel axis of the image 
-to be the Z axis. These parameters can be specified using the command line 
+specified with ``channel_axis=2`` and ``z_axis=3``. These parameters can be specified using the command line 
 with ``--channel_axis`` or ``--z_axis`` or as inputs to ``model.eval`` for 
-the ``Cellpose`` or ``CellposeModel`` model.
+the ``CellposeModel`` model.
 
 Volumetric stacks do not always have the same sampling in XY as they do in Z. 
 Therefore you can set an ``anisotropy`` parameter in CLI/notebook to allow for differences in 

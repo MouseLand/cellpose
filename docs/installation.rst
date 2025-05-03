@@ -111,38 +111,3 @@ to use the graphical interface for cellpose. More recent versions of Mac
 OS are fine. The software has been heavily tested on Windows 10 and
 Ubuntu 18.04, and less well tested on Mac OS. Please post an issue if
 you have installation problems.
-
-
-Dependencies
-~~~~~~~~~~~~~~~~~~~~~~
-
-cellpose relies on the following excellent packages (which are
-automatically installed with pip if missing):
-
--  `pytorch`_
--  `pyqtgraph`_
--  `PyQt5`_ or pyside or PyQt6
--  `numpy`_ (>=1.16.0)
--  `numba`_
--  `scipy`_
--  `tifffile`_
--  `natsort`_
--  `fastremap`_
--  `roifile`_
--  `superqt`_
-
-.. _Anaconda: https://www.anaconda.com/download/
-.. _environment.yml: https://github.com/MouseLand/cellpose/blob/master/environment.yml?raw=true
-.. _here: https://pypi.org/project/cellpose/
-
-.. _pytorch: https://pytorch.org/
-.. _pyqtgraph: http://pyqtgraph.org/
-.. _PyQt5: http://pyqt.sourceforge.net/Docs/PyQt5/
-.. _numpy: http://www.numpy.org/
-.. _numba: http://numba.pydata.org/numba-doc/latest/user/5minguide.html
-.. _scipy: https://www.scipy.org/
-.. _tifffile: https://pypi.org/project/tifffile/
-.. _natsort: https://natsort.readthedocs.io/en/master/
-.. _fastremap: https://github.com/seung-lab/fastremap
-.. _roifile: https://github.com/cgohlke/roifile
-.. _superqt: https://github.com/pyapp-kit/superqt
