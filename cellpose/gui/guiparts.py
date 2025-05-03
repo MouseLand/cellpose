@@ -143,10 +143,10 @@ class ModelButton(QPushButton):
         self.setText(text)
         self.setFont(parent.boldfont)
         self.clicked.connect(lambda: self.press(parent))
-        self.model_name = model_name if "cyto3" not in model_name else "cyto3"
+        self.model_name = "cpsam"
 
     def press(self, parent):
-        parent.compute_segmentation(model_name=self.model_name)
+        parent.compute_segmentation(model_name="cpsam")
 
 
 class FilterButton(QPushButton):

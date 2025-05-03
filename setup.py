@@ -57,11 +57,9 @@ except:
     pass
 
 try:
-    import PyQt5
+    import PyQt6
     gui_deps.remove("pyqt6")
     gui_deps.remove("pyqt6.sip")
-    gui_deps.append("pyqt5")
-    gui_deps.append("pyqt5.sip")
 except:
     pass
 

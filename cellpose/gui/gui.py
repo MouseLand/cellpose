@@ -16,7 +16,7 @@ from scipy.stats import mode
 import cv2
 
 from . import guiparts, menus, io
-from .. import models, core, dynamics, version, denoise, train
+from .. import models, core, dynamics, version, train
 from ..utils import download_url_to_file, masks_to_outlines, diameters
 from ..io import get_image_files, imsave, imread
 from ..transforms import resize_image, normalize99, normalize99_tile, smooth_sharpen_img
@@ -28,14 +28,6 @@ try:
     MATPLOTLIB = True
 except:
     MATPLOTLIB = False
-
-try:
-    from google.cloud import storage
-    os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = os.path.join(
-        os.path.dirname(os.path.realpath(__file__)), "key/cellpose-data-writer.json")
-    SERVER_UPLOAD = True
-except:
-    SERVER_UPLOAD = False
 
 Horizontal = QtCore.Qt.Orientation.Horizontal
 
@@ -174,7 +166,6 @@ def run(image=None):
     app.setWindowIcon(app_icon)
     app.setStyle("Fusion")
     app.setPalette(guiparts.DarkPalette())
-
     MainW(image=image, logger=logger)
     ret = app.exec_()
     sys.exit(ret)
@@ -187,7 +178,7 @@ class MainW(QMainWindow):
 
         self.logger = logger
         pg.setConfigOptions(imageAxisOrder="row-major")
-        self.setGeometry(50, 50, 2000, 1500)
+        self.setGeometry(50, 50, 1200, 1000)
         self.setWindowTitle(f"cellpose v{version}")
         self.cp_path = os.path.dirname(os.path.realpath(__file__))
         app_icon = QtGui.QIcon()
@@ -763,7 +754,6 @@ class MainW(QMainWindow):
                 model_name = self.net_names[index - 1]
             print(f"GUI_INFO: selected model {model_name}, loading now")
             self.initialize_model(model_name=model_name, custom=custom)
-
 
     def toggle_scale(self):
         if self.scale_on:
@@ -1604,7 +1594,6 @@ class MainW(QMainWindow):
                 self.outcolor).astype(np.uint8)
 
 
-
     def set_normalize_params(self, normalize_params):
         from cellpose.models import normalize_default
         if self.restore != "filter":
@@ -1760,13 +1749,10 @@ class MainW(QMainWindow):
             self.current_model_path = os.fspath(
                 models.MODEL_DIR.joinpath(self.current_model))
         else:
-            self.current_model = self.net_names[max(
-                0,
-                self.ModelChooseB.currentIndex() - 1)]
+            self.current_model = "cpsam"
             self.current_model_path = models.model_path(self.current_model)
 
     def initialize_model(self, model_name=None, custom=False):
-        print(model_name, custom)
         if model_name is None or custom:
             self.get_model_path(custom=custom)
             if not os.path.exists(self.current_model_path):

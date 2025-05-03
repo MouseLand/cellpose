@@ -20,10 +20,10 @@ def image_names_3d():
 
 
 def extract_zip(cached_file, url, data_path):
-    utils.download_url_to_file(url, cached_file)        
-    with zipfile.ZipFile(cached_file,"r") as zip_ref:
-        zip_ref.extractall(data_path)
-
+    if not cached_file.exists():
+        utils.download_url_to_file(url, cached_file)        
+        with zipfile.ZipFile(cached_file,"r") as zip_ref:
+            zip_ref.extractall(data_path)
 
 @pytest.fixture()
 def data_dir(image_names):

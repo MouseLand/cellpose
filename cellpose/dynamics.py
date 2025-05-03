@@ -486,7 +486,6 @@ def max_pool_nd(h, kernel_size=5):
         del hmax2 
         return hmax
 
-
 def get_masks_torch(pt, inds, shape0, rpad=20, max_size_fraction=0.4):
     """Create masks using pixel convergence after running dynamics.
 
