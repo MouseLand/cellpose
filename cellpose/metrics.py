@@ -1,6 +1,7 @@
 """
 Copyright © 2025 Howard Hughes Medical Institute, Authored by Carsen Stringer , Michael Rariden and Marius Pachitariu.
-"""import numpy as np
+"""
+import numpy as np
 from . import utils
 from scipy.optimize import linear_sum_assignment
 from scipy.ndimage import convolve
