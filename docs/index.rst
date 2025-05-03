@@ -3,18 +3,15 @@
 cellpose
 ===================================
 
-cellpose is an anatomical segmentation algorithm written in Python 3 
-by Carsen Stringer and Marius Pachitariu. For support, please open 
+cellpose is an anatomical segmentation algorithm written in Python 3. For support, please open 
 an `issue`_. We make pip installable releases of cellpose available on `pypi`_. You
 can install it as ``pip install cellpose[gui]``.
 
-**Cellpose-SAM is now available!**
+**Cellpose-SAM: superhuman generalization for cellular segmentation** now available!
 
-You can run Cellpose-SAM in the cloud (no install) at `Hugging Face <https://huggingface.co/spaces/mouseland/cellpose>`_. 
-
-Cellpose-SAM: superhuman generalization for cellular segmentation
-
+- run Cellpose-SAM in the cloud (no install) at `Hugging Face <https://huggingface.co/spaces/mouseland/cellpose>`_. 
 - `paper <https://www.biorxiv.org/content/10.1101/2025.04.28.651001v1>`_ on biorxiv
+- talk 
 
 
 Old releases:
