@@ -1,7 +1,7 @@
 Timing + memory usage
 ------------------------------------
 
-Training time and memory usage shown across various GPUs, for 8 labeled images and default 100 epochs:
+Training time and memory usage shown across various GPUs, for 2 labeled images and default 100 epochs:
 
 .. image:: https://www.cellpose.org/static/images/benchmark_train.png
     :width: 800
