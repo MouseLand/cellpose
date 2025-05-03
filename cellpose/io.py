@@ -63,6 +63,7 @@ def logger_setup(cp_path=".cellpose", logfile_name="run.log", stdout_file_replac
                     level=logging.INFO,
                     format="%(asctime)s [%(levelname)s] %(message)s",
                     handlers=handlers,
+                    force=True
     )
     logger = logging.getLogger(__name__)
     logger.info(f"WRITING LOG OUTPUT TO {log_file}")
