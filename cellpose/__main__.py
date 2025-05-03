@@ -1,7 +1,6 @@
 """
-Copyright © 2023 Howard Hughes Medical Institute, Authored by Carsen Stringer and Marius Pachitariu.
+Copyright © 2025 Howard Hughes Medical Institute, Authored by Carsen Stringer , Michael Rariden and Marius Pachitariu.
 """
-
 import os, time
 import numpy as np
 from tqdm import tqdm

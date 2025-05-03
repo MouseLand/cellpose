@@ -1,7 +1,6 @@
 """
-Copyright © 2023 Howard Hughes Medical Institute, Authored by Carsen Stringer and Marius Pachitariu.
-"""
-import logging
+Copyright © 2025 Howard Hughes Medical Institute, Authored by Carsen Stringer , Michael Rariden and Marius Pachitariu.
+"""import logging
 import os, tempfile, shutil, io
 from tqdm import tqdm, trange
 from urllib.request import urlopen

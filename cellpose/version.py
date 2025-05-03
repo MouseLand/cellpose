@@ -1,7 +1,6 @@
 """
-Copyright © 2023 Howard Hughes Medical Institute, Authored by Carsen Stringer and Marius Pachitariu.
+Copyright © 2025 Howard Hughes Medical Institute, Authored by Carsen Stringer , Michael Rariden and Marius Pachitariu.
 """
-
 from importlib.metadata import PackageNotFoundError, version
 import sys
 from platform import python_version
