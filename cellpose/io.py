@@ -230,6 +230,11 @@ def imread_2D(img_file):
     """
     img = imread(img_file)
 
+    # force XYC: 
+    if img.shape[0] <  img.shape[-1]:
+        # move channel to last dim:
+        img = np.moveaxis(img, 0, -1)
+
     if img.ndim == 3:
         if img.shape[2] == 3:
             # already has 3 channels
