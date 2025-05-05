@@ -1,10 +1,31 @@
 import time
+import numpy as np
 import pytest
 from cellpose import utils, models, vit_sam
 import zipfile
 import torch
 import torch.nn.functional as F
 from pathlib import Path
+
+
+def pytest_addoption(parser):
+    parser.addoption(
+        "--runslow", action="store_true", default=False, help="run slow tests"
+    )
+
+
+def pytest_configure(config):
+    config.addinivalue_line("markers", "slow: mark test as slow to run")
+
+
+def pytest_collection_modifyitems(config, items):
+    if config.getoption("--runslow"):
+        # --runslow given in cli: do not skip slow tests
+        return
+    skip_slow = pytest.mark.skip(reason="need --runslow option to run")
+    for item in items:
+        if "slow" in item.keywords:
+            item.add_marker(skip_slow)
 
 
 @pytest.fixture()
@@ -58,7 +79,7 @@ class MockTransformer(vit_sam.Transformer):
         super().__init__()
 
         self.use_layers = use_layers
-
+        self.layer_idxs = np.linspace(0, 23, self.use_layers, dtype=int)
 
     def forward(self, x):
         # same progression as SAM until readout
@@ -68,10 +89,8 @@ class MockTransformer(vit_sam.Transformer):
             x = x + self.encoder.pos_embed
         
         # only use self.use_layers layers
-        for i, block in enumerate(self.encoder.blocks):
-            if i == self.use_layers:
-                break
-            x = block(x)
+        for layer_idx in self.layer_idxs:
+            x = self.encoder.blocks[layer_idx](x)
 
         x = self.encoder.neck(x.permute(0, 3, 1, 2))
 

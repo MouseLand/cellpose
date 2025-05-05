@@ -14,8 +14,6 @@ def test_gui_imports_without_error():
 
 
 def test_gpu_check():
-    #     from cellpose import models
-    #     models.use_gpu()
     from cellpose import core
     core.use_gpu()
 
