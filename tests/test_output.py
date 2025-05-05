@@ -117,7 +117,7 @@ def test_cli_3D_diam(data_dir, image_names_3d):
     clear_output(data_dir, image_names_3d)
     use_gpu = torch.cuda.is_available()
     gpu_string = "--use_gpu" if use_gpu else ""
-    cmd = f"python -m cellpose --image_path {str(data_dir / "3D" / image_names_3d[0])} --do_3D --diameter 25 --save_tif {gpu_string} --verbose"
+    cmd = f"python -m cellpose --image_path {str(data_dir / '3D' / image_names_3d[0])} --do_3D --diameter 25 --save_tif {gpu_string} --verbose"
     try:
         cmd_stdout = check_output(cmd, stderr=STDOUT, shell=True).decode()
         print(cmd_stdout)
