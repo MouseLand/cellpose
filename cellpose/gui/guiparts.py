@@ -198,7 +198,7 @@ class ObservableVariable(QtCore.QObject):
         return self._value
     
     def reset(self):
-        self._value = 0
+        self.set(0)
 
     def __iadd__(self, amount):
         if not isinstance(amount, (int, float)):
