@@ -746,6 +746,14 @@ def normalize_img(img, normalize=True, norm3D=True, invert=False, lowhigh=None,
     if axis != -1 and axis != img_norm.ndim - 1:
         img_norm = np.moveaxis(img_norm, -1, axis)
 
+    # The transformer can get confused if a channel is all 1's instead of all 0's:
+    for i, chan_did_normalize in enumerate(cgood):
+        if not chan_did_normalize:
+            if img_norm.ndim == 3:
+                img_norm[:, :, i] = 0
+            if img_norm.ndim == 4:
+                img_norm[0, :, :, i] = 0
+
     return img_norm
 
 def resize_safe(img, Ly, Lx, interpolation=cv2.INTER_LINEAR):
