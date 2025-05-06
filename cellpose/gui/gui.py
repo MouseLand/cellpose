@@ -1848,20 +1848,24 @@ class MainW(QMainWindow):
             self.logger.info(
                     "computing masks with cell prob=%0.3f, flow error threshold=%0.3f" %
                     (cellprob_threshold, flow_threshold))
+            
             try:
-                maski = dynamics.resize_and_compute_masks(
-                    dP=self.flows[2].squeeze(),
-                    cellprob=self.flows[3].squeeze(),
-                    niter=niter,
-                    do_3D=self.load_3D,
-                    min_size=min_size,
-                    # max_size_fraction=min_size_fraction, # Leave as default 
-                    cellprob_threshold=cellprob_threshold, 
-                    flow_threshold=flow_threshold)
+                dP = self.flows[2].squeeze()
+                cellprob = self.flows[3].squeeze()
             except IndexError:
                 self.logger.error("Flows don't exist, try running model again.")
                 return
-
+            
+            maski = dynamics.resize_and_compute_masks(
+                dP=dP,
+                cellprob=cellprob,
+                niter=niter,
+                do_3D=self.load_3D,
+                min_size=min_size,
+                # max_size_fraction=min_size_fraction, # Leave as default 
+                cellprob_threshold=cellprob_threshold, 
+                flow_threshold=flow_threshold)
+            
             self.masksOn = True
             if not self.OCheckBox.isChecked():
                 self.MCheckBox.setChecked(True)
