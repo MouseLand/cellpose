@@ -522,8 +522,11 @@ class MainW(QMainWindow):
         self.additional_seg_settings_qcollapsible.setContent(self.segmentation_settings)
         self.segBoxG.addWidget(self.additional_seg_settings_qcollapsible, widget_row, 0, 1, 9)
 
-        # connect edits to the diameter box to resizing the image: 
+        # connect edits to image processing steps: 
         self.segmentation_settings.diameter_box.editingFinished.connect(self.update_scale)
+        self.segmentation_settings.flow_threshold_box.returnPressed.connect(self.compute_cprob)
+        self.segmentation_settings.cellprob_threshold_box.returnPressed.connect(self.compute_cprob)
+        self.segmentation_settings.niter_box.returnPressed.connect(self.compute_cprob)
 
         # Needed to do this for the drop down to not be open on startup
         self.additional_seg_settings_qcollapsible._toggle_btn.setChecked(True)
@@ -1838,13 +1841,26 @@ class MainW(QMainWindow):
         if self.recompute_masks:
             flow_threshold = self.segmentation_settings.flow_threshold
             cellprob_threshold = self.segmentation_settings.cellprob_threshold
+            niter = self.segmentation_settings.niter
+            min_size = int(self.min_size.text()) if not isinstance(
+                self.min_size, int) else self.min_size
+
             self.logger.info(
                     "computing masks with cell prob=%0.3f, flow error threshold=%0.3f" %
                     (cellprob_threshold, flow_threshold))
-            maski = dynamics.resize_and_compute_masks(
-                self.flows[4][:-1], self.flows[4][-1], p=self.flows[3].copy(),
-                cellprob_threshold=cellprob_threshold, flow_threshold=flow_threshold,
-                resize=self.cellpix.shape[-2:])[0]
+            try:
+                maski = dynamics.resize_and_compute_masks(
+                    dP=self.flows[2].squeeze(),
+                    cellprob=self.flows[3].squeeze(),
+                    niter=niter,
+                    do_3D=self.load_3D,
+                    min_size=min_size,
+                    # max_size_fraction=min_size_fraction, # Leave as default 
+                    cellprob_threshold=cellprob_threshold, 
+                    flow_threshold=flow_threshold)
+            except IndexError:
+                self.logger.error("Flows don't exist, try running model again.")
+                return
 
             self.masksOn = True
             if not self.OCheckBox.isChecked():
@@ -1911,6 +1927,9 @@ class MainW(QMainWindow):
             flows_new.append(flows[0].copy())  # RGB flow
             flows_new.append((np.clip(normalize99(flows[2].copy()), 0, 1) *
                               255).astype("uint8"))  # cellprob
+            flows_new.append(flows[1].copy()) # XY flows
+            flows_new.append(flows[2].copy()) # original cellprob
+
             if self.load_3D:
                 if stitch_threshold == 0.:
                     flows_new.append((flows[1][0] / 10 * 127 + 127).astype("uint8"))
