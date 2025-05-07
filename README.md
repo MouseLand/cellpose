@@ -16,7 +16,7 @@
 [![GitHub stars](https://img.shields.io/github/stars/MouseLand/cellpose?style=social)](https://github.com/MouseLand/cellpose/)
 [![GitHub forks](https://img.shields.io/github/forks/MouseLand/cellpose?style=social)](https://github.com/MouseLand/cellpose/)
 
-**Cellpose-SAM: cell and nucleus segmentation with superhuman generalization. It can be optimized for your own data, applied in 3D, works on noisy and blurry images.**
+**Cellpose-SAM: cell and nucleus segmentation with superhuman generalization. It can be optimized for your own data, applied in 3D, works on images with shot noise, (an)isotropic blur, undersampling, contrast inversions, regardless of channel order and object sizes.**
 
 To learn about Cellpose-SAM read the [paper](https://www.biorxiv.org/content/10.1101/2025.04.28.651001v1) or watch the [talk](https://www.youtube.com/watch?v=KIdYXgQemcI). For info on fine-tuning a model, watch this [tutorial talk](https://youtu.be/5qANHWoubZU), and see this example [video](https://youtu.be/3Y1VKcxjNy4) of human-in-the-loop training. For support, please open an [issue](https://github.com/MouseLand/cellpose/issues). 
 
