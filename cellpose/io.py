@@ -235,14 +235,17 @@ def imread_2D(img_file):
         # move channel to last dim:
         img = np.moveaxis(img, 0, -1)
 
+    nchan = img.shape[2]
+
     if img.ndim == 3:
-        if img.shape[2] == 3:
+        if nchan == 3:
             # already has 3 channels
             return img
         
         # ensure there are 3 channels
         img_out = np.zeros((img.shape[0], img.shape[1], 3), dtype=img.dtype)
-        img_out[:, :, :img.shape[2]] = img
+        copy_chan = min(3, nchan)
+        img_out[:, :, :copy_chan] = img[:, :, :copy_chan]
 
     elif img.ndim == 2:
         # add a channel dimension
