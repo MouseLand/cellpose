@@ -18,9 +18,9 @@
 
 **Cellpose-SAM: cell and nucleus segmentation with superhuman generalization. It can be optimized for your own data, applied in 3D, works on noisy and blurry images.**
 
-To learn about Cellpose-SAM read the [paper](https://www.biorxiv.org/content/10.1101/2025.04.28.651001v1) or watch the [talk](https://t.co/JChCsTD0SK?amp=1). For info on fine-tuning a model, watch this [tutorial talk](https://youtu.be/5qANHWoubZU), and see this example [video](https://youtu.be/3Y1VKcxjNy4) of human-in-the-loop training. For support, please open an [issue](https://github.com/MouseLand/cellpose/issues). 
+To learn about Cellpose-SAM read the [paper](https://www.biorxiv.org/content/10.1101/2025.04.28.651001v1) or watch the [talk](https://www.youtube.com/watch?v=KIdYXgQemcI). For info on fine-tuning a model, watch this [tutorial talk](https://youtu.be/5qANHWoubZU), and see this example [video](https://youtu.be/3Y1VKcxjNy4) of human-in-the-loop training. For support, please open an [issue](https://github.com/MouseLand/cellpose/issues). 
 
-Please see install instructions [below](README.md/#Installation), and also check out the detailed documentation at <font size="4">[**cellpose.readthedocs.io**](https://cellpose.readthedocs.io/en/latest/)</font>.
+Please see install instructions [below](README.md/#Installation), and also check out the detailed documentation at <font size="4">[**cellpose.readthedocs.io**](https://cellpose.readthedocs.io/en/latest/)</font>. The Cellpose-SAM [website](https://huggingface.co/spaces/mouseland/cellpose) allows batch processing of images with a free account on Hugging Face. 
 
 Example notebooks:
 
