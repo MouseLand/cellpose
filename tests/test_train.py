@@ -2,6 +2,7 @@ from cellpose import io, models, train
 from subprocess import check_output, STDOUT
 import os, shutil
 import torch
+from pathlib import Path
 
 
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
@@ -41,3 +42,16 @@ def test_cli_train(data_dir):
         print(e)
         raise ValueError(e)
 
+
+def test_cli_make_train(data_dir):
+    script_name = Path().resolve() / 'cellpose/gui/make_train.py'
+    image_path = data_dir / '3D/gray_3D.tif'
+
+    cmd = f'python {script_name} --image_path {image_path}'
+    res = check_output(cmd, stderr=STDOUT, shell=True)
+
+    # there should be 30 slices: 
+    files = [f for f in (data_dir / '3D/train/').iterdir() if 'gray_3D' in f.name]
+    assert 30 == len(files)
+
+    shutil.rmtree((data_dir / '3D/train'))
