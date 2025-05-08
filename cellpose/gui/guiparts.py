@@ -272,7 +272,6 @@ class SegmentationSettings(QWidget):
         grid_layout.addWidget(flow_threshold_qlabel, row, 0, 1, 2)
         self.flow_threshold_box = QLineEdit()
         self.flow_threshold_box.setText("0.4")
-        # self.flow_threshold_box.returnPressed.connect(self.compute_cprob) # TODO
         self.flow_threshold_box.setFixedWidth(40)
         self.flow_threshold_box.setFont(font)
         grid_layout.addWidget(self.flow_threshold_box, row, 2, 1, 2)
@@ -286,7 +285,6 @@ class SegmentationSettings(QWidget):
         grid_layout.addWidget(cellprob_qlabel, row, 4, 1, 2)
         self.cellprob_threshold_box = QLineEdit()
         self.cellprob_threshold_box.setText("0.0")
-        # self.cellprob_threshold.returnPressed.connect(self.compute_cprob) # TODO
         self.cellprob_threshold_box.setFixedWidth(40)
         self.cellprob_threshold_box.setFont(font)
         self.cellprob_threshold_box.setToolTip("threshold on cellprob output to seed cell masks (set lower to include more pixels or higher to include fewer, e.g. in range from (-6, 6)); \n press enter to recompute if model already run")
@@ -408,7 +406,12 @@ class SegmentationSettings(QWidget):
     
     @property
     def niter(self):
-        return int(self.niter_box.text())
+        num = int(self.niter_box.text())
+        if num < 1:
+            self.niter_box.setText('200')
+            return 200
+        else:
+            return num
 
 
 

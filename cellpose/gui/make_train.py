@@ -4,7 +4,7 @@ from cellpose import io, transforms
 
 
 def main():
-    parser = argparse.ArgumentParser(description='cellpose parameters')
+    parser = argparse.ArgumentParser(description='Make slices of XYZ image data for training. Assumes image is ZXYC unless specified otherwise using --channel_axis and --z_axis')
 
     input_img_args = parser.add_argument_group("input image arguments")
     input_img_args.add_argument('--dir', default=[], type=str,
@@ -19,22 +19,22 @@ def main():
     input_img_args.add_argument('--img_filter', default=[], type=str,
                                 help='end string for images to run on')
     input_img_args.add_argument(
-        '--channel_axis', default=None, type=int,
+        '--channel_axis', default=-1, type=int,
         help='axis of image which corresponds to image channels')
-    input_img_args.add_argument('--z_axis', default=None, type=int,
+    input_img_args.add_argument('--z_axis', default=0, type=int,
                                 help='axis of image which corresponds to Z dimension')
     input_img_args.add_argument(
         '--chan', default=0, type=int, help=
-        'channel to segment; 0: GRAY, 1: RED, 2: GREEN, 3: BLUE. Default: %(default)s')
+        'Deprecated')
     input_img_args.add_argument(
         '--chan2', default=0, type=int, help=
-        'nuclear channel (if cyto, optional); 0: NONE, 1: RED, 2: GREEN, 3: BLUE. Default: %(default)s'
+        'Deprecated'
     )
     input_img_args.add_argument('--invert', action='store_true',
                                 help='invert grayscale channel')
     input_img_args.add_argument(
         '--all_channels', action='store_true', help=
-        'use all channels in image if using own model and images with special channels')
+        'deprecated')
     input_img_args.add_argument("--anisotropy", required=False, default=1.0, type=float,
                                 help="anisotropy of volume in 3D")
     
@@ -77,8 +77,13 @@ def main():
     npm = ["YX", "ZY", "ZX"]
     for name in image_names:
         name0 = os.path.splitext(os.path.split(name)[-1])[0]
-        img0 = io.imread(name)
-        img0 = transforms.convert_image(img0, channels=[args.chan, args.chan2], channel_axis=args.channel_axis, z_axis=args.z_axis)
+        img0 = io.imread_3D(name)
+        try: 
+            img0 = transforms.convert_image(img0, channel_axis=args.channel_axis, 
+                                            z_axis=args.z_axis, do_3D=True)
+        except ValueError:
+            print('Error converting image. Did you provide the correct --channel_axis and --z_axis ?') 
+            
         for p in range(3):
             img = img0.transpose(pm[p]).copy()
             print(npm[p], img[0].shape)
