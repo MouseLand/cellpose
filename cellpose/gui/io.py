@@ -211,13 +211,13 @@ def _initialize_images(parent, image, load_3D=False):
                 "GUI_INFO: normalization checked: computing saturation levels (and optionally filtered image)"
             )
             parent.compute_saturation()
-    elif len(parent.saturation) != parent.NZ:
-        parent.saturation = []
-        for r in range(3):
-            parent.saturation.append([])
-            for n in range(parent.NZ):
-                parent.saturation[-1].append([0, 255])
-            parent.sliders[r].setValue([0, 255])
+    # elif len(parent.saturation) != parent.NZ:
+    #     parent.saturation = []
+    #     for r in range(3):
+    #         parent.saturation.append([])
+    #         for n in range(parent.NZ):
+    #             parent.saturation[-1].append([0, 255])
+    #         parent.sliders[r].setValue([0, 255])
     parent.compute_scale()
     parent.track_changes = []
 

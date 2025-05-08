@@ -273,6 +273,9 @@ class MainW(QMainWindow):
         self.ratio = 1.
         self.reset()
 
+        # This needs to go after .reset() is called to get state fully set up:
+        self.autobtn.checkStateChanged.connect(self.compute_saturation_if_checked)
+
         self.load_3D = False
 
         # if called with image, load it
@@ -954,12 +957,15 @@ class MainW(QMainWindow):
         self.opacity = 128  # how opaque masks should be
         self.outcolor = [200, 200, 255, 200]
         self.NZ, self.Ly, self.Lx = 1, 256, 256
-        self.saturation = []
-        for r in range(3):
-            self.saturation.append([[0, 255] for n in range(self.NZ)])
-            self.sliders[r].setValue([0, 255])
-            self.sliders[r].setEnabled(False)
-            self.sliders[r].show()
+        self.saturation = self.saturation if hasattr(self, 'saturation') else []
+
+        # only adjust the saturation if auto-adjust is on: 
+        if self.autobtn.isChecked():
+            for r in range(3):
+                self.saturation.append([[0, 255] for n in range(self.NZ)])
+                self.sliders[r].setValue([0, 255])
+                self.sliders[r].setEnabled(False)
+                self.sliders[r].show()
         self.currentZ = 0
         self.flows = [[], [], [], [], [[]]]
         # masks matrix
@@ -1658,6 +1664,10 @@ class MainW(QMainWindow):
         normalize_params = {**normalize_default, **normalize_params}
 
         return normalize_params
+    
+    def compute_saturation_if_checked(self):
+        if self.autobtn.isChecked():
+            self.compute_saturation()
 
     def compute_saturation(self, return_img=False):
         norm = self.get_normalize_params()
@@ -1707,42 +1717,43 @@ class MainW(QMainWindow):
         else:
             img_norm = self.stack if self.restore is None or self.restore == "filter" else self.stack_filtered
 
-        self.saturation = []
-        for c in range(img_norm.shape[-1]):
-            self.saturation.append([])
-            if np.ptp(img_norm[..., c]) > 1e-3:
-                if norm3D:
-                    x01 = np.percentile(img_norm[..., c], percentile[0])
-                    x99 = np.percentile(img_norm[..., c], percentile[1])
-                    if invert:
-                        x01i = 255. - x99
-                        x99i = 255. - x01
-                        x01, x99 = x01i, x99i
-                    for n in range(self.NZ):
-                        self.saturation[-1].append([x01, x99])
-                else:
-                    for z in range(self.NZ):
-                        if self.NZ > 1:
-                            x01 = np.percentile(img_norm[z, :, :, c], percentile[0])
-                            x99 = np.percentile(img_norm[z, :, :, c], percentile[1])
-                        else:
-                            x01 = np.percentile(img_norm[..., c], percentile[0])
-                            x99 = np.percentile(img_norm[..., c], percentile[1])
+        if self.autobtn.isChecked():
+            self.saturation = []
+            for c in range(img_norm.shape[-1]):
+                self.saturation.append([])
+                if np.ptp(img_norm[..., c]) > 1e-3:
+                    if norm3D:
+                        x01 = np.percentile(img_norm[..., c], percentile[0])
+                        x99 = np.percentile(img_norm[..., c], percentile[1])
                         if invert:
                             x01i = 255. - x99
                             x99i = 255. - x01
                             x01, x99 = x01i, x99i
-                        self.saturation[-1].append([x01, x99])
-            else:
-                for n in range(self.NZ):
-                    self.saturation[-1].append([0, 255.])
-        print(self.saturation[2][self.currentZ])
+                        for n in range(self.NZ):
+                            self.saturation[-1].append([x01, x99])
+                    else:
+                        for z in range(self.NZ):
+                            if self.NZ > 1:
+                                x01 = np.percentile(img_norm[z, :, :, c], percentile[0])
+                                x99 = np.percentile(img_norm[z, :, :, c], percentile[1])
+                            else:
+                                x01 = np.percentile(img_norm[..., c], percentile[0])
+                                x99 = np.percentile(img_norm[..., c], percentile[1])
+                            if invert:
+                                x01i = 255. - x99
+                                x99i = 255. - x01
+                                x01, x99 = x01i, x99i
+                            self.saturation[-1].append([x01, x99])
+                else:
+                    for n in range(self.NZ):
+                        self.saturation[-1].append([0, 255.])
+            print(self.saturation[2][self.currentZ])
 
-        if img_norm.shape[-1] == 1:
-            self.saturation.append(self.saturation[0])
-            self.saturation.append(self.saturation[0])
+            if img_norm.shape[-1] == 1:
+                self.saturation.append(self.saturation[0])
+                self.saturation.append(self.saturation[0])
 
-        self.autobtn.setChecked(True)
+        # self.autobtn.setChecked(True)
         self.update_plot()
 
 
@@ -1986,7 +1997,7 @@ class MainW(QMainWindow):
             self.masksOn = True
             self.MCheckBox.setChecked(True)
             self.progress.setValue(100)
-            if self.restore != "filter" and self.restore is not None:
+            if self.restore != "filter" and self.restore is not None and self.autobtn.isChecked():
                 self.compute_saturation()
             if not do_3D and not stitch_threshold > 0:
                 self.recompute_masks = True
