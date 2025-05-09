@@ -7,7 +7,11 @@ from qtpy.QtWidgets import QWidget, QDialog, QGridLayout, QPushButton, QLabel, Q
 import pyqtgraph as pg
 import numpy as np
 import pathlib, os
+import logging
+from cellpose import utils
 
+
+logger = logging.getLogger(__name__)
 
 def stylesheet():
     return """
@@ -176,6 +180,150 @@ class FilterButton(QPushButton):
         else:
             parent.clear_restore()
         # parent.set_restore_button()
+
+
+class CellMaskContainer(QtCore.QObject):
+
+    outline_color = [200, 200, 255, 200]
+
+    def __init__(self, Ly=256, Lx=256, num_z_slices=1, opacity=128):
+        super().__init__()
+
+        self._Ly = Ly
+        self._Lx = Lx
+        cellpix = np.zeros((1, self._Ly, self._Lx), np.uint16)
+
+        self._cellpix = cellpix
+        self._outpix = np.zeros_like(cellpix)
+
+        self._radii = 0 * np.ones((self._Ly, self._Lx, 4), np.uint8)
+        self._layerz = 0 * np.ones((self._Ly, self._Lx, 4), np.uint8)
+        self._cellpix = np.zeros((1, self._Ly, self._Lx), np.uint16)
+        self._cellcolors = np.array([255, 255, 255])[np.newaxis, :]
+        self._outpix = np.zeros((1, self._Ly, self._Lx), np.uint16)
+        self._stack = np.zeros((1, self._Ly, self._Lx, 3))
+        self._selection_history = []
+        self._current_selection = 0
+        self._currentZ = 0
+        self._NZ = num_z_slices
+        self._opacity = opacity
+
+        self._idx_is_manual = []
+
+
+    
+    def get_cellpix(self):
+        return self._cellpix
+    
+    
+    def get_outpix(self):
+        # TODO: call outlines or cache:
+        pass
+
+    
+    def select_cell(self, idx):
+        if idx > 0:
+            self._selection_history.append(idx)
+            z = self.currentZ
+            pix_where_idx = self._cellpix[z] == idx
+            self._layerz[pix_where_idx] = np.array([255, 255, 255, self._opacity])
+
+    
+    def _last_selected(self):
+        try:
+            return self._selection_history.pop()
+        except IndexError:
+            return None
+        
+    
+    def set_dimensions(self, Ly, Lx):
+        self._Ly = Ly
+        self._Lx = Lx
+
+    
+    @property
+    def currentZ(self):
+        return self._currentZ
+    
+    @property
+    def layerz(self):
+        return self._layerz
+    
+
+    def clear_all(self):
+        self._prev_selected = []
+        self._current_selection = 0
+        # if self.restore and "upsample" in self.restore:
+        #     self.layerz = 0 * np.ones((self.Lyr, self.Lxr, 4), np.uint8)
+        #     self.cellpix = np.zeros((self.NZ, self.Lyr, self.Lxr), np.uint16)
+        #     self.outpix = np.zeros((self.NZ, self.Lyr, self.Lxr), np.uint16)
+        #     self.cellpix_resize = self.cellpix.copy()
+        #     self.outpix_resize = self.outpix.copy()
+        #     self.cellpix_orig = np.zeros((self.NZ, self.Ly0, self.Lx0), np.uint16)
+        #     self.outpix_orig = np.zeros((self.NZ, self.Ly0, self.Lx0), np.uint16)
+        # else:
+        self._layerz = 0 * np.ones((self._Ly, self._Lx, 4), np.uint8)
+        self._cellpix = np.zeros((self._NZ, self._Ly, self._Lx), np.uint16)
+        self._outpix = np.zeros((self._NZ, self._Ly, self._Lx), np.uint16)
+        self._cellcolors = np.array([255, 255, 255])[np.newaxis, :]
+    
+
+    def update_layerz(self, strokes):
+        self._layerz = np.zeros((self._Ly, self._Lx, 4), np.uint8)
+        z  = self._currentZ
+        # if self.masksOn:
+        self._layerz[..., :3] = self._cellcolors[self._cellpix[z], :]
+        self._layerz[..., 3] = self._opacity * (self._cellpix[z] > 0).astype(np.uint8)
+        last_selected = self._last_selected()
+        # if last_selected and last_selected > 0:
+        self._layerz[self._cellpix[z] == last_selected] = np.array(
+            [255, 255, 255, self._opacity])
+        cZ = z
+        stroke_z = np.array([s[0][0] for s in strokes])
+        inZ = np.nonzero(stroke_z == cZ)[0]
+        if len(inZ) > 0:
+            for i in inZ:
+                stroke = np.array(strokes[i])
+                self._layerz[stroke[:, 1], stroke[:,
+                                                    2]] = np.array([255, 0, 255, 100])
+        # else:
+        #     self._layerz[..., 3] = 0
+
+
+    def get_outlines(self, z=None):
+        if not z:
+            z = self._currentZ
+        self._layerz[self.outpix[z] > 0] = np.array(self.outline_color).astype(np.uint8)
+
+
+    def set_cellpix(self, masks):
+        self._cellpix = masks
+        # TODO: update other things if needed...
+
+
+    def get_num_cells(self):
+        return self._cellpix.max()
+
+
+    @property
+    def outpix(self):
+        return self._calculate_outpix()
+    
+    @property
+    def load_3D(self):
+        return self._NZ > 1
+    
+
+    def _calculate_outpix(self):
+        for z in range(self._NZ):
+            outlines = utils.masks_to_outlines(self._cellpix[z])
+            self._outpix[z] = outlines * self._cellpix[z]
+            if z % 50 == 0 and self._NZ > 1:
+                logger.info("GUI_INFO: plane %d outlines processed" % z)
+
+
+
+    
 
 
 class ObservableVariable(QtCore.QObject):

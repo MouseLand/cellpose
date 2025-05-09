@@ -658,11 +658,11 @@ class MainW(QMainWindow):
         r = ["red", "green", "blue"].index(r)
         if self.loaded:
             sval = self.sliders[r].value()
-            self.saturation[r][self.currentZ] = sval
+            self.saturation[r][self.cellMaskContainer.currentZ] = sval
             if not self.autobtn.isChecked():
                 for r in range(3):
                     for i in range(len(self.saturation[r])):
-                        self.saturation[r][i] = self.saturation[r][self.currentZ]
+                        self.saturation[r][i] = self.saturation[r][self.cellMaskContainer.currentZ]
             self.update_plot()
 
     def keyPressEvent(self, event):
@@ -844,7 +844,7 @@ class MainW(QMainWindow):
             self.remove_cell(self.selected)
 
     def undo_action(self):
-        if (len(self.strokes) > 0 and self.strokes[-1][0][0] == self.currentZ):
+        if (len(self.strokes) > 0 and self.strokes[-1][0][0] == self.cellMaskContainer.currentZ):
             self.remove_stroke()
         else:
             # remove previous cell
@@ -880,11 +880,12 @@ class MainW(QMainWindow):
             event.ignore()
 
     def dropEvent(self, event):
+        do_3d = self.cellMaskContainer.load_3D
         files = [u.toLocalFile() for u in event.mimeData().urls()]
         if os.path.splitext(files[0])[-1] == ".npy":
-            io._load_seg(self, filename=files[0], load_3D=self.load_3D)
+            io._load_seg(self, filename=files[0], load_3D=load_3D)
         else:
-            io._load_image(self, filename=files[0], load_seg=True, load_3D=self.load_3D)
+            io._load_image(self, filename=files[0], load_seg=True, load_3D=load_3D)
 
     def toggle_masks(self):
         if self.MCheckBox.isChecked():
@@ -941,13 +942,13 @@ class MainW(QMainWindow):
         self.resize = False
         self.ncells.reset()
         self.zdraw = []
-        self.removed_cell = []
-        self.cellcolors = np.array([255, 255, 255])[np.newaxis, :]
+        # self.removed_cell = []
+        # self.cellcolors = np.array([255, 255, 255])[np.newaxis, :]
 
         # -- zero out image stack -- #
-        self.opacity = 128  # how opaque masks should be
-        self.outcolor = [200, 200, 255, 200]
-        self.NZ, self.Ly, self.Lx = 1, 256, 256
+        # self.opacity = 128  # how opaque masks should be
+        # self.outcolor = [200, 200, 255, 200]
+        # self.NZ, self.Ly, self.Lx = 1, 256, 256
         self.saturation = self.saturation if hasattr(self, 'saturation') else []
 
         # only adjust the saturation if auto-adjust is on: 
@@ -957,18 +958,19 @@ class MainW(QMainWindow):
                 self.sliders[r].setValue([0, 255])
                 self.sliders[r].setEnabled(False)
                 self.sliders[r].show()
-        self.currentZ = 0
+        # self.currentZ = 0
         self.flows = [[], [], [], [], [[]]]
         # masks matrix
         # image matrix with a scale disk
-        self.stack = np.zeros((1, self.Ly, self.Lx, 3))
-        self.Lyr, self.Lxr = self.Ly, self.Lx
-        self.Ly0, self.Lx0 = self.Ly, self.Lx
-        self.radii = 0 * np.ones((self.Ly, self.Lx, 4), np.uint8)
-        self.layerz = 0 * np.ones((self.Ly, self.Lx, 4), np.uint8)
-        self.cellpix = np.zeros((1, self.Ly, self.Lx), np.uint16)
-        self.outpix = np.zeros((1, self.Ly, self.Lx), np.uint16)
-        self.ismanual = np.zeros(0, "bool")
+        # self.stack = np.zeros((1, self.Ly, self.Lx, 3))
+        # self.Lyr, self.Lxr = self.Ly, self.Lx
+        # self.Ly0, self.Lx0 = self.Ly, self.Lx
+        # self.radii = 0 * np.ones((self.Ly, self.Lx, 4), np.uint8)
+        # self.layerz = 0 * np.ones((self.Ly, self.Lx, 4), np.uint8)
+        # self.cellpix = np.zeros((1, self.Ly, self.Lx), np.uint16)
+        # self.outpix = np.zeros((1, self.Ly, self.Lx), np.uint16)
+        # self.ismanual = np.zeros(0, "bool")
+        self.cellMaskContainer = guiparts.CellMaskContainer()
 
         # -- set menus to default -- #
         self.color = 0
@@ -1017,38 +1019,41 @@ class MainW(QMainWindow):
             self.update_layer()
 
     def clear_all(self):
-        self.prev_selected = 0
-        self.selected = 0
-        if self.restore and "upsample" in self.restore:
-            self.layerz = 0 * np.ones((self.Lyr, self.Lxr, 4), np.uint8)
-            self.cellpix = np.zeros((self.NZ, self.Lyr, self.Lxr), np.uint16)
-            self.outpix = np.zeros((self.NZ, self.Lyr, self.Lxr), np.uint16)
-            self.cellpix_resize = self.cellpix.copy()
-            self.outpix_resize = self.outpix.copy()
-            self.cellpix_orig = np.zeros((self.NZ, self.Ly0, self.Lx0), np.uint16)
-            self.outpix_orig = np.zeros((self.NZ, self.Ly0, self.Lx0), np.uint16)
-        else:
-            self.layerz = 0 * np.ones((self.Ly, self.Lx, 4), np.uint8)
-            self.cellpix = np.zeros((self.NZ, self.Ly, self.Lx), np.uint16)
-            self.outpix = np.zeros((self.NZ, self.Ly, self.Lx), np.uint16)
+        # self.prev_selected = 0
+        # self.selected = 0
+        # # if self.restore and "upsample" in self.restore:
+        # #     self.layerz = 0 * np.ones((self.Lyr, self.Lxr, 4), np.uint8)
+        # #     self.cellpix = np.zeros((self.NZ, self.Lyr, self.Lxr), np.uint16)
+        # #     self.outpix = np.zeros((self.NZ, self.Lyr, self.Lxr), np.uint16)
+        # #     self.cellpix_resize = self.cellpix.copy()
+        # #     self.outpix_resize = self.outpix.copy()
+        # #     self.cellpix_orig = np.zeros((self.NZ, self.Ly0, self.Lx0), np.uint16)
+        # #     self.outpix_orig = np.zeros((self.NZ, self.Ly0, self.Lx0), np.uint16)
+        # # else:
+        # self.layerz = 0 * np.ones((self.Ly, self.Lx, 4), np.uint8)
+        # self.cellpix = np.zeros((self.NZ, self.Ly, self.Lx), np.uint16)
+        # self.outpix = np.zeros((self.NZ, self.Ly, self.Lx), np.uint16)
 
-        self.cellcolors = np.array([255, 255, 255])[np.newaxis, :]
+        # self.cellcolors = np.array([255, 255, 255])[np.newaxis, :]
+        self.cellMaskContainer.clear_all()
+
         self.ncells.reset()
         self.update_scale()
         self.update_layer()
 
     def select_cell(self, idx):
-        self.prev_selected = self.selected
-        self.selected = idx
-        if self.selected > 0:
-            z = self.currentZ
-            self.layerz[self.cellpix[z] == idx] = np.array(
-                [255, 255, 255, self.opacity])
-            self.update_layer()
+        guiparts.CellMaskContainer()    
+        # self.prev_selected = self.selected
+        # self.selected = idx
+        # if self.selected > 0:
+        #     z = self.currentZ
+        #     self.layerz[self.cellpix[z] == idx] = np.array(
+        #         [255, 255, 255, self.opacity])
+        self.update_layer()
 
     def select_cell_multi(self, idx):
         if idx > 0:
-            z = self.currentZ
+            z = self.cellMaskContainer.currentZ
             self.layerz[self.cellpix[z] == idx] = np.array(
                 [255, 255, 255, self.opacity])
             self.update_layer()
@@ -1057,7 +1062,7 @@ class MainW(QMainWindow):
         if self.selected > 0:
             idx = self.selected
             if idx < (self.ncells.get() + 1):
-                z = self.currentZ
+                z = self.cellMaskContainer.currentZ
                 self.layerz[self.cellpix[z] == idx] = np.append(
                     self.cellcolors[idx], self.opacity)
                 if self.outlinesOn:
@@ -1068,7 +1073,7 @@ class MainW(QMainWindow):
         self.selected = 0
 
     def unselect_cell_multi(self, idx):
-        z = self.currentZ
+        z = self.cellMaskContainer.currentZ
         self.layerz[self.cellpix[z] == idx] = np.append(self.cellcolors[idx],
                                                         self.opacity)
         if self.outlinesOn:
@@ -1106,7 +1111,7 @@ class MainW(QMainWindow):
             # remove from self.cellpix and self.outpix
             self.cellpix[z, cp] = 0
             self.outpix[z, op] = 0
-            if z == self.currentZ:
+            if z == self.cellMaskContainer.currentZ:
                 # remove from mask layer
                 self.layerz[cp] = np.array([0, 0, 0, 0])
 
@@ -1240,7 +1245,7 @@ class MainW(QMainWindow):
 
     def remove_stroke(self, delete_points=True, stroke_ind=-1):
         stroke = np.array(self.strokes[stroke_ind])
-        cZ = self.currentZ
+        cZ = self.cellMaskContainer.currentZ
         inZ = stroke[0, 0] == cZ
         if inZ:
             outpix = self.outpix[cZ, stroke[:, 1], stroke[:, 2]] > 0
@@ -1316,7 +1321,9 @@ class MainW(QMainWindow):
             y1 = self.Ly
 
         # find cells in that region
-        cell_idxs = np.unique(self.cellpix[self.currentZ, y0:y1, x0:x1])
+        cellpix = self.cellMaskContainer.get_cellpix()
+        current_z = self.cellMaskContainer.currentZ
+        cell_idxs = np.unique(cellpix[current_z, y0:y1, x0:x1])
         cell_idxs = np.trim_zeros(cell_idxs)
         # deselect cells not in region by deselecting all and then selecting the ones in the region
         self.clear_multi_selected_cells()
@@ -1337,45 +1344,46 @@ class MainW(QMainWindow):
         self.update_plot()
 
     def update_plot(self):
+        z = self.cellMaskContainer.currentZ
         self.view = self.ViewDropDown.currentIndex()
-        self.Ly, self.Lx, _ = self.stack[self.currentZ].shape
+        self.Ly, self.Lx, _ = self.stack[z].shape
 
         if self.view == 0 or self.view == self.ViewDropDown.count() - 1:
             image = self.stack[
-                self.currentZ] if self.view == 0 else self.stack_filtered[self.currentZ]
+                z] if self.view == 0 else self.stack_filtered[z]
             if self.color == 0:
                 self.img.setImage(image, autoLevels=False, lut=None)
                 if self.nchan > 1:
                     levels = np.array([
-                        self.saturation[0][self.currentZ],
-                        self.saturation[1][self.currentZ],
-                        self.saturation[2][self.currentZ]
+                        self.saturation[0][z],
+                        self.saturation[1][z],
+                        self.saturation[2][z]
                     ])
                     self.img.setLevels(levels)
                 else:
-                    self.img.setLevels(self.saturation[0][self.currentZ])
+                    self.img.setLevels(self.saturation[0][z])
             elif self.color > 0 and self.color < 4:
                 if self.nchan > 1:
                     image = image[:, :, self.color - 1]
                 self.img.setImage(image, autoLevels=False, lut=self.cmap[self.color])
                 if self.nchan > 1:
-                    self.img.setLevels(self.saturation[self.color - 1][self.currentZ])
+                    self.img.setLevels(self.saturation[self.color - 1][z])
                 else:
-                    self.img.setLevels(self.saturation[0][self.currentZ])
+                    self.img.setLevels(self.saturation[0][z])
             elif self.color == 4:
                 if self.nchan > 1:
                     image = image.mean(axis=-1)
                 self.img.setImage(image, autoLevels=False, lut=None)
-                self.img.setLevels(self.saturation[0][self.currentZ])
+                self.img.setLevels(self.saturation[0][z])
             elif self.color == 5:
                 if self.nchan > 1:
                     image = image.mean(axis=-1)
                 self.img.setImage(image, autoLevels=False, lut=self.cmap[0])
-                self.img.setLevels(self.saturation[0][self.currentZ])
+                self.img.setLevels(self.saturation[0][z])
         else:
             image = np.zeros((self.Ly, self.Lx), np.uint8)
             if len(self.flows) >= self.view - 1 and len(self.flows[self.view - 1]) > 0:
-                image = self.flows[self.view - 1][self.currentZ]
+                image = self.flows[self.view - 1][z]
             if self.view > 1:
                 self.img.setImage(image, autoLevels=False, lut=self.bwr)
             else:
@@ -1384,8 +1392,8 @@ class MainW(QMainWindow):
 
         for r in range(3):
             self.sliders[r].setValue([
-                self.saturation[r][self.currentZ][0],
-                self.saturation[r][self.currentZ][1]
+                self.saturation[r][z][0],
+                self.saturation[r][z][1]
             ])
         self.win.show()
         self.show()
@@ -1393,7 +1401,7 @@ class MainW(QMainWindow):
 
     def update_layer(self):
         if self.masksOn or self.outlinesOn:
-            self.layer.setImage(self.layerz, autoLevels=False)
+            self.layer.setImage(self.cellMaskContainer.layerz, autoLevels=False)
         self.win.show()
         self.show()
 
@@ -1520,7 +1528,7 @@ class MainW(QMainWindow):
                 self.cellpix_resize[z, arr, acr] = idx
                 self.outpix_resize[z, vrr, vcr] = idx
 
-        if z == self.currentZ:
+        if z == self.cellMaskContainer.currentZ:
             self.layerz[ar, ac, :3] = color
             if self.masksOn:
                 self.layerz[ar, ac, -1] = self.opacity
@@ -1555,10 +1563,10 @@ class MainW(QMainWindow):
 
 
     def draw_layer(self):
-        if self.resize:
-            self.Ly, self.Lx = self.Lyr, self.Lxr
-        else:
-            self.Ly, self.Lx = self.Ly0, self.Lx0
+        # if self.resize:
+        #     self.Ly, self.Lx = self.Lyr, self.Lxr
+        # else:
+        self.cellMaskContainer.set_dimensions(Ly=self.Ly0, Lx=self.Lx0)
 
         if self.masksOn or self.outlinesOn:
             if self.restore and "upsample" in self.restore:
@@ -1568,29 +1576,33 @@ class MainW(QMainWindow):
                 else:
                     self.cellpix = self.cellpix_orig.copy()
                     self.outpix = self.outpix_orig.copy()
+        
 
-        self.layerz = np.zeros((self.Ly, self.Lx, 4), np.uint8)
-        if self.masksOn:
-            self.layerz[..., :3] = self.cellcolors[self.cellpix[self.currentZ], :]
-            self.layerz[..., 3] = self.opacity * (self.cellpix[self.currentZ]
-                                                  > 0).astype(np.uint8)
-            if self.selected > 0:
-                self.layerz[self.cellpix[self.currentZ] == self.selected] = np.array(
-                    [255, 255, 255, self.opacity])
-            cZ = self.currentZ
-            stroke_z = np.array([s[0][0] for s in self.strokes])
-            inZ = np.nonzero(stroke_z == cZ)[0]
-            if len(inZ) > 0:
-                for i in inZ:
-                    stroke = np.array(self.strokes[i])
-                    self.layerz[stroke[:, 1], stroke[:,
-                                                     2]] = np.array([255, 0, 255, 100])
-        else:
-            self.layerz[..., 3] = 0
+        self.cellMaskContainer.update_layerz(self.strokes)
 
-        if self.outlinesOn:
-            self.layerz[self.outpix[self.currentZ] > 0] = np.array(
-                self.outcolor).astype(np.uint8)
+        #### Moved to maskcontainer:
+        # self.layerz = np.zeros((self.Ly, self.Lx, 4), np.uint8)
+        # if self.masksOn:
+        #     self.layerz[..., :3] = self.cellcolors[self.cellpix[self.cellMaskContainer.currentZ], :]
+        #     self.layerz[..., 3] = self.opacity * (self.cellpix[self.cellMaskContainer.currentZ]
+        #                                           > 0).astype(np.uint8)
+        #     if self.selected > 0:
+        #         self.layerz[self.cellpix[self.cellMaskContainer.currentZ] == self.selected] = np.array(
+        #             [255, 255, 255, self.opacity])
+        #     cZ = self.cellMaskContainer.currentZ
+        #     stroke_z = np.array([s[0][0] for s in self.strokes])
+        #     inZ = np.nonzero(stroke_z == cZ)[0]
+        #     if len(inZ) > 0:
+        #         for i in inZ:
+        #             stroke = np.array(self.strokes[i])
+        #             self.layerz[stroke[:, 1], stroke[:,
+        #                                              2]] = np.array([255, 0, 255, 100])
+        # else:
+        #     self.layerz[..., 3] = 0
+
+        # if self.outlinesOn:
+        #     self.layerz[self.outpix[self.cellMaskContainer.currentZ] > 0] = np.array(
+        #         self.outcolor).astype(np.uint8)
 
 
     def set_normalize_params(self, normalize_params):
@@ -1737,7 +1749,7 @@ class MainW(QMainWindow):
                 else:
                     for n in range(self.NZ):
                         self.saturation[-1].append([0, 255.])
-            print(self.saturation[2][self.currentZ])
+            print(self.saturation[2][self.cellMaskContainer.currentZ])
 
             if img_norm.shape[-1] == 1:
                 self.saturation.append(self.saturation[0])

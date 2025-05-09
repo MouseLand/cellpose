@@ -103,8 +103,8 @@ def _load_image(parent, filename=None, load_seg=True, load_3D=False):
     if image is grey change view to default to grey scale 
     """
 
-    if parent.load_3D:
-        load_3D = True
+    # I don't like this:
+    load_3D = parent.cellMaskContainer.load_3D
 
     if filename is None:
         name = QFileDialog.getOpenFileName(parent, "Load image")
@@ -414,31 +414,33 @@ def _masks_to_gui(parent, masks, outlines=None, colors=None):
         outlines = None
     masks = masks.astype(np.uint16) if masks.max() < 2**16 - 1 else masks.astype(
         np.uint32)
-    parent.cellpix = masks
-    if parent.cellpix.ndim == 2:
-        parent.cellpix = parent.cellpix[np.newaxis, :, :]
+    # parent.cellpix = masks
+    if masks.ndim == 2:
+        masks = masks[np.newaxis, :, :]
+
+    parent.cellMaskContainer.set_cellpix(masks)
 
     print(f"GUI_INFO: {masks.max()} masks found")
 
     # get outlines
-    if outlines is None:  # parent.outlinesOn
-        parent.outpix = np.zeros_like(parent.cellpix)
-        for z in range(parent.NZ):
-            outlines = masks_to_outlines(parent.cellpix[z])
-            parent.outpix[z] = outlines * parent.cellpix[z]
-            if z % 50 == 0 and parent.NZ > 1:
-                print("GUI_INFO: plane %d outlines processed" % z)
-    else:
-        parent.outpix = outlines
+    # if outlines is None:  # parent.outlinesOn
+    #     parent.outpix = np.zeros_like(parent.cellpix)
+    #     for z in range(parent.NZ):
+    #         outlines = masks_to_outlines(parent.cellpix[z])
+    #         parent.outpix[z] = outlines * parent.cellpix[z]
+    #         if z % 50 == 0 and parent.NZ > 1:
+    #             print("GUI_INFO: plane %d outlines processed" % z)
+    # else:
+    #     parent.outpix = outlines
 
-    if parent.outpix.ndim == 2:
-        parent.outpix = parent.outpix[np.newaxis, :, :]
+    # if parent.outpix.ndim == 2:
+    #     parent.outpix = parent.outpix[np.newaxis, :, :]
 
-    num_cells = parent.cellpix.max()
+    num_cells = parent.cellMaskContainer.get_num_cells()
     parent.ncells.set(num_cells)
     colors = parent.colormap[:num_cells, :3] if colors is None else colors
     print("GUI_INFO: creating cellcolors and drawing masks")
-    parent.cellcolors = np.concatenate((np.array([[255, 255, 255]]), colors),
+    parent.cellMaskContainer._cellcolors = np.concatenate((np.array([[255, 255, 255]]), colors),
                                        axis=0).astype(np.uint8)
     parent.draw_layer()
     parent.toggle_mask_ops()
