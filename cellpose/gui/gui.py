@@ -1912,6 +1912,9 @@ class MainW(QMainWindow):
                 data = self.stack_filtered.copy().squeeze()
             else:
                 data = self.stack.copy().squeeze()
+
+            if anisotropy < 1.0: 
+                raise ValueError(f'anisotropy must be >1, value used: {anisotropy}')
             
             flow_threshold = self.segmentation_settings.flow_threshold
             cellprob_threshold = self.segmentation_settings.cellprob_threshold
