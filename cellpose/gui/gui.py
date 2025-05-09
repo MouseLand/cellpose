@@ -462,10 +462,12 @@ class MainW(QMainWindow):
         self.deleteBoxG.addWidget(self.DoneDeleteMultipleROIButton, 2, 0, 1, 2)
         self.DoneDeleteMultipleROIButton.setFont(self.smallfont)
         self.DoneDeleteMultipleROIButton.setFixedWidth(35)
+        self.DoneDeleteMultipleROIButton.setEnabled(False)
         self.CancelDeleteMultipleROIButton = QPushButton("cancel")
         self.CancelDeleteMultipleROIButton.clicked.connect(self.cancel_remove_multiple)
         self.deleteBoxG.addWidget(self.CancelDeleteMultipleROIButton, 2, 2, 1, 2)
         self.CancelDeleteMultipleROIButton.setFont(self.smallfont)
+        self.CancelDeleteMultipleROIButton.setEnabled(False)
         self.CancelDeleteMultipleROIButton.setFixedWidth(35)
 
         b += 1
@@ -509,6 +511,8 @@ class MainW(QMainWindow):
         self.ncells.valueChanged.connect(
             lambda n: self.roi_count.setText(f'{str(n)} ROIs')
         )
+        self.ncells.valueChanged.connect(self.update_removal_buttons)
+        self.ncells.valueChanged.connect(self.update_saving_buttons)
 
         self.segBoxG.addWidget(self.roi_count, widget_row, 0, 1, 4)
 
@@ -526,10 +530,10 @@ class MainW(QMainWindow):
         self.segBoxG.addWidget(self.additional_seg_settings_qcollapsible, widget_row, 0, 1, 9)
 
         # connect edits to image processing steps: 
-        self.segmentation_settings.diameter_box.editingFinished.connect(self.update_scale)
-        self.segmentation_settings.flow_threshold_box.returnPressed.connect(self.compute_cprob)
-        self.segmentation_settings.cellprob_threshold_box.returnPressed.connect(self.compute_cprob)
-        self.segmentation_settings.niter_box.returnPressed.connect(self.compute_cprob)
+        self.segmentation_settings.diameterChanged.connect(self.update_scale)
+        self.segmentation_settings.flow_thresholdChanged.connect(self.compute_cprob)
+        self.segmentation_settings.cellprob_thresholdChanged.connect(self.compute_cprob)
+        self.segmentation_settings.niterChanged.connect(self.compute_cprob)
 
         # Needed to do this for the drop down to not be open on startup
         self.additional_seg_settings_qcollapsible._toggle_btn.setChecked(True)
@@ -813,41 +817,28 @@ class MainW(QMainWindow):
 
     def toggle_mask_ops(self):
         self.update_layer()
-        self.toggle_saving()
-        self.toggle_removals()
 
-    def toggle_saving(self):
-        if self.ncells > 0:
-            self.saveSet.setEnabled(True)
-            self.savePNG.setEnabled(True)
-            self.saveFlows.setEnabled(True)
-            self.saveOutlines.setEnabled(True)
-            self.saveROIs.setEnabled(True)
-        else:
-            self.saveSet.setEnabled(False)
-            self.savePNG.setEnabled(False)
-            self.saveFlows.setEnabled(False)
-            self.saveOutlines.setEnabled(False)
-            self.saveROIs.setEnabled(False)
+    def update_saving_buttons(self):
+        enable = self.ncells > 0
+        self.saveSet.setEnabled(enable)
+        self.savePNG.setEnabled(enable)
+        self.saveFlows.setEnabled(enable)
+        self.saveOutlines.setEnabled(enable)
+        self.saveROIs.setEnabled(enable)
 
-    def toggle_removals(self):
-        if self.ncells > 0:
-            self.ClearButton.setEnabled(True)
-            self.remcell.setEnabled(True)
-            self.undo.setEnabled(True)
-            self.MakeDeletionRegionButton.setEnabled(True)
-            self.DeleteMultipleROIButton.setEnabled(True)
-            self.DoneDeleteMultipleROIButton.setEnabled(False)
-            self.CancelDeleteMultipleROIButton.setEnabled(False)
-        else:
-            self.ClearButton.setEnabled(False)
-            self.remcell.setEnabled(False)
-            self.undo.setEnabled(False)
-            self.MakeDeletionRegionButton.setEnabled(False)
-            self.DeleteMultipleROIButton.setEnabled(False)
-            self.DoneDeleteMultipleROIButton.setEnabled(False)
-            self.CancelDeleteMultipleROIButton.setEnabled(False)
+    def update_removal_buttons(self):
+        enabled = self.ncells > 0
+        self.ClearButton.setEnabled(enabled)
+        self.remcell.setEnabled(enabled)
+        self.undo.setEnabled(enabled)
+        self.MakeDeletionRegionButton.setEnabled(enabled)
+        self.DeleteMultipleROIButton.setEnabled(enabled)
 
+        # Enabled only during an ROI deletion session:  
+        self.DoneDeleteMultipleROIButton.setEnabled(False)
+        self.CancelDeleteMultipleROIButton.setEnabled(False)
+
+    
     def remove_action(self):
         if self.selected > 0:
             self.remove_cell(self.selected)
@@ -1043,7 +1034,6 @@ class MainW(QMainWindow):
 
         self.cellcolors = np.array([255, 255, 255])[np.newaxis, :]
         self.ncells.reset()
-        self.toggle_removals()
         self.update_scale()
         self.update_layer()
 
@@ -1099,8 +1089,6 @@ class MainW(QMainWindow):
         self.ncells -= len(idx)  # _save_sets uses ncells
         self.update_layer()
 
-        if self.ncells == 0:
-            self.ClearButton.setEnabled(False)
         if self.NZ == 1:
             io._save_sets_with_check(self)
 
@@ -1172,7 +1160,7 @@ class MainW(QMainWindow):
         self.unselect_cell()
         self.disable_buttons_removeROIs()
         self.DoneDeleteMultipleROIButton.setEnabled(True)
-        self.MakeDeletionRegionButton.setEnabled(True)
+        # self.MakeDeletionRegionButton.setEnabled(True)
         self.CancelDeleteMultipleROIButton.setEnabled(True)
         self.deleting_multiple = True
 
@@ -1180,7 +1168,6 @@ class MainW(QMainWindow):
         self.deleting_multiple = False
         self.removing_region = False
         self.DoneDeleteMultipleROIButton.setEnabled(False)
-        self.MakeDeletionRegionButton.setEnabled(False)
         self.CancelDeleteMultipleROIButton.setEnabled(False)
 
         if self.removing_cells_list:
@@ -1194,6 +1181,9 @@ class MainW(QMainWindow):
 
         if self.remove_roi_obj is not None:
             self.remove_roi(self.remove_roi_obj)
+
+        self.MakeDeletionRegionButton.setEnabled(True)
+        self.DeleteMultipleROIButton.setEnabled(True)
 
     def merge_cells(self, idx):
         self.prev_selected = self.selected

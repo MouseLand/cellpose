@@ -434,15 +434,15 @@ def _masks_to_gui(parent, masks, outlines=None, colors=None):
     if parent.outpix.ndim == 2:
         parent.outpix = parent.outpix[np.newaxis, :, :]
 
-    parent.ncells.set(parent.cellpix.max())
-    colors = parent.colormap[:parent.ncells.get(), :3] if colors is None else colors
+    num_cells = parent.cellpix.max()
+    parent.ncells.set(num_cells)
+    colors = parent.colormap[:num_cells, :3] if colors is None else colors
     print("GUI_INFO: creating cellcolors and drawing masks")
     parent.cellcolors = np.concatenate((np.array([[255, 255, 255]]), colors),
                                        axis=0).astype(np.uint8)
-    if parent.ncells > 0:
-        parent.draw_layer()
-        parent.toggle_mask_ops()
-    parent.ismanual = np.zeros(parent.ncells.get(), bool)
+    parent.draw_layer()
+    parent.toggle_mask_ops()
+    parent.ismanual = np.zeros(num_cells, bool)
     parent.zdraw = list(-1 * np.ones(parent.ncells.get(), np.int16))
 
     if hasattr(parent, "stack_filtered"):
