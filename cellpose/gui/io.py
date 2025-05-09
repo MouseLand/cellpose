@@ -414,58 +414,25 @@ def _masks_to_gui(parent, masks, outlines=None, colors=None):
         outlines = None
     masks = masks.astype(np.uint16) if masks.max() < 2**16 - 1 else masks.astype(
         np.uint32)
-    if parent.restore and "upsample" in parent.restore:
-        parent.cellpix_resize = masks.copy()
-        parent.cellpix = parent.cellpix_resize.copy()
-        parent.cellpix_orig = cv2.resize(
-            masks.squeeze(), (parent.Lx0, parent.Ly0),
-            interpolation=cv2.INTER_NEAREST)[np.newaxis, :, :]
-        parent.resize = True
-    else:
-        parent.cellpix = masks
+    parent.cellpix = masks
     if parent.cellpix.ndim == 2:
         parent.cellpix = parent.cellpix[np.newaxis, :, :]
-        if parent.restore and "upsample" in parent.restore:
-            if parent.cellpix_resize.ndim == 2:
-                parent.cellpix_resize = parent.cellpix_resize[np.newaxis, :, :]
-            if parent.cellpix_orig.ndim == 2:
-                parent.cellpix_orig = parent.cellpix_orig[np.newaxis, :, :]
 
     print(f"GUI_INFO: {masks.max()} masks found")
 
     # get outlines
     if outlines is None:  # parent.outlinesOn
         parent.outpix = np.zeros_like(parent.cellpix)
-        if parent.restore and "upsample" in parent.restore:
-            parent.outpix_orig = np.zeros_like(parent.cellpix_orig)
         for z in range(parent.NZ):
             outlines = masks_to_outlines(parent.cellpix[z])
             parent.outpix[z] = outlines * parent.cellpix[z]
-            if parent.restore and "upsample" in parent.restore:
-                outlines = masks_to_outlines(parent.cellpix_orig[z])
-                parent.outpix_orig[z] = outlines * parent.cellpix_orig[z]
             if z % 50 == 0 and parent.NZ > 1:
                 print("GUI_INFO: plane %d outlines processed" % z)
-        if parent.restore and "upsample" in parent.restore:
-            parent.outpix_resize = parent.outpix.copy()
     else:
         parent.outpix = outlines
-        if parent.restore and "upsample" in parent.restore:
-            parent.outpix_resize = parent.outpix.copy()
-            parent.outpix_orig = np.zeros_like(parent.cellpix_orig)
-            for z in range(parent.NZ):
-                outlines = masks_to_outlines(parent.cellpix_orig[z])
-                parent.outpix_orig[z] = outlines * parent.cellpix_orig[z]
-                if z % 50 == 0 and parent.NZ > 1:
-                    print("GUI_INFO: plane %d outlines processed" % z)
 
     if parent.outpix.ndim == 2:
         parent.outpix = parent.outpix[np.newaxis, :, :]
-        if parent.restore and "upsample" in parent.restore:
-            if parent.outpix_resize.ndim == 2:
-                parent.outpix_resize = parent.outpix_resize[np.newaxis, :, :]
-            if parent.outpix_orig.ndim == 2:
-                parent.outpix_orig = parent.outpix_orig[np.newaxis, :, :]
 
     parent.ncells.set(parent.cellpix.max())
     colors = parent.colormap[:parent.ncells.get(), :3] if colors is None else colors
@@ -593,13 +560,11 @@ def _save_sets(parent):
     else:
         dat = {
             "outlines":
-                parent.outpix.squeeze() if parent.restore is None or
-                not "upsample" in parent.restore else parent.outpix_resize.squeeze(),
+                parent.outpix.squeeze(),
             "colors":
                 parent.cellcolors[1:],
             "masks":
-                parent.cellpix.squeeze() if parent.restore is None or
-                not "upsample" in parent.restore else parent.cellpix_resize.squeeze(),
+                parent.cellpix.squeeze(),
             "filename":
                 parent.filename,
             "flows":
