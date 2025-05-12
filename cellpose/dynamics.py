@@ -632,7 +632,7 @@ def compute_masks(dP, cellprob, p=None, niter=200, cellprob_threshold=0.0,
         p (numpy.ndarray, optional): The pixels on which to run dynamics. Defaults to None
         niter (int, optional): The number of iterations for mask computation. Defaults to 200.
         cellprob_threshold (float, optional): The threshold for cell probability. Defaults to 0.0.
-        flow_threshold (float, optional): The threshold for quality control metrics. Defaults to 0.4.
+        flow_threshold (float, optional): The threshold for quality control metrics. Negative values are ignored. Defaults to 0.4.
         interp (bool, optional): Whether to interpolate during dynamics computation. Defaults to True.
         do_3D (bool, optional): Whether to perform mask computation in 3D. Defaults to False.
         min_size (int, optional): The minimum size of the masks. Defaults to 15.

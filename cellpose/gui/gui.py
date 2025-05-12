@@ -488,8 +488,8 @@ class MainW(QMainWindow, NCellsMixin):
         self.CancelDeleteMultipleROIButton.clicked.connect(self.cancel_remove_multiple)
         self.deleteBoxG.addWidget(self.CancelDeleteMultipleROIButton, 2, 2, 1, 2)
         self.CancelDeleteMultipleROIButton.setFont(self.smallfont)
-        self.CancelDeleteMultipleROIButton.setEnabled(False)
         self.CancelDeleteMultipleROIButton.setFixedWidth(35)
+        self.CancelDeleteMultipleROIButton.setEnabled(False)
 
         b += 1
         widget_row = 0
@@ -1602,11 +1602,11 @@ class MainW(QMainWindow, NCellsMixin):
 
     def set_normalize_params(self, normalize_params):
         from cellpose.models import normalize_default
-        if self.restore != "filter":
-            keys = list(normalize_params.keys()).copy()
-            for key in keys:
-                if key != "percentile":
-                    normalize_params[key] = normalize_default[key]
+        # if self.restore != "filter":
+        #     keys = list(normalize_params.keys()).copy()
+        #     for key in keys:
+        #         if key != "percentile":
+        #             normalize_params[key] = normalize_default[key]
         normalize_params = {**normalize_default, **normalize_params}
         out = self.check_filter_params(normalize_params["sharpen_radius"],
                                        normalize_params["smooth_radius"],

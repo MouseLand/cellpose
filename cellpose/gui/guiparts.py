@@ -378,43 +378,48 @@ class ObservableVariable(QtCore.QObject):
     def __call__(self):
         return self._value
     
-    def reset(self):
-        self.set(0)
-
-    def __iadd__(self, amount):
-        if not isinstance(amount, (int, float)):
-            raise TypeError("Value must be numeric.")
-        self.set(self._value + amount)
-        return self
-    
-    def __radd__(self, other):
-        return other + self._value
-
-    def __add__(self, other):
-        return other + self._value
-        
-    def __isub__(self, amount):
-        if not isinstance(amount, (int, float)):
-            raise TypeError("Value must be numeric.")
-        self.set(self._value - amount)
-        return self
-    
-    def __str__(self):
-        return str(self._value)
-    
-    def __lt__(self, x):
-        return self._value < x
-    
-    def __gt__(self, x):
-        return self._value > x
-    
-    def __eq__(self, x):
-        return self._value == x
 
 
 class NormalizationSettings(QWidget):
     # TODO
     pass
+
+
+class DeleteMultiple(QWidget):
+    """ Container for delete multiple rois """
+
+    def __init__(self, main_window_obj):
+        super().__init__()
+
+        # put evertying in a box using a grid:
+        self.deleteBox = QGroupBox("delete multiple ROIs")
+        self.deleteBox.setStyleSheet("color: rgb(200, 200, 200)")
+        self.deleteBox.setFont(main_window_obj.medfont)
+        self.deleteBox_grid_layout = QGridLayout()
+        self.deleteBox.setLayout(self.deleteBox_grid_layout)
+        
+        self.MakeDeletionRegionButton = QPushButton("region-select")
+        # self.MakeDeletionRegionButton.clicked.connect(self.remove_region_cells)
+        self.deleteBox_grid_layout.addWidget(self.MakeDeletionRegionButton, 0, 0, 1, 4)
+        self.MakeDeletionRegionButton.setFont(main_window_obj.smallfont)
+        self.MakeDeletionRegionButton.setFixedWidth(70)
+        self.DeleteMultipleROIButton = QPushButton("click-select")
+        # self.DeleteMultipleROIButton.clicked.connect(self.delete_multiple_cells)
+        self.deleteBox_grid_layout.addWidget(self.DeleteMultipleROIButton, 1, 0, 1, 4)
+        self.DeleteMultipleROIButton.setFont(main_window_obj.smallfont)
+        self.DeleteMultipleROIButton.setFixedWidth(70)
+        self.DoneDeleteMultipleROIButton = QPushButton("done")
+        # self.DoneDeleteMultipleROIButton.clicked.connect(
+        #     self.done_remove_multiple_cells)
+        self.deleteBox_grid_layout.addWidget(self.DoneDeleteMultipleROIButton, 2, 0, 1, 2)
+        self.DoneDeleteMultipleROIButton.setFont(main_window_obj.smallfont)
+        self.DoneDeleteMultipleROIButton.setFixedWidth(35)
+        self.CancelDeleteMultipleROIButton = QPushButton("cancel")
+        # self.CancelDeleteMultipleROIButton.clicked.connect(self.cancel_remove_multiple)
+        self.deleteBox_grid_layout.addWidget(self.CancelDeleteMultipleROIButton, 2, 2, 1, 2)
+        self.CancelDeleteMultipleROIButton.setFont(main_window_obj.smallfont)
+        self.CancelDeleteMultipleROIButton.setFixedWidth(35)
+
 
 
 class SegmentationSettings(QWidget):
