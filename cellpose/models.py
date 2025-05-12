@@ -420,8 +420,8 @@ class CellposeModel():
         """ compute masks from flows and cell probability """
 
         if self.device.type == "mps" and do_3D:
-            models_logger.warning("MPS does not support 3D post-processing, switching to CPU for 3D stitching")
-            do_3D = False
+            models_logger.warning("MPS does not support 3D post-processing, switching to CPU")
+            self.device = torch.device("cpu")
         Lz, Ly, Lx = shape[:3]
         tic = time.time()
         if do_3D:
