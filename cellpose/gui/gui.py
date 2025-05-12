@@ -50,6 +50,26 @@ class Slider(QRangeSlider):
         parent.level_change(self.name)
 
 
+class NCellsMixin():
+    """ Mixin class for main GUI to handle ncells observable, with automatic handling. 
+    Using this, you can treat the .ncells as a n int, and it will automatically
+    update the GUI elements that are connected to it.
+    """
+
+    def __init__(self):
+        self._ncells_observable = guiparts.ObservableVariable(0)
+
+    @property
+    def ncells(self):
+        """ Return the number of cells in the current image. """
+        return self._ncells_observable.get()
+    
+    @ncells.setter
+    def ncells(self, value):
+        """ Set the number of cells in the current image. """
+        self._ncells_observable.set(value)
+
+
 class QHLine(QFrame):
 
     def __init__(self):
@@ -171,10 +191,11 @@ def run(image=None):
     sys.exit(ret)
 
 
-class MainW(QMainWindow):
+class MainW(QMainWindow, NCellsMixin):
 
     def __init__(self, image=None, logger=None):
         super(MainW, self).__init__()
+        super(NCellsMixin, self).__init__()
 
         self.logger = logger
         pg.setConfigOptions(imageAxisOrder="row-major")
@@ -504,15 +525,15 @@ class MainW(QMainWindow):
             self.StyleButtons[-1].setToolTip(nett[j])
 
         widget_row += 1
-        self.ncells = guiparts.ObservableVariable(0)
+        # self.ncells = guiparts.ObservableVariable(0)
         self.roi_count = QLabel()
         self.roi_count.setFont(self.boldfont)
         self.roi_count.setAlignment(QtCore.Qt.AlignLeft)
-        self.ncells.valueChanged.connect(
+        self._ncells_observable.valueChanged.connect(
             lambda n: self.roi_count.setText(f'{str(n)} ROIs')
         )
-        self.ncells.valueChanged.connect(self.update_removal_buttons)
-        self.ncells.valueChanged.connect(self.update_saving_buttons)
+        self._ncells_observable.valueChanged.connect(self.update_removal_buttons)
+        self._ncells_observable.valueChanged.connect(self.update_saving_buttons)
 
         self.segBoxG.addWidget(self.roi_count, widget_row, 0, 1, 4)
 
@@ -849,7 +870,7 @@ class MainW(QMainWindow):
         else:
             # remove previous cell
             if self.ncells > 0:
-                self.remove_cell(self.ncells.get())
+                self.remove_cell(self.ncells)
 
     def undo_remove_action(self):
         self.undo_remove_cell()
@@ -940,7 +961,7 @@ class MainW(QMainWindow):
         self.strokes = []
         self.stroke_appended = True
         self.resize = False
-        self.ncells.reset()
+        self.ncells = 0
         self.zdraw = []
         # self.removed_cell = []
         # self.cellcolors = np.array([255, 255, 255])[np.newaxis, :]
@@ -1037,7 +1058,7 @@ class MainW(QMainWindow):
         # self.cellcolors = np.array([255, 255, 255])[np.newaxis, :]
         self.cellMaskContainer.clear_all()
 
-        self.ncells.reset()
+        self.ncells = 0
         self.update_scale()
         self.update_layer()
 
@@ -1413,7 +1434,7 @@ class MainW(QMainWindow):
             while len(self.strokes) > 0:
                 self.remove_stroke(delete_points=False)
             if len(self.current_point_set[0]) > 8:
-                color = self.colormap[self.ncells.get(), :3]
+                color = self.colormap[self.ncells, :3]
                 median = self.add_mask(points=self.current_point_set, color=color)
                 if median is not None:
                     self.removed_cell = []

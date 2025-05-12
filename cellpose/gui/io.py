@@ -306,11 +306,11 @@ def _load_seg(parent, filename=None, image=None, image_file=None, load_3D=False)
             if dat["masks"].min() == -1:
                 dat["masks"] += 1
                 dat["outlines"] += 1
-            parent.ncells.set(dat["masks"].max())
+            parent.ncells = dat["masks"].max()
             if "colors" in dat and len(dat["colors"]) == dat["masks"].max():
                 colors = dat["colors"]
             else:
-                colors = parent.colormap[:parent.ncells.get(), :3]
+                colors = parent.colormap[:parent.ncells, :3]
 
             _masks_to_gui(parent, dat["masks"], outlines=dat["outlines"], colors=colors)
 
@@ -322,12 +322,12 @@ def _load_seg(parent, filename=None, image=None, image_file=None, load_3D=False)
         if "zdraw" in dat:
             parent.zdraw = dat["zdraw"]
         else:
-            parent.zdraw = [None for n in range(parent.ncells.get())]
+            parent.zdraw = [None for n in range(parent.ncells)]
         parent.loaded = True
     else:
         parent.clear_all()
 
-    parent.ismanual = np.zeros(parent.ncells.get(), bool)
+    parent.ismanual = np.zeros(parent.ncells, bool)
     if "ismanual" in dat:
         if len(dat["ismanual"]) == parent.ncells:
             parent.ismanual = dat["ismanual"]
@@ -437,7 +437,7 @@ def _masks_to_gui(parent, masks, outlines=None, colors=None):
     #     parent.outpix = parent.outpix[np.newaxis, :, :]
 
     num_cells = parent.cellMaskContainer.get_num_cells()
-    parent.ncells.set(num_cells)
+    parent.ncells = num_cells
     colors = parent.colormap[:num_cells, :3] if colors is None else colors
     print("GUI_INFO: creating cellcolors and drawing masks")
     parent.cellMaskContainer._cellcolors = np.concatenate((np.array([[255, 255, 255]]), colors),
@@ -595,7 +595,7 @@ def _save_sets(parent):
             dat["img_restore"] = parent.stack_filtered
     try:
         np.save(base + "_seg.npy", dat)
-        print("GUI_INFO: %d ROIs saved to %s" % (parent.ncells.get(), base + "_seg.npy"))
+        print("GUI_INFO: %d ROIs saved to %s" % (parent.ncells, base + "_seg.npy"))
     except Exception as e:
         print(f"ERROR: {e}")
     del dat
