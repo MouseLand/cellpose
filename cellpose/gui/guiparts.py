@@ -210,7 +210,19 @@ class CellMaskContainer(QtCore.QObject):
 
         self._idx_is_manual = []
 
+        self._outlines_on = False
+        self._masks_on = True
 
+
+    @property
+    def masks_on(self):
+        return self._masks_on
+    
+
+    @property
+    def outlines_on(self):
+        return self._outlines_on
+    
     
     def get_cellpix(self):
         return self._cellpix
@@ -259,6 +271,8 @@ class CellMaskContainer(QtCore.QObject):
         self._Ly = Ly
         self._Lx = Lx
 
+        self.update_layerz([])
+
     
     @property
     def currentZ(self):
@@ -272,15 +286,6 @@ class CellMaskContainer(QtCore.QObject):
     def clear_all(self):
         self._prev_selected = []
         self._current_selection = 0
-        # if self.restore and "upsample" in self.restore:
-        #     self.layerz = 0 * np.ones((self.Lyr, self.Lxr, 4), np.uint8)
-        #     self.cellpix = np.zeros((self.NZ, self.Lyr, self.Lxr), np.uint16)
-        #     self.outpix = np.zeros((self.NZ, self.Lyr, self.Lxr), np.uint16)
-        #     self.cellpix_resize = self.cellpix.copy()
-        #     self.outpix_resize = self.outpix.copy()
-        #     self.cellpix_orig = np.zeros((self.NZ, self.Ly0, self.Lx0), np.uint16)
-        #     self.outpix_orig = np.zeros((self.NZ, self.Ly0, self.Lx0), np.uint16)
-        # else:
         self._layerz = 0 * np.ones((self._Ly, self._Lx, 4), np.uint8)
         self._cellpix = np.zeros((self._NZ, self._Ly, self._Lx), np.uint16)
         self._outpix = np.zeros((self._NZ, self._Ly, self._Lx), np.uint16)
@@ -290,13 +295,13 @@ class CellMaskContainer(QtCore.QObject):
     def update_layerz(self, strokes):
         self._layerz = np.zeros((self._Ly, self._Lx, 4), np.uint8)
         z  = self._currentZ
-        # if self.masksOn:
-        self._layerz[..., :3] = self._cellcolors[self._cellpix[z], :]
-        self._layerz[..., 3] = self._opacity * (self._cellpix[z] > 0).astype(np.uint8)
-        last_selected = self._last_selected()
-        # if last_selected and last_selected > 0:
-        self._layerz[self._cellpix[z] == last_selected] = np.array(
-            [255, 255, 255, self._opacity])
+        if self.masks_on:
+            self._layerz[..., :3] = self._cellcolors[self._cellpix[z], :]
+            self._layerz[..., 3] = self._opacity * (self._cellpix[z] > 0).astype(np.uint8)
+            last_selected = self._last_selected()
+            # if last_selected and last_selected > 0:
+            self._layerz[self._cellpix[z] == last_selected] = np.array(
+                [255, 255, 255, self._opacity])
         cZ = z
         stroke_z = np.array([s[0][0] for s in strokes])
         inZ = np.nonzero(stroke_z == cZ)[0]
@@ -305,8 +310,9 @@ class CellMaskContainer(QtCore.QObject):
                 stroke = np.array(strokes[i])
                 self._layerz[stroke[:, 1], stroke[:,
                                                     2]] = np.array([255, 0, 255, 100])
-        # else:
-        #     self._layerz[..., 3] = 0
+        z = self._currentZ
+        if self.outlines_on:
+            self._layerz[self._outpix[z] > 0] = np.array(self.outline_color).astype(np.uint8)
 
 
     def get_outlines(self, z=None):
@@ -334,14 +340,22 @@ class CellMaskContainer(QtCore.QObject):
     
 
     def _calculate_outpix(self):
+        assert self._cellpix.ndim == 3, "cellpix should be 3D"
+
+        self._outpix = np.zeros_like(self._cellpix)
         for z in range(self._NZ):
             outlines = utils.masks_to_outlines(self._cellpix[z])
             self._outpix[z] = outlines * self._cellpix[z]
             if z % 50 == 0 and self._NZ > 1:
                 logger.info("GUI_INFO: plane %d outlines processed" % z)
+        return self._outpix
+    
 
-
-
+    def set_appearance(self, outlines_on=False, masks_on=True):
+        """ Set the appearance of the outlines and masks """
+        self._outlines_on = outlines_on
+        self._masks_on = masks_on
+        self.update_layerz([])
     
 
 

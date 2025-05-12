@@ -1425,8 +1425,8 @@ class MainW(QMainWindow, NCellsMixin):
     def update_layer(self):
         if self.masksOn or self.outlinesOn:
             self.layer.setImage(self.cellMaskContainer.layerz, autoLevels=False)
-        self.win.show()
-        self.show()
+        # self.win.show()
+        # self.show()
 
 
     def add_set(self):
@@ -1589,43 +1589,15 @@ class MainW(QMainWindow, NCellsMixin):
         # if self.resize:
         #     self.Ly, self.Lx = self.Lyr, self.Lxr
         # else:
+        
+        # TODO: this should be moved 
         self.cellMaskContainer.set_dimensions(Ly=self.Ly0, Lx=self.Lx0)
 
-        if self.masksOn or self.outlinesOn:
-            if self.restore and "upsample" in self.restore:
-                if self.resize:
-                    self.cellpix = self.cellpix_resize.copy()
-                    self.outpix = self.outpix_resize.copy()
-                else:
-                    self.cellpix = self.cellpix_orig.copy()
-                    self.outpix = self.outpix_orig.copy()
+        self.cellMaskContainer.outpix
+        self.cellMaskContainer.set_appearance(self.outlinesOn, self.masksOn,)
         
-
         self.cellMaskContainer.update_layerz(self.strokes)
 
-        #### Moved to maskcontainer:
-        # self.layerz = np.zeros((self.Ly, self.Lx, 4), np.uint8)
-        # if self.masksOn:
-        #     self.layerz[..., :3] = self.cellcolors[self.cellpix[self.cellMaskContainer.currentZ], :]
-        #     self.layerz[..., 3] = self.opacity * (self.cellpix[self.cellMaskContainer.currentZ]
-        #                                           > 0).astype(np.uint8)
-        #     if self.selected > 0:
-        #         self.layerz[self.cellpix[self.cellMaskContainer.currentZ] == self.selected] = np.array(
-        #             [255, 255, 255, self.opacity])
-        #     cZ = self.cellMaskContainer.currentZ
-        #     stroke_z = np.array([s[0][0] for s in self.strokes])
-        #     inZ = np.nonzero(stroke_z == cZ)[0]
-        #     if len(inZ) > 0:
-        #         for i in inZ:
-        #             stroke = np.array(self.strokes[i])
-        #             self.layerz[stroke[:, 1], stroke[:,
-        #                                              2]] = np.array([255, 0, 255, 100])
-        # else:
-        #     self.layerz[..., 3] = 0
-
-        # if self.outlinesOn:
-        #     self.layerz[self.outpix[self.cellMaskContainer.currentZ] > 0] = np.array(
-        #         self.outcolor).astype(np.uint8)
 
 
     def set_normalize_params(self, normalize_params):

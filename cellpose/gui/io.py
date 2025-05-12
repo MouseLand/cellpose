@@ -103,7 +103,7 @@ def _load_image(parent, filename=None, load_seg=True, load_3D=False):
     if image is grey change view to default to grey scale 
     """
 
-    # I don't like this:
+    # TODO: I don't like this:
     load_3D = parent.cellMaskContainer.load_3D
 
     if filename is None:
@@ -422,6 +422,7 @@ def _masks_to_gui(parent, masks, outlines=None, colors=None):
 
     print(f"GUI_INFO: {masks.max()} masks found")
 
+    parent.cellMaskContainer.outpix
     # get outlines
     # if outlines is None:  # parent.outlinesOn
     #     parent.outpix = np.zeros_like(parent.cellpix)
@@ -445,7 +446,7 @@ def _masks_to_gui(parent, masks, outlines=None, colors=None):
     parent.draw_layer()
     parent.toggle_mask_ops()
     parent.ismanual = np.zeros(num_cells, bool)
-    parent.zdraw = list(-1 * np.ones(parent.ncells.get(), np.int16))
+    parent.zdraw = list(-1 * np.ones(parent.ncells, np.int16))
 
     if hasattr(parent, "stack_filtered"):
         parent.ViewDropDown.setCurrentIndex(parent.ViewDropDown.count() - 1)
