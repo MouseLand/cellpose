@@ -216,16 +216,35 @@ class CellMaskContainer(QtCore.QObject):
         return self._cellpix
     
     
+    @property
+    def cellpix(self):
+        return self._cellpix
+    
+
+    @property
+    def current_z_cellpix(self):
+        return self._cellpix[self._currentZ]
+    
+    
     def get_outpix(self):
         # TODO: call outlines or cache:
-        pass
+        raise NotImplementedError()
+
+
+    def unselect_cell(self):
+        try:
+            idx = self._selection_history.pop()
+        except IndexError:
+            return
+        
+        pix_where_idx = self.current_z_cellpix == idx
+        self._layerz[pix_where_idx] = np.append(self._cellcolors[idx], self._opacity)
 
     
     def select_cell(self, idx):
         if idx > 0:
             self._selection_history.append(idx)
-            z = self.currentZ
-            pix_where_idx = self._cellpix[z] == idx
+            pix_where_idx = self.current_z_cellpix == idx
             self._layerz[pix_where_idx] = np.array([255, 255, 255, self._opacity])
 
     
@@ -876,7 +895,7 @@ class ImageDraw(pg.ImageItem):
                 y, x = int(ev.pos().y()), int(ev.pos().x())
                 if y >= 0 and y < self.parent.Ly and x >= 0 and x < self.parent.Lx:
                     if ev.button() == QtCore.Qt.LeftButton and not ev.double():
-                        idx = self.parent.cellpix[self.parent.currentZ][y, x]
+                        idx = self.parent.cellMaskContainer.current_z_cellpix[y, x]
                         if idx > 0:
                             if ev.modifiers() & QtCore.Qt.ControlModifier:
                                 # delete mask selected

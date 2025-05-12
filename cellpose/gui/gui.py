@@ -883,9 +883,9 @@ class MainW(QMainWindow):
         do_3d = self.cellMaskContainer.load_3D
         files = [u.toLocalFile() for u in event.mimeData().urls()]
         if os.path.splitext(files[0])[-1] == ".npy":
-            io._load_seg(self, filename=files[0], load_3D=load_3D)
+            io._load_seg(self, filename=files[0], load_3D=do_3d)
         else:
-            io._load_image(self, filename=files[0], load_seg=True, load_3D=load_3D)
+            io._load_image(self, filename=files[0], load_seg=True, load_3D=do_3d)
 
     def toggle_masks(self):
         if self.MCheckBox.isChecked():
@@ -1042,13 +1042,13 @@ class MainW(QMainWindow):
         self.update_layer()
 
     def select_cell(self, idx):
-        guiparts.CellMaskContainer()    
         # self.prev_selected = self.selected
         # self.selected = idx
         # if self.selected > 0:
         #     z = self.currentZ
         #     self.layerz[self.cellpix[z] == idx] = np.array(
         #         [255, 255, 255, self.opacity])
+        self.cellMaskContainer.select_cell(idx)
         self.update_layer()
 
     def select_cell_multi(self, idx):
@@ -1059,18 +1059,20 @@ class MainW(QMainWindow):
             self.update_layer()
 
     def unselect_cell(self):
-        if self.selected > 0:
-            idx = self.selected
-            if idx < (self.ncells.get() + 1):
-                z = self.cellMaskContainer.currentZ
-                self.layerz[self.cellpix[z] == idx] = np.append(
-                    self.cellcolors[idx], self.opacity)
-                if self.outlinesOn:
-                    self.layerz[self.outpix[z] == idx] = np.array(self.outcolor).astype(
-                        np.uint8)
-                    #[0,0,0,self.opacity])
-                self.update_layer()
-        self.selected = 0
+        self.cellMaskContainer.unselect_cell()
+        self.update_layer()
+        # if self.selected > 0:
+        #     idx = self.selected
+        #     if idx < (self.ncells.get() + 1):
+        #         z = self.cellMaskContainer.currentZ
+        #         self.layerz[self.cellpix[z] == idx] = np.append(
+        #             self.cellcolors[idx], self.opacity)
+        #         if self.outlinesOn:
+        #             self.layerz[self.outpix[z] == idx] = np.array(self.outcolor).astype(
+        #                 np.uint8)
+        #             #[0,0,0,self.opacity])
+        #         self.update_layer()
+        # self.selected = 0
 
     def unselect_cell_multi(self, idx):
         z = self.cellMaskContainer.currentZ
