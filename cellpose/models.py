@@ -219,9 +219,6 @@ class CellposeModel():
         if channels is not None:
             models_logger.warning("channels deprecated in v4.0.1+. If data contain more than 3 channels, only the first 3 channels will be used")
 
-        if self.device.type == 'mps' and do_3D:
-            raise ValueError('MPS not working with 3D images. Disable GPU or use stitch threshold > 0')
-        
         if isinstance(x, list) or x.squeeze().ndim == 5:
             self.timing = []
             masks, styles, flows = [], [], []
@@ -421,6 +418,11 @@ class CellposeModel():
                        min_size=15, max_size_fraction=0.4, niter=None,
                        do_3D=False, stitch_threshold=0.0):
         """ compute masks from flows and cell probability """
+        changed_device_from = None
+        if self.device.type == "mps" and do_3D:
+            models_logger.warning("MPS does not support 3D post-processing, switching to CPU")
+            self.device = torch.device("cpu")
+            changed_device_from = "mps"
         Lz, Ly, Lx = shape[:3]
         tic = time.time()
         if do_3D:
@@ -470,4 +472,7 @@ class CellposeModel():
         if shape[0] > 1:
             models_logger.info("masks created in %2.2fs" % (flow_time))
         
+        if changed_device_from is not None:
+            models_logger.info("switching back to device %s" % self.device)
+            self.device = torch.device(changed_device_from)
         return masks
