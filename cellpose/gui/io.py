@@ -104,7 +104,7 @@ def _load_image(parent, filename=None, load_seg=True, load_3D=False):
     """
 
     # TODO: I don't like this:
-    load_3D = parent.cellMaskContainer.load_3D
+    load_3D = parent.image_data.load_3D
 
     if filename is None:
         name = QFileDialog.getOpenFileName(parent, "Load image")
@@ -418,11 +418,12 @@ def _masks_to_gui(parent, masks, outlines=None, colors=None):
     if masks.ndim == 2:
         masks = masks[np.newaxis, :, :]
 
-    parent.cellMaskContainer.set_cellpix(masks)
+    parent.image_data.set_dimensions(*masks.shape[1:])
+    parent.image_data.set_cellpix(masks)
 
     print(f"GUI_INFO: {masks.max()} masks found")
 
-    parent.cellMaskContainer.outpix
+    parent.image_data.outpix
     # get outlines
     # if outlines is None:  # parent.outlinesOn
     #     parent.outpix = np.zeros_like(parent.cellpix)
@@ -437,12 +438,12 @@ def _masks_to_gui(parent, masks, outlines=None, colors=None):
     # if parent.outpix.ndim == 2:
     #     parent.outpix = parent.outpix[np.newaxis, :, :]
 
-    num_cells = parent.cellMaskContainer.get_num_cells()
+    num_cells = parent.image_data.get_num_cells()
     parent.ncells = num_cells
-    colors = parent.colormap[:num_cells, :3] if colors is None else colors
-    print("GUI_INFO: creating cellcolors and drawing masks")
-    parent.cellMaskContainer._cellcolors = np.concatenate((np.array([[255, 255, 255]]), colors),
-                                       axis=0).astype(np.uint8)
+    # colors = parent.colormap[:num_cells, :3] if colors is None else colors
+    # print("GUI_INFO: creating cellcolors and drawing masks")
+    # parent.image_data._cellcolors = np.concatenate((np.array([[255, 255, 255]]), colors),
+    #                                    axis=0).astype(np.uint8)
     parent.draw_layer()
     parent.toggle_mask_ops()
     parent.ismanual = np.zeros(num_cells, bool)

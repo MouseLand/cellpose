@@ -1,6 +1,7 @@
 """
 Copyright © 2025 Howard Hughes Medical Institute, Authored by Carsen Stringer , Michael Rariden and Marius Pachitariu.
 """
+from matplotlib import pyplot as plt
 from qtpy import QtGui, QtCore
 from qtpy.QtGui import QPixmap, QDoubleValidator, QIntValidator
 from qtpy.QtWidgets import QWidget, QDialog, QGridLayout, QPushButton, QLabel, QLineEdit, QDialogButtonBox, QComboBox, QCheckBox, QVBoxLayout, QGroupBox
@@ -149,7 +150,7 @@ class ModelButton(QPushButton):
         self.model_name = "cpsam"
 
     def press(self, parent):
-        parent.compute_segmentation(model_name="cpsam")
+        parent.compute_segmentation_update_gui(model_name="cpsam")
 
 
 class FilterButton(QPushButton):
@@ -182,7 +183,7 @@ class FilterButton(QPushButton):
         # parent.set_restore_button()
 
 
-class CellMaskContainer(QtCore.QObject):
+class ImageDataContainer(QtCore.QObject):
 
     outline_color = [200, 200, 255, 200]
 
@@ -213,6 +214,11 @@ class CellMaskContainer(QtCore.QObject):
 
         self._outlines_on = False
         self._masks_on = True
+
+        self._flows = None
+        self._cellprob = None
+
+        self.make_colormap()
 
 
     @property
@@ -272,7 +278,6 @@ class CellMaskContainer(QtCore.QObject):
         self._Ly = Ly
         self._Lx = Lx
 
-        self.update_layerz([])
 
     
     @property
@@ -324,6 +329,13 @@ class CellMaskContainer(QtCore.QObject):
 
     def set_cellpix(self, masks):
         self._cellpix = masks
+        self.outpix # update based on cellpix
+        num_cells = self.get_num_cells()
+        colors = self.colormap[:num_cells, :3]
+        print("GUI_INFO: creating cellcolors and drawing masks")
+        self._cellcolors = np.concatenate((np.array([[255, 255, 255]]), colors),
+                                       axis=0).astype(np.uint8)
+        self.update_layerz([])
         # TODO: update other things if needed...
 
 
@@ -393,18 +405,30 @@ class CellMaskContainer(QtCore.QObject):
         if self._last_removed_cell:
             z = self._currentZ
 
+            # tuples of indices:
             cellpix = self._last_removed_cell['cellpix']
             outpix = self._last_removed_cell['outpix']
             color = self._last_removed_cell['color']
 
             idx = self.get_num_cells() + 1
     
-            self._cellpix[z][cellpix[0], cellpix[1]] = idx
-            self._outpix[z][outpix[0], outpix[1]] = idx
+            self._cellpix[z][*cellpix] = idx
+            self._outpix[z][*outpix] = idx
             self._layerz[cellpix] = np.array([255, 255, 255, self._opacity])
             self._cellcolors = np.append(self._cellcolors, color[np.newaxis, :], axis=0)
             self._last_removed_cell = None
             print("GUI_INFO: restored cell %d" % (idx - 1))
+
+    def set_masks(self, masks):
+        self.clear_all()
+        self.set_cellpix(masks)
+
+
+    def make_colormap(self):
+        self.colormap = (plt.get_cmap("gist_ncar")(np.linspace(0.0, .9, 1000000)) *
+                            255).astype(np.uint8)
+        np.random.seed(42)  # make colors stable
+        self.colormap = self.colormap[np.random.permutation(1000000)]
             
     
 

@@ -679,11 +679,11 @@ class MainW(QMainWindow, NCellsMixin):
         r = ["red", "green", "blue"].index(r)
         if self.loaded:
             sval = self.sliders[r].value()
-            self.saturation[r][self.cellMaskContainer.currentZ] = sval
+            self.saturation[r][self.image_data.currentZ] = sval
             if not self.autobtn.isChecked():
                 for r in range(3):
                     for i in range(len(self.saturation[r])):
-                        self.saturation[r][i] = self.saturation[r][self.cellMaskContainer.currentZ]
+                        self.saturation[r][i] = self.saturation[r][self.image_data.currentZ]
             self.update_plot()
 
     def keyPressEvent(self, event):
@@ -865,7 +865,7 @@ class MainW(QMainWindow, NCellsMixin):
             self.remove_cell(self.selected)
 
     def undo_action(self):
-        if (len(self.strokes) > 0 and self.strokes[-1][0][0] == self.cellMaskContainer.currentZ):
+        if (len(self.strokes) > 0 and self.strokes[-1][0][0] == self.image_data.currentZ):
             self.remove_stroke()
         else:
             # remove previous cell
@@ -873,7 +873,7 @@ class MainW(QMainWindow, NCellsMixin):
                 self.remove_cell(self.ncells)
 
     def undo_remove_action(self):
-        self.cellMaskContainer.undo_remove_cell()
+        self.image_data.undo_remove_cell()
         # draw updates
         self.update_layer()
         self.redo.setEnabled(False)
@@ -904,7 +904,7 @@ class MainW(QMainWindow, NCellsMixin):
             event.ignore()
 
     def dropEvent(self, event):
-        do_3d = self.cellMaskContainer.load_3D
+        do_3d = self.image_data.load_3D
         files = [u.toLocalFile() for u in event.mimeData().urls()]
         if os.path.splitext(files[0])[-1] == ".npy":
             io._load_seg(self, filename=files[0], load_3D=do_3d)
@@ -994,7 +994,7 @@ class MainW(QMainWindow, NCellsMixin):
         # self.cellpix = np.zeros((1, self.Ly, self.Lx), np.uint16)
         # self.outpix = np.zeros((1, self.Ly, self.Lx), np.uint16)
         # self.ismanual = np.zeros(0, "bool")
-        self.cellMaskContainer = guiparts.CellMaskContainer()
+        self.image_data = guiparts.ImageDataContainer()
 
         # -- set menus to default -- #
         self.color = 0
@@ -1059,7 +1059,7 @@ class MainW(QMainWindow, NCellsMixin):
         # self.outpix = np.zeros((self.NZ, self.Ly, self.Lx), np.uint16)
 
         # self.cellcolors = np.array([255, 255, 255])[np.newaxis, :]
-        self.cellMaskContainer.clear_all()
+        self.image_data.clear_all()
 
         self.ncells = 0
         self.update_scale()
@@ -1072,18 +1072,18 @@ class MainW(QMainWindow, NCellsMixin):
         #     z = self.currentZ
         #     self.layerz[self.cellpix[z] == idx] = np.array(
         #         [255, 255, 255, self.opacity])
-        self.cellMaskContainer.select_cell(idx)
+        self.image_data.select_cell(idx)
         self.update_layer()
 
     def select_cell_multi(self, idx):
         if idx > 0:
-            z = self.cellMaskContainer.currentZ
+            z = self.image_data.currentZ
             self.layerz[self.cellpix[z] == idx] = np.array(
                 [255, 255, 255, self.opacity])
             self.update_layer()
 
     def unselect_cell(self):
-        self.cellMaskContainer.unselect_cell()
+        self.image_data.unselect_cell()
         self.update_layer()
         # if self.selected > 0:
         #     idx = self.selected
@@ -1099,7 +1099,7 @@ class MainW(QMainWindow, NCellsMixin):
         # self.selected = 0
 
     def unselect_cell_multi(self, idx):
-        z = self.cellMaskContainer.currentZ
+        z = self.image_data.currentZ
         self.layerz[self.cellpix[z] == idx] = np.append(self.cellcolors[idx],
                                                         self.opacity)
         if self.outlinesOn:
@@ -1125,7 +1125,7 @@ class MainW(QMainWindow, NCellsMixin):
 
     def remove_single_cell(self, idx):
         self.selected = 0
-        self.cellMaskContainer.remove_cell(idx)
+        self.image_data.remove_cell(idx)
 
 
     def remove_region_cells(self):
@@ -1237,7 +1237,7 @@ class MainW(QMainWindow, NCellsMixin):
 
     def remove_stroke(self, delete_points=True, stroke_ind=-1):
         stroke = np.array(self.strokes[stroke_ind])
-        cZ = self.cellMaskContainer.currentZ
+        cZ = self.image_data.currentZ
         inZ = stroke[0, 0] == cZ
         if inZ:
             outpix = self.outpix[cZ, stroke[:, 1], stroke[:, 2]] > 0
@@ -1313,8 +1313,8 @@ class MainW(QMainWindow, NCellsMixin):
             y1 = self.Ly
 
         # find cells in that region
-        cellpix = self.cellMaskContainer.get_cellpix()
-        current_z = self.cellMaskContainer.currentZ
+        cellpix = self.image_data.get_cellpix()
+        current_z = self.image_data.currentZ
         cell_idxs = np.unique(cellpix[current_z, y0:y1, x0:x1])
         cell_idxs = np.trim_zeros(cell_idxs)
         # deselect cells not in region by deselecting all and then selecting the ones in the region
@@ -1336,7 +1336,7 @@ class MainW(QMainWindow, NCellsMixin):
         self.update_plot()
 
     def update_plot(self):
-        z = self.cellMaskContainer.currentZ
+        z = self.image_data.currentZ
         self.view = self.ViewDropDown.currentIndex()
         self.Ly, self.Lx, _ = self.stack[z].shape
 
@@ -1393,7 +1393,7 @@ class MainW(QMainWindow, NCellsMixin):
 
     def update_layer(self):
         if self.masksOn or self.outlinesOn:
-            self.layer.setImage(self.cellMaskContainer.layerz, autoLevels=False)
+            self.layer.setImage(self.image_data.layerz, autoLevels=False)
         # self.win.show()
         # self.show()
 
@@ -1520,7 +1520,7 @@ class MainW(QMainWindow, NCellsMixin):
                 self.cellpix_resize[z, arr, acr] = idx
                 self.outpix_resize[z, vrr, vcr] = idx
 
-        if z == self.cellMaskContainer.currentZ:
+        if z == self.image_data.currentZ:
             self.layerz[ar, ac, :3] = color
             if self.masksOn:
                 self.layerz[ar, ac, -1] = self.opacity
@@ -1560,12 +1560,11 @@ class MainW(QMainWindow, NCellsMixin):
         # else:
         
         # TODO: this should be moved 
-        self.cellMaskContainer.set_dimensions(Ly=self.Ly0, Lx=self.Lx0)
+        self.image_data.set_dimensions(Ly=self.Ly0, Lx=self.Lx0)
 
-        self.cellMaskContainer.outpix
-        self.cellMaskContainer.set_appearance(self.outlinesOn, self.masksOn,)
+        self.image_data.outpix
+        self.image_data.set_appearance(self.outlinesOn, self.masksOn,)
         
-        self.cellMaskContainer.update_layerz(self.strokes)
 
 
 
@@ -1713,7 +1712,7 @@ class MainW(QMainWindow, NCellsMixin):
                 else:
                     for n in range(self.NZ):
                         self.saturation[-1].append([0, 255.])
-            print(self.saturation[2][self.cellMaskContainer.currentZ])
+            print(self.saturation[2][self.image_data.currentZ])
 
             if img_norm.shape[-1] == 1:
                 self.saturation.append(self.saturation[0])
@@ -1800,7 +1799,6 @@ class MainW(QMainWindow, NCellsMixin):
         np.save(str(self.new_model_path) + "_train_losses.npy", train_losses)
         # run model on next image
         io._add_model(self, self.new_model_path)
-        diam_labels = self.model.net.diam_labels.item()  #.copy()
         self.new_model_ind = len(self.model_strings)
         self.autorun = True
         self.clear_all()
@@ -1808,7 +1806,10 @@ class MainW(QMainWindow, NCellsMixin):
         self.set_normalize_params(normalize_params)
         self.get_next_image(load_seg=False)
 
-        self.compute_segmentation(custom=True)
+        masks, flows = self.compute_segmentation_update_gui(custom=True)
+
+        if self.restore != "filter" and self.restore is not None and self.autobtn.isChecked():
+            self.compute_saturation()
         self.logger.info(
             f"!!! computed masks for {os.path.split(self.filename)[1]} from new model !!!"
         )
@@ -1852,13 +1853,22 @@ class MainW(QMainWindow, NCellsMixin):
             io._masks_to_gui(self, maski, outlines=None)
             self.show()
 
+    def compute_segmentation_update_gui(self, model_name=None, custom=False):
+        masks, flows = self.compute_segmentation(model_name=model_name, custom=custom)
+        # io._masks_to_gui(self, masks, outlines=None)
+        # self.masksOn = True
+        self.MCheckBox.setChecked(True)
+
+        self.image_data.set_masks(masks)
+        self.update_layer()
+        # self.cellMaskContainer.set_flows(flows)
 
     def compute_segmentation(self, custom=False, model_name=None, load_model=True):
         self.progress.setValue(0)
         try:
             tic = time.time()
             self.clear_all()
-            self.flows = [[], [], []]
+            # self.flows = [[], [], []]
             if load_model:
                 self.initialize_model(model_name=model_name, custom=custom)
             self.progress.setValue(10)
@@ -1931,9 +1941,9 @@ class MainW(QMainWindow, NCellsMixin):
                             resize_image(flows_new[j], Ly=self.Ly, Lx=self.Lx,
                                         interpolation=cv2.INTER_NEAREST))
                 else:
-                    self.flows = flows_new
+                    flows_out = flows_new
             else:
-                self.flows = []
+                flows_out = []
                 Lz, Ly, Lx = self.NZ, self.Ly, self.Lx
                 Lz0, Ly0, Lx0 = flows_new[0].shape[:3]
                 print("GUI_INFO: resizing flows to original image size")
@@ -1948,29 +1958,22 @@ class MainW(QMainWindow, NCellsMixin):
                                             Ly=Lz, Lx=Lx,
                                             no_channels=flow0.ndim==3, 
                                             interpolation=cv2.INTER_NEAREST), 0, 1)
-                    self.flows.append(flow0)
+                    flows_out.append(flow0)
 
             # add first axis
             if self.NZ == 1:
                 masks = masks[np.newaxis, ...]
-                self.flows = [
-                    self.flows[n][np.newaxis, ...] for n in range(len(self.flows))
+                flows_out = [
+                    flows_out[n][np.newaxis, ...] for n in range(len(flows_out))
                 ]
 
             self.logger.info("%d cells found with model in %0.3f sec" %
                              (len(np.unique(masks)[1:]), time.time() - tic))
             self.progress.setValue(80)
-            z = 0
 
-            io._masks_to_gui(self, masks, outlines=None)
-            self.masksOn = True
-            self.MCheckBox.setChecked(True)
-            self.progress.setValue(100)
-            if self.restore != "filter" and self.restore is not None and self.autobtn.isChecked():
-                self.compute_saturation()
-            if not do_3D and not stitch_threshold > 0:
-                self.recompute_masks = True
-            else:
-                self.recompute_masks = False
+
         except Exception as e:
             print("ERROR: %s" % e)
+        self.progress.setValue(100)
+
+        return masks, flows_out
