@@ -1122,42 +1122,9 @@ class MainW(QMainWindow, NCellsMixin):
 
 
     def remove_single_cell(self, idx):
-        # remove from manual array
         self.selected = 0
-        if self.NZ > 1:
-            zextent = ((self.cellpix == idx).sum(axis=(1, 2)) > 0).nonzero()[0]
-        else:
-            zextent = [0]
-        for z in zextent:
-            cp = self.cellpix[z] == idx
-            op = self.outpix[z] == idx
-            # remove from self.cellpix and self.outpix
-            self.cellpix[z, cp] = 0
-            self.outpix[z, op] = 0
-            if z == self.cellMaskContainer.currentZ:
-                # remove from mask layer
-                self.layerz[cp] = np.array([0, 0, 0, 0])
+        self.cellMaskContainer.remove_cell(idx)
 
-        # reduce other pixels by -1
-        self.cellpix[self.cellpix > idx] -= 1
-        self.outpix[self.outpix > idx] -= 1
-
-        if self.NZ == 1:
-            self.removed_cell = [
-                self.ismanual[idx - 1], self.cellcolors[idx],
-                np.nonzero(cp),
-                np.nonzero(op)
-            ]
-            self.redo.setEnabled(True)
-            ar, ac = self.removed_cell[2]
-            d = datetime.datetime.now()
-            self.track_changes.append(
-                [d.strftime("%m/%d/%Y, %H:%M:%S"), "removed mask", [ar, ac]])
-        # remove cell from lists
-        self.ismanual = np.delete(self.ismanual, idx - 1)
-        self.cellcolors = np.delete(self.cellcolors, [idx], axis=0)
-        del self.zdraw[idx - 1]
-        print("GUI_INFO: removed cell %d" % (idx - 1))
 
     def remove_region_cells(self):
         if self.removing_cells_list:

@@ -356,6 +356,32 @@ class CellMaskContainer(QtCore.QObject):
         self._outlines_on = outlines_on
         self._masks_on = masks_on
         self.update_layerz([])
+
+    def remove_cell(self, idx):
+        """ Remove a cell from the cellpix and outlines 
+        
+        TODO: broken for 3D
+        """
+        z = self._currentZ
+        cp = self._cellpix[z] == idx
+        op = self._outpix[z] == idx
+
+        self._cellpix[z][cp] = 0
+        self._outpix[z][op] = 0
+        self._layerz[cp] = np.array([0, 0, 0, 0])
+
+        self._cellpix[z][self._cellpix[z] > idx] -= 1
+        self._outpix[z][self._outpix[z] > idx] -= 1
+
+        # TODO: track removed cell for undo
+        
+        # del self._idx_is_manual[idx - 1]
+        self._cellcolors = np.delete(self._cellcolors, idx - 1, axis=0)
+
+        print("GUI_INFO: removed cell %d" % (idx - 1))
+
+
+
     
 
 
