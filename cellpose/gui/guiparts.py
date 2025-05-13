@@ -203,6 +203,7 @@ class CellMaskContainer(QtCore.QObject):
         self._outpix = np.zeros((1, self._Ly, self._Lx), np.uint16)
         self._stack = np.zeros((1, self._Ly, self._Lx, 3))
         self._selection_history = []
+        self._last_removed_cell = None
         self._current_selection = 0
         self._currentZ = 0
         self._NZ = num_z_slices
@@ -327,6 +328,7 @@ class CellMaskContainer(QtCore.QObject):
 
 
     def get_num_cells(self):
+        # TODO: hook this up to observable variable
         return self._cellpix.max()
 
 
@@ -373,15 +375,37 @@ class CellMaskContainer(QtCore.QObject):
         self._cellpix[z][self._cellpix[z] > idx] -= 1
         self._outpix[z][self._outpix[z] > idx] -= 1
 
-        # TODO: track removed cell for undo
+        self._last_removed_cell = {
+            'cellpix' : np.where(cp),
+            'outpix' : np.where(op),
+            'color' : self._cellcolors[idx],
+        }
         
-        # del self._idx_is_manual[idx - 1]
+        # TODO: del self._idx_is_manual[idx - 1]
         self._cellcolors = np.delete(self._cellcolors, idx - 1, axis=0)
 
         print("GUI_INFO: removed cell %d" % (idx - 1))
 
 
+    def undo_remove_cell(self):
+        """ Undo the removal of a cell """
 
+        if self._last_removed_cell:
+            z = self._currentZ
+
+            cellpix = self._last_removed_cell['cellpix']
+            outpix = self._last_removed_cell['outpix']
+            color = self._last_removed_cell['color']
+
+            idx = self.get_num_cells() + 1
+    
+            self._cellpix[z][cellpix[0], cellpix[1]] = idx
+            self._outpix[z][outpix[0], outpix[1]] = idx
+            self._layerz[cellpix] = np.array([255, 255, 255, self._opacity])
+            self._cellcolors = np.append(self._cellcolors, color[np.newaxis, :], axis=0)
+            self._last_removed_cell = None
+            print("GUI_INFO: restored cell %d" % (idx - 1))
+            
     
 
 

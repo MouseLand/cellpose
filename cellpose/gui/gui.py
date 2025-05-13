@@ -873,7 +873,10 @@ class MainW(QMainWindow, NCellsMixin):
                 self.remove_cell(self.ncells)
 
     def undo_remove_action(self):
-        self.undo_remove_cell()
+        self.cellMaskContainer.undo_remove_cell()
+        # draw updates
+        self.update_layer()
+        self.redo.setEnabled(False)
 
     def get_files(self):
         folder = os.path.dirname(self.filename)
@@ -1117,8 +1120,7 @@ class MainW(QMainWindow, NCellsMixin):
         self.ncells -= len(idx)  # _save_sets uses ncells
         self.update_layer()
 
-        if self.NZ == 1:
-            io._save_sets_with_check(self)
+        self.redo.setEnabled(True)
 
 
     def remove_single_cell(self, idx):
@@ -1215,23 +1217,23 @@ class MainW(QMainWindow, NCellsMixin):
             self.undo.setEnabled(False)
             self.redo.setEnabled(False)
 
-    def undo_remove_cell(self):
-        if len(self.removed_cell) > 0:
-            z = 0
-            ar, ac = self.removed_cell[2]
-            vr, vc = self.removed_cell[3]
-            color = self.removed_cell[1]
-            self.draw_mask(z, ar, ac, vr, vc, color)
-            self.toggle_mask_ops()
-            self.cellcolors = np.append(self.cellcolors, color[np.newaxis, :], axis=0)
-            self.ncells += 1
-            self.ismanual = np.append(self.ismanual, self.removed_cell[0])
-            self.zdraw.append([])
-            print(">>> added back removed cell")
-            self.update_layer()
-            io._save_sets_with_check(self)
-            self.removed_cell = []
-            self.redo.setEnabled(False)
+    # def undo_remove_cell(self):
+    #     if len(self.removed_cell) > 0:
+    #         z = 0
+    #         ar, ac = self.removed_cell[2]
+    #         vr, vc = self.removed_cell[3]
+    #         color = self.removed_cell[1]
+    #         self.draw_mask(z, ar, ac, vr, vc, color)
+    #         self.toggle_mask_ops()
+    #         self.cellcolors = np.append(self.cellcolors, color[np.newaxis, :], axis=0)
+    #         self.ncells += 1
+    #         self.ismanual = np.append(self.ismanual, self.removed_cell[0])
+    #         self.zdraw.append([])
+    #         print(">>> added back removed cell")
+    #         self.update_layer()
+    #         io._save_sets_with_check(self)
+    #         self.removed_cell = []
+    #         self.redo.setEnabled(False)
 
     def remove_stroke(self, delete_points=True, stroke_ind=-1):
         stroke = np.array(self.strokes[stroke_ind])
