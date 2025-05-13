@@ -988,7 +988,7 @@ class ImageDraw(pg.ImageItem):
                 y, x = int(ev.pos().y()), int(ev.pos().x())
                 if y >= 0 and y < self.parent.Ly and x >= 0 and x < self.parent.Lx:
                     if ev.button() == QtCore.Qt.LeftButton and not ev.double():
-                        idx = self.parent.cellMaskContainer.current_z_cellpix[y, x]
+                        idx = self.parent.image_data.current_z_cellpix[y, x]
                         if idx > 0:
                             if ev.modifiers() & QtCore.Qt.ControlModifier:
                                 # delete mask selected
