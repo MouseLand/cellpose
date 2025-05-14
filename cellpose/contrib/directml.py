@@ -2,7 +2,7 @@
 # See below for working example
 
 # Limitations:
-# Officially support only up to PyTorch 2.3.1 (should be fine with cellpose)
+# Officially support only up to PyTorch 2.4.1 (should be fine with cellpose)
 # Not yet out for python 3.13
 # Probably not the fastest option, but works suprisingly fast and was easy to implement
 
@@ -142,49 +142,42 @@ def fix_sparse_directML(verbose=True):
 
 
 
-### Working example
-# import cellpose
-# from cellpose import models
-# import time
-# # from cellpose.contrib.directml import setup_directML, fix_sparse_directML
-# 
-# # load data
-# path = 'path/to/image.tif'
-# img = cellpose.io.imread(path)
-#
-# # load model
-# model = self.model = models.Cellpose(
-                #     model_type='cyto3',
-                # )
+### (Not) working example
+import cellpose
+from cellpose import models
+import time
+# from cellpose.contrib.directml import setup_directML, fix_sparse_directML
 
-# # or
-# model = models.Cellpose(
-                #     model_type='cyto',
-                # )
-# # or
-# model_type = 'livecell_cp3'
-# model = models.CellposeModel(
-                # model_type=model_type,
-                # )
+# load data
+path = r'path\to\your\images'  # path to your images
+imgs = cellpose.io.imread(path)
 
-# uses_directml = False
+# how to preprocess images?
 
+# here goes the model  innit
+model_path = r'path\to\your\model'  # path to your model
+model = models.CellposeModel(
+    pretrained_model=model_path,
+)
 
-# # setup DirectML (comment out for performance comparison)
-# model = setup_directML(model)
-# fix_sparse_directML()
-# uses_directml = True
+uses_directml = False
 
+# setup DirectML (comment out for performance comparison)
+model = setup_directML(model)
+fix_sparse_directML()
+uses_directml = True
 
-# # run model
-# start = time.perf_counter()
-# masks, flows, styles, diams = model.eval(img)
-# end = time.perf_counter()
+# run model
+print("Running model...")
+start = time.perf_counter()
+out = model.eval(imgs,) # here goes the eval
+end = time.perf_counter()
 
-# if uses_directml:
-#     print("DirectML inference completed.")
-# else:
-#     print("CPU inference completed.")
-# 
-# print(f"Time taken: {end - start:.2f} seconds")
+# show results
 
+if uses_directml:
+    print("DirectML inference completed.")
+else:
+    print("CPU inference completed.")
+
+print(f"Time taken: {end - start:.2f} seconds")
