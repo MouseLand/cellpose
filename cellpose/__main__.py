@@ -111,6 +111,9 @@ def main():
     else:
         normalize = (not args.no_norm)
 
+    if args.save_each:
+        if not args.save_every:
+            raise ValueError("ERROR: --save_each requires --save_every")
 
     if len(args.image_path) > 0 and args.train:
         raise ValueError("ERROR: cannot train model with single image input")
@@ -163,7 +166,9 @@ def _train_cellposemodel_cli(args, logger, image_filter, device, pretrained_mode
             min_train_masks=args.min_train_masks,
             nimg_per_epoch=args.nimg_per_epoch,
             nimg_test_per_epoch=args.nimg_test_per_epoch,
-            save_path=os.path.realpath(args.dir), save_every=args.save_every,
+            save_path=os.path.realpath(args.dir), 
+            save_every=args.save_every,
+            save_each=args.save_each,
             model_name=args.model_name_out)[0]
     model.pretrained_model = cpmodel_path
     logger.info(">>>> model trained and saved to %s" % cpmodel_path)

@@ -223,6 +223,9 @@ def get_arg_parser():
         "--save_every", default=100, type=int,
         help="number of epochs to skip between saves. Default: %(default)s")
     training_args.add_argument(
+        "--save_each", action="store_true",
+        help="wether or not to save each epoch. Must also use --save_every. (default: False)")
+    training_args.add_argument(
         "--model_name_out", default=None, type=str,
         help="Name of model to save as, defaults to name describing model architecture. "
         "Model is saved in the folder specified by --dir in models subfolder.")
