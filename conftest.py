@@ -56,7 +56,7 @@ def data_dir(image_names):
 
     
 @pytest.fixture()
-def cellposemodel_fixture_2D():
+def cellposemodel_fixture_24layer():
     """ This is functionally identical to CellposeModel but uses mock class """
     use_gpu = torch.cuda.is_available()
     use_mps = 'mps' if torch.backends.mps.is_available() else False
@@ -66,10 +66,12 @@ def cellposemodel_fixture_2D():
 
 
 @pytest.fixture()
-def cellposemodel_fixture_3D():
+def cellposemodel_fixture_2layer():
     """ This is only uses 2 transformer blocks for speed """
-    use_gpu = torch.cuda.is_available() # Turn of gpu for mac 3d
-    model = MockCellposeModel(2, gpu=use_gpu)
+    use_gpu = torch.cuda.is_available()
+    use_mps = 'mps' if torch.backends.mps.is_available() else False
+    gpu = use_gpu or use_mps
+    model = MockCellposeModel(n_keep_layers=2, gpu=gpu)
     yield model
 
 
@@ -107,11 +109,12 @@ class MockCellposeModel(models.CellposeModel):
         super().__init__(gpu=gpu)
 
         self.net = MockTransformer(n_keep_layers)
+        self.net.to(self.device)
         self.net.load_model(Path().home() / '.cellpose/models/cpsam', device=self.device)
 
-    def eval(self, x, **kwargs):
+    def eval(self, *args, **kwargs):
         tic = time.time()
-        res = super().eval(x, **kwargs)
+        res = super().eval(*args, **kwargs)
         toc = time.time()
 
         print(f'eval() time elapsed: {toc-tic}')
