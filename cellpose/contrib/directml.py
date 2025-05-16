@@ -162,7 +162,7 @@ def fix_sparse_directML(verbose=True):
         import warnings
         warnings.filterwarnings("once", message="Sparse op failed on DirectML*")
 
-
+if __name__ == "__main__":
     import time
     import numpy as np
     import tifffile
