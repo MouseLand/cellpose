@@ -94,19 +94,17 @@ def test_cyto2_to_seg(data_dir, image_names, cellposemodel_fixture_24layer):
     clear_output(data_dir, image_names)
 
 
-def test_class_3D(data_dir, image_names_3d, cellposemodel_fixture_2layer):
+def test_class_3D_one_img(data_dir, image_names_3d, cellposemodel_fixture_2layer):
     clear_output(data_dir, image_names_3d)
 
-    for image_name in image_names_3d:
-        img_file = data_dir / '3D' / image_name
-        img = io.imread_3D(img_file)
-        masks_pred, flows_pred, _ = cellposemodel_fixture_2layer.eval(img, do_3D=True, channel_axis=-1, z_axis=0)
-        # io.imsave(data_dir / "3D" / (img_file.stem + "_cp_masks.tif"), masks)
+    img_file = data_dir / '3D' / image_names_3d[0]
+    img = io.imread_3D(img_file)
+    masks_pred, flows_pred, _ = cellposemodel_fixture_2layer.eval(img, do_3D=True, channel_axis=-1, z_axis=0)
 
-        assert img.shape[:-1] == masks_pred.shape, f'mask incorrect shape for {image_name}, {masks_pred.shape=}'
-        assert img.shape[:-1] == flows_pred[1].shape[1:], f'flows incorrect shape for {image_name}, {flows_pred.shape=}'
+    assert img.shape[:-1] == masks_pred.shape, f'mask incorrect shape for {image_name}, {masks_pred.shape=}'
+    assert img.shape[:-1] == flows_pred[1].shape[1:], f'flows incorrect shape for {image_name}, {flows_pred.shape=}'
 
-        break # Just test one img for now
+    # just compare shapes for now
     # compare_masks_cp4(data_dir, image_names_3d, "3D")
     clear_output(data_dir, image_names_3d)
 
