@@ -415,6 +415,9 @@ def remove_bad_flow_masks(masks, flows, threshold=0.4, device=torch.device("cpu"
         masks (int, 2D or 3D array): Masks with inconsistent flow masks removed,
             0=NO masks; 1,2,...=mask labels, size [Ly x Lx] or [Lz x Ly x Lx].
     """
+    if device.type == "privateuseone":
+        device=torch.device("cpu")
+        
     device0 = device
     if masks.size > 10000 * 10000 and (device is not None and device.type == "cuda"):
 
