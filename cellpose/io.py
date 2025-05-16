@@ -221,6 +221,7 @@ def imread(filename):
 def imread_2D(img_file):
     """
     Read in a 2D image file and convert it to a 3-channel image. Attempts to do this for multi-channel and grayscale images.
+    If the image has more than 3 channels, only the first 3 channels are kept.
     
     Args:
         img_file (str): The path to the image file.
@@ -230,27 +231,30 @@ def imread_2D(img_file):
     """
     img = imread(img_file)
 
-    # force XYC: 
-    if img.shape[0] <  img.shape[-1]:
-        # move channel to last dim:
-        img = np.moveaxis(img, 0, -1)
+    if (img.ndim == 1) or (img.ndim == 4):
+        raise ValueError("img_file should have 2 or 3 dimensions, shape: %s" % img.shape)
 
-    nchan = img.shape[2]
-
-    if img.ndim == 3:
-        if nchan == 3:
-            # already has 3 channels
-            return img
-        
-        # ensure there are 3 channels
-        img_out = np.zeros((img.shape[0], img.shape[1], 3), dtype=img.dtype)
-        copy_chan = min(3, nchan)
-        img_out[:, :, :copy_chan] = img[:, :, :copy_chan]
-
-    elif img.ndim == 2:
-        # add a channel dimension
+    # if image has no channel dimension, add one and return the image
+    if img.ndim == 2:
         img_out = np.zeros((img.shape[0], img.shape[1], 3), dtype=img.dtype)
         img_out[:, :, 0] = img
+        return img_out
+
+    # Otherwise, image will have a channel dimension, assume it's either first or last
+    # force it to be last (XYC): 
+    if img.shape[0] <  img.shape[-1]:
+        img = np.moveaxis(img, 0, -1)
+
+    nchan = img.shape[-1]
+
+    if nchan == 3:
+        # already has 3 channels
+        return img
+    
+    # ensure there are 3 channels
+    img_out = np.zeros((img.shape[0], img.shape[1], 3), dtype=img.dtype)
+    copy_chan = min(3, nchan)
+    img_out[:, :, :copy_chan] = img[:, :, :copy_chan]
 
     return img_out
 

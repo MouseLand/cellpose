@@ -1,4 +1,4 @@
-from cellpose import io, metrics, utils
+from cellpose import io, metrics, utils, models
 import pytest
 from subprocess import check_output, STDOUT
 import os
@@ -38,38 +38,53 @@ def clear_output(data_dir, image_names):
             os.remove(npy_output)
         
 
-
-def test_class_2D(data_dir, image_names, cellposemodel_fixture_2D):
+def test_class_2D_one_img(data_dir, image_names, cellposemodel_fixture_24layer):
     clear_output(data_dir, image_names)
-
-    for image_name in image_names:
         
+    img_file = data_dir / '2D' / image_names[0]
+
+    img = io.imread_2D(img_file)
+    # flowps = io.imread(img_file.parent / (img_file.stem + "_cp4_gt_flowps.tif"))
+
+    masks_pred, _, _ = cellposemodel_fixture_24layer.eval(img, normalize=True)
+    io.imsave(data_dir / '2D' / (img_file.stem + "_cp_masks.png"), masks_pred)
+    # flowsp_pred = np.concatenate([flows_pred[1], flows_pred[2][None, ...]], axis=0)
+    # mse = np.sqrt((flowsp_pred - flowps) ** 2).sum()
+    # assert mse.sum() < 1e-8, f"MSE of flows is too high: {mse.sum()} on image {image_name}"
+    # print("MSE of flows is %f" % mse.mean())
+
+    compare_masks_cp4(data_dir, image_names[0], "2D")
+    # clear_output(data_dir, image_names)
+
+
+@pytest.mark.slow
+def test_class_2D_all_imgs(data_dir, image_names, cellposemodel_fixture_24layer):
+    clear_output(data_dir, image_names)
+    for image_name in image_names:
         img_file = data_dir / '2D' / image_name
 
         img = io.imread_2D(img_file)
         # flowps = io.imread(img_file.parent / (img_file.stem + "_cp4_gt_flowps.tif"))
 
-        masks_pred, _, _ = cellposemodel_fixture_2D.eval(img, normalize=True)
+        masks_pred, _, _ = cellposemodel_fixture_24layer.eval(img, normalize=True)
         io.imsave(data_dir / '2D' / (img_file.stem + "_cp_masks.png"), masks_pred)
         # flowsp_pred = np.concatenate([flows_pred[1], flows_pred[2][None, ...]], axis=0)
         # mse = np.sqrt((flowsp_pred - flowps) ** 2).sum()
         # assert mse.sum() < 1e-8, f"MSE of flows is too high: {mse.sum()} on image {image_name}"
         # print("MSE of flows is %f" % mse.mean())
 
-        break # Just test one image for now
-
-    compare_masks_cp4(data_dir, image_names[0], "2D")
+    compare_masks_cp4(data_dir, image_names, "2D")
     clear_output(data_dir, image_names)
 
 
 @pytest.mark.slow
-def test_cyto2_to_seg(data_dir, image_names, cellposemodel_fixture_2D):
+def test_cyto2_to_seg(data_dir, image_names, cellposemodel_fixture_24layer):
     clear_output(data_dir, image_names)
     file_names = [data_dir / "2D" / n for n in image_names]
     imgs = [io.imread_2D(file_name) for file_name in file_names]
 
     # masks, flows, styles = model.eval(imgs, diameter=30)  # Errors during SAM stuff
-    masks, flows, _ = cellposemodel_fixture_2D.eval(imgs, bsize=256, batch_size=64, normalize=True)
+    masks, flows, _ = cellposemodel_fixture_24layer.eval(imgs, bsize=256, batch_size=64, normalize=True)
 
     for file_name, mask in zip(file_names, masks):
         io.imsave(data_dir/'2D'/(file_name.stem + '_cp_masks.png'), mask)
@@ -79,13 +94,13 @@ def test_cyto2_to_seg(data_dir, image_names, cellposemodel_fixture_2D):
     clear_output(data_dir, image_names)
 
 
-def test_class_3D(data_dir, image_names_3d, cellposemodel_fixture_3D):
+def test_class_3D(data_dir, image_names_3d, cellposemodel_fixture_2layer):
     clear_output(data_dir, image_names_3d)
 
     for image_name in image_names_3d:
         img_file = data_dir / '3D' / image_name
         img = io.imread_3D(img_file)
-        masks_pred, flows_pred, _ = cellposemodel_fixture_3D.eval(img, do_3D=True, channel_axis=-1, z_axis=0)
+        masks_pred, flows_pred, _ = cellposemodel_fixture_2layer.eval(img, do_3D=True, channel_axis=-1, z_axis=0)
         # io.imsave(data_dir / "3D" / (img_file.stem + "_cp_masks.tif"), masks)
 
         assert img.shape[:-1] == masks_pred.shape, f'mask incorrect shape for {image_name}, {masks_pred.shape=}'
@@ -129,7 +144,7 @@ def test_cli_3D_diam(data_dir, image_names_3d):
 
 
 @pytest.mark.slow
-def test_outlines_list(data_dir, image_names, cellposemodel_fixture_2D):
+def test_outlines_list(data_dir, image_names, cellposemodel_fixture_24layer):
     """ test both single and multithreaded by comparing them"""
     clear_output(data_dir, image_names)
     image_name = "rgb_2D.png"
@@ -137,7 +152,7 @@ def test_outlines_list(data_dir, image_names, cellposemodel_fixture_2D):
     file_name = str(data_dir.joinpath("2D").joinpath(image_name))
     img = io.imread(file_name)
 
-    masks, _, _ = cellposemodel_fixture_2D.eval(img, diameter=30)
+    masks, _, _ = cellposemodel_fixture_24layer.eval(img, diameter=30)
     outlines_single = utils.outlines_list(masks, multiprocessing=False)
     outlines_multi = utils.outlines_list(masks, multiprocessing=True)
 
