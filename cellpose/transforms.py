@@ -447,9 +447,12 @@ def update_axis(m_axis, to_squeeze, ndim):
     return m_axis
 
 
-def convert_image_3d(x, channel_axis=None, z_axis=None):
+def _convert_image_3d(x, channel_axis=None, z_axis=None):
     """
     Convert a 3D or 4D image array to have dimensions ordered as (Z, X, Y, C).
+
+    Arrays of ndim=3 are assumed to be grayscale and must be specified with z_axis. 
+    Arrays of ndim=4 must have both `channel_axis` and `z_axis` specified.
     
     Args:
         x (numpy.ndarray): Input image array. Must be either 3D (assumed to be grayscale 3D) or 4D. 
@@ -474,6 +477,12 @@ def convert_image_3d(x, channel_axis=None, z_axis=None):
             channels to ensure the output has exactly 3 channels.
     """
 
+    if x.ndim < 3:
+        raise ValueError(f"Input image must have at least 3 dimensions, input shape: {x.shape}, ndim={x.ndim}")
+    
+    if z_axis is not None and z_axis < 0:
+        z_axis += x.ndim
+
     # if image is ndim==3, assume it is greyscale 3D and use provided z_axis
     if x.ndim == 3 and z_axis is not None:
         # add in channel axis
@@ -484,7 +493,11 @@ def convert_image_3d(x, channel_axis=None, z_axis=None):
 
 
     if channel_axis is None or z_axis is None:
-        raise ValueError("both channel_axis and z_axis must be specified when segmenting 3D images of ndim=4")
+        raise ValueError("For 4D images, both `channel_axis` and `z_axis` must be explicitly specified. Please provide values for both parameters.")
+    if channel_axis is not None and channel_axis < 0:
+        channel_axis += x.ndim
+    if channel_axis is None or channel_axis >= x.ndim:
+        raise IndexError(f"channel_axis {channel_axis} is out of bounds for input array with {x.ndim} dimensions")
     assert x.ndim == 4, f"input image must have ndim == 4, ndim={x.ndim}"
     
     x_dim_shapes = list(x.shape)
@@ -519,23 +532,26 @@ def convert_image_3d(x, channel_axis=None, z_axis=None):
             x = x[..., :x_chans_to_copy]
         else: 
             # less than 3 channels: pad up to 
-            x_out = np.zeros((num_z_layers, x_dim_shapes[0], x_dim_shapes[1], 3), dtype=x.dtype)
-            x_out[..., :x_chans_to_copy] = x[...]
-            x = x_out
-            del x_out
+            pad_width = [(0, 0), (0, 0), (0, 0), (0, 3 - x_chans_to_copy)]
+            x = np.pad(x, pad_width, mode='constant', constant_values=0)
 
     return x
 
 
 def convert_image(x, channel_axis=None, z_axis=None, do_3D=False):
-    """Converts the image to have the z-axis first, channels last.
+    """Converts the image to have the z-axis first, channels last. Image will be converted to 3 channels if it is not already.
+    If more than 3 channels are provided, only the first 3 channels will be used. 
+
+    Accepts: 
+        - 2D images with no channel dimension: `z_axis` and `channel_axis` must be `None`
+        - 2D images with channel dimension: `channel_axis` will be guessed between first or last axis, can also specify `channel_axis`. `z_axis` must be `None`
+        - 3D images with or without channels: 
 
     Args:
         x (numpy.ndarray or torch.Tensor): The input image.
         channel_axis (int or None): The axis of the channels in the input image. If None, the axis is determined automatically.
         z_axis (int or None): The axis of the z-dimension in the input image. If None, the axis is determined automatically.
         do_3D (bool): Whether to process the image in 3D mode. Defaults to False.
-        nchan (int): The number of channels to keep if the input image has more than nchan channels.
 
     Returns:
         numpy.ndarray: The converted image.
@@ -551,18 +567,23 @@ def convert_image(x, channel_axis=None, z_axis=None, do_3D=False):
         transforms_logger.warning("torch array used as input, converting to numpy")
         x = x.cpu().numpy()
 
+    # should be 2D
+    if z_axis is not None and not do_3D:
+        raise ValueError("2D image provided, but z_axis is not None. Set z_axis=None to process 2D images of ndim=2 or 3.")
+
+    # make sure that channel_axis and z_axis are specified if 3D
+    if ndim == 4 and not do_3D:
+        raise ValueError("3D input image provided, but do_3D is False. Set do_3D=True to process 3D images. ndims=4")
+
     # make sure that channel_axis and z_axis are specified if 3D
     if do_3D:
-        return convert_image_3d(x, channel_axis=channel_axis, z_axis=z_axis)
+        return _convert_image_3d(x, channel_axis=channel_axis, z_axis=z_axis)
     
-    if ndim == 4:
-        raise ValueError("3D input image provided, but do_3D is False. Set do_3D=True to process 3D images.")
-
     ######################## 2D reshaping ########################
     # if user specifies channel axis, return early
     if channel_axis is not None:
         if ndim == 2:
-            raise ValueError("2D image provided, but channel_axis is not None. Set channel_axis=None to process 2D images.")
+            raise ValueError("2D image provided, but channel_axis is not None. Set channel_axis=None to process 2D images of ndim=2.")
         
         # Put channel axis last:
         # Find the indices of the dims that need to be put in dim 0 and 1
@@ -613,8 +634,9 @@ def convert_image(x, channel_axis=None, z_axis=None, do_3D=False):
         del x_out
     else:
         # something is wrong: yell
-        transforms_logger.critical(f"ERROR: Unexpected image shape: {str(x.shape)}")
-        raise ValueError(f"ERROR: Unexpected image shape: {str(x.shape)}")
+        expected_shapes = "2D (H, W), 3D (H, W, C), or 4D (Z, H, W, C)"
+        transforms_logger.critical(f"ERROR: Unexpected image shape: {str(x.shape)}. Expected shapes: {expected_shapes}")
+        raise ValueError(f"ERROR: Unexpected image shape: {str(x.shape)}. Expected shapes: {expected_shapes}")
 
     return x
     
