@@ -18,42 +18,44 @@
 # Entire working example with benchmark and save comparison is at the end of this file
 
 # Example usage:
-# from cellpose.contrib.directml import setup_directML, fix_sparse_directML
-# model = model = models.CellposeModel()
-# model = setup_directML(model) # make model think it is on a "normal" GPU
-# fix_sparse_directML()  # fix sparse tensors for DirectML
+# from cellpose import models as models
+# model = models.CellposeModel(gpu=True)
 # out = model.eval(img)
 
-def setup_custom_device(model, device):
-    """
-    Forces the model to use a custom device (e.g., DirectML) for inference.
-    This is a workaround, and could be handled better in the future. 
-    (Ideally when all parameters are set initially)
 
-    Args:
-        model (cellpose.CellposeModel|cellpse.Cellpose): Cellpose model. Should work for v2, v3 and custom.
-        torch.device (torch.device): Custom device.
 
-    Returns:
-        model (cellpose.CellposeModel|cellpse.Cellpos): Cellpose model with custom device set.
-    """
-    model.gpu = True
-    model.device = device
-    model.mkldnn = False
-    if hasattr(model, 'net'):
-        model.net.to(device)
-        model.net.mkldnn = False
-    if hasattr(model, 'cp'):
-        model.cp.gpu = True
-        model.cp.device = device
-        model.cp.mkldnn = False
-        if hasattr(model.cp, 'net'):
-            model.cp.net.to(device)
-            model.cp.net.mkldnn = False
-    if hasattr(model, 'sz'):
-        model.sz.device = device
+
+### This function has been made obsolete by updates to cellpose.models
+# def setup_custom_device(model, device):
+#     """
+#     Forces the model to use a custom device (e.g., DirectML) for inference.
+#     This is a workaround, and could be handled better in the future. 
+#     (Ideally when all parameters are set initially)
+
+#     Args:
+#         model (cellpose.CellposeModel|cellpse.Cellpose): Cellpose model. Should work for v2, v3 and custom.
+#         torch.device (torch.device): Custom device.
+
+#     Returns:
+#         model (cellpose.CellposeModel|cellpse.Cellpos): Cellpose model with custom device set.
+#     """
+#     model.gpu = True
+#     model.device = device
+#     model.mkldnn = False
+#     if hasattr(model, 'net'):
+#         model.net.to(device)
+#         model.net.mkldnn = False
+#     if hasattr(model, 'cp'):
+#         model.cp.gpu = True
+#         model.cp.device = device
+#         model.cp.mkldnn = False
+#         if hasattr(model.cp, 'net'):
+#             model.cp.net.to(device)
+#             model.cp.net.mkldnn = False
+#     if hasattr(model, 'sz'):
+#         model.sz.device = device
     
-    return model
+#     return model
 
 def setup_directML(model):
     """
@@ -238,12 +240,12 @@ if __name__ == "__main__":
                 print(f"All frames match for {file_name} vs {last_file_name}")
 
 
+    # you need two environment for benchmarking: One with DirectML and one with CUDA.
     path = r'path\to\your\data.tif'  # path to your data
     # pretrained_model = r'path\to\your\model'  # path to your pretrained model
     pretrained_model = "cpsam" # "cyto3" # for pretrained models
-    gpu = False  # set to True if you want to use GPU
-    uses_directml = True # set to True if you want to use DirectML (overrides gpu)
-    # if both are False, CPU will be used
+    gpu = True  # set to True if you want to use GPU
+    # if False, CPU will be used
     just_compare_data = False # set to True if you want to compare data and exit
 
     # load and prepare images
@@ -266,13 +268,8 @@ if __name__ == "__main__":
     from cellpose import models, io
     io.logger_setup()
     model = models.CellposeModel(
-        pretrained_model=pretrained_model, gpu=gpu
+        pretrained_model=pretrained_model, gpu=gpu, 
     )
-
-    # setup DirectML
-    if uses_directml:
-        model = setup_directML(model) # make model think it is on a "normal" GPU
-        fix_sparse_directML()  # fix sparse tensors for DirectML
 
     # run model, benchmark
     print("Running model...")
@@ -291,6 +288,7 @@ if __name__ == "__main__":
     print(f"Time taken: {end - start:.2f} seconds")
     print(f"Average time per image: {np.mean(times):.2f} seconds")
 
+    uses_directml = model.device.type == 'privateuseone'
     # save data
     if uses_directml: 
         print("DirectML inference completed.")
