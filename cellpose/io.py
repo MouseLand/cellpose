@@ -230,33 +230,7 @@ def imread_2D(img_file):
         img_out (numpy.ndarray): The 3-channel image data as a NumPy array.
     """
     img = imread(img_file)
-
-    if (img.ndim == 1) or (img.ndim == 4):
-        raise ValueError("img_file should have 2 or 3 dimensions, shape: %s" % img.shape)
-
-    # if image has no channel dimension, add one and return the image
-    if img.ndim == 2:
-        img_out = np.zeros((img.shape[0], img.shape[1], 3), dtype=img.dtype)
-        img_out[:, :, 0] = img
-        return img_out
-
-    # Otherwise, image will have a channel dimension, assume it's either first or last
-    # force it to be last (XYC): 
-    if img.shape[0] <  img.shape[-1]:
-        img = np.moveaxis(img, 0, -1)
-
-    nchan = img.shape[-1]
-
-    if nchan == 3:
-        # already has 3 channels
-        return img
-    
-    # ensure there are 3 channels
-    img_out = np.zeros((img.shape[0], img.shape[1], 3), dtype=img.dtype)
-    copy_chan = min(3, nchan)
-    img_out[:, :, :copy_chan] = img[:, :, :copy_chan]
-
-    return img_out
+    return transforms.convert_image(img, do_3D=False)
 
 
 def imread_3D(img_file):
@@ -271,20 +245,25 @@ def imread_3D(img_file):
     """
     img = imread(img_file)
 
-    if img.ndim == 3:
-        # add a channel dimension
-        img_out = np.zeros((img.shape[0], img.shape[1], img.shape[2], 3), dtype=img.dtype)
-        img_out[:, :, :, 0] = img
-    elif img.ndim == 4:
-        # assume it's opening as (z, c, y, x)
-        img_out = np.zeros((img.shape[0], img.shape[2], img.shape[3], 3), dtype=img.dtype)
-        img_out[:, :, :, :img.shape[1]] = img.transpose(0, 2, 3, 1)
-    else:
-        raise ValueError("Image should have 3 or 4 dimensions, shape: %s" % img.shape)
-    
-    del img
-    return img_out
+    dimension_lengths = list(img.shape)
 
+    # guess at channel axis:
+    channel_axis = np.argmin(img.shape)
+    del dimension_lengths[channel_axis]
+
+    # guess at z axis:
+    z_axis = np.argmin(dimension_lengths)
+
+    # grayscale images:
+    if img.ndim == 3:
+        channel_axis = None
+    
+    try:
+        return transforms.convert_image(img, channel_axis=channel_axis, z_axis=z_axis, do_3D=True)
+    except Exception as e:
+        io_logger.critical("ERROR: could not read file, %s" % e)
+        io_logger.critical("ERROR: Guessed z_axis: %s, channel_axis: %s" % (z_axis, channel_axis))
+        return None
 
 def remove_model(filename, delete=False):
     """ remove model from .cellpose custom model list """
