@@ -10,7 +10,7 @@ import torch.nn.functional as F
 
 class Transformer(nn.Module):
     def __init__(self, backbone="vit_l", ps=8, nout=3, bsize=256, rdrop=0.4,
-                  checkpoint=None):
+                  checkpoint=None, dtype=torch.float32):
         super(Transformer, self).__init__()
 
         # instantiate the vit model, default to not loading SAM
@@ -48,6 +48,8 @@ class Transformer(nn.Module):
         # set attention to global in every layer
         for blk in self.encoder.blocks:
             blk.window_size = 0
+
+        self.dtype = dtype
 
     def forward(self, x):      
         # same progression as SAM until readout
