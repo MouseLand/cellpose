@@ -299,7 +299,7 @@ class CellposeModel():
             x = transforms.normalize_img(x, **normalize_params)
             do_normalization = False # do not normalize again
         else:
-            if normalize_params["norm3D"] and nimg > 1:
+            if normalize_params["norm3D"] and nimg > 1 and do_normalization:
                 models_logger.warning(
                     "normalize_params['norm3D'] is True but do_3D is False and stitch_threshold=0, so setting to False"
                 )
