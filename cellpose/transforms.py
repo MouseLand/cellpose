@@ -730,6 +730,7 @@ def normalize_img(img, normalize=True, norm3D=True, invert=False, lowhigh=None,
                 smooth3D=tile_norm_smooth3D,
                 norm3D=norm3D,
             )
+            cgood[:] = True
         elif normalize:
             if img_norm.ndim == 3 or norm3D:  # i.e. if YXC, or ZYXC with norm3D=True
                 for c in range(nchan):
@@ -774,7 +775,7 @@ def normalize_img(img, normalize=True, norm3D=True, invert=False, lowhigh=None,
             if img_norm.ndim == 3:
                 img_norm[:, :, i] = 0
             if img_norm.ndim == 4:
-                img_norm[0, :, :, i] = 0
+                img_norm[:, :, :, i] = 0
 
     return img_norm
 
