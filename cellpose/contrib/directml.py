@@ -57,23 +57,23 @@
     
 #     return model
 
-def setup_directML(model):
-    """
-    Sets up the Cellpose model to use DirectML for inference.
+# def setup_directML(model):
+#     """
+#     Sets up the Cellpose model to use DirectML for inference.
 
-    Args:
-        model (cellpose.CellposeModel|cellpse.Cellpos): Cellpose model. Should work for v2, v3 and custom.
+#     Args:
+#         model (cellpose.CellposeModel|cellpse.Cellpos): Cellpose model. Should work for v2, v3 and custom.
     
-    Returns:
-        model (cellpose.CellposeModel|cellpse.Cellpos): Cellpose model with DirectML set as the device.
-    """
-    print(
-        'Using DirectML GPU for Cellpose model inference'
-    )
-    import torch_directml
-    directml_device = torch_directml.device()
-    model = setup_custom_device(model, directml_device)
-    return model
+#     Returns:
+#         model (cellpose.CellposeModel|cellpse.Cellpos): Cellpose model with DirectML set as the device.
+#     """
+#     print(
+#         'Using DirectML GPU for Cellpose model inference'
+#     )
+#     import torch_directml
+#     directml_device = torch_directml.device()
+#     model = setup_custom_device(model, directml_device)
+#     return model
 
 def fix_sparse_directML(verbose=True):
     """DirectML does not support sparse tensors, so we need to fallback to CPU.
