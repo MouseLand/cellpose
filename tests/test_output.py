@@ -98,6 +98,7 @@ def test_class_3D_one_img(data_dir, image_names_3d, cellposemodel_fixture_2layer
     clear_output(data_dir, image_names_3d)
 
     img_file = data_dir / '3D' / image_names_3d[0]
+    image_name = img_file.name
     img = io.imread_3D(img_file)
     masks_pred, flows_pred, _ = cellposemodel_fixture_2layer.eval(img, do_3D=True, channel_axis=-1, z_axis=0)
 
@@ -125,12 +126,14 @@ def test_cli_2D(data_dir, image_names):
     clear_output(data_dir, image_names)
 
 
+@pytest.mark.parametrize('aniso', [None, 2.5])
 @pytest.mark.slow
-def test_cli_3D_diam(data_dir, image_names_3d):
+def test_cli_3D_diam(data_dir, image_names_3d, aniso):
     clear_output(data_dir, image_names_3d)
-    use_gpu = torch.cuda.is_available()
+    use_gpu = torch.cuda.is_available() or torch.backends.mps.is_available() 
     gpu_string = "--use_gpu" if use_gpu else ""
-    cmd = f"python -m cellpose --image_path {str(data_dir / '3D' / image_names_3d[0])} --do_3D --diameter 25 --save_tif {gpu_string} --verbose"
+    anisotropy_text = f' {'--anisotropy ' + str(aniso) if aniso else ''}'
+    cmd = f"python -m cellpose --image_path {str(data_dir / '3D' / image_names_3d[0])} --do_3D --diameter 25 --save_tif {gpu_string} --verbose" + anisotropy_text
     try:
         cmd_stdout = check_output(cmd, stderr=STDOUT, shell=True).decode()
         print(cmd_stdout)
