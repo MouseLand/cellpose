@@ -339,8 +339,8 @@ class CellposeModel():
         
         masks, dP, cellprob = masks.squeeze(), dP.squeeze(), cellprob.squeeze()
 
-        # undo diameter resizing:
-        if image_scaling is not None:
+        # undo resizing:
+        if image_scaling is not None or anisotropy is not None:
             if do_3D:
                 # Rescale xy then xz:
                 masks = transforms.resize_image(masks, Ly=Ly_0, Lx=Lx_0, no_channels=True, interpolation=cv2.INTER_NEAREST)
