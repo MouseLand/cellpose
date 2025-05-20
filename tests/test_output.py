@@ -132,8 +132,8 @@ def test_cli_3D_diam_anisotropy_shape(data_dir, image_names_3d, diam, aniso):
     clear_output(data_dir, image_names_3d)
     use_gpu = torch.cuda.is_available() or torch.backends.mps.is_available() 
     gpu_string = "--use_gpu" if use_gpu else ""
-    anisotropy_text = f' {'--anisotropy ' + str(aniso) if aniso else ''}'
-    diam_text = f' {'--diameter ' + str(diam) if diam else ''}'
+    anisotropy_text = f" {'--anisotropy ' + str(aniso) if aniso else ''}"
+    diam_text = f" {'--diameter ' + str(diam) if diam else ''}"
     cmd = f"python -m cellpose --image_path {str(data_dir / '3D' / image_names_3d[0])} --do_3D --save_tif {gpu_string} --verbose" + anisotropy_text + diam_text
     print(cmd)
     try:
