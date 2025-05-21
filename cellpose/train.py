@@ -35,22 +35,34 @@ def _loss_fn_seg(lbl, y, device):
     Calculates the loss function between true labels lbl and prediction y.
 
     Args:
-        lbl (numpy.ndarray): True labels (cellprob, flowsY, flowsX).
+        lbl (np.ndarray or torch.Tensor): True labels (cellprob, flowsY, flowsX).
         y (torch.Tensor): Predicted values (flowsY, flowsX, cellprob).
         device (torch.device): Device on which the tensors are located.
 
     Returns:
         torch.Tensor: Loss value.
-
     """
+    if isinstance(lbl, np.ndarray):
+        lbl = torch.from_numpy(lbl)
+
+    lbl = lbl.to(device).float()  # Ensure it’s on the right device and float
+
+    if lbl.shape[1] < 3:
+        raise ValueError(f"`lbl` should have 3 channels, got shape {lbl.shape}")
+
     criterion = nn.MSELoss(reduction="mean")
     criterion2 = nn.BCEWithLogitsLoss(reduction="mean")
-    veci = 5. * lbl[:, -2:]
-    loss = criterion(y[:, -3:-1], veci)
+
+    # flow fields: last 2 channels
+    veci = 5. * lbl[:, -2:]                     # (batch, 2, H, W)
+    loss = criterion(y[:, -3:-1], veci)         # match predicted flows
     loss /= 2.
-    loss2 = criterion2(y[:, -1], (lbl[:, -3] > 0.5).float())
-    loss = loss + loss2
-    return loss
+
+    # cellprob: 3rd-to-last channel
+    cellprob_true = (lbl[:, -3] > 0.5).float()  # (batch, H, W)
+    loss2 = criterion2(y[:, -1], cellprob_true)
+
+    return loss + loss2
 
 def _reshape_norm(data, channel_axis=None, normalize_params={"normalize": False}):
     """
