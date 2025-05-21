@@ -44,10 +44,10 @@ def _loss_fn_seg(lbl, y, device):
     """
     criterion = nn.MSELoss(reduction="mean")
     criterion2 = nn.BCEWithLogitsLoss(reduction="mean")
-    veci = 5. * torch.from_numpy(lbl[:, 1:]).to(device)
+    veci = 5. * lbl[:, 1:]
     loss = criterion(y[:, :2], veci)
     loss /= 2.
-    loss2 = criterion2(y[:, -1], torch.from_numpy(lbl[:, 0] > 0.5).to(device).float())
+    loss2 = criterion2(y[:, -1], (lbl[:, 0] > 0.5).float())
     loss = loss + loss2
     return loss
 
