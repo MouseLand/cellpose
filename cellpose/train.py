@@ -42,27 +42,14 @@ def _loss_fn_seg(lbl, y, device):
     Returns:
         torch.Tensor: Loss value.
     """
-    if isinstance(lbl, np.ndarray):
-        lbl = torch.from_numpy(lbl)
-
-    lbl = lbl.to(device).float()  # Ensure it’s on the right device and float
-
-    if lbl.shape[1] < 3:
-        raise ValueError(f"`lbl` should have 3 channels, got shape {lbl.shape}")
-
     criterion = nn.MSELoss(reduction="mean")
     criterion2 = nn.BCEWithLogitsLoss(reduction="mean")
-
-    # flow fields: last 2 channels
-    veci = 5. * lbl[:, -2:]                     # (batch, 2, H, W)
-    loss = criterion(y[:, -3:-1], veci)         # match predicted flows
+    veci = 5. * torch.from_numpy(lbl[:, 1:]).to(device)
+    loss = criterion(y[:, :2], veci)
     loss /= 2.
-
-    # cellprob: 3rd-to-last channel
-    cellprob_true = (lbl[:, -3] > 0.5).float()  # (batch, H, W)
-    loss2 = criterion2(y[:, -1], cellprob_true)
-
-    return loss + loss2
+    loss2 = criterion2(y[:, -1], torch.from_numpy(lbl[:, 0] > 0.5).to(device).float())
+    loss = loss + loss2
+    return loss
 
 def _reshape_norm(data, channel_axis=None, normalize_params={"normalize": False}):
     """
