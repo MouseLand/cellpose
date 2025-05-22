@@ -14,6 +14,9 @@ can install it as ``pip install cellpose[gui]``.
 - talk 
 
 
+
+**See details on migrating from Cellpose 3 to 4 in** :ref:`Settings`
+
 Old releases:
 -----------------------------
 
