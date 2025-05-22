@@ -36,9 +36,10 @@ def clear_output(data_dir, image_names):
         npy_output = name + "_seg.npy"
         if os.path.exists(npy_output):
             os.remove(npy_output)
-        
 
-def test_class_2D_one_img(data_dir, image_names, cellposemodel_fixture_24layer):
+
+@pytest.mark.parametrize('compute_masks', [True, False])
+def test_class_2D_one_img(data_dir, image_names, cellposemodel_fixture_24layer, compute_masks):
     clear_output(data_dir, image_names)
         
     img_file = data_dir / '2D' / image_names[0]
@@ -46,7 +47,11 @@ def test_class_2D_one_img(data_dir, image_names, cellposemodel_fixture_24layer):
     img = io.imread_2D(img_file)
     # flowps = io.imread(img_file.parent / (img_file.stem + "_cp4_gt_flowps.tif"))
 
-    masks_pred, _, _ = cellposemodel_fixture_24layer.eval(img, normalize=True)
+    masks_pred, _, _ = cellposemodel_fixture_24layer.eval(img, normalize=True, compute_masks=compute_masks)
+
+    if compute_masks:
+        return # just check that not compute_masks works: 
+    
     io.imsave(data_dir / '2D' / (img_file.stem + "_cp_masks.png"), masks_pred)
     # flowsp_pred = np.concatenate([flows_pred[1], flows_pred[2][None, ...]], axis=0)
     # mse = np.sqrt((flowsp_pred - flowps) ** 2).sum()
@@ -78,7 +83,7 @@ def test_class_2D_all_imgs(data_dir, image_names, cellposemodel_fixture_24layer)
 
 
 @pytest.mark.slow
-def test_cyto2_to_seg(data_dir, image_names, cellposemodel_fixture_24layer):
+def test_flows_to_seg(data_dir, image_names, cellposemodel_fixture_24layer):
     clear_output(data_dir, image_names)
     file_names = [data_dir / "2D" / n for n in image_names]
     imgs = [io.imread_2D(file_name) for file_name in file_names]
