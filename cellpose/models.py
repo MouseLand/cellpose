@@ -197,7 +197,7 @@ class CellposeModel():
             tile_overlap (float, optional): fraction of overlap of tiles when computing flows. Defaults to 0.1.
             bsize (int, optional): block size for tiles, recommended to keep at 224, like in training. Defaults to 224.
             interp (bool, optional): interpolate during 2D dynamics (not available in 3D) . Defaults to True.
-            compute_masks (bool, optional): Whether or not to compute dynamics and return masks. This is set to False when retrieving the styles for the size model. Defaults to True.
+            compute_masks (bool, optional): Whether or not to compute dynamics and return masks. Returns empty array if False. Defaults to True.
             progress (QProgressBar, optional): pyqt progress bar. Defaults to None.
 
         Returns:
