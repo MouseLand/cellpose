@@ -49,7 +49,7 @@ def test_class_2D_one_img(data_dir, image_names, cellposemodel_fixture_24layer, 
 
     masks_pred, _, _ = cellposemodel_fixture_24layer.eval(img, normalize=True, compute_masks=compute_masks)
 
-    if compute_masks:
+    if not compute_masks:
         return # just check that not compute_masks works: 
     
     io.imsave(data_dir / '2D' / (img_file.stem + "_cp_masks.png"), masks_pred)
