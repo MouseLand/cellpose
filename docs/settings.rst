@@ -6,7 +6,11 @@ Settings
 The important settings are described on this page. 
 See the :ref:`cpmclass` for all run options.
 
-Here is an example of calling the Cellpose class and
+.. warning:: 
+    Cellpose 3 used ``models.Cellpose`` class which has been removed in Cellpose 4. Users should
+    now only use the ``models.CellposeModel``` class. 
+
+Here is an example of calling the ``CellposeModel`` class and
 running a list of images for reference:
 
 ::
@@ -14,7 +18,7 @@ running a list of images for reference:
     from cellpose import models
     from cellpose.io import imread
 
-    model = models.Cellpose(gpu=True)
+    model = models.CellposeModel(gpu=True)
 
     files = ['img0.tif', 'img1.tif']
     imgs = [imread(f) for f in files]
@@ -36,7 +40,7 @@ you will want to omit it from the input, or combine it with the cytoplasm channe
     from cellpose import models
     from cellpose.io import imread
 
-    model = models.Cellpose(gpu=True)
+    model = models.CellposeModel(gpu=True)
 
     img = imread("img.tif") # tiff is n x 100 x 100 
     
