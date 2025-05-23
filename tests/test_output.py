@@ -38,14 +38,15 @@ def clear_output(data_dir, image_names):
             os.remove(npy_output)
 
 
-@pytest.mark.parametrize('compute_masks, resample', 
+@pytest.mark.parametrize('compute_masks, resample, diameter', 
                          [
-                             (True, True), 
-                             (False, True),
-                             (False, False,)
+                             (True, True, 40), 
+                             (True, True, None), 
+                             (False, True, None),
+                             (False, False, None)
                          ]
 )
-def test_class_2D_one_img(data_dir, image_names, cellposemodel_fixture_24layer, compute_masks, resample):
+def test_class_2D_one_img(data_dir, image_names, cellposemodel_fixture_24layer, compute_masks, resample, diameter):
     clear_output(data_dir, image_names)
         
     img_file = data_dir / '2D' / image_names[0]
@@ -53,10 +54,12 @@ def test_class_2D_one_img(data_dir, image_names, cellposemodel_fixture_24layer, 
     img = io.imread_2D(img_file)
     # flowps = io.imread(img_file.parent / (img_file.stem + "_cp4_gt_flowps.tif"))
 
-    masks_pred, _, _ = cellposemodel_fixture_24layer.eval(img, normalize=True, compute_masks=compute_masks, resample=resample)
+    masks_pred, _, _ = cellposemodel_fixture_24layer.eval(img, normalize=True, compute_masks=compute_masks, resample=resample, diameter=diameter)
 
-    if not compute_masks:
-        return # just check that not compute_masks works: 
+    if not compute_masks or diameter:
+        # not compute_masks won't return masks so can't check
+        # different diameter will give different masks, so can't check
+        return 
     
     io.imsave(data_dir / '2D' / (img_file.stem + "_cp_masks.png"), masks_pred)
     # flowsp_pred = np.concatenate([flows_pred[1], flows_pred[2][None, ...]], axis=0)
