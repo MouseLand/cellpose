@@ -214,8 +214,6 @@ class CellposeModel():
 
         if rescale is not None:
             models_logger.warning("rescaling deprecated in v4.0.1+") 
-        if resample is not None:
-            models_logger.warning("resample deprecated in v4.0.1+")
         if channels is not None:
             models_logger.warning("channels deprecated in v4.0.1+. If data contain more than 3 channels, only the first 3 channels will be used")
 
@@ -326,6 +324,10 @@ class CellposeModel():
                 dP = gaussian_filter(dP, (0, flow3D_smooth, flow3D_smooth, flow3D_smooth))
             torch.cuda.empty_cache()
             gc.collect()
+
+        if resample:
+            # upsample flows before computing them: 
+            raise NotImplementedError
 
         if compute_masks:
             niter0 = 200

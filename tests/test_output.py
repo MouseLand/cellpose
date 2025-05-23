@@ -38,8 +38,14 @@ def clear_output(data_dir, image_names):
             os.remove(npy_output)
 
 
-@pytest.mark.parametrize('compute_masks', [True, False])
-def test_class_2D_one_img(data_dir, image_names, cellposemodel_fixture_24layer, compute_masks):
+@pytest.mark.parametrize('compute_masks, resample', 
+                         [
+                             (True, True), 
+                             (False, True),
+                             (False, False,)
+                         ]
+)
+def test_class_2D_one_img(data_dir, image_names, cellposemodel_fixture_24layer, compute_masks, resample):
     clear_output(data_dir, image_names)
         
     img_file = data_dir / '2D' / image_names[0]
@@ -47,7 +53,7 @@ def test_class_2D_one_img(data_dir, image_names, cellposemodel_fixture_24layer, 
     img = io.imread_2D(img_file)
     # flowps = io.imread(img_file.parent / (img_file.stem + "_cp4_gt_flowps.tif"))
 
-    masks_pred, _, _ = cellposemodel_fixture_24layer.eval(img, normalize=True, compute_masks=compute_masks)
+    masks_pred, _, _ = cellposemodel_fixture_24layer.eval(img, normalize=True, compute_masks=compute_masks, resample=resample)
 
     if not compute_masks:
         return # just check that not compute_masks works: 
