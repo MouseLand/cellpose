@@ -197,7 +197,7 @@ class CellposeModel():
             tile_overlap (float, optional): fraction of overlap of tiles when computing flows. Defaults to 0.1.
             bsize (int, optional): block size for tiles, recommended to keep at 224, like in training. Defaults to 224.
             interp (bool, optional): interpolate during 2D dynamics (not available in 3D) . Defaults to True.
-            compute_masks (bool, optional): Whether or not to compute dynamics and return masks. This is set to False when retrieving the styles for the size model. Defaults to True.
+            compute_masks (bool, optional): Whether or not to compute dynamics and return masks. Returns empty array if False. Defaults to True.
             progress (QProgressBar, optional): pyqt progress bar. Defaults to None.
 
         Returns:
@@ -342,11 +342,12 @@ class CellposeModel():
         # undo resizing:
         if image_scaling is not None or anisotropy is not None:
             if do_3D:
-                # Rescale xy then xz:
-                masks = transforms.resize_image(masks, Ly=Ly_0, Lx=Lx_0, no_channels=True, interpolation=cv2.INTER_NEAREST)
-                masks = masks.transpose(1, 0, 2)
-                masks = transforms.resize_image(masks, Ly=Lz_0, Lx=Lx_0, no_channels=True, interpolation=cv2.INTER_NEAREST)
-                masks = masks.transpose(1, 0, 2)
+                if compute_masks:
+                    # Rescale xy then xz:
+                    masks = transforms.resize_image(masks, Ly=Ly_0, Lx=Lx_0, no_channels=True, interpolation=cv2.INTER_NEAREST)
+                    masks = masks.transpose(1, 0, 2)
+                    masks = transforms.resize_image(masks, Ly=Lz_0, Lx=Lx_0, no_channels=True, interpolation=cv2.INTER_NEAREST)
+                    masks = masks.transpose(1, 0, 2)
 
                 # cellprob is the same
                 cellprob = transforms.resize_image(cellprob, Ly=Ly_0, Lx=Lx_0, no_channels=True)
@@ -363,7 +364,8 @@ class CellposeModel():
 
             else:
                 # 2D or 3D stitching case:
-                masks = transforms.resize_image(masks, Ly=Ly_0, Lx=Lx_0, no_channels=True, interpolation=cv2.INTER_NEAREST)
+                if compute_masks:
+                    masks = transforms.resize_image(masks, Ly=Ly_0, Lx=Lx_0, no_channels=True, interpolation=cv2.INTER_NEAREST)
                 cellprob = transforms.resize_image(cellprob, Ly=Ly_0, Lx=Lx_0, no_channels=True)
                 dP = np.moveaxis(dP, 0, -1) # Put gradients last
                 dP = transforms.resize_image(dP, Ly=Ly_0, Lx=Lx_0, no_channels=False)
