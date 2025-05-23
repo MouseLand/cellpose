@@ -134,8 +134,8 @@ def get_arg_parser():
 
     # TODO: remove deprecated in future version
     algorithm_args.add_argument(
-        "--no_resample", action="store_true", help=
-        'Deprecated in v4.0.1+, not used. ')
+        "--no_resample", action="store_true", 
+        help="disables flows/cellprob resampling to original image size before computing masks. Using this flag will make more masks more jagged with larger diameter settings.")
     algorithm_args.add_argument(
         "--no_interp", action="store_true",
         help="do not interpolate when running dynamics (was default)")
