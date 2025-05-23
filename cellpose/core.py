@@ -36,7 +36,7 @@ def use_gpu(gpu_number=0, use_torch=True):
 
 def _use_gpu_torch(gpu_number=0):
     """
-    Checks if CUDA or MPS is available and working with PyTorch.
+    Checks if CUDA or MPS or DirectML is available and working with PyTorch.
 
     Args:
         gpu_number (int): The GPU device number to use (default is 0).
@@ -57,13 +57,22 @@ def _use_gpu_torch(gpu_number=0):
         core_logger.info('** TORCH MPS version installed and working. **')
         return True
     except:
-        core_logger.info('Neither TORCH CUDA nor MPS version not installed/working.')
+        pass
+
+    try:
+        import torch_directml
+        device = torch_directml.device()
+        _ = torch.zeros((1,1)).to(device)
+        core_logger.info('** TORCH DIRECTML version installed and working. **')
+        return True
+    except:
+        core_logger.info('Neither TORCH CUDA, MPS nor DirectML version installed/working.')
         return False
 
 
 def assign_device(use_torch=True, gpu=False, device=0):
     """
-    Assigns the device (CPU or GPU or mps) to be used for computation.
+    Assigns the device (CPU or GPU or mps or DirectML) to be used for computation.
 
     Args:
         use_torch (bool, optional): Whether to use torch for GPU detection. Defaults to True.
@@ -78,6 +87,7 @@ def assign_device(use_torch=True, gpu=False, device=0):
         if device != "mps" or not(gpu and torch.backends.mps.is_available()):
             device = int(device)
     if gpu and use_gpu(use_torch=True):
+        gpu = False
         try:
             if torch.cuda.is_available():
                 device = torch.device(f'cuda:{device}')
@@ -96,6 +106,18 @@ def assign_device(use_torch=True, gpu=False, device=0):
         except:
             gpu = False
             cpu = True
+        
+        if not gpu: # dont overwrite device if already set
+            try:
+                import torch_directml
+                if torch_directml.is_available():
+                    device = torch_directml.device(device)
+                    core_logger.info(">>>> using GPU (DirectML)")
+                    gpu = True
+                    cpu = False
+            except:
+                gpu = False
+                cpu = True
     else:
         device = torch.device('cpu')
         core_logger.info('>>>> using CPU')
