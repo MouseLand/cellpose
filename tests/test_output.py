@@ -36,9 +36,10 @@ def clear_output(data_dir, image_names):
         npy_output = name + "_seg.npy"
         if os.path.exists(npy_output):
             os.remove(npy_output)
-        
 
-def test_class_2D_one_img(data_dir, image_names, cellposemodel_fixture_24layer):
+
+@pytest.mark.parametrize('compute_masks', [True, False])
+def test_class_2D_one_img(data_dir, image_names, cellposemodel_fixture_24layer, compute_masks):
     clear_output(data_dir, image_names)
         
     img_file = data_dir / '2D' / image_names[0]
@@ -46,7 +47,11 @@ def test_class_2D_one_img(data_dir, image_names, cellposemodel_fixture_24layer):
     img = io.imread_2D(img_file)
     # flowps = io.imread(img_file.parent / (img_file.stem + "_cp4_gt_flowps.tif"))
 
-    masks_pred, _, _ = cellposemodel_fixture_24layer.eval(img, normalize=True)
+    masks_pred, _, _ = cellposemodel_fixture_24layer.eval(img, normalize=True, compute_masks=compute_masks)
+
+    if not compute_masks:
+        return # just check that not compute_masks works: 
+    
     io.imsave(data_dir / '2D' / (img_file.stem + "_cp_masks.png"), masks_pred)
     # flowsp_pred = np.concatenate([flows_pred[1], flows_pred[2][None, ...]], axis=0)
     # mse = np.sqrt((flowsp_pred - flowps) ** 2).sum()
@@ -78,7 +83,7 @@ def test_class_2D_all_imgs(data_dir, image_names, cellposemodel_fixture_24layer)
 
 
 @pytest.mark.slow
-def test_cyto2_to_seg(data_dir, image_names, cellposemodel_fixture_24layer):
+def test_flows_to_seg(data_dir, image_names, cellposemodel_fixture_24layer):
     clear_output(data_dir, image_names)
     file_names = [data_dir / "2D" / n for n in image_names]
     imgs = [io.imread_2D(file_name) for file_name in file_names]
@@ -94,19 +99,18 @@ def test_cyto2_to_seg(data_dir, image_names, cellposemodel_fixture_24layer):
     clear_output(data_dir, image_names)
 
 
-def test_class_3D(data_dir, image_names_3d, cellposemodel_fixture_2layer):
+def test_class_3D_one_img_shape(data_dir, image_names_3d, cellposemodel_fixture_2layer):
     clear_output(data_dir, image_names_3d)
 
-    for image_name in image_names_3d:
-        img_file = data_dir / '3D' / image_name
-        img = io.imread_3D(img_file)
-        masks_pred, flows_pred, _ = cellposemodel_fixture_2layer.eval(img, do_3D=True, channel_axis=-1, z_axis=0)
-        # io.imsave(data_dir / "3D" / (img_file.stem + "_cp_masks.tif"), masks)
+    img_file = data_dir / '3D' / image_names_3d[0]
+    image_name = img_file.name
+    img = io.imread_3D(img_file)
+    masks_pred, flows_pred, _ = cellposemodel_fixture_2layer.eval(img, do_3D=True, channel_axis=-1, z_axis=0)
 
-        assert img.shape[:-1] == masks_pred.shape, f'mask incorrect shape for {image_name}, {masks_pred.shape=}'
-        assert img.shape[:-1] == flows_pred[1].shape[1:], f'flows incorrect shape for {image_name}, {flows_pred.shape=}'
+    assert img.shape[:-1] == masks_pred.shape, f'mask incorrect shape for {image_name}, {masks_pred.shape=}'
+    assert img.shape[:-1] == flows_pred[1].shape[1:], f'flows incorrect shape for {image_name}, {flows_pred.shape=}'
 
-        break # Just test one img for now
+    # just compare shapes for now
     # compare_masks_cp4(data_dir, image_names_3d, "3D")
     clear_output(data_dir, image_names_3d)
 
@@ -127,12 +131,33 @@ def test_cli_2D(data_dir, image_names):
     clear_output(data_dir, image_names)
 
 
+@pytest.mark.parametrize('diam, aniso', [(None, 2.5), (25, 2.5), (25, None)])
 @pytest.mark.slow
-def test_cli_3D_diam(data_dir, image_names_3d):
+def test_cli_3D_diam_anisotropy_shape(data_dir, image_names_3d, diam, aniso):
     clear_output(data_dir, image_names_3d)
-    use_gpu = torch.cuda.is_available()
+    use_gpu = torch.cuda.is_available() or torch.backends.mps.is_available() 
     gpu_string = "--use_gpu" if use_gpu else ""
-    cmd = f"python -m cellpose --image_path {str(data_dir / '3D' / image_names_3d[0])} --do_3D --diameter 25 --save_tif {gpu_string} --verbose"
+    anisotropy_text = f" {'--anisotropy ' + str(aniso) if aniso else ''}"
+    diam_text = f" {'--diameter ' + str(diam) if diam else ''}"
+    cmd = f"python -m cellpose --image_path {str(data_dir / '3D' / image_names_3d[0])} --do_3D --save_tif {gpu_string} --verbose" + anisotropy_text + diam_text
+    print(cmd)
+    try:
+        cmd_stdout = check_output(cmd, stderr=STDOUT, shell=True).decode()
+        print(cmd_stdout)
+    except Exception as e:
+        print(e)
+        raise ValueError(e)
+    compare_mask_shapes(data_dir, image_names_3d[0], "3D")
+    clear_output(data_dir, image_names_3d)
+
+
+@pytest.mark.slow
+def test_cli_3D_one_img(data_dir, image_names_3d):
+    clear_output(data_dir, image_names_3d)
+    use_gpu = torch.cuda.is_available() or torch.backends.mps.is_available() 
+    gpu_string = "--use_gpu" if use_gpu else ""
+    cmd = f"python -m cellpose --image_path {str(data_dir / '3D' / image_names_3d[0])} --do_3D --save_tif {gpu_string} --verbose"
+    print(cmd)
     try:
         cmd_stdout = check_output(cmd, stderr=STDOUT, shell=True).decode()
         print(cmd_stdout)
@@ -180,6 +205,8 @@ def compare_masks_cp4(data_dir, image_names, runtype):
     """
     data_dir_2D = data_dir.joinpath("2D")
     data_dir_3D = data_dir.joinpath("3D")
+    if not isinstance(image_names, list):
+        image_names = [image_names]
     for image_name in image_names:
         check = False
         if "2D" in runtype and "2D" in image_name:
@@ -214,6 +241,42 @@ def compare_masks_cp4(data_dir, image_names, runtype):
                 pix_precision = np.allclose(all_pix, matching_pix, rtol=r_tol,
                                             atol=a_tol)
                 assert all([ap_precision, pix_precision])
+            else:
+                print("ERROR: no output file of name %s found" % output_test)
+                assert False
+
+
+def compare_mask_shapes(data_dir, image_names, runtype):
+    """
+    Helper function to check if outputs given by a test are exactly the same
+    as the ground truth outputs.
+    """
+    data_dir_2D = data_dir.joinpath("2D")
+    data_dir_3D = data_dir.joinpath("3D")
+    if not isinstance(image_names, list):
+        image_names = [image_names]
+    for image_name in image_names:
+        check = False
+        if "2D" in runtype and "2D" in image_name:
+            image_file = str(data_dir_2D.joinpath(image_name))
+            name = os.path.splitext(image_file)[0]
+            output_test = name + "_cp_masks.png"
+            output_true = name + "_cp4_gt_masks.png"
+            check = True
+        elif "3D" in runtype and "3D" in image_name:
+            image_file = str(data_dir_3D.joinpath(image_name))
+            name = os.path.splitext(image_file)[0]
+            output_test = name + "_cp_masks.tif"
+            output_true = name + "_cp4_gt_masks.tif"
+            check = True
+
+        if check:
+            if os.path.exists(output_test):
+                print("checking output %s" % output_test)
+                masks_test = io.imread(output_test)
+                masks_true = io.imread(output_true)
+
+                assert all([a == b for a, b in zip(masks_test.shape, masks_true.shape)]), f'mask shape mismatch: {masks_test.shape} =/= {masks_true.shape}'
             else:
                 print("ERROR: no output file of name %s found" % output_test)
                 assert False

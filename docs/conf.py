@@ -46,6 +46,7 @@ extensions = [
 autodoc_mock_imports = [
     "importlib",
     "torch",
+    "torchvision",
     "numpy",
     "tqdm",
     "scipy",
@@ -57,6 +58,8 @@ autodoc_mock_imports = [
     "fastremap",
     "natsort",
     "numba",
+    "segment_anything", 
+    "fill_voids"
 ]
 
 autoapi_dirs = ['../cellpose']
