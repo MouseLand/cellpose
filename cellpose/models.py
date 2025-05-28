@@ -25,6 +25,7 @@ _MODEL_DIR_DEFAULT = Path.home().joinpath(".cellpose", "models")
 MODEL_DIR = Path(_MODEL_DIR_ENV) if _MODEL_DIR_ENV else _MODEL_DIR_DEFAULT
 
 MODEL_NAMES = ["cpsam"]
+_DEFAULT_MODEL = "cpsam"
 
 MODEL_LIST_PATH = os.fspath(MODEL_DIR.joinpath("gui_models.txt"))
 
@@ -133,10 +134,11 @@ class CellposeModel():
             if pretrained_model in all_models:
                 pretrained_model = os.path.join(MODEL_DIR, pretrained_model)
             else:
-                pretrained_model = os.path.join(MODEL_DIR, "cpsam")
                 models_logger.warning(
                     f"pretrained model {pretrained_model} not found, using default model"
                 )
+                pretrained_model = os.path.join(MODEL_DIR, _DEFAULT_MODEL)
+                
 
         self.pretrained_model = pretrained_model
         self.net = Transformer().to(self.device)
@@ -145,7 +147,7 @@ class CellposeModel():
             models_logger.info(f">>>> loading model {self.pretrained_model}")
             self.net.load_model(self.pretrained_model, device=self.device)
         else:
-            if os.path.split(self.pretrained_model)[-1] != 'cpsam':
+            if os.path.split(self.pretrained_model)[-1] != _DEFAULT_MODEL:
                 raise FileNotFoundError('model file not recognized')
             cache_CPSAM_model_path()
             self.net.load_model(self.pretrained_model, device=self.device)
