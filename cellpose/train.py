@@ -35,20 +35,19 @@ def _loss_fn_seg(lbl, y, device):
     Calculates the loss function between true labels lbl and prediction y.
 
     Args:
-        lbl (numpy.ndarray): True labels (cellprob, flowsY, flowsX).
+        lbl (np.ndarray or torch.Tensor): True labels (cellprob, flowsY, flowsX).
         y (torch.Tensor): Predicted values (flowsY, flowsX, cellprob).
         device (torch.device): Device on which the tensors are located.
 
     Returns:
         torch.Tensor: Loss value.
-
     """
     criterion = nn.MSELoss(reduction="mean")
     criterion2 = nn.BCEWithLogitsLoss(reduction="mean")
-    veci = 5. * lbl[:, -2:]
-    loss = criterion(y[:, -3:-1], veci)
+    veci = 5. * lbl[:, 1:]
+    loss = criterion(y[:, :2], veci)
     loss /= 2.
-    loss2 = criterion2(y[:, -1], (lbl[:, -3] > 0.5).float())
+    loss2 = criterion2(y[:, -1], (lbl[:, 0] > 0.5).float())
     loss = loss + loss2
     return loss
 
