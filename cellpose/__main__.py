@@ -98,8 +98,6 @@ def main():
         logger.warning("the '--invert' flag is deprecated in v4.0.1+ and no longer used")
     if args.chan2_restore:
         logger.warning("the '--chan2_restore' flag is deprecated in v4.0.1+ and no longer used")
-    if not args.no_resample:
-        logger.warning("the '--no_resample' flag is deprecated in v4.0.1+ and no longer used")
     if args.diam_mean:
         logger.warning("the '--diam_mean' flag is deprecated in v4.0.1+ and no longer used")
     if args.train_size:
@@ -228,6 +226,7 @@ def _evaluate_cellposemodel_cli(args, logger, imf, device, pretrained_model, nor
                 min_size=args.min_size,
                 batch_size=args.batch_size,
                 bsize=args.bsize,
+                resample=not args.no_resample,
                 normalize=normalize,
                 channel_axis=channel_axis, 
                 z_axis=z_axis,
