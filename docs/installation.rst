@@ -62,6 +62,7 @@ Common issues
 If you receive an issue with Qt "xcb", you may need to install xcb libraries, e.g.:
 
 :: 
+
    sudo apt install libxcb-cursor0
    sudo apt install libxcb-xinerama0
 
@@ -90,6 +91,7 @@ If you are having other issues with the graphical interface and QT, see some adv
 If you have errors related to OpenMP and libiomp5, then try 
 
 ::
+   
    conda install nomkl
 
 If you receive an error associated with **matplotlib**, try upgrading

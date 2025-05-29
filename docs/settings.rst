@@ -8,7 +8,7 @@ See the :ref:`cpmclass` for all run options.
 
 .. warning:: 
     Cellpose 3 used ``models.Cellpose`` class which has been removed in Cellpose 4. Users should
-    now only use the ``models.CellposeModel``` class. 
+    now only use the ``models.CellposeModel`` class. 
 
 Here is an example of calling the ``CellposeModel`` class and
 running a list of images for reference:
