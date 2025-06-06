@@ -89,7 +89,7 @@ class CellposeModel():
     """
 
     def __init__(self, gpu=False, pretrained_model="cpsam", model_type=None,
-                 diam_mean=None, device=None, nchan=None):
+                 diam_mean=None, device=None, nchan=None, use_bfloat16=True):
         """
         Initialize the CellposeModel.
 
@@ -99,6 +99,7 @@ class CellposeModel():
             model_type (str, optional): Any model that is available in the GUI, use name in GUI e.g. "livecell" (can be user-trained or model zoo).
             diam_mean (float, optional): Mean "diameter", 30. is built-in value for "cyto" model; 17. is built-in value for "nuclei" model; if saved in custom model file (cellpose>=2.0) then it will be loaded automatically and overwrite this value.
             device (torch device, optional): Device used for model running / training (torch.device("cuda") or torch.device("cpu")), overrides gpu input, recommended if you want to use a specific GPU (e.g. torch.device("cuda:1")).
+            use_bfloat16 (bool, optional): Use 16bit float precision instead of 32bit for model weights. Default to 16bit (True).
         """
         if diam_mean is not None:
             models_logger.warning(
@@ -139,7 +140,8 @@ class CellposeModel():
                 )
 
         self.pretrained_model = pretrained_model
-        self.net = Transformer().to(self.device)
+        dtype = torch.bfloat16 if use_bfloat16 else torch.float32
+        self.net = Transformer(dtype=dtype).to(self.device)
 
         if os.path.exists(self.pretrained_model):
             models_logger.info(f">>>> loading model {self.pretrained_model}")
