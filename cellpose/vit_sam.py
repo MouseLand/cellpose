@@ -61,7 +61,7 @@ class Transformer(nn.Module):
         if self.training and self.rdrop > 0:
             nlay = len(self.encoder.blocks)
             rdrop = (torch.rand((len(x), nlay), device=x.device) < 
-                     torch.linspace(0, self.rdrop, nlay, device=x.device)).float()
+                     torch.linspace(0, self.rdrop, nlay, device=x.device)).to(x.dtype)
             for i, blk in enumerate(self.encoder.blocks):            
                 mask = rdrop[:,i].unsqueeze(-1).unsqueeze(-1).unsqueeze(-1)
                 x = x * mask + blk(x) * (1-mask)
