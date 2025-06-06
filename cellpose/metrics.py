@@ -68,11 +68,19 @@ def aggregated_jaccard_index(masks_true, masks_pred):
     Returns:
         aji (float): aggregated jaccard index for each set of masks
     """
+    assert isinstance(masks_true, list), f"masks_true must have list type, but was {type(masks_true)}"
+    assert isinstance(masks_pred, list), f"masks_pred must have list type, but was {type(masks_pred)}"
+
     aji = np.zeros(len(masks_true))
     for n in range(len(masks_true)):
-        iout, preds = mask_ious(masks_true[n], masks_pred[n])
+        _, preds = mask_ious(masks_true[n], masks_pred[n])
         inds = np.arange(0, masks_true[n].max(), 1, int)
-        overlap = _label_overlap(masks_true[n], masks_pred[n])
+        if masks_true[n].size != masks_pred[n].size:
+            raise ValueError(f"masks_true.size != masks_pred.size at index {n}")
+        overlap = csr_matrix((np.ones((masks_true[n].size,), "int"), 
+                         (masks_true[n].flatten(), masks_pred[n].flatten())),
+                         shape=(masks_true[n].max()+1, masks_pred[n].max()+1))
+        overlap = overlap.toarray()
         union = np.logical_or(masks_true[n] > 0, masks_pred[n] > 0).sum()
         overlap = overlap[inds[preds > 0] + 1, preds[preds > 0].astype(int)]
         aji[n] = overlap.sum() / union
