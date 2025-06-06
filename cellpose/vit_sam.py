@@ -92,6 +92,9 @@ class Transformer(nn.Module):
         else:
             self.load_state_dict(state_dict, strict = strict)
 
+        if self.dtype != torch.float32:
+            self = self.to(self.dtype)
+
     
     @property
     def device(self):
