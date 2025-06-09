@@ -10,7 +10,7 @@ import torch.nn.functional as F
 
 class Transformer(nn.Module):
     def __init__(self, backbone="vit_l", ps=8, nout=3, bsize=256, rdrop=0.4,
-                  checkpoint=None):
+                  checkpoint=None, dtype=torch.float32):
         super(Transformer, self).__init__()
 
         # instantiate the vit model, default to not loading SAM
@@ -49,6 +49,8 @@ class Transformer(nn.Module):
         for blk in self.encoder.blocks:
             blk.window_size = 0
 
+        self.dtype = dtype
+
     def forward(self, x):      
         # same progression as SAM until readout
         x = self.encoder.patch_embed(x)
@@ -59,7 +61,7 @@ class Transformer(nn.Module):
         if self.training and self.rdrop > 0:
             nlay = len(self.encoder.blocks)
             rdrop = (torch.rand((len(x), nlay), device=x.device) < 
-                     torch.linspace(0, self.rdrop, nlay, device=x.device)).float()
+                     torch.linspace(0, self.rdrop, nlay, device=x.device)).to(x.dtype)
             for i, blk in enumerate(self.encoder.blocks):            
                 mask = rdrop[:,i].unsqueeze(-1).unsqueeze(-1).unsqueeze(-1)
                 x = x * mask + blk(x) * (1-mask)
@@ -89,6 +91,9 @@ class Transformer(nn.Module):
             self.load_state_dict(new_state_dict, strict = strict)
         else:
             self.load_state_dict(state_dict, strict = strict)
+
+        if self.dtype != torch.float32:
+            self = self.to(self.dtype)
 
     
     @property

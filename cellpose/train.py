@@ -48,7 +48,7 @@ def _loss_fn_seg(lbl, y, device):
     veci = 5. * lbl[:, -2:]
     loss = criterion(y[:, -3:-1], veci)
     loss /= 2.
-    loss2 = criterion2(y[:, -1], (lbl[:, -3] > 0.5).float())
+    loss2 = criterion2(y[:, -1], (lbl[:, -3] > 0.5).to(y.dtype))
     loss = loss + loss2
     return loss
 
@@ -454,6 +454,11 @@ def train_seg(net, train_data=None, train_labels=None, train_files=None,
             # network and loss optimization
             X = torch.from_numpy(imgi).to(device)
             lbl = torch.from_numpy(lbl).to(device)
+
+            if X.dtype != net.dtype:
+                X = X.to(net.dtype)
+                lbl = lbl.to(net.dtype)
+
             y = net(X)[0]
             loss = _loss_fn_seg(lbl, y, device)
             if y.shape[1] > 3:
