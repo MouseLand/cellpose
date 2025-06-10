@@ -206,7 +206,8 @@ def _evaluate_cellposemodel_cli(args, logger, imf, device, pretrained_model, nor
     z_axis = args.z_axis
 
     for image_name in tqdm(image_names, file=tqdm_out):
-        if args.do_3D:
+        if args.do_3D or args.stitch_threshold > 0.:
+            logger.info('loading image as 3D zstack')
             image = io.imread_3D(image_name)
             if channel_axis is None:
                 channel_axis = 3
