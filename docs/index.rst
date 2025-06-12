@@ -11,7 +11,7 @@ can install it as ``pip install cellpose[gui]``.
 
 - run Cellpose-SAM in the cloud (no install) at `Hugging Face <https://huggingface.co/spaces/mouseland/cellpose>`_. 
 - `paper <https://www.biorxiv.org/content/10.1101/2025.04.28.651001v1>`_ on biorxiv
-- talk 
+- `talk <https://www.youtube.com/watch?v=KIdYXgQemcI>`_
 
 
 

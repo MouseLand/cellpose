@@ -89,7 +89,7 @@ class CellposeModel():
     """
 
     def __init__(self, gpu=False, pretrained_model="cpsam", model_type=None,
-                 diam_mean=None, device=None, nchan=None):
+                 diam_mean=None, device=None, nchan=None, use_bfloat16=True):
         """
         Initialize the CellposeModel.
 
@@ -99,6 +99,7 @@ class CellposeModel():
             model_type (str, optional): Any model that is available in the GUI, use name in GUI e.g. "livecell" (can be user-trained or model zoo).
             diam_mean (float, optional): Mean "diameter", 30. is built-in value for "cyto" model; 17. is built-in value for "nuclei" model; if saved in custom model file (cellpose>=2.0) then it will be loaded automatically and overwrite this value.
             device (torch device, optional): Device used for model running / training (torch.device("cuda") or torch.device("cpu")), overrides gpu input, recommended if you want to use a specific GPU (e.g. torch.device("cuda:1")).
+            use_bfloat16 (bool, optional): Use 16bit float precision instead of 32bit for model weights. Default to 16bit (True).
         """
         if diam_mean is not None:
             models_logger.warning(
@@ -150,7 +151,8 @@ class CellposeModel():
                 )
 
         self.pretrained_model = pretrained_model
-        self.net = Transformer().to(self.device)
+        dtype = torch.bfloat16 if use_bfloat16 else torch.float32
+        self.net = Transformer(dtype=dtype).to(self.device)
 
         load_device = self.device
         if self.device.type == "privateuseone": # for some reason, loading on privateuseone device does not work
@@ -169,7 +171,7 @@ class CellposeModel():
             self.net.to(self.device)
         
         
-    def eval(self, x, batch_size=8, resample=None, channels=None, channel_axis=None,
+    def eval(self, x, batch_size=8, resample=True, channels=None, channel_axis=None,
              z_axis=None, normalize=True, invert=False, rescale=None, diameter=None,
              flow_threshold=0.4, cellprob_threshold=0.0, do_3D=False, anisotropy=None,
              flow3D_smooth=0, stitch_threshold=0.0, 
@@ -183,7 +185,6 @@ class CellposeModel():
             batch_size (int, optional): number of 256x256 patches to run simultaneously on the GPU
                 (can make smaller or bigger depending on GPU memory usage). Defaults to 64.
             resample (bool, optional): run dynamics at original image size (will be slower but create more accurate boundaries). 
-                deprecated in v4.0.1+, resample is not used
             channel_axis (int, optional): channel axis in element of list x, or of np.ndarray x. 
                 if None, channels dimension is attempted to be automatically determined. Defaults to None.
             z_axis  (int, optional): z axis in element of list x, or of np.ndarray x. 
@@ -232,8 +233,6 @@ class CellposeModel():
 
         if rescale is not None:
             models_logger.warning("rescaling deprecated in v4.0.1+") 
-        if resample is not None:
-            models_logger.warning("resample deprecated in v4.0.1+")
         if channels is not None:
             models_logger.warning("channels deprecated in v4.0.1+. If data contain more than 3 channels, only the first 3 channels will be used")
 
@@ -345,6 +344,12 @@ class CellposeModel():
             torch.cuda.empty_cache()
             gc.collect()
 
+        if resample:
+            # upsample flows before computing them: 
+            dP = self._resize_gradients(dP, to_y_size=Ly_0, to_x_size=Lx_0, to_z_size=Lz_0)
+            cellprob = self._resize_cellprob(cellprob, to_x_size=Lx_0, to_y_size=Ly_0, to_z_size=Lz_0)
+
+
         if compute_masks:
             niter0 = 200
             niter = niter0 if niter is None or niter == 0 else niter
@@ -359,6 +364,10 @@ class CellposeModel():
 
         # undo resizing:
         if image_scaling is not None or anisotropy is not None:
+
+            dP = self._resize_gradients(dP, to_y_size=Ly_0, to_x_size=Lx_0, to_z_size=Lz_0) # works for 2 or 3D: 
+            cellprob = self._resize_cellprob(cellprob, to_x_size=Lx_0, to_y_size=Ly_0, to_z_size=Lz_0)
+
             if do_3D:
                 if compute_masks:
                     # Rescale xy then xz:
@@ -367,29 +376,96 @@ class CellposeModel():
                     masks = transforms.resize_image(masks, Ly=Lz_0, Lx=Lx_0, no_channels=True, interpolation=cv2.INTER_NEAREST)
                     masks = masks.transpose(1, 0, 2)
 
-                # cellprob is the same
-                cellprob = transforms.resize_image(cellprob, Ly=Ly_0, Lx=Lx_0, no_channels=True)
-                cellprob = cellprob.transpose(1, 0, 2)
-                cellprob = transforms.resize_image(cellprob, Ly=Lz_0, Lx=Lx_0, no_channels=True)
-                cellprob = cellprob.transpose(1, 0, 2)
-
-                # dP has gradients that can be treated as channels:
-                dP = dP.transpose(1, 2, 3, 0) # move gradients last:
-                dP = transforms.resize_image(dP, Ly=Ly_0, Lx=Lx_0, no_channels=False)
-                dP = dP.transpose(1, 0, 2, 3) # switch axes to resize again
-                dP = transforms.resize_image(dP, Ly=Lz_0, Lx=Lx_0, no_channels=False)
-                dP = dP.transpose(3, 1, 0, 2) # undo transposition
-
             else:
                 # 2D or 3D stitching case:
                 if compute_masks:
                     masks = transforms.resize_image(masks, Ly=Ly_0, Lx=Lx_0, no_channels=True, interpolation=cv2.INTER_NEAREST)
-                cellprob = transforms.resize_image(cellprob, Ly=Ly_0, Lx=Lx_0, no_channels=True)
-                dP = np.moveaxis(dP, 0, -1) # Put gradients last
-                dP = transforms.resize_image(dP, Ly=Ly_0, Lx=Lx_0, no_channels=False)
-                dP = np.moveaxis(dP, -1, 0) # Put gradients first
 
         return masks, [plot.dx_to_circ(dP), dP, cellprob], styles
+    
+
+    def _resize_cellprob(self, prob: np.ndarray, to_y_size: int, to_x_size: int, to_z_size: int = None) -> np.ndarray:
+        """
+        Resize cellprob array to specified dimensions for either 2D or 3D.
+
+        Parameters:
+            prob (numpy.ndarray): The cellprobs to resize, either in 2D or 3D. Returns the same ndim as provided.
+            to_y_size (int): The target size along the Y-axis.
+            to_x_size (int): The target size along the X-axis.
+            to_z_size (int, optional): The target size along the Z-axis. Required
+                for 3D cellprobs.
+
+        Returns:
+            numpy.ndarray: The resized cellprobs array with the same number of dimensions
+            as the input.
+
+        Raises:
+            ValueError: If the input cellprobs array does not have 3 or 4 dimensions.
+        """
+        prob_shape = prob.shape
+        prob = prob.squeeze()
+        squeeze_happened = prob.shape != prob_shape
+        prob_shape = np.array(prob_shape)
+
+        if prob.ndim == 2:
+            # 2D case:
+            prob = transforms.resize_image(prob, Ly=to_y_size, Lx=to_x_size, no_channels=True)
+            if squeeze_happened:
+                prob = np.expand_dims(prob, int(np.argwhere(prob_shape == 1))) # add back empty axis for compatibility
+        elif prob.ndim == 3:
+            # 3D case: 
+            prob = transforms.resize_image(prob, Ly=to_y_size, Lx=to_x_size, no_channels=True)
+            prob = prob.transpose(1, 0, 2)
+            prob = transforms.resize_image(prob, Ly=to_z_size, Lx=to_x_size, no_channels=True)
+            prob = prob.transpose(1, 0, 2)
+        else:
+            raise ValueError(f'gradients have incorrect dimension after squeezing. Should be 2 or 3, prob shape: {prob.shape}')
+        
+        return prob
+
+
+    def _resize_gradients(self, grads: np.ndarray, to_y_size: int, to_x_size: int, to_z_size: int = None) -> np.ndarray:
+        """
+        Resize gradient arrays to specified dimensions for either 2D or 3D gradients.
+
+        Parameters:
+            grads (np.ndarray): The gradients to resize, either in 2D or 3D. Returns the same ndim as provided.
+            to_y_size (int): The target size along the Y-axis.
+            to_x_size (int): The target size along the X-axis.
+            to_z_size (int, optional): The target size along the Z-axis. Required
+                for 3D gradients.
+
+        Returns:
+            numpy.ndarray: The resized gradient array with the same number of dimensions
+            as the input.
+
+        Raises:
+            ValueError: If the input gradient array does not have 3 or 4 dimensions.
+        """
+        grads_shape = grads.shape
+        grads = grads.squeeze()
+        squeeze_happened = grads.shape != grads_shape
+        grads_shape = np.array(grads_shape)
+
+        if grads.ndim == 3:
+            # 2D case, with XY flows in 2 channels:
+            grads = np.moveaxis(grads, 0, -1) # Put gradients last
+            grads = transforms.resize_image(grads, Ly=to_y_size, Lx=to_x_size, no_channels=False)
+            grads = np.moveaxis(grads, -1, 0) # Put gradients first
+
+            if squeeze_happened:
+                grads = np.expand_dims(grads, int(np.argwhere(grads_shape == 1))) # add back empty axis for compatibility
+        elif grads.ndim == 4:
+            # dP has gradients that can be treated as channels:
+            grads = grads.transpose(1, 2, 3, 0) # move gradients last:
+            grads = transforms.resize_image(grads, Ly=to_y_size, Lx=to_x_size, no_channels=False)
+            grads = grads.transpose(1, 0, 2, 3) # switch axes to resize again
+            grads = transforms.resize_image(grads, Ly=to_z_size, Lx=to_x_size, no_channels=False)
+            grads = grads.transpose(3, 1, 0, 2) # undo transposition
+        else:
+            raise ValueError(f'gradients have incorrect dimension after squeezing. Should be 3 or 4, grads shape: {grads.shape}')
+        
+        return grads
 
 
     def _run_net(self, x, 

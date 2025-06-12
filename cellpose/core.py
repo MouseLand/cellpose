@@ -131,7 +131,7 @@ def assign_device(use_torch=True, gpu=False, device=0):
     return device, gpu
 
 
-def _to_device(x, device):
+def _to_device(x, device, dtype=torch.float32):
     """
     Converts the input tensor or numpy array to the specified device.
 
@@ -143,7 +143,7 @@ def _to_device(x, device):
         torch.Tensor: The converted tensor on the specified device.
     """
     if not isinstance(x, torch.Tensor):
-        X = torch.from_numpy(x).to(device, dtype=torch.float32)
+        X = torch.from_numpy(x).to(device, dtype=dtype)
         return X
     else:
         return x
@@ -159,7 +159,8 @@ def _from_device(X):
     Returns:
         numpy.ndarray: The converted NumPy array.
     """
-    x = X.detach().cpu().numpy()
+    # The cast is so numpy conversion always works
+    x = X.detach().cpu().to(torch.float32).numpy()
     return x
 
 
@@ -173,7 +174,7 @@ def _forward(net, x):
     Returns:
         Tuple[numpy.ndarray, numpy.ndarray]: The output predictions (flows and cellprob) and style features.
     """
-    X = _to_device(x, device=net.device)
+    X = _to_device(x, device=net.device, dtype=net.dtype)
     net.eval()
     with torch.no_grad():
         y, style = net(X)[:2]
