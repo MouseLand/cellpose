@@ -874,13 +874,13 @@ def get_pad_yx(Ly, Lx, div=16, extra=1, min_size=None):
     if min_size is None or Ly >= min_size[-2]:
         Lpad = int(div * np.ceil(Ly / div) - Ly)
     else:
-        Lpad = min_size[-2] - Ly
+        Lpad = max(0, min_size[-2] - Ly - (extra * div))
     ypad1 = extra * div // 2 + Lpad // 2
     ypad2 = extra * div // 2 + Lpad - Lpad // 2
     if min_size is None or Lx >= min_size[-1]:
         Lpad = int(div * np.ceil(Lx / div) - Lx)
     else:
-        Lpad = min_size[-1] - Lx
+        Lpad = max(0, min_size[-1] - Lx - (extra * div))
     xpad1 = extra * div // 2 + Lpad // 2
     xpad2 = extra * div // 2 + Lpad - Lpad // 2
 
