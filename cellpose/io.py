@@ -648,6 +648,10 @@ def save_rois(masks, file_name, multiprocessing=None):
     Returns:
         None
     """
+    if masks.max() == 0:
+        io_logger.warning("no masks found, will not save ImageJ ROIs to .zip archive")
+        return
+
     outlines = utils.outlines_list(masks, multiprocessing=multiprocessing)
     nonempty_outlines = [outline for outline in outlines if len(outline)!=0]
     if len(outlines)!=len(nonempty_outlines):
