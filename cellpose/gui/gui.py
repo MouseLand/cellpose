@@ -8,6 +8,7 @@ from qtpy import QtGui, QtCore
 from superqt import QRangeSlider, QCollapsible
 from qtpy.QtWidgets import QScrollArea, QMainWindow, QAction, QMenu, QApplication, QWidget, QScrollBar, QComboBox, QGridLayout, QPushButton, QFrame, QCheckBox, QLabel, QProgressBar, QLineEdit, QMessageBox, QGroupBox
 import pyqtgraph as pg
+from qtpy.QtCore import QThread, Signal
 
 import pandas as pd
 import numpy as np
@@ -15,7 +16,7 @@ from scipy.stats import mode
 import cv2
 
 from . import guiparts, menus, io, symmetry, features
-from .. import models, core, dynamics, version, denoise, train
+from .. import models, core, dynamics, version, denoise, train, cell_brightness
 from ..utils import download_url_to_file, masks_to_outlines, diameters, download_font
 from ..io import get_image_files, imsave, imread
 from ..transforms import resize_image, normalize99, normalize99_tile, smooth_sharpen_img
@@ -27,6 +28,7 @@ from scipy.spatial import Voronoi, voronoi_plot_2d
 from scipy import ndimage
 import diplib as dip
 from PIL import Image, ImageDraw, ImageFont
+import threading
 
 try:
     import matplotlib.pyplot as plt
@@ -951,6 +953,38 @@ class MainW(QMainWindow):
         # self.CalculateButton.setStyleSheet(self.styleInactive)
 
         self.l0.addWidget(self.MB, b, 0, 1, 9)
+
+
+        ## Cell brightness
+        b += 1
+        b0 += 1
+        self.brightnessGroup = QGroupBox('Cell brightness')
+        self.brightnessGroup.setFont(self.boldfont)
+        self.brightnessGroup.setStyleSheet("QGroupBox { border: 1px solid white; color:white; padding: 10px 0px;}")
+        self.brightnessGroupGrid = QGridLayout()
+        self.brightnessGroup.setLayout(self.brightnessGroupGrid)
+
+        self.brightnessModeDropdownLabel = QLabel("Mode:")
+        self.brightnessModeDropdownLabel.setFont(self.medfont)
+        self.brightnessGroupGrid.addWidget(self.brightnessModeDropdownLabel, 0, 0)
+
+        self.brightnessModeDropdown = QComboBox()
+        self.brightnessModeDropdown.addItems(["Red only", "Green only", "Blue only", "Graysacle"])
+        self.brightnessModeDropdown.setFont(self.medfont)
+        self.brightnessGroupGrid.addWidget(self.brightnessModeDropdown, 0, 1, 1, 2)
+        
+        self.calculateBrightnessButton = QPushButton("Calculate")
+        self.calculateBrightnessButton.clicked.connect(self.call_calculate_cell_brightness)
+        self.brightnessGroupGrid.addWidget(self.calculateBrightnessButton, 1, 0, 1, 1)
+        self.calculateBrightnessButton.setFont(self.smallfont)
+        # self.calculateBrightnessButton.setFixedWidth(70)
+
+        self.brightnessStatusLabel = QLabel("")
+        self.brightnessStatusLabel.setFont(self.medfont)
+        self.brightnessGroupGrid.addWidget(self.brightnessStatusLabel, 1, 1, 1, 2)
+        
+        self.l0.addWidget(self.brightnessGroup, b, 0, 1, 9)
+
         ##
 
         b += 1
@@ -2709,3 +2743,49 @@ class MainW(QMainWindow):
                 self.recompute_masks = False
         except Exception as e:
             print("ERROR: %s" % e)
+
+    def call_calculate_cell_brightness(self):
+        if hasattr(self, 'clearBrightnessStatusLabelTimer'):
+            self.clearBrightnessStatusLabelTimer.cancel()
+
+        self.brightnessStatusLabel.setText("In progress...")
+        self.calculateBrightnessButton.setEnabled(False)
+
+        self.calculateBrightnessThread = CalculateBrightnessThread(self.stack, 
+                                                                   self.cellpix, 
+                                                                   self.filename, 
+                                                                   self.brightnessModeDropdown.currentIndex(),
+                                                                   self.logger)
+        
+        self.calculateBrightnessThread.update_status.connect(self.update_brightness_calculation_status)
+        self.calculateBrightnessThread.start()
+    
+    def update_brightness_calculation_status(self, status_text):
+        self.brightnessStatusLabel.setText(status_text)
+        self.calculateBrightnessButton.setEnabled(True)
+        
+        self.clearBrightnessStatusLabelTimer = threading.Timer(5.0, lambda: self.brightnessStatusLabel.setText(""))
+        self.clearBrightnessStatusLabelTimer.start()
+
+
+class CalculateBrightnessThread(QThread):
+    update_status = Signal(str)
+
+    def __init__(self, stack, cellpix, filename, brightness_mode, logger):
+        super().__init__()
+        self.stack = stack
+        self.cellpix = cellpix
+        self.filename = filename
+        self.brightness_mode = brightness_mode
+        self.logger = logger
+
+    def run(self):
+        try:
+            cell_brightness.calculate_cell_brightness(self.stack, 
+                                                      self.cellpix, 
+                                                      self.filename, 
+                                                      self.brightness_mode,
+                                                      logger=self.logger)
+            self.update_status.emit("Done!")
+        except Exception as e:
+            self.update_status.emit("An error occurred!")
