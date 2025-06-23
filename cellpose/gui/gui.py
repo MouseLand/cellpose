@@ -6,7 +6,7 @@ import sys, os, pathlib, warnings, datetime, time, copy, math
 
 from qtpy import QtGui, QtCore
 from superqt import QRangeSlider, QCollapsible
-from qtpy.QtWidgets import QScrollArea, QMainWindow, QAction, QMenu, QApplication, QWidget, QScrollBar, QComboBox, QGridLayout, QPushButton, QFrame, QCheckBox, QLabel, QProgressBar, QLineEdit, QMessageBox, QGroupBox
+from qtpy.QtWidgets import QScrollArea, QMainWindow, QAction, QMenu, QApplication, QWidget, QScrollBar, QComboBox, QGridLayout, QPushButton, QFrame, QCheckBox, QLabel, QProgressBar, QLineEdit, QMessageBox, QGroupBox, QRadioButton, QButtonGroup, QHBoxLayout
 import pyqtgraph as pg
 from qtpy.QtCore import QThread, Signal
 
@@ -964,26 +964,53 @@ class MainW(QMainWindow):
         self.brightnessGroupGrid = QGridLayout()
         self.brightnessGroup.setLayout(self.brightnessGroupGrid)
 
-        self.brightnessModeDropdownLabel = QLabel("Mode:")
-        self.brightnessModeDropdownLabel.setFont(self.medfont)
-        self.brightnessGroupGrid.addWidget(self.brightnessModeDropdownLabel, 0, 0)
+        # Channel selection
+        self.brightnessChannelDropdownLabel = QLabel("Channel:")
+        self.brightnessChannelDropdownLabel.setFont(self.medfont)
+        self.brightnessGroupGrid.addWidget(self.brightnessChannelDropdownLabel, 0, 0)
 
-        self.brightnessModeDropdown = QComboBox()
-        self.brightnessModeDropdown.addItems(["Red only", "Green only", "Blue only", "Graysacle"])
-        self.brightnessModeDropdown.setFont(self.medfont)
-        self.brightnessGroupGrid.addWidget(self.brightnessModeDropdown, 0, 1, 1, 2)
+        self.brightnessChannelDropdown = QComboBox()
+        self.brightnessChannelDropdown.addItems(["Red", "Green", "Blue", "Gray"])
+        self.brightnessChannelDropdown.setFont(self.medfont)
+        self.brightnessGroupGrid.addWidget(self.brightnessChannelDropdown, 0, 1, 1, 2)
+
+        # Source image selection
+        self.brightnessImageSourceLabel = QLabel("Source:")
+        self.brightnessImageSourceLabel.setFont(self.medfont)
+        self.brightnessGroupGrid.addWidget(self.brightnessImageSourceLabel, 1, 0)
+
+        self.brightnessImageSourceButtonGroup = QButtonGroup(self.brightnessGroup)
+        self.brightnessOriginalRadio = QRadioButton("Original image")
+        self.brightnessRestoredRadio = QRadioButton("Filtred/restored image")
+        self.brightnessOriginalRadio.setFont(self.medfont)
+        self.brightnessRestoredRadio.setFont(self.medfont)
+        self.brightnessOriginalRadio.setChecked(True)
+
+        self.brightnessImageSourceButtonGroup.addButton(self.brightnessOriginalRadio)
+        self.brightnessImageSourceButtonGroup.addButton(self.brightnessRestoredRadio)
+
+        self.brightnessGroupGrid.addWidget(self.brightnessOriginalRadio, 1, 1)
+        self.brightnessGroupGrid.addWidget(self.brightnessRestoredRadio, 1, 2)
+
+        # Background subtraction
+        self.brightnessSubtractBackgroundCheckbox = QCheckBox("Subtract background")
+        self.brightnessSubtractBackgroundCheckbox.setFont(self.medfont)
+        self.brightnessSubtractBackgroundCheckbox.setChecked(True)
+        self.brightnessGroupGrid.addWidget(self.brightnessSubtractBackgroundCheckbox, 2, 0, 1, 3)
         
+        # Calculate brightness button
         self.calculateBrightnessButton = QPushButton("Calculate")
         self.calculateBrightnessButton.clicked.connect(self.call_calculate_cell_brightness)
-        self.brightnessGroupGrid.addWidget(self.calculateBrightnessButton, 1, 0, 1, 1)
+        self.brightnessGroupGrid.addWidget(self.calculateBrightnessButton, 3, 0, 1, 1)
         self.calculateBrightnessButton.setFont(self.smallfont)
-        # self.calculateBrightnessButton.setFixedWidth(70)
 
+        # Brightness status label
         self.brightnessStatusLabel = QLabel("")
         self.brightnessStatusLabel.setFont(self.medfont)
-        self.brightnessGroupGrid.addWidget(self.brightnessStatusLabel, 1, 1, 1, 2)
+        self.brightnessGroupGrid.addWidget(self.brightnessStatusLabel, 3, 1, 1, 2)
         
         self.l0.addWidget(self.brightnessGroup, b, 0, 1, 9)
+
 
         ##
 
@@ -2751,10 +2778,17 @@ class MainW(QMainWindow):
         self.brightnessStatusLabel.setText("In progress...")
         self.calculateBrightnessButton.setEnabled(False)
 
-        self.calculateBrightnessThread = CalculateBrightnessThread(self.stack, 
+        image = []
+        if self.brightnessRestoredRadio.isChecked() and hasattr(self, 'stack_filtered'):
+            image = self.stack_filtered.copy()
+        else:
+            image = self.stack.copy()
+
+        self.calculateBrightnessThread = CalculateBrightnessThread(image, 
                                                                    self.cellpix, 
                                                                    self.filename, 
-                                                                   self.brightnessModeDropdown.currentIndex(),
+                                                                   self.brightnessChannelDropdown.currentIndex(),
+                                                                   self.brightnessSubtractBackgroundCheckbox.isChecked(),
                                                                    self.logger)
         
         self.calculateBrightnessThread.update_status.connect(self.update_brightness_calculation_status)
@@ -2771,21 +2805,24 @@ class MainW(QMainWindow):
 class CalculateBrightnessThread(QThread):
     update_status = Signal(str)
 
-    def __init__(self, stack, cellpix, filename, brightness_mode, logger):
+    def __init__(self, stack, cellpix, filename, brightness_channel, subtract_background, logger):
         super().__init__()
         self.stack = stack
         self.cellpix = cellpix
         self.filename = filename
-        self.brightness_mode = brightness_mode
+        self.brightness_channel = brightness_channel
+        self.subtract_background = subtract_background
         self.logger = logger
 
     def run(self):
         try:
-            cell_brightness.calculate_cell_brightness(self.stack, 
+            status = cell_brightness.calculate_cell_brightness(self.stack, 
                                                       self.cellpix, 
                                                       self.filename, 
-                                                      self.brightness_mode,
+                                                      self.brightness_channel,
+                                                      self.subtract_background,
                                                       logger=self.logger)
-            self.update_status.emit("Done!")
+            self.update_status.emit(status)
         except Exception as e:
+            self.logger.error(f"Error calculating cell brightness: {e}")
             self.update_status.emit("An error occurred!")
