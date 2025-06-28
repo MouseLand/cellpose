@@ -331,10 +331,10 @@ class CellposeModel():
             dP = self._resize_gradients(dP, to_y_size=Ly_0, to_x_size=Lx_0, to_z_size=Lz_0)
             cellprob = self._resize_cellprob(cellprob, to_x_size=Lx_0, to_y_size=Ly_0, to_z_size=Lz_0)
 
-
         if compute_masks:
-            niter0 = 200
-            niter = niter0 if niter is None or niter == 0 else niter
+            # use user niter if specified, otherwise scale niter (200) with diameter
+            niter_scale = 1 if image_scaling is None else image_scaling
+            niter = int(200/niter_scale) if niter is None or niter == 0 else niter
             masks = self._compute_masks(x.shape, dP, cellprob, flow_threshold=flow_threshold,
                             cellprob_threshold=cellprob_threshold, min_size=min_size,
                         max_size_fraction=max_size_fraction, niter=niter,
