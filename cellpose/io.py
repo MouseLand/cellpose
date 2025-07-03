@@ -811,6 +811,7 @@ def save_masks(images, masks, flows, file_names, png=True, tif=False, channels=[
     if masks.ndim < 3 and save_flows:
         check_dir(flowdir)
         imsave(os.path.join(flowdir, basename + "_flows" + suffix + ".tif"),
-               (flows[0] * (2**16 - 1)).astype(np.uint16))
+               flows[0]
+              )
         #save full flow data
         imsave(os.path.join(flowdir, basename + '_dP' + suffix + '.tif'), flows[1])
