@@ -569,6 +569,7 @@ class TrainHelpWindow(QDialog):
         label = QLabel(text)
         label.setFont(QtGui.QFont("Arial", 8))
         label.setWordWrap(True)
+        label.setOpenExternalLinks(True)
         layout.addWidget(label, 0, 0, 1, 1)
         self.show()
 
