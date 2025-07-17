@@ -551,8 +551,8 @@ class MainW(QMainWindow):
         )
 
         b0 += 1
-        label = QLabel('Length in μm:')
-        label.setToolTip('Micrometers(μm) per pixel, *.tif file')
+        label = QLabel('μm per pixel:')
+        label.setToolTip('Micrometers(μm) per pixel in the microscopy image')
         label.setFont(self.medfont)
         self.segBoxG.addWidget(label, b0, 0, 1, 4)
 
