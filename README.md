@@ -138,8 +138,10 @@ If you find our project helpful, use the following bibtex to reference our [pape
 @article{huaman2024cellpose+,
   title={Cellpose+, a morphological analysis tool for feature extraction of stained cell images},
   author={Huaman, Israel A and Ghorabe, Fares DE and Chumakova, Sofya S and Pisarenko, Alexandra A and Dudaev, Alexey E and Volova, Tatiana G and Ryltseva, Galina A and Ulasevich, Sviatlana A and Shishatskaya, Ekaterina I and Skorb, Ekaterina V and others},
-  journal={arXiv preprint arXiv:2410.18738},
-  year={2024}
+  journal={Advanced Intelligent Discovery},
+  pages={8},
+  year={2024},
+  publisher={Wiley Online Library}
 }
 ~~~
 
