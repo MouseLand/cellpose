@@ -552,11 +552,12 @@ class MainW(QMainWindow):
 
         b0 += 1
         label = QLabel('μm per pixel:')
-        label.setToolTip('Micrometers(μm) per pixel in the microscopy image')
+        label.setToolTip('Micrometers (μm) per pixel in the microscopy image')
         label.setFont(self.medfont)
         self.segBoxG.addWidget(label, b0, 0, 1, 4)
 
         self.pixTomicro = QLineEdit()
+        self.pixTomicro.setToolTip('Micrometers (μm) per pixel in the microscopy image')
         self.pixTomicro.setText('0.0')
         self.pixTomicro.editingFinished.connect(self.update_px_to_mm)
         self.pixTomicro.setFixedWidth(70)
@@ -899,6 +900,8 @@ class MainW(QMainWindow):
         self.currentImageMask = ""
         self.indexCytoMask = -1
         self.indexNucleusMask = -1
+        self.keepMask.setEnabled(False) # New
+        self.saveMasks.setEnabled(False) # New
 
         # select metrics to calculate
         self.calcSize = False
@@ -1208,8 +1211,6 @@ class MainW(QMainWindow):
         self.SizeButton.setEnabled(True)
         self.newmodel.setEnabled(True)
         self.loadMasks.setEnabled(True)
-        self.keepMask.setEnabled(False) # New
-        self.saveMasks.setEnabled(False) # New
 
         for n in range(self.nchan):
             self.sliders[n].setEnabled(True)
