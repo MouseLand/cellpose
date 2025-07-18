@@ -1307,11 +1307,17 @@ class MainW(QMainWindow):
         images, idx = self.get_files()
         idx = (idx - 1) % len(images)
         io._load_image(self, filename=images[idx])
+        self.indexCytoMask = -1
+        self.indexNucleusMask = -1
+        self.CalculateButton.setEnabled(False)
 
     def get_next_image(self, load_seg=True):
         images, idx = self.get_files()
         idx = (idx + 1) % len(images)
         io._load_image(self, filename=images[idx], load_seg=load_seg)
+        self.indexCytoMask = -1
+        self.indexNucleusMask = -1
+        self.CalculateButton.setEnabled(False)
 
     def dragEnterEvent(self, event):
         if event.mimeData().hasUrls():
