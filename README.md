@@ -132,16 +132,21 @@ For features provided by the basic Cellpose, such as image restoration, segmenta
 
 ### Citation
 
-If you find our project helpful, use the following bibtex to reference our [paper](https://arxiv.org/abs/2410.18738).
+If you find our project helpful, use the following bibtex to reference our [paper](https://advanced.onlinelibrary.wiley.com/doi/10.1002/aidi.202500005).
 
 ~~~
-@article{huaman2024cellpose+,
-  title={Cellpose+, a morphological analysis tool for feature extraction of stained cell images},
-  author={Huaman, Israel A and Ghorabe, Fares DE and Chumakova, Sofya S and Pisarenko, Alexandra A and Dudaev, Alexey E and Volova, Tatiana G and Ryltseva, Galina A and Ulasevich, Sviatlana A and Shishatskaya, Ekaterina I and Skorb, Ekaterina V and others},
-  journal={Advanced Intelligent Discovery},
-  pages={8},
-  year={2024},
-  publisher={Wiley Online Library}
+@article{huaman2025cellpose+,
+  author = {Huaman, Israel A. and Ghorabe, Fares D. E. and Chumakova, Sofya S. and Pisarenko, Alexandra A. and Dudaev, Alexey E. and Volova, Tatiana G. and Ryltseva, Galina A. and Ulasevich, Sviatlana A. and Shishatskaya, Ekaterina I. and Skorb, Ekaterina V. and Zun, Pavel S.},
+  title = {Cellpose+, a Morphological Analysis Tool for Feature Extraction of Stained Cell Images},
+  journal = {Advanced Intelligent Discovery},
+  volume = {n/a},
+  number = {n/a},
+  pages = {202500005},
+  keywords = {bioimaging, image analysis, image segmentation, microscopy},
+  doi = {https://doi.org/10.1002/aidi.202500005},
+  url = {https://advanced.onlinelibrary.wiley.com/doi/abs/10.1002/aidi.202500005},
+  eprint = {https://advanced.onlinelibrary.wiley.com/doi/pdf/10.1002/aidi.202500005},
+  abstract = {Advanced image segmentation and processing tools present an opportunity to study cell processes and their dynamics. However, image analysis is often routine and time-consuming. Nowadays, alternative data-driven approaches using deep learning are potentially offering automatized, accurate, and fast image analysis. In this paper, we extend the applications of Cellpose, a state-of-the-art cell segmentation framework, with feature extraction capabilities to assess morphological characteristics. We also introduce a dataset of 4′,6-diamidino-2-phenylindole and fluorescein isothiocyanate stained cells to which our new method is applied.}
 }
 ~~~
 
