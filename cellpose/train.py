@@ -357,6 +357,12 @@ def train_seg(net, train_data=None, train_labels=None, train_files=None,
 
     device = net.device
 
+    if device.type == 'mps' and net.dtype == torch.bfloat16:
+        # NOTE: this produces a side effect of returning a network that is not of a guaranteed dtype 
+        train_logger.warning("Training with bfloat16 on MPS is not supported, using float32 network instead")
+        net.dtype = torch.float32
+        net.to(torch.float32)
+
     scale_range = 0.5 if scale_range is None else scale_range
 
     if isinstance(normalize, dict):
