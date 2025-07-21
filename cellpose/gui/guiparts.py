@@ -439,7 +439,17 @@ class ImageDraw(pg.ImageItem):
                     self.parent.in_stroke = False
             elif not self.parent.in_stroke:
                 y, x = int(ev.pos().y()), int(ev.pos().x())
-                if y >= 0 and y < self.parent.Ly and x >= 0 and x < self.parent.Lx:
+                if self.parent.measuring_scalebar == 1:
+                    self.parent.scalebar_points.append((y, x))
+                    print("GUI_INFO: measuring scalebar, point 1")
+                    self.parent.measuring_scalebar = 2
+                elif self.parent.measuring_scalebar == 2:
+                    self.parent.scalebar_points.append((y, x)) 
+                    print("GUI_INFO: measuring scalebar, point 2") 
+                    self.parent.measuring_scalebar = 0
+                    self.parent.calculate_scale_from_scalebar()
+                    
+                elif y >= 0 and y < self.parent.Ly and x >= 0 and x < self.parent.Lx:
                     if ev.button() == QtCore.Qt.LeftButton and not ev.double():
                         idx = self.parent.cellpix[self.parent.currentZ][y, x]
                         if idx > 0:
