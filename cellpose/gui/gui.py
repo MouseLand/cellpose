@@ -6,7 +6,7 @@ import sys, os, pathlib, warnings, datetime, time, copy, math
 
 from qtpy import QtGui, QtCore
 from superqt import QRangeSlider, QCollapsible
-from qtpy.QtWidgets import QScrollArea, QMainWindow, QAction, QMenu, QApplication, QWidget, QScrollBar, QComboBox, QGridLayout, QPushButton, QFrame, QCheckBox, QLabel, QProgressBar, QLineEdit, QMessageBox, QGroupBox, QRadioButton, QButtonGroup, QHBoxLayout
+from qtpy.QtWidgets import QScrollArea, QMainWindow, QAction, QMenu, QApplication, QWidget, QScrollBar, QComboBox, QGridLayout, QPushButton, QFrame, QCheckBox, QLabel, QProgressBar, QLineEdit, QMessageBox, QGroupBox, QRadioButton, QButtonGroup, QHBoxLayout, QInputDialog
 import pyqtgraph as pg
 from qtpy.QtCore import QThread, Signal
 
@@ -544,7 +544,6 @@ class MainW(QMainWindow):
         self.SizeButton.setFont(self.medfont)
         self.SizeButton.clicked.connect(self.calibrate_size)
         self.segBoxG.addWidget(self.SizeButton, b0, 6, 1, 3)
-        #self.SizeButton.setFixedWidth(65)
         self.SizeButton.setEnabled(False)
         self.SizeButton.setToolTip(
             'you can manually enter the approximate diameter for your cells, \nor press “calibrate” to let the cyto3 model estimate it. \nThe size is represented by a disk at the bottom of the view window \n(can turn this disk off by unchecking “scale disk on”)'
@@ -562,6 +561,15 @@ class MainW(QMainWindow):
         self.pixTomicro.editingFinished.connect(self.update_px_to_mm)
         self.pixTomicro.setFixedWidth(70)
         self.segBoxG.addWidget(self.pixTomicro, b0, 4, 1, 2)
+
+        self.ScalebarButton = QPushButton("measure scale")
+        self.ScalebarButton.setFont(self.medfont)
+        self.ScalebarButton.clicked.connect(self.measure_scalebar)
+        self.segBoxG.addWidget(self.ScalebarButton, b0, 6, 1, 3)
+        self.ScalebarButton.setEnabled(True)
+        self.ScalebarButton.setToolTip(
+            'you can measure the scalebar in the image by clicking on the ends \nof your scale bar and entering the scale bar length in μm'
+        )
 
         b0 += 1
         # choose channel
@@ -1037,6 +1045,29 @@ class MainW(QMainWindow):
     def update_px_to_mm(self):
         self.px_to_mm = float(self.pixTomicro.text())
 
+    def measure_scalebar(self):
+        self.ScalebarButton.setEnabled(False)
+        self.ScalebarButton.setText("Click scalebar ends")
+        self.measuring_scalebar = 1 # measure the 1st point
+
+    def calculate_scale_from_scalebar(self):
+        self.ScalebarButton.setEnabled(True)
+        self.ScalebarButton.setText("Measure scalebar")
+        # popup window for entering scalebar length
+        point1 = self.scalebar_points[0]
+        point2 = self.scalebar_points[1]
+        print("GUI_INFO: measuring scalebar, points: ", point1, point2)
+        scalebar_in_mm, ok = QInputDialog.getInt(self, "Scalebar length", "Enter scalebar length in μm", 100, 0, 100000, 1) # Default value, min, max, step
+        if ok:
+            scalebar_in_px = math.sqrt((point1[0] -  point2[0])**2 + (point1[1] -  point2[1])**2) 
+            self.px_to_mm = float(scalebar_in_mm) / scalebar_in_px 
+            self.pixTomicro.setText("%0.6f" % self.px_to_mm)
+            print("GUI_INFO: scalebar length in μm: ", scalebar_in_mm)
+            print("GUI_INFO: scalebar length in px: ", scalebar_in_px)
+            print("GUI_INFO: px to mm: ", self.px_to_mm)
+        self.measuring_scalebar = 0
+        self.scalebar_points = []
+
     def level_change(self, r):
         r = ["red", "green", "blue"].index(r)
         if self.loaded:
@@ -1461,6 +1492,10 @@ class MainW(QMainWindow):
         self.removing_cells_list = []
         self.removing_region = False
         self.remove_roi_obj = None
+
+        self.measuring_scalebar = 0 # 0 is not measuring, 1 is measuring 1st point, 2 for 2nd point
+        self.scalebar_points = []
+
 
     def delete_restore(self):
         """ delete restored imgs but don't reset settings """
