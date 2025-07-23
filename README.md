@@ -25,7 +25,7 @@ We suggest installing our fork using `conda` and `pip` (with `python>=3.8`).
 1. Install [Anaconda](https://www.anaconda.com/download/).
 2. Open an `anaconda` prompt / command prompt which has conda for python 3 in the path.
 3. For a new environment for CPU only, run:\
- `conda create -n cellpose_plus 'python==3.9' pytorch`
+ `conda create -n cellpose_plus 'python==3.9'`
 4. To activate the new environment, run `conda activate cellpose_plus`
 5. For NVIDIA GPUs, run:\
  `pip install torch torchvision --index-url https://download.pytorch.org/whl/cu126` \
