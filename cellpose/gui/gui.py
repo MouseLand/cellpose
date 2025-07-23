@@ -1060,8 +1060,8 @@ class MainW(QMainWindow):
         scalebar_in_mm, ok = QInputDialog.getInt(self, "Scalebar length", "Enter scalebar length in μm", 100, 0, 100000, 1) # Default value, min, max, step
         if ok:
             scalebar_in_px = math.sqrt((point1[0] -  point2[0])**2 + (point1[1] -  point2[1])**2) 
-            self.px_to_mm = float(scalebar_in_mm) / scalebar_in_px 
-            self.pixTomicro.setText("%0.6f" % self.px_to_mm)
+            self.px_to_mm = float(scalebar_in_mm) / scalebar_in_px
+            self.pixTomicro.setText("%0.3f" % round(self.px_to_mm, 3))
             print("GUI_INFO: scalebar length in μm: ", scalebar_in_mm)
             print("GUI_INFO: scalebar length in px: ", scalebar_in_px)
             print("GUI_INFO: px to mm: ", self.px_to_mm)
