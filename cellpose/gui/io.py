@@ -125,8 +125,9 @@ def _get_image_size(filename):
 
 def _set_image_size(parent):
     px_to_mm = _get_image_size(parent.filename)
-    parent.px_to_mm = px_to_mm
-    parent.pixTomicro.setText(str(px_to_mm))
+    if px_to_mm is not None:
+        parent.px_to_mm = px_to_mm
+        parent.pixTomicro.setText(str(px_to_mm))
 
 def _load_image(parent, filename=None, load_seg=True, load_3D=False):
     """ load image with filename; if None, open QFileDialog """

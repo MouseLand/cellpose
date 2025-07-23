@@ -1307,11 +1307,17 @@ class MainW(QMainWindow):
         images, idx = self.get_files()
         idx = (idx - 1) % len(images)
         io._load_image(self, filename=images[idx])
+        self.indexCytoMask = -1
+        self.indexNucleusMask = -1
+        self.CalculateButton.setEnabled(False)
 
     def get_next_image(self, load_seg=True):
         images, idx = self.get_files()
         idx = (idx + 1) % len(images)
         io._load_image(self, filename=images[idx], load_seg=load_seg)
+        self.indexCytoMask = -1
+        self.indexNucleusMask = -1
+        self.CalculateButton.setEnabled(False)
 
     def dragEnterEvent(self, event):
         if event.mimeData().hasUrls():
@@ -1527,9 +1533,7 @@ class MainW(QMainWindow):
             mask = tmp_cellpix.astype(np.uint8)
 
             mask = np.pad(mask, 1, mode='constant')
-            im = Image.fromarray(mask)
-            im.save("hola1.jpg")
-
+            
             Zlabeled, Nlabels = ndimage.label(mask)
             label_size = [(Zlabeled == label).sum() for label in range(Nlabels + 1)]
             for label,size in enumerate(label_size): print("label %s is %s pixels in size" % (label,size))
@@ -1538,10 +1542,7 @@ class MainW(QMainWindow):
             for label, size in enumerate(label_size):
                 if size < 5:
                     mask[Zlabeled == label] = 0
-
-            im = Image.fromarray(mask)
-            im.save("hola2.jpg")
-
+            
             labels = dip.Label(mask[:, :] > 0)
             msr = dip.MeasurementTool.Measure(labels, features=["Perimeter", "SolidArea", "Roundness", "Circularity", "Center"])
             print(msr)
