@@ -37,6 +37,11 @@ def mainmenu(parent):
     loadManual.triggered.connect(lambda: io._load_seg(parent))
     file_menu.addAction(loadManual)
 
+    loadMerged = QAction("Load image from separate &RGB channels", parent)
+    loadMerged.setShortcut("Ctrl+R")
+    loadMerged.triggered.connect(lambda: io._load_image_from_channels(parent))
+    file_menu.addAction(loadMerged)
+
     parent.saveSet = QAction("&Save masks and image (as *_seg.npy)", parent)
     parent.saveSet.setShortcut("Ctrl+S")
     parent.saveSet.triggered.connect(lambda: io._save_sets(parent))

@@ -1,7 +1,3 @@
-"""
-Copyright © 2023 Howard Hughes Medical Institute, Authored by Carsen Stringer and Marius Pachitariu.
-"""
-
 import os, datetime, gc, warnings, glob, shutil, copy
 from natsort import natsorted
 import numpy as np
@@ -17,7 +13,7 @@ from ..utils import masks_to_outlines, outlines_list
 
 try:
     import qtpy
-    from qtpy.QtWidgets import QFileDialog
+    from qtpy.QtWidgets import QFileDialog, QDialog, QVBoxLayout, QHBoxLayout, QGridLayout, QLineEdit, QPushButton, QLabel
     GUI = True
 except:
     GUI = False
@@ -160,7 +156,6 @@ def _load_image(parent, filename=None, load_seg=True, load_3D=False):
     if parent.loaded:
         parent.reset()
         parent.filename = filename
-        # filename = os.path.split(parent.filename)[-1]
         _set_image_size(parent)
         _initialize_images(parent, image, load_3D=load_3D)
         parent.loaded = True
@@ -168,6 +163,119 @@ def _load_image(parent, filename=None, load_seg=True, load_3D=False):
         if load_mask:
             _load_masks(parent, filename=mask_file)
 
+class RGBInputDialog(QDialog):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Select files with RGB channels") 
+        self.setModal(True) # Make it a modal dialog
+
+        self.setup_ui()
+
+    def setup_ui(self):
+        # Widgets
+        self.labelR = QLabel("Image with the Red channel:")
+        self.name_inputR = QLineEdit()
+        self.fileOpenR = QPushButton("Select")
+        self.fileOpenR.clicked.connect(self.select_fileR)
+        self.labelG = QLabel("Image with the Green channel:")
+        self.name_inputG = QLineEdit()
+        self.fileOpenG = QPushButton("Select")
+        self.fileOpenG.clicked.connect(self.select_fileG)
+        self.labelB = QLabel("Image with the Blue channel:")
+        self.name_inputB = QLineEdit()
+        self.fileOpenB = QPushButton("Select")
+        self.fileOpenB.clicked.connect(self.select_fileB)
+
+        self.ok_button = QPushButton("OK")
+        self.cancel_button = QPushButton("Cancel")
+
+        # Layouts
+        input_layout = QGridLayout()
+        input_layout.addWidget(self.labelR, 0, 0)
+        input_layout.addWidget(self.name_inputR, 0, 1)
+        input_layout.addWidget(self.fileOpenR, 0, 3)
+        input_layout.addWidget(self.labelG, 1, 0)
+        input_layout.addWidget(self.name_inputG, 1, 1)
+        input_layout.addWidget(self.fileOpenG, 1, 3)
+        input_layout.addWidget(self.labelB, 2, 0)
+        input_layout.addWidget(self.name_inputB, 2, 1)
+        input_layout.addWidget(self.fileOpenB, 2, 3)
+
+        button_layout = QHBoxLayout()
+        button_layout.addStretch() # Pushes buttons to the right
+        button_layout.addWidget(self.ok_button)
+        button_layout.addWidget(self.cancel_button)
+
+        main_layout = QVBoxLayout()
+        main_layout.addLayout(input_layout)
+        main_layout.addLayout(button_layout)
+
+        self.setLayout(main_layout)
+
+        # Connections
+        self.ok_button.clicked.connect(self.accept) # Calls accept() on OK
+        self.cancel_button.clicked.connect(self.reject) # Calls reject() on Cancel
+
+    def select_file(self, name_input):
+        name = QFileDialog.getOpenFileName(self, "Select file")
+        filename = name[0]
+        name_input.setText(filename)
+        return filename
+
+    def select_fileR(self):
+        return self.select_file(self.name_inputR)
+
+    def select_fileG(self):
+        return self.select_file(self.name_inputG)
+
+    def select_fileB(self):
+        return self.select_file(self.name_inputB)
+
+    def get_filenames(self):
+        return [self.name_inputR.text(), self.name_inputG.text(), self.name_inputB.text()]
+
+def _load_image_from_channels(parent, filenameR=None, filenameG=None, filenameB=None):
+    """ load image from separate RGB channels """
+    fileR, fileG, fileB = None, None, None
+    if (filenameR is None and filenameG is None and filenameB is None):
+        dialog = RGBInputDialog(parent)
+        if dialog.exec() == QDialog.Accepted:
+            names = dialog.get_filenames() 
+            filenameR = names[0]
+            if filenameR != "":
+                try:
+                    print(f"GUI_INFO: loading image: {filenameR}")
+                    fileR = imread(filenameR)
+                    parent.loaded = True
+                except Exception as e:
+                    print("ERROR: images not compatible")
+                    print(f"ERROR: {e}")
+            filenameG = names[1]
+            if filenameG != "":
+                try:
+                    print(f"GUI_INFO: loading image: {filenameG}")
+                    fileG = imread(filenameG)
+                    parent.loaded = True
+                except Exception as e:
+                    print("ERROR: images not compatible")
+                    print(f"ERROR: {e}")
+            filenameB = names[2]
+            if filenameB != "":
+                try:
+                    print(f"GUI_INFO: loading image: {filenameB}")
+                    fileB = imread(filenameB)
+                    parent.loaded = True
+                except Exception as e:
+                    print("ERROR: images not compatible")
+                    print(f"ERROR: {e}")
+    if parent.loaded:
+        parent.reset()
+        parent.filename = filenameR # I'm not sure where this is used, probably to write the masks? Should be changed to the merged image if we want to write that to the disk
+        _set_image_size(parent) # For the metadata however the filename should be of an existing image, not the merged one
+        image = fileR[0]+fileG[1]+fileB[2]
+        _initialize_images(parent, image)
+        parent.loaded = True
+        parent.enable_buttons()
 
 def _initialize_images(parent, image, load_3D=False):
     """ format image for GUI
