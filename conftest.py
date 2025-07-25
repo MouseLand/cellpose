@@ -1,6 +1,6 @@
 import pytest
 import os, sys, shutil
-from cellpose import utils
+from cellpose_plus import utils
 
 from pathlib import Path
 
@@ -15,7 +15,7 @@ def image_names():
 
 @pytest.fixture()
 def data_dir(image_names):
-    cp_dir = Path.home().joinpath(".cellpose")
+    cp_dir = Path.home().joinpath(".cellpose_plus")
     cp_dir.mkdir(exist_ok=True)
     data_dir = cp_dir.joinpath("data")
     data_dir.mkdir(exist_ok=True)

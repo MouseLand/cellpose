@@ -12,7 +12,7 @@ install_deps = [
     'numba>=0.53.0',
     'llvmlite',
     'torch>=1.6',
-    'opencv-python-headless',
+    'opencv-python',
     'fastremap',
     'Cython',
     'imagecodecs',
@@ -97,7 +97,7 @@ setup(
     url="https://github.com/ITMO-MMRM-lab/cellpose", setup_requires=[
         'pytest-runner',
         'setuptools_scm',
-    ], packages=setuptools.find_packages(), version="0.0.12",
+    ], packages=setuptools.find_packages(), version="0.0.14",
     install_requires=install_deps, tests_require=['pytest'], extras_require={
         'docs': docs_deps,
         'gui': gui_deps,
@@ -108,4 +108,4 @@ setup(
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: BSD License",
         "Operating System :: OS Independent",
-    ), entry_points={'console_scripts': ['cellpose_plus = cellpose.__main__:main']})
+    ), entry_points={'console_scripts': ['cellpose_plus = cellpose_plus.__main__:main']})
