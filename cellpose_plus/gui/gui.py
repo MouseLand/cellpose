@@ -162,10 +162,10 @@ def run(image=None):
     guip_path = pathlib.Path.home().joinpath(".cellpose_plus", "cellpose_gui.png")
 
     primary_icon_path = pathlib.Path.home().joinpath(".cellpose_plus", "primary.png")
-    primary_icon_url = "https://github.com/ITMO-MMRM-lab/cellpose/blob/main/cellpose/resources/primary.png?raw=true"
+    primary_icon_url = "https://github.com/ITMO-MMRM-lab/cellpose/blob/main/cellpose_plus/resources/primary.png?raw=true"
 
     secondary_icon_path = pathlib.Path.home().joinpath(".cellpose_plus", "secondary.png")
-    secondary_icon_url = "https://github.com/ITMO-MMRM-lab/cellpose/blob/main/cellpose/resources/secondary.png?raw=true"
+    secondary_icon_url = "https://github.com/ITMO-MMRM-lab/cellpose/blob/main/cellpose_plus/resources/secondary.png?raw=true"
 
     if not icon_path.is_file():
         cp_dir = pathlib.Path.home().joinpath(".cellpose_plus")
