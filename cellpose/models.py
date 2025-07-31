@@ -209,7 +209,7 @@ class CellposeModel():
                 flows[k][1] = XY flows at each pixel; 
                 flows[k][2] = cell probability (if > cellprob_threshold, pixel used for dynamics); 
                 flows[k][3] = final pixel locations after Euler integration; 
-            styles (list of 1D arrays of length 256 or single 1D array): Style vector summarizing each image, also used to estimate size of objects in image.
+            styles (list of 1D arrays of length 256 or single 1D array): Style vector containing only zeros. Retained for compaibility with CP3. 
             
         """
 
