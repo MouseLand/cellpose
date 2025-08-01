@@ -247,9 +247,9 @@ def run_net(net, imgi, batch_size=8, augment=False, tile_overlap=0.1, bsize=224,
                 y = np.reshape(y, (-1, 3, ly, lx))
             yfi = transforms.average_tiles(y, ysub, xsub, Lyt, Lxt)
             yf[b] = yfi[:, :imgb.shape[-2], :imgb.shape[-1]]
-            stylei = stylea[i * ntiles:(i + 1) * ntiles].sum(axis=0)
-            stylei /= (stylei**2).sum()**0.5
-            styles[b] = stylei
+            # stylei = stylea[i * ntiles:(i + 1) * ntiles].sum(axis=0)
+            # stylei /= (stylei**2).sum()**0.5
+            # styles[b] = stylei
     # slices from padding
     yf = yf[:, :, ypad1 : Ly-ypad2, xpad1 : Lx-xpad2]
     yf = yf.transpose(0,2,3,1)   
