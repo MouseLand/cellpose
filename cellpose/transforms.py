@@ -447,7 +447,7 @@ def update_axis(m_axis, to_squeeze, ndim):
     return m_axis
 
 
-def _convert_image_3d(x, channel_axis=None, z_axis=None):
+def _convert_image_3d(x, channel_axis=None, z_axis=None, max_channels=3):
     """
     Convert a 3D or 4D image array to have dimensions ordered as (Z, X, Y, C).
 
@@ -527,8 +527,8 @@ def _convert_image_3d(x, channel_axis=None, z_axis=None):
     if num_channels != 3:
         x_chans_to_copy = min(3, num_channels)
 
-        if num_channels > 3:
-            transforms_logger.warning("more than 3 channels provided, only segmenting on first 3 channels")
+        if num_channels > max_channels:
+            transforms_logger.warning(f"more than {max_channels} channels provided, only segmenting on first {max_channels} channels")
             x = x[..., :x_chans_to_copy]
         else: 
             # less than 3 channels: pad up to 
@@ -538,7 +538,7 @@ def _convert_image_3d(x, channel_axis=None, z_axis=None):
     return x
 
 
-def convert_image(x, channel_axis=None, z_axis=None, do_3D=False):
+def convert_image(x, channel_axis=None, z_axis=None, do_3D=False, max_channels=3):
     """Converts the image to have the z-axis first, channels last. Image will be converted to 3 channels if it is not already.
     If more than 3 channels are provided, only the first 3 channels will be used. 
 
@@ -577,7 +577,7 @@ def convert_image(x, channel_axis=None, z_axis=None, do_3D=False):
 
     # make sure that channel_axis and z_axis are specified if 3D
     if do_3D:
-        return _convert_image_3d(x, channel_axis=channel_axis, z_axis=z_axis)
+        return _convert_image_3d(x, channel_axis=channel_axis, z_axis=z_axis, max_channels=max_channels)
     
     ######################## 2D reshaping ########################
     # if user specifies channel axis, return early
@@ -625,9 +625,9 @@ def convert_image(x, channel_axis=None, z_axis=None, do_3D=False):
 
         # zero padding up to 3 channels: 
         num_channels = x.shape[-1]
-        if num_channels > 3: 
-            transforms_logger.warning("Found more than 3 channels, only using first 3")
-            num_channels = 3
+        if num_channels > max_channels: 
+            transforms_logger.warning(f"Found more than {max_channels} channels, only using first {max_channels}")
+            num_channels = max_channels
         x_out = np.zeros((x.shape[0], x.shape[1], 3), dtype=x.dtype)
         x_out[..., :num_channels] = x[..., :num_channels]
         x = x_out
@@ -927,7 +927,7 @@ def pad_image_ND(img0, div=16, extra=1, min_size=None, zpad=False):
 
 def random_rotate_and_resize(X, Y=None, scale_range=1., xy=(224, 224), do_3D=False,
                              zcrop=48, do_flip=True, rotate=True, rescale=None, unet=False,
-                             random_per_image=True):
+                             random_per_image=True, contrast_scaling=True):
     """Augmentation by random rotation and resizing.
 
     Args:
@@ -1047,6 +1047,8 @@ def random_rotate_and_resize(X, Y=None, scale_range=1., xy=(224, 224), do_3D=Fal
             else:
                 I = cv2.warpAffine(img[k], M, (xy[1], xy[0]), flags=cv2.INTER_LINEAR)
                 imgi[n, k] = I
+            
+        imgi[n, :] *= np.minimum(1.5, np.maximum(0.5, np.random.randn() * 0.25 + 1))
 
         if Y is not None:
             for k in range(nt):
@@ -1071,5 +1073,7 @@ def random_rotate_and_resize(X, Y=None, scale_range=1., xy=(224, 224), do_3D=Fal
                 v2 = lbl[n, -2].copy()
                 lbl[n, -2] = (-v1 * np.sin(-theta) + v2 * np.cos(-theta))
                 lbl[n, -1] = (v1 * np.cos(-theta) + v2 * np.sin(-theta))
+
+        
 
     return imgi, lbl, scale

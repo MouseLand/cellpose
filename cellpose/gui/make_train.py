@@ -25,10 +25,10 @@ def main():
                                 help='axis of image which corresponds to Z dimension')
     input_img_args.add_argument(
         '--chan', default=0, type=int, help=
-        'Deprecated')
+        '(optional) used to select channels for training')
     input_img_args.add_argument(
         '--chan2', default=0, type=int, help=
-        'Deprecated'
+        '(optional) used to select second channel for training (if applicable)'
     )
     input_img_args.add_argument('--invert', action='store_true',
                                 help='invert grayscale channel')
@@ -77,10 +77,16 @@ def main():
     npm = ["YX", "ZY", "ZX"]
     for name in image_names:
         name0 = os.path.splitext(os.path.split(name)[-1])[0]
-        img0 = io.imread_3D(name)
+        img0 = io.imread(name)
         try: 
             img0 = transforms.convert_image(img0, channel_axis=args.channel_axis, 
-                                            z_axis=args.z_axis, do_3D=True)
+                                            z_axis=args.z_axis, do_3D=True, max_channels=10)
+            if args.chan > 0:
+                if args.chan2 > 0:
+                    img0 = img0[:, :, :, [args.chan - 1, args.chan2 - 1]]
+                else:
+                    img0 = img0[:, :, :, [args.chan - 1]]
+
         except ValueError:
             print('Error converting image. Did you provide the correct --channel_axis and --z_axis ?') 
             
