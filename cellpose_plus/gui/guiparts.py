@@ -378,7 +378,6 @@ class ViewBoxNoRightDrag(pg.ViewBox):
         - : moves backward in the zooming stack (if it exists)
 
         """
-        ev.accept()
         if ev.text() == "-":
             self.scaleBy([1.1, 1.1])
         elif ev.text() in ["+", "="]:
@@ -429,7 +428,6 @@ class ImageDraw(pg.ImageItem):
                     and not self.parent.deleting_multiple:
                 if not self.parent.in_stroke:
                     ev.accept()
-                    self.create_start(ev.pos())
                     self.parent.stroke_appended = False
                     self.parent.in_stroke = True
                     self.drawAt(ev.pos(), ev)
@@ -443,11 +441,16 @@ class ImageDraw(pg.ImageItem):
                     self.parent.scalebar_points.append((y, x))
                     print("GUI_INFO: measuring scalebar, point 1")
                     self.parent.measuring_scalebar = 2
+                    # put a position marker
+                    self.putMarker1(ev.pos())
+                    
                 elif self.parent.measuring_scalebar == 2:
                     self.parent.scalebar_points.append((y, x)) 
                     print("GUI_INFO: measuring scalebar, point 2") 
                     self.parent.measuring_scalebar = 0
+                    self.putMarker2(ev.pos())
                     self.parent.calculate_scale_from_scalebar()
+                    self.removeMarkers()
                     
                 elif y >= 0 and y < self.parent.Ly and x >= 0 and x < self.parent.Lx:
                     if ev.button() == QtCore.Qt.LeftButton and not ev.double():
@@ -476,6 +479,28 @@ class ImageDraw(pg.ImageItem):
         ev.ignore()
         return
 
+    def putMarker1(self, pos):
+        self.marker1 = pg.ScatterPlotItem([pos.x()], [pos.y()], pxMode=False,
+                                          pen=pg.mkPen(color=(255, 0, 0),
+                                                       width=2),
+                                          size=max(3 * 2,
+                                                   self.parent.brush_size * 1.8 * 2),
+                                          brush=None, symbol='crosshair')
+        self.parent.p0.addItem(self.marker1)
+
+    def putMarker2(self, pos):
+        self.marker2 = pg.ScatterPlotItem([pos.x()], [pos.y()], pxMode=False,
+                                          pen=pg.mkPen(color=(255, 0, 0),
+                                                       width=2),
+                                          size=max(3 * 2,
+                                                   self.parent.brush_size * 1.8 * 2),
+                                          brush=None, symbol='crosshair')
+        self.parent.p0.addItem(self.marker2)
+
+    def removeMarkers(self):
+        self.parent.p0.removeItem(self.marker1)
+        self.parent.p0.removeItem(self.marker2)
+
     def hoverEvent(self, ev):
         #QtWidgets.QApplication.setOverrideCursor(QtCore.Qt.CrossCursor)
         if self.parent.in_stroke:
@@ -488,15 +513,6 @@ class ImageDraw(pg.ImageItem):
         else:
             ev.acceptClicks(QtCore.Qt.RightButton)
             #ev.acceptClicks(QtCore.Qt.LeftButton)
-
-    def create_start(self, pos):
-        self.scatter = pg.ScatterPlotItem([pos.x()], [pos.y()], pxMode=False,
-                                          pen=pg.mkPen(color=(255, 0, 0),
-                                                       width=self.parent.brush_size),
-                                          size=max(3 * 2,
-                                                   self.parent.brush_size * 1.8 * 2),
-                                          brush=None)
-        self.parent.p0.addItem(self.scatter)
 
     def is_at_start(self, pos):
         thresh_out = max(6, self.parent.brush_size * 3)
@@ -520,7 +536,6 @@ class ImageDraw(pg.ImageItem):
                 return False
 
     def end_stroke(self):
-        self.parent.p0.removeItem(self.scatter)
         if not self.parent.stroke_appended:
             self.parent.strokes.append(self.parent.current_stroke)
             self.parent.stroke_appended = True

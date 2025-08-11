@@ -1148,6 +1148,14 @@ class MainW(QMainWindow):
                     self.brush_choose()
                 if not updated:
                     self.update_plot()
+        if event.key() == QtCore.Qt.Key_Escape:
+            print("GUI_INFO: escape key pressed, removing markers")
+            self.measuring_scalebar = 0
+            self.ScalebarButton.setEnabled(True)
+            self.ScalebarButton.setText("Measure scalebar")
+            self.scalebar_points = []
+            self.layer.removeMarkers()
+        
         if event.key() == QtCore.Qt.Key_Minus or event.key() == QtCore.Qt.Key_Equal:
             self.p0.keyPressEvent(event)
 
