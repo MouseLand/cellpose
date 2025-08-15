@@ -139,7 +139,7 @@ def create_colormap_mask( mask):
 def label_image(image, values, coords, color=(255, 255, 255)):
     image_labeled = image.copy()
 
-    font_path = pathlib.Path.home().joinpath(".cellpose", "DejaVuSans.ttf")
+    font_path = pathlib.Path.home().joinpath(".cellpose_plus", "DejaVuSans.ttf")
     font = ImageFont.truetype(str(font_path), size=20)
     
     I1 = ImageDraw.Draw(image_labeled)

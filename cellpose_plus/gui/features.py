@@ -140,7 +140,7 @@ class FeatureExtraction():
     def image_labeling(self, im_mask="", im_labels="", coords=""):
         im_mask_labeled = im_mask.copy()
 
-        font_path = pathlib.Path.home().joinpath(".cellpose", "DejaVuSans.ttf")
+        font_path = pathlib.Path.home().joinpath(".cellpose_plus", "DejaVuSans.ttf")
         font = ImageFont.truetype(str(font_path), size=20)
         
         I1 = ImageDraw.Draw(im_mask_labeled)
@@ -161,7 +161,7 @@ class FeatureExtraction():
     def mask_indexing(self, im_mask, coords):
         im_mask_labeled = im_mask.copy()
 
-        font_path = pathlib.Path.home().joinpath(".cellpose", "DejaVuSans.ttf")
+        font_path = pathlib.Path.home().joinpath(".cellpose_plus", "DejaVuSans.ttf")
         font = ImageFont.truetype(str(font_path), size=20)
         
         I1 = ImageDraw.Draw(im_mask_labeled)
@@ -483,7 +483,7 @@ class FeatureExtraction():
                 prev_selected_mask.setIcon(QtGui.QIcon())
             self.indexNucleusMask = curr_index
             self.indexCytoMask = -1 if self.indexCytoMask == curr_index else self.indexCytoMask
-        icon_path = pathlib.Path.home().joinpath(".cellpose", str(cell_type) + '.png')
+        icon_path = pathlib.Path.home().joinpath(".cellpose_plus", str(cell_type) + '.png')
         menu_output.setIcon(QtGui.QIcon(str(icon_path.resolve())))
 
         gui_self.RTCheckBox.setEnabled(self.indexCytoMask > -1 and self.indexNucleusMask > -1)

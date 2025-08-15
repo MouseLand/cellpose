@@ -2,7 +2,7 @@ import numpy as np
 import pytest
 import torch
 
-from cellpose.dynamics import masks_to_flows_gpu
+from cellpose_plus.dynamics import masks_to_flows_gpu
 
 CUDA_AVAILABLE = torch.cuda.is_available()
 

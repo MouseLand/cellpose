@@ -1,4 +1,4 @@
-from cellpose import io, denoise
+from cellpose_plus import io, denoise
 from pathlib import Path
 from subprocess import check_output, STDOUT
 import os, shutil

@@ -2,7 +2,7 @@ import sys, os, argparse, glob, pathlib, time
 import numpy as np
 from natsort import natsorted
 from tqdm import tqdm
-from cellpose import utils, models, io, core, version_str, transforms
+from cellpose_plus import utils, models, io, core, version_str, transforms
 
 
 def main():

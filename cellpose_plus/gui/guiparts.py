@@ -309,7 +309,7 @@ class ExampleGUI(QDialog):
         self.win = QWidget(self)
         layout = QGridLayout()
         self.win.setLayout(layout)
-        guip_path = pathlib.Path.home().joinpath(".cellpose", "cellpose_gui.png")
+        guip_path = pathlib.Path.home().joinpath(".cellpose_plus", "cellpose_gui.png")
         guip_path = str(guip_path.resolve())
         pixmap = QPixmap(guip_path)
         label = QLabel(self)

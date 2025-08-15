@@ -22,7 +22,7 @@ from .core import assign_device, check_mkl, run_net, run_3D
 
 _MODEL_URL = "https://www.cellpose.org/models"
 _MODEL_DIR_ENV = os.environ.get("CELLPOSE_LOCAL_MODELS_PATH")
-_MODEL_DIR_DEFAULT = pathlib.Path.home().joinpath(".cellpose", "models")
+_MODEL_DIR_DEFAULT = pathlib.Path.home().joinpath(".cellpose_plus", "models")
 MODEL_DIR = pathlib.Path(_MODEL_DIR_ENV) if _MODEL_DIR_ENV else _MODEL_DIR_DEFAULT
 
 MODEL_NAMES = [

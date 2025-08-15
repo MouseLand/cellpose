@@ -8,12 +8,12 @@ from platform import python_version
 import torch
 
 try:
-    version = version("cellpose")
+    version = version("cellpose_plus")
 except PackageNotFoundError:
     version = "unknown"
 
 version_str = f"""
-cellpose version: \t{version} 
+cellpose plus version: \t{version} 
 platform:       \t{sys.platform} 
 python version: \t{python_version()} 
 torch version:  \t{torch.__version__}"""

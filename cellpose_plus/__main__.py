@@ -6,11 +6,11 @@ import sys, os, glob, pathlib, time
 import numpy as np
 from natsort import natsorted
 from tqdm import tqdm
-from cellpose import utils, models, io, version_str, train, denoise
-from cellpose.cli import get_arg_parser
+from cellpose_plus import utils, models, io, version_str, train, denoise
+from cellpose_plus.cli import get_arg_parser
 
 try:
-    from cellpose.gui import gui3d, gui
+    from cellpose_plus.gui import gui3d, gui
     GUI_ENABLED = True
 except ImportError as err:
     GUI_ERROR = err

@@ -62,8 +62,8 @@ def hsv_to_rgb(arr):
     return rgb
 
 def download_font():
-    dejavu_font_path = pathlib.Path.home().joinpath(".cellpose", "DejaVuSans.ttf")
-    dejavu_font_url = "https://github.com/ITMO-MMRM-lab/cellpose/blob/main/cellpose/resources/DejaVuSans.ttf?raw=true"
+    dejavu_font_path = pathlib.Path.home().joinpath(".cellpose_plus", "DejaVuSans.ttf")
+    dejavu_font_url = "https://github.com/ITMO-MMRM-lab/cellpose/blob/main/cellpose_plus/resources/DejaVuSans.ttf?raw=true"
     if not dejavu_font_path.is_file():
         print("downloading font")
         download_url_to_file(dejavu_font_url,

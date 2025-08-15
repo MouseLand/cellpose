@@ -83,11 +83,11 @@ def run(image=None):
     # Always start by initializing Qt (only once per application)
     warnings.filterwarnings("ignore")
     app = QApplication(sys.argv)
-    icon_path = pathlib.Path.home().joinpath(".cellpose", "logo.png")
-    guip_path = pathlib.Path.home().joinpath(".cellpose", "cellpose_gui.png")
-    style_path = pathlib.Path.home().joinpath(".cellpose", "style_choice.npy")
+    icon_path = pathlib.Path.home().joinpath(".cellpose_plus", "logo.png")
+    guip_path = pathlib.Path.home().joinpath(".cellpose_plus", "cellpose_gui.png")
+    style_path = pathlib.Path.home().joinpath(".cellpose_plus", "style_choice.npy")
     if not icon_path.is_file():
-        cp_dir = pathlib.Path.home().joinpath(".cellpose")
+        cp_dir = pathlib.Path.home().joinpath(".cellpose_plus")
         cp_dir.mkdir(exist_ok=True)
         print("downloading logo")
         download_url_to_file(
