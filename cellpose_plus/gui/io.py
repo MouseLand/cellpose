@@ -163,6 +163,9 @@ def _load_image(parent, filename=None, load_seg=True, load_3D=False):
         if load_mask:
             _load_masks(parent, filename=mask_file)
 
+"""
+RGBInputDialog class for loading images from separate RGB channels
+"""
 class RGBInputDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -236,7 +239,7 @@ class RGBInputDialog(QDialog):
 
 def _load_image_from_channels(parent, filenameR=None, filenameG=None, filenameB=None):
     """ load image from separate RGB channels """
-    fileR, fileG, fileB = None, None, None
+    fileR, fileG, fileB = np.zeros((0,0,3)), np.zeros((0,0,3)), np.zeros((0,0,3)) # Dummy values to check if the files are loaded
     if (filenameR is None and filenameG is None and filenameB is None):
         dialog = RGBInputDialog(parent)
         if dialog.exec() == QDialog.Accepted:
@@ -271,8 +274,31 @@ def _load_image_from_channels(parent, filenameR=None, filenameG=None, filenameB=
     if parent.loaded:
         parent.reset()
         parent.filename = filenameR # I'm not sure where this is used, probably to write the masks? Should be changed to the merged image if we want to write that to the disk
-        _set_image_size(parent) # For the metadata however the filename should be of an existing image, not the merged one
-        image = fileR[0]+fileG[1]+fileB[2]
+        _set_image_size(parent) # For fetching the metadata however the filename should be of an existing image, not the merged one
+        # Dimensions here are Height, Width, Channels
+        sizeH = max(fileR.shape[0], fileG.shape[0], fileB.shape[0])
+        sizeW = max(fileR.shape[1], fileG.shape[1], fileB.shape[1])
+        sizeZ = 3
+
+        redChannel = np.zeros((sizeH, sizeW))
+        blueChannel = np.zeros((sizeH, sizeW))
+        greenChannel = np.zeros((sizeH, sizeW))
+        if fileR.shape[0] != 0 and fileR.shape[1] != 0: 
+            redChannel = fileR[:, :, 0]
+            if fileR.shape[0] != sizeH or fileR.shape[1] != sizeW:
+                print("GUI_WARNING: R channel image size does not match the other channels, padding with zeros")
+                redChannel = np.pad(redChannel, ((0, sizeH - redChannel.shape[0]), (0, sizeW - redChannel.shape[1])), mode='constant')
+        if fileG.shape[0] != 0 and fileG.shape[1] != 0: 
+            greenChannel = fileG[:, :, 1]
+            if fileG.shape[0] != sizeH or fileG.shape[1] != sizeW:
+                print("GUI_WARNING: G channel image size does not match the other channels, padding with zeros")
+                greenChannel = np.pad(greenChannel, ((0, sizeH - greenChannel.shape[0]), (0, sizeW - greenChannel.shape[1])), mode='constant')
+        if fileB.shape[0] != 0 and fileB.shape[1] != 0: 
+            blueChannel = fileB[:, :, 2]
+            if fileB.shape[0] != sizeH or fileB.shape[1] != sizeW:
+                print("GUI_WARNING: B channel image size does not match the other channels, padding with zeros")
+                blueChannel = np.pad(blueChannel, ((0, sizeH - blueChannel.shape[0]), (0, sizeW - blueChannel.shape[1])), mode='constant')
+        image = np.stack((redChannel, greenChannel, blueChannel), axis=2)
         _initialize_images(parent, image)
         parent.loaded = True
         parent.enable_buttons()
