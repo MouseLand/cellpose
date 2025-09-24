@@ -50,6 +50,8 @@ class Transformer(nn.Module):
             blk.window_size = 0
 
         self.dtype = dtype
+        if self.dtype != torch.float32:
+            self = self.to(self.dtype)
 
     def forward(self, x):      
         # same progression as SAM until readout
@@ -77,7 +79,7 @@ class Transformer(nn.Module):
         
         # maintain the second output of feature size 256 for backwards compatibility
            
-        return x1, torch.randn((x.shape[0], 256), device=x.device)
+        return x1, torch.zeros((x.shape[0], 256), device=x.device)
     
     def load_model(self, PATH, device, strict = False):        
         state_dict = torch.load(PATH, map_location = device, weights_only=True)
