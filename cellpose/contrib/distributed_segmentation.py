@@ -529,20 +529,27 @@ def remove_overlaps(array, crop, overlap, blocksize):
     """overlaps only there to provide context for boundary voxels
        and can be removed after segmentation is complete
        reslice array to remove the overlaps"""
-    crop_trimmed = list(crop)
+    
+    crop = list(s for s in crop if not isinstance(s, int))
+    assert len(crop) == array.ndim
+    crop_trimmed = crop
+
     for axis in range(array.ndim):
+
         if crop[axis].start != 0:
             slc = [slice(None),]*array.ndim
             slc[axis] = slice(overlap, None)
-            array = array[tuple(slc)]
+            array = array[tuple(slc)] # Why trimming array axis by axis?
             a, b = crop[axis].start, crop[axis].stop
             crop_trimmed[axis] = slice(a + overlap, b)
+
         if array.shape[axis] > blocksize[axis]:
             slc = [slice(None),]*array.ndim
             slc[axis] = slice(None, blocksize[axis])
             array = array[tuple(slc)]
             a = crop_trimmed[axis].start
             crop_trimmed[axis] = slice(a, a + blocksize[axis])
+
     return array, crop_trimmed
 
 
@@ -559,6 +566,7 @@ def bounding_boxes_in_global_coordinates(segmentation, crop):
 
 def get_nblocks(shape, blocksize):
     """Given a shape and blocksize determine the number of blocks per axis"""
+    shape = shape[len(shape) - len(blocksize):]
     return np.ceil(np.array(shape) / blocksize).astype(int)
 
 
@@ -802,14 +810,14 @@ def get_block_crops(shape, blocksize, overlap, mask):
         stop = start + blocksize + 2 * overlap
         start = np.maximum(0, start)
         stop = np.minimum(shape, stop)
-        crop = tuple(slice(x, y) for x, y in zip(start, stop))
+        crop = tuple(0 for _ in range(len(shape) - len(blocksize))) + tuple(slice(x, y) for x, y in zip(start, stop))
 
         foreground = True
         if mask is not None:
             start = mask_blocksize * index
             stop = start + mask_blocksize
             stop = np.minimum(mask.shape, stop)
-            mask_crop = tuple(slice(x, y) for x, y in zip(start, stop))
+            mask_crop = tuple(0 for _ in range(len(shape) - len(blocksize))) + tuple(slice(x, y) for x, y in zip(start, stop))
             if not np.any(mask[mask_crop]): foreground = False
         if foreground:
             indices.append(index)
