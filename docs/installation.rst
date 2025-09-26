@@ -56,12 +56,34 @@ Be warned that the ROCm project is significantly less mature than CUDA, and you 
    ROCm is significantly less mature than the CUDA acceleration, and you may run into issues.
 
 
+DirectML installation
+~~~~~~~~~~~~~~~~~~~~~
+DirectML is a cross-platform, high-performance, hardware-accelerated machine learning library for Windows.
+It uses the DirectX 12 API to provide a common interface for GPU-accelerated machine learning across 
+different hardware vendors (AMD, Intel, NVIDIA), although for NVIDIA GPUs, CUDA is still recommended.
+
+To install DirectML, first make sure you have the latest version of Windows 10 or 11 installed, and 
+update your GPU drivers. Also, DirectML only supports python 3.12 or earlier.
+Then, install ``torch-directml`` using ``pip install torch-directml``.
+
+Code example:
+::
+
+   from cellpose import models as models
+   model = models.CellposeModel(gpu=True)
+   mask = model.eval(image)[0]
+
+   
+
+For more information on DirectML, see the `DirectML documentation <https://learn.microsoft.com/en-us/windows/ai/directml/dml-intro>`_.
+Please contact  `Teranis <https://github.com/Teranis>`_ for any issues with DirectML implementation.
+
 Common issues
 ~~~~~~~~~~~~~~~~~~~~~~~
 
 If you receive an issue with Qt "xcb", you may need to install xcb libraries, e.g.:
 
-:: 
+::
 
    sudo apt install libxcb-cursor0
    sudo apt install libxcb-xinerama0
@@ -91,7 +113,7 @@ If you are having other issues with the graphical interface and QT, see some adv
 If you have errors related to OpenMP and libiomp5, then try 
 
 ::
-   
+
    conda install nomkl
 
 If you receive an error associated with **matplotlib**, try upgrading

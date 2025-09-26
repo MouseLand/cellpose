@@ -94,7 +94,7 @@ class CellposeModel():
         Initialize the CellposeModel.
 
         Parameters:
-            gpu (bool, optional): Whether or not to save model to GPU, will check if GPU available.
+            gpu (bool, optional): Whether or not to save model to GPU, will check if GPU available, first for CUDA, then for MPS, then for DirectML.
             pretrained_model (str or list of strings, optional): Full path to pretrained cellpose model(s), if None or False, no model loaded.
             model_type (str, optional): Any model that is available in the GUI, use name in GUI e.g. "livecell" (can be user-trained or model zoo).
             diam_mean (float, optional): Mean "diameter", 30. is built-in value for "cyto" model; 17. is built-in value for "nuclei" model; if saved in custom model file (cellpose>=2.0) then it will be loaded automatically and overwrite this value.
@@ -119,9 +119,20 @@ class CellposeModel():
         elif torch.backends.mps.is_available():
             device_gpu = self.device.type == "mps"
         else:
-            device_gpu = False
+            try:
+                import torch_directml
+                if torch_directml.is_available():
+                    device_gpu = self.device.type == "privateuseone"
+                else:
+                    device_gpu = False
+            except ImportError:
+                device_gpu = False
         self.gpu = device_gpu
 
+        if self.device.type == "privateuseone": # fix spare tensors for DirectML
+            from .contrib.directml import fix_sparse_directML
+            fix_sparse_directML()
+            
         if pretrained_model is None:
             raise ValueError("Must specify a pretrained model, training from scratch is not implemented")
         
@@ -143,14 +154,21 @@ class CellposeModel():
         dtype = torch.bfloat16 if use_bfloat16 else torch.float32
         self.net = Transformer(dtype=dtype).to(self.device)
 
+        load_device = self.device
+        if self.device.type == "privateuseone": # for some reason, loading on privateuseone device does not work
+            load_device = torch.device("cpu")
+
         if os.path.exists(self.pretrained_model):
             models_logger.info(f">>>> loading model {self.pretrained_model}")
-            self.net.load_model(self.pretrained_model, device=self.device)
+            self.net.load_model(self.pretrained_model, device=load_device)
         else:
             if os.path.split(self.pretrained_model)[-1] != 'cpsam':
                 raise FileNotFoundError('model file not recognized')
             cache_CPSAM_model_path()
-            self.net.load_model(self.pretrained_model, device=self.device)
+            self.net.load_model(self.pretrained_model, device=load_device)
+        
+        if self.device.type == "privateuseone": 
+            self.net.to(self.device)
         
         
     def eval(self, x, batch_size=8, resample=True, channels=None, channel_axis=None,
