@@ -614,7 +614,7 @@ def resize_and_compute_masks(dP, cellprob, niter=200, cellprob_threshold=0.0,
                             device=device)
 
     if resize is not None:
-        dynamics_logger.warning("Resizing is depricated in v4.0.1+")
+        dynamics_logger.warning("Resizing is deprecated in v4.0.1+")
 
     mask = utils.fill_holes_and_remove_small_masks(mask, min_size=min_size)
 
