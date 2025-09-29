@@ -240,6 +240,7 @@ class SlurmCluster(dask_jobqueue.SLURMCluster):
         config_name=DEFAULT_CONFIG_FILENAME,
         persist_config=False,
         scratch_dir = f"/scratch/{getpass.getuser()}/",
+        job_script_prologue = [],
         **kwargs
     ):
 
@@ -264,7 +265,7 @@ class SlurmCluster(dask_jobqueue.SLURMCluster):
             f"export OPENBLAS_NUM_THREADS={2*ncpus}",
             f"export OPENMP_NUM_THREADS={2*ncpus}",
             f"export OMP_NUM_THREADS={2*ncpus}",
-        ]
+        ] + job_script_prologue
 
         # set scratch and log directories
         if "local_directory" not in kwargs:
