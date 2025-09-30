@@ -239,7 +239,7 @@ class SlurmCluster(dask_jobqueue.SLURMCluster):
         config={},
         config_name=DEFAULT_CONFIG_FILENAME,
         persist_config=False,
-        scratch_dir = f"/scratch/{getpass.getuser()}/",
+        local_directory = f"/scratch/{getpass.getuser()}/",
         job_script_prologue = [],
         **kwargs
     ):
@@ -251,7 +251,7 @@ class SlurmCluster(dask_jobqueue.SLURMCluster):
         self.config_name = config_name
         self.persist_config = persist_config
         config_defaults = {
-            'temporary-directory':scratch_dir,
+            'temporary-directory':local_directory,
             'distributed.comm.timeouts.connect':'180s',
             'distributed.comm.timeouts.tcp':'360s',
         }
@@ -267,9 +267,7 @@ class SlurmCluster(dask_jobqueue.SLURMCluster):
             f"export OMP_NUM_THREADS={2*ncpus}",
         ] + job_script_prologue
 
-        # set scratch and log directories
-        if "local_directory" not in kwargs:
-            kwargs["local_directory"] = scratch_dir
+        # set log directories
         if "log_directory" not in kwargs:
             log_dir = f"{os.getcwd()}/dask_worker_logs_{os.getpid()}/"
             pathlib.Path(log_dir).mkdir(parents=False, exist_ok=True)
@@ -625,6 +623,7 @@ def read_preprocess_and_segment(
         log_file = f'dask_worker_{distributed.get_worker().name}.log'
         log_file = pathlib.Path(worker_logs_directory).joinpath(log_file)
     cellpose.io.logger_setup(stdout_file_replacement=log_file)
+    print(os.environ.get("HOSTNAME"))
     model = cellpose.models.CellposeModel(**model_kwargs)
     return model.eval(image, **eval_kwargs)[0].astype(np.uint32)
 
@@ -860,11 +859,15 @@ def distributed_eval(
             output_zarr=temp_zarr,
             worker_logs_directory=str(worker_logs_dir),
         )
-        results = cluster.client.gather(futures)
-        print('Scale cluster down')
-        if isinstance(cluster, dask_jobqueue.core.JobQueueCluster): 
-            cluster.scale(0)
 
+        print('Gather data in host process')
+        results = cluster.client.gather(futures)
+
+        #print('Scale cluster down')
+        #if isinstance(cluster, dask_jobqueue.core.JobQueueCluster): 
+        #    cluster.scale(0)
+
+        print('Process results locally')
         faces, boxes_, box_ids_ = list(zip(*results))
         boxes = [box for sublist in boxes_ for box in sublist]
         box_ids = np.concatenate(box_ids_).astype(int)  # unsure how but without cast these are float64
@@ -873,18 +876,18 @@ def distributed_eval(
         new_labeling_path = temporary_directory + '/new_labeling.npy'
         np.save(new_labeling_path, new_labeling)
 
-        print('Change worker attributes')
-        # stitching step is cheap, we should release gpus and use small workers
-        if isinstance(cluster, dask_jobqueue.core.JobQueueCluster): 
-            cluster.change_worker_attributes(
-                min_workers=cluster.locals_store['min_workers'],
-                max_workers=cluster.locals_store['max_workers'],
-                cores=1,
-                memory="15GB",
-                #mem=int(15e9),
-                queue=None,
-                job_extra_directives=[],
-            )
+        #print('Change worker attributes')
+        ## stitching step is cheap, we should release gpus and use small workers
+        #if isinstance(cluster, dask_jobqueue.core.JobQueueCluster): 
+        #    cluster.change_worker_attributes(
+        #        min_workers=cluster.locals_store['min_workers'],
+        #        max_workers=cluster.locals_store['max_workers'],
+        #        cores=1,
+        #        memory="15GB",
+        #        #mem=int(15e9),
+        #        queue="CPU",
+        #        job_extra_directives=[],
+        #    )
     
         print('Use dask array to relabel segmentations')
         segmentation_da = dask.array.from_zarr(temp_zarr)
@@ -897,6 +900,8 @@ def distributed_eval(
         )
         print("Write output")
         dask.array.to_zarr(relabeled, write_path, overwrite=True)
+        # TODO(erjel): Scale cluster down again?
+
         print("Merge bboxes")
         merged_boxes = merge_all_boxes(boxes, new_labeling[box_ids])
         print("Merge done")
