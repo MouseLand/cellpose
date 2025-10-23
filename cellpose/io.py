@@ -692,7 +692,7 @@ def save_masks(images, masks, flows, file_names, png=True, tif=False, channels=[
         save_outlines (bool, optional): Save outlines of masks. Defaults to False.
         dir_above (bool, optional): Save masks/flows in directory above. Defaults to False.
         in_folders (bool, optional): Save masks/flows in separate folders. Defaults to False.
-        savedir (str, optional): Absolute path where images will be saved. If None, saves to image directory. Defaults to None.
+        savedir (str, optional): Absolute or relative path where images will be saved. If None, saves to image directory. Defaults to None.
         save_txt (bool, optional): Save masks as list of outlines for ImageJ. Defaults to False.
         save_mpl (bool, optional): If True, saves a matplotlib figure of the original image/segmentation/flows. Does not work for 3D.
                 This takes a long time for large images. Defaults to False.
@@ -724,11 +724,11 @@ def save_masks(images, masks, flows, file_names, png=True, tif=False, channels=[
 
     if savedir is None:
         if dir_above:
-            savedir = Path(file_names).parent.parent.absolute(
-            )  #go up a level to save in its own folder
+            savedir = Path(file_names).parent.parent#go up a level to save in its own folder
         else:
-            savedir = Path(file_names).parent.absolute()
+            savedir = Path(file_names).parent
 
+    savedir = Path(savedir).resolve()
     check_dir(savedir)
 
     basename = os.path.splitext(os.path.basename(file_names))[0]
