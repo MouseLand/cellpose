@@ -83,7 +83,7 @@ class CellposeModel():
         __init__(self, gpu=False, pretrained_model=False, model_type=None, diam_mean=30., device=None):
             Initialize the CellposeModel.
         
-        eval(self, x, batch_size=8, resample=True, channels=None, channel_axis=None, z_axis=None, normalize=True, invert=False, rescale=None, diameter=None, flow_threshold=0.4, cellprob_threshold=0.0, do_3D=False, anisotropy=None, stitch_threshold=0.0, min_size=15, niter=None, augment=False, tile_overlap=0.1, bsize=224, interp=True, compute_masks=True, progress=None):
+        eval(self, x, batch_size=8, resample=True, channels=None, channel_axis=None, z_axis=None, normalize=True, invert=False, rescale=None, diameter=None, flow_threshold=0.4, cellprob_threshold=0.0, do_3D=False, anisotropy=None, stitch_threshold=0.0, min_size=15, niter=None, augment=False, tile_overlap=0.1, bsize=256, interp=True, compute_masks=True, progress=None):
             Segment list of images x, or 4D array - Z x C x Y x X.
 
     """
@@ -196,7 +196,7 @@ class CellposeModel():
             niter (int, optional): number of iterations for dynamics computation. if None, it is set proportional to the diameter. Defaults to None.
             augment (bool, optional): tiles image with overlapping tiles and flips overlapped regions to augment. Defaults to False.
             tile_overlap (float, optional): fraction of overlap of tiles when computing flows. Defaults to 0.1.
-            bsize (int, optional): block size for tiles, recommended to keep at 224, like in training. Defaults to 224.
+            bsize (int, optional): block size for tiles, recommended to keep at 256, like in training. Defaults to 256.
             interp (bool, optional): interpolate during 2D dynamics (not available in 3D) . Defaults to True.
             compute_masks (bool, optional): Whether or not to compute dynamics and return masks. Returns empty array if False. Defaults to True.
             progress (QProgressBar, optional): pyqt progress bar. Defaults to None.
@@ -453,7 +453,7 @@ class CellposeModel():
     def _run_net(self, x, 
                 augment=False, 
                 batch_size=8, tile_overlap=0.1,
-                bsize=224, anisotropy=1.0, do_3D=False):
+                bsize=256, anisotropy=1.0, do_3D=False):
         """ run network on image x """
         tic = time.time()
         shape = x.shape

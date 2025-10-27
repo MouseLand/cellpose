@@ -310,7 +310,7 @@ def train_seg(net, train_data=None, train_labels=None, train_files=None,
               train_labels_files=None, train_probs=None, test_data=None,
               test_labels=None, test_files=None, test_labels_files=None,
               test_probs=None, channel_axis=None,
-              load_files=True, batch_size=1, learning_rate=5e-5, SGD=False,
+              load_files=True, batch_size=1, learning_rate=1e-5, SGD=False,
               n_epochs=100, weight_decay=0.1, normalize=True, compute_flows=False,
               save_path=None, save_every=100, save_each=False, nimg_per_epoch=None,
               nimg_test_per_epoch=None, rescale=False, scale_range=None, bsize=256,
@@ -331,11 +331,10 @@ def train_seg(net, train_data=None, train_labels=None, train_files=None,
         test_labels_files (list or None): List of test label file paths. Defaults to None.
         test_probs (List[float], optional): List of floats - probabilities for each image to be selected during testing. Defaults to None.
         load_files (bool, optional): Boolean - whether to load images and labels from files. Defaults to True.
-        batch_size (int, optional): Integer - number of patches to run simultaneously on the GPU. Defaults to 8.
-        learning_rate (float or List[float], optional): Float or list/np.ndarray - learning rate for training. Defaults to 0.005.
-        n_epochs (int, optional): Integer - number of times to go through the whole training set during training. Defaults to 2000.
-        weight_decay (float, optional): Float - weight decay for the optimizer. Defaults to 1e-5.
-        momentum (float, optional): Float - momentum for the optimizer. Defaults to 0.9.
+        batch_size (int, optional): Integer - number of patches to run simultaneously on the GPU. Defaults to 1.
+        learning_rate (float or List[float], optional): Float or list/np.ndarray - learning rate for training. Defaults to 1e-5.
+        n_epochs (int, optional): Integer - number of times to go through the whole training set during training. Defaults to 100.
+        weight_decay (float, optional): Float - weight decay for the optimizer. Defaults to 0.1.
         SGD (bool, optional): Deprecated in v4.0.1+ - AdamW always used.
         normalize (bool or dict, optional): Boolean or dictionary - whether to normalize the data. Defaults to True.
         compute_flows (bool, optional): Boolean - whether to compute flows during training. Defaults to False.
@@ -344,7 +343,7 @@ def train_seg(net, train_data=None, train_labels=None, train_files=None,
         save_each (bool, optional): Boolean - save the network to a new filename at every [save_each] epoch. Defaults to False.
         nimg_per_epoch (int, optional): Integer - minimum number of images to train on per epoch. Defaults to None.
         nimg_test_per_epoch (int, optional): Integer - minimum number of images to test on per epoch. Defaults to None.
-        rescale (bool, optional): Boolean - whether or not to rescale images during training. Defaults to True.
+        rescale (bool, optional): Boolean - whether or not to rescale images during training. Defaults to False.
         min_train_masks (int, optional): Integer - minimum number of masks an image must have to use in the training set. Defaults to 5.
         model_name (str, optional): String - name of the network. Defaults to None.
 
