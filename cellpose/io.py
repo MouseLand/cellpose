@@ -649,19 +649,16 @@ def save_rois(masks, file_name, multiprocessing=None):
         None
     """
     outlines = utils.outlines_list(masks, multiprocessing=multiprocessing)
-    nonempty_outlines = [outline for outline in outlines if len(outline)!=0]
-    if len(outlines)!=len(nonempty_outlines):
-        print(f"empty outlines found, saving {len(nonempty_outlines)} ImageJ ROIs to .zip archive.")
-    rois = [ImagejRoi.frompoints(outline) for outline in nonempty_outlines]
+    rois = []
+    for i,outline in enumerate(outlines):
+        if len(outline) > 0:
+            rois.append(ImagejRoi.frompoints(outline, name=str(i+1)))
+
+    if len(outlines) != len(rois):
+        print(f"empty outlines found, saving {len(rois)} ImageJ ROIs to .zip archive.")
+
     file_name = os.path.splitext(file_name)[0] + '_rois.zip'
-
-
-    # Delete file if it exists; the roifile lib appends to existing zip files.
-    # If the user removed a mask it will still be in the zip file
-    if os.path.exists(file_name):
-        os.remove(file_name)
-
-    roiwrite(file_name, rois)
+    roiwrite(file_name, rois, mode='w')
 
 
 def save_masks(images, masks, flows, file_names, png=True, tif=False, channels=[0, 0],
