@@ -22,6 +22,7 @@ from ..io import get_image_files, imsave, imread
 from ..transforms import resize_image, normalize99, normalize99_tile, smooth_sharpen_img
 from ..models import normalize_default
 from ..plot import disk
+from skimage.measure import regionprops
 
 try:
     import matplotlib.pyplot as plt
@@ -956,6 +957,9 @@ class MainW(QMainWindow):
         # -- zero out image stack -- #
         self.opacity = 128  # how opaque masks should be
         self.outcolor = [200, 200, 255, 200]
+        # whether to draw integer mask ids at each cell's centroid on the overlay
+        # can be toggled at runtime (default: off)
+        self.show_cell_ids = True
         self.NZ, self.Ly, self.Lx = 1, 256, 256
         self.saturation = self.saturation if hasattr(self, 'saturation') else []
 
@@ -1563,6 +1567,22 @@ class MainW(QMainWindow):
         self.win.show()
         self.show()
 
+    def _find_centeroids(self, masks: np.ndarray) -> np.ndarray:
+        """
+        Find centroids of each cell in the 2D mask
+        TODO implement for 3D also
+        """
+
+        centroids = {}
+        props = regionprops(masks[0])
+        for p in props:
+            if p.label == 0:
+                continue
+            cy, cx = p.centroid
+            centroids[p.label] = (cy, cx)
+        
+        return centroids 
+
 
     def draw_layer(self):
         if self.resize:
@@ -1601,6 +1621,43 @@ class MainW(QMainWindow):
         if self.outlinesOn:
             self.layerz[self.outpix[self.currentZ] > 0] = np.array(
                 self.outcolor).astype(np.uint8)
+
+        # optionally draw integer mask ids at the centroid of each mask
+        centroids = self._find_centeroids(self.cellpix)
+        # import ipdb; ipdb.set_trace()
+        if getattr(self, 'show_cell_ids', False) and self.masksOn:
+            try:
+                # prepare BGR view for OpenCV drawing (cv2 uses BGR ordering)
+                bgr = self.layerz[..., :3][:, :, ::-1].copy()
+                alpha = self.layerz[..., 3].copy()
+                labels = np.unique(self.cellpix[self.currentZ])
+                labels = labels[labels > 0]
+                if labels.size > 0:
+                    # font sizing based on image size
+                    font_scale = 0.3
+                    # draw each label at centroid
+                    for lbl in labels:
+                        text = str(int(lbl))
+                        cy, cx = centroids[lbl]
+                        cy = int(np.round(cy)) - 2 * len(text)
+                        cx = int(np.round(cx)) - 2 * len(text)
+                        # draw mask for text to set alpha
+                        mask_txt = np.zeros((self.Ly, self.Lx), np.uint8)
+                        cv2.putText(mask_txt, text, (cx, cy), cv2.FONT_HERSHEY_SIMPLEX,
+                                    font_scale, 255, thickness=3, lineType=cv2.LINE_AA)
+                        # draw outline (black) then inner (white) for readability
+                        cv2.putText(bgr, text, (cx, cy), cv2.FONT_HERSHEY_SIMPLEX,
+                                    font_scale, (0, 0, 0), thickness=3, lineType=cv2.LINE_AA)
+                        cv2.putText(bgr, text, (cx, cy), cv2.FONT_HERSHEY_SIMPLEX,
+                                    font_scale, (255, 255, 255), thickness=1, lineType=cv2.LINE_AA)
+                        # ensure text pixels are opaque
+                        alpha[mask_txt > 0] = 255
+                    # write back into RGBA layer
+                    self.layerz[..., :3] = bgr[..., ::-1]
+                    self.layerz[..., 3] = alpha
+            except Exception:
+                # avoid breaking the GUI if text drawing fails
+                pass
 
 
     def set_normalize_params(self, normalize_params):
