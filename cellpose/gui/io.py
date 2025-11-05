@@ -9,6 +9,7 @@ import fastremap
 from ..io import imread, imread_2D, imread_3D, imsave, outlines_to_text, add_model, remove_model, save_rois
 from ..models import normalize_default, MODEL_DIR, MODEL_LIST_PATH, get_user_models
 from ..utils import masks_to_outlines, outlines_list
+from skimage.measure import regionprops
 
 try:
     import qtpy
@@ -400,6 +401,21 @@ def _load_masks(parent, filename=None):
     parent.update_layer()
     parent.update_plot()
 
+def _find_centeroids(masks: np.ndarray) -> np.ndarray:
+    """
+    Find centroids of each cell in the 2D mask
+    TODO implement for 3D also
+    """
+
+    centroids = {}
+    props = regionprops(masks[0])
+    for p in props:
+        if p.label == 0:
+            continue
+        cy, cx = p.centroid
+        centroids[p.label] = (cy, cx)
+    
+    return centroids 
 
 def _masks_to_gui(parent, masks, outlines=None, colors=None):
     """ masks loaded into GUI """
@@ -472,6 +488,9 @@ def _masks_to_gui(parent, masks, outlines=None, colors=None):
     print("GUI_INFO: creating cellcolors and drawing masks")
     parent.cellcolors = np.concatenate((np.array([[255, 255, 255]]), colors),
                                        axis=0).astype(np.uint8)
+
+    parent.cellcenters = _find_centeroids(parent.cellpix)
+    parent.unique_ids = np.asarray(list(parent.cellcenters.keys()))
     if parent.ncells > 0:
         parent.draw_layer()
         parent.toggle_mask_ops()

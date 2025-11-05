@@ -22,7 +22,6 @@ from ..io import get_image_files, imsave, imread
 from ..transforms import resize_image, normalize99, normalize99_tile, smooth_sharpen_img
 from ..models import normalize_default
 from ..plot import disk
-from skimage.measure import regionprops
 
 try:
     import matplotlib.pyplot as plt
@@ -417,6 +416,7 @@ class MainW(QMainWindow):
         # turn off masks
         self.layer_off = False
         self.masksOn = True
+        self.roisOn = True
         self.MCheckBox = QCheckBox("MASKS ON [X]")
         self.MCheckBox.setFont(self.medfont)
         self.MCheckBox.setChecked(True)
@@ -439,6 +439,14 @@ class MainW(QMainWindow):
         self.SCheckBox.toggled.connect(self.autosave_on)
         self.SCheckBox.setEnabled(True)
         self.drawBoxG.addWidget(self.SCheckBox, widget_row, 0, 1, 5)
+
+        widget_row += 1
+        self.RCheckBox = QCheckBox("show rois")
+        self.RCheckBox.setFont(self.medfont)
+        self.RCheckBox.setChecked(True)
+        self.RCheckBox.toggled.connect(self.toggle_masks)
+        self.RCheckBox.setEnabled(True)
+        self.drawBoxG.addWidget(self.RCheckBox, widget_row, 0, 1, 5)
 
         # buttons for deleting multiple cells
         self.deleteBox = QGroupBox("delete multiple ROIs")
@@ -905,6 +913,12 @@ class MainW(QMainWindow):
             self.outlinesOn = True
         else:
             self.outlinesOn = False
+        
+        if self.RCheckBox.isChecked():
+            self.roisOn = True
+        else:
+            self.roisOn = False
+
         if not self.masksOn and not self.outlinesOn:
             self.p0.removeItem(self.layer)
             self.layer_off = True
@@ -916,6 +930,7 @@ class MainW(QMainWindow):
         if self.loaded:
             self.update_plot()
             self.update_layer()
+    
 
     def make_viewbox(self):
         self.p0 = guiparts.ViewBoxNoRightDrag(parent=self, lockAspect=True,
@@ -959,7 +974,6 @@ class MainW(QMainWindow):
         self.outcolor = [200, 200, 255, 200]
         # whether to draw integer mask ids at each cell's centroid on the overlay
         # can be toggled at runtime (default: off)
-        self.show_cell_ids = True
         self.NZ, self.Ly, self.Lx = 1, 256, 256
         self.saturation = self.saturation if hasattr(self, 'saturation') else []
 
@@ -1567,23 +1581,6 @@ class MainW(QMainWindow):
         self.win.show()
         self.show()
 
-    def _find_centeroids(self, masks: np.ndarray) -> np.ndarray:
-        """
-        Find centroids of each cell in the 2D mask
-        TODO implement for 3D also
-        """
-
-        centroids = {}
-        props = regionprops(masks[0])
-        for p in props:
-            if p.label == 0:
-                continue
-            cy, cx = p.centroid
-            centroids[p.label] = (cy, cx)
-        
-        return centroids 
-
-
     def draw_layer(self):
         if self.resize:
             self.Ly, self.Lx = self.Lyr, self.Lxr
@@ -1623,22 +1620,19 @@ class MainW(QMainWindow):
                 self.outcolor).astype(np.uint8)
 
         # optionally draw integer mask ids at the centroid of each mask
-        centroids = self._find_centeroids(self.cellpix)
-        # import ipdb; ipdb.set_trace()
-        if getattr(self, 'show_cell_ids', False) and self.masksOn:
+        if self.roisOn:
             try:
                 # prepare BGR view for OpenCV drawing (cv2 uses BGR ordering)
                 bgr = self.layerz[..., :3][:, :, ::-1].copy()
                 alpha = self.layerz[..., 3].copy()
-                labels = np.unique(self.cellpix[self.currentZ])
-                labels = labels[labels > 0]
+                labels = self.unique_ids[self.unique_ids > 0]
                 if labels.size > 0:
                     # font sizing based on image size
                     font_scale = 0.3
                     # draw each label at centroid
                     for lbl in labels:
                         text = str(int(lbl))
-                        cy, cx = centroids[lbl]
+                        cy, cx = self.cellcenters[lbl]
                         cy = int(np.round(cy)) - 2 * len(text)
                         cx = int(np.round(cx)) - 2 * len(text)
                         # draw mask for text to set alpha
