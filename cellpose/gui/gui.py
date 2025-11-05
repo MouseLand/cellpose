@@ -1621,37 +1621,7 @@ class MainW(QMainWindow):
 
         # optionally draw integer mask ids at the centroid of each mask
         if self.roisOn:
-            try:
-                # prepare BGR view for OpenCV drawing (cv2 uses BGR ordering)
-                bgr = self.layerz[..., :3][:, :, ::-1].copy()
-                alpha = self.layerz[..., 3].copy()
-                labels = self.unique_ids[self.unique_ids > 0]
-                if labels.size > 0:
-                    # font sizing based on image size
-                    font_scale = 0.3
-                    # draw each label at centroid
-                    for lbl in labels:
-                        text = str(int(lbl))
-                        cy, cx = self.cellcenters[lbl]
-                        cy = int(np.round(cy)) - 2 * len(text)
-                        cx = int(np.round(cx)) - 2 * len(text)
-                        # draw mask for text to set alpha
-                        mask_txt = np.zeros((self.Ly, self.Lx), np.uint8)
-                        cv2.putText(mask_txt, text, (cx, cy), cv2.FONT_HERSHEY_SIMPLEX,
-                                    font_scale, 255, thickness=3, lineType=cv2.LINE_AA)
-                        # draw outline (black) then inner (white) for readability
-                        cv2.putText(bgr, text, (cx, cy), cv2.FONT_HERSHEY_SIMPLEX,
-                                    font_scale, (0, 0, 0), thickness=3, lineType=cv2.LINE_AA)
-                        cv2.putText(bgr, text, (cx, cy), cv2.FONT_HERSHEY_SIMPLEX,
-                                    font_scale, (255, 255, 255), thickness=1, lineType=cv2.LINE_AA)
-                        # ensure text pixels are opaque
-                        alpha[mask_txt > 0] = 255
-                    # write back into RGBA layer
-                    self.layerz[..., :3] = bgr[..., ::-1]
-                    self.layerz[..., 3] = alpha
-            except Exception:
-                # avoid breaking the GUI if text drawing fails
-                pass
+            self.layerz[self.text_overlay[..., -1] > 0] = self.text_overlay[self.text_overlay[..., -1] > 0]
 
 
     def set_normalize_params(self, normalize_params):

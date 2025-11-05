@@ -491,7 +491,34 @@ def _masks_to_gui(parent, masks, outlines=None, colors=None):
 
     parent.cellcenters = _find_centeroids(parent.cellpix)
     parent.unique_ids = np.asarray(list(parent.cellcenters.keys()))
+    
+    # Pre-compute text overlay once
+    parent.text_overlay = np.zeros((parent.Ly, parent.Lx, 4), np.uint8)
     if parent.ncells > 0:
+        font_scale = 0.5
+        # Create text mask all at once
+        text_mask = np.zeros((parent.Ly, parent.Lx), np.uint8)
+        for lbl in parent.unique_ids[parent.unique_ids > 0]:
+            cy, cx = parent.cellcenters[lbl]
+            text = str(int(lbl))
+            cy = int(np.round(cy)) - 2 * len(text)
+            cx = int(np.round(cx)) - 2 * len(text)
+            cv2.putText(text_mask, text, (cx, cy), cv2.FONT_HERSHEY_SIMPLEX,
+                        font_scale, 255, thickness=3, lineType=cv2.LINE_8)
+        
+        # Draw outline and fill text in one step
+        parent.text_overlay[..., :3][text_mask > 0] = [0, 0, 0]  # black outline
+        text_mask_inner = np.zeros_like(text_mask)
+        for lbl in parent.unique_ids[parent.unique_ids > 0]:
+            cy, cx = parent.cellcenters[lbl]
+            text = str(int(lbl))
+            cy = int(np.round(cy)) - 2 * len(text)
+            cx = int(np.round(cx)) - 2 * len(text)
+            cv2.putText(text_mask_inner, text, (cx, cy), cv2.FONT_HERSHEY_SIMPLEX,
+                        font_scale, 255, thickness=1, lineType=cv2.LINE_8)
+        parent.text_overlay[..., :3][text_mask_inner > 0] = [255, 255, 255]  # white fill
+        parent.text_overlay[..., 3][text_mask > 0] = 255  # full opacity for text
+        
         parent.draw_layer()
         parent.toggle_mask_ops()
     parent.ismanual = np.zeros(parent.ncells.get(), bool)
