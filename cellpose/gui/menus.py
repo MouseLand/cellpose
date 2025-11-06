@@ -128,12 +128,18 @@ def modelmenu(parent):
 def functionsmenu(parent):
     main_menu = parent.menuBar()
     io._init_model_list(parent)
-    model_menu = main_menu.addMenu("&Functions")
-    parent.addmodel = QAction("Calculate Neighbors", parent)
+    func_menu = main_menu.addMenu("&Functions")
+    run_neighbors = QAction("Calculate Neighbors", parent)
     #parent.addmodel.setShortcut("Ctrl+A")
-    parent.addmodel.triggered.connect(parent.calc_neighbors)
-    parent.addmodel.setEnabled(True)
-    model_menu.addAction(parent.addmodel)
+    run_neighbors.triggered.connect(parent.calc_neighbors)
+    run_neighbors.setEnabled(True)
+    func_menu.addAction(run_neighbors)
+
+    show_neighbors = QAction("Show Neighbors", parent)
+    #parent.addmodel.setShortcut("Ctrl+A")
+    show_neighbors.triggered.connect(parent.show_neighoring_cells)
+    show_neighbors.setEnabled(True)
+    func_menu.addAction(show_neighbors)
 
 
 def helpmenu(parent):

@@ -316,13 +316,24 @@ class MainW(QMainWindow):
         if len(self.cellcenters) == 0:
             self.logger.error("No masks loaded, try loading masks and then run this function.")
             return
-        self.neighbors = label_neighbors(self.cellpix, connectivity=8)
+        self.neighbors, _ = label_neighbors(self.cellpix, connectivity=8)
         self.logger.info("Calculated neighbors for current masks.")
         filename = Path(os.path.splitext(self.filename)[0], "neighbors.npy")
         base = os.path.splitext(self.filename)[0]
         filename = base + "_neighbors.npy"
         np.save(filename, self.neighbors)
         self.logger.info(f"Saved neighbors as npy file in {filename}.")
+    
+    def show_neighoring_cells(self):
+        if self.selected == 0:
+            self.logger.error("Select specific cell for to show its neighboring cells.")
+            return
+        if self.neighbors is None:
+            self.calc_neighbors()
+        neighboring_cells = self.neighbors[self.selected]
+        for idx in neighboring_cells:
+            self.select_cell_multi(idx)
+        
 
         
 
@@ -1012,6 +1023,7 @@ class MainW(QMainWindow):
         self.cellpix = np.zeros((1, self.Ly, self.Lx), np.uint16)
         self.cellcenters = np.zeros((0, 2), np.uint16)
         self.unique_ids = np.zeros(0, np.uint16)
+        self.neighbors = None
         self.text_overlay = np.zeros((self.Ly, self.Lx, 4), np.uint8)
         self.outpix = np.zeros((1, self.Ly, self.Lx), np.uint16)
         self.ismanual = np.zeros(0, "bool")
@@ -1070,6 +1082,7 @@ class MainW(QMainWindow):
             self.cellpix = np.zeros((self.NZ, self.Lyr, self.Lxr), np.uint16)
             self.cellcenters = np.zeros((0, 2), np.uint16)
             self.unique_ids = np.zeros(0, np.uint16)
+            self.neighbors = None
             self.text_overlay = np.zeros((self.Ly, self.Lx, 4), np.uint8)
             self.outpix = np.zeros((self.NZ, self.Lyr, self.Lxr), np.uint16)
             self.cellpix_resize = self.cellpix.copy()
