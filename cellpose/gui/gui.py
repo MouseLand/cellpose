@@ -10,6 +10,7 @@ from qtpy.QtWidgets import QScrollArea, QMainWindow, QApplication, QWidget, QScr
     QComboBox, QGridLayout, QPushButton, QFrame, QCheckBox, QLabel, QProgressBar, \
         QLineEdit, QMessageBox, QGroupBox, QMenu, QAction
 import pyqtgraph as pg
+from pathlib import Path
 
 import numpy as np
 from scipy.stats import mode
@@ -17,7 +18,7 @@ import cv2
 
 from . import guiparts, menus, io
 from .. import models, core, dynamics, version, train
-from ..utils import download_url_to_file, masks_to_outlines, diameters
+from ..utils import download_url_to_file, masks_to_outlines, diameters, label_neighbors
 from ..io import get_image_files, imsave, imread
 from ..transforms import resize_image, normalize99, normalize99_tile, smooth_sharpen_img
 from ..models import normalize_default
@@ -198,6 +199,7 @@ class MainW(QMainWindow):
         menus.editmenu(self)
         menus.modelmenu(self)
         menus.helpmenu(self)
+        menus.functionsmenu(self)
 
         self.stylePressed = """QPushButton {Text-align: center; 
                              background-color: rgb(150,50,150); 
@@ -309,6 +311,20 @@ class MainW(QMainWindow):
     def train_help_window(self):
         THW = guiparts.TrainHelpWindow(self)
         THW.show()
+    
+    def calc_neighbors(self):
+        if len(self.cellcenters) == 0:
+            self.logger.error("No masks loaded, try loading masks and then run this function.")
+            return
+        self.neighbors = label_neighbors(self.cellpix, connectivity=8)
+        self.logger.info("Calculated neighbors for current masks.")
+        filename = Path(os.path.splitext(self.filename)[0], "neighbors.npy")
+        base = os.path.splitext(self.filename)[0]
+        filename = base + "_neighbors.npy"
+        np.save(filename, self.neighbors)
+        self.logger.info(f"Saved neighbors as npy file in {filename}.")
+
+        
 
     def gui_window(self):
         EG = guiparts.ExampleGUI(self)
@@ -976,6 +992,9 @@ class MainW(QMainWindow):
         self.radii = 0 * np.ones((self.Ly, self.Lx, 4), np.uint8)
         self.layerz = 0 * np.ones((self.Ly, self.Lx, 4), np.uint8)
         self.cellpix = np.zeros((1, self.Ly, self.Lx), np.uint16)
+        self.cellcenters = np.zeros((0, 2), np.uint16)
+        self.unique_ids = np.zeros(0, np.uint16)
+        self.text_overlay = np.zeros((self.Ly, self.Lx, 4), np.uint8)
         self.outpix = np.zeros((1, self.Ly, self.Lx), np.uint16)
         self.ismanual = np.zeros(0, "bool")
 
@@ -1031,6 +1050,9 @@ class MainW(QMainWindow):
         if self.restore and "upsample" in self.restore:
             self.layerz = 0 * np.ones((self.Lyr, self.Lxr, 4), np.uint8)
             self.cellpix = np.zeros((self.NZ, self.Lyr, self.Lxr), np.uint16)
+            self.cellcenters = np.zeros((0, 2), np.uint16)
+            self.unique_ids = np.zeros(0, np.uint16)
+            self.text_overlay = np.zeros((self.Ly, self.Lx, 4), np.uint8)
             self.outpix = np.zeros((self.NZ, self.Lyr, self.Lxr), np.uint16)
             self.cellpix_resize = self.cellpix.copy()
             self.outpix_resize = self.outpix.copy()

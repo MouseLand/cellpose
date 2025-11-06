@@ -125,6 +125,16 @@ def modelmenu(parent):
     openTrainHelp.triggered.connect(parent.train_help_window)
     model_menu.addAction(openTrainHelp)
 
+def functionsmenu(parent):
+    main_menu = parent.menuBar()
+    io._init_model_list(parent)
+    model_menu = main_menu.addMenu("&Functions")
+    parent.addmodel = QAction("Calculate Neighbors", parent)
+    #parent.addmodel.setShortcut("Ctrl+A")
+    parent.addmodel.triggered.connect(parent.calc_neighbors)
+    parent.addmodel.setEnabled(True)
+    model_menu.addAction(parent.addmodel)
+
 
 def helpmenu(parent):
     main_menu = parent.menuBar()
