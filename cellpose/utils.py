@@ -661,3 +661,86 @@ def fill_holes_and_remove_small_masks(masks, min_size=15):
         fastremap.renumber(masks, in_place=True)
     
     return masks
+
+import numpy as np
+
+
+def label_neighbors(masks: np.ndarray, connectivity: int = 4, ignore_label: int = 0):
+    """
+    Compute neighbors in a 2D labeled mask.
+
+    Parameters
+    ----------
+    labels : (1, H, W) int array
+        0 = background, 1..N = cell ids
+    connectivity : int
+        4 or 8. 4 = touch by edge; 8 = touch by edge or corner.
+    ignore_label : int
+        Label id to ignore (typically 0 for background).
+
+    Returns
+    -------
+    neighbors : dict[int, list[int]]
+        Mapping from label -> sorted unique neighbor labels.
+    edges : set[tuple[int,int]]
+        Undirected edges (u, v) with u < v.
+    """
+    labels = masks[0] # assume input shape is (1, H, W)
+    if connectivity not in (4, 8):
+        raise ValueError("connectivity must be 4 or 8")
+
+    H, W = labels.shape
+    L = labels
+
+    # Offsets to compare. For undirected adjacency, only check "forward" shifts
+    # to avoid duplicating edges. For 4-connectivity: right and down.
+    # For 8-connectivity: add down-right and down-left diagonals.
+    offsets = [(0, 3), (3, 0)]
+    if connectivity == 8:
+        offsets += [(1, 1), (1, -1)]
+
+    edges = set()
+
+    for dy, dx in offsets:
+        # Make a view of overlapping region and its shifted counterpart
+        y_src_slice = slice(max(0, dy), H if dy >= 0 else H + dy)
+        x_src_slice = slice(max(0, dx), W if dx >= 0 else W + dx)
+
+        y_shf_slice = slice(max(0, -dy), H if dy <= 0 else H - dy)
+        x_shf_slice = slice(max(0, -dx), W if dx <= 0 else W - dx)
+
+        A = L[y_src_slice, x_src_slice]
+        B = L[y_shf_slice, x_shf_slice]
+
+        # Pixels where labels differ and neither is background
+        mask = (A != B) & (A != ignore_label) & (B != ignore_label)
+
+        if not np.any(mask):
+            continue
+
+        a = A[mask].ravel()
+        b = B[mask].ravel()
+
+        # Normalize to undirected (u < v) to deduplicate edges
+        u = np.minimum(a, b)
+        v = np.maximum(a, b)
+        pairs = np.stack((u, v), axis=1)
+
+        # Unique edges for this offset
+        if pairs.size:
+            uniq = np.unique(pairs, axis=0)
+            edges.update(map(tuple, uniq))
+
+    # Build neighbor dict
+    neighbors = {}
+    if edges:
+        labels_present = np.unique(L)
+        labels_present = labels_present[labels_present != ignore_label]
+        neighbors = {int(lbl): [] for lbl in labels_present}
+        for u, v in edges:
+            neighbors[u].append(v)
+            neighbors[v].append(u)
+        for k in list(neighbors.keys()):
+            neighbors[k] = sorted(set(neighbors[k]))
+
+    return neighbors, edges
