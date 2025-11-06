@@ -9,6 +9,7 @@ import fastremap
 from ..io import imread, imread_2D, imread_3D, imsave, outlines_to_text, add_model, remove_model, save_rois
 from ..models import normalize_default, MODEL_DIR, MODEL_LIST_PATH, get_user_models
 from ..utils import masks_to_outlines, outlines_list
+from skimage.measure import regionprops
 
 try:
     import qtpy
@@ -400,6 +401,21 @@ def _load_masks(parent, filename=None):
     parent.update_layer()
     parent.update_plot()
 
+def _find_centeroids(masks: np.ndarray) -> np.ndarray:
+    """
+    Find centroids of each cell in the 2D mask
+    TODO implement for 3D also
+    """
+
+    centroids = {}
+    props = regionprops(masks[0])
+    for p in props:
+        if p.label == 0:
+            continue
+        cy, cx = p.centroid
+        centroids[p.label] = (cy, cx)
+    
+    return centroids 
 
 def _masks_to_gui(parent, masks, outlines=None, colors=None):
     """ masks loaded into GUI """
@@ -472,7 +488,37 @@ def _masks_to_gui(parent, masks, outlines=None, colors=None):
     print("GUI_INFO: creating cellcolors and drawing masks")
     parent.cellcolors = np.concatenate((np.array([[255, 255, 255]]), colors),
                                        axis=0).astype(np.uint8)
+
+    parent.cellcenters = _find_centeroids(parent.cellpix)
+    parent.unique_ids = np.asarray(list(parent.cellcenters.keys()))
+    
+    # Pre-compute text overlay once
+    parent.text_overlay = np.zeros((parent.Ly, parent.Lx, 4), np.uint8)
     if parent.ncells > 0:
+        font_scale = 0.5
+        # Create text mask all at once
+        text_mask = np.zeros((parent.Ly, parent.Lx), np.uint8)
+        for lbl in parent.unique_ids[parent.unique_ids > 0]:
+            cy, cx = parent.cellcenters[lbl]
+            text = str(int(lbl))
+            cy = int(np.round(cy)) - 2 * len(text)
+            cx = int(np.round(cx)) - 2 * len(text)
+            cv2.putText(text_mask, text, (cx, cy), cv2.FONT_HERSHEY_SIMPLEX,
+                        font_scale, 255, thickness=3, lineType=cv2.LINE_8)
+        
+        # Draw outline and fill text in one step
+        parent.text_overlay[..., :3][text_mask > 0] = [0, 0, 0]  # black outline
+        text_mask_inner = np.zeros_like(text_mask)
+        for lbl in parent.unique_ids[parent.unique_ids > 0]:
+            cy, cx = parent.cellcenters[lbl]
+            text = str(int(lbl))
+            cy = int(np.round(cy)) - 2 * len(text)
+            cx = int(np.round(cx)) - 2 * len(text)
+            cv2.putText(text_mask_inner, text, (cx, cy), cv2.FONT_HERSHEY_SIMPLEX,
+                        font_scale, 255, thickness=1, lineType=cv2.LINE_8)
+        parent.text_overlay[..., :3][text_mask_inner > 0] = [255, 255, 255]  # white fill
+        parent.text_overlay[..., 3][text_mask > 0] = 255  # full opacity for text
+        
         parent.draw_layer()
         parent.toggle_mask_ops()
     parent.ismanual = np.zeros(parent.ncells.get(), bool)

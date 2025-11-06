@@ -416,6 +416,7 @@ class MainW(QMainWindow):
         # turn off masks
         self.layer_off = False
         self.masksOn = True
+        self.roisOn = True
         self.MCheckBox = QCheckBox("MASKS ON [X]")
         self.MCheckBox.setFont(self.medfont)
         self.MCheckBox.setChecked(True)
@@ -438,6 +439,14 @@ class MainW(QMainWindow):
         self.SCheckBox.toggled.connect(self.autosave_on)
         self.SCheckBox.setEnabled(True)
         self.drawBoxG.addWidget(self.SCheckBox, widget_row, 0, 1, 5)
+
+        widget_row += 1
+        self.RCheckBox = QCheckBox("show rois")
+        self.RCheckBox.setFont(self.medfont)
+        self.RCheckBox.setChecked(True)
+        self.RCheckBox.toggled.connect(self.toggle_masks)
+        self.RCheckBox.setEnabled(True)
+        self.drawBoxG.addWidget(self.RCheckBox, widget_row, 0, 1, 5)
 
         # buttons for deleting multiple cells
         self.deleteBox = QGroupBox("delete multiple ROIs")
@@ -904,6 +913,12 @@ class MainW(QMainWindow):
             self.outlinesOn = True
         else:
             self.outlinesOn = False
+        
+        if self.RCheckBox.isChecked():
+            self.roisOn = True
+        else:
+            self.roisOn = False
+
         if not self.masksOn and not self.outlinesOn:
             self.p0.removeItem(self.layer)
             self.layer_off = True
@@ -915,6 +930,7 @@ class MainW(QMainWindow):
         if self.loaded:
             self.update_plot()
             self.update_layer()
+    
 
     def make_viewbox(self):
         self.p0 = guiparts.ViewBoxNoRightDrag(parent=self, lockAspect=True,
@@ -956,6 +972,8 @@ class MainW(QMainWindow):
         # -- zero out image stack -- #
         self.opacity = 128  # how opaque masks should be
         self.outcolor = [200, 200, 255, 200]
+        # whether to draw integer mask ids at each cell's centroid on the overlay
+        # can be toggled at runtime (default: off)
         self.NZ, self.Ly, self.Lx = 1, 256, 256
         self.saturation = self.saturation if hasattr(self, 'saturation') else []
 
@@ -1563,7 +1581,6 @@ class MainW(QMainWindow):
         self.win.show()
         self.show()
 
-
     def draw_layer(self):
         if self.resize:
             self.Ly, self.Lx = self.Lyr, self.Lxr
@@ -1601,6 +1618,10 @@ class MainW(QMainWindow):
         if self.outlinesOn:
             self.layerz[self.outpix[self.currentZ] > 0] = np.array(
                 self.outcolor).astype(np.uint8)
+
+        # optionally draw integer mask ids at the centroid of each mask
+        if self.roisOn:
+            self.layerz[self.text_overlay[..., -1] > 0] = self.text_overlay[self.text_overlay[..., -1] > 0]
 
 
     def set_normalize_params(self, normalize_params):
