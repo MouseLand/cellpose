@@ -638,21 +638,28 @@ def save_to_png(images, masks, flows, file_names):
     save_masks(images, masks, flows, file_names, png=True)
 
 
-def save_rois(masks, file_name, multiprocessing=None):
+def save_rois(masks, file_name, multiprocessing=None, prefix='', pad=False):
     """ save masks to .roi files in .zip archive for ImageJ/Fiji
+    When opened in ImageJ, the ROIs will be named [prefix][0000]n where n is 1,2,... corresponding to the masks label
 
     Args:
         masks (np.ndarray): masks output from Cellpose.eval, where 0=NO masks; 1,2,...=mask labels
         file_name (str): name to save the .zip file to
+        multiprocessing (bool, optional): Flag to enable multiprocessing. Defaults to None (disabled).
+        prefix (str, optional): prefix to add at the beginning of the ROI labels in ImageJ. Defaults to no prefix
+        pad (bool, optional): Whether to pad the numerical part of the label with zeros so that all labels have the same length
 
     Returns:
         None
     """
     outlines = utils.outlines_list(masks, multiprocessing=multiprocessing)
+    
+    n_digits = int(np.floor(np.log10(masks.max()))+1) if pad else 0
+    fmt = f'{{prefix}}{{:0{n_digits}d}}'
     rois = []
-    for i,outline in enumerate(outlines):
+    for n,outline in zip(np.unique(masks)[1:], outlines):
         if len(outline) > 0:
-            rois.append(ImagejRoi.frompoints(outline, name=str(i+1)))
+            rois.append(ImagejRoi.frompoints(outline, name=fmt.format(n)))
 
     if len(outlines) != len(rois):
         print(f"empty outlines found, saving {len(rois)} ImageJ ROIs to .zip archive.")
