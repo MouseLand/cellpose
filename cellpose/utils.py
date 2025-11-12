@@ -685,7 +685,7 @@ def label_neighbors(masks: np.ndarray, connectivity: int = 4, ignore_label: int 
     edges : set[tuple[int,int]]
         Undirected edges (u, v) with u < v.
     """
-    labels = masks[0] # assume input shape is (1, H, W)
+    labels = masks
     if connectivity not in (4, 8):
         raise ValueError("connectivity must be 4 or 8")
 

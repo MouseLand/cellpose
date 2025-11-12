@@ -316,7 +316,7 @@ class MainW(QMainWindow):
         if len(self.cellcenters) == 0:
             self.logger.error("No masks loaded, try loading masks and then run this function.")
             return
-        self.neighbors, _ = label_neighbors(self.cellpix, connectivity=8)
+        self.neighbors, _ = label_neighbors(self.cellpix[self.currentZ], connectivity=8)
         self.logger.info("Calculated neighbors for current masks.")
         filename = Path(os.path.splitext(self.filename)[0], "neighbors.npy")
         base = os.path.splitext(self.filename)[0]
@@ -333,6 +333,7 @@ class MainW(QMainWindow):
         neighboring_cells = self.neighbors[self.selected]
         for idx in neighboring_cells:
             self.select_cell_multi(idx)
+    
         
 
         
@@ -341,13 +342,8 @@ class MainW(QMainWindow):
         EG = guiparts.ExampleGUI(self)
         EG.show()
 
-    def make_buttons(self):
-        self.boldfont = QtGui.QFont("Arial", 11, QtGui.QFont.Bold)
-        self.boldmedfont = QtGui.QFont("Arial", 9, QtGui.QFont.Bold)
-        self.medfont = QtGui.QFont("Arial", 9)
-        self.smallfont = QtGui.QFont("Arial", 8)
-
-        b = 0
+    def add_views(self, b):
+        pass
         self.satBox = QGroupBox("Views")
         self.satBox.setFont(self.boldfont)
         self.satBoxG = QGridLayout()
@@ -418,8 +414,8 @@ class MainW(QMainWindow):
                 "NOTE: manually changing the saturation bars does not affect normalization in segmentation"
             )
             self.satBoxG.addWidget(self.sliders[-1], widget_row, 2, 1, 7)
-
-        b += 1
+    
+    def add_drawing(self, b):
         self.drawBox = QGroupBox("Drawing")
         self.drawBox.setFont(self.boldfont)
         self.drawBoxG = QGridLayout()
@@ -503,8 +499,8 @@ class MainW(QMainWindow):
         self.deleteBoxG.addWidget(self.CancelDeleteMultipleROIButton, 2, 2, 1, 2)
         self.CancelDeleteMultipleROIButton.setFont(self.smallfont)
         self.CancelDeleteMultipleROIButton.setFixedWidth(35)
-
-        b += 1
+    
+    def add_segmentation(self, b):
         widget_row = 0
         self.segBox = QGroupBox("Segmentation")
         self.segBoxG = QGridLayout()
@@ -570,8 +566,9 @@ class MainW(QMainWindow):
         # Needed to do this for the drop down to not be open on startup
         self.additional_seg_settings_qcollapsible._toggle_btn.setChecked(True)
         self.additional_seg_settings_qcollapsible._toggle_btn.setChecked(False)
-
-        b += 1
+    
+    def add_user_trained(self, b):
+        widget_row = 0
         self.modelBox = QGroupBox("user-trained models")
         self.modelBoxG = QGridLayout()
         self.modelBox.setLayout(self.modelBoxG)
@@ -599,9 +596,8 @@ class MainW(QMainWindow):
             lambda: self.compute_segmentation(custom=True))
         self.modelBoxG.addWidget(self.ModelButtonC, widget_row, 8, 1, 1)
         self.ModelButtonC.setEnabled(False)
-
-
-        b += 1
+    
+    def add_image_filtering(self, b):
         self.filterBox = QGroupBox("Image filtering")
         self.filterBox.setFont(self.boldfont)
         self.filterBox_grid_layout = QGridLayout()
@@ -682,7 +678,52 @@ class MainW(QMainWindow):
         self.norm3D_cb.setChecked(True)
         self.norm3D_cb.setToolTip("run same normalization across planes")
         self.filtBoxG.addWidget(self.norm3D_cb, widget_row, 0, 1, 3)
+    
+    def add_roi_selector(self, b):
+        widget_row = 0
+        self.roiBox = QGroupBox("roi selector")
+        self.roiBoxG = QGridLayout()
+        self.roiBox.setLayout(self.roiBoxG)
+        self.l0.addWidget(self.roiBox, b, 0, 1, 9)
+        self.roiBox.setFont(self.boldfont)
+        
+        # Add label for ROI ID input
+        roi_label = QLabel("Select ROI ID:")
+        roi_label.setFont(self.medfont)
+        self.roiBoxG.addWidget(roi_label, widget_row, 0, 1, 2)
+        
+        # Add text input for ROI number
+        self.roi_id_input = QLineEdit()
+        self.roi_id_input.setFont(self.medfont)
+        self.roi_id_input.setPlaceholderText("Enter ROI ID")
+        self.roi_id_input.setMaximumWidth(100)
+        self.roiBoxG.addWidget(self.roi_id_input, widget_row, 2, 1, 2)
+        
+        # Add select button
+        self.roi_select_btn = QPushButton("Select")
+        self.roi_select_btn.setFont(self.medfont)
+        self.roi_select_btn.clicked.connect(self.select_roi_by_id)
+        self.roiBoxG.addWidget(self.roi_select_btn, widget_row, 4, 1, 2)
 
+
+    def make_buttons(self):
+        self.boldfont = QtGui.QFont("Arial", 11, QtGui.QFont.Bold)
+        self.boldmedfont = QtGui.QFont("Arial", 9, QtGui.QFont.Bold)
+        self.medfont = QtGui.QFont("Arial", 9)
+        self.smallfont = QtGui.QFont("Arial", 8)
+
+        b = 0
+        self.add_views(b)
+        b += 1
+        self.add_drawing(b)
+        b += 1
+        self.add_segmentation(b)
+        b += 1
+        self.add_user_trained(b)
+        b += 1
+        self.add_image_filtering(b)
+        b += 1
+        self.add_roi_selector(b)
 
         return b
 
@@ -1349,6 +1390,27 @@ class MainW(QMainWindow):
         for idx in self.removing_cells_list:
             self.unselect_cell_multi(idx)
         self.removing_cells_list.clear()
+
+    def select_roi_by_id(self):
+        """Select a ROI/cell by ID number entered in the text input"""
+        try:
+            roi_id = int(self.roi_id_input.text())
+            # Check if ROI ID is valid
+            if roi_id > 0 and roi_id <= self.ncells.get():
+                self.unselect_cell()
+                self.select_cell(roi_id)
+                self.update_layer()
+                print(f"GUI_INFO: selected ROI {roi_id}")
+            else:
+                print(f"GUI_ERROR: ROI ID {roi_id} out of range (1-{self.ncells.get()})")
+                self.roi_id_input.setStyleSheet("border: 1px solid red;")
+        except ValueError:
+            print("GUI_ERROR: please enter a valid integer ROI ID")
+            self.roi_id_input.setStyleSheet("border: 1px solid red;")
+        
+        # Clear the text after selection
+        self.roi_id_input.setText("")
+        self.roi_id_input.setStyleSheet("")
 
     def add_roi(self, roi):
         self.p0.addItem(roi)
