@@ -1065,7 +1065,7 @@ class MainW(QMainWindow):
         self.cellcenters = np.zeros((0, 2), np.uint16)
         self.unique_ids = np.zeros(0, np.uint16)
         self.neighbors = None
-        self.text_overlay = np.zeros((self.Ly, self.Lx, 4), np.uint8)
+        self.text_overlay = np.zeros((self.NZ, self.Ly, self.Lx, 4), np.uint8)
         self.outpix = np.zeros((1, self.Ly, self.Lx), np.uint16)
         self.ismanual = np.zeros(0, "bool")
 
@@ -1124,7 +1124,7 @@ class MainW(QMainWindow):
             self.cellcenters = np.zeros((0, 2), np.uint16)
             self.unique_ids = np.zeros(0, np.uint16)
             self.neighbors = None
-            self.text_overlay = np.zeros((self.Ly, self.Lx, 4), np.uint8)
+            self.text_overlay = np.zeros((self.NZ, self.Ly, self.Lx, 4), np.uint8)
             self.outpix = np.zeros((self.NZ, self.Lyr, self.Lxr), np.uint16)
             self.cellpix_resize = self.cellpix.copy()
             self.outpix_resize = self.outpix.copy()
@@ -1718,7 +1718,13 @@ class MainW(QMainWindow):
 
         # optionally draw integer mask ids at the centroid of each mask
         if self.roisOn:
-            self.layerz[self.text_overlay[..., -1] > 0] = self.text_overlay[self.text_overlay[..., -1] > 0]
+            # self.layerz[self.text_overlay[..., -1] > 0] = self.text_overlay[self.text_overlay[..., -1] > 0]
+            # z is the current slice index you’re displaying
+            ov = self.text_overlay[self.currentZ]                 # (Ly, Lx, 4)
+            mask = ov[..., 3] > 0                     # (Ly, Lx) – alpha>0
+            mask4 = mask[..., None]                   # (Ly, Lx, 1) for channel-wise broadcast
+            # Replace only where text exists
+            self.layerz = np.where(mask4, ov, self.layerz)   # both (Ly, Lx, 4), dtype uint8
 
 
     def set_normalize_params(self, normalize_params):
