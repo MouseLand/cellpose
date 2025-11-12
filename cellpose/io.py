@@ -638,30 +638,34 @@ def save_to_png(images, masks, flows, file_names):
     save_masks(images, masks, flows, file_names, png=True)
 
 
-def save_rois(masks, file_name, multiprocessing=None):
+def save_rois(masks, file_name, multiprocessing=None, prefix='', pad=False):
     """ save masks to .roi files in .zip archive for ImageJ/Fiji
+    When opened in ImageJ, the ROIs will be named [prefix][0000]n where n is 1,2,... corresponding to the masks label
 
     Args:
         masks (np.ndarray): masks output from Cellpose.eval, where 0=NO masks; 1,2,...=mask labels
         file_name (str): name to save the .zip file to
+        multiprocessing (bool, optional): Flag to enable multiprocessing. Defaults to None (disabled).
+        prefix (str, optional): prefix to add at the beginning of the ROI labels in ImageJ. Defaults to no prefix
+        pad (bool, optional): Whether to pad the numerical part of the label with zeros so that all labels have the same length
 
     Returns:
         None
     """
     outlines = utils.outlines_list(masks, multiprocessing=multiprocessing)
-    nonempty_outlines = [outline for outline in outlines if len(outline)!=0]
-    if len(outlines)!=len(nonempty_outlines):
-        print(f"empty outlines found, saving {len(nonempty_outlines)} ImageJ ROIs to .zip archive.")
-    rois = [ImagejRoi.frompoints(outline) for outline in nonempty_outlines]
+    
+    n_digits = int(np.floor(np.log10(masks.max()))+1) if pad else 0
+    fmt = f'{{prefix}}{{id:0{n_digits}d}}'
+    rois = []
+    for n,outline in zip(np.unique(masks)[1:], outlines):
+        if len(outline) > 0:
+            rois.append(ImagejRoi.frompoints(outline, name=fmt.format(prefix=prefix, id=n)))
+
+    if len(outlines) != len(rois):
+        print(f"empty outlines found, saving {len(rois)} ImageJ ROIs to .zip archive.")
+
     file_name = os.path.splitext(file_name)[0] + '_rois.zip'
-
-
-    # Delete file if it exists; the roifile lib appends to existing zip files.
-    # If the user removed a mask it will still be in the zip file
-    if os.path.exists(file_name):
-        os.remove(file_name)
-
-    roiwrite(file_name, rois)
+    roiwrite(file_name, rois, mode='w')
 
 
 def save_masks(images, masks, flows, file_names, png=True, tif=False, channels=[0, 0],
