@@ -81,9 +81,15 @@ class Transformer(nn.Module):
            
         return x1, torch.zeros((x.shape[0], 256), device=x.device)
     
-    def load_model(self, PATH, device, strict = False):        
+    def load_model(self, PATH, device, strict = False):
         state_dict = torch.load(PATH, map_location = device, weights_only=True)
         keys = [k for k in state_dict.keys()]
+
+        # loudly fail on attempt to load not cp4 model: 
+        w2_data = state_dict.get('W2', None)
+        if w2_data == None:
+            raise ValueError('This model does not appear to be a CP4 model. CP3 models are not compatible with CP4.')
+
         if keys[0][:7] == "module.":
             from collections import OrderedDict
             new_state_dict = OrderedDict()
