@@ -408,14 +408,84 @@ def _find_centeroids(masks: np.ndarray) -> np.ndarray:
     """
 
     centroids = {}
-    props = regionprops(masks[0])
-    for p in props:
-        if p.label == 0:
-            continue
-        cy, cx = p.centroid
-        centroids[p.label] = (cy, cx)
+    z_slices = masks.shape[0]
+    for z in range(z_slices):
+        props = regionprops(masks[z])
+        for p in props:
+            if p.label == 0:
+                continue
+            cx, cy = p.centroid
+            centroids[(z, p.label)] = [cx, cy]
     
-    return centroids 
+    return centroids
+
+import numpy as np
+import cv2
+
+# Assumptions:
+# parent.cellcenters: dict with keys (z, label) -> (cy, cx) in image coordinates (y, x)
+# parent.Ly, parent.Lx: image height/width
+# parent.NZ: number of z-slices (int)
+# parent.ncells: total number of labeled ROIs (across all z)
+# parent.unique_ids: optional global unique label ids (ints); not strictly needed per z
+
+def _build_text_overlay_3d(parent, *, font_scale=0.5, thick_outline=2, thick_fill=1,
+                          font=cv2.FONT_HERSHEY_SIMPLEX, line_type=cv2.LINE_8):
+    # 1) Build an index: z -> list[(label, (cy, cx))]
+    labels_by_z = {}
+    for (z, lbl), (cy, cx) in parent.cellcenters.items():
+        if z not in labels_by_z:
+            labels_by_z[z] = []
+        labels_by_z[z].append((int(lbl), (float(cy), float(cx))))
+
+    # 2) Allocate RGBA overlay for the entire stack
+    parent.text_overlay = np.zeros((parent.NZ, parent.Ly, parent.Lx, 4), dtype=np.uint8)
+
+    if parent.ncells() <= 0:
+        return  # nothing to draw
+
+    # 3) Draw per z-slice
+    for z in range(parent.NZ):
+        items = labels_by_z.get(z, None)
+        if not items:
+            continue
+
+        # Masks for this slice (Y, X)
+        text_mask_outline = np.zeros((parent.Ly, parent.Lx), dtype=np.uint8)
+        text_mask_fill    = np.zeros_like(text_mask_outline)
+
+        # Rasterize all labels in one pass into masks
+        for lbl, (cy, cx) in items:
+            # Optional: skip invalid centers
+            if not np.isfinite(cy) or not np.isfinite(cx):
+                continue
+
+            text = str(lbl)
+
+            # Measure text to place it better (center around the centroid)
+            ((tw, th), baseline) = cv2.getTextSize(text, font, font_scale, thick_fill)
+            # Place baseline so the text is roughly centered on (cy, cx)
+            # OpenCV expects the *baseline* origin at bottom-left
+            tx = int(round(cx - tw / 2))
+            ty = int(round(cy + th / 2))
+
+            # Draw outline (thicker)
+            cv2.putText(text_mask_outline, text, (tx, ty), font, font_scale, 255,
+                        thickness=thick_outline, lineType=line_type)
+            # Draw fill
+            cv2.putText(text_mask_fill,    text, (tx, ty), font, font_scale, 255,
+                        thickness=thick_fill,    lineType=line_type)
+
+        # 4) Composite this slice’s masks into the RGBA buffer
+        slc = parent.text_overlay[z]
+
+        # Black outline wherever outline mask is on
+        slc[..., :3][text_mask_outline > 0] = (0, 0, 0)
+        # White fill on inner mask
+        slc[..., :3][text_mask_fill > 0]    = (255, 255, 255)
+        # Alpha = opaque wherever outline exists (so outline and fill both visible)
+        slc[..., 3][text_mask_outline > 0]  = 255
+
 
 def _masks_to_gui(parent, masks, outlines=None, colors=None):
     """ masks loaded into GUI """
@@ -488,39 +558,12 @@ def _masks_to_gui(parent, masks, outlines=None, colors=None):
     print("GUI_INFO: creating cellcolors and drawing masks")
     parent.cellcolors = np.concatenate((np.array([[255, 255, 255]]), colors),
                                        axis=0).astype(np.uint8)
-
+    # TODO: extract this from the flows
     parent.cellcenters = _find_centeroids(parent.cellpix)
     parent.unique_ids = np.asarray(list(parent.cellcenters.keys()))
-    
-    # Pre-compute text overlay once
-    parent.text_overlay = np.zeros((parent.Ly, parent.Lx, 4), np.uint8)
-    if parent.ncells > 0:
-        font_scale = 0.5
-        # Create text mask all at once
-        text_mask = np.zeros((parent.Ly, parent.Lx), np.uint8)
-        for lbl in parent.unique_ids[parent.unique_ids > 0]:
-            cy, cx = parent.cellcenters[lbl]
-            text = str(int(lbl))
-            cy = int(np.round(cy)) - 2 * len(text)
-            cx = int(np.round(cx)) - 2 * len(text)
-            cv2.putText(text_mask, text, (cx, cy), cv2.FONT_HERSHEY_SIMPLEX,
-                        font_scale, 255, thickness=3, lineType=cv2.LINE_8)
-        
-        # Draw outline and fill text in one step
-        parent.text_overlay[..., :3][text_mask > 0] = [0, 0, 0]  # black outline
-        text_mask_inner = np.zeros_like(text_mask)
-        for lbl in parent.unique_ids[parent.unique_ids > 0]:
-            cy, cx = parent.cellcenters[lbl]
-            text = str(int(lbl))
-            cy = int(np.round(cy)) - 2 * len(text)
-            cx = int(np.round(cx)) - 2 * len(text)
-            cv2.putText(text_mask_inner, text, (cx, cy), cv2.FONT_HERSHEY_SIMPLEX,
-                        font_scale, 255, thickness=1, lineType=cv2.LINE_8)
-        parent.text_overlay[..., :3][text_mask_inner > 0] = [255, 255, 255]  # white fill
-        parent.text_overlay[..., 3][text_mask > 0] = 255  # full opacity for text
-        
-        parent.draw_layer()
-        parent.toggle_mask_ops()
+    _build_text_overlay_3d(parent)    
+    parent.draw_layer()
+    parent.toggle_mask_ops()
     parent.ismanual = np.zeros(parent.ncells.get(), bool)
     parent.zdraw = list(-1 * np.ones(parent.ncells.get(), np.int16))
 
