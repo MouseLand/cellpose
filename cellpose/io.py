@@ -652,6 +652,10 @@ def save_rois(masks, file_name, multiprocessing=None, prefix='', pad=False):
     Returns:
         None
     """
+    if masks.max() == 0:
+        io_logger.warning("no masks found, will not save ImageJ ROIs to .zip archive")
+        return
+
     outlines = utils.outlines_list(masks, multiprocessing=multiprocessing)
     
     n_digits = int(np.floor(np.log10(masks.max()))+1) if pad else 0
