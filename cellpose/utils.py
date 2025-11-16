@@ -71,7 +71,27 @@ def download_url_to_file(url, dst, progress=True):
     file_size = None
     import ssl
     ssl._create_default_https_context = ssl._create_unverified_context
-    u = urlopen(url)
+    import urllib.request
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.5',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'Connection': 'keep-alive',
+        'Upgrade-Insecure-Requests': '1'
+    }
+    req = urllib.request.Request(url, headers=headers)
+    
+    try:
+        u = urllib.request.urlopen(req)
+    except urllib.error.HTTPError as e:
+        if 'Accept-Encoding' in headers:
+            del headers['Accept-Encoding']
+            req = urllib.request.Request(url, headers=headers)
+            u = urllib.request.urlopen(req)
+        else:
+            raise e
+    
     meta = u.info()
     if hasattr(meta, "getheaders"):
         content_length = meta.getheaders("Content-Length")
@@ -79,9 +99,11 @@ def download_url_to_file(url, dst, progress=True):
         content_length = meta.get_all("Content-Length")
     if content_length is not None and len(content_length) > 0:
         file_size = int(content_length[0])
+    
     # We deliberately save it in a temp file and move it after
     dst = os.path.expanduser(dst)
     dst_dir = os.path.dirname(dst)
+    os.makedirs(dst_dir, exist_ok=True)  # Ensure the directory exists
     f = tempfile.NamedTemporaryFile(delete=False, dir=dst_dir)
     try:
         with tqdm(total=file_size, disable=not progress, unit="B", unit_scale=True,
