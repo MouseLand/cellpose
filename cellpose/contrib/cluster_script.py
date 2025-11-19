@@ -19,7 +19,7 @@ def main():
     output_bbox_pkl = output_dir / 'bboxes.pkl'
 
     # Cluster parameters (example: https://docs.mpcdf.mpg.de/doc/computing/viper-gpu-user-guide.html)
-    cluster = {
+    cluster_kwargs = {
         'job_cpu': 2,               # number of CPUs per GPU worker
         'ncpus':1,                  # threads requested per GPU worker
         'min_workers':1,            # min number of workers based on expected workload
