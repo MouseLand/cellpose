@@ -1,10 +1,11 @@
 name: cellpose
 dependencies:
   - python==3.9.23
+  - pyarrow
   - pip
   - pip:
-    - --index-url https://download.pytorch.org/whl/cu126
-    - --extra-index-url https://pypi.org/simple
+    - --index-url https://download.pytorch.org/whl/cu128 # [win] # Only for Windows: Use non-PyPi torch wheels for CUDA support
+    - --extra-index-url https://pypi.org/simple # [win] # Only for Windows: Use PyPi for everything else
     - qtpy
 #    - PyQt5.sip
     - numpy>=1.20.0
