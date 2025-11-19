@@ -1,7 +1,6 @@
 name: cellpose
 dependencies:
   - python==3.9.23
-  - pyarrow
   - pip
   - pip:
     - --index-url https://download.pytorch.org/whl/cu128 # [win] # Only for Windows: Use non-PyPi torch wheels for CUDA support
