@@ -3,8 +3,8 @@ dependencies:
   - python==3.9.23
   - pip
   - pip:
-    - --index-url https://download.pytorch.org/whl/cu128 # [win] # Only for Windows: Use non-PyPi torch wheels for CUDA support
-    - --extra-index-url https://pypi.org/simple # [win] # Only for Windows: Use PyPi for everything else
+    - --index-url https://download.pytorch.org/whl/rocm6.4
+    - --extra-index-url https://pypi.org/simple
     - qtpy
 #    - PyQt5.sip
     - numpy>=1.20.0
@@ -29,4 +29,3 @@ dependencies:
     - bokeh
     - fill-voids
     - pooch
-  
