@@ -545,6 +545,7 @@ def convert_image(x, channel_axis=None, z_axis=None, do_3D=False):
     Accepts: 
         - 2D images with no channel dimension: `z_axis` and `channel_axis` must be `None`
         - 2D images with channel dimension: `channel_axis` will be guessed between first or last axis, can also specify `channel_axis`. `z_axis` must be `None`
+        - Batch of 2D images having shape: [N, H, W, C] with N images in the batch
         - 3D images with or without channels: 
 
     Args:
@@ -554,11 +555,10 @@ def convert_image(x, channel_axis=None, z_axis=None, do_3D=False):
         do_3D (bool): Whether to process the image in 3D mode. Defaults to False.
 
     Returns:
-        numpy.ndarray: The converted image.
+        numpy.ndarray: The converted image with channels last.
 
     Raises:
         ValueError: If the input image is 2D and do_3D is True.
-        ValueError: If the input image is 4D and do_3D is False.
     """
 
     # check if image is a torch array instead of numpy array, convert to numpy
@@ -570,10 +570,6 @@ def convert_image(x, channel_axis=None, z_axis=None, do_3D=False):
     # should be 2D
     if z_axis is not None and not do_3D:
         raise ValueError("2D image provided, but z_axis is not None. Set z_axis=None to process 2D images of ndim=2 or 3.")
-
-    # make sure that channel_axis and z_axis are specified if 3D
-    if ndim == 4 and not do_3D:
-        raise ValueError("3D input image provided, but do_3D is False. Set do_3D=True to process 3D images. ndims=4")
 
     # make sure that channel_axis and z_axis are specified if 3D
     if do_3D:
@@ -616,6 +612,7 @@ def convert_image(x, channel_axis=None, z_axis=None, do_3D=False):
         x_out[..., 0] = x
         x = x_out
         del x_out
+        transforms_logger.info(f'processing grayscale image with {x.shape[0], x.shape[1]} HW')
     elif ndim == 3:
         # assume 2d with channels
         # find dim with smaller size between first and last dims
@@ -632,6 +629,20 @@ def convert_image(x, channel_axis=None, z_axis=None, do_3D=False):
         x_out[..., :num_channels] = x[..., :num_channels]
         x = x_out
         del x_out
+        transforms_logger.info(f'processing image with {x.shape[0], x.shape[1]} HW, and {x.shape[2]} channels')
+    elif ndim == 4:
+        # assume batch of 2d with channels
+
+        # zero padding up to 3 channels: 
+        num_channels = x.shape[-1]
+        if num_channels > 3: 
+            transforms_logger.warning("Found more than 3 channels, only using first 3")
+            num_channels = 3
+        x_out = np.zeros((x.shape[0], x.shape[1], x.shape[2], 3), dtype=x.dtype)
+        x_out[..., :num_channels] = x[..., :num_channels]
+        x = x_out
+        del x_out
+        transforms_logger.info(f'processing image batch with {x.shape[0]} images, {x.shape[1], x.shape[2]} HW, and {x.shape[3]} channels')
     else:
         # something is wrong: yell
         expected_shapes = "2D (H, W), 3D (H, W, C), or 4D (Z, H, W, C)"
