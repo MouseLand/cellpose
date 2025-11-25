@@ -326,16 +326,37 @@ class CellposeModel():
             torch.cuda.empty_cache()
             gc.collect()
 
-        if resample:
+            if resample:
+                # upsample flows flows before computing them:
+                # dP = self._resize_gradients(dP, to_y_size=Ly_0, to_x_size=Lx_0, to_z_size=Lz_0)
+                # cellprob = self._resize_cellprob(cellprob, to_x_size=Lx_0, to_y_size=Ly_0, to_z_size=Lz_0)
+
+                # resize XY then YZ and then put channels first
+                dP = transforms.resize_image(dP.transpose(1, 2, 3, 0), Ly=Ly_0, Lx=Lx_0, no_channels=False)
+                dP = transforms.resize_image(dP.transpose(1, 0, 2, 3), Lx=Lx_0, Ly=Lz_0, no_channels=False)
+                dP = dP.transpose(3, 1, 0, 2)
+
+                # resize cellprob:
+                cellprob = transforms.resize_image(cellprob, Ly=Ly_0, Lx=Lx_0, no_channels=True)
+                cellprob = transforms.resize_image(cellprob.transpose(1, 0, 2), Lx=Lx_0, Ly=Lz_0, no_channels=True)
+                cellprob = cellprob.transpose(1, 0, 2)
+
+
+        # 2d case:
+        if resample and not do_3D:
             # upsample flows before computing them: 
-            dP = self._resize_gradients(dP, to_y_size=Ly_0, to_x_size=Lx_0, to_z_size=Lz_0)
-            cellprob = self._resize_cellprob(cellprob, to_x_size=Lx_0, to_y_size=Ly_0, to_z_size=Lz_0)
+            # dP = self._resize_gradients(dP, to_y_size=Ly_0, to_x_size=Lx_0, to_z_size=Lz_0)
+            # cellprob = self._resize_cellprob(cellprob, to_x_size=Lx_0, to_y_size=Ly_0, to_z_size=Lz_0)
+
+            # 2D images have N = 1 in batch dimension:
+            dP = transforms.resize_image(dP.transpose(1, 2, 3, 0), Ly=Ly_0, Lx=Lx_0, no_channels=False).transpose(3, 0, 1, 2)
+            cellprob = transforms.resize_image(cellprob, Ly=Ly_0, Lx=Lx_0, no_channels=True)
 
         if compute_masks:
             # use user niter if specified, otherwise scale niter (200) with diameter
             niter_scale = 1 if image_scaling is None else image_scaling
             niter = int(200/niter_scale) if niter is None or niter == 0 else niter
-            masks = self._compute_masks(x.shape, dP, cellprob, flow_threshold=flow_threshold,
+            masks = self._compute_masks((Lz_0 or nimg, Ly_0, Lx_0), dP, cellprob, flow_threshold=flow_threshold,
                             cellprob_threshold=cellprob_threshold, min_size=min_size,
                         max_size_fraction=max_size_fraction, niter=niter,
                         stitch_threshold=stitch_threshold, do_3D=do_3D)
@@ -343,25 +364,6 @@ class CellposeModel():
             masks = np.zeros(0) #pass back zeros if not compute_masks
         
         masks, dP, cellprob = masks.squeeze(), dP.squeeze(), cellprob.squeeze()
-
-        # undo resizing:
-        if image_scaling is not None or anisotropy is not None:
-
-            dP = self._resize_gradients(dP, to_y_size=Ly_0, to_x_size=Lx_0, to_z_size=Lz_0) # works for 2 or 3D: 
-            cellprob = self._resize_cellprob(cellprob, to_x_size=Lx_0, to_y_size=Ly_0, to_z_size=Lz_0)
-
-            if do_3D:
-                if compute_masks:
-                    # Rescale xy then xz:
-                    masks = transforms.resize_image(masks, Ly=Ly_0, Lx=Lx_0, no_channels=True, interpolation=cv2.INTER_NEAREST)
-                    masks = masks.transpose(1, 0, 2)
-                    masks = transforms.resize_image(masks, Ly=Lz_0, Lx=Lx_0, no_channels=True, interpolation=cv2.INTER_NEAREST)
-                    masks = masks.transpose(1, 0, 2)
-
-            else:
-                # 2D or 3D stitching case:
-                if compute_masks:
-                    masks = transforms.resize_image(masks, Ly=Ly_0, Lx=Lx_0, no_channels=True, interpolation=cv2.INTER_NEAREST)
 
         return masks, [plot.dx_to_circ(dP), dP, cellprob], styles
     
