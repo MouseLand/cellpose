@@ -314,7 +314,8 @@ def train_seg(net, train_data=None, train_labels=None, train_files=None,
               n_epochs=100, weight_decay=0.1, normalize=True, compute_flows=False,
               save_path=None, save_every=100, save_each=False, nimg_per_epoch=None,
               nimg_test_per_epoch=None, rescale=False, scale_range=None, bsize=256,
-              min_train_masks=5, model_name=None, class_weights=None):
+              min_train_masks=5, model_name=None, class_weights=None, 
+              loss_callback=None, return_loss_arrays=True):
     """
     Train the network with images for segmentation.
 
@@ -346,9 +347,11 @@ def train_seg(net, train_data=None, train_labels=None, train_files=None,
         rescale (bool, optional): Boolean - whether or not to rescale images during training. Defaults to False.
         min_train_masks (int, optional): Integer - minimum number of masks an image must have to use in the training set. Defaults to 5.
         model_name (str, optional): String - name of the network. Defaults to None.
+        loss_callback (callable, optional): Function called after each epoch with (epoch, train_loss, test_loss). Defaults to None.
+        return_loss_arrays (bool, optional): Whether to return full loss arrays or just the model path. Defaults to True.
 
     Returns:
-        tuple: A tuple containing the path to the saved model weights, training losses, and test losses.
+        tuple or str: If return_loss_arrays=True, returns (path, train_losses, test_losses). If False, returns just the path to saved model weights.
        
     """
     if SGD:
@@ -432,7 +435,7 @@ def train_seg(net, train_data=None, train_labels=None, train_files=None,
     train_logger.info(f">>> saving model to {filename}")
 
     lavg, nsum = 0, 0
-    train_losses, test_losses = np.zeros(n_epochs), np.zeros(n_epochs)
+    train_losses, test_losses = (np.zeros(n_epochs), np.zeros(n_epochs)) if return_loss_arrays else (None, None)
     for iepoch in range(n_epochs):
         np.random.seed(iepoch)
         if nimg != nimg_per_epoch:
@@ -481,8 +484,13 @@ def train_seg(net, train_data=None, train_labels=None, train_files=None,
             lavg += train_loss
             nsum += len(imgi)
             # per epoch training loss
-            train_losses[iepoch] += train_loss
-        train_losses[iepoch] /= nimg_per_epoch
+            if return_loss_arrays:
+                train_losses[iepoch] += train_loss
+        if return_loss_arrays:
+            train_losses[iepoch] /= nimg_per_epoch
+        epoch_train_loss = (lavg / nsum) if not return_loss_arrays else (train_losses[iepoch] / nimg_per_epoch if iepoch == 0 else train_losses[iepoch])
+
+        # TODO: add real time tracking of the loss
 
         if iepoch == 5 or iepoch % 10 == 0:
             lavgt = 0.
@@ -523,8 +531,14 @@ def train_seg(net, train_data=None, train_labels=None, train_files=None,
                         test_loss *= len(imgi)
                         lavgt += test_loss
                 lavgt /= len(rperm)
-                test_losses[iepoch] = lavgt
+                if return_loss_arrays:
+                    test_losses[iepoch] = lavgt
             lavg /= nsum
+            
+            # Call the callback function if provided
+            if loss_callback is not None:
+                loss_callback(iepoch, lavg, lavgt)
+                
             train_logger.info(
                 f"{iepoch}, train_loss={lavg:.4f}, test_loss={lavgt:.4f}, LR={LR[iepoch]:.6f}, time {time.time()-t0:.2f}s"
             )
@@ -544,4 +558,7 @@ def train_seg(net, train_data=None, train_labels=None, train_files=None,
         net.dtype = original_net_dtype
         net.to(original_net_dtype)
 
-    return filename, train_losses, test_losses
+    if return_loss_arrays:
+        return filename, train_losses, test_losses
+    else:
+        return filename
