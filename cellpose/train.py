@@ -490,6 +490,10 @@ def train_seg(net, train_data=None, train_labels=None, train_files=None,
             train_losses[iepoch] /= nimg_per_epoch
         epoch_train_loss = (lavg / nsum) if not return_loss_arrays else (train_losses[iepoch] / nimg_per_epoch if iepoch == 0 else train_losses[iepoch])
 
+        # Call the callback function after every epoch with train loss
+        # Test loss will be computed less frequently (every 10 epochs)
+        current_train_loss = lavg / nsum
+        
         # TODO: add real time tracking of the loss
 
         if iepoch == 5 or iepoch % 10 == 0:
@@ -533,15 +537,21 @@ def train_seg(net, train_data=None, train_labels=None, train_files=None,
                 lavgt /= len(rperm)
                 if return_loss_arrays:
                     test_losses[iepoch] = lavgt
-            lavg /= nsum
             
-            # Call the callback function if provided
-            if loss_callback is not None:
-                loss_callback(iepoch, lavg, lavgt)
-                
             train_logger.info(
-                f"{iepoch}, train_loss={lavg:.4f}, test_loss={lavgt:.4f}, LR={LR[iepoch]:.6f}, time {time.time()-t0:.2f}s"
+                f"{iepoch}, train_loss={current_train_loss:.4f}, test_loss={lavgt:.4f}, LR={LR[iepoch]:.6f}, time {time.time()-t0:.2f}s"
             )
+            
+            # Call the callback function if provided (with test loss)
+            if loss_callback is not None:
+                loss_callback(iepoch, current_train_loss, lavgt)
+        else:
+            # For epochs without test evaluation, call callback with only train loss
+            if loss_callback is not None:
+                loss_callback(iepoch, current_train_loss, None)
+        
+        # Reset accumulators after logging
+        if iepoch == 5 or iepoch % 10 == 0:
             lavg, nsum = 0, 0
 
         if iepoch == n_epochs - 1 or (iepoch % save_every == 0 and iepoch != 0):
