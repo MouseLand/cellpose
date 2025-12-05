@@ -866,13 +866,13 @@ def block_face_adjacency_graph(faces, nlabels):
     # print("Final nlabels:", nlabels, "Type:", type(nlabels))
 
     all_mappings = []
-    structure = scipy.ndimage.generate_binary_structure(3, 1)
     for face in faces:
         sl0 = tuple(slice(0, 1) if d==2 else slice(None) for d in face.shape)
         sl1 = tuple(slice(1, 2) if d==2 else slice(None) for d in face.shape)
         a = shrink_labels(face[sl0], 1.0)
         b = shrink_labels(face[sl1], 1.0)
         face = np.concatenate((a, b), axis=np.argmin(a.shape))
+        structure = scipy.ndimage.generate_binary_structure(face.ndim, 1)
         mapped = dask_image.ndmeasure._utils._label._across_block_label_grouping(face, structure)
         all_mappings.append(mapped)
     i, j = np.concatenate(all_mappings, axis=1)
