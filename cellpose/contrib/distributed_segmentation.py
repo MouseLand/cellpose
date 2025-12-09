@@ -43,7 +43,7 @@ def numpy_array_to_zarr(write_path, array, chunks):
     """
 
     zarr_array = zarr.open(
-        write_path,
+        store=write_path,
         mode='w',
         shape=array.shape,
         chunks=chunks,
@@ -729,7 +729,8 @@ def distributed_eval(
 
         temp_zarr_path = temporary_directory + '/segmentation_unstitched.zarr'
         temp_zarr = zarr.open(
-            temp_zarr_path, 'w',
+            store=temp_zarr_path,
+            mode='w',
             shape=input_zarr.shape,
             chunks=blocksize,
             dtype=np.uint32,
@@ -781,7 +782,7 @@ def distributed_eval(
         )
         dask.array.to_zarr(relabeled, write_path, overwrite=True)
         merged_boxes = merge_all_boxes(boxes, new_labeling[box_ids])
-        return zarr.open(write_path, mode='r'), merged_boxes
+        return zarr.open(store=write_path, mode='r'), merged_boxes
 
 
 #----------------------- component functions ---------------------------------#
