@@ -2,10 +2,16 @@ import dask
 import distributed
 import functools
 import getpass
+import logging
 import os
 import pathlib
+import sys
 import yaml
 
+import dask_jobqueue
+
+from dask.distributed import Worker
+from distributed.diagnostics.plugin import WorkerPlugin
 
 ######################## Cluster related functions ############################
 
@@ -85,17 +91,18 @@ class myLocalCluster(distributed.LocalCluster):
         _modify_dask_config(config, config_name)
 
         # construct
-        if "host" not in kwargs: kwargs["host"] = ""
+        if "host" not in kwargs:
+            kwargs["host"] = ""
         super().__init__(**kwargs)
         self.client = distributed.Client(self)
 
         # set environment variables for workers (threading)
         environment_vars = {
-            'MKL_NUM_THREADS':str(2*ncpus),
-            'NUM_MKL_THREADS':str(2*ncpus),
-            'OPENBLAS_NUM_THREADS':str(2*ncpus),
-            'OPENMP_NUM_THREADS':str(2*ncpus),
-            'OMP_NUM_THREADS':str(2*ncpus),
+            'MKL_NUM_THREADS':str(ncpus),
+            'NUM_MKL_THREADS':str(ncpus),
+            'OPENBLAS_NUM_THREADS':str(ncpus),
+            'OPENMP_NUM_THREADS':str(ncpus),
+            'OMP_NUM_THREADS':str(ncpus),
         }
         def set_environment_vars():
             for k, v in environment_vars.items():
@@ -251,4 +258,42 @@ def _remove_config_file(
 ):
     """Removes a config file from disk"""
     config_path = _config_path(config_name)
-    if os.path.exists(config_path): os.remove(config_path)
+    if os.path.exists(config_path):
+        os.remove(config_path)
+
+
+class ConfigureWorkerPlugin(WorkerPlugin):
+    def __init__(self, models_dir, logging_config, verbose,
+                 worker_cpus=0):
+        self.models_dir = models_dir
+        self.logging_config = logging_config
+        self.verbose = verbose
+        self.worker_cpus = worker_cpus
+        self.logger = None
+
+    def setup(self, worker: Worker):
+        logging.basicConfig(level=logging.DEBUG,
+                            format='%(asctime)s - %(threadName)s:%(name)s - %(levelname)s - %(message)s',
+                            datefmt='%Y-%m-%d %H:%M:%S',
+                            handlers=[
+                                logging.StreamHandler(stream=sys.stdout)
+                            ])
+        self.logger = logging.getLogger('dask_worker')
+        os.environ['MKL_NUM_THREADS'] = str(1)
+        os.environ['NUM_MKL_THREADS'] = str(1)
+        os.environ['OPENBLAS_NUM_THREADS'] = str(1)
+        os.environ['OPENMP_NUM_THREADS'] = str(1)
+        os.environ['OMP_NUM_THREADS'] = str(1)
+
+        if self.models_dir:
+            self.logger.info(f'Set cellpose models path: {self.models_dir}')
+            os.environ['CELLPOSE_LOCAL_MODELS_PATH'] = self.models_dir
+
+    def teardown(self, worker: Worker):
+        pass
+
+    def transition(self, key: str, start: str, finish: str, **kwargs):
+        pass
+
+    def release_key(self, key: str, state: str, cause: str | None, reason: None, report: bool):
+        pass

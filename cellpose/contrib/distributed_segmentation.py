@@ -1,21 +1,24 @@
 # stdlib imports
-import os, getpass, datetime, pathlib, tempfile, functools, glob
+import logging, os, tempfile, time, traceback
 
 # non-stdlib core dependencies
 import numpy as np
 import scipy
-import cellpose.models
+import torch
+
 
 # distributed dependencies
-import dask
-import zarr
+import dask_image.ndmeasure as di_ndmeasure
 import dask_jobqueue
-import logging
-import time
+import zarr
 
 
 from cellpose import transforms
+from cellpose.models import assign_device, CellposeModel
 from cellpose.contrib.dask_utils import cluster
+from cellpose.contrib.block_utils import (get_block_crops, get_nblocks, prepare_blocksize,
+                                          prepare_overlaps, remove_overlaps)
+
 from dask.array.core import slices_from_chunks, normalize_chunks
 from dask.distributed import as_completed
 from typing import List
@@ -47,20 +50,36 @@ def distributed_eval(
         suffix='_distributed_cellpose_tempdir',
         dir=temp_dir or os.getcwd()
     ) as temporary_directory:
-        temp_zarr_path = f'{temporary_directory}/segmentation_unstitched.zarr'
-        temp_zarr = zarr.open(
-            temp_zarr_path, 'w',
-            shape=input_zarr.shape,
-            chunks=blocksize,
-            dtype=np.uint32,
+        temp_segmentation_zarr_path = f'{temporary_directory}/segmentation_unstitched.zarr'
+        if input_zarr.ndim > 3:
+            temp_segmentation_shape = (1,)*(input_zarr.ndim-3) + (input_zarr.shape[-3:])
+            if len(blocksize) > 3:
+                temp_segmentation_chunksize = (1,)*(input_zarr.ndim-3) + blocksize[-3:]
+            else:
+                # this assumes len(blocksize) == 3
+                temp_segmentation_chunksize = (1,)*(input_zarr.ndim-3) + blocksize
+        else:
+            temp_segmentation_shape = input_zarr.shape
+            temp_segmentation_chunksize = blocksize
+
+        logger.info((
+            f'Create temporary segmentation zarr: {temp_segmentation_zarr_path} '
+            f'shape: {temp_segmentation_shape} '
+            f'chunks: {temp_segmentation_chunksize}'
+        ))
+        temp_segmentation_zarr = zarr.create_array(store=temp_segmentation_zarr_path,
+                                                   shape=temp_segmentation_shape,
+                                                   chunks=temp_segmentation_chunksize,
+                                                   dtype=np.uint32,
         )
         labels_zarr, boxes, all_box_ids, final_labeling = run_distributed_eval(
             input_zarr,
             input_timeindex,
             input_channels,
             blocksize,
-            temp_zarr,
+            temp_segmentation_zarr,
             cluster.client,
+            blockoverlaps=(),
             mask=mask,
             preprocessing_steps=preprocessing_steps,
             cellpose_model_args=cellpose_model_args,
@@ -85,22 +104,22 @@ def distributed_eval(
             )
 
         # create the final segmentation zarr
-        output_zarr = zarr.open_array(
-            output,
+        labels_output_zarr = zarr.create_array(
+            stpre=output,
             shape=labels_zarr.shape,
             chunks=labels_zarr.chunks,
             dtype=np.uint32,
         )
         logger.info(f'Relabel {all_box_ids.shape} blocks from {final_labeling_path}')
         label_slices = slices_from_chunks(
-            normalize_chunks(output_zarr.chunks, shape=output_zarr.shape)
+            normalize_chunks(labels_output_zarr.chunks, shape=labels_output_zarr.shape)
         )
         relabel_futures = cluster.client.map(
             _copy_relabeled_block,
             label_slices,
             final_labeling=final_labeling_path,
             input=labels_zarr,
-            output=output_zarr,
+            output=labels_output_zarr,
         )
         relabel_res = True
         for f, r in as_completed(relabel_futures, with_results=True):
@@ -113,13 +132,13 @@ def distributed_eval(
         logger.info(f'Relabeling final result: {relabel_res}')
 
         merged_boxes = _merge_all_boxes(boxes, final_labeling[all_box_ids.astype(np.int32)])
-        return output_zarr, merged_boxes
+        return labels_output_zarr, merged_boxes
 
 
 def run_distributed_eval(
     input_zarr: zarr.Array,
     input_timeindex: int|None,
-    input_channels: List[int]|None,
+    input_channels: int|List[int]|None,
     blocksize,
     labels_zarr,
     dask_client,
@@ -219,13 +238,18 @@ def run_distributed_eval(
         f'from a {image_shape} image'
     ))
 
+    if isinstance(input_channels, int):
+        # if the input channel is a single int value make it a list
+        segmentation_input_channels = [input_channels]
+    else:
+        segmentation_input_channels = input_channels
     futures = dask_client.map(
         _process_block,
         block_indices,
         block_crops,
         input_zarr=input_zarr,
         input_timeindex=input_timeindex,
-        input_channels=input_channels,
+        input_channels=segmentation_input_channels,
         blocksize=blocksize,
         blockoverlaps=blockoverlaps,
         labels_zarr=labels_zarr,
@@ -257,9 +281,6 @@ def run_distributed_eval(
     new_labeling = _determine_merge_relabeling(label_block_indices, faces, all_box_ids,
                                                label_dist_th=label_dist_th)
     return labels_zarr, boxes, all_box_ids, new_labeling
-
-
-    return labels_zarr, merged_boxes
 
 
 ######################## the function to run on each block ####################
@@ -518,8 +539,7 @@ def _get_segmentation_model(cellpose_model_args):
             for gpui in range(available_gpus):
                 try:
                     logger.debug(f'Try GPU: {gpui}')
-                    segmentation_device, gpu = cellpose.models.assign_device(gpu=use_gpu,
-                                                                             device=gpui)
+                    segmentation_device, gpu = assign_device(gpu=use_gpu, device=gpui)
                     logger.debug(f'Result for GPU: {gpui} => {segmentation_device}:{gpu}')
                     if gpu:
                         break
@@ -534,13 +554,11 @@ def _get_segmentation_model(cellpose_model_args):
                 except Exception as e:
                     logger.warning(f'cuda:{gpui} present but not usable: {e}')
         else:
-            segmentation_device, gpu = cellpose.models.assign_device(gpu=use_gpu,
-                                                                     device=gpu_device)
-
+            segmentation_device, gpu = assign_device(gpu=use_gpu, device=gpu_device)
     else:
-        segmentation_device, gpu = cellpose.models.assign_device(gpu=use_gpu,
-                                                                 device=gpu_device)
-    return cellpose.models.CellposeModel(
+        segmentation_device, gpu = assign_device(gpu=use_gpu, device=gpu_device)
+
+    return CellposeModel(
         gpu=gpu,
         device=segmentation_device,
         pretrained_model=cellpose_model_args.get('pretrained_model'),
