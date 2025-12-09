@@ -1,6 +1,7 @@
 from cellpose import io, metrics, utils, models
 import pytest
 from subprocess import check_output, STDOUT
+from pathlib import Path
 import os
 import numpy as np
 
@@ -43,7 +44,9 @@ def clear_output(data_dir, image_names):
                              (True, True, 40), 
                              (True, True, None), 
                              (False, True, None),
-                             (False, False, None)
+                             (False, False, None),
+                             (True, False, None),
+                             (True, False, 40)
                          ]
 )
 def test_class_2D_one_img(data_dir, image_names, cellposemodel_fixture_24layer, compute_masks, resample, diameter):
@@ -56,10 +59,20 @@ def test_class_2D_one_img(data_dir, image_names, cellposemodel_fixture_24layer, 
 
     masks_pred, _, _ = cellposemodel_fixture_24layer.eval(img, normalize=True, compute_masks=compute_masks, resample=resample, diameter=diameter)
 
-    if not compute_masks or diameter:
+    if not compute_masks:
         # not compute_masks won't return masks so can't check
-        # different diameter will give different masks, so can't check
         return 
+    
+    if diameter and compute_masks:
+        # size of masks will be different, so need to adjust calculation
+        masks_gt_file = Path(str(img_file).replace('_tif.tif', '_tif_cp4_gt_masks.png'))
+        masks_gt = io.imread_2D(masks_gt_file)
+
+        masks_pred_shape = [int(s * diameter/30) for s in masks_pred.shape]
+        assert [a == b for a, b in zip(masks_gt.shape[:2], masks_pred_shape[:2])]
+
+        # don't compare the images, because they are different sizes and won't match
+        return
     
     io.imsave(data_dir / '2D' / (img_file.stem + "_cp_masks.png"), masks_pred)
     # flowsp_pred = np.concatenate([flows_pred[1], flows_pred[2][None, ...]], axis=0)
