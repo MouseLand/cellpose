@@ -22,6 +22,7 @@ from cellpose.contrib.block_utils import (get_block_crops, get_nblocks, prepare_
 from dask.array.core import slices_from_chunks, normalize_chunks
 from dask.distributed import as_completed
 from typing import List
+from zarr.storage import LocalStore
 
 
 logger = logging.getLogger(__name__)
@@ -34,7 +35,7 @@ def distributed_eval(
     input_timeindex: int|None,
     input_channels: List[int]|None,
     blocksize,
-    output,
+    output_zarr,
     mask=None,
     preprocessing_steps=[],
     cellpose_model_args={},
@@ -43,96 +44,52 @@ def distributed_eval(
     label_dist_th=1.0,
     cluster=None,
     cluster_kwargs={},
+    skip_merge=False,
     temp_dir=None,
 ):
-    with tempfile.TemporaryDirectory(
-        prefix='.',
-        suffix='_distributed_cellpose_tempdir',
-        dir=temp_dir or os.getcwd()
-    ) as temporary_directory:
-        temp_segmentation_zarr_path = f'{temporary_directory}/segmentation_unstitched.zarr'
-        if input_zarr.ndim > 3:
-            temp_segmentation_shape = (1,)*(input_zarr.ndim-3) + (input_zarr.shape[-3:])
-            if len(blocksize) > 3:
-                temp_segmentation_chunksize = (1,)*(input_zarr.ndim-3) + blocksize[-3:]
-            else:
-                # this assumes len(blocksize) == 3
-                temp_segmentation_chunksize = (1,)*(input_zarr.ndim-3) + blocksize
-        else:
-            temp_segmentation_shape = input_zarr.shape
-            temp_segmentation_chunksize = blocksize
+    distributed_eval_results = run_distributed_eval(
+        input_zarr,
+        input_timeindex,
+        input_channels,
+        blocksize,
+        output_zarr,
+        cluster.client,
+        blockoverlaps=(),
+        mask=mask,
+        preprocessing_steps=preprocessing_steps,
+        cellpose_model_args=cellpose_model_args,
+        normalize_args=normalize_args,
+        cellpose_eval_args=cellpose_eval_args,
+        label_dist_th=label_dist_th,
+    )
+    seg_blocks_zarr, seg_blocks, seg_block_faces, seg_boxes, seg_box_ids = distributed_eval_results
 
-        logger.info((
-            f'Create temporary segmentation zarr: {temp_segmentation_zarr_path} '
-            f'shape: {temp_segmentation_shape} '
-            f'chunks: {temp_segmentation_chunksize}'
-        ))
-        temp_segmentation_zarr = zarr.create_array(store=temp_segmentation_zarr_path,
-                                                   shape=temp_segmentation_shape,
-                                                   chunks=temp_segmentation_chunksize,
-                                                   dtype=np.uint32,
-        )
-        labels_zarr, boxes, all_box_ids, final_labeling = run_distributed_eval(
-            input_zarr,
-            input_timeindex,
-            input_channels,
-            blocksize,
-            temp_segmentation_zarr,
-            cluster.client,
-            blockoverlaps=(),
-            mask=mask,
-            preprocessing_steps=preprocessing_steps,
-            cellpose_model_args=cellpose_model_args,
-            normalize_args=normalize_args,
-            cellpose_eval_args=cellpose_eval_args,
-            label_dist_th=label_dist_th,
-        )
-        # save tge final labeling
-        final_labeling_path = f'{temporary_directory}/final_labeling.npy'
-        _write_new_labeling(final_labeling_path, final_labeling)
+    if skip_merge:
+        return seg_blocks_zarr, seg_boxes
 
-        # resize the cluster for writing the final results
-        if isinstance(cluster, dask_jobqueue.core.JobQueueCluster): 
-            cluster.change_worker_attributes(
-                min_workers=cluster.locals_store['min_workers'],
-                max_workers=cluster.locals_store['max_workers'],
-                ncpus=1,
-                memory="15GB",
-                mem=int(15e9),
-                queue=None,
-                job_extra_directives=[],
-            )
+    # resize the cluster before merging labels - the GPU workers no longer needed
+    if isinstance(cluster, dask_jobqueue.core.JobQueueCluster): 
+        cluster.change_worker_attributes(
+            min_workers=cluster.locals_store['min_workers'],
+            max_workers=cluster.locals_store['max_workers'],
+            ncpus=1,
+            memory="15GB",
+            mem=int(15e9),
+            queue=None,
+            job_extra_directives=[],
+        )
 
-        # create the final segmentation zarr
-        labels_output_zarr = zarr.create_array(
-            stpre=output,
-            shape=labels_zarr.shape,
-            chunks=labels_zarr.chunks,
-            dtype=np.uint32,
-        )
-        logger.info(f'Relabel {all_box_ids.shape} blocks from {final_labeling_path}')
-        label_slices = slices_from_chunks(
-            normalize_chunks(labels_output_zarr.chunks, shape=labels_output_zarr.shape)
-        )
-        relabel_futures = cluster.client.map(
-            _copy_relabeled_block,
-            label_slices,
-            final_labeling=final_labeling_path,
-            input=labels_zarr,
-            output=labels_output_zarr,
-        )
-        relabel_res = True
-        for f, r in as_completed(relabel_futures, with_results=True):
-            if f.cancelled():
-                exc = f.exception()
-                logger.exception(f'Block processing exception: {exc}')
-                relabel_res = False
-            else:
-                relabel_res = relabel_res and r
-        logger.info(f'Relabeling final result: {relabel_res}')
-
-        merged_boxes = _merge_all_boxes(boxes, final_labeling[all_box_ids.astype(np.int32)])
-        return labels_output_zarr, merged_boxes
+    return merge_labels(
+        seg_blocks_zarr,
+        seg_blocks,
+        seg_block_faces,
+        seg_boxes,
+        seg_box_ids,
+        output_zarr,
+        cluster.client,
+        label_dist_th=label_dist_th,
+        temp_dir=temp_dir,
+    )
 
 
 def run_distributed_eval(
@@ -273,14 +230,63 @@ def run_distributed_eval(
     ))
 
     boxes = [box for sublist in boxes_ for box in sublist]
-    all_box_ids = np.concatenate(per_block_box_ids).astype(np.uint32)
+    box_ids = np.concatenate(per_block_box_ids).astype(np.uint32)
+
+    return labels_zarr, label_block_indices, faces, boxes, box_ids
+
+
+def merge_labels(segmented_blocks_zarr:zarr.Array,
+                 segmented_block_indices,
+                 segmented_block_faces,
+                 segmented_boxes,
+                 segmented_box_ids,
+                 output_labels_zarr:zarr.Array,
+                 dask_client,
+                 label_dist_th=1.0,
+                 temp_dir=None):
     logger.info((
-        f'Relabel {all_box_ids.shape} blocks of type {all_box_ids.dtype} - '
-        f'use {len(faces)} faces for merging labels'
+        f'Relabel {segmented_box_ids.shape} blocks of type {segmented_box_ids.dtype} - '
+        f'use {len(segmented_block_faces)} faces for merging labels'
     ))
-    new_labeling = _determine_merge_relabeling(label_block_indices, faces, all_box_ids,
-                                               label_dist_th=label_dist_th)
-    return labels_zarr, boxes, all_box_ids, new_labeling
+    final_labeling = _determine_merge_relabeling(
+        segmented_block_indices,
+        segmented_block_faces,
+        segmented_box_ids,
+        label_dist_th=label_dist_th
+    )
+    with tempfile.TemporaryDirectory(
+        prefix='.',
+        suffix='distributed_cellpose_tempdir',
+        dir=temp_dir or os.getcwd()) as temporary_directory:
+        # save the relabeling so that we only pass the file name to the workers
+        final_labeling_path = f'{temporary_directory}/final_labeling.npy'
+        _write_new_labeling(final_labeling_path, final_labeling)
+
+        label_slices = slices_from_chunks(
+            normalize_chunks(output_labels_zarr.chunks, shape=output_labels_zarr.shape)
+        )
+        relabel_futures = dask_client.map(
+            _copy_relabeled_block,
+            label_slices,
+            final_labeling=final_labeling_path,
+            src_data=segmented_blocks_zarr,
+            dest_data=output_labels_zarr,
+        )
+        # wait for relabeling results
+        relabel_res = True
+        for f, r in as_completed(relabel_futures, with_results=True):
+            if f.cancelled():
+                exc = f.exception()
+                logger.exception(f'Block relabel exception: {exc}')
+                relabel_res = False
+            else:
+                relabel_res = relabel_res and r
+        logger.info(f'Completed relabeling all blocks: {relabel_res}')
+
+        logger.info(f'Relabel {segmented_box_ids.shape} blocks from {final_labeling_path}')
+
+        merged_boxes = _merge_all_boxes(segmented_boxes, final_labeling[segmented_box_ids.astype(np.int32)])
+        return output_labels_zarr, merged_boxes
 
 
 ######################## the function to run on each block ####################
