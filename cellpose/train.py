@@ -231,7 +231,7 @@ def _process_train_test(train_data=None, train_labels=None, train_files=None,
                                                    device=device)
     elif compute_flows:
         # Compute flows one image at a time to avoid loading all into memory
-        for k in trange(nimg):
+        for k in trange(nimg) if nimg > 1 else range(nimg):
             dynamics.labels_to_flows([io.imread(train_labels_files[k])],
                                      files=[train_files[k]], device=device)
         # Update train_labels_files to point to the newly created flow files
@@ -239,7 +239,7 @@ def _process_train_test(train_data=None, train_labels=None, train_files=None,
             os.path.splitext(str(tf))[0] + "_flows.tif" for tf in train_files
         ]
         if test_files is not None:
-            for k in trange(nimg_test):
+            for k in trange(nimg_test) if nimg_test > 1 else range(nimg_test):
                 dynamics.labels_to_flows([io.imread(test_labels_files[k])],
                                          files=[test_files[k]], device=device)
             # Update test_labels_files to point to the newly created flow files
