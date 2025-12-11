@@ -1,5 +1,5 @@
 # stdlib imports
-import logging, os, pathlib, tempfile, time, traceback
+import functools, getpass, logging, os, pathlib, tempfile, time, traceback
 
 # non-stdlib core dependencies
 import imagecodecs
@@ -10,6 +10,8 @@ import torch
 
 
 # distributed dependencies
+import dask
+import distributed
 import dask_image.ndmeasure as di_ndmeasure
 import dask_jobqueue
 import yaml
@@ -20,6 +22,7 @@ from cellpose.models import assign_device, CellposeModel
 
 from dask.array.core import slices_from_chunks, normalize_chunks
 from dask.distributed import as_completed
+
 from typing import List, Tuple
 
 
@@ -88,7 +91,7 @@ def wrap_folder_of_tiffs(
     filename_pattern : string
         A glob pattern that will match all needed tif files
 
-    block_index_pattern : regular expression string (default: r'_(Z)(\d+)(Y)(\d+)(X)(\d+)')
+    block_index_pattern : regular expression string (default: r'_(Z)(\\d+)(Y)(\\d+)(X)(\\d+)')
         A regular expression pattern that indicates how to parse tiff filenames
         to determine where each tiff file lies in the overall block grid
         The default pattern assumes filenames like the following:
@@ -366,7 +369,7 @@ def cluster(func):
 
 
 ######################## the function to run on each block ####################
-def _process_block(
+def process_block(
     block_index,
     crop,
     input_zarr,
@@ -480,10 +483,10 @@ def _process_block(
         f'labels block size to {labels_blocksize} '
     ))
     logger.info(f'Remove {labels_overlaps} overlaps from {segmentation.shape} labels')
-    segmentation, labels_coords = remove_overlaps(segmentation, labels_coords, labels_overlaps, labels_blocksize)
+    segmentation, labels_coords = _remove_overlaps(segmentation, labels_coords, labels_overlaps, labels_blocksize)
 
     boxes = _bounding_boxes_in_global_coordinates(segmentation, labels_coords)
-    nblocks = get_nblocks(labels_shape, labels_blocksize)
+    nblocks = _get_nblocks(labels_shape, labels_blocksize)
     segmentation, remap = _global_segment_ids(segmentation, labels_block_index, nblocks)
     if remap[0] == 0:
         remap = remap[1:]
@@ -609,7 +612,7 @@ def read_preprocess_and_segment(
     return labels
 
 
-def remove_overlaps(array, crop, overlaps, blocksize):
+def _remove_overlaps(array, crop, overlaps, blocksize):
     """Overlaps are only there to provide context for boundary voxels
        and can be removed after segmentation is complete
        reslice array to remove the overlaps"""
@@ -664,7 +667,7 @@ def _bounding_boxes_in_global_coordinates(segmentation, crop):
     return boxes
 
 
-def get_nblocks(shape, blocksize):
+def _get_nblocks(shape, blocksize):
     """Given a shape and blocksize determine the number of blocks per axis"""
     return np.ceil(np.array(shape) / blocksize).astype(int)
 
@@ -858,10 +861,10 @@ def run_distributed_eval(
         f'image channels {input_channels} '
     ))
     diameter = cellpose_eval_args.get('diameter')
-    blocksize = prepare_blocksize(image_shape, blocksize)
-    blockoverlaps = prepare_overlaps(image_shape, blocksize, blockoverlaps,
+    blocksize = _prepare_blocksize(image_shape, blocksize)
+    blockoverlaps = _prepare_overlaps(image_shape, blocksize, blockoverlaps,
                                      default_overlap=2 * diameter if diameter is not None else None)
-    block_indices, block_crops = get_block_crops(
+    block_indices, block_crops = _get_block_crops(
         image_shape, blocksize, blockoverlaps, mask,
     )
 
@@ -877,7 +880,7 @@ def run_distributed_eval(
     else:
         segmentation_input_channels = input_channels
     futures = dask_client.map(
-        _process_block,
+        process_block,
         block_indices,
         block_crops,
         input_zarr=input_zarr,
@@ -936,7 +939,7 @@ def merge_labels(segmented_blocks_zarr:zarr.Array,
         dir=temp_dir or os.getcwd()) as temporary_directory:
         # save the relabeling so that we only pass the file name to the workers
         final_labeling_path = f'{temporary_directory}/final_labeling.npy'
-        _write_new_labeling(final_labeling_path, final_labeling)
+        _persist_nparray(final_labeling, final_labeling_path)
 
         label_slices = slices_from_chunks(
             normalize_chunks(output_labels_zarr.chunks, shape=output_labels_zarr.shape)
@@ -966,8 +969,9 @@ def merge_labels(segmented_blocks_zarr:zarr.Array,
 
 
 #----------------------- component functions ---------------------------------#
-def prepare_blocksize(shape: Tuple[int, ...]|List[int],
-                      blocksize: Tuple[int, ...]|List[int]) -> List[int]:
+def _prepare_blocksize(shape: Tuple[int, ...]|List[int],
+                       blocksize: Tuple[int, ...]|List[int]) -> List[int]:
+    """Prepare blocksize tuple to have the same number of dimensions as the input image shape"""
     ndim = len(shape)
     blocksize_ndim = len(blocksize)
     final_blocksize = []
@@ -984,10 +988,11 @@ def prepare_blocksize(shape: Tuple[int, ...]|List[int],
     return final_blocksize
 
 
-def prepare_overlaps(shape: Tuple[int, ...], 
-                     blocksize: Tuple[int, ...]|List[int],
-                     blockoverlaps: Tuple[int, ...]|List[int]|None,
-                     default_overlap: float|None=None) -> List[int]:
+def _prepare_overlaps(shape: Tuple[int, ...], 
+                      blocksize: Tuple[int, ...]|List[int],
+                      blockoverlaps: Tuple[int, ...]|List[int]|None,
+                      default_overlap: float|None=None) -> List[int]:
+    """Prepare the block overlaps to ensure the dimensions compatibility"""
     ndim = len(shape)
     blocksize_ndim = len(blocksize)
 
@@ -1019,7 +1024,7 @@ def prepare_overlaps(shape: Tuple[int, ...],
     raise ValueError(f"Invalid block overlaps argument: {blockoverlaps}")
 
 
-def get_block_crops(shape, blocksize, overlaps, mask):
+def _get_block_crops(shape, blocksize, overlaps, mask):
     """
     Given a voxel grid shape, blocksize, and overlap size, construct
        tuples of slices for every block; optionally only include blocks
@@ -1036,7 +1041,7 @@ def get_block_crops(shape, blocksize, overlaps, mask):
         mask_blocksize = None
 
     indices, crops = [], []
-    nblocks = get_nblocks(shape, blocksize)
+    nblocks = _get_nblocks(shape, blocksize)
     for index in np.ndindex(*nblocks):
         start = blocksize * index - blockoverlaps
         stop = start + blocksize + 2 * blockoverlaps
@@ -1206,19 +1211,23 @@ def _merge_boxes(boxes):
     return box_union
 
 
-def _write_new_labeling(new_labeling_path, new_labeling):
-    new_labeling_dir = os.path.dirname(new_labeling_path)
+def _persist_nparray(nparray, array_path):
+    """Persist a numpy array at the specified location and create all parent dirs if needed"""
+    new_labeling_dir = os.path.dirname(array_path)
     os.makedirs(new_labeling_dir, exist_ok=True)
-    np.save(new_labeling_path, new_labeling)
+    np.save(array_path, nparray)
 
 
-def _copy_relabeled_block(block_coords, final_labeling=None,
+def _copy_relabeled_block(block_coords, new_labeling_path=None,
                           src_data=[], dest_data=[]):
-    if final_labeling is None:
+    """Copy the block at the specified coordinates from the src_data
+       to the dest_data at the same coordinates and change its values
+       according to the mapping loaded from the new_labeling_path"""
+    if new_labeling_path is None:
         return False
     else:
-        logger.info(f'Relabel block: {block_coords}')
+        logger.debug(f'Relabel block: {block_coords}')
         block = src_data[block_coords]
-        new_labeling_array = np.load(final_labeling)
+        new_labeling_array = np.load(new_labeling_path)
         dest_data[block_coords] = new_labeling_array[block]
         return True
