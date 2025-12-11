@@ -378,7 +378,7 @@ def _process_block(
         f'cellpose eval opts: {cellpose_eval_args}, '
         f'cellpose model opts: {cellpose_model_args}, '
     ))
-    segmentation = _read_preprocess_and_segment(
+    segmentation = read_preprocess_and_segment(
         input_zarr,
         input_timeindex,
         input_channels,
@@ -421,7 +421,7 @@ def _process_block(
 
 
 #----------------------- component functions ---------------------------------#
-def _read_preprocess_and_segment(
+def read_preprocess_and_segment(
     input_zarr,
     input_timeindex,
     input_channels,
