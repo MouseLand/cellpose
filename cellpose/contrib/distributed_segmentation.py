@@ -429,6 +429,14 @@ def _process_block(
             return median_filter(image, radius)
         preprocessing_steps = [(F, {'sigma':2.0}), (G, {'radius':4})]
 
+    cellpose_model_args : dict
+        Arguments passed to cellpose.models.Cellpose
+        This is how you select and parameterize a model.
+
+    cellpose_eval_args : dict
+        Arguments passed to the eval function of the Cellpose model
+        This is how you parameterize model evaluation.
+
     blocksize : iterable (list, tuple, np.ndarray)
         The number of voxels (the shape) of blocks without overlaps
 
@@ -439,14 +447,6 @@ def _process_block(
     labels_zarr : zarr.core.Array
         A zarr array that has the same spatial dimensions as the input_zarr,
         for holding all segmented blocks.
-
-    cellpose_model_args : dict
-        Arguments passed to cellpose.models.Cellpose
-        This is how you select and parameterize a model.
-
-    cellpose_eval_args : dict
-        Arguments passed to the eval function of the Cellpose model
-        This is how you parameterize model evaluation.
 
     Returns
     -------
