@@ -642,10 +642,15 @@ def fill_holes_and_remove_small_masks(masks, min_size=15):
 
     # Filter small masks
     if min_size > 0:
-        counts = fastremap.unique(masks, return_counts=True)[1][1:]
-        masks = fastremap.mask(masks, np.nonzero(counts < min_size)[0] + 1)
+        uniq, counts = fastremap.unique(masks, return_counts=True)
+        # uniq[0] is background (0), so uniq[1:] are the actual mask labels
+        # counts[1:] are the corresponding counts
+        small_mask_indices = np.nonzero(counts[1:] < min_size)[0]
+        # Get the actual label values to remove (not indices)
+        labels_to_remove = uniq[1:][small_mask_indices]
+        masks = fastremap.mask(masks, labels_to_remove)
         fastremap.renumber(masks, in_place=True)
-        
+
     slices = find_objects(masks)
     j = 0
     for i, slc in enumerate(slices):
@@ -656,8 +661,11 @@ def fill_holes_and_remove_small_masks(masks, min_size=15):
             j += 1
 
     if min_size > 0:
-        counts = fastremap.unique(masks, return_counts=True)[1][1:]
-        masks = fastremap.mask(masks, np.nonzero(counts < min_size)[0] + 1)
+        uniq, counts = fastremap.unique(masks, return_counts=True)
+        small_mask_indices = np.nonzero(counts[1:] < min_size)[0]
+        labels_to_remove = uniq[1:][small_mask_indices]
+        masks = fastremap.mask(masks, labels_to_remove)
         fastremap.renumber(masks, in_place=True)
     
+
     return masks

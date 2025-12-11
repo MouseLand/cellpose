@@ -23,6 +23,6 @@ See :ref:`Settings` for more information on run settings.
 
     masks, flows, styles = model.eval(imgs)
 
-See example notebook at `run_cellpose.ipynb`_. 
+See example notebook at `run_Cellpose-SAM.ipynb`_. 
 
-.. _run_cellpose.ipynb: https://nbviewer.jupyter.org/github/MouseLand/cellpose/blob/master/notebooks/run_cellpose.ipynb
+.. _run_cellpose.ipynb: https://github.com/MouseLand/cellpose/blob/main/notebooks/run_Cellpose-SAM.ipynb

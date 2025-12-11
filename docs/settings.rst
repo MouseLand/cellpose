@@ -10,6 +10,10 @@ See the :ref:`cpmclass` for all run options.
     Cellpose 3 used ``models.Cellpose`` class which has been removed in Cellpose 4. Users should
     now only use the ``models.CellposeModel`` class. 
 
+.. warning::
+    Cellpose-SAM **does NOT** calculate a style vector in the CellposeModel.eval() method. For compatibility a 
+    vector of zeros is returned as the style vector. You will need to use Cellpose 3 if you want to use the style vector.
+    
 Here is an example of calling the ``CellposeModel`` class and
 running a list of images for reference:
 

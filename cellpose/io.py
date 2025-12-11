@@ -638,30 +638,34 @@ def save_to_png(images, masks, flows, file_names):
     save_masks(images, masks, flows, file_names, png=True)
 
 
-def save_rois(masks, file_name, multiprocessing=None):
+def save_rois(masks, file_name, multiprocessing=None, prefix='', pad=False):
     """ save masks to .roi files in .zip archive for ImageJ/Fiji
+    When opened in ImageJ, the ROIs will be named [prefix][0000]n where n is 1,2,... corresponding to the masks label
 
     Args:
         masks (np.ndarray): masks output from Cellpose.eval, where 0=NO masks; 1,2,...=mask labels
         file_name (str): name to save the .zip file to
+        multiprocessing (bool, optional): Flag to enable multiprocessing. Defaults to None (disabled).
+        prefix (str, optional): prefix to add at the beginning of the ROI labels in ImageJ. Defaults to no prefix
+        pad (bool, optional): Whether to pad the numerical part of the label with zeros so that all labels have the same length
 
     Returns:
         None
     """
     outlines = utils.outlines_list(masks, multiprocessing=multiprocessing)
-    nonempty_outlines = [outline for outline in outlines if len(outline)!=0]
-    if len(outlines)!=len(nonempty_outlines):
-        print(f"empty outlines found, saving {len(nonempty_outlines)} ImageJ ROIs to .zip archive.")
-    rois = [ImagejRoi.frompoints(outline) for outline in nonempty_outlines]
+    
+    n_digits = int(np.floor(np.log10(masks.max()))+1) if pad else 0
+    fmt = f'{{prefix}}{{id:0{n_digits}d}}'
+    rois = []
+    for n,outline in zip(np.unique(masks)[1:], outlines):
+        if len(outline) > 0:
+            rois.append(ImagejRoi.frompoints(outline, name=fmt.format(prefix=prefix, id=n)))
+
+    if len(outlines) != len(rois):
+        print(f"empty outlines found, saving {len(rois)} ImageJ ROIs to .zip archive.")
+
     file_name = os.path.splitext(file_name)[0] + '_rois.zip'
-
-
-    # Delete file if it exists; the roifile lib appends to existing zip files.
-    # If the user removed a mask it will still be in the zip file
-    if os.path.exists(file_name):
-        os.remove(file_name)
-
-    roiwrite(file_name, rois)
+    roiwrite(file_name, rois, mode='w')
 
 
 def save_masks(images, masks, flows, file_names, png=True, tif=False, channels=[0, 0],
@@ -692,7 +696,7 @@ def save_masks(images, masks, flows, file_names, png=True, tif=False, channels=[
         save_outlines (bool, optional): Save outlines of masks. Defaults to False.
         dir_above (bool, optional): Save masks/flows in directory above. Defaults to False.
         in_folders (bool, optional): Save masks/flows in separate folders. Defaults to False.
-        savedir (str, optional): Absolute path where images will be saved. If None, saves to image directory. Defaults to None.
+        savedir (str, optional): Absolute or relative path where images will be saved. If None, saves to image directory. Defaults to None.
         save_txt (bool, optional): Save masks as list of outlines for ImageJ. Defaults to False.
         save_mpl (bool, optional): If True, saves a matplotlib figure of the original image/segmentation/flows. Does not work for 3D.
                 This takes a long time for large images. Defaults to False.
@@ -724,11 +728,11 @@ def save_masks(images, masks, flows, file_names, png=True, tif=False, channels=[
 
     if savedir is None:
         if dir_above:
-            savedir = Path(file_names).parent.parent.absolute(
-            )  #go up a level to save in its own folder
+            savedir = Path(file_names).parent.parent#go up a level to save in its own folder
         else:
-            savedir = Path(file_names).parent.absolute()
+            savedir = Path(file_names).parent
 
+    savedir = Path(savedir).resolve()
     check_dir(savedir)
 
     basename = os.path.splitext(os.path.basename(file_names))[0]
@@ -811,6 +815,7 @@ def save_masks(images, masks, flows, file_names, png=True, tif=False, channels=[
     if masks.ndim < 3 and save_flows:
         check_dir(flowdir)
         imsave(os.path.join(flowdir, basename + "_flows" + suffix + ".tif"),
-               (flows[0] * (2**16 - 1)).astype(np.uint16))
+               flows[0]
+              )
         #save full flow data
         imsave(os.path.join(flowdir, basename + '_dP' + suffix + '.tif'), flows[1])
