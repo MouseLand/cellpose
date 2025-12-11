@@ -732,6 +732,88 @@ def distributed_eval(
     skip_merge=False,
     temp_dir=None,
 ):
+    """
+    Docstring for distributed_eval
+    
+    input_zarr: zarr.Array
+        A zarr array instance containing the image data you want to segment
+
+    input_timeindex: int | None
+        If the input image is a 5-D OME ZARR this specifies the time index
+        to be used for segmenting
+
+    input_channels: List[int] | int | None
+        For 4-D or 5-D images it specifies the channels used for segmentation.
+        A 3-D is actually converted to a 4-D image with the channel dimension of 1
+
+    blocksize: iterable
+        The spatial block dimensions in voxels, e.g. (128, 256, 256)
+
+    output_zarr: zarr.Array
+        The output zarr array that will have the segmentation results
+
+    mask : numpy.ndarray (default: None)
+        A foreground mask for the image data; may be at a different resolution
+        (e.g. lower) than the image data. If given, only blocks that contain
+        foreground will be processed. This can save considerable time and
+        expense. It is assumed that the domain of the input_zarr image data
+        and the mask is the same in physical units, but they may be on
+        different sampling/voxel grids.
+
+    preprocessing_steps : list of tuples (default: the empty list)
+        Optionally apply an arbitrary pipeline of preprocessing steps
+        to the image blocks before running cellpose.
+
+        Must be in the following format:
+        [(f, {'arg1':val1, ...}), ...]
+        That is, each tuple must contain only two elements, a function
+        and a dictionary. The function must have the following signature:
+        def F(image, ..., crop=None)
+        That is, the first argument must be a numpy array, which will later
+        be populated by the image data. The function must also take a keyword
+        argument called crop, even if it is not used in the function itself.
+        All other arguments to the function are passed using the dictionary.
+        Here is an example:
+
+        def F(image, sigma, crop=None):
+            return gaussian_filter(image, sigma)
+        def G(image, radius, crop=None):
+            return median_filter(image, radius)
+        preprocessing_steps = [(F, {'sigma':2.0}), (G, {'radius':4})]
+
+    cellpose_model_args: dict (default: {})
+        Arguments used for instantiating the Cellpose model
+
+    normalize_args: dict (default: {})
+        Arguments passed to normalize method
+
+    cellpose_eval_args: dict (default: {})
+        Arguments passed to cellpose eval method
+
+    label_dist_th: Distance threshold used for merging block labels
+
+    cluster : A dask cluster object (default: None)
+        Only set if you have constructed your own static cluster. The default
+        behavior is to construct a dask cluster for the duration of this function,
+        then close it when the function is finished.
+
+    cluster_kwargs : dict (default: {})
+        Arguments used to parameterize your cluster.
+        If you are running locally, see the docstring for the myLocalCluster
+        class in this module. If you are running on the Janelia LSF cluster, see
+        the docstring for the janeliaLSFCluster class in this module. If you are
+        running on a different institute cluster, you may need to implement
+        a dask cluster object that conforms to the requirements of your cluster.
+
+    skip_merge: bool
+        If True, skip label merging
+
+    temp_dir: string (default: None)
+        Working directory for holding temporary files. The temporary files will be
+        in their own folder within the temp_dir. The default (None) is the current 
+        directory. Temporary files are removed if the function completes successfully.
+
+    """
     distributed_eval_results = run_distributed_eval(
         input_zarr,
         input_timeindex,
@@ -745,7 +827,6 @@ def distributed_eval(
         cellpose_model_args=cellpose_model_args,
         normalize_args=normalize_args,
         cellpose_eval_args=cellpose_eval_args,
-        label_dist_th=label_dist_th,
     )
     seg_blocks_zarr, seg_blocks, seg_block_faces, seg_boxes, seg_box_ids = distributed_eval_results
 
@@ -790,7 +871,6 @@ def run_distributed_eval(
     cellpose_model_args={},
     normalize_args={},
     cellpose_eval_args={},
-    label_dist_th=1.0,
 ):
     """
     Evaluate a cellpose model on overlapping blocks of a big image.
@@ -809,16 +889,19 @@ def run_distributed_eval(
     timeindex : string
         if the image is a 5-D TCZYX ndarray specify which timeindex to use
 
-    input_channels : sequence[int] | None
+    input_channels : sequence[int] | int | None
         channels used for segmentation. If not set, it uses all channels
                 
     blocksize : iterable
-        The size of blocks in voxels. E.g. [128, 256, 256]
+        The spatial block dimensions in voxels, e.g. (128, 256, 256)
+
+    labels_zarr: zarr.Array
+        The output zarr array that will have the segmentation results
 
     dask_client : dask.distributed.Client
-        A remote or locakl dask client.
+        A remote or local dask client.
 
-        mask : numpy.ndarray (default: None)
+    mask : numpy.ndarray (default: None)
         A foreground mask for the image data; may be at a different resolution
         (e.g. lower) than the image data. If given, only blocks that contain
         foreground will be processed. This can save considerable time and
@@ -846,6 +929,15 @@ def run_distributed_eval(
         def G(image, radius, crop=None):
             return median_filter(image, radius)
         preprocessing_steps = [(F, {'sigma':2.0}), (G, {'radius':4})]
+
+    cellpose_model_args: dict (default: {})
+        Arguments used for instantiating the Cellpose model
+
+    normalize_args: dict (default: {})
+        Arguments passed to normalize method
+
+    cellpose_eval_args: dict (default: {})
+        Arguments passed to cellpose eval method
 
     Returns
     -------
