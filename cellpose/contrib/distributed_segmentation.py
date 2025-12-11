@@ -1,7 +1,8 @@
 # stdlib imports
-import logging, os, tempfile, time, traceback
+import logging, os, pathlib, tempfile, time, traceback
 
 # non-stdlib core dependencies
+import imagecodecs
 import numpy as np
 import scipy
 import tifffile
@@ -14,16 +15,12 @@ import dask_jobqueue
 import yaml
 import zarr
 
-
 from cellpose import transforms
 from cellpose.models import assign_device, CellposeModel
-from cellpose.contrib.dask_utils import cluster
-from cellpose.contrib.block_utils import (get_block_crops, get_nblocks, prepare_blocksize,
-                                          prepare_overlaps, remove_overlaps)
 
 from dask.array.core import slices_from_chunks, normalize_chunks
 from dask.distributed import as_completed
-from typing import List
+from typing import List, Tuple
 
 
 logger = logging.getLogger(__name__)
@@ -368,6 +365,345 @@ def cluster(func):
     return create_or_pass_cluster
 
 
+######################## the function to run on each block ####################
+def _process_block(
+    block_index,
+    crop,
+    input_zarr,
+    input_timeindex,
+    input_channels,
+    blocksize,
+    blockoverlaps,
+    labels_zarr,
+    preprocessing_steps=[],
+    cellpose_model_args={},
+    normalize_args={},
+    cellpose_eval_args={},
+):
+    """
+    Preprocess and segment one block, of many, with eventual merger
+    of all blocks in mind. The block is processed as follows:
+
+    (1) Read block from disk, preprocess, and segment.
+    (2) Remove overlaps.
+    (3) Get bounding boxes for every segment.
+    (4) Remap segment IDs to globally unique values.
+    (5) Write segments to disk.
+    (6) Get segmented block faces.
+
+    (5) return remapped segments as a numpy array, boxes, and box_ids
+
+    Parameters
+    ----------
+    block_index : tuple
+        The (i, j, k, ...) index of the block in the overall block grid
+
+    crop : tuple of slice objects
+        The bounding box of the data to read from the input_zarr array
+
+    image_container_path : string
+        Path to image container.
+
+    image_subpath : string
+        Dataset path relative to image container.
+
+    preprocessing_steps : list of tuples (default: the empty list)
+        Optionally apply an arbitrary pipeline of preprocessing steps
+        to the image block before running cellpose.
+
+        Must be in the following format:
+        [(f, {'arg1':val1, ...}), ...]
+        That is, each tuple must contain only two elements, a function
+        and a dictionary. The function must have the following signature:
+        def F(image, ..., crop=None)
+        That is, the first argument must be a numpy array, which will later
+        be populated by the image data. The function must also take a keyword
+        argument called crop, even if it is not used in the function itself.
+        All other arguments to the function are passed using the dictionary.
+        Here is an example:
+
+        def F(image, sigma, crop=None):
+            return gaussian_filter(image, sigma)
+        def G(image, radius, crop=None):
+            return median_filter(image, radius)
+        preprocessing_steps = [(F, {'sigma':2.0}), (G, {'radius':4})]
+
+    blocksize : iterable (list, tuple, np.ndarray)
+        The number of voxels (the shape) of blocks without overlaps
+
+    blocksoverlap : iterable (list, tuple, np.ndarray)
+        The number of voxels added to the blocksize to provide context
+        at the edges
+
+    labels_output_zarr : zarr.core.Array
+        A location where segments can be stored temporarily before
+        merger is complete
+
+    Returns
+    -------
+    faces : a list of numpy arrays - the faces of the block segments
+    boxes : a list of crops (tuples of slices), bounding boxes of segments
+    box_ids : 1D numpy array, parallel to boxes, the segment IDs of the
+                boxes
+    """
+    logger.info((
+        f'RUNNING BLOCK: {block_index}, '
+        f'REGION: {crop}, '
+        f'blocksize: {blocksize}, '
+        f'blocksoverlap: {blockoverlaps}, '
+        f'cellpose eval opts: {cellpose_eval_args}, '
+        f'cellpose model opts: {cellpose_model_args}, '
+    ))
+    segmentation = read_preprocess_and_segment(
+        input_zarr,
+        input_timeindex,
+        input_channels,
+        crop, 
+        preprocessing_steps=preprocessing_steps,
+        cellpose_model_args=cellpose_model_args,
+        normalize_args=normalize_args,
+        cellpose_eval_args=cellpose_eval_args,
+    )
+    seg_ndim = segmentation.ndim
+    # labels are single channel so if the input was multichannel remove the channel coords
+    labels_shape = labels_zarr.shape[-seg_ndim:]
+    labels_block_index = block_index[-seg_ndim:]
+    labels_coords = crop[-seg_ndim:]
+    labels_overlaps = blockoverlaps[-seg_ndim:]
+    labels_blocksize = blocksize[-seg_ndim:]
+
+    logger.debug((
+        f'adjusted labels image shape to {labels_shape} '
+        f'labels block index to {labels_block_index} '
+        f'labels block coords to {labels_coords} '
+        f'labels block overlaps to {labels_overlaps} '
+        f'labels block size to {labels_blocksize} '
+    ))
+    logger.info(f'Remove {labels_overlaps} overlaps from {segmentation.shape} labels')
+    segmentation, labels_coords = remove_overlaps(segmentation, labels_coords, labels_overlaps, labels_blocksize)
+
+    boxes = _bounding_boxes_in_global_coordinates(segmentation, labels_coords)
+    nblocks = get_nblocks(labels_shape, labels_blocksize)
+    segmentation, remap = _global_segment_ids(segmentation, labels_block_index, nblocks)
+    if remap[0] == 0:
+        remap = remap[1:]
+    if labels_zarr.ndim != seg_ndim:
+        labels_zarr_coords = (0,)*(labels_zarr.ndim-seg_ndim)+tuple(labels_coords)
+        labels_zarr[labels_zarr_coords] = segmentation
+    else:
+        labels_zarr[tuple(labels_coords)] = segmentation
+    faces = _block_faces(segmentation)
+    return labels_block_index, faces, boxes, remap
+
+
+#----------------------- component functions ---------------------------------#
+def read_preprocess_and_segment(
+    input_zarr,
+    input_timeindex,
+    input_channels,
+    crop,
+    preprocessing_steps=[],
+    cellpose_model_args={},
+    normalize_args={},
+    cellpose_eval_args={},
+):
+    """Read block from zarr array, run all preprocessing steps, run cellpose"""
+
+    input_channel_axis = cellpose_eval_args.get('channel_axis')
+
+    block_coords_list = [c for c in crop]
+    if input_channel_axis is not None and input_channels:
+        block_coords_list[input_channel_axis] = input_channels
+
+    if input_timeindex is not None:
+        # this should only be set for OME images if timepoints are present
+        # and timepoints if present are the first dimension
+        block_coords_list[0] = input_timeindex
+
+    block_coords = tuple(block_coords_list)
+    logger.info((
+        f'Reading {block_coords} block from the input zarr '
+        f'based on the input crop: {crop} '
+        f'timeindex {input_timeindex} '
+        f'channels {input_channels} '
+        f'input channel axis {input_channel_axis} '
+    ))
+
+    image_block = input_zarr[block_coords]
+    block_shape = image_block.shape
+    block_ndim = image_block.ndim
+
+    do_3D = cellpose_eval_args.get('do_3D', False)
+    input_z_axis = cellpose_eval_args.get('z_axis')
+    spatial_dims = 3 if do_3D else 2
+
+    if input_z_axis is not None:
+        # z axis is specified
+        if input_timeindex is not None and input_z_axis > 0:
+            z_axis = input_z_axis - 1
+        else:
+            z_axis = input_z_axis
+    else:
+        # z_axis is not specified
+        if not do_3D:
+            z_axis = None
+        else:
+            if block_ndim >= spatial_dims:
+                z_axis = -3
+            else:
+                raise ValueError(f'Cannot handle {spatial_dims}-D segmentation for block of shape {block_shape}')
+
+    if input_channel_axis is not None:
+        # channel axis is specified
+        if input_timeindex is not None and input_channel_axis > 0:
+            channel_axis = input_channel_axis - 1
+        else:
+            channel_axis = input_channel_axis
+    else:
+        # channel axis is not specified
+        if block_ndim == spatial_dims:
+            # append a dimension for the channel if channel dimension is missing
+            new_block_shape = (1,) + (block_shape)
+            image_block = np.reshape(image_block, new_block_shape)
+            channel_axis = 0 # channel is the first dimension
+        else:
+            # assume the channel axis is before the spatial axes
+            channel_axis = block_ndim - spatial_dims - 1
+    cellpose_eval_args['channel_axis'] = channel_axis
+    cellpose_eval_args['z_axis'] = z_axis
+
+    start_time = time.time()
+
+    for pp_step in preprocessing_steps:
+        logger.debug(f'Apply preprocessing step: {pp_step}')
+        image_block = pp_step[0](image_block, **pp_step[1])
+
+    model = _get_segmentation_model(cellpose_model_args)
+
+    if normalize_args.get('normalize'):
+        logger.info(f'Normalize {image_block.shape} block at {crop} params: {normalize_args}')
+        image_block = transforms.normalize_img(image_block, axis=channel_axis,
+                                               **normalize_args)
+    logger.info(f'Eval {image_block.shape} block at {crop} args: {cellpose_eval_args}')
+    try:
+        labels = model.eval(image_block, **cellpose_eval_args)[0].astype(np.uint32)
+    except Exception as e:
+        logger.error((
+            f'ERROR eval {image_block.shape} block at {crop} args: {cellpose_eval_args} '
+            f'err={e} {traceback.format_exception(e)}'
+        ))
+        raise e
+
+    end_time = time.time()
+    unique_labels = np.unique(labels)
+    logged_block_message = (f'for block: {crop}' 
+                            if crop is not None
+                            else 'for entire image')
+    logger.info((
+        'Finished model eval '
+        f'{logged_block_message} => '
+        f'found {len(unique_labels)} unique labels '
+        f'in the {labels.shape} image '
+        f'in {end_time-start_time}s '
+    ))
+    return labels
+
+
+def remove_overlaps(array, crop, overlaps, blocksize):
+    """Overlaps are only there to provide context for boundary voxels
+       and can be removed after segmentation is complete
+       reslice array to remove the overlaps"""
+    logger.debug((
+        f'Remove overlaps: {overlaps} '
+        f'crop: {crop} '
+        f'blocksize is {blocksize} '
+        f'block shape: {array.shape} '
+    ))
+    crop_trimmed = list(crop)
+    for axis in range(array.ndim):
+        # left side
+        if crop[axis].start != 0:
+            slc = [slice(None),]*array.ndim
+            slc[axis] = slice(overlaps[axis], None)
+            loverlap_index = tuple(slc)
+            logger.debug((
+                f'Remove left overlap on axis {axis}: {loverlap_index} ({type(loverlap_index)}) '
+                f'from labeled block of shape: {array.shape} '
+            ))
+            array = array[loverlap_index]
+            a, b = crop[axis].start, crop[axis].stop
+            crop_trimmed[axis] = slice(a + overlaps[axis], b)
+        # right side
+        if array.shape[axis] > blocksize[axis]:
+            slc = [slice(None),]*array.ndim
+            slc[axis] = slice(None, blocksize[axis])
+            roverlap_index = tuple(slc)
+            logger.debug((
+                f'Remove right overlap on axis {axis}: {roverlap_index} ({type(roverlap_index)}) '
+                f'from labeled block of shape: {array.shape} '
+            ))
+            array = array[roverlap_index]
+            a = crop_trimmed[axis].start
+            crop_trimmed[axis] = slice(a, a + blocksize[axis])
+    return array, crop_trimmed
+
+
+def _bounding_boxes_in_global_coordinates(segmentation, crop):
+    """
+    bounding boxes (tuples of slices) are super useful later
+    best to compute them now while things are distributed
+    """
+    boxes = scipy.ndimage.find_objects(segmentation)
+    boxes = [b for b in boxes if b is not None]
+
+    def _translate(a, b):
+        return slice(a.start+b.start, a.start+b.stop)
+
+    for iii, box in enumerate(boxes):
+        boxes[iii] = tuple(_translate(a, b) for a, b in zip(crop, box))
+    return boxes
+
+
+def get_nblocks(shape, blocksize):
+    """Given a shape and blocksize determine the number of blocks per axis"""
+    return np.ceil(np.array(shape) / blocksize).astype(int)
+
+
+def _global_segment_ids(segmentation, block_index, nblocks):
+    """
+    Pack the block index into the segment IDs so they are
+    globally unique. Everything gets remapped to [1..N] later.
+    A label is split into 5 digits on left and 5 digits on right.
+    This creates limits: 42950 maximum number of blocks and
+    99999 maximum number of segments per block
+    """
+    unique, unique_inverse = np.unique(segmentation, return_inverse=True)
+    logger.debug((
+        f'Block {block_index} out of {nblocks} blocks '
+        f'- has {len(unique)} unique labels '
+    ))
+    p = str(np.ravel_multi_index(block_index, nblocks))
+    remap = [int(p+str(x).zfill(5)) for x in unique]
+    if unique[0] == 0:
+        remap[0] = 0  # 0 should just always be 0
+    logger.debug(f'Remap: {remap}')
+    segmentation = np.array(remap, dtype=np.uint32)[unique_inverse.reshape(segmentation.shape)]
+    return segmentation, remap
+
+
+def _block_faces(segmentation):
+    """Slice faces along every axis"""
+    faces = []
+    for iii in range(segmentation.ndim):
+        a = [slice(None),] * segmentation.ndim
+        a[iii] = slice(0, 1)
+        faces.append(segmentation[tuple(a)])
+        a = [slice(None),] * segmentation.ndim
+        a[iii] = slice(-1, None)
+        faces.append(segmentation[tuple(a)])
+    return faces
+
+
 #----------------------- The main function -----------------------------------#
 @cluster
 def distributed_eval(
@@ -629,248 +965,98 @@ def merge_labels(segmented_blocks_zarr:zarr.Array,
         return output_labels_zarr, merged_boxes
 
 
-######################## the function to run on each block ####################
-def _process_block(
-    block_index,
-    crop,
-    input_zarr,
-    input_timeindex,
-    input_channels,
-    blocksize,
-    blockoverlaps,
-    labels_zarr,
-    preprocessing_steps=[],
-    cellpose_model_args={},
-    normalize_args={},
-    cellpose_eval_args={},
-):
-    """
-    Preprocess and segment one block, of many, with eventual merger
-    of all blocks in mind. The block is processed as follows:
-
-    (1) Read block from disk, preprocess, and segment.
-    (2) Remove overlaps.
-    (3) Get bounding boxes for every segment.
-    (4) Remap segment IDs to globally unique values.
-    (5) Write segments to disk.
-    (6) Get segmented block faces.
-
-    (5) return remapped segments as a numpy array, boxes, and box_ids
-
-    Parameters
-    ----------
-    block_index : tuple
-        The (i, j, k, ...) index of the block in the overall block grid
-
-    crop : tuple of slice objects
-        The bounding box of the data to read from the input_zarr array
-
-    image_container_path : string
-        Path to image container.
-
-    image_subpath : string
-        Dataset path relative to image container.
-
-    preprocessing_steps : list of tuples (default: the empty list)
-        Optionally apply an arbitrary pipeline of preprocessing steps
-        to the image block before running cellpose.
-
-        Must be in the following format:
-        [(f, {'arg1':val1, ...}), ...]
-        That is, each tuple must contain only two elements, a function
-        and a dictionary. The function must have the following signature:
-        def F(image, ..., crop=None)
-        That is, the first argument must be a numpy array, which will later
-        be populated by the image data. The function must also take a keyword
-        argument called crop, even if it is not used in the function itself.
-        All other arguments to the function are passed using the dictionary.
-        Here is an example:
-
-        def F(image, sigma, crop=None):
-            return gaussian_filter(image, sigma)
-        def G(image, radius, crop=None):
-            return median_filter(image, radius)
-        preprocessing_steps = [(F, {'sigma':2.0}), (G, {'radius':4})]
-
-    blocksize : iterable (list, tuple, np.ndarray)
-        The number of voxels (the shape) of blocks without overlaps
-
-    blocksoverlap : iterable (list, tuple, np.ndarray)
-        The number of voxels added to the blocksize to provide context
-        at the edges
-
-    labels_output_zarr : zarr.core.Array
-        A location where segments can be stored temporarily before
-        merger is complete
-
-    Returns
-    -------
-    faces : a list of numpy arrays - the faces of the block segments
-    boxes : a list of crops (tuples of slices), bounding boxes of segments
-    box_ids : 1D numpy array, parallel to boxes, the segment IDs of the
-                boxes
-    """
-    logger.info((
-        f'RUNNING BLOCK: {block_index}, '
-        f'REGION: {crop}, '
-        f'blocksize: {blocksize}, '
-        f'blocksoverlap: {blockoverlaps}, '
-        f'cellpose eval opts: {cellpose_eval_args}, '
-        f'cellpose model opts: {cellpose_model_args}, '
-    ))
-    segmentation = read_preprocess_and_segment(
-        input_zarr,
-        input_timeindex,
-        input_channels,
-        crop, 
-        preprocessing_steps=preprocessing_steps,
-        cellpose_model_args=cellpose_model_args,
-        normalize_args=normalize_args,
-        cellpose_eval_args=cellpose_eval_args,
-    )
-    seg_ndim = segmentation.ndim
-    # labels are single channel so if the input was multichannel remove the channel coords
-    labels_shape = labels_zarr.shape[-seg_ndim:]
-    labels_block_index = block_index[-seg_ndim:]
-    labels_coords = crop[-seg_ndim:]
-    labels_overlaps = blockoverlaps[-seg_ndim:]
-    labels_blocksize = blocksize[-seg_ndim:]
-
-    logger.debug((
-        f'adjusted labels image shape to {labels_shape} '
-        f'labels block index to {labels_block_index} '
-        f'labels block coords to {labels_coords} '
-        f'labels block overlaps to {labels_overlaps} '
-        f'labels block size to {labels_blocksize} '
-    ))
-    logger.info(f'Remove {labels_overlaps} overlaps from {segmentation.shape} labels')
-    segmentation, labels_coords = remove_overlaps(segmentation, labels_coords, labels_overlaps, labels_blocksize)
-
-    boxes = _bounding_boxes_in_global_coordinates(segmentation, labels_coords)
-    nblocks = get_nblocks(labels_shape, labels_blocksize)
-    segmentation, remap = _global_segment_ids(segmentation, labels_block_index, nblocks)
-    if remap[0] == 0:
-        remap = remap[1:]
-    if labels_zarr.ndim != seg_ndim:
-        labels_zarr_coords = (0,)*(labels_zarr.ndim-seg_ndim)+tuple(labels_coords)
-        labels_zarr[labels_zarr_coords] = segmentation
-    else:
-        labels_zarr[tuple(labels_coords)] = segmentation
-    faces = _block_faces(segmentation)
-    return labels_block_index, faces, boxes, remap
-
-
 #----------------------- component functions ---------------------------------#
-def read_preprocess_and_segment(
-    input_zarr,
-    input_timeindex,
-    input_channels,
-    crop,
-    preprocessing_steps=[],
-    cellpose_model_args={},
-    normalize_args={},
-    cellpose_eval_args={},
-):
-    """Read block from zarr array, run all preprocessing steps, run cellpose"""
+def prepare_blocksize(shape: Tuple[int, ...]|List[int],
+                      blocksize: Tuple[int, ...]|List[int]) -> List[int]:
+    ndim = len(shape)
+    blocksize_ndim = len(blocksize)
+    final_blocksize = []
 
-    input_channel_axis = cellpose_eval_args.get('channel_axis')
+    # the blocksize may have fewer elements than the image shape
+    # in that case we right align it to shape
+    # if somehow blocksize has more elements than shape
+    # we drop the first elements until the sizes match
+    offset = ndim - blocksize_ndim
+    
+    for si in range(ndim):
+        final_blocksize.append(shape[si] if si < offset else blocksize[si - offset])
 
-    block_coords_list = [c for c in crop]
-    if input_channel_axis is not None and input_channels:
-        block_coords_list[input_channel_axis] = input_channels
+    return final_blocksize
 
-    if input_timeindex is not None:
-        # this should only be set for OME images if timepoints are present
-        # and timepoints if present are the first dimension
-        block_coords_list[0] = input_timeindex
 
-    block_coords = tuple(block_coords_list)
-    logger.info((
-        f'Reading {block_coords} block from the input zarr '
-        f'based on the input crop: {crop} '
-        f'timeindex {input_timeindex} '
-        f'channels {input_channels} '
-        f'input channel axis {input_channel_axis} '
-    ))
+def prepare_overlaps(shape: Tuple[int, ...], 
+                     blocksize: Tuple[int, ...]|List[int],
+                     blockoverlaps: Tuple[int, ...]|List[int]|None,
+                     default_overlap: float|None=None) -> List[int]:
+    ndim = len(shape)
+    blocksize_ndim = len(blocksize)
 
-    image_block = input_zarr[block_coords]
-    block_shape = image_block.shape
-    block_ndim = image_block.ndim
+    def default_overlap_forsize(s):
+        return int(s * 0.1) if default_overlap is None else int(default_overlap)
 
-    do_3D = cellpose_eval_args.get('do_3D', False)
-    input_z_axis = cellpose_eval_args.get('z_axis')
-    spatial_dims = 3 if do_3D else 2
+    # If overlaps not provided (None / empty), compute defaults for every blocksize dim
+    if not blockoverlaps:
+        offset = ndim - blocksize_ndim  # blocksize is right-aligned to shape
+        return [
+            0 if blocksize[i] == shape[i + offset] 
+              else default_overlap_forsize(blocksize[i])
+            for i in range(blocksize_ndim)
+        ]
 
-    if input_z_axis is not None:
-        # z axis is specified
-        if input_timeindex is not None and input_z_axis > 0:
-            z_axis = input_z_axis - 1
-        else:
-            z_axis = input_z_axis
+    # If overlaps provided as list/tuple, right-align overlaps to blocksize
+    if isinstance(blockoverlaps, (list, tuple)):
+        bo_ndim = len(blockoverlaps)
+        offset_shape = ndim - blocksize_ndim
+        offset_ov = max(blocksize_ndim - bo_ndim, 0)  # how much overlaps lags behind blocksize
+        return [
+            0 if blocksize[i] == shape[i + offset_shape]
+            else (int(blockoverlaps[i - offset_ov])
+                  if i >= offset_ov 
+                  else default_overlap_forsize(blocksize[i]))
+            for i in range(blocksize_ndim)
+        ]
+
+    raise ValueError(f"Invalid block overlaps argument: {blockoverlaps}")
+
+
+def get_block_crops(shape, blocksize, overlaps, mask):
+    """
+    Given a voxel grid shape, blocksize, and overlap size, construct
+       tuples of slices for every block; optionally only include blocks
+       that contain foreground in the mask. Returns parallel lists,
+       the block indices and the slice tuples.
+    """
+    blocksize = np.array(blocksize, dtype=int)
+    blockoverlaps = np.array(overlaps, dtype=int)
+
+    if mask is not None:
+        ratio = np.array(mask.shape) / shape
+        mask_blocksize = np.round(ratio * blocksize).astype(int)
     else:
-        # z_axis is not specified
-        if not do_3D:
-            z_axis = None
-        else:
-            if block_ndim >= spatial_dims:
-                z_axis = -3
-            else:
-                raise ValueError(f'Cannot handle {spatial_dims}-D segmentation for block of shape {block_shape}')
+        mask_blocksize = None
 
-    if input_channel_axis is not None:
-        # channel axis is specified
-        if input_timeindex is not None and input_channel_axis > 0:
-            channel_axis = input_channel_axis - 1
-        else:
-            channel_axis = input_channel_axis
-    else:
-        # channel axis is not specified
-        if block_ndim == spatial_dims:
-            # append a dimension for the channel if channel dimension is missing
-            new_block_shape = (1,) + (block_shape)
-            image_block = np.reshape(image_block, new_block_shape)
-            channel_axis = 0 # channel is the first dimension
-        else:
-            # assume the channel axis is before the spatial axes
-            channel_axis = block_ndim - spatial_dims - 1
-    cellpose_eval_args['channel_axis'] = channel_axis
-    cellpose_eval_args['z_axis'] = z_axis
+    indices, crops = [], []
+    nblocks = get_nblocks(shape, blocksize)
+    for index in np.ndindex(*nblocks):
+        start = blocksize * index - blockoverlaps
+        stop = start + blocksize + 2 * blockoverlaps
+        start = np.maximum(0, start)
+        stop = np.minimum(shape, stop)
+        crop = tuple(slice(x, y) for x, y in zip(start, stop))
 
-    start_time = time.time()
+        foreground = True
+        if mask is not None:
+            start = mask_blocksize * index
+            stop = start + mask_blocksize
+            stop = np.minimum(mask.shape, stop)
+            mask_crop = tuple(slice(x, y) for x, y in zip(start, stop))
+            if not np.any(mask[mask_crop]):
+                foreground = False
+        if foreground:
+            indices.append(index)
+            crops.append(crop)
 
-    for pp_step in preprocessing_steps:
-        logger.debug(f'Apply preprocessing step: {pp_step}')
-        image_block = pp_step[0](image_block, **pp_step[1])
-
-    model = _get_segmentation_model(cellpose_model_args)
-
-    if normalize_args.get('normalize'):
-        logger.info(f'Normalize {image_block.shape} block at {crop} params: {normalize_args}')
-        image_block = transforms.normalize_img(image_block, axis=channel_axis,
-                                               **normalize_args)
-    logger.info(f'Eval {image_block.shape} block at {crop} args: {cellpose_eval_args}')
-    try:
-        labels = model.eval(image_block, **cellpose_eval_args)[0].astype(np.uint32)
-    except Exception as e:
-        logger.error((
-            f'ERROR eval {image_block.shape} block at {crop} args: {cellpose_eval_args} '
-            f'err={e} {traceback.format_exception(e)}'
-        ))
-        raise e
-
-    end_time = time.time()
-    unique_labels = np.unique(labels)
-    logged_block_message = (f'for block: {crop}' 
-                            if crop is not None
-                            else 'for entire image')
-    logger.info((
-        'Finished model eval '
-        f'{logged_block_message} => '
-        f'found {len(unique_labels)} unique labels '
-        f'in the {labels.shape} image '
-        f'in {end_time-start_time}s '
-    ))
-    return labels
+    return indices, crops
 
 
 def _get_segmentation_model(cellpose_model_args):
@@ -909,57 +1095,6 @@ def _get_segmentation_model(cellpose_model_args):
         device=segmentation_device,
         pretrained_model=cellpose_model_args.get('pretrained_model'),
     )
-
-
-def _bounding_boxes_in_global_coordinates(segmentation, crop):
-    """
-    bounding boxes (tuples of slices) are super useful later
-    best to compute them now while things are distributed
-    """
-    boxes = scipy.ndimage.find_objects(segmentation)
-    boxes = [b for b in boxes if b is not None]
-
-    def _translate(a, b):
-        return slice(a.start+b.start, a.start+b.stop)
-
-    for iii, box in enumerate(boxes):
-        boxes[iii] = tuple(_translate(a, b) for a, b in zip(crop, box))
-    return boxes
-
-
-def _global_segment_ids(segmentation, block_index, nblocks):
-    """
-    Pack the block index into the segment IDs so they are
-    globally unique. Everything gets remapped to [1..N] later.
-    A label is split into 5 digits on left and 5 digits on right.
-    This creates limits: 42950 maximum number of blocks and
-    99999 maximum number of segments per block
-    """
-    unique, unique_inverse = np.unique(segmentation, return_inverse=True)
-    logger.debug((
-        f'Block {block_index} out of {nblocks} blocks '
-        f'- has {len(unique)} unique labels '
-    ))
-    p = str(np.ravel_multi_index(block_index, nblocks))
-    remap = [int(p+str(x).zfill(5)) for x in unique]
-    if unique[0] == 0:
-        remap[0] = 0  # 0 should just always be 0
-    logger.debug(f'Remap: {remap}')
-    segmentation = np.array(remap, dtype=np.uint32)[unique_inverse.reshape(segmentation.shape)]
-    return segmentation, remap
-
-
-def _block_faces(segmentation):
-    """Slice faces along every axis"""
-    faces = []
-    for iii in range(segmentation.ndim):
-        a = [slice(None),] * segmentation.ndim
-        a[iii] = slice(0, 1)
-        faces.append(segmentation[tuple(a)])
-        a = [slice(None),] * segmentation.ndim
-        a[iii] = slice(-1, None)
-        faces.append(segmentation[tuple(a)])
-    return faces
 
 
 def _determine_merge_relabeling(block_indices, faces, labels,
@@ -1008,9 +1143,8 @@ def _adjacent_faces(block_indices, faces):
 
 
 def _block_face_adjacency_graph(faces, labels_range, label_dist_th=1.0):
-    """
-    Shrink labels in face plane, then find which labels touch across the face boundary
-    """
+    """Shrink labels in face plane, then find which labels touch across the
+       face boundary"""
     logger.info(f'Create adjacency graph for {labels_range} labels')
     all_mappings = [np.empty((2, 0), dtype=np.uint32)]
     structure = scipy.ndimage.generate_binary_structure(3, 1)
