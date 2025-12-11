@@ -203,11 +203,11 @@ class myLocalCluster(distributed.LocalCluster):
 
         # set environment variables for workers (threading)
         environment_vars = {
-            'MKL_NUM_THREADS':str(ncpus),
-            'NUM_MKL_THREADS':str(ncpus),
-            'OPENBLAS_NUM_THREADS':str(ncpus),
-            'OPENMP_NUM_THREADS':str(ncpus),
-            'OMP_NUM_THREADS':str(ncpus),
+            'MKL_NUM_THREADS':str(2*ncpus),
+            'NUM_MKL_THREADS':str(2*ncpus),
+            'OPENBLAS_NUM_THREADS':str(2*ncpus),
+            'OPENMP_NUM_THREADS':str(2*ncpus),
+            'OMP_NUM_THREADS':str(2*ncpus),
         }
         def set_environment_vars():
             for k, v in environment_vars.items():
