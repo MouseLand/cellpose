@@ -73,25 +73,11 @@ def assign_device(use_torch=True, gpu=False, device=0):
     Returns:
         torch.device, bool (True if GPU is used, False otherwise)
     """
-    if isinstance(device, str):
-        device_name = device.lower()
-        if device_name.startswith("mps") or device_name.startswith("cuda"):
-            # try to get the device number because that is what use_gpu requires
-            device_comps = device_name.split(':')
-            if len(device_comps) > 1 and device_comps[1]:
-                device_num = int(device_comps[1])
-            else:
-                # this is the case when the device is passed as "mps" or "cuda"
-                # in this case simply try the first device
-                device_num = 0
-        else:
-            # assume the device str is "0", "1", ... so simply convert it to int
-            device_num = int(device)
-    else:
-        # assume this is already an int
-        device_num = device
 
-    if gpu and use_gpu(gpu_number=device_num, use_torch=use_torch):
+    if isinstance(device, str):
+        if device != "mps" or not(gpu and torch.backends.mps.is_available()):
+            device = int(device)
+    if gpu and use_gpu(gpu_number=device, use_torch=use_torch):
         try:
             if torch.cuda.is_available():
                 device = torch.device(f'cuda:{device}')
