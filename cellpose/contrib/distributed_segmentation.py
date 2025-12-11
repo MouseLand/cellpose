@@ -369,7 +369,7 @@ def cluster(func):
 
 
 ######################## the function to run on each block ####################
-def process_block(
+def _process_block(
     block_index,
     crop,
     input_zarr,
@@ -404,11 +404,9 @@ def process_block(
     crop : tuple of slice objects
         The bounding box of the data to read from the input_zarr array
 
-    image_container_path : string
-        Path to image container.
-
-    image_subpath : string
-        Dataset path relative to image container.
+    input_zarr : zarr.core.Array
+        The image data we want to segment. Note that this may be a 4-D or 5-D
+        multidimensional array.
 
     preprocessing_steps : list of tuples (default: the empty list)
         Optionally apply an arbitrary pipeline of preprocessing steps
@@ -434,13 +432,21 @@ def process_block(
     blocksize : iterable (list, tuple, np.ndarray)
         The number of voxels (the shape) of blocks without overlaps
 
-    blocksoverlap : iterable (list, tuple, np.ndarray)
+    blockoverlaps : iterable (list, tuple, np.ndarray)
         The number of voxels added to the blocksize to provide context
         at the edges
 
-    labels_output_zarr : zarr.core.Array
-        A location where segments can be stored temporarily before
-        merger is complete
+    labels_zarr : zarr.core.Array
+        A zarr array that has the same spatial dimensions as the input_zarr,
+        for holding all segmented blocks.
+
+    cellpose_model_args : dict
+        Arguments passed to cellpose.models.Cellpose
+        This is how you select and parameterize a model.
+
+    cellpose_eval_args : dict
+        Arguments passed to the eval function of the Cellpose model
+        This is how you parameterize model evaluation.
 
     Returns
     -------
@@ -873,14 +879,15 @@ def run_distributed_eval(
         f'with overlap {blockoverlaps} '
         f'from a {image_shape} image'
     ))
-
     if isinstance(input_channels, int):
         # if the input channel is a single int value make it a list
+        # because we want to preserve the channel dimension in the image passed to eval
         segmentation_input_channels = [input_channels]
     else:
         segmentation_input_channels = input_channels
+
     futures = dask_client.map(
-        process_block,
+        _process_block,
         block_indices,
         block_crops,
         input_zarr=input_zarr,
@@ -902,14 +909,15 @@ def run_distributed_eval(
         ' - start label merge process'
     ))
 
-    label_block_indices, faces, boxes_, per_block_box_ids = list(zip(*results))
-    logger.info((
+    label_block_indices, faces, boxes_, box_ids_ = list(zip(*results))
+
+    logger.debug((
         'Segmentation results contain '
-        f'faces: {len(faces)}, boxes: {len(boxes_)}, box_ids: {len(per_block_box_ids)}'
+        f'faces: {len(faces)}, boxes: {len(boxes_)}, box_ids: {len(box_ids_)}'
     ))
 
     boxes = [box for sublist in boxes_ for box in sublist]
-    box_ids = np.concatenate(per_block_box_ids).astype(np.uint32)
+    box_ids = np.concatenate(box_ids_).astype(np.uint32)
 
     return labels_zarr, label_block_indices, faces, boxes, box_ids
 
@@ -927,7 +935,7 @@ def merge_labels(segmented_blocks_zarr:zarr.Array,
         f'Relabel {segmented_box_ids.shape} blocks of type {segmented_box_ids.dtype} - '
         f'use {len(segmented_block_faces)} faces for merging labels'
     ))
-    final_labeling = _determine_merge_relabeling(
+    new_labeling = _determine_merge_relabeling(
         segmented_block_indices,
         segmented_block_faces,
         segmented_box_ids,
@@ -938,8 +946,8 @@ def merge_labels(segmented_blocks_zarr:zarr.Array,
         suffix='distributed_cellpose_tempdir',
         dir=temp_dir or os.getcwd()) as temporary_directory:
         # save the relabeling so that we only pass the file name to the workers
-        final_labeling_path = f'{temporary_directory}/final_labeling.npy'
-        _persist_nparray(final_labeling, final_labeling_path)
+        new_labeling_path = f'{temporary_directory}/new_labeling.npy'
+        _persist_nparray(new_labeling, new_labeling_path)
 
         label_slices = slices_from_chunks(
             normalize_chunks(output_labels_zarr.chunks, shape=output_labels_zarr.shape)
@@ -947,7 +955,7 @@ def merge_labels(segmented_blocks_zarr:zarr.Array,
         relabel_futures = dask_client.map(
             _copy_relabeled_block,
             label_slices,
-            final_labeling=final_labeling_path,
+            new_labeling_path=new_labeling_path,
             src_data=segmented_blocks_zarr,
             dest_data=output_labels_zarr,
         )
@@ -962,9 +970,9 @@ def merge_labels(segmented_blocks_zarr:zarr.Array,
                 relabel_res = relabel_res and r
         logger.info(f'Completed relabeling all blocks: {relabel_res}')
 
-        logger.info(f'Relabel {segmented_box_ids.shape} blocks from {final_labeling_path}')
+        logger.info(f'Relabel {segmented_box_ids.shape} blocks from {new_labeling_path}')
 
-        merged_boxes = _merge_all_boxes(segmented_boxes, final_labeling[segmented_box_ids.astype(np.int32)])
+        merged_boxes = _merge_all_boxes(segmented_boxes, new_labeling[segmented_box_ids.astype(np.int32)])
         return output_labels_zarr, merged_boxes
 
 
