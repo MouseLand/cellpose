@@ -397,6 +397,10 @@ def process_block(
     (5) Write segments to disk.
     (6) Get segmented block faces.
 
+    A user may want to test this function on one block before running
+    the distributed function. When test_mode=True, steps (5) and (6)
+    are omitted and replaced with:
+
     (5) return remapped segments as a numpy array, boxes, and box_ids
 
     Parameters
