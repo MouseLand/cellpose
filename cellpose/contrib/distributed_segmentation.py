@@ -758,6 +758,7 @@ def _block_faces(segmentation):
         faces.append(segmentation[tuple(a)])
     return faces
 
+######################## Distributed Cellpose #################################
 
 #----------------------- The main function -----------------------------------#
 @cluster
