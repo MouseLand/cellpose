@@ -1,5 +1,5 @@
 # stdlib imports
-import functools, getpass, logging, os, pathlib, tempfile, time, traceback
+import datetime, functools, getpass, logging, os, pathlib, tempfile, time, traceback
 
 # non-stdlib core dependencies
 import imagecodecs
@@ -18,6 +18,7 @@ import yaml
 import zarr
 
 from cellpose import transforms
+from cellpose.io import logger_setup
 from cellpose.models import assign_device, CellposeModel
 
 from dask.array.core import slices_from_chunks, normalize_chunks
@@ -369,7 +370,7 @@ def cluster(func):
 
 
 ######################## the function to run on each block ####################
-def _process_block(
+def process_block(
     block_index,
     crop,
     input_zarr,
@@ -377,11 +378,13 @@ def _process_block(
     input_channels,
     blocksize,
     blockoverlaps,
-    labels_zarr,
+    output_zarr,
     preprocessing_steps=[],
     cellpose_model_args={},
     normalize_args={},
     cellpose_eval_args={},
+    worker_logs_dir=None,
+    test_mode=False,
 ):
     """
     Preprocess and segment one block, of many, with eventual merger
@@ -444,16 +447,49 @@ def _process_block(
         The number of voxels added to the blocksize to provide context
         at the edges
 
-    labels_zarr : zarr.core.Array
+    output_zarr : zarr.core.Array
         A zarr array that has the same spatial dimensions as the input_zarr,
         for holding all segmented blocks.
 
+    worker_logs_directory : string (default: None)
+        A directory path where log files for each worker can be created
+        The directory must exist
+
+    test_mode : bool (default: False)
+        The primary use case of this function is to be called by
+        distributed_eval (defined later in this same module). However
+        you may want to call this function manually to test what
+        happens to an individual block; this is a good idea before
+        ramping up to process big data and also useful for debugging.
+
+        When test_mode is False (default) this function stores
+        the segments and returns objects needed for merging between
+        blocks.
+
+        When test_mode is True this function does not store the
+        segments, and instead returns them to the caller as a numpy
+        array. The boxes and box IDs are also returned. When test_mode
+        is True, you can supply dummy values for many of the inputs,
+        such as:
+
+        block_index = (0, 0, 0)
+        output_zarr=None
+
     Returns
     -------
-    faces : a list of numpy arrays - the faces of the block segments
-    boxes : a list of crops (tuples of slices), bounding boxes of segments
-    box_ids : 1D numpy array, parallel to boxes, the segment IDs of the
-                boxes
+    If test_mode == False (the default), four things are returned:
+        block_index : segmented block index
+        faces : a list of numpy arrays - the faces of the block segments
+        boxes : a list of crops (tuples of slices), bounding boxes of segments
+        box_ids : 1D numpy array, parallel to boxes, the segment IDs of the
+                  boxes
+
+    If test_mode == True, four things are returned:
+        block_index : segmented block index
+        segments : np.ndarray containing the segments with globally unique IDs
+        boxes : a list of crops (tuples of slices), bounding boxes of segments
+        box_ids : 1D numpy array, parallel to boxes, the segment IDs of the
+                  boxes
     """
     logger.info((
         f'RUNNING BLOCK: {block_index}, '
@@ -472,10 +508,11 @@ def _process_block(
         cellpose_model_args=cellpose_model_args,
         normalize_args=normalize_args,
         cellpose_eval_args=cellpose_eval_args,
+        worker_logs_dir=worker_logs_dir
     )
     seg_ndim = segmentation.ndim
     # labels are single channel so if the input was multichannel remove the channel coords
-    labels_shape = labels_zarr.shape[-seg_ndim:]
+    labels_shape = output_zarr.shape[-seg_ndim:]
     labels_block_index = block_index[-seg_ndim:]
     labels_coords = crop[-seg_ndim:]
     labels_overlaps = blockoverlaps[-seg_ndim:]
@@ -496,13 +533,16 @@ def _process_block(
     segmentation, remap = _global_segment_ids(segmentation, labels_block_index, nblocks)
     if remap[0] == 0:
         remap = remap[1:]
-    if labels_zarr.ndim != seg_ndim:
-        labels_zarr_coords = (0,)*(labels_zarr.ndim-seg_ndim)+tuple(labels_coords)
-        labels_zarr[labels_zarr_coords] = segmentation
+    if test_mode:
+        return labels_block_index, segmentation, boxes, remap
     else:
-        labels_zarr[tuple(labels_coords)] = segmentation
-    faces = _block_faces(segmentation)
-    return labels_block_index, faces, boxes, remap
+        if output_zarr.ndim != seg_ndim:
+            labels_zarr_coords = (0,)*(output_zarr.ndim-seg_ndim)+tuple(labels_coords)
+            output_zarr[labels_zarr_coords] = segmentation
+        else:
+            output_zarr[tuple(labels_coords)] = segmentation
+        faces = _block_faces(segmentation)
+        return labels_block_index, faces, boxes, remap
 
 
 #----------------------- component functions ---------------------------------#
@@ -515,6 +555,7 @@ def read_preprocess_and_segment(
     cellpose_model_args={},
     normalize_args={},
     cellpose_eval_args={},
+    worker_logs_dir=None
 ):
     """Read block from zarr array, run all preprocessing steps, run cellpose"""
 
@@ -586,6 +627,11 @@ def read_preprocess_and_segment(
     for pp_step in preprocessing_steps:
         logger.debug(f'Apply preprocessing step: {pp_step}')
         image_block = pp_step[0](image_block, **pp_step[1])
+
+    if worker_logs_dir is not None:
+        log_filename = f'dask_worker_{distributed.get_worker().name}.log'
+        log_file = pathlib.Path(worker_logs_dir).joinpath(log_filename)
+        logger_setup(stdout_file_replacement=log_file)
 
     model = _get_segmentation_model(cellpose_model_args)
 
@@ -827,6 +873,7 @@ def distributed_eval(
         cellpose_model_args=cellpose_model_args,
         normalize_args=normalize_args,
         cellpose_eval_args=cellpose_eval_args,
+        worker_logs_dir=cluster_kwargs.get('log_directory'),
     )
     seg_blocks_zarr, seg_blocks, seg_block_faces, seg_boxes, seg_box_ids = distributed_eval_results
 
@@ -871,6 +918,7 @@ def run_distributed_eval(
     cellpose_model_args={},
     normalize_args={},
     cellpose_eval_args={},
+    worker_logs_dir=None,
 ):
     """
     Evaluate a cellpose model on overlapping blocks of a big image.
@@ -978,8 +1026,17 @@ def run_distributed_eval(
     else:
         segmentation_input_channels = input_channels
 
+    if worker_logs_dir:
+        timestamp = datetime.datetime.now().strftime('%Y%m%dT%H%M%S')
+        worker_logs_dirname = f'dask_worker_logs_{timestamp}'
+        session_worker_logs_dir = pathlib.Path(f'{worker_logs_dir}/{worker_logs_dirname}').mkdir(
+            parents=True, exist_ok=True
+        )
+    else:
+        session_worker_logs_dir = None
+
     futures = dask_client.map(
-        _process_block,
+        process_block,
         block_indices,
         block_crops,
         input_zarr=input_zarr,
@@ -992,6 +1049,7 @@ def run_distributed_eval(
         cellpose_model_args=cellpose_model_args,
         normalize_args=normalize_args,
         cellpose_eval_args=cellpose_eval_args,
+        worker_logs_dir=session_worker_logs_dir
     )
 
     results = dask_client.gather(futures)
