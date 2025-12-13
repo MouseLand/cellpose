@@ -502,6 +502,7 @@ def process_block(
         f'blocksoverlap: {blockoverlaps}, '
         f'cellpose eval opts: {cellpose_eval_args}, '
         f'cellpose model opts: {cellpose_model_args}, '
+        f'worker logs dir: {worker_logs_dir} '
     ))
     segmentation = read_preprocess_and_segment(
         input_zarr,
@@ -915,7 +916,7 @@ def run_distributed_eval(
     input_timeindex: int|None,
     input_channels: int|List[int]|None,
     blocksize,
-    labels_zarr,
+    output_zarr,
     dask_client,
     blockoverlaps=(),
     mask=None,
@@ -948,7 +949,7 @@ def run_distributed_eval(
     blocksize : iterable
         The spatial block dimensions in voxels, e.g. (128, 256, 256)
 
-    labels_zarr: zarr.Array
+    output_zarr: zarr.Array
         The output zarr array that will have the segmentation results
 
     dask_client : dask.distributed.Client
@@ -1031,10 +1032,11 @@ def run_distributed_eval(
     else:
         segmentation_input_channels = input_channels
 
-    if worker_logs_dir:
+    if worker_logs_dir is not None:
         timestamp = datetime.datetime.now().strftime('%Y%m%dT%H%M%S')
         worker_logs_dirname = f'dask_worker_logs_{timestamp}'
-        session_worker_logs_dir = pathlib.Path(f'{worker_logs_dir}/{worker_logs_dirname}').mkdir(
+        session_worker_logs_dir = pathlib.Path(f'{worker_logs_dir}/{worker_logs_dirname}')
+        session_worker_logs_dir.mkdir(
             parents=True, exist_ok=True
         )
     else:
@@ -1049,12 +1051,12 @@ def run_distributed_eval(
         input_channels=segmentation_input_channels,
         blocksize=blocksize,
         blockoverlaps=blockoverlaps,
-        labels_zarr=labels_zarr,
+        output_zarr=output_zarr,
         preprocessing_steps=preprocessing_steps,
         cellpose_model_args=cellpose_model_args,
         normalize_args=normalize_args,
         cellpose_eval_args=cellpose_eval_args,
-        worker_logs_dir=session_worker_logs_dir
+        worker_logs_dir=session_worker_logs_dir,
     )
 
     results = dask_client.gather(futures)
@@ -1074,7 +1076,7 @@ def run_distributed_eval(
     boxes = [box for sublist in boxes_ for box in sublist]
     box_ids = np.concatenate(box_ids_).astype(np.uint32)
 
-    return labels_zarr, label_block_indices, faces, boxes, box_ids
+    return output_zarr, label_block_indices, faces, boxes, box_ids
 
 
 def merge_labels(segmented_blocks_zarr:zarr.Array,
