@@ -490,65 +490,59 @@ def train_seg(net, train_data=None, train_labels=None, train_files=None,
             train_losses[iepoch] /= nimg_per_epoch
         epoch_train_loss = (lavg / nsum) if not return_loss_arrays else (train_losses[iepoch] / nimg_per_epoch if iepoch == 0 else train_losses[iepoch])
 
-        # Call the callback function after every epoch with train loss
-        # Test loss will be computed less frequently (every 10 epochs)
+        # Compute validation loss every epoch for real-time tracking
         current_train_loss = lavg / nsum
+        lavgt = 0.
         
-        # TODO: add real time tracking of the loss
+        if test_data is not None or test_files is not None:
+            np.random.seed(42)
+            if nimg_test != nimg_test_per_epoch:
+                rperm = np.random.choice(np.arange(0, nimg_test),
+                                         size=(nimg_test_per_epoch,), p=test_probs)
+            else:
+                rperm = np.random.permutation(np.arange(0, nimg_test))
+            for ibatch in range(0, len(rperm), batch_size):
+                with torch.no_grad():
+                    net.eval()
+                    inds = rperm[ibatch:ibatch + batch_size]
+                    imgs, lbls = _get_batch(inds, data=test_data,
+                                            labels=test_labels, files=test_files,
+                                            labels_files=test_labels_files,
+                                            **kwargs)
+                    diams = np.array([diam_test[i] for i in inds])
+                    rsc = diams / net.diam_mean.item() if rescale else np.ones(
+                        len(diams), "float32")
+                    imgi, lbl = random_rotate_and_resize(
+                        imgs, Y=lbls, rescale=rsc, scale_range=scale_range,
+                        xy=(bsize, bsize))[:2]
+                    X = torch.from_numpy(imgi).to(device)
+                    lbl = torch.from_numpy(lbl).to(device)
 
+                    if X.dtype != net.dtype:
+                        X = X.to(net.dtype)
+                        lbl = lbl.to(net.dtype)
+                    
+                    y = net(X)[0]
+                    loss = _loss_fn_seg(lbl, y, device)
+                    if y.shape[1] > 3:
+                        loss3 = _loss_fn_class(lbl, y, class_weights=class_weights)
+                        loss += loss3            
+                    test_loss = loss.item()
+                    test_loss *= len(imgi)
+                    lavgt += test_loss
+            lavgt /= len(rperm)
+            if return_loss_arrays:
+                test_losses[iepoch] = lavgt
+        
+        # Log every epoch (more frequent logging for real-time tracking)
         if iepoch == 5 or iepoch % 10 == 0:
-            lavgt = 0.
-            if test_data is not None or test_files is not None:
-                np.random.seed(42)
-                if nimg_test != nimg_test_per_epoch:
-                    rperm = np.random.choice(np.arange(0, nimg_test),
-                                             size=(nimg_test_per_epoch,), p=test_probs)
-                else:
-                    rperm = np.random.permutation(np.arange(0, nimg_test))
-                for ibatch in range(0, len(rperm), batch_size):
-                    with torch.no_grad():
-                        net.eval()
-                        inds = rperm[ibatch:ibatch + batch_size]
-                        imgs, lbls = _get_batch(inds, data=test_data,
-                                                labels=test_labels, files=test_files,
-                                                labels_files=test_labels_files,
-                                                **kwargs)
-                        diams = np.array([diam_test[i] for i in inds])
-                        rsc = diams / net.diam_mean.item() if rescale else np.ones(
-                            len(diams), "float32")
-                        imgi, lbl = random_rotate_and_resize(
-                            imgs, Y=lbls, rescale=rsc, scale_range=scale_range,
-                            xy=(bsize, bsize))[:2]
-                        X = torch.from_numpy(imgi).to(device)
-                        lbl = torch.from_numpy(lbl).to(device)
-
-                        if X.dtype != net.dtype:
-                            X = X.to(net.dtype)
-                            lbl = lbl.to(net.dtype)
-                        
-                        y = net(X)[0]
-                        loss = _loss_fn_seg(lbl, y, device)
-                        if y.shape[1] > 3:
-                            loss3 = _loss_fn_class(lbl, y, class_weights=class_weights)
-                            loss += loss3            
-                        test_loss = loss.item()
-                        test_loss *= len(imgi)
-                        lavgt += test_loss
-                lavgt /= len(rperm)
-                if return_loss_arrays:
-                    test_losses[iepoch] = lavgt
-            
             train_logger.info(
                 f"{iepoch}, train_loss={current_train_loss:.4f}, test_loss={lavgt:.4f}, LR={LR[iepoch]:.6f}, time {time.time()-t0:.2f}s"
             )
-            
-            # Call the callback function if provided (with test loss)
-            if loss_callback is not None:
-                loss_callback(iepoch, current_train_loss, lavgt)
-        else:
-            # For epochs without test evaluation, call callback with only train loss
-            if loss_callback is not None:
-                loss_callback(iepoch, current_train_loss, None)
+        
+        # Call the callback function every epoch with both train and test loss
+        if loss_callback is not None:
+            loss_callback(iepoch, current_train_loss, lavgt if (test_data is not None or test_files is not None) else None)
         
         # Reset accumulators after logging
         if iepoch == 5 or iepoch % 10 == 0:
