@@ -234,7 +234,7 @@ def _process_train_test(train_data=None, train_labels=None, train_files=None,
                                           files=train_files, device=device)
         if test_files is not None:
             for k in trange(nimg_test):
-                tl = dynamics.labels_to_flows(io.imread(test_labels_files),
+                tl = dynamics.labels_to_flows(io.imread(testLabels_files),
                                               files=test_files, device=device)
 
     ### compute diameters
@@ -315,7 +315,7 @@ def train_seg(net, train_data=None, train_labels=None, train_files=None,
               save_path=None, save_every=100, save_each=False, nimg_per_epoch=None,
               nimg_test_per_epoch=None, rescale=False, scale_range=None, bsize=256,
               min_train_masks=5, model_name=None, class_weights=None, 
-              loss_callback=None, return_loss_arrays=True):
+              loss_callback=None, return_loss_arrays=True, early_stopping_patience=None):
     """
     Train the network with images for segmentation.
 
@@ -349,10 +349,8 @@ def train_seg(net, train_data=None, train_labels=None, train_files=None,
         model_name (str, optional): String - name of the network. Defaults to None.
         loss_callback (callable, optional): Function called after each epoch with (epoch, train_loss, test_loss). Defaults to None.
         return_loss_arrays (bool, optional): Whether to return full loss arrays or just the model path. Defaults to True.
-
-    Returns:
-        tuple or str: If return_loss_arrays=True, returns (path, train_losses, test_losses). If False, returns just the path to saved model weights.
-       
+        early_stopping_patience (int, optional): Number of epochs without validation loss improvement before stopping. 
+                                                  If None, no early stopping. Defaults to None.
     """
     if SGD:
         train_logger.warning("SGD is deprecated, using AdamW instead")
@@ -436,6 +434,12 @@ def train_seg(net, train_data=None, train_labels=None, train_files=None,
 
     lavg, nsum = 0, 0
     train_losses, test_losses = (np.zeros(n_epochs), np.zeros(n_epochs)) if return_loss_arrays else (None, None)
+    
+    # Early stopping variables
+    best_val_loss = float('inf')
+    patience_counter = 0
+    best_model_path = None
+    
     for iepoch in range(n_epochs):
         np.random.seed(iepoch)
         if nimg != nimg_per_epoch:
@@ -533,6 +537,23 @@ def train_seg(net, train_data=None, train_labels=None, train_files=None,
             lavgt /= len(rperm)
             if return_loss_arrays:
                 test_losses[iepoch] = lavgt
+            
+            # Early stopping logic
+            if early_stopping_patience is not None:
+                if lavgt < best_val_loss:
+                    best_val_loss = lavgt
+                    patience_counter = 0
+                    # Save best model
+                    best_model_path = str(filename) + "_best"
+                    train_logger.info(f"New best validation loss: {lavgt:.4f}, saving model to {best_model_path}")
+                    net.save_model(best_model_path)
+                else:
+                    patience_counter += 1
+                    train_logger.info(f"No improvement in validation loss for {patience_counter} epoch(s)")
+                    
+                    if patience_counter >= early_stopping_patience:
+                        train_logger.info(f"Early stopping triggered after {iepoch + 1} epochs")
+                        break
         
         # Log every epoch (more frequent logging for real-time tracking)
         if iepoch == 5 or iepoch % 10 == 0:
@@ -556,7 +577,14 @@ def train_seg(net, train_data=None, train_labels=None, train_files=None,
             train_logger.info(f"saving network parameters to {filename0}")
             net.save_model(filename0)
     
-    net.save_model(filename)
+    # Save final model if not using early stopping or if we completed all epochs
+    if early_stopping_patience is None or patience_counter < early_stopping_patience:
+        net.save_model(filename)
+    
+    # If early stopping was used and we have a best model, use that
+    if best_model_path is not None:
+        train_logger.info(f"Training finished. Best model saved at: {best_model_path}")
+        filename = best_model_path
 
     if original_net_dtype is not None:
         net.dtype = original_net_dtype
