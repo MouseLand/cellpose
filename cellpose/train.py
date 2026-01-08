@@ -460,11 +460,8 @@ def train_seg(net, train_data=None, train_labels=None, train_files=None,
             X = torch.from_numpy(imgi).to(device)
             lbl = torch.from_numpy(lbl).to(device)
 
-            if X.dtype != net.dtype:
-                X = X.to(net.dtype)
-                lbl = lbl.to(net.dtype)
-
-            y = net(X)[0]
+            with torch.autocast(device_type=device.type, dtype=net.dtype):
+                y = net(X)[0]
             loss = _loss_fn_seg(lbl, y, device)
             if y.shape[1] > 3:
                 loss3 = _loss_fn_class(lbl, y, class_weights=class_weights)
@@ -508,11 +505,8 @@ def train_seg(net, train_data=None, train_labels=None, train_files=None,
                         X = torch.from_numpy(imgi).to(device)
                         lbl = torch.from_numpy(lbl).to(device)
 
-                        if X.dtype != net.dtype:
-                            X = X.to(net.dtype)
-                            lbl = lbl.to(net.dtype)
-                        
-                        y = net(X)[0]
+                        with torch.autocast(device_type=device.type, dtype=net.dtype):
+                            y = net(X)[0]
                         loss = _loss_fn_seg(lbl, y, device)
                         if y.shape[1] > 3:
                             loss3 = _loss_fn_class(lbl, y, class_weights=class_weights)
@@ -537,11 +531,8 @@ def train_seg(net, train_data=None, train_labels=None, train_files=None,
             net.save_model(filename0)
     
     net.save_model(filename)
-    if original_net_dtype == torch.bfloat16:
-        train_logger.info(">>> converting network back to bfloat16")
-        net.dtype = torch.bfloat16
-    # if original_net_dtype is not None:
-    #     net.dtype = original_net_dtype
-    #     net.to(original_net_dtype)
+    if original_net_dtype != torch.float32:
+        train_logger.info(f">>> converting network back to {original_net_dtype} after training")
+        net.dtype = original_net_dtype
 
     return filename, train_losses, test_losses
