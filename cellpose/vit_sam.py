@@ -50,8 +50,8 @@ class Transformer(nn.Module):
             blk.window_size = 0
 
         self._dtype = dtype
-        if self.dtype != torch.float32:
-            self = self.to(self.dtype)
+        if dtype != torch.float32:
+            self.dtype = dtype
 
     def forward(self, x):      
         # same progression as SAM until readout

@@ -360,7 +360,7 @@ def train_seg(net, train_data=None, train_labels=None, train_files=None,
     if net.dtype == torch.bfloat16:
         # NOTE: this produces a side effect of returning a network that is not of a guaranteed dtype \
         train_logger.info(">>> converting bfloat16 network to float32 for training")
-        net.dtype(torch.float32)
+        net.dtype = torch.float32
 
     scale_range = 0.5 if scale_range is None else scale_range
 
@@ -539,7 +539,7 @@ def train_seg(net, train_data=None, train_labels=None, train_files=None,
     net.save_model(filename)
     if original_net_dtype == torch.bfloat16:
         train_logger.info(">>> converting network back to bfloat16")
-        net.dtype(torch.bfloat16)
+        net.dtype = torch.bfloat16
     # if original_net_dtype is not None:
     #     net.dtype = original_net_dtype
     #     net.to(original_net_dtype)
