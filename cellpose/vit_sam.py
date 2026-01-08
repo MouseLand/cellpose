@@ -90,6 +90,7 @@ class Transformer(nn.Module):
         if w2_data == None:
             raise ValueError('This model does not appear to be a CP4 model. CP3 models are not compatible with CP4.')
 
+        # models are always saved as float32
         if keys[0][:7] == "module.":
             from collections import OrderedDict
             new_state_dict = OrderedDict()
