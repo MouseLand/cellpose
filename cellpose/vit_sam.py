@@ -49,7 +49,7 @@ class Transformer(nn.Module):
         for blk in self.encoder.blocks:
             blk.window_size = 0
 
-        self.dtype = dtype
+        self._dtype = dtype
         if self.dtype != torch.float32:
             self = self.to(self.dtype)
 
@@ -104,6 +104,27 @@ class Transformer(nn.Module):
         if self.dtype != torch.float32:
             self = self.to(self.dtype)
 
+    @property
+    def dtype(self):
+        """
+        Get the data type of the model.
+
+        Returns:
+            torch.dtype: The data type of the model.
+        """
+        return self._dtype
+    
+    @dtype.setter
+    def dtype(self, value):
+        """
+        Set the data type of the model.
+
+        Args:
+            value (torch.dtype): The data type to set for the model.
+        """
+        if self._dtype != value:
+            self.to(value)
+            self._dtype = value
     
     @property
     def device(self):
