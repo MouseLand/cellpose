@@ -258,7 +258,7 @@ class CPnet(nn.Module):
             filename (str): The path to the file where the model will be saved.
         """
         torch.save(self.state_dict(), filename)
-    
+
     def load_model(self, filename, device=None):
         """
         Load the model from a file.
@@ -272,8 +272,12 @@ class CPnet(nn.Module):
         else:
             self.__init__(self.nbase, self.nout, self.sz, self.mkldnn, self.conv_3D,
                           self.diam_mean)
-            state_dict = torch.load(filename, map_location=torch.device("cpu"), 
+            state_dict = torch.load(filename, map_location=torch.device("cpu"),
                                     weights_only=True)
+
+        # check if state_dict is for cp4 by looking for W2 key:
+        assert 'W2' not in state_dict.keys(), f"""The model file {filename} appears to be for CP4, 
+        which is not compatible with CP3. Please use a CP3 pretrained model file. """
 
         if state_dict["output.2.weight"].shape[0] != self.nout:
             for name in self.state_dict():
