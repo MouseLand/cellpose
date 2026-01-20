@@ -201,7 +201,7 @@ def imread(filename):
             return img
     elif ext != ".npy":
         try:
-            img = cv2.imread(filename, -1)  #cv2.LOAD_IMAGE_ANYDEPTH)
+            img = cv2.imread(str(filename), -1)  #cv2.LOAD_IMAGE_ANYDEPTH)
             if img.ndim > 2:
                 img = img[..., [2, 1, 0]]
             return img
@@ -325,7 +325,7 @@ def imsave(filename, arr):
     else:
         if len(arr.shape) > 2:
             arr = cv2.cvtColor(arr, cv2.COLOR_BGR2RGB)
-        cv2.imwrite(filename, arr)
+        cv2.imwrite(str(filename), arr)
 
 
 def get_image_files(folder, mask_filter, imf=None, look_one_level_down=False):
