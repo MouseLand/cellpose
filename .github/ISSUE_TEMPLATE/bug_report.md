@@ -35,5 +35,13 @@ before running any Cellpose functions.
 your logs here.
 </details>
 
+### **System Information**
+Please post the output of `python -m cellpose --version` or share the following details:
+- OS and version (e.g., Windows 11, macOS 14.0, Ubuntu 22.04):
+- Python version:
+- Cellpose version:
+- PyTorch version:
+- GPU (if applicable):
+
 ### **Screenshots**
 If applicable, add screenshots to help explain your problem.
