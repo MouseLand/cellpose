@@ -139,6 +139,7 @@ def _load_image(parent, filename=None, load_seg=True, load_3D=False):
     except Exception as e:
         print("ERROR: images not compatible")
         print(f"ERROR: {e}")
+        return
 
     if parent.loaded:
         parent.reset()
@@ -151,6 +152,7 @@ def _load_image(parent, filename=None, load_seg=True, load_3D=False):
             _load_masks(parent, filename=mask_file)
 
     # check if gray and adjust viewer:
+    
     if len(np.unique(image[..., 1:])) == 1:
         parent.color = 4
         parent.RGBDropDown.setCurrentIndex(4) # gray
