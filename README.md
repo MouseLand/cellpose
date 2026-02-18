@@ -125,13 +125,90 @@ Venv ([tutorial](https://docs.python-guide.org/dev/virtualenvs/#lower-level-virt
 
 If you are using a GPU, make sure its drivers and the cuda libraries are correctly installed.
 
-1. Install python3.8 or later from [python.org](https://www.python.org/downloads/). This will be the version of python that will be used in the environment. You can check your python version with `python --version`.
-2. Navigate to the directory where you want to create the environment and run `python3 -m venv cellpose` to create a new environment called `cellpose`.
-3. Activate the environment with `source cellpose/bin/activate` on Mac/Linux or `cellpose\Scripts\activate` on Windows. A prefix `(cellpose)` should appear in the terminal.
-4. Install cellpose into the `cellpose` venv using pip with `python -m pip install cellpose`.
-5. Install the cellpose GUI, with `python -m pip install cellpose[gui]`. Depending on your terminal software, you may need to use quotes like this: `python -m pip install 'cellpose[gui]'`.
-6. You can now run cellpose from this environment with `python -m cellpose` or `cellpose` if you are in the cellpose directory.
-7. To deactivate the environment, run `deactivate`. 
+#### 1. Install python3.8 or later from [python.org](https://www.python.org/downloads/). This will be the version of python that will be used in the environment. You can check your python version with:
+```bash
+python --version
+```
+#### 2. Navigate to the directory where you want to create the environment and run:  
+```bash
+python3 -m venv cellpose
+```
+#### to create a new environment called `cellpose`.
+#### 3. Activate the environment with:
+```bash
+source cellpose/bin/activate 
+```
+#### on Mac/Linux or:
+```bash
+cellpose\Scripts\activate
+```
+#### on Windows. A prefix `(cellpose)` should appear in the terminal.
+
+#### 4. Install cellpose into the `cellpose` venv using pip with:
+```bash
+python -m pip install cellpose
+```
+
+#### 5. Install the cellpose GUI, with:
+```bash
+python -m pip install cellpose[gui]
+```
+#### Depending on your terminal software, you may need to use quotes like this:
+```bash
+python -m pip install 'cellpose[gui]'
+```
+
+#### 6. You can now run cellpose from this environment with:
+```bash
+python -m cellpose`
+```
+#### or
+```bash
+cellpose
+```
+#### if you are in the cellpose directory, and you can also run cellpose on the Background adding `&` at the end of the command.
+
+#### 7. If there's any missed package, you can try using:
+```bash
+pip install -r requirements.txt
+```
+
+#### 8. To deactivate the environment, run:
+```bash
+deactivate
+``` 
+
+### Option 3: Installation instruction using Docker
+Docker is an open-source platform to automates the deployment of applications within lightweight, portable containers. This is crucial for modern application development, as it simplifies the deployment process it also improves resources efficiency.
+
+To run the following commands, make sure you have previously installed [Docker](https://docs.docker.com/engine/install/).
+
+#### 1. You can create and edit the image with the `Dockerfile` in the repository.
+#### To create, you use (in the same directory of Dockerfile):
+```bash
+sudo docker build cellpose-vnc-image .
+```
+#### Or you can Pull the image from [DockerHub](https://hub.docker.com/r/sethsterling/ubuntu-vnc-xfce-cellpose-gui):
+```bash
+sudo docker pull sethsterling/ubuntu-vnc-xfce-cellpose-gui:latest
+```
+
+
+#### 2. Run the container using:
+
+```bash
+sudo docker run -d --name cellpose-vnc -p 36901:6901 --hostname quick sethsterling/ubuntu-vnc-xfce-cellpose-gui:latest
+
+# To run it with GPUS
+sudo docker run -d --name cellpose-vnc --gpus all -p 36901:6901 --hostname quick sethsterling/ubuntu-vnc-xfce-cellpose-gui:latest
+```
+
+#### 3. Enter to your device ip with port `36901` (as placed in the `docker run` command) (e.g. [127.0.0.0:36901](http://127.0.0.0:36901)).
+
+#### 4. Put the password: `@Pass-Word4321` as default, or you can change it adding: `-e VNC_PW=[Your_Custom_Password]` in the `docker run` command.
+
+#### 5. You must be interested on setting the file transfer between your system and the container, in that case you should set up a volume using the flag `-v /path/to/your/files/:/Cellpose` in the `docker run` command.
+
 
 ### GPU version (CUDA) on Windows or Linux
 
