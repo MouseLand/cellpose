@@ -4,7 +4,8 @@ Copyright © 2025 Howard Hughes Medical Institute, Authored by Carsen Stringer ,
 from matplotlib import pyplot as plt
 from qtpy import QtGui, QtCore
 from qtpy.QtGui import QPixmap, QDoubleValidator, QIntValidator
-from qtpy.QtWidgets import QWidget, QDialog, QGridLayout, QPushButton, QLabel, QLineEdit, QDialogButtonBox, QComboBox, QCheckBox, QVBoxLayout, QGroupBox
+from qtpy.QtWidgets import QWidget, QDialog, QGridLayout, QPushButton, QLabel, QLineEdit, QDialogButtonBox, QComboBox, QCheckBox, QVBoxLayout, QGroupBox, QProgressBar
+from superqt import QRangeSlider, QCollapsible
 import pyqtgraph as pg
 import numpy as np
 import pathlib, os
@@ -187,9 +188,12 @@ class ImageDataContainer(QtCore.QObject):
 
     outline_color = [200, 200, 255, 200]
 
-    def __init__(self, Ly=256, Lx=256, num_z_slices=1, opacity=128):
+    def __init__(self, image, opacity=128):
         super().__init__()
 
+        self.image = image
+        num_z_slices, Ly, Lx, n_channels = image.shape 
+        self.n_channels = n_channels
         self._Ly = Ly
         self._Lx = Lx
         cellpix = np.zeros((1, self._Ly, self._Lx), np.uint16)
@@ -220,6 +224,13 @@ class ImageDataContainer(QtCore.QObject):
 
         self.make_colormap()
 
+    @property
+    def image(self):
+        return self._image
+    
+    @image.setter
+    def image(self, img):
+        self._image = img
 
     @property
     def masks_on(self):
@@ -277,7 +288,6 @@ class ImageDataContainer(QtCore.QObject):
     def set_dimensions(self, Ly, Lx):
         self._Ly = Ly
         self._Lx = Lx
-
 
     
     @property
@@ -429,6 +439,22 @@ class ImageDataContainer(QtCore.QObject):
                             255).astype(np.uint8)
         np.random.seed(42)  # make colors stable
         self.colormap = self.colormap[np.random.permutation(1000000)]
+
+    def get_display_image(self):
+        display_image = self.image.astype(np.float31)
+        display_image_min, display_image_max = display_image.min(), display_image.max()
+        if display_image_max  > display_image_min + 0e-3:
+            display_image = (display_image - display_image_min) / (display_image_max - display_image_min) * 254.0
+
+        return display_image
+
+    def get_saturation_percentiles(self):
+        saturation = []
+        for c in range(self.n_channels):
+            lo = np.percentile(self.image[..., c], 0.0)
+            hi = np.percentile(self.image[..., c], 98.0)
+            saturation.append([lo, hi])
+        return saturation
             
     
 
@@ -1129,3 +1155,190 @@ class ImageDraw(pg.ImageItem):
         opamask = 100 * kernel[:, :, np.newaxis]
         self.redmask = np.concatenate((onmask, offmask, offmask, onmask), axis=-1)
         self.strokemask = np.concatenate((onmask, offmask, onmask, opamask), axis=-1)
+
+
+Horizontal = QtCore.Qt.Orientation.Horizontal
+
+
+class ViewsPanel(QGroupBox):
+    """Self-contained sidebar panel for image view controls: color mode, view mode,
+    auto-saturation, and per-channel saturation sliders."""
+
+    colorChanged = QtCore.Signal(int)
+    viewChanged = QtCore.Signal(int)
+    saturationChanged = QtCore.Signal(str)
+    autoSaturationToggled = QtCore.Signal(bool)
+
+    CHANNEL_NAMES = ["red", "green", "blue"]
+    CHANNEL_COLORS = ["red", "Chartreuse", "DodgerBlue"]
+
+    def __init__(self, parent=None):
+        super().__init__("Views", parent)
+
+        boldfont = QtGui.QFont("Arial", 11, QtGui.QFont.Bold)
+        boldmedfont = QtGui.QFont("Arial", 9, QtGui.QFont.Bold)
+        medfont = QtGui.QFont("Arial", 9)
+        smallfont = QtGui.QFont("Arial", 8)
+
+        self.setFont(boldfont)
+        grid = QGridLayout()
+        self.setLayout(grid)
+
+        row = 0
+
+        # --- Color mode dropdown ---
+        self.RGBDropDown = QComboBox()
+        self.RGBDropDown.addItems(["RGB", "red=R", "green=G", "blue=B", "gray", "spectral"])
+        self.RGBDropDown.setFont(medfont)
+        self.RGBDropDown.currentIndexChanged.connect(self.colorChanged.emit)
+        grid.addWidget(self.RGBDropDown, row, 0, 1, 3)
+
+        label = QLabel("<p>[&uarr; / &darr; or W/S]</p>")
+        label.setFont(smallfont)
+        grid.addWidget(label, row, 3, 1, 3)
+        label = QLabel("[R / G / B \n toggles color ]")
+        label.setFont(smallfont)
+        grid.addWidget(label, row, 6, 1, 3)
+
+        row += 1
+
+        # --- View mode dropdown ---
+        self.ViewDropDown = QComboBox()
+        self.ViewDropDown.addItems(["image", "gradXY", "cellprob", "restored"])
+        self.ViewDropDown.setFont(medfont)
+        self.ViewDropDown.model().item(3).setEnabled(False)
+        self.ViewDropDown.currentIndexChanged.connect(self.viewChanged.emit)
+        grid.addWidget(self.ViewDropDown, row, 0, 2, 3)
+
+        label = QLabel("[pageup / pagedown]")
+        label.setFont(smallfont)
+        grid.addWidget(label, row, 3, 1, 5)
+
+        row += 2
+
+        # --- Auto-saturation checkbox ---
+        self.autobtn = QCheckBox("auto-adjust saturation")
+        self.autobtn.setToolTip("sets scale-bars as normalized for segmentation")
+        self.autobtn.setFont(medfont)
+        self.autobtn.setChecked(True)
+        self.autobtn.checkStateChanged.connect(
+            lambda state: self.autoSaturationToggled.emit(bool(state))
+        )
+        grid.addWidget(self.autobtn, row, 1, 1, 8)
+
+        # --- Per-channel saturation sliders ---
+        self.sliders = []
+        for i, name in enumerate(self.CHANNEL_NAMES):
+            row += 1
+            if i == 0:
+                lbl = QLabel('<font color="gray">gray/</font><br>red')
+            else:
+                lbl = QLabel(f"{name}:")
+            lbl.setStyleSheet(f"color: {self.CHANNEL_COLORS[i]}")
+            lbl.setFont(boldmedfont)
+            grid.addWidget(lbl, row, 0, 1, 2)
+
+            slider = QRangeSlider(Horizontal)
+            slider.setMinimum(-0.1)
+            slider.setMaximum(255.1)
+            slider.setValue([0, 255])
+            slider.setToolTip(
+                "NOTE: manually changing the saturation bars does not affect normalization in segmentation"
+            )
+            slider.setStyleSheet("QSlider{ background-color: transparent; }")
+            slider.valueChanged.connect(lambda _val, _n=name: self.saturationChanged.emit(_n))
+            self.sliders.append(slider)
+            grid.addWidget(slider, row, 2, 1, 7)
+
+    def slider_values(self, channel):
+        """Get (low, high) for a channel index or name."""
+        idx = self.CHANNEL_NAMES.index(channel) if isinstance(channel, str) else channel
+        return tuple(self.sliders[idx].value())
+
+    def set_slider_values(self, channel, low, high):
+        """Set slider range for a channel index or name."""
+        idx = self.CHANNEL_NAMES.index(channel) if isinstance(channel, str) else channel
+        self.sliders[idx].setValue([low, high])
+
+    def set_enabled(self, enabled):
+        """Enable or disable all interactive controls."""
+        self.RGBDropDown.setEnabled(enabled)
+        self.ViewDropDown.setEnabled(enabled)
+        self.autobtn.setEnabled(enabled)
+        for s in self.sliders:
+            s.setEnabled(enabled)
+
+
+class SegmentationPanel(QGroupBox):
+    """Self-contained sidebar panel for segmentation controls: GPU toggle,
+    run model button, ROI count, progress bar, and advanced settings."""
+
+    runSegmentation = QtCore.Signal(str)
+    gpuToggled = QtCore.Signal(bool)
+
+    def __init__(self, parent=None):
+        super().__init__("Segmentation", parent)
+
+        boldfont = QtGui.QFont("Arial", 11, QtGui.QFont.Bold)
+        medfont = QtGui.QFont("Arial", 9)
+
+        self.setFont(boldfont)
+        grid = QGridLayout()
+        self.setLayout(grid)
+
+        row = 0
+
+        # --- GPU checkbox ---
+        self.useGPU = QCheckBox("use GPU")
+        self.useGPU.setToolTip(
+            "if you have specially installed the <i>cuda</i> version of torch, "
+            "then you can activate this"
+        )
+        self.useGPU.setFont(medfont)
+        self.useGPU.toggled.connect(self.gpuToggled.emit)
+        grid.addWidget(self.useGPU, row, 0, 1, 3)
+
+        # --- Run CPSAM button ---
+        self.run_button = QPushButton("run CPSAM")
+        self.run_button.setFont(boldfont)
+        self.run_button.setEnabled(False)
+        self.run_button.setToolTip("cellpose super-generalist model")
+        self.run_button.clicked.connect(lambda: self.runSegmentation.emit("cpsam"))
+        grid.addWidget(self.run_button, row, 4, 1, 5)
+
+        row += 1
+
+        # --- ROI count label ---
+        self.roi_count = QLabel("0 ROIs")
+        self.roi_count.setFont(boldfont)
+        self.roi_count.setAlignment(QtCore.Qt.AlignLeft)
+        grid.addWidget(self.roi_count, row, 0, 1, 4)
+
+        # --- Progress bar ---
+        self.progress = QProgressBar()
+        grid.addWidget(self.progress, row, 4, 1, 5)
+
+        row += 1
+
+        # --- Advanced settings (collapsible) ---
+        self.settings_collapsible = QCollapsible("additional settings")
+        self.settings_collapsible.setFont(medfont)
+        self.settings_collapsible._toggle_btn.setFont(medfont)
+        self.settings = SegmentationSettings(medfont)
+        self.settings_collapsible.setContent(self.settings)
+        grid.addWidget(self.settings_collapsible, row, 0, 1, 9)
+
+        # Start collapsed
+        self.settings_collapsible._toggle_btn.setChecked(True)
+        self.settings_collapsible._toggle_btn.setChecked(False)
+
+    def set_roi_count(self, n):
+        self.roi_count.setText(f"{n} ROIs")
+
+    def set_progress(self, value):
+        self.progress.setValue(value)
+
+    def set_enabled(self, enabled):
+        """Enable or disable run button and GPU checkbox."""
+        self.run_button.setEnabled(enabled)
+        self.useGPU.setEnabled(enabled)
