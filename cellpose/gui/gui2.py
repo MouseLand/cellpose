@@ -26,7 +26,7 @@ class SegmentationWorker(QtCore.QObject):
     progress = QtCore.Signal(int)
 
     def __init__(self, image, gpu, diameter, flow_threshold, cellprob_threshold,
-                 niter, normalize, progress_bar=None):
+                 niter, normalize):
         super().__init__()
         self.image = image
         self.gpu = gpu
@@ -35,7 +35,6 @@ class SegmentationWorker(QtCore.QObject):
         self.cellprob_threshold = cellprob_threshold
         self.niter = niter
         self.normalize = normalize
-        self.progress_bar = progress_bar
 
     def run(self):
         try:
@@ -47,7 +46,7 @@ class SegmentationWorker(QtCore.QObject):
                 cellprob_threshold=self.cellprob_threshold,
                 niter=self.niter if self.niter > 0 else None,
                 normalize=self.normalize,
-                progress=self.progress_bar,
+                progress=self.progress,
             )
             self.finished.emit(masks, flows, styles)
         except Exception as e:
@@ -374,9 +373,9 @@ class MainW(QMainWindow):
             flow_threshold=flow_threshold,
             cellprob_threshold=cellprob_threshold,
             niter=niter, normalize=normalize,
-            progress_bar=self.seg_panel.progress,
         )
         self._seg_worker.moveToThread(self._seg_thread)
+        self._seg_worker.progress.connect(self.seg_panel.progress.setValue)
         self._seg_thread.started.connect(self._seg_worker.run)
         self._seg_worker.finished.connect(self._on_segmentation_finished)
         self._seg_worker.errored.connect(self._on_segmentation_error)
