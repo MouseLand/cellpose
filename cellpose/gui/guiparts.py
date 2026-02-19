@@ -10,7 +10,7 @@ import pyqtgraph as pg
 import numpy as np
 import pathlib, os
 import logging
-from cellpose import utils
+from cellpose import utils, core
 
 
 logger = logging.getLogger(__name__)
@@ -187,6 +187,7 @@ class FilterButton(QPushButton):
 class ImageDataContainer(QtCore.QObject):
 
     outline_color = [200, 200, 255, 200]
+    layerChanged = QtCore.Signal()
 
     def __init__(self, image, opacity=128):
         super().__init__()
@@ -196,22 +197,17 @@ class ImageDataContainer(QtCore.QObject):
         self.n_channels = n_channels
         self._Ly = Ly
         self._Lx = Lx
-        cellpix = np.zeros((1, self._Ly, self._Lx), np.uint16)
-
-        self._cellpix = cellpix
-        self._outpix = np.zeros_like(cellpix)
+        self._NZ = num_z_slices
 
         self._radii = 0 * np.ones((self._Ly, self._Lx, 4), np.uint8)
-        self._layerz = 0 * np.ones((self._Ly, self._Lx, 4), np.uint8)
-        self._cellpix = np.zeros((1, self._Ly, self._Lx), np.uint16)
+        self._overlay = 0 * np.ones((self._Ly, self._Lx, 4), np.uint8)
+        self._masks = np.zeros((num_z_slices, self._Ly, self._Lx), np.uint16)
+        self._outlines = np.zeros((num_z_slices, self._Ly, self._Lx), np.uint16)
         self._cellcolors = np.array([255, 255, 255])[np.newaxis, :]
-        self._outpix = np.zeros((1, self._Ly, self._Lx), np.uint16)
-        self._stack = np.zeros((1, self._Ly, self._Lx, 3))
         self._selection_history = []
         self._last_removed_cell = None
         self._current_selection = 0
         self._currentZ = 0
-        self._NZ = num_z_slices
         self._opacity = opacity
 
         self._idx_is_manual = []
@@ -240,25 +236,15 @@ class ImageDataContainer(QtCore.QObject):
     @property
     def outlines_on(self):
         return self._outlines_on
-    
-    
-    def get_cellpix(self):
-        return self._cellpix
-    
-    
-    @property
-    def cellpix(self):
-        return self._cellpix
-    
+
 
     @property
-    def current_z_cellpix(self):
-        return self._cellpix[self._currentZ]
-    
-    
-    def get_outpix(self):
-        # TODO: call outlines or cache:
-        raise NotImplementedError()
+    def current_z_image(self):
+        return self.image[self._currentZ]
+
+    @property
+    def current_z_masks(self):
+        return self._masks[self._currentZ]
 
 
     def unselect_cell(self):
@@ -267,15 +253,15 @@ class ImageDataContainer(QtCore.QObject):
         except IndexError:
             return
         
-        pix_where_idx = self.current_z_cellpix == idx
-        self._layerz[pix_where_idx] = np.append(self._cellcolors[idx], self._opacity)
+        pix_where_idx = self.current_z_masks == idx
+        self._overlay[pix_where_idx] = np.append(self._cellcolors[idx], self._opacity)
 
     
     def select_cell(self, idx):
         if idx > 0:
             self._selection_history.append(idx)
-            pix_where_idx = self.current_z_cellpix == idx
-            self._layerz[pix_where_idx] = np.array([255, 255, 255, self._opacity])
+            pix_where_idx = self.current_z_masks == idx
+            self._overlay[pix_where_idx] = np.array([255, 255, 255, self._opacity])
 
     
     def _last_selected(self):
@@ -295,114 +281,93 @@ class ImageDataContainer(QtCore.QObject):
         return self._currentZ
     
     @property
-    def layerz(self):
-        return self._layerz
+    def overlay(self):
+        return self._overlay
     
 
     def clear_all(self):
         self._prev_selected = []
         self._current_selection = 0
-        self._layerz = 0 * np.ones((self._Ly, self._Lx, 4), np.uint8)
-        self._cellpix = np.zeros((self._NZ, self._Ly, self._Lx), np.uint16)
-        self._outpix = np.zeros((self._NZ, self._Ly, self._Lx), np.uint16)
+        self._masks = np.zeros((self._NZ, self._Ly, self._Lx), np.uint16)
+        self._outlines = np.zeros((self._NZ, self._Ly, self._Lx), np.uint16)
         self._cellcolors = np.array([255, 255, 255])[np.newaxis, :]
     
 
-    def update_layerz(self, strokes):
-        self._layerz = np.zeros((self._Ly, self._Lx, 4), np.uint8)
-        z  = self._currentZ
+    def update_overlay(self, strokes):
+        self._overlay = np.zeros((self._Ly, self._Lx, 4), np.uint8)
+        z = self._currentZ
         if self.masks_on:
-            self._layerz[..., :3] = self._cellcolors[self._cellpix[z], :]
-            self._layerz[..., 3] = self._opacity * (self._cellpix[z] > 0).astype(np.uint8)
+            self._overlay[..., :3] = self._cellcolors[self._masks[z], :]
+            self._overlay[..., 3] = self._opacity * (self._masks[z] > 0).astype(np.uint8)
             last_selected = self._last_selected()
-            # if last_selected and last_selected > 0:
-            self._layerz[self._cellpix[z] == last_selected] = np.array(
+            self._overlay[self._masks[z] == last_selected] = np.array(
                 [255, 255, 255, self._opacity])
-        cZ = z
         stroke_z = np.array([s[0][0] for s in strokes])
-        inZ = np.nonzero(stroke_z == cZ)[0]
+        inZ = np.nonzero(stroke_z == z)[0]
         if len(inZ) > 0:
             for i in inZ:
                 stroke = np.array(strokes[i])
-                self._layerz[stroke[:, 1], stroke[:,
-                                                    2]] = np.array([255, 0, 255, 100])
-        z = self._currentZ
+                self._overlay[stroke[:, 1], stroke[:, 2]] = np.array([255, 0, 255, 100])
         if self.outlines_on:
-            self._layerz[self._outpix[z] > 0] = np.array(self.outline_color).astype(np.uint8)
-
+            self._overlay[self._outlines[z] > 0] = np.array(self.outline_color).astype(np.uint8)
+        self.layerChanged.emit()
 
     def get_outlines(self, z=None):
         if not z:
             z = self._currentZ
-        self._layerz[self.outpix[z] > 0] = np.array(self.outline_color).astype(np.uint8)
-
-
-    def set_cellpix(self, masks):
-        self._cellpix = masks
-        self.outpix # update based on cellpix
-        num_cells = self.get_num_cells()
-        colors = self.colormap[:num_cells, :3]
-        print("GUI_INFO: creating cellcolors and drawing masks")
-        self._cellcolors = np.concatenate((np.array([[255, 255, 255]]), colors),
-                                       axis=0).astype(np.uint8)
-        self.update_layerz([])
-        # TODO: update other things if needed...
+        self._overlay[self.outlines[z] > 0] = np.array(self.outline_color).astype(np.uint8)
 
 
     def get_num_cells(self):
         # TODO: hook this up to observable variable
-        return self._cellpix.max()
+        return self._masks.max()
 
 
-    @property
-    def outpix(self):
-        return self._calculate_outpix()
-    
     @property
     def load_3D(self):
         return self._NZ > 1
-    
 
-    def _calculate_outpix(self):
-        assert self._cellpix.ndim == 3, "cellpix should be 3D"
+    @property
+    def outlines(self):
+        return self._outlines
 
-        self._outpix = np.zeros_like(self._cellpix)
+    def _calculate_outlines(self):
+        self._outlines = np.zeros_like(self._masks)
         for z in range(self._NZ):
-            outlines = utils.masks_to_outlines(self._cellpix[z])
-            self._outpix[z] = outlines * self._cellpix[z]
+            outline_pix = utils.masks_to_outlines(self._masks[z])
+            self._outlines[z] = outline_pix * self._masks[z]
             if z % 50 == 0 and self._NZ > 1:
                 logger.info("GUI_INFO: plane %d outlines processed" % z)
-        return self._outpix
     
 
     def set_appearance(self, outlines_on=False, masks_on=True):
         """ Set the appearance of the outlines and masks """
         self._outlines_on = outlines_on
         self._masks_on = masks_on
-        self.update_layerz([])
+        self.update_overlay([])
 
     def remove_cell(self, idx):
-        """ Remove a cell from the cellpix and outlines 
-        
+        """ Remove a cell from the masks and outlines
+
         TODO: broken for 3D
         """
         z = self._currentZ
-        cp = self._cellpix[z] == idx
-        op = self._outpix[z] == idx
+        cp = self._masks[z] == idx
+        op = self._outlines[z] == idx
 
-        self._cellpix[z][cp] = 0
-        self._outpix[z][op] = 0
-        self._layerz[cp] = np.array([0, 0, 0, 0])
+        self._masks[z][cp] = 0
+        self._outlines[z][op] = 0
+        self._overlay[cp] = np.array([0, 0, 0, 0])
 
-        self._cellpix[z][self._cellpix[z] > idx] -= 1
-        self._outpix[z][self._outpix[z] > idx] -= 1
+        self._masks[z][self._masks[z] > idx] -= 1
+        self._outlines[z][self._outlines[z] > idx] -= 1
 
         self._last_removed_cell = {
-            'cellpix' : np.where(cp),
-            'outpix' : np.where(op),
-            'color' : self._cellcolors[idx],
+            'masks': np.where(cp),
+            'outlines': np.where(op),
+            'color': self._cellcolors[idx],
         }
-        
+
         # TODO: del self._idx_is_manual[idx - 1]
         self._cellcolors = np.delete(self._cellcolors, idx - 1, axis=0)
 
@@ -415,23 +380,44 @@ class ImageDataContainer(QtCore.QObject):
         if self._last_removed_cell:
             z = self._currentZ
 
-            # tuples of indices:
-            cellpix = self._last_removed_cell['cellpix']
-            outpix = self._last_removed_cell['outpix']
+            masks_pix = self._last_removed_cell['masks']
+            outlines_pix = self._last_removed_cell['outlines']
             color = self._last_removed_cell['color']
 
             idx = self.get_num_cells() + 1
-    
-            self._cellpix[z][*cellpix] = idx
-            self._outpix[z][*outpix] = idx
-            self._layerz[cellpix] = np.array([255, 255, 255, self._opacity])
+
+            self._masks[z][*masks_pix] = idx
+            self._outlines[z][*outlines_pix] = idx
+            self._overlay[masks_pix] = np.array([255, 255, 255, self._opacity])
             self._cellcolors = np.append(self._cellcolors, color[np.newaxis, :], axis=0)
             self._last_removed_cell = None
             print("GUI_INFO: restored cell %d" % (idx - 1))
 
     def set_masks(self, masks):
         self.clear_all()
-        self.set_cellpix(masks)
+
+        # give 2d images a single z plane
+        if masks.ndim == 2:
+            masks = masks[np.newaxis, ...]
+
+        self._masks = masks
+        self._calculate_outlines()
+        num_cells = self.get_num_cells()
+        colors = self.colormap[:num_cells, :3]
+        self._cellcolors = np.concatenate((np.array([[255, 255, 255]]), colors),
+                                          axis=0).astype(np.uint8)
+        self.update_overlay([])
+
+    def set_flows(self, flows):
+        """Store flows from model.eval.
+
+        flows[0] = XY flow HSV (H x W x 3 uint8)
+        flows[1] = XY flows at each pixel
+        flows[2] = cell probability map
+        """
+        self._flows = flows
+        if flows is not None and len(flows) > 2:
+            self._cellprob = flows[2]
 
 
     def make_colormap(self):
@@ -1274,7 +1260,6 @@ class SegmentationPanel(QGroupBox):
     run model button, ROI count, progress bar, and advanced settings."""
 
     runSegmentation = QtCore.Signal(str)
-    gpuToggled = QtCore.Signal(bool)
 
     def __init__(self, parent=None):
         super().__init__("Segmentation", parent)
@@ -1295,7 +1280,14 @@ class SegmentationPanel(QGroupBox):
             "then you can activate this"
         )
         self.useGPU.setFont(medfont)
-        self.useGPU.toggled.connect(self.gpuToggled.emit)
+        if core.use_gpu():
+            self.useGPU.setChecked(True)
+        else: 
+            self.useGPU.setChecked(False)
+            self.useGPU.setEnabled(False)
+            self.useGPU.setToolTip(
+                "GPU not detected. To use GPU, install the cuda version of torch and restart the GUI."
+            )
         grid.addWidget(self.useGPU, row, 0, 1, 3)
 
         # --- Run CPSAM button ---

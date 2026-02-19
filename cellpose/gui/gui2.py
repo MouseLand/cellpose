@@ -1,4 +1,5 @@
 import os
+import logging
 import numpy as np
 from enum import IntEnum
 
@@ -10,10 +11,48 @@ import pyqtgraph as pg
 from pathlib import Path
 import sys
 
-from cellpose import transforms
+from cellpose import transforms, models
 from cellpose.gui import menus
 from cellpose.gui import io
 import guiparts
+
+logger = logging.getLogger(__name__)
+
+
+class SegmentationWorker(QtCore.QObject):
+    """Runs cellpose segmentation in a background thread."""
+    finished = QtCore.Signal(object, object, object)  # masks, flows, diams
+    errored = QtCore.Signal(str)
+    progress = QtCore.Signal(int)
+
+    def __init__(self, image, gpu, diameter, flow_threshold, cellprob_threshold,
+                 niter, normalize, progress_bar=None):
+        super().__init__()
+        self.image = image
+        self.gpu = gpu
+        self.diameter = diameter
+        self.flow_threshold = flow_threshold
+        self.cellprob_threshold = cellprob_threshold
+        self.niter = niter
+        self.normalize = normalize
+        self.progress_bar = progress_bar
+
+    def run(self):
+        try:
+            model = models.CellposeModel(gpu=self.gpu)
+            masks, flows, styles = model.eval(
+                self.image,
+                diameter=self.diameter,
+                flow_threshold=self.flow_threshold,
+                cellprob_threshold=self.cellprob_threshold,
+                niter=self.niter if self.niter > 0 else None,
+                normalize=self.normalize,
+                progress=self.progress_bar,
+            )
+            self.finished.emit(masks, flows, styles)
+        except Exception as e:
+            logger.error(f"Segmentation failed: {e}", exc_info=True)
+            self.errored.emit(str(e))
 
 
 class ColorMode(IntEnum):
@@ -232,8 +271,12 @@ class MainW(QMainWindow):
         if image.ndim < 4:
             image = image[np.newaxis, ...]
         self.imageContainer = guiparts.ImageDataContainer(image)
+        self.imageContainer.layerChanged.connect(self.update_layer)
 
+        # force segmentation button to activate:
+        self.loaded = False
         self.loaded = True
+
         if self.views_panel.autobtn.isChecked():
             self._compute_saturation()
         self.update_plot()
@@ -245,6 +288,11 @@ class MainW(QMainWindow):
         # Push computed values to sliders
         for i, (low, high) in enumerate(self.saturation):
             self.views_panel.set_slider_values(i, low, high)
+
+    def update_layer(self):
+        if not self.loaded:
+            return
+        self.layer.setImage(self.imageContainer.overlay, autoLevels=False)
 
     def update_plot(self):
         if not self.loaded:
@@ -297,7 +345,59 @@ class MainW(QMainWindow):
             self.update_plot()
 
     def _on_run_segmentation(self, model_name):
-        print(f"GUI_INFO: run segmentation with {model_name}")
+        if not self.loaded:
+            return
+
+        settings = self.seg_panel.settings
+
+        # Read parameters from the settings panel
+        diam_text = settings.diameter_box.text().strip()
+        diameter = float(diam_text) if diam_text else None
+        flow_threshold = float(settings.flow_threshold_box.text() or "0.4")
+        cellprob_threshold = float(settings.cellprob_threshold_box.text() or "0.0")
+        niter = int(settings.niter_box.text() or "0")
+        norm_low = float(settings.norm_percentile_low_box.text() or "1.0")
+        norm_high = float(settings.norm_percentile_high_box.text() or "99.0")
+        normalize = {"percentile": [norm_low, norm_high]}
+        gpu = self.seg_panel.useGPU.isChecked()
+
+        image = self.imageContainer.current_z_image
+
+        # Disable controls while running
+        self.seg_panel.run_button.setEnabled(False)
+        self.seg_panel.progress.setValue(0)
+
+        # Set up worker thread
+        self._seg_thread = QtCore.QThread()
+        self._seg_worker = SegmentationWorker(
+            image=image, gpu=gpu, diameter=diameter,
+            flow_threshold=flow_threshold,
+            cellprob_threshold=cellprob_threshold,
+            niter=niter, normalize=normalize,
+            progress_bar=self.seg_panel.progress,
+        )
+        self._seg_worker.moveToThread(self._seg_thread)
+        self._seg_thread.started.connect(self._seg_worker.run)
+        self._seg_worker.finished.connect(self._on_segmentation_finished)
+        self._seg_worker.errored.connect(self._on_segmentation_error)
+        self._seg_worker.finished.connect(self._seg_thread.quit)
+        self._seg_worker.errored.connect(self._seg_thread.quit)
+        self._seg_thread.finished.connect(self._seg_thread.deleteLater)
+        self._seg_thread.start()
+
+    def _on_segmentation_finished(self, masks, flows, styles):
+        self.imageContainer.set_masks(masks)
+        self.imageContainer.set_flows(flows)
+        n_rois = self.imageContainer.get_num_cells()
+        self.seg_panel.set_roi_count(n_rois)
+        self.seg_panel.set_progress(100)
+        self.seg_panel.run_button.setEnabled(True)
+        logger.info(f"Segmentation complete: {n_rois} ROIs found")
+
+    def _on_segmentation_error(self, error_msg):
+        logger.error(f"Segmentation error: {error_msg}")
+        self.seg_panel.set_progress(0)
+        self.seg_panel.run_button.setEnabled(True)
 
 
 if __name__ == "__main__":
