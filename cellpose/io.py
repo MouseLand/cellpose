@@ -254,7 +254,7 @@ def imread_3D(img_file):
     if img.ndim == 3:
         channel_axis = None
         # guess at z axis:
-        z_axis = np.argmin(dimension_lengths)
+        z_axis = 0
 
     elif img.ndim == 4:
         # guess at channel axis:
