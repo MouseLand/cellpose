@@ -237,14 +237,18 @@ def imread_3D(img_file):
     """
     Read in a 3D image file and convert it to have a channel axis last automatically. Attempts to do this for multi-channel and grayscale images.
 
-    If multichannel image, the channel axis is assumed to be the smallest dimension, and the z axis is the next smallest dimension. 
-    Use `cellpose.io.imread()` to load the full image without selecting the z and channel axes. 
-    
+    For grayscale images (3D array), axis 0 is assumed to be the Z axis (e.g., Z x Y x X).
+    For multichannel images (4D array), the channel axis is assumed to be the smallest dimension,
+    and the Z axis is assumed to be the first remaining axis after the channel axis is removed.
+
+    Use ``cellpose.io.imread()`` to load the full image without automatic axis selection,
+    then specify ``z_axis`` and ``channel_axis`` manually when calling ``model.eval``.
+
     Args:
         img_file (str): The path to the image file.
 
     Returns:
-        img_out (numpy.ndarray): The image data as a NumPy array.
+        img_out (numpy.ndarray): The image data as a NumPy array with channels last, or None if loading fails.
     """
     img = imread(img_file)
 
