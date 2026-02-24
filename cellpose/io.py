@@ -259,11 +259,10 @@ def imread_3D(img_file):
     elif img.ndim == 4:
         # guess at channel axis:
         channel_axis = np.argmin(dimension_lengths)
-
-        # guess at z axis: 
-        # set channel axis to max so argmin works:
-        dimension_lengths[channel_axis] = max(dimension_lengths)
-        z_axis = np.argmin(dimension_lengths)
+        dimensions = list(range(img.ndim))
+        dimensions.pop(channel_axis)
+        # guess at z axis as the first remaining dimension: 
+        z_axis = dimensions[0]
 
     else: 
         raise ValueError(f'image shape error, 3D image must 3 or 4 dimensional. Number of dimensions: {img.ndim}')
