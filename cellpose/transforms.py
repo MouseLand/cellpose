@@ -612,7 +612,7 @@ def convert_image(x, channel_axis=None, z_axis=None, do_3D=False):
         x_out[..., 0] = x
         x = x_out
         del x_out
-        transforms_logger.info(f'processing grayscale image with {x.shape[0], x.shape[1]} HW')
+        transforms_logger.debug(f'processing grayscale image with {x.shape[0], x.shape[1]} HW')
     elif ndim == 3:
         # assume 2d with channels
         # find dim with smaller size between first and last dims
@@ -629,7 +629,7 @@ def convert_image(x, channel_axis=None, z_axis=None, do_3D=False):
         x_out[..., :num_channels] = x[..., :num_channels]
         x = x_out
         del x_out
-        transforms_logger.info(f'processing image with {x.shape[0], x.shape[1]} HW, and {x.shape[2]} channels')
+        transforms_logger.debug(f'processing image with {x.shape[0], x.shape[1]} HW, and {x.shape[2]} channels')
     elif ndim == 4:
         # assume batch of 2d with channels
 
@@ -642,7 +642,7 @@ def convert_image(x, channel_axis=None, z_axis=None, do_3D=False):
         x_out[..., :num_channels] = x[..., :num_channels]
         x = x_out
         del x_out
-        transforms_logger.info(f'processing image batch with {x.shape[0]} images, {x.shape[1], x.shape[2]} HW, and {x.shape[3]} channels')
+        transforms_logger.debug(f'processing image batch with {x.shape[0]} images, {x.shape[1], x.shape[2]} HW, and {x.shape[3]} channels')
     else:
         # something is wrong: yell
         expected_shapes = "2D (H, W), 3D (H, W, C), or 4D (Z, H, W, C)"
