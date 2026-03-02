@@ -47,6 +47,33 @@ except:
 io_logger = logging.getLogger(__name__)
 
 def logger_setup(cp_path=".cellpose", logfile_name="run.log", stdout_file_replacement=None):
+    """Set up logging to a file and stdout (or a file replacement).
+
+    Creates the log directory if it doesn't exist, removes any existing log
+    file, and configures the root logger to write INFO-level and above messages
+    to both a log file and stdout (or a replacement file).
+
+    Parameters
+    ----------
+    cp_path : str, optional
+        Directory name under the user's home directory for log output.
+        Default is ".cellpose".
+    logfile_name : str, optional
+        Name of the log file created inside cp_path. Default is "run.log".
+    stdout_file_replacement : str or None, optional
+        If provided, log output is written to this file path instead of stdout.
+
+    Returns
+    -------
+    logger : logging.Logger
+        Configured logger for this module. Only INFO and above messages are
+        emitted by default. To enable debug output, call
+        ``logger.setLevel(logging.DEBUG)`` on the returned logger.
+
+    Notes
+    -----
+    The log file is deleted and recreated on each call.
+    """
     cp_dir = pathlib.Path.home().joinpath(cp_path)
     cp_dir.mkdir(exist_ok=True)
     log_file = cp_dir.joinpath(logfile_name)
