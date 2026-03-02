@@ -264,14 +264,18 @@ def imread_3D(img_file):
     """
     Read in a 3D image file and convert it to have a channel axis last automatically. Attempts to do this for multi-channel and grayscale images.
 
-    If multichannel image, the channel axis is assumed to be the smallest dimension, and the z axis is the next smallest dimension. 
-    Use `cellpose.io.imread()` to load the full image without selecting the z and channel axes. 
-    
+    For grayscale images (3D array), axis 0 is assumed to be the Z axis (e.g., Z x Y x X).
+    For multichannel images (4D array), the channel axis is assumed to be the smallest dimension,
+    and the Z axis is assumed to be the first remaining axis after the channel axis is removed.
+
+    Use ``cellpose.io.imread()`` to load the full image without automatic axis selection,
+    then specify ``z_axis`` and ``channel_axis`` manually when calling ``model.eval``.
+
     Args:
         img_file (str): The path to the image file.
 
     Returns:
-        img_out (numpy.ndarray): The image data as a NumPy array.
+        img_out (numpy.ndarray): The image data as a NumPy array with channels last, or None if loading fails.
     """
     img = imread(img_file)
 
@@ -281,16 +285,15 @@ def imread_3D(img_file):
     if img.ndim == 3:
         channel_axis = None
         # guess at z axis:
-        z_axis = np.argmin(dimension_lengths)
+        z_axis = 0
 
     elif img.ndim == 4:
         # guess at channel axis:
         channel_axis = np.argmin(dimension_lengths)
-
-        # guess at z axis: 
-        # set channel axis to max so argmin works:
-        dimension_lengths[channel_axis] = max(dimension_lengths)
-        z_axis = np.argmin(dimension_lengths)
+        dimensions = list(range(img.ndim))
+        dimensions.pop(channel_axis)
+        # guess at z axis as the first remaining dimension: 
+        z_axis = dimensions[0]
 
     else: 
         raise ValueError(f'image shape error, 3D image must 3 or 4 dimensional. Number of dimensions: {img.ndim}')
