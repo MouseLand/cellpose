@@ -216,6 +216,28 @@ def imread(filename):
         if not ND2:
             io_logger.critical("ERROR: need to 'pip install nd2' to load in .nd2 file")
             return None
+        else:
+            with nd2.ND2File(filename) as nd2_file:
+                img = nd2_file.asarray()
+                sizes = nd2_file.sizes
+
+            kept_axes = [nd2.AXIS.Y, nd2.AXIS.X, nd2.AXIS.CHANNEL, nd2.AXIS.Z]
+            # For multi-dimensional data (T, P, etc.), take first frame/position
+            # Work backwards through axes to avoid index shifting
+            for i, (ax_name, size) in reversed(list(enumerate(sizes.items()))):
+                # Keep Y, X, C, Z; remove or reduce everything else
+                if ax_name not in kept_axes:
+                    if size > 1:
+                        io_logger.warning(
+                            f"ND2 file has {size} {ax_name} - using first only"
+                        )
+                    # Take first element (works for both size=1 and size>1)
+                    img = np.take(img, 0, axis=i)
+
+            # Result should now be YX, CYX, ZYX, or CZYX depending on original axes
+            # nd2 preserves axis order from sizes dict (usually C, Z, Y, X)
+            return img
+
     elif ext == ".nrrd":
         if not NRRD:
             io_logger.critical(
@@ -257,6 +279,8 @@ def imread_2D(img_file):
         img_out (numpy.ndarray): The 3-channel image data as a NumPy array.
     """
     img = imread(img_file)
+    if img is None:
+        raise ValueError(f"could not read image file {img_file}")
     return transforms.convert_image(img, do_3D=False)
 
 
@@ -278,6 +302,8 @@ def imread_3D(img_file):
         img_out (numpy.ndarray): The image data as a NumPy array with channels last, or None if loading fails.
     """
     img = imread(img_file)
+    if img is None:
+        raise ValueError(f"could not read image file {img_file}")
 
     dimension_lengths = list(img.shape)
 

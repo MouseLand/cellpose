@@ -139,6 +139,7 @@ def _load_image(parent, filename=None, load_seg=True, load_3D=False):
     except Exception as e:
         print("ERROR: images not compatible")
         print(f"ERROR: {e}")
+        return
 
     if parent.loaded:
         parent.reset()
