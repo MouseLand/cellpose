@@ -25,11 +25,20 @@ then the GUI will automatically run 3D segmentation and display it in the GUI. W
 the command line for progress. It is recommended to use a GPU to speed up processing.
 
 In the CLI/notebook, you need to specify the ``z_axis`` and the ``channel_axis``
-parameters to specify the axis (0-based) of the image which corresponds to the image channels and to the z axis. 
-For example an image with 2 channels of shape (1024,1024,2,105,1) can be 
-specified with ``channel_axis=2`` and ``z_axis=3``. These parameters can be specified using the command line 
-with ``--channel_axis`` or ``--z_axis`` or as inputs to ``model.eval`` for 
+parameters to specify the axis (0-based) of the image which corresponds to the image channels and to the z axis.
+For example an image with 2 channels of shape (1024,1024,2,105,1) can be
+specified with ``channel_axis=2`` and ``z_axis=3``. These parameters can be specified using the command line
+with ``--channel_axis`` or ``--z_axis`` or as inputs to ``model.eval`` for
 the ``CellposeModel`` model.
+
+As a convenience, :func:`cellpose.io.imread_3D` will attempt to load a 3D image and
+automatically guess the axes. For grayscale images (3D array), axis 0 is assumed
+to be the Z axis (e.g., Z x Y x X). For multichannel images (4D array), the
+channel axis is assumed to be the smallest dimension, and the Z axis is assumed to
+be the first remaining axis after the channel axis is identified (e.g., for a
+Z x C x Y x X image, channel axis = 1 and z axis = 0). If your image does not
+follow these conventions, use ``cellpose.io.imread`` and specify ``z_axis`` and
+``channel_axis`` manually.
 
 Volumetric stacks do not always have the same sampling in XY as they do in Z. 
 Therefore you can set an ``anisotropy`` parameter in CLI/notebook to allow for differences in 
