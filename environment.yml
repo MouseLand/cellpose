@@ -1,29 +1,40 @@
 name: cellpose
+channels:
+  - conda-forge
 dependencies:
-  - python==3.8.5
+  - python>=3.9,<3.12
+  # Core dependencies (install_deps)
+  - numpy>=1.20.0
+  - scipy
+  - natsort
+  - tifffile
+  - tqdm
+  - pytorch>=1.6
+  - torchvision
+  - opencv
+  - imagecodecs
+  - fastremap
+  - roifile
+  - fill-voids
+  # GUI dependencies (gui_deps)
+  - pyqtgraph>=0.12.4
+  - pyqt6
+  - pyqt6-sip
+  - qtpy
+  - superqt
+  # Image format support (image_deps)
+  - nd2
+  - pynrrd
+  # Distributed computing (distributed_deps)
+  - dask
+  - distributed
+  - dask-image
+  - pyyaml
+  - zarr
+  - dask-jobqueue
+  - bokeh
+  - pyarrow
   - pip
   - pip:
-    - qtpy
-#    - PyQt5.sip
-    - numpy>=1.20.0
-    - scipy
-    - torch>=1.6
-    - opencv-python-headless
-    - pyqtgraph>=0.11.0rc0
-    - natsort
-    - google-cloud-storage
-    - tqdm
-    - tifffile
-    - fastremap
-    - cellpose
-    - roifile
-    - pyqt5
-    - dask
-    - distributed
-    - dask-image
-    - pyyaml
-    - zarr
-    - dask_jobqueue
-    - bokeh
-    - fill-voids
-  
+    - segment_anything  # pip-only (core dependency)
+    - -e .
