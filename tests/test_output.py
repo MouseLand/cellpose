@@ -39,17 +39,20 @@ def clear_output(data_dir, image_names):
             os.remove(npy_output)
 
 
-@pytest.mark.parametrize('compute_masks, resample, diameter', 
+@pytest.mark.parametrize('compute_masks, resample, diameter, flow3D_smooth', 
                          [
-                             (True, True, 40), 
-                             (True, True, None), 
-                             (False, True, None),
-                             (False, False, None),
-                             (True, False, None),
-                             (True, False, 40)
+                             (True, True, 40, None), 
+                             (True, True, None, None), 
+                             (False, True, None, None),
+                             (False, False, None, None),
+                             (True, False, None, None),
+                             (True, False, 40, None),
+                             (False, True, None, 2),
+                             (False, True, None, [2, 0, 0]),
+                             (False, False, None, 2),
                          ]
 )
-def test_class_2D_one_img(data_dir, image_names, cellposemodel_fixture_24layer, compute_masks, resample, diameter):
+def test_class_2D_one_img(data_dir, image_names, cellposemodel_fixture_24layer, compute_masks, resample, diameter, flow3D_smooth):
     clear_output(data_dir, image_names)
         
     img_file = data_dir / '2D' / image_names[0]
@@ -57,7 +60,7 @@ def test_class_2D_one_img(data_dir, image_names, cellposemodel_fixture_24layer, 
     img = io.imread_2D(img_file)
     # flowps = io.imread(img_file.parent / (img_file.stem + "_cp4_gt_flowps.tif"))
 
-    masks_pred, _, _ = cellposemodel_fixture_24layer.eval(img, normalize=True, compute_masks=compute_masks, resample=resample, diameter=diameter)
+    masks_pred, _, _ = cellposemodel_fixture_24layer.eval(img, normalize=True, compute_masks=compute_masks, resample=resample, diameter=diameter, flow3D_smooth=flow3D_smooth)
 
     if not compute_masks:
         # not compute_masks won't return masks so can't check
