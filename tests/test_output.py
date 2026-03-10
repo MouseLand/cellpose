@@ -46,7 +46,7 @@ def clear_output(data_dir, image_names):
                              (False, True, None),
                              (False, False, None),
                              (True, False, None),
-                             (True, False, 40)
+                             (True, False, 40),
                          ]
 )
 def test_class_2D_one_img(data_dir, image_names, cellposemodel_fixture_24layer, compute_masks, resample, diameter):
@@ -172,13 +172,21 @@ def test_cli_3D_diam_anisotropy_shape(data_dir, image_names_3d, diam, aniso):
     compare_mask_shapes(data_dir, image_names_3d[0], "3D")
     clear_output(data_dir, image_names_3d)
 
-
+@pytest.mark.parametrize('flow3D_smooth',
+                         [None, 2, [1., 0., 0.]])
 @pytest.mark.slow
-def test_cli_3D_one_img(data_dir, image_names_3d):
+def test_cli_3D_one_img(data_dir, image_names_3d, flow3D_smooth):
     clear_output(data_dir, image_names_3d)
     use_gpu = torch.cuda.is_available() or torch.backends.mps.is_available() 
     gpu_string = "--use_gpu" if use_gpu else ""
-    cmd = f"python -m cellpose --image_path {str(data_dir / '3D' / image_names_3d[0])} --do_3D --save_tif {gpu_string} --verbose"
+
+    flow_string = ''
+    if isinstance(flow3D_smooth, (float, int)):
+        flow_string = f" --flow3D_smooth {flow3D_smooth}"
+    elif isinstance(flow3D_smooth, list):
+        flow_string = f" --flow3D_smooth {' '.join([str(f) for f in flow3D_smooth])}"
+
+    cmd = f"python -m cellpose --image_path {str(data_dir / '3D' / image_names_3d[0])} --do_3D --save_tif {gpu_string} --verbose{flow_string}"
     print(cmd)
     try:
         cmd_stdout = check_output(cmd, stderr=STDOUT, shell=True).decode()

@@ -57,6 +57,9 @@ If you see many cells that are fragmented, you can smooth the flows before the d
 are run in 3D using the ``flow3D_smooth`` parameter, which specifies the standard deviation of 
 a Gaussian for smoothing the flows. The default is 0.0, which means no smoothing. Alternatively/additionally,
 you may want to train a model on 2D slices from your 3D data to improve the segmentation (see below).
+*If there are ring-like artifacts in your masks*, increasing ``flow3D_smooth`` can help remove them. 
+You can specify the ZYX flow smoothing independently for each axis by passing a list of values to the ``flow3D_smooth`` 
+argument. For example: ``flow3D_smooth = [2, 0, 0]`` 
 
 The network can rescale images using the user diameter and the model ``diam_mean`` (30),
 so for example if you input a diameter of 90, 

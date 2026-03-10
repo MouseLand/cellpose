@@ -187,7 +187,7 @@ class CellposeModel():
             flow_threshold (float, optional): flow error threshold (all cells with errors below threshold are kept) (not used for 3D). Defaults to 0.4.
             cellprob_threshold (float, optional): all pixels with value above threshold kept for masks, decrease to find more and larger masks. Defaults to 0.0.
             do_3D (bool, optional): set to True to run 3D segmentation on 3D/4D image input. Defaults to False.
-            flow3D_smooth (int, optional): if do_3D and flow3D_smooth>0, smooth flows with gaussian filter of this stddev. Defaults to 0.
+            flow3D_smooth (int or float or list of (int or float), optional): if do_3D and flow3D_smooth>0, smooth flows with gaussian filter of this stddev. List smooths the ZYX axes independently and must be length 3. Defaults to 0.
             anisotropy (float, optional): for 3D segmentation, optional rescaling factor (e.g. set to 2.0 if Z is sampled half as dense as X or Y). Defaults to None.
             stitch_threshold (float, optional): if stitch_threshold>0.0 and not do_3D, masks are stitched in 3D to return volume segmentation. Defaults to 0.0.
             min_size (int, optional): all ROIs below this size, in pixels, will be discarded. Defaults to 15.
@@ -319,18 +319,11 @@ class CellposeModel():
             do_3D=do_3D, 
             anisotropy=anisotropy)
 
-        if do_3D:    
-            if flow3D_smooth > 0:
-                models_logger.info(f"smoothing flows with sigma={flow3D_smooth}")
-                dP = gaussian_filter(dP, (0, flow3D_smooth, flow3D_smooth, flow3D_smooth))
+        if do_3D:
             torch.cuda.empty_cache()
             gc.collect()
 
             if resample:
-                # upsample flows flows before computing them:
-                # dP = self._resize_gradients(dP, to_y_size=Ly_0, to_x_size=Lx_0, to_z_size=Lz_0)
-                # cellprob = self._resize_cellprob(cellprob, to_x_size=Lx_0, to_y_size=Ly_0, to_z_size=Lz_0)
-
                 # resize XY then YZ and then put channels first
                 dP = transforms.resize_image(dP.transpose(1, 2, 3, 0), Ly=Ly_0, Lx=Lx_0, no_channels=False)
                 dP = transforms.resize_image(dP.transpose(1, 0, 2, 3), Lx=Lx_0, Ly=Lz_0, no_channels=False)
@@ -341,16 +334,22 @@ class CellposeModel():
                 cellprob = transforms.resize_image(cellprob.transpose(1, 0, 2), Lx=Lx_0, Ly=Lz_0, no_channels=True)
                 cellprob = cellprob.transpose(1, 0, 2)
 
-
         # 2d case:
         if resample and not do_3D:
-            # upsample flows before computing them: 
-            # dP = self._resize_gradients(dP, to_y_size=Ly_0, to_x_size=Lx_0, to_z_size=Lz_0)
-            # cellprob = self._resize_cellprob(cellprob, to_x_size=Lx_0, to_y_size=Ly_0, to_z_size=Lz_0)
-
             # 2D images have N = 1 in batch dimension:
             dP = transforms.resize_image(dP.transpose(1, 2, 3, 0), Ly=Ly_0, Lx=Lx_0, no_channels=False).transpose(3, 0, 1, 2)
             cellprob = transforms.resize_image(cellprob, Ly=Ly_0, Lx=Lx_0, no_channels=True)
+        
+        if do_3D and flow3D_smooth:
+            if isinstance(flow3D_smooth, (int, float)):
+                flow3D_smooth = [flow3D_smooth]*3 
+            if isinstance(flow3D_smooth, list) and len(flow3D_smooth) == 1:
+                flow3D_smooth = flow3D_smooth*3
+            if len(flow3D_smooth) == 3 and any(v > 0 for v in flow3D_smooth):
+                models_logger.info(f"smoothing flows with ZYX sigma={flow3D_smooth}")
+                dP = gaussian_filter(dP, [0, *flow3D_smooth])
+            else: 
+                models_logger.warning(f"Could not do flow smoothing with {flow3D_smooth} either because its len was not 3 or no items were > 0, skipping flow3D_smoothing")
 
         if compute_masks:
             # use user niter if specified, otherwise scale niter (200) with diameter
