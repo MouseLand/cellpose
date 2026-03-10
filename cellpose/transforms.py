@@ -612,7 +612,7 @@ def convert_image(x, channel_axis=None, z_axis=None, do_3D=False):
         x_out[..., 0] = x
         x = x_out
         del x_out
-        transforms_logger.info(f'processing grayscale image with {x.shape[0], x.shape[1]} HW')
+        transforms_logger.debug(f'processing grayscale image with {x.shape[0], x.shape[1]} HW')
     elif ndim == 3:
         # assume 2d with channels
         # find dim with smaller size between first and last dims
@@ -629,7 +629,7 @@ def convert_image(x, channel_axis=None, z_axis=None, do_3D=False):
         x_out[..., :num_channels] = x[..., :num_channels]
         x = x_out
         del x_out
-        transforms_logger.info(f'processing image with {x.shape[0], x.shape[1]} HW, and {x.shape[2]} channels')
+        transforms_logger.debug(f'processing image with {x.shape[0], x.shape[1]} HW, and {x.shape[2]} channels')
     elif ndim == 4:
         # assume batch of 2d with channels
 
@@ -642,7 +642,7 @@ def convert_image(x, channel_axis=None, z_axis=None, do_3D=False):
         x_out[..., :num_channels] = x[..., :num_channels]
         x = x_out
         del x_out
-        transforms_logger.info(f'processing image batch with {x.shape[0]} images, {x.shape[1], x.shape[2]} HW, and {x.shape[3]} channels')
+        transforms_logger.debug(f'processing image batch with {x.shape[0]} images, {x.shape[1], x.shape[2]} HW, and {x.shape[3]} channels')
     else:
         # something is wrong: yell
         expected_shapes = "2D (H, W), 3D (H, W, C), or 4D (Z, H, W, C)"
@@ -776,10 +776,6 @@ def normalize_img(img, normalize=True, norm3D=True, invert=False, lowhigh=None,
             transforms_logger.critical(error_message)
             raise ValueError(error_message)
 
-    # Move channel axis back to the original position
-    if axis != -1 and axis != img_norm.ndim - 1:
-        img_norm = np.moveaxis(img_norm, -1, axis)
-
     # The transformer can get confused if a channel is all 1's instead of all 0's:
     for i, chan_did_normalize in enumerate(cgood):
         if not chan_did_normalize:
@@ -787,6 +783,10 @@ def normalize_img(img, normalize=True, norm3D=True, invert=False, lowhigh=None,
                 img_norm[:, :, i] = 0
             if img_norm.ndim == 4:
                 img_norm[:, :, :, i] = 0
+
+    # Move channel axis back to the original position
+    if axis != -1 and axis != img_norm.ndim - 1:
+        img_norm = np.moveaxis(img_norm, -1, axis)
 
     return img_norm
 
