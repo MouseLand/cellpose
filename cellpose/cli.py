@@ -109,8 +109,8 @@ def get_arg_parser():
         "--min_size", required=False, default=15, type=int,
         help="minimum number of pixels per mask, can turn off with -1")
     algorithm_args.add_argument(
-        "--flow3D_smooth", required=False, default=0, type=float,
-        help="stddev of gaussian for smoothing of dP for dynamics in 3D, default of 0 means no smoothing")
+        "--flow3D_smooth", required=False, default=0, type=float, nargs='+',
+        help="stddev of gaussian for smoothing of dP for dynamics in 3D, default of 0 means no smoothing. Pass a list of values to allow smoothing of the ZYX axes independently")
     algorithm_args.add_argument(
         "--flow_threshold", default=0.4, type=float, help=
         "flow error threshold, 0 turns off this optional QC step. Default: %(default)s")

@@ -39,20 +39,17 @@ def clear_output(data_dir, image_names):
             os.remove(npy_output)
 
 
-@pytest.mark.parametrize('compute_masks, resample, diameter, flow3D_smooth', 
+@pytest.mark.parametrize('compute_masks, resample, diameter', 
                          [
-                             (True, True, 40, None), 
-                             (True, True, None, None), 
-                             (False, True, None, None),
-                             (False, False, None, None),
-                             (True, False, None, None),
-                             (True, False, 40, None),
-                             (False, True, None, 2),
-                             (False, True, None, [2, 0, 0]),
-                             (False, False, None, 2),
+                             (True, True, 40), 
+                             (True, True, None), 
+                             (False, True, None),
+                             (False, False, None),
+                             (True, False, None),
+                             (True, False, 40),
                          ]
 )
-def test_class_2D_one_img(data_dir, image_names, cellposemodel_fixture_24layer, compute_masks, resample, diameter, flow3D_smooth):
+def test_class_2D_one_img(data_dir, image_names, cellposemodel_fixture_24layer, compute_masks, resample, diameter):
     clear_output(data_dir, image_names)
         
     img_file = data_dir / '2D' / image_names[0]
@@ -60,7 +57,7 @@ def test_class_2D_one_img(data_dir, image_names, cellposemodel_fixture_24layer, 
     img = io.imread_2D(img_file)
     # flowps = io.imread(img_file.parent / (img_file.stem + "_cp4_gt_flowps.tif"))
 
-    masks_pred, _, _ = cellposemodel_fixture_24layer.eval(img, normalize=True, compute_masks=compute_masks, resample=resample, diameter=diameter, flow3D_smooth=flow3D_smooth)
+    masks_pred, _, _ = cellposemodel_fixture_24layer.eval(img, normalize=True, compute_masks=compute_masks, resample=resample, diameter=diameter)
 
     if not compute_masks:
         # not compute_masks won't return masks so can't check
@@ -175,13 +172,21 @@ def test_cli_3D_diam_anisotropy_shape(data_dir, image_names_3d, diam, aniso):
     compare_mask_shapes(data_dir, image_names_3d[0], "3D")
     clear_output(data_dir, image_names_3d)
 
-
+@pytest.mark.parametrize('flow3D_smooth',
+                         [None, 2, [1., 0., 0.]])
 @pytest.mark.slow
-def test_cli_3D_one_img(data_dir, image_names_3d):
+def test_cli_3D_one_img(data_dir, image_names_3d, flow3D_smooth):
     clear_output(data_dir, image_names_3d)
     use_gpu = torch.cuda.is_available() or torch.backends.mps.is_available() 
     gpu_string = "--use_gpu" if use_gpu else ""
-    cmd = f"python -m cellpose --image_path {str(data_dir / '3D' / image_names_3d[0])} --do_3D --save_tif {gpu_string} --verbose"
+
+    flow_string = ''
+    if isinstance(flow3D_smooth, (float, int)):
+        flow_string = f" --flow3D_smooth {flow3D_smooth}"
+    elif isinstance(flow3D_smooth, list):
+        flow_string = f" --flow3D_smooth {' '.join([str(f) for f in flow3D_smooth])}"
+
+    cmd = f"python -m cellpose --image_path {str(data_dir / '3D' / image_names_3d[0])} --do_3D --save_tif {gpu_string} --verbose{flow_string}"
     print(cmd)
     try:
         cmd_stdout = check_output(cmd, stderr=STDOUT, shell=True).decode()

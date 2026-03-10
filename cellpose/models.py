@@ -340,9 +340,11 @@ class CellposeModel():
             dP = transforms.resize_image(dP.transpose(1, 2, 3, 0), Ly=Ly_0, Lx=Lx_0, no_channels=False).transpose(3, 0, 1, 2)
             cellprob = transforms.resize_image(cellprob, Ly=Ly_0, Lx=Lx_0, no_channels=True)
         
-        if do_3D and flow3D_smooth > 0:
-            if isinstance(flow3D_smooth, int) or isinstance(flow3D_smooth, float):
+        if do_3D and flow3D_smooth:
+            if isinstance(flow3D_smooth, (int, float)):
                 flow3D_smooth = [flow3D_smooth]*3 
+            if isinstance(flow3D_smooth, list) and len(flow3D_smooth) == 1:
+                flow3D_smooth = flow3D_smooth*3
             if len(flow3D_smooth) == 3 and any(v > 0 for v in flow3D_smooth):
                 models_logger.info(f"smoothing flows with ZYX sigma={flow3D_smooth}")
                 dP = gaussian_filter(dP, [0, *flow3D_smooth])
