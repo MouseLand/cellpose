@@ -320,12 +320,6 @@ class CellposeModel():
             anisotropy=anisotropy)
 
         if do_3D:
-            
-            if isinstance(flow3D_smooth, int):
-                flow3D_smooth = [flow3D_smooth]*3 
-            if any(v > 0 for v in flow3D_smooth):
-                models_logger.info(f"smoothing flows with sigma={flow3D_smooth}")
-                dP = gaussian_filter(dP, [0, *flow3D_smooth])
             torch.cuda.empty_cache()
             gc.collect()
 
@@ -354,6 +348,14 @@ class CellposeModel():
             # 2D images have N = 1 in batch dimension:
             dP = transforms.resize_image(dP.transpose(1, 2, 3, 0), Ly=Ly_0, Lx=Lx_0, no_channels=False).transpose(3, 0, 1, 2)
             cellprob = transforms.resize_image(cellprob, Ly=Ly_0, Lx=Lx_0, no_channels=True)
+        
+        # try smoothing flows after resizing but before computing masks
+        if do_3D and flow3D_smooth > 0:
+            if isinstance(flow3D_smooth, int):
+                flow3D_smooth = [flow3D_smooth]*3 
+            if any(v > 0 for v in flow3D_smooth):
+                models_logger.info(f"smoothing flows with sigma={flow3D_smooth}")
+                dP = gaussian_filter(dP, [0, *flow3D_smooth])
 
         if compute_masks:
             # use user niter if specified, otherwise scale niter (200) with diameter
