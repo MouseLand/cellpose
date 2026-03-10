@@ -47,6 +47,33 @@ except:
 io_logger = logging.getLogger(__name__)
 
 def logger_setup(cp_path=".cellpose", logfile_name="run.log", stdout_file_replacement=None):
+    """Set up logging to a file and stdout (or a file replacement).
+
+    Creates the log directory if it doesn't exist, removes any existing log
+    file, and configures the root logger to write INFO-level and above messages
+    to both a log file and stdout (or a replacement file).
+
+    Parameters
+    ----------
+    cp_path : str, optional
+        Directory name under the user's home directory for log output.
+        Default is ".cellpose".
+    logfile_name : str, optional
+        Name of the log file created inside cp_path. Default is "run.log".
+    stdout_file_replacement : str or None, optional
+        If provided, log output is written to this file path instead of stdout.
+
+    Returns
+    -------
+    logger : logging.Logger
+        Configured logger for this module. Only INFO and above messages are
+        emitted by default. To enable debug output, call
+        ``logger.setLevel(logging.DEBUG)`` on the returned logger.
+
+    Notes
+    -----
+    The log file is deleted and recreated on each call.
+    """
     cp_dir = pathlib.Path.home().joinpath(cp_path)
     cp_dir.mkdir(exist_ok=True)
     log_file = cp_dir.joinpath(logfile_name)
@@ -189,6 +216,28 @@ def imread(filename):
         if not ND2:
             io_logger.critical("ERROR: need to 'pip install nd2' to load in .nd2 file")
             return None
+        else:
+            with nd2.ND2File(filename) as nd2_file:
+                img = nd2_file.asarray()
+                sizes = nd2_file.sizes
+
+            kept_axes = [nd2.AXIS.Y, nd2.AXIS.X, nd2.AXIS.CHANNEL, nd2.AXIS.Z]
+            # For multi-dimensional data (T, P, etc.), take first frame/position
+            # Work backwards through axes to avoid index shifting
+            for i, (ax_name, size) in reversed(list(enumerate(sizes.items()))):
+                # Keep Y, X, C, Z; remove or reduce everything else
+                if ax_name not in kept_axes:
+                    if size > 1:
+                        io_logger.warning(
+                            f"ND2 file has {size} {ax_name} - using first only"
+                        )
+                    # Take first element (works for both size=1 and size>1)
+                    img = np.take(img, 0, axis=i)
+
+            # Result should now be YX, CYX, ZYX, or CZYX depending on original axes
+            # nd2 preserves axis order from sizes dict (usually C, Z, Y, X)
+            return img
+
     elif ext == ".nrrd":
         if not NRRD:
             io_logger.critical(
@@ -230,6 +279,8 @@ def imread_2D(img_file):
         img_out (numpy.ndarray): The 3-channel image data as a NumPy array.
     """
     img = imread(img_file)
+    if img is None:
+        raise ValueError(f"could not read image file {img_file}")
     return transforms.convert_image(img, do_3D=False)
 
 
@@ -237,16 +288,22 @@ def imread_3D(img_file):
     """
     Read in a 3D image file and convert it to have a channel axis last automatically. Attempts to do this for multi-channel and grayscale images.
 
-    If multichannel image, the channel axis is assumed to be the smallest dimension, and the z axis is the next smallest dimension. 
-    Use `cellpose.io.imread()` to load the full image without selecting the z and channel axes. 
-    
+    For grayscale images (3D array), axis 0 is assumed to be the Z axis (e.g., Z x Y x X).
+    For multichannel images (4D array), the channel axis is assumed to be the smallest dimension,
+    and the Z axis is assumed to be the first remaining axis after the channel axis is removed.
+
+    Use ``cellpose.io.imread()`` to load the full image without automatic axis selection,
+    then specify ``z_axis`` and ``channel_axis`` manually when calling ``model.eval``.
+
     Args:
         img_file (str): The path to the image file.
 
     Returns:
-        img_out (numpy.ndarray): The image data as a NumPy array.
+        img_out (numpy.ndarray): The image data as a NumPy array with channels last, or None if loading fails.
     """
     img = imread(img_file)
+    if img is None:
+        raise ValueError(f"could not read image file {img_file}")
 
     dimension_lengths = list(img.shape)
 
@@ -254,16 +311,15 @@ def imread_3D(img_file):
     if img.ndim == 3:
         channel_axis = None
         # guess at z axis:
-        z_axis = np.argmin(dimension_lengths)
+        z_axis = 0
 
     elif img.ndim == 4:
         # guess at channel axis:
         channel_axis = np.argmin(dimension_lengths)
-
-        # guess at z axis: 
-        # set channel axis to max so argmin works:
-        dimension_lengths[channel_axis] = max(dimension_lengths)
-        z_axis = np.argmin(dimension_lengths)
+        dimensions = list(range(img.ndim))
+        dimensions.pop(channel_axis)
+        # guess at z axis as the first remaining dimension: 
+        z_axis = dimensions[0]
 
     else: 
         raise ValueError(f'image shape error, 3D image must 3 or 4 dimensional. Number of dimensions: {img.ndim}')
