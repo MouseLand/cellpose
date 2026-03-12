@@ -268,17 +268,9 @@ class CellposeModel():
             x = x[np.newaxis, ...]
         nimg = x.shape[0]
         
-        image_scaling = None
-        Ly_0 = x.shape[1]
-        Lx_0 = x.shape[2]
-        Lz_0 = None
-        if do_3D or stitch_threshold > 0:
-            Lz_0 = x.shape[0]
-        if diameter is not None:
+        image_scaling = 1.0
+        if diameter is not None and diameter > 0:
             image_scaling = 30. / diameter
-            x = transforms.resize_image(x,
-                                        Ly=int(x.shape[1] * image_scaling),
-                                        Lx=int(x.shape[2] * image_scaling))
 
 
         # normalize image
@@ -306,13 +298,10 @@ class CellposeModel():
         if do_normalization:
             x = transforms.normalize_img(x, **normalize_params)
 
-        # ajust the anisotropy when diameter is specified and images are resized:
-        if isinstance(anisotropy, (float, int)) and image_scaling:
-            anisotropy = image_scaling * anisotropy
-
         dP, cellprob, styles = self._run_net(
             x,
             resample=resample,
+            rescale=image_scaling,
             augment=augment, 
             batch_size=batch_size, 
             tile_overlap=tile_overlap, 
@@ -337,10 +326,14 @@ class CellposeModel():
             # use user niter if specified, otherwise scale niter (200) with diameter
             niter_scale = 1 if image_scaling is None else image_scaling
             niter = int(200/niter_scale) if niter is None or niter == 0 else niter
-            masks = self._compute_masks((Lz_0 or nimg, Ly_0, Lx_0), dP, cellprob, flow_threshold=flow_threshold,
-                            cellprob_threshold=cellprob_threshold, min_size=min_size,
-                        max_size_fraction=max_size_fraction, niter=niter,
-                        stitch_threshold=stitch_threshold, do_3D=do_3D)
+            masks = self._compute_masks(x.shape, dP, cellprob, 
+                                        flow_threshold=flow_threshold,
+                                        cellprob_threshold=cellprob_threshold, 
+                                        min_size=min_size,
+                                        max_size_fraction=max_size_fraction, 
+                                        niter=niter,
+                                        stitch_threshold=stitch_threshold, 
+                                        do_3D=do_3D)
         else:
             masks = np.zeros(0) #pass back zeros if not compute_masks
         
