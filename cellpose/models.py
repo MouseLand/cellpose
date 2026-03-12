@@ -311,7 +311,8 @@ class CellposeModel():
             anisotropy = image_scaling * anisotropy
 
         dP, cellprob, styles = self._run_net(
-            x, 
+            x,
+            resample=resample,
             augment=augment, 
             batch_size=batch_size, 
             tile_overlap=tile_overlap, 
@@ -319,27 +320,6 @@ class CellposeModel():
             do_3D=do_3D, 
             anisotropy=anisotropy)
 
-        if do_3D:
-            torch.cuda.empty_cache()
-            gc.collect()
-
-            if resample:
-                # resize XY then YZ and then put channels first
-                dP = transforms.resize_image(dP.transpose(1, 2, 3, 0), Ly=Ly_0, Lx=Lx_0, no_channels=False)
-                dP = transforms.resize_image(dP.transpose(1, 0, 2, 3), Lx=Lx_0, Ly=Lz_0, no_channels=False)
-                dP = dP.transpose(3, 1, 0, 2)
-
-                # resize cellprob:
-                cellprob = transforms.resize_image(cellprob, Ly=Ly_0, Lx=Lx_0, no_channels=True)
-                cellprob = transforms.resize_image(cellprob.transpose(1, 0, 2), Lx=Lx_0, Ly=Lz_0, no_channels=True)
-                cellprob = cellprob.transpose(1, 0, 2)
-
-        # 2d case:
-        if resample and not do_3D:
-            # 2D images have N = 1 in batch dimension:
-            dP = transforms.resize_image(dP.transpose(1, 2, 3, 0), Ly=Ly_0, Lx=Lx_0, no_channels=False).transpose(3, 0, 1, 2)
-            cellprob = transforms.resize_image(cellprob, Ly=Ly_0, Lx=Lx_0, no_channels=True)
-        
         if do_3D and flow3D_smooth:
             if isinstance(flow3D_smooth, (int, float)):
                 flow3D_smooth = [flow3D_smooth]*3 
@@ -350,6 +330,8 @@ class CellposeModel():
                 dP = gaussian_filter(dP, [0, *flow3D_smooth])
             else: 
                 models_logger.warning(f"Could not do flow smoothing with {flow3D_smooth} either because its len was not 3 or no items were > 0, skipping flow3D_smoothing")
+            torch.cuda.empty_cache()
+            gc.collect()
 
         if compute_masks:
             # use user niter if specified, otherwise scale niter (200) with diameter
@@ -368,38 +350,54 @@ class CellposeModel():
     
 
     def _run_net(self, x, 
-                augment=False, 
-                batch_size=8, tile_overlap=0.1,
-                bsize=256, anisotropy=1.0, do_3D=False):
+                 rescale=1.0,
+                 resample=True,
+                 augment=False, 
+                 batch_size=8, 
+                 tile_overlap=0.1,
+                 bsize=256, 
+                 anisotropy=1.0, 
+                 do_3D=False):
         """ run network on image x """
         tic = time.time()
         shape = x.shape
         nimg = shape[0]
 
-
         if do_3D:
             Lz, Ly, Lx = shape[:-1]
-            if anisotropy is not None and anisotropy != 1.0:
+            if rescale != 1.0 or (anisotropy is not None and anisotropy != 1.0):
                 models_logger.info(f"resizing 3D image with anisotropy={anisotropy}")
+                anisotropy = 1.0 if anisotropy is None else anisotropy
+                if rescale != 1.0:
+                    x = transforms.resize_image(x, Ly=int(Ly*rescale),
+                                                Lx=int(Lx*rescale))
                 x = transforms.resize_image(x.transpose(1,0,2,3),
-                                        Ly=int(Lz*anisotropy), 
-                                        Lx=int(Lx)).transpose(1,0,2,3)
+                                        Ly=int(Lz*anisotropy*rescale), 
+                                        Lx=int(Lx*rescale)).transpose(1,0,2,3)
             yf, styles = run_3D(self.net, x,
                                 batch_size=batch_size, augment=augment,  
                                 tile_overlap=tile_overlap, 
                                 bsize=bsize
                                 )
+            if resample:
+                if rescale != 1.0 or Lz != yf.shape[0]:
+                    models_logger.info("resizing 3D flows and cellprobl to original image size")
+                    if rescale != 1.0:
+                        yf = transforms.resize_image(yf, Ly=Ly, Lx=Lx)
+                    if Lz != yf.shape[0]:
+                        yf = transforms.resize_image(yf.transpose(1, 0, 2, 3), Ly=Lz, Lx=Lx).transpose(1, 0, 2, 3)
             cellprob = yf[..., -1]
             dP = yf[..., :-1].transpose((3, 0, 1, 2))
         else:
             yf, styles = run_net(self.net, x, bsize=bsize, augment=augment,
                                 batch_size=batch_size,  
                                 tile_overlap=tile_overlap, 
-                                )
+                                rsz=rescale if rescale !=1.0 else None)
+            if resample:
+                if rescale != 1.0:
+                    yf = transforms.resize_image(yf, shape[1], shape[2])
             cellprob = yf[..., -1]
             dP = yf[..., -3:-1].transpose((3, 0, 1, 2))
-            if yf.shape[-1] > 3:
-                styles = yf[..., :-3]
         
         styles = styles.squeeze()
 
