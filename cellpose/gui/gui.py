@@ -1867,7 +1867,7 @@ class MainW(QMainWindow):
                 self.logger.error("Flows don't exist, try running model again.")
                 return
             
-            maski = dynamics.compute_masks_and_clean(
+            maski = dynamics.resize_and_compute_masks(
                 dP=dP,
                 cellprob=cellprob,
                 niter=niter,
