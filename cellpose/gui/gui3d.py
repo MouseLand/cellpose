@@ -523,12 +523,23 @@ class MainW_3d(MainW):
                         [255, 255, 255, self.opacity])
 
         if self.outlinesOn:
-            for j in range(2):
-                if j == 0:
-                    op = self.outpix[zmin:zmax, :, x].T
-                else:
-                    op = self.outpix[zmin:zmax, y]
-                self.layer_ortho[j][op > 0] = np.array(self.outcolor).astype("uint8")
+            # update j == 0 (YZ)  ? 
+            # op = self.outpix[zmin:zmax, :, x].T
+            op = self.outpix_YZ[:, x, zmin:zmax]
+            self.layer_ortho[0][op > 0] = np.array(self.outcolor).astype("uint8")
+
+            # update j == 1 (ZX)  ? 
+            # op = self.outpix[zmin:zmax, y]
+            # self.layer_ortho[1][op > 0] = np.array(self.outcolor).astype("uint8")
+            op = self.outpix_ZX[:, y, zmin:zmax].T
+            self.layer_ortho[1][op > 0] = np.array(self.outcolor).astype("uint8")
+
+            # for j in range(2):
+            #     if j == 0:
+            #         op = self.outpix[zmin:zmax, :, x].T
+            #     else:
+            #         op = self.outpix[zmin:zmax, y]
+            #     self.layer_ortho[j][op > 0] = np.array(self.outcolor).astype("uint8")
 
         for j in range(2):
             self.layerOrtho[j].setImage(self.layer_ortho[j])
