@@ -150,32 +150,18 @@ class ModelButton(QPushButton):
 
 class FilterButton(QPushButton):
 
-    def __init__(self, parent, text):
+    pressed_type = QtCore.Signal(str)
+
+    def __init__(self, font, text):
         super().__init__()
         self.setEnabled(False)
         self.model_type = text
         self.setText(text)
-        self.setFont(parent.medfont)
-        self.clicked.connect(lambda: self.press(parent))
+        self.setFont(font)
+        self.clicked.connect(self._emit_type)
 
-    def press(self, parent):
-        if self.model_type == "filter":
-            parent.restore = "filter"
-            normalize_params = parent.get_normalize_params()
-            if (normalize_params["sharpen_radius"] == 0 and
-                    normalize_params["smooth_radius"] == 0 and
-                    normalize_params["tile_norm_blocksize"] == 0):
-                print(
-                    "GUI_ERROR: no filtering settings on (use custom filter settings)")
-                parent.restore = None
-                return
-            parent.restore = self.model_type
-            parent.compute_saturation()
-        # elif self.model_type != "none":
-        #     parent.compute_denoise_model(model_type=self.model_type)
-        else:
-            parent.clear_restore()
-        # parent.set_restore_button()
+    def _emit_type(self):
+        self.pressed_type.emit(self.model_type)
 
 
 class ObservableVariable(QtCore.QObject):

@@ -10,6 +10,10 @@ from ..io import imread, imread_2D, imread_3D, imsave, outlines_to_text, add_mod
 from ..models import normalize_default, MODEL_DIR, MODEL_LIST_PATH, get_user_models
 from ..utils import masks_to_outlines, outlines_list
 
+import logging 
+
+logger = logging.getLogger(__name__)
+
 try:
     import qtpy
     from qtpy.QtWidgets import QFileDialog
@@ -195,16 +199,13 @@ def _initialize_images(parent, image, load_3D=False):
     parent.layerz = 255 * np.ones((parent.Ly, parent.Lx, 4), "uint8")
     if hasattr(parent, "stack_filtered"):
         parent.Lyr, parent.Lxr = parent.stack_filtered.shape[-3:-1]
-    elif parent.restore and "upsample" in parent.restore:
-        parent.Lyr, parent.Lxr = int(parent.Ly * parent.ratio), int(parent.Lx *
-                                                                    parent.ratio)
     else:
         parent.Lyr, parent.Lxr = parent.Ly, parent.Lx
     parent.clear_all()
 
     if not hasattr(parent, "stack_filtered") and parent.restore:
         print("GUI_INFO: no 'img_restore' found, applying current settings")
-        parent.compute_restore()
+        parent.compute_saturation()
 
     if parent.autobtn.isChecked():
         if parent.restore is None or parent.restore != "filter":
@@ -286,7 +287,7 @@ def _load_seg(parent, filename=None, image=None, image_file=None, load_3D=False)
         parent.set_normalize_params(dat["normalize_params"])
 
     _initialize_images(parent, image, load_3D=load_3D)
-    print(parent.stack.shape)
+    logger.debug(f'Loaded segmentation image stake shape: {parent.stack.shape}')
 
     if "outlines" in dat:
         if isinstance(dat["outlines"], list):
@@ -415,58 +416,26 @@ def _masks_to_gui(parent, masks, outlines=None, colors=None):
         outlines = None
     masks = masks.astype(np.uint16) if masks.max() < 2**16 - 1 else masks.astype(
         np.uint32)
-    if parent.restore and "upsample" in parent.restore:
-        parent.cellpix_resize = masks.copy()
-        parent.cellpix = parent.cellpix_resize.copy()
-        parent.cellpix_orig = cv2.resize(
-            masks.squeeze(), (parent.Lx0, parent.Ly0),
-            interpolation=cv2.INTER_NEAREST)[np.newaxis, :, :]
-        parent.resize = True
-    else:
-        parent.cellpix = masks
+    parent.cellpix = masks
     if parent.cellpix.ndim == 2:
         parent.cellpix = parent.cellpix[np.newaxis, :, :]
-        if parent.restore and "upsample" in parent.restore:
-            if parent.cellpix_resize.ndim == 2:
-                parent.cellpix_resize = parent.cellpix_resize[np.newaxis, :, :]
-            if parent.cellpix_orig.ndim == 2:
-                parent.cellpix_orig = parent.cellpix_orig[np.newaxis, :, :]
 
     print(f"GUI_INFO: {masks.max()} masks found")
 
     # get outlines
     if outlines is None:  # parent.outlinesOn
         parent.outpix = np.zeros_like(parent.cellpix)
-        if parent.restore and "upsample" in parent.restore:
-            parent.outpix_orig = np.zeros_like(parent.cellpix_orig)
-        for z in range(parent.NZ):
-            outlines = masks_to_outlines(parent.cellpix[z])
-            parent.outpix[z] = outlines * parent.cellpix[z]
-            if parent.restore and "upsample" in parent.restore:
-                outlines = masks_to_outlines(parent.cellpix_orig[z])
-                parent.outpix_orig[z] = outlines * parent.cellpix_orig[z]
-            if z % 50 == 0 and parent.NZ > 1:
-                print("GUI_INFO: plane %d outlines processed" % z)
-        if parent.restore and "upsample" in parent.restore:
-            parent.outpix_resize = parent.outpix.copy()
+
+        outlines = masks_to_outlines(parent.cellpix)
+        parent.outpix = outlines * parent.cellpix
+
     else:
-        parent.outpix = outlines
-        if parent.restore and "upsample" in parent.restore:
-            parent.outpix_resize = parent.outpix.copy()
-            parent.outpix_orig = np.zeros_like(parent.cellpix_orig)
-            for z in range(parent.NZ):
-                outlines = masks_to_outlines(parent.cellpix_orig[z])
-                parent.outpix_orig[z] = outlines * parent.cellpix_orig[z]
-                if z % 50 == 0 and parent.NZ > 1:
-                    print("GUI_INFO: plane %d outlines processed" % z)
+        parent.outpix = outlines # set YX outlines
 
     if parent.outpix.ndim == 2:
         parent.outpix = parent.outpix[np.newaxis, :, :]
-        if parent.restore and "upsample" in parent.restore:
-            if parent.outpix_resize.ndim == 2:
-                parent.outpix_resize = parent.outpix_resize[np.newaxis, :, :]
-            if parent.outpix_orig.ndim == 2:
-                parent.outpix_orig = parent.outpix_orig[np.newaxis, :, :]
+
+    parent.update_ortho_outpix()
 
     parent.ncells.set(parent.cellpix.max())
     colors = parent.colormap[:parent.ncells.get(), :3] if colors is None else colors
