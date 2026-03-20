@@ -10,6 +10,10 @@ from ..io import imread, imread_2D, imread_3D, imsave, outlines_to_text, add_mod
 from ..models import normalize_default, MODEL_DIR, MODEL_LIST_PATH, get_user_models
 from ..utils import masks_to_outlines, outlines_list
 
+import logging 
+
+logger = logging.getLogger(__name__)
+
 try:
     import qtpy
     from qtpy.QtWidgets import QFileDialog
@@ -283,7 +287,7 @@ def _load_seg(parent, filename=None, image=None, image_file=None, load_3D=False)
         parent.set_normalize_params(dat["normalize_params"])
 
     _initialize_images(parent, image, load_3D=load_3D)
-    print(parent.stack.shape)
+    logger.debug(f'Loaded segmentation image stake shape: {parent.stack.shape}')
 
     if "outlines" in dat:
         if isinstance(dat["outlines"], list):

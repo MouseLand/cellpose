@@ -589,11 +589,12 @@ class MainW(QMainWindow):
         w = 3
         for j in range(len(self.filter_text)):
             self.FilterButtons.append(
-                guiparts.FilterButton(self, self.filter_text[j]))
+                guiparts.FilterButton(self.medfont, self.filter_text[j]))
             self.filterBox_grid_layout.addWidget(self.FilterButtons[-1], widget_row, jj, 1, w)
             self.FilterButtons[-1].setFixedWidth(75)
             self.FilterButtons[-1].setToolTip(nett[j])
             self.FilterButtons[-1].setFont(self.medfont)
+            self.FilterButtons[-1].pressed_type.connect(self.filter_button_pressed)
             widget_row += 1 if j%2==1 else 0
             jj = 0 if j%2==1 else jj + w
 
@@ -777,8 +778,6 @@ class MainW(QMainWindow):
 
         for i in range(len(self.FilterButtons)):
             self.FilterButtons[i].setEnabled(True)
-        if self.load_3D:
-            self.FilterButtons[-2].setEnabled(False)
 
         self.newmodel.setEnabled(True)
         self.loadMasks.setEnabled(True)
@@ -1618,7 +1617,7 @@ class MainW(QMainWindow):
 
     def compute_saturation(self, return_img=False):
         norm = self.get_normalize_params()
-        print(norm)
+        self.logger.debug(f'Compute saturation normalization: {norm}')
         sharpen, smooth = norm["sharpen_radius"], norm["smooth_radius"]
         percentile = norm["percentile"]
         tile_norm = norm["tile_norm_blocksize"]
@@ -1663,6 +1662,8 @@ class MainW(QMainWindow):
             self.ViewDropDown.setCurrentIndex(self.ViewDropDown.count() - 1)
         else:
             img_norm = self.stack if self.restore is None or self.restore == "filter" else self.stack_filtered
+            self.ViewDropDown.model().item(self.ViewDropDown.count() - 1).setEnabled(False)
+            self.ViewDropDown.setCurrentIndex(0)
 
         if self.autobtn.isChecked():
             self.saturation = []
@@ -1694,7 +1695,7 @@ class MainW(QMainWindow):
                 else:
                     for n in range(self.NZ):
                         self.saturation[-1].append([0, 255.])
-            print(self.saturation[2][self.currentZ])
+            self.logger.debug(f'compute_saturation: saturation[2] levels at currentZ: {self.saturation[2][self.currentZ]}')
 
             if img_norm.shape[-1] == 1:
                 self.saturation.append(self.saturation[0])
@@ -1949,3 +1950,28 @@ class MainW(QMainWindow):
                 self.recompute_masks = False
         except Exception as e:
             print("ERROR: %s" % e)
+
+    def filter_button_pressed(self, model_type: str):
+        if model_type == 'filter':
+            normalize_params = self.get_normalize_params()
+            if (normalize_params["sharpen_radius"] == 0 and
+                    normalize_params["smooth_radius"] == 0 and
+                    normalize_params["tile_norm_blocksize"] == 0):
+                print(
+                    "GUI_ERROR: no filtering settings on (use custom filter settings)")
+                self.restore = None
+                return
+            self.restore = "filter"
+
+        elif model_type == 'none':
+            self.set_normalize_params(
+                {
+                    'sharpen_radius' : 0,
+                    'smooth_radius' : 0,
+                    'tile_norm_blocksize' : 0,
+                }
+            )
+            self.restore = None
+        else: 
+            self.logger.error(f'Filter model type not known: {model_type}')
+        self.compute_saturation()
