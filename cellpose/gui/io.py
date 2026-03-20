@@ -439,14 +439,36 @@ def _masks_to_gui(parent, masks, outlines=None, colors=None):
         parent.outpix = np.zeros_like(parent.cellpix)
         if parent.restore and "upsample" in parent.restore:
             parent.outpix_orig = np.zeros_like(parent.cellpix_orig)
-        for z in range(parent.NZ):
-            outlines = masks_to_outlines(parent.cellpix[z])
-            parent.outpix[z] = outlines * parent.cellpix[z]
-            if parent.restore and "upsample" in parent.restore:
-                outlines = masks_to_outlines(parent.cellpix_orig[z])
-                parent.outpix_orig[z] = outlines * parent.cellpix_orig[z]
-            if z % 50 == 0 and parent.NZ > 1:
-                print("GUI_INFO: plane %d outlines processed" % z)
+
+        outlines = masks_to_outlines(parent.cellpix)
+        parent.outpix = outlines * parent.cellpix
+
+        # calculate ZY and ZX outlines: 
+        outlines_YZ = masks_to_outlines(parent.cellpix.transpose(1, 2, 0))
+        parent.outpix_YZ = outlines_YZ * parent.cellpix.transpose(1, 2, 0)
+
+        outlines_ZX = masks_to_outlines(parent.cellpix.transpose(2, 1, 0))
+        parent.outpix_ZX = outlines_ZX * parent.cellpix.transpose(2, 1, 0)
+
+        if parent.restore and "upsample" in parent.restore:
+            outlines = masks_to_outlines(parent.cellpix_orig)
+            parent.outpix_orig = outlines * parent.cellpix_orig
+
+            # calculate ZY and ZX outlines: 
+            outlines_YZ = masks_to_outlines(parent.cellpix_orig.transpose(1, 2, 0))
+            parent.outpix_YZ = outlines_YZ * parent.cellpix_orig.transpose(1, 2, 0)
+
+            outlines_ZX = masks_to_outlines(parent.cellpix_orig.transpose(2, 1, 0))
+            parent.outpix_ZX = outlines_ZX * parent.cellpix_orig.transpose(2, 1, 0)
+
+        # for z in range(parent.NZ):
+        #     outlines = masks_to_outlines(parent.cellpix[z])
+        #     parent.outpix[z] = outlines * parent.cellpix[z]
+        #     if parent.restore and "upsample" in parent.restore:
+        #         outlines = masks_to_outlines(parent.cellpix_orig[z])
+        #         parent.outpix_orig[z] = outlines * parent.cellpix_orig[z]
+        #     if z % 50 == 0 and parent.NZ > 1:
+        #         print("GUI_INFO: plane %d outlines processed" % z)
         if parent.restore and "upsample" in parent.restore:
             parent.outpix_resize = parent.outpix.copy()
     else:
