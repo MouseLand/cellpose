@@ -1030,6 +1030,7 @@ class MainW(QMainWindow):
         self.layerz = 0 * np.ones((self.Ly, self.Lx, 4), np.uint8)
         self.cellpix = np.zeros((self.NZ, self.Ly, self.Lx), np.uint16)
         self.outpix = np.zeros((self.NZ, self.Ly, self.Lx), np.uint16)
+        self.update_ortho_outpix()
 
         self.cellcolors = np.array([255, 255, 255])[np.newaxis, :]
         self.ncells.reset()
@@ -1116,7 +1117,7 @@ class MainW(QMainWindow):
         self.cellpix[self.cellpix > idx] -= 1
         self.outpix[self.outpix > idx] -= 1
 
-        self.update_outpix_ortho()
+        self.update_ortho_outpix()
 
         if self.NZ == 1:
             self.removed_cell = [
@@ -1500,12 +1501,12 @@ class MainW(QMainWindow):
         if self.NZ == 1: 
             return
 
-        # calculate ZY and ZX outlines: 
-        outlines_YZ = masks_to_outlines(self.cellpix.transpose(1, 2, 0))
-        self.outpix_YZ = outlines_YZ * self.cellpix.transpose(1, 2, 0)
+        # calculate Y and X outlines: 
+        outlines_Y = masks_to_outlines(self.cellpix.transpose(1, 2, 0)).transpose(2, 0, 1)
+        self.outpix_Y = outlines_Y * self.cellpix
 
-        outlines_ZX = masks_to_outlines(self.cellpix.transpose(2, 1, 0))
-        self.outpix_ZX = outlines_ZX * self.cellpix.transpose(2, 1, 0)
+        outlines_X = masks_to_outlines(self.cellpix.transpose(2, 1, 0)).transpose(2, 1, 0)
+        self.outpix_X = outlines_X * self.cellpix
 
 
     def compute_scale(self):
@@ -1633,7 +1634,7 @@ class MainW(QMainWindow):
 
     def compute_saturation(self, return_img=False):
         norm = self.get_normalize_params()
-        self.logger.debug(f'Compute saturation normalization: {norm}')
+        self.logger.info(f'Normalization settings: {norm}')
         sharpen, smooth = norm["sharpen_radius"], norm["smooth_radius"]
         percentile = norm["percentile"]
         tile_norm = norm["tile_norm_blocksize"]

@@ -432,10 +432,10 @@ def _masks_to_gui(parent, masks, outlines=None, colors=None):
     else:
         parent.outpix = outlines # set YX outlines
 
-    parent.update_ortho_outpix()
-
     if parent.outpix.ndim == 2:
         parent.outpix = parent.outpix[np.newaxis, :, :]
+
+    parent.update_ortho_outpix()
 
     parent.ncells.set(parent.cellpix.max())
     colors = parent.colormap[:parent.ncells.get(), :3] if colors is None else colors
