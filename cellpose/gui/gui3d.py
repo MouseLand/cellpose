@@ -376,6 +376,7 @@ class MainW_3d(MainW):
         self.yortho = self.Ly // 2
         self.xortho = self.Lx // 2
         if self.NZ > 1:
+            self.update_ortho_outpix()
             self.update_ortho()
 
         self.win.addItem(self.pOrtho[0], 0, 1, rowspan=1, colspan=1)
@@ -429,8 +430,6 @@ class MainW_3d(MainW):
                 self.pOrtho[0].setXRange(-self.dz / 3, self.dz * 2 + self.dz / 3)
                 self.pOrtho[1].setYRange(-self.dz / 3, self.dz * 2 + self.dz / 3)
             dztot = min(self.NZ, self.dz * 2)
-            y = self.yortho
-            x = self.xortho
             z = self.currentZ
             if dztot == self.NZ:
                 zmin, zmax = 0, self.NZ
@@ -445,6 +444,8 @@ class MainW_3d(MainW):
                     zmin, zmax = z - self.dz, z + self.dz
             self.zc = z - zmin
             self.update_crosshairs()
+            y = self.yortho
+            x = self.xortho
             if self.view == 0 or self.view == 4:
                 for j in range(2):
                     if j == 0:
@@ -578,6 +579,7 @@ class MainW_3d(MainW):
     def update_plot(self):
         super().update_plot()
         if self.NZ > 1 and self.orthobtn.isChecked():
+            self.update_ortho_outpix()
             self.update_ortho()
         self.win.show()
         self.show()

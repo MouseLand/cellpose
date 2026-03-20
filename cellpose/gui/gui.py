@@ -1116,6 +1116,8 @@ class MainW(QMainWindow):
         self.cellpix[self.cellpix > idx] -= 1
         self.outpix[self.outpix > idx] -= 1
 
+        self.update_outpix_ortho()
+
         if self.NZ == 1:
             self.removed_cell = [
                 self.ismanual[idx - 1], self.cellcolors[idx],
@@ -1485,12 +1487,26 @@ class MainW(QMainWindow):
         self.cellpix[z, ar, ac] = idx
         self.outpix[z, vr, vc] = idx
 
+        self.update_ortho_outpix()
+
         if z == self.currentZ:
             self.layerz[ar, ac, :3] = color
             if self.masksOn:
                 self.layerz[ar, ac, -1] = self.opacity
             if self.outlinesOn:
                 self.layerz[vr, vc] = np.array(self.outcolor)
+    
+    def update_ortho_outpix(self):
+        if self.NZ == 1: 
+            return
+
+        # calculate ZY and ZX outlines: 
+        outlines_YZ = masks_to_outlines(self.cellpix.transpose(1, 2, 0))
+        self.outpix_YZ = outlines_YZ * self.cellpix.transpose(1, 2, 0)
+
+        outlines_ZX = masks_to_outlines(self.cellpix.transpose(2, 1, 0))
+        self.outpix_ZX = outlines_ZX * self.cellpix.transpose(2, 1, 0)
+
 
     def compute_scale(self):
         # get diameter from gui

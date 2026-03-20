@@ -429,22 +429,10 @@ def _masks_to_gui(parent, masks, outlines=None, colors=None):
         outlines = masks_to_outlines(parent.cellpix)
         parent.outpix = outlines * parent.cellpix
 
-        # calculate ZY and ZX outlines: 
-        outlines_YZ = masks_to_outlines(parent.cellpix.transpose(1, 2, 0))
-        parent.outpix_YZ = outlines_YZ * parent.cellpix.transpose(1, 2, 0)
-
-        outlines_ZX = masks_to_outlines(parent.cellpix.transpose(2, 1, 0))
-        parent.outpix_ZX = outlines_ZX * parent.cellpix.transpose(2, 1, 0)
-
     else:
         parent.outpix = outlines # set YX outlines
 
-        # calculate ZY and ZX outlines: 
-        outlines_YZ = masks_to_outlines(parent.cellpix.transpose(1, 2, 0))
-        parent.outpix_YZ = outlines_YZ * parent.cellpix.transpose(1, 2, 0)
-
-        outlines_ZX = masks_to_outlines(parent.cellpix.transpose(2, 1, 0))
-        parent.outpix_ZX = outlines_ZX * parent.cellpix.transpose(2, 1, 0)
+    parent.update_ortho_outpix()
 
     if parent.outpix.ndim == 2:
         parent.outpix = parent.outpix[np.newaxis, :, :]
