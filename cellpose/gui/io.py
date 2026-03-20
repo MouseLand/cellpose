@@ -195,9 +195,6 @@ def _initialize_images(parent, image, load_3D=False):
     parent.layerz = 255 * np.ones((parent.Ly, parent.Lx, 4), "uint8")
     if hasattr(parent, "stack_filtered"):
         parent.Lyr, parent.Lxr = parent.stack_filtered.shape[-3:-1]
-    elif parent.restore and "upsample" in parent.restore:
-        parent.Lyr, parent.Lxr = int(parent.Ly * parent.ratio), int(parent.Lx *
-                                                                    parent.ratio)
     else:
         parent.Lyr, parent.Lxr = parent.Ly, parent.Lx
     parent.clear_all()
@@ -415,30 +412,15 @@ def _masks_to_gui(parent, masks, outlines=None, colors=None):
         outlines = None
     masks = masks.astype(np.uint16) if masks.max() < 2**16 - 1 else masks.astype(
         np.uint32)
-    if parent.restore and "upsample" in parent.restore:
-        parent.cellpix_resize = masks.copy()
-        parent.cellpix = parent.cellpix_resize.copy()
-        parent.cellpix_orig = cv2.resize(
-            masks.squeeze(), (parent.Lx0, parent.Ly0),
-            interpolation=cv2.INTER_NEAREST)[np.newaxis, :, :]
-        parent.resize = True
-    else:
-        parent.cellpix = masks
+    parent.cellpix = masks
     if parent.cellpix.ndim == 2:
         parent.cellpix = parent.cellpix[np.newaxis, :, :]
-        if parent.restore and "upsample" in parent.restore:
-            if parent.cellpix_resize.ndim == 2:
-                parent.cellpix_resize = parent.cellpix_resize[np.newaxis, :, :]
-            if parent.cellpix_orig.ndim == 2:
-                parent.cellpix_orig = parent.cellpix_orig[np.newaxis, :, :]
 
     print(f"GUI_INFO: {masks.max()} masks found")
 
     # get outlines
     if outlines is None:  # parent.outlinesOn
         parent.outpix = np.zeros_like(parent.cellpix)
-        if parent.restore and "upsample" in parent.restore:
-            parent.outpix_orig = np.zeros_like(parent.cellpix_orig)
 
         outlines = masks_to_outlines(parent.cellpix)
         parent.outpix = outlines * parent.cellpix
@@ -450,27 +432,6 @@ def _masks_to_gui(parent, masks, outlines=None, colors=None):
         outlines_ZX = masks_to_outlines(parent.cellpix.transpose(2, 1, 0))
         parent.outpix_ZX = outlines_ZX * parent.cellpix.transpose(2, 1, 0)
 
-        if parent.restore and "upsample" in parent.restore:
-            outlines = masks_to_outlines(parent.cellpix_orig)
-            parent.outpix_orig = outlines * parent.cellpix_orig
-
-            # calculate ZY and ZX outlines: 
-            outlines_YZ = masks_to_outlines(parent.cellpix_orig.transpose(1, 2, 0))
-            parent.outpix_YZ = outlines_YZ * parent.cellpix_orig.transpose(1, 2, 0)
-
-            outlines_ZX = masks_to_outlines(parent.cellpix_orig.transpose(2, 1, 0))
-            parent.outpix_ZX = outlines_ZX * parent.cellpix_orig.transpose(2, 1, 0)
-
-        # for z in range(parent.NZ):
-        #     outlines = masks_to_outlines(parent.cellpix[z])
-        #     parent.outpix[z] = outlines * parent.cellpix[z]
-        #     if parent.restore and "upsample" in parent.restore:
-        #         outlines = masks_to_outlines(parent.cellpix_orig[z])
-        #         parent.outpix_orig[z] = outlines * parent.cellpix_orig[z]
-        #     if z % 50 == 0 and parent.NZ > 1:
-        #         print("GUI_INFO: plane %d outlines processed" % z)
-        if parent.restore and "upsample" in parent.restore:
-            parent.outpix_resize = parent.outpix.copy()
     else:
         parent.outpix = outlines # set YX outlines
 
@@ -481,22 +442,8 @@ def _masks_to_gui(parent, masks, outlines=None, colors=None):
         outlines_ZX = masks_to_outlines(parent.cellpix.transpose(2, 1, 0))
         parent.outpix_ZX = outlines_ZX * parent.cellpix.transpose(2, 1, 0)
 
-        if parent.restore and "upsample" in parent.restore:
-            parent.outpix_resize = parent.outpix.copy()
-            parent.outpix_orig = np.zeros_like(parent.cellpix_orig)
-            for z in range(parent.NZ):
-                outlines = masks_to_outlines(parent.cellpix_orig[z])
-                parent.outpix_orig[z] = outlines * parent.cellpix_orig[z]
-                if z % 50 == 0 and parent.NZ > 1:
-                    print("GUI_INFO: plane %d outlines processed" % z)
-
     if parent.outpix.ndim == 2:
         parent.outpix = parent.outpix[np.newaxis, :, :]
-        if parent.restore and "upsample" in parent.restore:
-            if parent.outpix_resize.ndim == 2:
-                parent.outpix_resize = parent.outpix_resize[np.newaxis, :, :]
-            if parent.outpix_orig.ndim == 2:
-                parent.outpix_orig = parent.outpix_orig[np.newaxis, :, :]
 
     parent.ncells.set(parent.cellpix.max())
     colors = parent.colormap[:parent.ncells.get(), :3] if colors is None else colors

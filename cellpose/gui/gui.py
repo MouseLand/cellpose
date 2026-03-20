@@ -1028,18 +1028,9 @@ class MainW(QMainWindow):
     def clear_all(self):
         self.prev_selected = 0
         self.selected = 0
-        if self.restore and "upsample" in self.restore:
-            self.layerz = 0 * np.ones((self.Lyr, self.Lxr, 4), np.uint8)
-            self.cellpix = np.zeros((self.NZ, self.Lyr, self.Lxr), np.uint16)
-            self.outpix = np.zeros((self.NZ, self.Lyr, self.Lxr), np.uint16)
-            self.cellpix_resize = self.cellpix.copy()
-            self.outpix_resize = self.outpix.copy()
-            self.cellpix_orig = np.zeros((self.NZ, self.Ly0, self.Lx0), np.uint16)
-            self.outpix_orig = np.zeros((self.NZ, self.Ly0, self.Lx0), np.uint16)
-        else:
-            self.layerz = 0 * np.ones((self.Ly, self.Lx, 4), np.uint8)
-            self.cellpix = np.zeros((self.NZ, self.Ly, self.Lx), np.uint16)
-            self.outpix = np.zeros((self.NZ, self.Ly, self.Lx), np.uint16)
+        self.layerz = 0 * np.ones((self.Ly, self.Lx, 4), np.uint8)
+        self.cellpix = np.zeros((self.NZ, self.Ly, self.Lx), np.uint16)
+        self.outpix = np.zeros((self.NZ, self.Ly, self.Lx), np.uint16)
 
         self.cellcolors = np.array([255, 255, 255])[np.newaxis, :]
         self.ncells.reset()
@@ -1494,41 +1485,6 @@ class MainW(QMainWindow):
         self.cellpix[z, vr, vc] = idx
         self.cellpix[z, ar, ac] = idx
         self.outpix[z, vr, vc] = idx
-        if self.restore and "upsample" in self.restore:
-            if self.resize:
-                self.cellpix_resize[z, vr, vc] = idx
-                self.cellpix_resize[z, ar, ac] = idx
-                self.outpix_resize[z, vr, vc] = idx
-                self.cellpix_orig[z, (vr / self.ratio).astype(int),
-                                  (vc / self.ratio).astype(int)] = idx
-                self.cellpix_orig[z, (ar / self.ratio).astype(int),
-                                  (ac / self.ratio).astype(int)] = idx
-                self.outpix_orig[z, (vr / self.ratio).astype(int),
-                                 (vc / self.ratio).astype(int)] = idx
-            else:
-                self.cellpix_orig[z, vr, vc] = idx
-                self.cellpix_orig[z, ar, ac] = idx
-                self.outpix_orig[z, vr, vc] = idx
-
-                # get upsampled mask
-                vrr = (vr.copy() * self.ratio).astype(int)
-                vcr = (vc.copy() * self.ratio).astype(int)
-                mask = np.zeros((np.ptp(vrr) + 4, np.ptp(vcr) + 4), np.uint8)
-                pts = np.stack((vcr - vcr.min() + 2, vrr - vrr.min() + 2),
-                               axis=-1)[:, np.newaxis, :]
-                mask = cv2.fillPoly(mask, [pts], (255, 0, 0))
-                arr, acr = np.nonzero(mask)
-                arr, acr = arr + vrr.min() - 2, acr + vcr.min() - 2
-                # get dense outline
-                contours = cv2.findContours(mask, cv2.RETR_EXTERNAL,
-                                            cv2.CHAIN_APPROX_NONE)
-                pvc, pvr = contours[-2][0].squeeze().T
-                vrr, vcr = pvr + vrr.min() - 2, pvc + vcr.min() - 2
-                # concatenate all points
-                arr, acr = np.hstack((np.vstack((vrr, vcr)), np.vstack((arr, acr))))
-                self.cellpix_resize[z, vrr, vcr] = idx
-                self.cellpix_resize[z, arr, acr] = idx
-                self.outpix_resize[z, vrr, vcr] = idx
 
         if z == self.currentZ:
             self.layerz[ar, ac, :3] = color
@@ -1569,15 +1525,6 @@ class MainW(QMainWindow):
             self.Ly, self.Lx = self.Lyr, self.Lxr
         else:
             self.Ly, self.Lx = self.Ly0, self.Lx0
-
-        if self.masksOn or self.outlinesOn:
-            if self.restore and "upsample" in self.restore:
-                if self.resize:
-                    self.cellpix = self.cellpix_resize.copy()
-                    self.outpix = self.outpix_resize.copy()
-                else:
-                    self.cellpix = self.cellpix_orig.copy()
-                    self.outpix = self.outpix_orig.copy()
 
         self.layerz = np.zeros((self.Ly, self.Lx, 4), np.uint8)
         if self.masksOn:
@@ -1952,9 +1899,6 @@ class MainW(QMainWindow):
                     flows_new.append(np.zeros(flows[1][0].shape, dtype="uint8"))
 
             if not self.load_3D:
-                if self.restore and "upsample" in self.restore:
-                    self.Ly, self.Lx = self.Lyr, self.Lxr
-
                 if flows_new[0].shape[-3:-1] != (self.Ly, self.Lx):
                     self.flows = []
                     for j in range(len(flows_new)):
