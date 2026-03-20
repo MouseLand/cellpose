@@ -201,7 +201,7 @@ def _initialize_images(parent, image, load_3D=False):
 
     if not hasattr(parent, "stack_filtered") and parent.restore:
         print("GUI_INFO: no 'img_restore' found, applying current settings")
-        parent.compute_restore()
+        parent.compute_saturation()
 
     if parent.autobtn.isChecked():
         if parent.restore is None or parent.restore != "filter":
