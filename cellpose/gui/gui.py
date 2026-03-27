@@ -1215,15 +1215,12 @@ class MainW(QMainWindow):
                 image = self.stack_filtered[self.currentZ]
             if self.color == 0:
                 self.img.setImage(image, autoLevels=False, lut=None)
-                if self.nchan > 1:
-                    levels = np.array([
-                        self.saturation[0][self.currentZ],
-                        self.saturation[1][self.currentZ],
-                        self.saturation[2][self.currentZ]
-                    ])
-                    self.img.setLevels(levels)
-                else:
-                    self.img.setLevels(self.saturation[0][self.currentZ])
+                levels = np.array([
+                    self.saturation[0][self.currentZ],
+                    self.saturation[1][self.currentZ],
+                    self.saturation[2][self.currentZ]
+                ])
+                self.img.setLevels(levels)
             elif self.color > 0 and self.color < 4:
                 if self.nchan > 1:
                     image = image[:, :, self.color - 1]

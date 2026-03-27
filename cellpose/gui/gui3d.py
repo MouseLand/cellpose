@@ -590,10 +590,6 @@ class MainW_3d(MainW):
                             self.scroll.setValue(self.currentZ)
                             updated = True
                 else:
-                    nviews = self.views_panel.viewDropDown.count() - 1
-                    nviews += int(
-                        self.views_panel.viewDropDown.model().item(self.views_panel.viewDropDown.count() -
-                                                       1).isEnabled())
                     if event.key() == QtCore.Qt.Key_X:
                         self.drawBox.maskCheckBox.toggle()
                     if event.key() == QtCore.Qt.Key_Z:
