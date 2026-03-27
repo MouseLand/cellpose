@@ -154,7 +154,7 @@ def _load_image(parent, filename=None, load_seg=True, load_3D=False):
     # check if gray and adjust viewer:
     if len(np.unique(image[..., 1:])) == 1:
         parent.color = 4
-        parent.RGBDropDown.setCurrentIndex(4) # gray
+        parent.views_panel.rgbDropDown.setCurrentIndex(4) # gray
         parent.update_plot()
 
         
@@ -206,7 +206,7 @@ def _initialize_images(parent, image, load_3D=False):
         print("GUI_INFO: no 'img_restore' found, applying current settings")
         parent.compute_restore()
 
-    if parent.autobtn.isChecked():
+    if parent.views_panel.auto_saturation_on():
         if parent.restore is None or parent.restore != "filter":
             print(
                 "GUI_INFO: normalization checked: computing saturation levels (and optionally filtered image)"
@@ -335,7 +335,7 @@ def _load_seg(parent, filename=None, image=None, image_file=None, load_3D=False)
 
     if "current_channel" in dat:
         parent.color = (dat["current_channel"] + 2) % 5
-        parent.RGBDropDown.setCurrentIndex(parent.color)
+        parent.views_panel.rgbDropDown.setCurrentIndex(parent.color)
 
     if "flows" in dat:
         parent.flows = dat["flows"]
@@ -483,7 +483,7 @@ def _masks_to_gui(parent, masks, outlines=None, colors=None):
         parent.ViewDropDown.setCurrentIndex(parent.ViewDropDown.count() - 1)
         print("set denoised/filtered view")
     else:
-        parent.ViewDropDown.setCurrentIndex(0)
+        parent.views_panel.set_views_index(0)
 
 
 def _save_png(parent):

@@ -111,7 +111,7 @@ class MainW_3d(MainW):
         MainW.__init__(self, image=image, logger=logger)
 
         # add gradZ view
-        self.ViewDropDown.insertItem(3, "gradZ")
+        self.views_panel.viewDropDown.insertItem(3, "gradZ")
 
         # turn off single stroke
         self.SCheckBox.setChecked(False)
@@ -590,9 +590,9 @@ class MainW_3d(MainW):
                             self.scroll.setValue(self.currentZ)
                             updated = True
                 else:
-                    nviews = self.ViewDropDown.count() - 1
+                    nviews = self.views_panel.viewDropDown.count() - 1
                     nviews += int(
-                        self.ViewDropDown.model().item(self.ViewDropDown.count() -
+                        self.views_panel.viewDropDown.model().item(self.views_panel.viewDropDown.count() -
                                                        1).isEnabled())
                     if event.key() == QtCore.Qt.Key_X:
                         self.MCheckBox.toggle()
@@ -610,37 +610,37 @@ class MainW_3d(MainW):
                         updated = True
                     elif event.key() == QtCore.Qt.Key_PageDown:
                         self.view = (self.view + 1) % (nviews)
-                        self.ViewDropDown.setCurrentIndex(self.view)
+                        self.views_panel.viewDropDown.setCurrentIndex(self.view)
                     elif event.key() == QtCore.Qt.Key_PageUp:
                         self.view = (self.view - 1) % (nviews)
-                        self.ViewDropDown.setCurrentIndex(self.view)
+                        self.views_panel.viewDropDown.setCurrentIndex(self.view)
 
                 # can change background or stroke size if cell not finished
                 if event.key() == QtCore.Qt.Key_Up or event.key() == QtCore.Qt.Key_W:
                     self.color = (self.color - 1) % (6)
-                    self.RGBDropDown.setCurrentIndex(self.color)
+                    self.views_panel.rgbDropDown.setCurrentIndex(self.color)
                 elif event.key() == QtCore.Qt.Key_Down or event.key(
                 ) == QtCore.Qt.Key_S:
                     self.color = (self.color + 1) % (6)
-                    self.RGBDropDown.setCurrentIndex(self.color)
+                    self.views_panel.rgbDropDown.setCurrentIndex(self.color)
                 elif event.key() == QtCore.Qt.Key_R:
                     if self.color != 1:
                         self.color = 1
                     else:
                         self.color = 0
-                    self.RGBDropDown.setCurrentIndex(self.color)
+                    self.views_panel.rgbDropDown.setCurrentIndex(self.color)
                 elif event.key() == QtCore.Qt.Key_G:
                     if self.color != 2:
                         self.color = 2
                     else:
                         self.color = 0
-                    self.RGBDropDown.setCurrentIndex(self.color)
+                    self.views_panel.rgbDropDown.setCurrentIndex(self.color)
                 elif event.key() == QtCore.Qt.Key_B:
                     if self.color != 3:
                         self.color = 3
                     else:
                         self.color = 0
-                    self.RGBDropDown.setCurrentIndex(self.color)
+                    self.views_panel.rgbDropDown.setCurrentIndex(self.color)
                 elif (event.key() == QtCore.Qt.Key_Comma or
                       event.key() == QtCore.Qt.Key_Period):
                     count = self.BrushChoose.count()
