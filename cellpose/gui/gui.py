@@ -5,11 +5,12 @@ Copyright © 2025 Howard Hughes Medical Institute, Authored by Carsen Stringer, 
 import sys, os, pathlib, warnings, datetime, time, copy
 
 from qtpy import QtGui, QtCore
-from superqt import QRangeSlider, QCollapsible
+from superqt import QCollapsible
 from qtpy.QtWidgets import QScrollArea, QMainWindow, QApplication, QWidget, QScrollBar, \
     QComboBox, QGridLayout, QPushButton, QFrame, QCheckBox, QLabel, QProgressBar, \
         QLineEdit, QMessageBox, QGroupBox, QMenu, QAction
 import pyqtgraph as pg
+from pyqtgraph import functions as fn
 
 import numpy as np
 from scipy.stats import mode
@@ -28,26 +29,6 @@ try:
     MATPLOTLIB = True
 except:
     MATPLOTLIB = False
-
-Horizontal = QtCore.Qt.Orientation.Horizontal
-
-
-class Slider(QRangeSlider):
-
-    def __init__(self, parent, name, color):
-        super().__init__(Horizontal)
-        self.setEnabled(False)
-        self.valueChanged.connect(lambda: self.levelChanged(parent))
-        self.name = name
-
-        self.setStyleSheet(""" QSlider{
-                             background-color: transparent;
-                             }
-        """)
-        self.show()
-
-    def levelChanged(self, parent):
-        parent.level_change(self.name)
 
 
 class QHLine(QFrame):
@@ -274,7 +255,7 @@ class MainW(QMainWindow):
         self.reset()
 
         # This needs to go after .reset() is called to get state fully set up:
-        self.autobtn.checkStateChanged.connect(self.compute_saturation_if_checked)
+        self.views_panel.autobtn.checkStateChanged.connect(self.compute_saturation_if_checked)
 
         self.load_3D = False
 
@@ -320,77 +301,15 @@ class MainW(QMainWindow):
         self.medfont = QtGui.QFont("Arial", 9)
         self.smallfont = QtGui.QFont("Arial", 8)
 
+        self.views_panel = guiparts.ViewsPanel(self)
+        self.l0.addWidget(self.views_panel, 0, 0, 1, 9)
+        self.views_panel.sliderLevelsChanged.connect(self.level_change)
+        self.views_panel.rgbDropDown.currentIndexChanged.connect(self.set_display_color)
+        self.views_panel.viewDropDown.currentIndexChanged.connect(self.set_view)
+
         b = 0
-        self.satBox = QGroupBox("Views")
-        self.satBox.setFont(self.boldfont)
-        self.satBoxG = QGridLayout()
-        self.satBox.setLayout(self.satBoxG)
-        self.l0.addWidget(self.satBox, b, 0, 1, 9)
 
         widget_row = 0
-        self.view = 0  # 0=image, 1=flowsXY, 2=flowsZ, 3=cellprob
-        self.color = 0  # 0=RGB, 1=gray, 2=R, 3=G, 4=B
-        self.RGBDropDown = QComboBox()
-        self.RGBDropDown.addItems(
-            ["RGB", "red=R", "green=G", "blue=B", "gray", "spectral"])
-        self.RGBDropDown.setFont(self.medfont)
-        self.RGBDropDown.currentIndexChanged.connect(self.color_choose)
-        self.satBoxG.addWidget(self.RGBDropDown, widget_row, 0, 1, 3)
-
-        label = QLabel("<p>[&uarr; / &darr; or W/S]</p>")
-        label.setFont(self.smallfont)
-        self.satBoxG.addWidget(label, widget_row, 3, 1, 3)
-        label = QLabel("[R / G / B \n toggles color ]")
-        label.setFont(self.smallfont)
-        self.satBoxG.addWidget(label, widget_row, 6, 1, 3)
-
-        widget_row += 1
-        self.ViewDropDown = QComboBox()
-        self.ViewDropDown.addItems(["image", "gradXY", "cellprob", "restored"])
-        self.ViewDropDown.setFont(self.medfont)
-        self.ViewDropDown.model().item(3).setEnabled(False)
-        self.ViewDropDown.currentIndexChanged.connect(self.update_plot)
-        self.satBoxG.addWidget(self.ViewDropDown, widget_row, 0, 2, 3)
-
-        label = QLabel("[pageup / pagedown]")
-        label.setFont(self.smallfont)
-        self.satBoxG.addWidget(label, widget_row, 3, 1, 5)
-
-        widget_row += 2
-        label = QLabel("")
-        label.setToolTip(
-            "NOTE: manually changing the saturation bars does not affect normalization in segmentation"
-        )
-        self.satBoxG.addWidget(label, widget_row, 0, 1, 5)
-
-        self.autobtn = QCheckBox("auto-adjust saturation")
-        self.autobtn.setToolTip("sets scale-bars as normalized for segmentation")
-        self.autobtn.setFont(self.medfont)
-        self.autobtn.setChecked(True)
-        self.satBoxG.addWidget(self.autobtn, widget_row, 1, 1, 8)
-
-        widget_row += 1
-        self.sliders = []
-        colors = [[255, 0, 0], [0, 255, 0], [0, 0, 255], [100, 100, 100]]
-        colornames = ["red", "Chartreuse", "DodgerBlue"]
-        names = ["red", "green", "blue"]
-        for r in range(3):
-            widget_row += 1
-            if r == 0:
-                label = QLabel('<font color="gray">gray/</font><br>red')
-            else:
-                label = QLabel(names[r] + ":")
-            label.setStyleSheet(f"color: {colornames[r]}")
-            label.setFont(self.boldmedfont)
-            self.satBoxG.addWidget(label, widget_row, 0, 1, 2)
-            self.sliders.append(Slider(self, names[r], colors[r]))
-            self.sliders[-1].setMinimum(-.1)
-            self.sliders[-1].setMaximum(255.1)
-            self.sliders[-1].setValue([0, 255])
-            self.sliders[-1].setToolTip(
-                "NOTE: manually changing the saturation bars does not affect normalization in segmentation"
-            )
-            self.satBoxG.addWidget(self.sliders[-1], widget_row, 2, 1, 7)
 
         b += 1
         self.drawBox = QGroupBox("Drawing")
@@ -650,15 +569,13 @@ class MainW(QMainWindow):
 
         return b
 
-    def level_change(self, r):
-        r = ["red", "green", "blue"].index(r)
+    def level_change(self, values: dict):
         if self.loaded:
-            sval = self.sliders[r].value()
-            self.saturation[r][self.currentZ] = sval
-            if not self.autobtn.isChecked():
-                for r in range(3):
-                    for i in range(len(self.saturation[r])):
-                        self.saturation[r][i] = self.saturation[r][self.currentZ]
+            for s_idx, hilo in values.items():
+                self.saturation[s_idx][self.currentZ] = hilo 
+                if not self.views_panel.auto_saturation_on():
+                    for i in range(len(self.saturation[s_idx])):
+                        self.saturation[s_idx][i] = self.saturation[s_idx][self.currentZ]
             self.update_plot()
 
     def keyPressEvent(self, event):
@@ -671,9 +588,9 @@ class MainW(QMainWindow):
                     if event.key() == QtCore.Qt.Key_Return:
                         self.add_set()
                 else:
-                    nviews = self.ViewDropDown.count() - 1
+                    nviews = self.views_panel.viewDropDown.count() - 1
                     nviews += int(
-                        self.ViewDropDown.model().item(self.ViewDropDown.count() -
+                        self.views_panel.viewDropDown.model().item(self.views_panel.viewDropDown.count() -
                                                        1).isEnabled())
                     if event.key() == QtCore.Qt.Key_X:
                         self.MCheckBox.toggle()
@@ -687,37 +604,37 @@ class MainW(QMainWindow):
                         self.get_next_image()
                     elif event.key() == QtCore.Qt.Key_PageDown:
                         self.view = (self.view + 1) % (nviews)
-                        self.ViewDropDown.setCurrentIndex(self.view)
+                        self.views_panel.viewDropDown.setCurrentIndex(self.view)
                     elif event.key() == QtCore.Qt.Key_PageUp:
                         self.view = (self.view - 1) % (nviews)
-                        self.ViewDropDown.setCurrentIndex(self.view)
+                        self.views_panel.viewDropDown.setCurrentIndex(self.view)
 
                 # can change background or stroke size if cell not finished
                 if event.key() == QtCore.Qt.Key_Up or event.key() == QtCore.Qt.Key_W:
                     self.color = (self.color - 1) % (6)
-                    self.RGBDropDown.setCurrentIndex(self.color)
+                    self.views_panel.rgbDropDown.setCurrentIndex(self.color)
                 elif event.key() == QtCore.Qt.Key_Down or event.key(
                 ) == QtCore.Qt.Key_S:
                     self.color = (self.color + 1) % (6)
-                    self.RGBDropDown.setCurrentIndex(self.color)
+                    self.views_panel.rgbDropDown.setCurrentIndex(self.color)
                 elif event.key() == QtCore.Qt.Key_R:
                     if self.color != 1:
                         self.color = 1
                     else:
                         self.color = 0
-                    self.RGBDropDown.setCurrentIndex(self.color)
+                    self.views_panel.rgbDropDown.setCurrentIndex(self.color)
                 elif event.key() == QtCore.Qt.Key_G:
                     if self.color != 2:
                         self.color = 2
                     else:
                         self.color = 0
-                    self.RGBDropDown.setCurrentIndex(self.color)
+                    self.views_panel.rgbDropDown.setCurrentIndex(self.color)
                 elif event.key() == QtCore.Qt.Key_B:
                     if self.color != 3:
                         self.color = 3
                     else:
                         self.color = 0
-                    self.RGBDropDown.setCurrentIndex(self.color)
+                    self.views_panel.rgbDropDown.setCurrentIndex(self.color)
                 elif (event.key() == QtCore.Qt.Key_Comma or
                       event.key() == QtCore.Qt.Key_Period):
                     count = self.BrushChoose.count()
@@ -788,10 +705,7 @@ class MainW(QMainWindow):
         self.newmodel.setEnabled(True)
         self.loadMasks.setEnabled(True)
 
-        for n in range(self.nchan):
-            self.sliders[n].setEnabled(True)
-        for n in range(self.nchan, 3):
-            self.sliders[n].setEnabled(True)
+        self.views_panel.enable_saturation_sliders()
 
         self.toggle_mask_ops()
 
@@ -965,12 +879,12 @@ class MainW(QMainWindow):
         self.saturation = self.saturation if hasattr(self, 'saturation') else []
 
         # only adjust the saturation if auto-adjust is on: 
-        if self.autobtn.isChecked():
+        if self.views_panel.autobtn.isChecked():
             for r in range(3):
                 self.saturation.append([[0, 255] for n in range(self.NZ)])
-                self.sliders[r].setValue([0, 255])
-                self.sliders[r].setEnabled(False)
-                self.sliders[r].show()
+                self.views_panel.sliders[r].setValue([0, 255])
+                self.views_panel.sliders[r].setEnabled(False)
+                self.views_panel.sliders[r].show()
         self.currentZ = 0
         self.flows = [[], [], [], [], [[]]]
         # masks matrix
@@ -986,10 +900,10 @@ class MainW(QMainWindow):
 
         # -- set menus to default -- #
         self.color = 0
-        self.RGBDropDown.setCurrentIndex(self.color)
+        self.views_panel.rgbDropDown.setCurrentIndex(self.color)
         self.view = 0
-        self.ViewDropDown.setCurrentIndex(0)
-        self.ViewDropDown.model().item(self.ViewDropDown.count() - 1).setEnabled(False)
+        self.views_panel.viewDropDown.setCurrentIndex(0)
+        self.views_panel.viewDropDown.model().item(self.views_panel.viewDropDown.count() - 1).setEnabled(False)
         self.delete_restore()
 
         self.clear_all()
@@ -1016,9 +930,9 @@ class MainW(QMainWindow):
     def clear_restore(self):
         """ delete restored imgs and reset settings """
         print("GUI_INFO: clearing restored image")
-        self.ViewDropDown.model().item(self.ViewDropDown.count() - 1).setEnabled(False)
-        if self.ViewDropDown.currentIndex() == self.ViewDropDown.count() - 1:
-            self.ViewDropDown.setCurrentIndex(0)
+        self.views_panel.viewDropDown.model().item(self.views_panel.viewDropDown.count() - 1).setEnabled(False)
+        if self.views_panel.viewDropDown.currentIndex() == self.views_panel.viewDropDown.count() - 1:
+            self.views_panel.viewDropDown.setCurrentIndex(0)
         self.delete_restore()
         self.restore = None
         self.ratio = 1.
@@ -1346,16 +1260,16 @@ class MainW(QMainWindow):
         items = self.win.scene().items(pos)
 
     def color_choose(self):
-        self.color = self.RGBDropDown.currentIndex()
+        self.color = self.views_panel.rgbDropDown.currentIndex()
         self.view = 0
-        self.ViewDropDown.setCurrentIndex(self.view)
+        self.views_panel.viewDropDown.setCurrentIndex(self.view)
         self.update_plot()
 
     def update_plot(self):
-        self.view = self.ViewDropDown.currentIndex()
+        self.view = self.views_panel.get_views_index()
         self.Ly, self.Lx, _ = self.stack[self.currentZ].shape
 
-        if self.view == 0 or self.view == self.ViewDropDown.count() - 1:
+        if self.view == 0 or self.view == self.views_panel.viewDropDown.count() - 1:
             image = self.stack[
                 self.currentZ] if self.view == 0 else self.stack_filtered[self.currentZ]
             if self.color == 0:
@@ -1398,10 +1312,11 @@ class MainW(QMainWindow):
             self.img.setLevels([0.0, 255.0])
 
         for r in range(3):
-            self.sliders[r].setValue([
+            sat_low_hi = [
                 self.saturation[r][self.currentZ][0],
-                self.saturation[r][self.currentZ][1]
-            ])
+                self.saturation[r][self.currentZ][1],
+            ]
+            self.views_panel.set_saturation_slider(r, sat_low_hi)
         self.win.show()
         self.show()
 
@@ -1671,7 +1586,7 @@ class MainW(QMainWindow):
         return normalize_params
     
     def compute_saturation_if_checked(self):
-        if self.autobtn.isChecked():
+        if self.views_panel.auto_saturation_on():
             self.compute_saturation()
 
     def compute_saturation(self, return_img=False):
@@ -1716,13 +1631,13 @@ class MainW(QMainWindow):
                     img_norm[..., c] /= (img_norm_max - img_norm_min)
             img_norm *= 255
             self.stack_filtered = img_norm
-            self.ViewDropDown.model().item(self.ViewDropDown.count() -
+            self.views_panel.viewDropDown.model().item(self.views_panel.viewDropDown.count() -
                                            1).setEnabled(True)
-            self.ViewDropDown.setCurrentIndex(self.ViewDropDown.count() - 1)
+            self.views_panel.viewDropDown.setCurrentIndex(self.views_panel.viewDropDown.count() - 1)
         else:
             img_norm = self.stack if self.restore is None or self.restore == "filter" else self.stack_filtered
 
-        if self.autobtn.isChecked():
+        if self.views_panel.auto_saturation_on():
             self.saturation = []
             for c in range(img_norm.shape[-1]):
                 self.saturation.append([])
@@ -2002,7 +1917,7 @@ class MainW(QMainWindow):
             self.masksOn = True
             self.MCheckBox.setChecked(True)
             self.progress.setValue(100)
-            if self.restore != "filter" and self.restore is not None and self.autobtn.isChecked():
+            if self.restore != "filter" and self.restore is not None and self.views_panel.autobtn.isChecked():
                 self.compute_saturation()
             if not do_3D and not stitch_threshold > 0:
                 self.recompute_masks = True
@@ -2010,3 +1925,11 @@ class MainW(QMainWindow):
                 self.recompute_masks = False
         except Exception as e:
             print("ERROR: %s" % e)
+
+    def set_display_color(self, color_idx: int):
+        self.color = color_idx 
+        self.update_plot()
+
+    def set_view(self, views_idx: int):
+        self.view = views_idx
+        self.update_plot()

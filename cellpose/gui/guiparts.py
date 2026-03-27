@@ -3,8 +3,9 @@ Copyright © 2025 Howard Hughes Medical Institute, Authored by Carsen Stringer ,
 """
 from qtpy import QtGui, QtCore
 from qtpy.QtGui import QPixmap, QDoubleValidator
-from qtpy.QtWidgets import QWidget, QDialog, QGridLayout, QPushButton, QLabel, QLineEdit, QDialogButtonBox, QComboBox, QCheckBox, QVBoxLayout
+from qtpy.QtWidgets import QWidget, QDialog, QGridLayout, QPushButton, QLabel, QLineEdit, QDialogButtonBox, QComboBox, QCheckBox, QGroupBox
 import pyqtgraph as pg
+from superqt import QRangeSlider
 import numpy as np
 import pathlib, os
 
@@ -811,3 +812,115 @@ class ImageDraw(pg.ImageItem):
         opamask = 100 * kernel[:, :, np.newaxis]
         self.redmask = np.concatenate((onmask, offmask, offmask, onmask), axis=-1)
         self.strokemask = np.concatenate((onmask, offmask, onmask, opamask), axis=-1)
+
+
+class Slider(QRangeSlider):
+
+    def __init__(self, parent, name, color):
+        super().__init__(QtCore.Qt.Orientation.Horizontal)
+        self.setEnabled(False)
+        self.name = name
+
+        self.setStyleSheet(""" QSlider{
+                             background-color: transparent;
+                             }
+        """)
+        self.show()
+
+
+class ViewsPanel(QGroupBox):
+
+    sliderLevelsChanged = QtCore.Signal(dict) 
+
+    def __init__(self, parent):
+        super().__init__("Views", parent)
+
+        self.setFont(self.parent().boldfont)
+        viewsBoxGrid = QGridLayout()
+        self.setLayout(viewsBoxGrid)
+
+        self.rgbDropDown = QComboBox()
+        self.rgbDropDown.addItems(
+            ["RGB", "red=R", "green=G", "blue=B", "gray", "spectral"])
+        self.rgbDropDown.setFont(self.parent().medfont)
+        viewsBoxGrid.addWidget(self.rgbDropDown, 0, 0, 1, 3)
+
+        label = QLabel("<p>[&uarr; / &darr; or W/S]</p>")
+        label.setFont(self.parent().smallfont)
+        viewsBoxGrid.addWidget(label, 0, 3, 1, 3)
+        label = QLabel("[R / G / B \n toggles color ]")
+        label.setFont(self.parent().smallfont)
+        viewsBoxGrid.addWidget(label, 0, 6, 1, 3)
+
+        self.viewDropDown = QComboBox()
+        self.viewDropDown.addItems(["image", "gradXY", "cellprob", "restored"])
+        self.viewDropDown.setFont(self.parent().medfont)
+        self.viewDropDown.model().item(3).setEnabled(False)
+        viewsBoxGrid.addWidget(self.viewDropDown, 1, 0, 2, 3)
+
+        label = QLabel("[pageup / pagedown]")
+        label.setFont(self.parent().smallfont)
+        viewsBoxGrid.addWidget(label, 1, 3, 1, 5)
+
+        label = QLabel("")
+        label.setToolTip(
+            "NOTE: manually changing the saturation bars does not affect normalization in segmentation"
+        )
+        viewsBoxGrid.addWidget(label, 3, 0, 1, 5)
+
+        self.autobtn = QCheckBox("auto-adjust saturation")
+        self.autobtn.setToolTip("sets scale-bars as normalized for segmentation")
+        self.autobtn.setFont(self.parent().medfont)
+        self.autobtn.setChecked(True)
+        viewsBoxGrid.addWidget(self.autobtn, 3, 1, 1, 8)
+
+        self.sliders = []
+        colors = [[255, 0, 0], [0, 255, 0], [0, 0, 255], [100, 100, 100]]
+        colornames = ["red", "Chartreuse", "DodgerBlue"]
+        names = ["red", "green", "blue"]
+        widget_row = 3
+        for r in range(3):
+            widget_row += 1
+            if r == 0:
+                label = QLabel('<font color="gray">gray/</font><br>red')
+            else:
+                label = QLabel(names[r] + ":")
+            label.setStyleSheet(f"color: {colornames[r]}")
+            label.setFont(self.parent().boldmedfont)
+            viewsBoxGrid.addWidget(label, widget_row, 0, 1, 2)
+            self.sliders.append(Slider(self, names[r], colors[r]))
+            self.sliders[-1].setMinimum(-.1)
+            self.sliders[-1].setMaximum(255.1)
+            self.sliders[-1].setValue([0, 255])
+            self.sliders[-1].setToolTip(
+                "NOTE: manually changing the saturation bars does not affect normalization in segmentation"
+            )
+            self.sliders[-1].valueChanged.connect(self.level_change)
+            viewsBoxGrid.addWidget(self.sliders[-1], widget_row, 2, 1, 7)
+
+    
+    def level_change(self):
+        slider_levels = {s: self.sliders[s].value() for s in range(len(self.sliders))}
+        self.sliderLevelsChanged.emit(slider_levels)
+
+    def auto_saturation_on(self):
+        if self.autobtn.isChecked():
+            return True
+        else: 
+            return False
+        
+    def get_views_index(self):
+        return self.viewDropDown.currentIndex()
+    
+    def set_views_index(self, idx: int):
+        self.viewDropDown.setCurrentIndex(idx)
+    
+
+    def set_saturation_slider(self, slider_idx: int, sat_low_hi: list):
+        self.sliders[slider_idx].setValue(sat_low_hi)
+
+    def enable_saturation_sliders(self):
+        for s in self.sliders: 
+            s.setEnabled(True)
+
+
