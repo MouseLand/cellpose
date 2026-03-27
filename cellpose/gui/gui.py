@@ -582,13 +582,13 @@ class MainW(QMainWindow):
                     self.views_panel.rgbDropDown.setCurrentIndex(self.color)
                 elif (event.key() == QtCore.Qt.Key_Comma or
                       event.key() == QtCore.Qt.Key_Period):
-                    count = self.BrushChoose.count()
-                    gci = self.BrushChoose.currentIndex()
+                    count = self.drawBox.brushChoose.count()
+                    gci = self.drawBox.brushChoose.currentIndex()
                     if event.key() == QtCore.Qt.Key_Comma:
                         gci = max(0, gci - 1)
                     else:
                         gci = min(count - 1, gci + 1)
-                    self.BrushChoose.setCurrentIndex(gci)
+                    self.drawBox.brushChoose.setCurrentIndex(gci)
                     self.brush_choose()
                 if not updated:
                     self.update_plot()
