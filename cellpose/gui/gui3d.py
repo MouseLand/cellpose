@@ -576,88 +576,43 @@ class MainW_3d(MainW):
         self.show()
 
     def keyPressEvent(self, event):
+        event.ignore()
         if self.loaded:
             if not (event.modifiers() &
                     (QtCore.Qt.ControlModifier | QtCore.Qt.ShiftModifier |
                      QtCore.Qt.AltModifier) or self.in_stroke):
                 updated = False
                 if len(self.current_point_set) > 0:
-                    if event.key() == QtCore.Qt.Key_Return:
-                        self.add_set()
                     if self.NZ > 1:
                         if event.key() == QtCore.Qt.Key_Left:
                             self.currentZ = max(0, self.currentZ - 1)
                             self.scroll.setValue(self.currentZ)
                             updated = True
+                            event.accept()
                         elif event.key() == QtCore.Qt.Key_Right:
                             self.currentZ = min(self.NZ - 1, self.currentZ + 1)
                             self.scroll.setValue(self.currentZ)
                             updated = True
+                            event.accept()
                 else:
-                    if event.key() == QtCore.Qt.Key_X:
-                        self.drawBox.maskCheckBox.toggle()
-                    if event.key() == QtCore.Qt.Key_Z:
-                        self.drawBox.outlinesCheckBox.toggle()
                     if event.key() == QtCore.Qt.Key_Left or event.key(
                     ) == QtCore.Qt.Key_A:
                         self.currentZ = max(0, self.currentZ - 1)
                         self.scroll.setValue(self.currentZ)
                         updated = True
+                        event.accept()
                     elif event.key() == QtCore.Qt.Key_Right or event.key(
                     ) == QtCore.Qt.Key_D:
                         self.currentZ = min(self.NZ - 1, self.currentZ + 1)
                         self.scroll.setValue(self.currentZ)
                         updated = True
-                    elif event.key() == QtCore.Qt.Key_PageDown:
-                        super().keyPressEvent(event) # pass this to MainW
-                    elif event.key() == QtCore.Qt.Key_PageUp:
-                        super().keyPressEvent(event) # pass this to MainW
+                        event.accept()
 
-                # can change background or stroke size if cell not finished
-                if event.key() == QtCore.Qt.Key_Up or event.key() == QtCore.Qt.Key_W:
-                    self.color = (self.color - 1) % (6)
-                    self.views_panel.rgbDropDown.setCurrentIndex(self.color)
-                elif event.key() == QtCore.Qt.Key_Down or event.key(
-                ) == QtCore.Qt.Key_S:
-                    self.color = (self.color + 1) % (6)
-                    self.views_panel.rgbDropDown.setCurrentIndex(self.color)
-                elif event.key() == QtCore.Qt.Key_R:
-                    if self.color != 1:
-                        self.color = 1
-                    else:
-                        self.color = 0
-                    self.views_panel.rgbDropDown.setCurrentIndex(self.color)
-                elif event.key() == QtCore.Qt.Key_G:
-                    if self.color != 2:
-                        self.color = 2
-                    else:
-                        self.color = 0
-                    self.views_panel.rgbDropDown.setCurrentIndex(self.color)
-                elif event.key() == QtCore.Qt.Key_B:
-                    if self.color != 3:
-                        self.color = 3
-                    else:
-                        self.color = 0
-                    self.views_panel.rgbDropDown.setCurrentIndex(self.color)
-                elif (event.key() == QtCore.Qt.Key_Comma or
-                      event.key() == QtCore.Qt.Key_Period):
-                    count = self.drawBox.brushChoose.count()
-                    gci = self.drawBox.brushChoose.currentIndex()
-                    if event.key() == QtCore.Qt.Key_Comma:
-                        gci = max(0, gci - 1)
-                    else:
-                        gci = min(count - 1, gci + 1)
-                    self.drawBox.brushChoose.setCurrentIndex(gci)
-                    self.brush_choose()
                 if not updated:
                     self.update_plot()
 
-            # when in stroke, allow escaping out of drawing
-            else: 
-                if event.key() == QtCore.Qt.Key_Escape:
-                    self.layer.end_stroke(keep_stroke=False)
-        if event.key() == QtCore.Qt.Key_Minus or event.key() == QtCore.Qt.Key_Equal:
-            self.p0.keyPressEvent(event)
+        if not event.isAccepted():
+            super().keyPressEvent(event)
 
     def update_ztext(self):
         zpos = self.currentZ

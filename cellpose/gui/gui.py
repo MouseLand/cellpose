@@ -530,6 +530,7 @@ class MainW(QMainWindow):
             self.update_plot()
 
     def keyPressEvent(self, event):
+        event.ignore()
         if self.loaded:
             if not (event.modifiers() &
                     (QtCore.Qt.ControlModifier | QtCore.Qt.ShiftModifier |
@@ -538,48 +539,60 @@ class MainW(QMainWindow):
                 if len(self.current_point_set) > 0:
                     if event.key() == QtCore.Qt.Key_Return:
                         self.add_set()
+                        event.accept()
                 else:
                     if event.key() == QtCore.Qt.Key_X:
                         self.drawBox.maskCheckBox.toggle()
+                        event.accept()
                     if event.key() == QtCore.Qt.Key_Z:
                         self.drawBox.outlinesCheckBox.toggle()
+                        event.accept()
                     if event.key() == QtCore.Qt.Key_Left or event.key(
                     ) == QtCore.Qt.Key_A:
                         self.get_prev_image()
+                        event.accept()
                     elif event.key() == QtCore.Qt.Key_Right or event.key(
                     ) == QtCore.Qt.Key_D:
                         self.get_next_image()
+                        event.accept()
                     elif event.key() == QtCore.Qt.Key_PageDown:
                         self.views_panel.go_next_previous_view()
+                        event.accept()
                     elif event.key() == QtCore.Qt.Key_PageUp:
                         self.views_panel.go_next_previous_view(-1)
+                        event.accept()
 
                 # can change background or stroke size if cell not finished
                 if event.key() == QtCore.Qt.Key_Up or event.key() == QtCore.Qt.Key_W:
                     self.color = (self.color - 1) % (6)
                     self.views_panel.rgbDropDown.setCurrentIndex(self.color)
+                    event.accept()
                 elif event.key() == QtCore.Qt.Key_Down or event.key(
                 ) == QtCore.Qt.Key_S:
                     self.color = (self.color + 1) % (6)
                     self.views_panel.rgbDropDown.setCurrentIndex(self.color)
+                    event.accept()
                 elif event.key() == QtCore.Qt.Key_R:
                     if self.color != 1:
                         self.color = 1
                     else:
                         self.color = 0
                     self.views_panel.rgbDropDown.setCurrentIndex(self.color)
+                    event.accept()
                 elif event.key() == QtCore.Qt.Key_G:
                     if self.color != 2:
                         self.color = 2
                     else:
                         self.color = 0
                     self.views_panel.rgbDropDown.setCurrentIndex(self.color)
+                    event.accept()
                 elif event.key() == QtCore.Qt.Key_B:
                     if self.color != 3:
                         self.color = 3
                     else:
                         self.color = 0
                     self.views_panel.rgbDropDown.setCurrentIndex(self.color)
+                    event.accept()
                 elif (event.key() == QtCore.Qt.Key_Comma or
                       event.key() == QtCore.Qt.Key_Period):
                     count = self.drawBox.brushChoose.count()
@@ -590,6 +603,7 @@ class MainW(QMainWindow):
                         gci = min(count - 1, gci + 1)
                     self.drawBox.brushChoose.setCurrentIndex(gci)
                     self.brush_choose()
+                    event.accept()
                 if not updated:
                     self.update_plot()
             
@@ -597,8 +611,10 @@ class MainW(QMainWindow):
             else: 
                 if event.key() == QtCore.Qt.Key_Escape:
                     self.layer.end_stroke(keep_stroke=False)
+                    event.accept()
         if event.key() == QtCore.Qt.Key_Minus or event.key() == QtCore.Qt.Key_Equal:
             self.p0.keyPressEvent(event)
+            event.accept()
 
     def autosave_on(self):
         if self.drawBox.singleStrokeCheckBox.isChecked():
