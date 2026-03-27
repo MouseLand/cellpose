@@ -1205,11 +1205,23 @@ class MainW(QMainWindow):
 
     def update_plot(self):
         self.view = self.views_panel.get_views_index()
+        view = self.views_panel.get_view_currentText()
         self.Ly, self.Lx, _ = self.stack[self.currentZ].shape
 
-        if self.view == 0 or self.view == self.views_panel.viewDropDown.count() - 1:
-            image = self.stack[
-                self.currentZ] if self.view == 0 else self.stack_filtered[self.currentZ]
+        is_image_view = view == 'image'
+        is_restored_view = view == 'restored'
+        is_flowp_view = view in ['gradXY', 'cellprob', 'gradZ']
+        flowp_map = {
+            'gradXY' : 0,
+            'cellprob' : 1,
+            'gradZ' : 4,
+        }
+
+        if is_image_view or is_restored_view:
+            if is_image_view:
+                image = self.stack[self.currentZ]
+            else: 
+                image = self.stack_filtered[self.currentZ]
             if self.color == 0:
                 self.img.setImage(image, autoLevels=False, lut=None)
                 if self.nchan > 1:
@@ -1241,12 +1253,9 @@ class MainW(QMainWindow):
                 self.img.setLevels(self.saturation[0][self.currentZ])
         else:
             image = np.zeros((self.Ly, self.Lx), np.uint8)
-            if len(self.flows) >= self.view - 1 and len(self.flows[self.view - 1]) > 0:
-                image = self.flows[self.view - 1][self.currentZ]
-            if self.view > 1:
-                self.img.setImage(image, autoLevels=False, lut=self.bwr)
-            else:
-                self.img.setImage(image, autoLevels=False, lut=None)
+            if len(self.flows[flowp_map[view]]) > 0:
+                image = self.flows[flowp_map[view]][self.currentZ]
+            self.img.setImage(image, autoLevels=False, lut=self.bwr)
             self.img.setLevels([0.0, 255.0])
 
         for r in range(3):
@@ -1800,10 +1809,11 @@ class MainW(QMainWindow):
             flows_new.append(flows[0].copy())  # RGB flow
             flows_new.append((np.clip(normalize99(flows[2].copy()), 0, 1) *
                               255).astype("uint8"))  # cellprob
-            flows_new.append(flows[1].copy()) # XY flows
+            flows_new.append(flows[1].copy()) # XY(Z) flows
             flows_new.append(flows[2].copy()) # original cellprob
 
             if self.load_3D:
+                # append Z flows (or zeros in stitching case)  --> z flows are flows[4]
                 if stitch_threshold == 0.:
                     flows_new.append((flows[1][0] / 10 * 127 + 127).astype("uint8"))
                 else:
@@ -1826,8 +1836,7 @@ class MainW(QMainWindow):
                 Lz, Ly, Lx = self.NZ, self.Ly, self.Lx
                 Lz0, Ly0, Lx0 = flows_new[0].shape[:3]
                 print("GUI_INFO: resizing flows to original image size")
-                for j in range(len(flows_new)):
-                    flow0 = flows_new[j]
+                for flow0 in flows_new:
                     if Ly0 != Ly:
                         flow0 = resize_image(flow0, Ly=Ly, Lx=Lx,
                                             no_channels=flow0.ndim==3, 

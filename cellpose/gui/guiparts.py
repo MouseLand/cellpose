@@ -910,6 +910,9 @@ class ViewsPanel(QGroupBox):
     
     def set_views_index(self, idx: int):
         self.viewDropDown.setCurrentIndex(idx)
+
+    def get_view_currentText(self):
+        return self.viewDropDown.currentText()
     
 
     def set_saturation_slider(self, slider_idx: int, sat_low_hi: list):
