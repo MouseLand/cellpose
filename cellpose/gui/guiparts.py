@@ -1,6 +1,7 @@
 """
 Copyright © 2025 Howard Hughes Medical Institute, Authored by Carsen Stringer , Michael Rariden and Marius Pachitariu.
 """
+import logging
 from qtpy import QtGui, QtCore
 from qtpy.QtGui import QPixmap, QDoubleValidator
 from qtpy.QtWidgets import QWidget, QDialog, QGridLayout, QPushButton, QLabel, QLineEdit, QDialogButtonBox, QComboBox, QCheckBox, QGroupBox
@@ -913,6 +914,30 @@ class ViewsPanel(QGroupBox):
 
     def get_view_currentText(self):
         return self.viewDropDown.currentText()
+    
+    def go_next_previous_view(self, increment=1):
+        """ Go to the next view using `increment` """
+        
+        # skip disabled views
+        num_items = self.viewDropDown.count()
+        enabled = []
+        for i in range(num_items):
+            enabled.append(self.viewDropDown.model().item(i).isEnabled())
+        
+        if not any(enabled):
+            logging.getLogger(__name__).error('No available views are enabled. Cannot adjust view.')
+            return 
+        
+        idx = self.get_views_index() + increment
+
+        for _ in range(num_items):
+            idx %= num_items
+            if enabled[idx]:
+                self.set_views_index(idx)
+                return
+            idx += increment
+
+        logging.getLogger(__name__).error('Could not find an emabled view.')
     
 
     def set_saturation_slider(self, slider_idx: int, sat_low_hi: list):

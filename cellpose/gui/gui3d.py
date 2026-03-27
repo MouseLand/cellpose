@@ -609,11 +609,9 @@ class MainW_3d(MainW):
                         self.scroll.setValue(self.currentZ)
                         updated = True
                     elif event.key() == QtCore.Qt.Key_PageDown:
-                        self.view = (self.view + 1) % (nviews)
-                        self.views_panel.viewDropDown.setCurrentIndex(self.view)
+                        super().keyPressEvent(event) # pass this to MainW
                     elif event.key() == QtCore.Qt.Key_PageUp:
-                        self.view = (self.view - 1) % (nviews)
-                        self.views_panel.viewDropDown.setCurrentIndex(self.view)
+                        super().keyPressEvent(event) # pass this to MainW
 
                 # can change background or stroke size if cell not finished
                 if event.key() == QtCore.Qt.Key_Up or event.key() == QtCore.Qt.Key_W:

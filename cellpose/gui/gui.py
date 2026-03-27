@@ -305,7 +305,7 @@ class MainW(QMainWindow):
         self.l0.addWidget(self.views_panel, 0, 0, 1, 9)
         self.views_panel.sliderLevelsChanged.connect(self.level_change)
         self.views_panel.rgbDropDown.currentIndexChanged.connect(self.set_display_color)
-        self.views_panel.viewDropDown.currentIndexChanged.connect(self.set_view)
+        self.views_panel.viewDropDown.currentIndexChanged.connect(self.update_plot)
 
         b = 0
 
@@ -539,10 +539,6 @@ class MainW(QMainWindow):
                     if event.key() == QtCore.Qt.Key_Return:
                         self.add_set()
                 else:
-                    nviews = self.views_panel.viewDropDown.count() - 1
-                    nviews += int(
-                        self.views_panel.viewDropDown.model().item(self.views_panel.viewDropDown.count() -
-                                                       1).isEnabled())
                     if event.key() == QtCore.Qt.Key_X:
                         self.drawBox.maskCheckBox.toggle()
                     if event.key() == QtCore.Qt.Key_Z:
@@ -554,11 +550,9 @@ class MainW(QMainWindow):
                     ) == QtCore.Qt.Key_D:
                         self.get_next_image()
                     elif event.key() == QtCore.Qt.Key_PageDown:
-                        self.view = (self.view + 1) % (nviews)
-                        self.views_panel.viewDropDown.setCurrentIndex(self.view)
+                        self.views_panel.go_next_previous_view()
                     elif event.key() == QtCore.Qt.Key_PageUp:
-                        self.view = (self.view - 1) % (nviews)
-                        self.views_panel.viewDropDown.setCurrentIndex(self.view)
+                        self.views_panel.go_next_previous_view(-1)
 
                 # can change background or stroke size if cell not finished
                 if event.key() == QtCore.Qt.Key_Up or event.key() == QtCore.Qt.Key_W:
@@ -843,7 +837,6 @@ class MainW(QMainWindow):
         # -- set menus to default -- #
         self.color = 0
         self.views_panel.rgbDropDown.setCurrentIndex(self.color)
-        self.view = 0
         self.views_panel.viewDropDown.setCurrentIndex(0)
         self.views_panel.viewDropDown.model().item(self.views_panel.viewDropDown.count() - 1).setEnabled(False)
         self.delete_restore()
@@ -1199,12 +1192,10 @@ class MainW(QMainWindow):
 
     def color_choose(self):
         self.color = self.views_panel.rgbDropDown.currentIndex()
-        self.view = 0
-        self.views_panel.viewDropDown.setCurrentIndex(self.view)
+        self.views_panel.viewDropDown.setCurrentIndex(0)
         self.update_plot()
 
     def update_plot(self):
-        self.view = self.views_panel.get_views_index()
         view = self.views_panel.get_view_currentText()
         self.Ly, self.Lx, _ = self.stack[self.currentZ].shape
 
@@ -1875,8 +1866,4 @@ class MainW(QMainWindow):
 
     def set_display_color(self, color_idx: int):
         self.color = color_idx 
-        self.update_plot()
-
-    def set_view(self, views_idx: int):
-        self.view = views_idx
         self.update_plot()
