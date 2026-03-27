@@ -312,80 +312,31 @@ class MainW(QMainWindow):
         widget_row = 0
 
         b += 1
-        self.drawBox = QGroupBox("Drawing")
-        self.drawBox.setFont(self.boldfont)
-        self.drawBoxG = QGridLayout()
-        self.drawBox.setLayout(self.drawBoxG)
+        self.drawBox = guiparts.DrawingPanel(self)
         self.l0.addWidget(self.drawBox, b, 0, 1, 9)
         self.autosave = True
 
         widget_row = 0
         self.brush_size = 3
-        self.BrushChoose = QComboBox()
-        self.BrushChoose.addItems(["1", "3", "5", "7", "9"])
-        self.BrushChoose.currentIndexChanged.connect(self.brush_choose)
-        self.BrushChoose.setFixedWidth(40)
-        self.BrushChoose.setFont(self.medfont)
-        self.drawBoxG.addWidget(self.BrushChoose, widget_row, 3, 1, 2)
-        label = QLabel("brush size:")
-        label.setFont(self.medfont)
-        self.drawBoxG.addWidget(label, widget_row, 0, 1, 3)
+
+        self.drawBox.brushChoose.currentIndexChanged.connect(self.brush_choose)
 
         widget_row += 1
         # turn off masks
         self.layer_off = False
         self.masksOn = True
-        self.MCheckBox = QCheckBox("MASKS ON [X]")
-        self.MCheckBox.setFont(self.medfont)
-        self.MCheckBox.setChecked(True)
-        self.MCheckBox.toggled.connect(self.toggle_masks)
-        self.drawBoxG.addWidget(self.MCheckBox, widget_row, 0, 1, 5)
+        self.drawBox.maskCheckBox.toggled.connect(self.toggle_masks)
 
         widget_row += 1
         # turn off outlines
         self.outlinesOn = False  # turn off by default
-        self.OCheckBox = QCheckBox("outlines on [Z]")
-        self.OCheckBox.setFont(self.medfont)
-        self.drawBoxG.addWidget(self.OCheckBox, widget_row, 0, 1, 5)
-        self.OCheckBox.setChecked(False)
-        self.OCheckBox.toggled.connect(self.toggle_masks)
 
-        widget_row += 1
-        self.SCheckBox = QCheckBox("single stroke")
-        self.SCheckBox.setFont(self.medfont)
-        self.SCheckBox.setChecked(True)
-        self.SCheckBox.toggled.connect(self.autosave_on)
-        self.SCheckBox.setEnabled(True)
-        self.drawBoxG.addWidget(self.SCheckBox, widget_row, 0, 1, 5)
-
-        # buttons for deleting multiple cells
-        self.deleteBox = QGroupBox("delete multiple ROIs")
-        self.deleteBox.setStyleSheet("color: rgb(200, 200, 200)")
-        self.deleteBox.setFont(self.medfont)
-        self.deleteBoxG = QGridLayout()
-        self.deleteBox.setLayout(self.deleteBoxG)
-        self.drawBoxG.addWidget(self.deleteBox, 0, 5, 4, 4)
-        self.MakeDeletionRegionButton = QPushButton("region-select")
-        self.MakeDeletionRegionButton.clicked.connect(self.remove_region_cells)
-        self.deleteBoxG.addWidget(self.MakeDeletionRegionButton, 0, 0, 1, 4)
-        self.MakeDeletionRegionButton.setFont(self.smallfont)
-        self.MakeDeletionRegionButton.setFixedWidth(70)
-        self.DeleteMultipleROIButton = QPushButton("click-select")
-        self.DeleteMultipleROIButton.clicked.connect(self.delete_multiple_cells)
-        self.deleteBoxG.addWidget(self.DeleteMultipleROIButton, 1, 0, 1, 4)
-        self.DeleteMultipleROIButton.setFont(self.smallfont)
-        self.DeleteMultipleROIButton.setFixedWidth(70)
-        self.DoneDeleteMultipleROIButton = QPushButton("done")
-        self.DoneDeleteMultipleROIButton.clicked.connect(
-            self.done_remove_multiple_cells)
-        self.deleteBoxG.addWidget(self.DoneDeleteMultipleROIButton, 2, 0, 1, 2)
-        self.DoneDeleteMultipleROIButton.setFont(self.smallfont)
-        self.DoneDeleteMultipleROIButton.setFixedWidth(35)
-        self.CancelDeleteMultipleROIButton = QPushButton("cancel")
-        self.CancelDeleteMultipleROIButton.clicked.connect(self.cancel_remove_multiple)
-        self.deleteBoxG.addWidget(self.CancelDeleteMultipleROIButton, 2, 2, 1, 2)
-        self.CancelDeleteMultipleROIButton.setFont(self.smallfont)
-        self.CancelDeleteMultipleROIButton.setFixedWidth(35)
+        self.drawBox.outlinesCheckBox.toggled.connect(self.toggle_masks)
+        self.drawBox.singleStrokeCheckBox.toggled.connect(self.autosave_on)
+        self.drawBox.makeDeletionRegionClicked.connect(self.remove_region_cells)
+        self.drawBox.deleteMultipleClicked.connect(self.delete_multiple_cells)
+        self.drawBox.doneDeleteROIsButtonClicked.connect(self.done_remove_multiple_cells)
+        self.drawBox.cancelDeleteROIsButtonClicked.connect(self.cancel_remove_multiple)
 
         b += 1
         widget_row = 0
@@ -593,9 +544,9 @@ class MainW(QMainWindow):
                         self.views_panel.viewDropDown.model().item(self.views_panel.viewDropDown.count() -
                                                        1).isEnabled())
                     if event.key() == QtCore.Qt.Key_X:
-                        self.MCheckBox.toggle()
+                        self.drawBox.maskCheckBox.toggle()
                     if event.key() == QtCore.Qt.Key_Z:
-                        self.OCheckBox.toggle()
+                        self.drawBox.outlinesCheckBox.toggle()
                     if event.key() == QtCore.Qt.Key_Left or event.key(
                     ) == QtCore.Qt.Key_A:
                         self.get_prev_image()
@@ -656,7 +607,7 @@ class MainW(QMainWindow):
             self.p0.keyPressEvent(event)
 
     def autosave_on(self):
-        if self.SCheckBox.isChecked():
+        if self.drawBox.singleStrokeCheckBox.isChecked():
             self.autosave = True
         else:
             self.autosave = False
@@ -725,10 +676,7 @@ class MainW(QMainWindow):
         self.saveOutlines.setEnabled(False)
         self.saveROIs.setEnabled(False)
 
-        self.MakeDeletionRegionButton.setEnabled(False)
-        self.DeleteMultipleROIButton.setEnabled(False)
-        self.DoneDeleteMultipleROIButton.setEnabled(True)
-        self.CancelDeleteMultipleROIButton.setEnabled(True)
+        self.drawBox.set_deleting_multiple()
 
     def toggle_mask_ops(self):
         self.update_layer()
@@ -754,18 +702,12 @@ class MainW(QMainWindow):
             self.ClearButton.setEnabled(True)
             self.remcell.setEnabled(True)
             self.undo.setEnabled(True)
-            self.MakeDeletionRegionButton.setEnabled(True)
-            self.DeleteMultipleROIButton.setEnabled(True)
-            self.DoneDeleteMultipleROIButton.setEnabled(False)
-            self.CancelDeleteMultipleROIButton.setEnabled(False)
+            self.drawBox.set_delete_multiple_ready()
         else:
             self.ClearButton.setEnabled(False)
             self.remcell.setEnabled(False)
             self.undo.setEnabled(False)
-            self.MakeDeletionRegionButton.setEnabled(False)
-            self.DeleteMultipleROIButton.setEnabled(False)
-            self.DoneDeleteMultipleROIButton.setEnabled(False)
-            self.CancelDeleteMultipleROIButton.setEnabled(False)
+            self.drawBox.enable_delete_multiple_buttons(False)
 
     def remove_action(self):
         if self.selected > 0:
@@ -815,11 +757,11 @@ class MainW(QMainWindow):
             io._load_image(self, filename=files[0], load_seg=True, load_3D=self.load_3D)
 
     def toggle_masks(self):
-        if self.MCheckBox.isChecked():
+        if self.drawBox.maskCheckBox.isChecked():
             self.masksOn = True
         else:
             self.masksOn = False
-        if self.OCheckBox.isChecked():
+        if self.drawBox.outlinesCheckBox.isChecked():
             self.outlinesOn = True
         else:
             self.outlinesOn = False
@@ -1090,17 +1032,13 @@ class MainW(QMainWindow):
     def delete_multiple_cells(self):
         self.unselect_cell()
         self.disable_buttons_removeROIs()
-        self.DoneDeleteMultipleROIButton.setEnabled(True)
-        self.MakeDeletionRegionButton.setEnabled(True)
-        self.CancelDeleteMultipleROIButton.setEnabled(True)
+        self.drawBox.set_deleting_multiple()
         self.deleting_multiple = True
 
     def done_remove_multiple_cells(self):
         self.deleting_multiple = False
         self.removing_region = False
-        self.DoneDeleteMultipleROIButton.setEnabled(False)
-        self.MakeDeletionRegionButton.setEnabled(False)
-        self.CancelDeleteMultipleROIButton.setEnabled(False)
+        self.drawBox.enable_delete_multiple_buttons(False)
 
         if self.removing_cells_list:
             self.removing_cells_list = list(set(self.removing_cells_list))
@@ -1798,8 +1736,8 @@ class MainW(QMainWindow):
                 flow_threshold=flow_threshold)
             
             self.masksOn = True
-            if not self.OCheckBox.isChecked():
-                self.MCheckBox.setChecked(True)
+            if not self.drawBox.outlinesCheckBox.isChecked():
+                self.drawBox.maskCheckBox.setChecked(True)
             if maski.ndim < 3:
                 maski = maski[np.newaxis, ...]
             self.logger.info("%d cells found" % (len(np.unique(maski)[1:])))
@@ -1915,7 +1853,7 @@ class MainW(QMainWindow):
 
             io._masks_to_gui(self, masks, outlines=None)
             self.masksOn = True
-            self.MCheckBox.setChecked(True)
+            self.drawBox.maskCheckBox.setChecked(True)
             self.progress.setValue(100)
             if self.restore != "filter" and self.restore is not None and self.views_panel.autobtn.isChecked():
                 self.compute_saturation()

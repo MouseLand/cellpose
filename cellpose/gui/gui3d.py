@@ -114,7 +114,7 @@ class MainW_3d(MainW):
         self.views_panel.viewDropDown.insertItem(3, "gradZ")
 
         # turn off single stroke
-        self.SCheckBox.setChecked(False)
+        self.drawBox.singleStrokeCheckBox.setChecked(False)
 
         ### add orthoviews and z-bar
         # ortho crosshair lines
@@ -595,9 +595,9 @@ class MainW_3d(MainW):
                         self.views_panel.viewDropDown.model().item(self.views_panel.viewDropDown.count() -
                                                        1).isEnabled())
                     if event.key() == QtCore.Qt.Key_X:
-                        self.MCheckBox.toggle()
+                        self.drawBox.maskCheckBox.toggle()
                     if event.key() == QtCore.Qt.Key_Z:
-                        self.OCheckBox.toggle()
+                        self.drawBox.outlinesCheckBox.toggle()
                     if event.key() == QtCore.Qt.Key_Left or event.key(
                     ) == QtCore.Qt.Key_A:
                         self.currentZ = max(0, self.currentZ - 1)
@@ -643,13 +643,13 @@ class MainW_3d(MainW):
                     self.views_panel.rgbDropDown.setCurrentIndex(self.color)
                 elif (event.key() == QtCore.Qt.Key_Comma or
                       event.key() == QtCore.Qt.Key_Period):
-                    count = self.BrushChoose.count()
-                    gci = self.BrushChoose.currentIndex()
+                    count = self.drawBox.brushChoose.count()
+                    gci = self.drawBox.brushChoose.currentIndex()
                     if event.key() == QtCore.Qt.Key_Comma:
                         gci = max(0, gci - 1)
                     else:
                         gci = min(count - 1, gci + 1)
-                    self.BrushChoose.setCurrentIndex(gci)
+                    self.drawBox.brushChoose.setCurrentIndex(gci)
                     self.brush_choose()
                 if not updated:
                     self.update_plot()

@@ -232,10 +232,6 @@ class ObservableVariable(QtCore.QObject):
         return self._value == x
 
 
-class NormalizationSettings(QWidget):
-    # TODO
-    pass
-
 
 class SegmentationSettings(QWidget):
     """ Container for gui settings. Validation is done automatically so any attributes can 
@@ -924,3 +920,91 @@ class ViewsPanel(QGroupBox):
             s.setEnabled(True)
 
 
+class DrawingPanel(QGroupBox):
+    makeDeletionRegionClicked = QtCore.Signal()
+    deleteMultipleClicked = QtCore.Signal()
+    doneDeleteROIsButtonClicked = QtCore.Signal()
+    cancelDeleteROIsButtonClicked = QtCore.Signal()
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+
+        self.setFont(self.parent().boldfont)
+        self.boxGridLayout = QGridLayout()
+        self.setLayout(self.boxGridLayout)
+
+        self.brushChoose = QComboBox()
+        self.brushChoose.addItems(["1", "3", "5", "7", "9"])
+        self.brushChoose.setFixedWidth(40)
+        self.brushChoose.setFont(self.parent().medfont)
+        self.boxGridLayout.addWidget(self.brushChoose, 0, 3, 1, 2)
+
+        label = QLabel("brush size:")
+        label.setFont(self.parent().medfont)
+        self.boxGridLayout.addWidget(label, 0, 0, 1, 3)
+
+        self.maskCheckBox = QCheckBox("MASKS ON [X]")
+        self.maskCheckBox.setFont(self.parent().medfont)
+        self.maskCheckBox.setChecked(True)
+        self.boxGridLayout.addWidget(self.maskCheckBox, 1, 0, 1, 5)
+
+        self.outlinesCheckBox = QCheckBox("outlines on [Z]")
+        self.outlinesCheckBox.setFont(self.parent().medfont)
+        self.boxGridLayout.addWidget(self.outlinesCheckBox, 2, 0, 1, 5)
+        self.outlinesCheckBox.setChecked(False)
+
+        self.singleStrokeCheckBox = QCheckBox("single stroke")
+        self.singleStrokeCheckBox.setFont(self.parent().medfont)
+        self.singleStrokeCheckBox.setChecked(True)
+        self.singleStrokeCheckBox.setEnabled(True)
+        self.boxGridLayout.addWidget(self.singleStrokeCheckBox, 3, 0, 1, 5)
+
+        ################ buttons for deleting multiple cells ################
+        self.deleteBox = QGroupBox("delete multiple ROIs")
+        self.deleteBox.setStyleSheet("color: rgb(200, 200, 200)")
+        self.deleteBox.setFont(self.parent().medfont)
+        self.deleteBoxGrid = QGridLayout()
+        self.deleteBox.setLayout(self.deleteBoxGrid)
+        self.boxGridLayout.addWidget(self.deleteBox, 0, 5, 4, 4)
+        self.MakeDeletionRegionButton = QPushButton("region-select")
+        self.MakeDeletionRegionButton.clicked.connect(lambda: self.makeDeletionRegionClicked.emit())
+        self.deleteBoxGrid.addWidget(self.MakeDeletionRegionButton, 0, 0, 1, 4)
+        self.MakeDeletionRegionButton.setFont(self.parent().smallfont)
+        self.MakeDeletionRegionButton.setFixedWidth(70)
+
+        self.DeleteMultipleROIButton = QPushButton("click-select")
+        self.DeleteMultipleROIButton.clicked.connect(lambda: self.deleteMultipleClicked.emit())
+        self.deleteBoxGrid.addWidget(self.DeleteMultipleROIButton, 1, 0, 1, 4)
+        self.DeleteMultipleROIButton.setFont(self.parent().smallfont)
+        self.DeleteMultipleROIButton.setFixedWidth(70)
+
+        self.DoneDeleteMultipleROIButton = QPushButton("done")
+        self.DoneDeleteMultipleROIButton.clicked.connect(lambda: self.doneDeleteROIsButtonClicked.emit())
+        self.deleteBoxGrid.addWidget(self.DoneDeleteMultipleROIButton, 2, 0, 1, 2)
+        self.DoneDeleteMultipleROIButton.setFont(self.parent().smallfont)
+        self.DoneDeleteMultipleROIButton.setFixedWidth(35)
+        self.CancelDeleteMultipleROIButton = QPushButton("cancel")
+        self.CancelDeleteMultipleROIButton.clicked.connect(lambda: self.cancelDeleteROIsButtonClicked.emit())
+        self.deleteBoxGrid.addWidget(self.CancelDeleteMultipleROIButton, 2, 2, 1, 2)
+        self.CancelDeleteMultipleROIButton.setFont(self.parent().smallfont)
+        self.CancelDeleteMultipleROIButton.setFixedWidth(35)
+
+    def enable_delete_multiple_buttons(self, enable:bool=True):
+        self.DeleteMultipleROIButton.setEnabled(enable)
+        self.MakeDeletionRegionButton.setEnabled(enable)
+        self.DoneDeleteMultipleROIButton.setEnabled(enable)
+        self.CancelDeleteMultipleROIButton.setEnabled(enable)
+
+    def set_deleting_multiple(self):
+        """ Set the buttons to the currently selecting selecting multiple state """
+        self.MakeDeletionRegionButton.setEnabled(True)
+        self.DeleteMultipleROIButton.setEnabled(False)
+        self.DoneDeleteMultipleROIButton.setEnabled(True)
+        self.CancelDeleteMultipleROIButton.setEnabled(True)
+    
+    def set_delete_multiple_ready(self):
+        """ Set the buttons to the ready and waiting for starting state """
+        self.MakeDeletionRegionButton.setEnabled(True)
+        self.DeleteMultipleROIButton.setEnabled(True)
+        self.DoneDeleteMultipleROIButton.setEnabled(False)
+        self.CancelDeleteMultipleROIButton.setEnabled(False)
