@@ -874,7 +874,7 @@ class MainW(QMainWindow):
         self.set_normalize_params(self.get_normalize_params())
 
     def brush_choose(self):
-        self.brush_size = self.BrushChoose.currentIndex() * 2 + 1
+        self.brush_size = self.drawBox.brushChoose.currentIndex() * 2 + 1
         if self.loaded:
             self.layer.setDrawKernel(kernel_size=self.brush_size)
             self.update_layer()
