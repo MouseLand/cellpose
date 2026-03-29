@@ -124,11 +124,18 @@ def _load_image(parent, filename=None, load_seg=True, load_3D=False):
                       load_3D=load_3D)
             return
         elif parent.autoloadMasks.isChecked():
-            mask_file = os.path.splitext(filename)[0] + "_masks" + os.path.splitext(
-                filename)[-1]
-            mask_file = os.path.splitext(filename)[
-                0] + "_masks.tif" if not os.path.isfile(mask_file) else mask_file
-            load_mask = True if os.path.isfile(mask_file) else False
+            base = os.path.splitext(filename)[0]
+            ext = os.path.splitext(filename)[-1]
+            candidates = list(dict.fromkeys([
+                base + "_cp_masks.png",
+                base + "_cp_masks.tif",
+                base + "_cp_masks" + ext,
+                base + "_masks" + ext,
+                base + "_masks.tif",
+                base + "_masks.png",
+            ]))
+            mask_file = next((f for f in candidates if os.path.isfile(f)), None)
+            load_mask = mask_file is not None
     try:
         print(f"GUI_INFO: loading image: {filename}")
         if not load_3D:
