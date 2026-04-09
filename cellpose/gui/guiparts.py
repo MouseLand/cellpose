@@ -1,6 +1,8 @@
 """
 Copyright © 2025 Howard Hughes Medical Institute, Authored by Carsen Stringer , Michael Rariden and Marius Pachitariu.
 """
+from enum import Enum
+
 from qtpy import QtGui, QtCore
 from qtpy.QtGui import QPixmap, QDoubleValidator
 from qtpy.QtWidgets import QWidget, QDialog, QGridLayout, QPushButton, QLabel, QLineEdit, QDialogButtonBox, QComboBox, QCheckBox, QVBoxLayout
@@ -599,6 +601,11 @@ class ViewBoxNoRightDrag(pg.ViewBox):
         else:
             ev.ignore()
 
+class DrawMode(Enum):
+    IDLE = 'idle'
+    DRAWING = 'drawing'
+    SELECTING = 'selecting'
+
 
 class ImageDraw(pg.ImageItem):
     """
@@ -616,6 +623,8 @@ class ImageDraw(pg.ImageItem):
     """
 
     sigImageChanged = QtCore.Signal()
+    sigStartDrawing = QtCore.Signal(object)
+    sigEndDrawing = QtCore.Signal(object, object)
 
     def __init__(self, image=None, viewbox=None, parent=None, **kargs):
         super(ImageDraw, self).__init__()
@@ -627,8 +636,24 @@ class ImageDraw(pg.ImageItem):
 
         self.parent = parent
         self.setDrawKernel(kernel_size=self.parent.brush_size)
-        self.parent.current_stroke = []
-        self.parent.in_stroke = False
+
+        self._mode = DrawMode('idle')
+        self.reset_drawing_state()
+
+    @property
+    def mode(self):
+        return self._mode
+
+    @mode.setter
+    def mode(self, mode_str: str):
+        if DrawMode(mode_str) != self._mode:
+            self._mode = DrawMode(mode_str)
+            print(f'switched to {self.mode}')
+
+    def reset_drawing_state(self):
+        self.current_stroke = []
+        self.stroke_appended = []
+        self.in_stroke = False
 
     def mouseClickEvent(self, ev):
         if (self.parent.masksOn or
@@ -637,27 +662,32 @@ class ImageDraw(pg.ImageItem):
             if self.parent.loaded \
                     and (is_right_click or ev.modifiers() & QtCore.Qt.ShiftModifier and not ev.double())\
                     and not self.parent.deleting_multiple:
-                if not self.parent.in_stroke:
+                if not self.in_stroke:
+                    self.mode = 'drawing'
                     ev.accept()
                     self.create_start(ev.pos())
-                    self.parent.stroke_appended = False
-                    self.parent.in_stroke = True
+                    self.stroke_appended = False
+                    self.in_stroke = True
                     self.drawAt(ev.pos(), ev)
                 else:
+                    self.mode = 'idle'
                     ev.accept()
                     self.end_stroke()
-                    self.parent.in_stroke = False
-            elif not self.parent.in_stroke:
+                    self.in_stroke = False
+            elif not self.in_stroke:
                 y, x = int(ev.pos().y()), int(ev.pos().x())
                 if y >= 0 and y < self.parent.Ly and x >= 0 and x < self.parent.Lx:
                     if ev.button() == QtCore.Qt.LeftButton and not ev.double():
                         idx = self.parent.cellpix[self.parent.currentZ][y, x]
                         if idx > 0:
+                            self.mode = 'selecting'
                             if ev.modifiers() & QtCore.Qt.ControlModifier:
                                 # delete mask selected
                                 self.parent.remove_cell(idx)
+                                self.mode = 'idle'
                             elif ev.modifiers() & QtCore.Qt.AltModifier:
                                 self.parent.merge_cells(idx)
+                                self.mode = 'idle'
                             elif self.parent.masksOn and not self.parent.deleting_multiple:
                                 self.parent.unselect_cell()
                                 self.parent.select_cell(idx)
@@ -671,36 +701,37 @@ class ImageDraw(pg.ImageItem):
 
                         elif self.parent.masksOn and not self.parent.deleting_multiple:
                             self.parent.unselect_cell()
+                            self.mode = 'idle'
 
     def mouseDragEvent(self, ev):
         ev.ignore()
         return
 
     def hoverEvent(self, ev):
-        if self.parent.in_stroke:
-            if self.parent.in_stroke:
-                # continue stroke if not at start
-                self.drawAt(ev.pos())
-                if self.is_at_start(ev.pos()):
-                    self.end_stroke()
+        if self.in_stroke:
+            # continue stroke if not at start
+            self.drawAt(ev.pos())
+            if self.is_at_start(ev.pos()):
+                self.end_stroke()
         else:
             ev.acceptClicks(QtCore.Qt.RightButton)
 
     def create_start(self, pos):
+        self.mode  = 'drawing'
         self.scatter = pg.ScatterPlotItem([pos.x()], [pos.y()], pxMode=False,
                                           pen=pg.mkPen(color=(255, 0, 0),
                                                        width=self.parent.brush_size),
                                           size=max(3 * 2,
                                                    self.parent.brush_size * 1.8 * 2),
                                           brush=None)
-        self.parent.p0.addItem(self.scatter)
+        self.sigStartDrawing.emit(self.scatter)
 
     def is_at_start(self, pos):
         thresh_out = max(6, self.parent.brush_size * 3)
         thresh_in = max(3, self.parent.brush_size * 1.8)
         # first check if you ever left the start
-        if len(self.parent.current_stroke) > 3:
-            stroke = np.array(self.parent.current_stroke)
+        if len(self.current_stroke) > 3:
+            stroke = np.array(self.current_stroke)
             dist = (((stroke[1:, 1:] -
                       stroke[:1, 1:][np.newaxis, :, :])**2).sum(axis=-1))**0.5
             dist = dist.flatten()
@@ -714,30 +745,33 @@ class ImageDraw(pg.ImageItem):
                     return False
             else:
                 return False
+        return False
 
     def end_stroke(self):
-        self.parent.p0.removeItem(self.scatter)
-        if not self.parent.stroke_appended:
-            self.parent.strokes.append(self.parent.current_stroke)
-            self.parent.stroke_appended = True
-            self.parent.current_stroke = np.array(self.parent.current_stroke)
-            ioutline = self.parent.current_stroke[:, 3] == 1
-            self.parent.current_point_set.append(
-                list(self.parent.current_stroke[ioutline]))
-            self.parent.current_stroke = []
-            if self.parent.autosave:
-                self.parent.add_set()
-        if len(self.parent.current_point_set) and len(
-                self.parent.current_point_set[0]) > 0 and self.parent.autosave:
-            self.parent.add_set()
-        self.parent.in_stroke = False
+        if self.scatter is not None:
+            if self.scatter.scene() is self.parent.p0.scene():
+                self.parent.p0.removeItem(self.scatter)
+        if not self.stroke_appended:
+            self.stroke_appended = True
+            stroke_array = np.array(self.current_stroke)
+            ioutline = stroke_array [:, 3] == 1
+            outline_points = list(stroke_array[ioutline])
+            self.mode = 'idle'
+            self.sigEndDrawing.emit(stroke_array, outline_points)
+            self.current_stroke = []
+        #     if self.parent.autosave:
+        #         self.parent.add_set()
+        # if len(self.parent.current_point_set) and len(
+        #         self.parent.current_point_set[0]) > 0 and self.parent.autosave:
+        #     self.parent.add_set()
+        self.in_stroke = False
 
     def tabletEvent(self, ev):
         pass
 
     def drawAt(self, pos, ev=None):
         mask = self.strokemask
-        stroke = self.parent.current_stroke
+        stroke = self.current_stroke
         pos = [int(pos.y()), int(pos.x())]
         dk = self.drawKernel
         kc = self.drawKernelCenter

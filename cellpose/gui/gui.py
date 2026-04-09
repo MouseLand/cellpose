@@ -937,6 +937,26 @@ class MainW(QMainWindow):
         self.p0.addItem(self.layer)
         self.p0.addItem(self.scale)
 
+        # connect qt signals:
+        self.layer.sigStartDrawing.connect(self.drawing_started)
+        self.layer.sigEndDrawing.connect(lambda sa, op: self._on_stroke_complete(sa, op))
+
+    @property 
+    def in_stroke(self):
+        return self.layer.in_stroke if hasattr(self, 'layer') else False
+
+    
+    def _on_stroke_complete(self, stroke_array, outline_points):
+        self.strokes.append(stroke_array)
+        self.current_point_set.append(outline_points)
+        if self.autosave:
+            self.add_set()
+
+    
+    def drawing_started(self, start_circle):
+        self.p0.addItem(start_circle)
+
+
     def reset(self):
         # ---- start sets of points ---- #
         self.selected = 0
@@ -944,7 +964,6 @@ class MainW(QMainWindow):
         self.loaded = False
         self.channel = [0, 1]
         self.current_point_set = []
-        self.in_stroke = False
         self.strokes = []
         self.stroke_appended = True
         self.resize = False
@@ -1431,8 +1450,7 @@ class MainW(QMainWindow):
                         io._save_sets_with_check(self)
             else:
                 print("GUI_ERROR: cell too small, not drawn")
-            self.current_stroke = []
-            self.strokes = []
+            self.layer.reset_drawing_state() 
             self.current_point_set = []
             self.update_layer()
 
