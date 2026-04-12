@@ -1208,10 +1208,17 @@ class MainW(QMainWindow):
                 vr1, vc1 = np.nonzero(self.outpix[z] == self.selected)
                 cell0 = set(zip(ar0, ac0))
                 outline1 = set(zip(vr1, vc1))
-                touching = cell0.intersection(outline1)
+                #touching = cell0.intersection(outline1)
+                pixels0 = set(zip(ar0, ac0))
+                touching = any(
+                    (r0, c0) in pixels0
+                    for r1, c1 in zip(ar1, ac1)
+                    for r0 in range(r1 - 2, r1 + 3)
+                    for c0 in range(c1 - 2, c1 + 3)
+                )
                 self.outpix[z, vr0, vc0] = 0
                 self.outpix[z, vr1, vc1] = 0
-                if len(touching) > 0:
+                if touching:
                     mask = np.zeros((np.ptp(ar) + 4, np.ptp(ac) + 4), np.uint8)
                     mask[ar - ar.min() + 2, ac - ac.min() + 2] = 1
                     contours = cv2.findContours(mask, cv2.RETR_EXTERNAL,
