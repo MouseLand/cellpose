@@ -372,13 +372,12 @@ class CellposeModel():
                                 tile_overlap=tile_overlap, 
                                 bsize=bsize
                                 )
-            if resample:
-                if rescale != 1.0 or Lz != yf.shape[0]:
-                    models_logger.info("resizing 3D flows and cellprobl to original image size")
-                    if rescale != 1.0:
-                        yf = transforms.resize_image(yf, Ly=Ly, Lx=Lx)
-                    if Lz != yf.shape[0]:
-                        yf = transforms.resize_image(yf.transpose(1, 0, 2, 3), Ly=Lz, Lx=Lx).transpose(1, 0, 2, 3)
+            if rescale != 1.0 or Lz != yf.shape[0]:
+                models_logger.info("resizing 3D flows and cellprobl to original image size")
+                if rescale != 1.0:
+                    yf = transforms.resize_image(yf, Ly=Ly, Lx=Lx)
+                if Lz != yf.shape[0]:
+                    yf = transforms.resize_image(yf.transpose(1, 0, 2, 3), Ly=Lz, Lx=Lx).transpose(1, 0, 2, 3)
             cellprob = yf[..., -1]
             dP = yf[..., :-1].transpose((3, 0, 1, 2))
         else:
@@ -386,9 +385,8 @@ class CellposeModel():
                                 batch_size=batch_size,  
                                 tile_overlap=tile_overlap, 
                                 rsz=rescale if rescale !=1.0 else None)
-            if resample:
-                if rescale != 1.0:
-                    yf = transforms.resize_image(yf, shape[1], shape[2])
+            if rescale != 1.0:
+                yf = transforms.resize_image(yf, shape[1], shape[2])
             cellprob = yf[..., -1]
             dP = yf[..., -3:-1].transpose((3, 0, 1, 2))
         
