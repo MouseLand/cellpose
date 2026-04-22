@@ -208,6 +208,10 @@ class MainW_3d(MainW):
         self.l0.addWidget(self.orthobtn, b, 0, 1, 2)
         self.orthobtn.toggled.connect(self.toggle_ortho)
 
+        # connect the ortho masks and outlines: 
+        self.MCheckBox.toggled.connect(self.update_ortho)
+        self.OCheckBox.toggled.connect(self.update_ortho)
+
         label = QLabel("dz:")
         label.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
         label.setFont(self.medfont)
@@ -445,10 +449,16 @@ class MainW_3d(MainW):
                     zmin, zmax = z - self.dz, z + self.dz
             self.zc = z - zmin
             self.update_crosshairs()
-            if self.view == 0 or self.view == 4:
+
+            is_image_view = self.view == 'image'
+            is_restored_view = self.view == 'restored'
+
+            rgb_list = ['red', 'green', 'blue']
+
+            if is_image_view or is_restored_view:
                 for j in range(2):
                     if j == 0:
-                        if self.view == 0:
+                        if is_image_view:
                             image = self.stack[zmin:zmax, :, x].transpose(1, 0, 2).copy()
                         else:
                             image = self.stack_filtered[zmin:zmax, :,
@@ -456,12 +466,12 @@ class MainW_3d(MainW):
                     else:
                         image = self.stack[
                             zmin:zmax,
-                            y, :].copy() if self.view == 0 else self.stack_filtered[zmin:zmax,
+                            y, :].copy() if is_image_view else self.stack_filtered[zmin:zmax,
                                                                              y, :].copy()
                     if self.nchan == 1:
                         # show single channel
                         image = image[..., 0]
-                    if self.color == 0:
+                    if self.color == 'rgb':
                         self.imgOrtho[j].setImage(image, autoLevels=False, lut=None)
                         if self.nchan > 1:
                             levels = np.array([
@@ -473,18 +483,19 @@ class MainW_3d(MainW):
                         else:
                             self.imgOrtho[j].setLevels(
                                 self.saturation[0][self.currentZ])
-                    elif self.color > 0 and self.color < 4:
+                    elif self.color in rgb_list:
+                        color_index = rgb_list.index(self.color)
                         if self.nchan > 1:
-                            image = image[..., self.color - 1]
+                            image = image[..., color_index]
                         self.imgOrtho[j].setImage(image, autoLevels=False,
-                                                  lut=self.cmap[self.color])
+                                                  lut=self.cmap[color_index + 1])
                         if self.nchan > 1:
                             self.imgOrtho[j].setLevels(
-                                self.saturation[self.color - 1][self.currentZ])
+                                self.saturation[color_index][self.currentZ])
                         else:
                             self.imgOrtho[j].setLevels(
                                 self.saturation[0][self.currentZ])
-                    elif self.color == 4:
+                    elif self.color == 'gray':
                         if image.ndim > 2:
                             # exclude blank channels: 
                             ranges = np.ptp(image, tuple(range(image.ndim-1)))
@@ -493,7 +504,7 @@ class MainW_3d(MainW):
                             image = image.astype("float32").mean(axis=2).astype("uint8")
                         self.imgOrtho[j].setImage(image, autoLevels=False, lut=None)
                         self.imgOrtho[j].setLevels(self.saturation[0][self.currentZ])
-                    elif self.color == 5:
+                    elif self.color == 'spectral':
                         if image.ndim > 2:
                             image = image.astype("float32").mean(axis=2).astype("uint8")
                         self.imgOrtho[j].setImage(image, autoLevels=False,
@@ -576,89 +587,48 @@ class MainW_3d(MainW):
         self.show()
 
     def keyPressEvent(self, event):
+        event.ignore()
         if self.loaded:
             if not (event.modifiers() &
                     (QtCore.Qt.ControlModifier | QtCore.Qt.ShiftModifier |
                      QtCore.Qt.AltModifier) or self.in_stroke):
-                updated = False
                 if len(self.current_point_set) > 0:
                     if event.key() == QtCore.Qt.Key_Return:
                         self.add_set()
+                        event.accept()
+                        return
                     if self.NZ > 1:
                         if event.key() == QtCore.Qt.Key_Left:
                             self.currentZ = max(0, self.currentZ - 1)
                             self.scroll.setValue(self.currentZ)
-                            updated = True
+                            event.accept()
+                            return
                         elif event.key() == QtCore.Qt.Key_Right:
                             self.currentZ = min(self.NZ - 1, self.currentZ + 1)
                             self.scroll.setValue(self.currentZ)
-                            updated = True
+                            event.accept()
+                            return
                 else:
-                    nviews = self.ViewDropDown.count() - 1
-                    nviews += int(
-                        self.ViewDropDown.model().item(self.ViewDropDown.count() -
-                                                       1).isEnabled())
-                    if event.key() == QtCore.Qt.Key_X:
-                        self.MCheckBox.toggle()
-                    if event.key() == QtCore.Qt.Key_Z:
-                        self.OCheckBox.toggle()
                     if event.key() == QtCore.Qt.Key_Left or event.key(
                     ) == QtCore.Qt.Key_A:
                         self.currentZ = max(0, self.currentZ - 1)
                         self.scroll.setValue(self.currentZ)
-                        updated = True
+                        event.accept()
+                        return
                     elif event.key() == QtCore.Qt.Key_Right or event.key(
                     ) == QtCore.Qt.Key_D:
                         self.currentZ = min(self.NZ - 1, self.currentZ + 1)
                         self.scroll.setValue(self.currentZ)
-                        updated = True
-                    elif event.key() == QtCore.Qt.Key_PageDown:
-                        self.view = (self.view + 1) % (nviews)
-                        self.ViewDropDown.setCurrentIndex(self.view)
-                    elif event.key() == QtCore.Qt.Key_PageUp:
-                        self.view = (self.view - 1) % (nviews)
-                        self.ViewDropDown.setCurrentIndex(self.view)
-
-                # can change background or stroke size if cell not finished
-                if event.key() == QtCore.Qt.Key_Up or event.key() == QtCore.Qt.Key_W:
-                    self.color = (self.color - 1) % (6)
-                    self.RGBDropDown.setCurrentIndex(self.color)
-                elif event.key() == QtCore.Qt.Key_Down or event.key(
-                ) == QtCore.Qt.Key_S:
-                    self.color = (self.color + 1) % (6)
-                    self.RGBDropDown.setCurrentIndex(self.color)
-                elif event.key() == QtCore.Qt.Key_R:
-                    if self.color != 1:
-                        self.color = 1
-                    else:
-                        self.color = 0
-                    self.RGBDropDown.setCurrentIndex(self.color)
-                elif event.key() == QtCore.Qt.Key_G:
-                    if self.color != 2:
-                        self.color = 2
-                    else:
-                        self.color = 0
-                    self.RGBDropDown.setCurrentIndex(self.color)
-                elif event.key() == QtCore.Qt.Key_B:
-                    if self.color != 3:
-                        self.color = 3
-                    else:
-                        self.color = 0
-                    self.RGBDropDown.setCurrentIndex(self.color)
-                elif (event.key() == QtCore.Qt.Key_Comma or
-                      event.key() == QtCore.Qt.Key_Period):
-                    count = self.BrushChoose.count()
-                    gci = self.BrushChoose.currentIndex()
-                    if event.key() == QtCore.Qt.Key_Comma:
-                        gci = max(0, gci - 1)
-                    else:
-                        gci = min(count - 1, gci + 1)
-                    self.BrushChoose.setCurrentIndex(gci)
-                    self.brush_choose()
-                if not updated:
-                    self.update_plot()
+                        event.accept()
+                        return
         if event.key() == QtCore.Qt.Key_Minus or event.key() == QtCore.Qt.Key_Equal:
             self.p0.keyPressEvent(event)
+            event.accept()
+            return
+
+        # propagate unhandled events to MainW                                                                                   
+        if not event.isAccepted():
+            super().keyPressEvent(event)   
 
     def update_ztext(self):
         zpos = self.currentZ
