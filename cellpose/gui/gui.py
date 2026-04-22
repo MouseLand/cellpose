@@ -377,7 +377,8 @@ class MainW(QMainWindow):
         for r in range(3):
             widget_row += 1
             if r == 0:
-                label = QLabel('<font color="gray">gray/</font><br>red')
+                label = ClickableColorLabel('<font color="gray">gray/</font><br>red')
+                label.reqColorSignal.connect(self.set_cmap1)
             else:
                 label = QLabel(names[r] + ":")
             label.setStyleSheet(f"color: {colornames[r]}")
@@ -649,6 +650,10 @@ class MainW(QMainWindow):
 
 
         return b
+    
+    def set_cmap1(self, new_cmap):
+        self.cmap[1] = new_cmap
+        self.update_plot()
 
     def level_change(self, r):
         r = ["red", "green", "blue"].index(r)
@@ -2009,3 +2014,44 @@ class MainW(QMainWindow):
                 self.recompute_masks = False
         except Exception as e:
             print("ERROR: %s" % e)
+
+
+import matplotlib as mpl
+
+class ClickableColorLabel(QLabel):
+
+    reqColorSignal = QtCore.Signal(object)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def mousePressEvent(self, ev):
+        if ev.button() == QtCore.Qt.RightButton:
+            menu = QMenu(self)
+            menu.addAction('Grays')
+            menu.addAction('Purples')
+            menu.addAction('viridis')
+            menu.addAction('magenta')
+            menu.addAction('cyan')
+            action = menu.exec_(ev.globalPos())
+            if action:
+                self.reqColorSignal.emit(self.mpl_colormap(action.text()))
+                self.setText(action.text()+":")
+
+
+    def mpl_colormap(self, name: str):
+        if name in list(mpl.colormaps.keys()):
+            cmap = mpl.colormaps[name](np.linspace(0, 1, 512))[:, :3]
+            cmap *= 255
+            cmap = cmap.astype(np.uint8)
+        elif name == 'magenta':
+            cmap = np.linspace(0, 255, 512, dtype=np.uint8)
+            cmap = np.stack([cmap, np.zeros(512, dtype=np.uint8), cmap], axis=1)
+        elif name == 'cyan':
+            cmap = np.linspace(0, 255, 512, dtype=np.uint8)
+            cmap = np.stack([np.zeros(512, dtype=np.uint8), cmap, cmap], axis=1)
+        else:
+            print("unrecognized cmap")
+            return
+        print(f'setting cmap to {name}')
+        return cmap
