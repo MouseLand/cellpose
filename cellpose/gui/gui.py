@@ -37,17 +37,20 @@ class Slider(QRangeSlider):
     def __init__(self, parent, name, color):
         super().__init__(Horizontal)
         self.setEnabled(False)
-        self.valueChanged.connect(lambda: self.levelChanged(parent))
         self.name = name
 
         self.setStyleSheet(""" QSlider{
                              background-color: transparent;
                              }
         """)
+        self.setMinimum(-.1)
+        self.setMaximum(255.1)
+        self.setValue([0, 255])
+        self.setToolTip(
+            "NOTE: manually changing the saturation bars does not affect normalization in segmentation"
+        )
         self.show()
 
-    def levelChanged(self, parent):
-        parent.level_change(self.name)
 
 
 class QHLine(QFrame):
@@ -328,24 +331,24 @@ class MainW(QMainWindow):
         self.l0.addWidget(self.satBox, b, 0, 1, 9)
 
         widget_row = 0
-        self.RGBDropDown = QComboBox()
+        # self.RGBDropDown = QComboBox()
 
         # This is duplication and in the future these things should be tied 
         # together in a class: 
-        self.RGBDropDown.addItems(
-            ["RGB", "red=R", "green=G", "blue=B", "gray", "spectral"])
-        self.RGBDropDown.name_map = {
-            "rgb" : "rgb",
-            "red" : "red=r", 
-            "green" : "green=g", 
-            "blue" : "blue=b", 
-            "gray" : "gray", 
-            "spectral": "spectral",
-        }
-        self.RGBDropDown.setFont(self.medfont)
-        self.RGBDropDown.currentIndexChanged.connect(self.color_choose)
-        self.satBoxG.addWidget(self.RGBDropDown, widget_row, 0, 1, 3)
-        self.color = 'RGB'  # 0=RGB, 1=gray, 2=R, 3=G, 4=B
+        # self.RGBDropDown.addItems(
+        #     ["Ch1", "Ch2", "Ch3"])
+        # self.RGBDropDown.name_map = {
+        #     "rgb" : "rgb",
+        #     "red" : "red=r", 
+        #     "green" : "green=g", 
+        #     "blue" : "blue=b", 
+        #     "gray" : "gray", 
+        #     "spectral": "spectral",
+        # }
+        # self.RGBDropDown.setFont(self.medfont)
+        # self.RGBDropDown.currentIndexChanged.connect(self.color_choose)
+        # self.satBoxG.addWidget(self.RGBDropDown, widget_row, 0, 1, 3)
+        # self.color = 'RGB'  # 0=RGB, 1=gray, 2=R, 3=G, 4=B
 
         label = QLabel("<p>[&uarr; / &darr; or W/S]</p>")
         label.setFont(self.smallfont)
@@ -384,24 +387,19 @@ class MainW(QMainWindow):
         self.sliders = []
         colors = [[255, 0, 0], [0, 255, 0], [0, 0, 255], [100, 100, 100]]
         colornames = ["red", "Chartreuse", "DodgerBlue"]
-        names = ["red", "green", "blue"]
+        self.labels = {}
         for r in range(3):
             widget_row += 1
-            if r == 0:
-                label = ClickableColorLabel('<font color="gray">gray/</font><br>red')
-                label.reqColorSignal.connect(self.set_cmap1)
-            else:
-                label = QLabel(names[r] + ":")
-            label.setStyleSheet(f"color: {colornames[r]}")
+            name = "Ch" + str(r+1)
+            label = ClickableColorLabel("Ch" + str(r+1) + ":", color_name=colornames[r])
+            label.sigColorMapChoose.connect(lambda cmap, idx=r: self.set_cmap(idx, cmap))
+            label.sigEnableToggled.connect(self.update_plot)
             label.setFont(self.boldmedfont)
+            self.labels[name.lower()] = label
             self.satBoxG.addWidget(label, widget_row, 0, 1, 2)
-            self.sliders.append(Slider(self, names[r], colors[r]))
-            self.sliders[-1].setMinimum(-.1)
-            self.sliders[-1].setMaximum(255.1)
-            self.sliders[-1].setValue([0, 255])
-            self.sliders[-1].setToolTip(
-                "NOTE: manually changing the saturation bars does not affect normalization in segmentation"
-            )
+            slider = Slider(self, name, colors[r])
+            slider.valueChanged.connect(lambda lvl, idx=r: self.level_change(idx, lvl))
+            self.sliders.append(slider)
             self.satBoxG.addWidget(self.sliders[-1], widget_row, 2, 1, 7)
 
         b += 1
@@ -662,14 +660,12 @@ class MainW(QMainWindow):
 
         return b
     
-    def set_cmap1(self, new_cmap):
-        self.cmap[1] = new_cmap
+    def set_cmap(self, idx: int, new_cmap):
+        self.cmap[idx + 1] = new_cmap
         self.update_plot()
 
-    def level_change(self, r):
-        r = ["red", "green", "blue"].index(r)
+    def level_change(self, r, sval):
         if self.loaded:
-            sval = self.sliders[r].value()
             self.saturation[r][self.currentZ] = sval
             if not self.autobtn.isChecked():
                 for r in range(3):
@@ -718,33 +714,35 @@ class MainW(QMainWindow):
 
                 # can change background or stroke size if cell not finished
                 if event.key() == QtCore.Qt.Key_Up or event.key() == QtCore.Qt.Key_W:
-                    self.go_next_previous_dropdown(self.RGBDropDown, -1)
+                    # self.go_next_previous_dropdown(self.RGBDropDown, -1)
+                    print('ERROR not cycling colors')
                     event.accept()
                     return
                 elif event.key() == QtCore.Qt.Key_Down or event.key(
                 ) == QtCore.Qt.Key_S:
-                    self.go_next_previous_dropdown(self.RGBDropDown, 1)
+                    # self.go_next_previous_dropdown(self.RGBDropDown, 1)
+                    print('ERROR not cycling colors')
                     event.accept()
                     return
                 elif event.key() == QtCore.Qt.Key_R:
-                    if self.color != 'red':
-                        self.color = 'red'
+                    if self.active_channels != 'red':
+                        self.active_channels = 'red'
                     else:
-                        self.color = 'rgb'
+                        self.active_channels = 'rgb'
                     event.accept()
                     return
                 elif event.key() == QtCore.Qt.Key_G:
-                    if self.color != 'green':
-                        self.color = 'green'
+                    if self.active_channels != 'green':
+                        self.active_channels = 'green'
                     else:
-                        self.color = 'rgb'
+                        self.active_channels = 'rgb'
                     event.accept()
                     return
                 elif event.key() == QtCore.Qt.Key_B:
-                    if self.color != 'blue':
-                        self.color = 'blue'
+                    if self.active_channels != 'blue':
+                        self.active_channels = 'blue'
                     else:
-                        self.color = 'rgb'
+                        self.active_channels = 'rgb'
                     event.accept()
                     return
                 elif (event.key() == QtCore.Qt.Key_Comma or
@@ -1004,8 +1002,8 @@ class MainW(QMainWindow):
         self.ismanual = np.zeros(0, "bool")
 
         # -- set menus to default -- #
-        with QtCore.QSignalBlocker(self.RGBDropDown):
-            self.color = 'RGB'
+        # with QtCore.QSignalBlocker(self.RGBDropDown):
+        #     self.color = 'RGB'
         with QtCore.QSignalBlocker(self.ViewDropDown):
             self.view = 'image'
         self.delete_restore()
@@ -1022,52 +1020,63 @@ class MainW(QMainWindow):
         self.remove_roi_obj = None
 
     @property
-    def color(self):
-        """Current color display mode as a lowercase string.
+    def active_channels(self):
+        """Return the list of active channels
 
-        Reflects the current selection of the RGBDropDown widget. Possible
-        values are ``'rgb'``, ``'red'``, ``'green'``, ``'blue'``, ``'gray'``,
-        and ``'spectral'``.
-
-        Returns
-        -------
-        str
-            The current color mode, always lowercase.
         """
-        # invert mapping
-        inv_name_map = {v: k for k, v in self.RGBDropDown.name_map.items()}
-        return inv_name_map[self.RGBDropDown.currentText().lower()].lower()
+        print("Error, didn't get color")
+        l = [k for k, v in self.labels.items() if v.enabled]
+        print(l)
+        return l
 
-    @color.setter
-    def color(self, value: str|int):
-        """Set the color display mode by name or dropdown index.
+    @property    
+    def inactive_channels_idxs(self):
+        """Return the idxs of inactive channels
 
-        Updates the RGBDropDown widget, which triggers any connected signals
-        (e.g. ``update_plot``).
-
-        Parameters
-        ----------
-        value : str or int
-            If ``str``, a case-insensitive color name (``'rgb'``, ``'red'``,
-            ``'green'``, ``'blue'``, ``'gray'``, ``'spectral'``). The name is
-            looked up via ``RGBDropDown.name_map`` before matching against the
-            dropdown items, so aliases defined in that map are also accepted.
-            If ``int``, the zero-based index of the desired dropdown item.
-
-        Raises
-        ------
-        ValueError
-            If ``value`` is neither a ``str`` nor an ``int``.
         """
-        if isinstance(value, int):
-            self.RGBDropDown.setCurrentIndex(value)
-        elif isinstance(value, str):
-            value = self.RGBDropDown.name_map[value.lower()]
-            items = [self.RGBDropDown.itemText(i).lower() for i in range(self.RGBDropDown.count())]
-            if value in items:
-                self.RGBDropDown.setCurrentIndex(items.index(value))
-        else:
-            raise ValueError('Imcompatible color drop down setting')
+        l = []
+        keys = sorted(self.labels.keys())
+        for i, k in enumerate(keys):
+            if not self.labels[k].enabled:
+                l.append(i)
+        return tuple(l)
+
+
+
+
+
+    # @color.setter
+    # def color(self, value: str|int):
+    #     """Set the color display mode by name or dropdown index.
+
+    #     Updates the RGBDropDown widget, which triggers any connected signals
+    #     (e.g. ``update_plot``).
+
+    #     Parameters
+    #     ----------
+    #     value : str or int
+    #         If ``str``, a case-insensitive color name (``'rgb'``, ``'red'``,
+    #         ``'green'``, ``'blue'``, ``'gray'``, ``'spectral'``). The name is
+    #         looked up via ``RGBDropDown.name_map`` before matching against the
+    #         dropdown items, so aliases defined in that map are also accepted.
+    #         If ``int``, the zero-based index of the desired dropdown item.
+
+    #     Raises
+    #     ------
+    #     ValueError
+    #         If ``value`` is neither a ``str`` nor an ``int``.
+    #     """
+    #     # if isinstance(value, int):
+    #     #     self.RGBDropDown.setCurrentIndex(value)
+    #     # elif isinstance(value, str):
+    #     #     value = self.RGBDropDown.name_map[value.lower()]
+    #     #     items = [self.RGBDropDown.itemText(i).lower() for i in range(self.RGBDropDown.count())]
+    #     #     if value in items:
+    #     #         self.RGBDropDown.setCurrentIndex(items.index(value))
+    #     # else:
+    #     #     raise ValueError('Imcompatible color drop down setting')
+    #     print('ERROR not setting color')
+    #     pass
 
     @property
     def view(self):
@@ -1466,49 +1475,56 @@ class MainW(QMainWindow):
 
         if is_image_view or is_restored_view:
             if is_image_view:
-                image = self.stack[self.currentZ]
+                image = self.stack[self.currentZ].copy()
             else: 
-                image = self.stack_filtered[self.currentZ]
-            if self.color == 'rgb':
-                self.img.setImage(image, autoLevels=False, lut=None)
-                if self.nchan > 1:
-                    levels = np.array([
-                        self.saturation[0][self.currentZ],
-                        self.saturation[1][self.currentZ],
-                        self.saturation[2][self.currentZ]
-                    ])
-                    self.img.setLevels(levels)
-                else:
-                    self.img.setLevels(self.saturation[0][self.currentZ])
-            elif self.color in rgb_list:
-                color_index = rgb_list.index(self.color)
-                if self.nchan > 1:
-                    image = image[:, :, color_index]
-                self.img.setImage(image, autoLevels=False, lut=self.cmap[color_index+1])
-                if self.nchan > 1:
-                    self.img.setLevels(self.saturation[color_index][self.currentZ])
-                else:
-                    self.img.setLevels(self.saturation[0][self.currentZ])
-            elif self.color == 'gray':
-                if self.nchan > 1:
-                    # exclude channels with no data:
-                    ranges = np.ptp(image, tuple(range(image.ndim-1)))
-                    range_mask = ranges > 1e-5
-                    image = image[..., range_mask]
-                    image = image.mean(axis=-1)
-                self.img.setImage(image, autoLevels=False, lut=None)
-                self.img.setLevels(self.saturation[0][self.currentZ])
-            elif self.color == 'spectral':
-                if self.nchan > 1:
-                    image = image.mean(axis=-1)
-                self.img.setImage(image, autoLevels=False, lut=self.cmap[0])
-                self.img.setLevels(self.saturation[0][self.currentZ])
-        else:
-            image = np.zeros((self.Ly, self.Lx), np.uint8)
-            if len(self.flows[flowp_map[self.view]]) > 0:
-                image = self.flows[flowp_map[self.view]][self.currentZ]
-            self.img.setImage(image, autoLevels=False, lut=self.bwr)
-            self.img.setLevels([0.0, 255.0])
+                image = self.stack_filtered[self.currentZ].copy()
+
+            inactive_channel_idxs = self.inactive_channels_idxs
+            image[:, :, inactive_channel_idxs] = 0 # this should really disable the lut instead of the image
+
+            self.img.setImage(image, autoLevels=False, lut=None)
+            self.img.setLevels(self.saturation[0][self.currentZ])
+
+            # if self.active_channels == 'rgb':
+                # self.img.setImage(image, autoLevels=False, lut=None)
+                # if self.nchan > 1:
+                #     levels = np.array([
+                #         self.saturation[0][self.currentZ],
+                #         self.saturation[1][self.currentZ],
+                #         self.saturation[2][self.currentZ]
+                #     ])
+                #     self.img.setLevels(levels)
+                # else:
+                #     self.img.setLevels(self.saturation[0][self.currentZ])
+            # elif self.active_channels in rgb_list:
+            #     color_index = rgb_list.index(self.active_channels)
+            #     if self.nchan > 1:
+            #         image = image[:, :, color_index]
+            #     self.img.setImage(image, autoLevels=False, lut=self.cmap[color_index+1])
+            #     if self.nchan > 1:
+            #         self.img.setLevels(self.saturation[color_index][self.currentZ])
+            #     else:
+            #         self.img.setLevels(self.saturation[0][self.currentZ])
+            # elif self.active_channels == 'gray':
+            #     if self.nchan > 1:
+            #         # exclude channels with no data:
+            #         ranges = np.ptp(image, tuple(range(image.ndim-1)))
+            #         range_mask = ranges > 1e-5
+            #         image = image[..., range_mask]
+            #         image = image.mean(axis=-1)
+            #     self.img.setImage(image, autoLevels=False, lut=None)
+            #     self.img.setLevels(self.saturation[0][self.currentZ])
+            # elif self.active_channels == 'spectral':
+            #     if self.nchan > 1:
+            #         image = image.mean(axis=-1)
+            #     self.img.setImage(image, autoLevels=False, lut=self.cmap[0])
+            #     self.img.setLevels(self.saturation[0][self.currentZ])
+        # else:
+            # image = np.zeros((self.Ly, self.Lx), np.uint8)
+            # if len(self.flows[flowp_map[self.view]]) > 0:
+                # image = self.flows[flowp_map[self.view]][self.currentZ]
+            # self.img.setImage(image, autoLevels=False, lut=self.bwr)
+            # self.img.setLevels([0.0, 255.0])
 
         for r in range(3):
             # setValue on the slider triggers update_plot() so it needs to be suppressed
@@ -2152,13 +2168,20 @@ import matplotlib as mpl
 
 class ClickableColorLabel(QLabel):
 
-    reqColorSignal = QtCore.Signal(object)
+    sigColorMapChoose = QtCore.Signal(object)
+    sigEnableToggled = QtCore.Signal(bool)
 
-    def __init__(self, *args, **kwargs):
+
+    def __init__(self,  *args, color_name=None,**kwargs):
         super().__init__(*args, **kwargs)
+        self._enabled = True
+        self.color_name = color_name
+        self.setStyleSheet(f"color: {self.color_name}")
 
     def mousePressEvent(self, ev):
-        if ev.button() == QtCore.Qt.RightButton:
+        if ev.button() == QtCore.Qt.LeftButton:
+            self.toggle()
+        if self._enabled and ev.button() == QtCore.Qt.RightButton:
             menu = QMenu(self)
             menu.addAction('Grays')
             menu.addAction('Purples')
@@ -2167,11 +2190,33 @@ class ClickableColorLabel(QLabel):
             menu.addAction('cyan')
             action = menu.exec_(ev.globalPos())
             if action:
-                self.reqColorSignal.emit(self.mpl_colormap(action.text()))
+                self.sigColorMapChoose.emit(self.colormap(action.text()))
                 self.setText(action.text()+":")
 
+    @property
+    def enabled(self):
+        return self._enabled
+    
+    @enabled.setter
+    def enabled(self, val: bool):
+        if isinstance(val, bool):
+            if val != self._enabled:
+                self._enabled = val
+                print('emitting value')
+                self.sigEnableToggled.emit(val)
+        else:
+            raise ValueError('incompatible value')
 
-    def mpl_colormap(self, name: str):
+    def toggle(self):
+        print('toggling!')
+        if self.enabled:
+            self.enabled = False
+            self.setStyleSheet("color: gray")
+        else:
+            self.enabled = True 
+            self.setStyleSheet(f"color: {self.color_name}")
+
+    def colormap(self, name: str):
         if name in list(mpl.colormaps.keys()):
             cmap = mpl.colormaps[name](np.linspace(0, 1, 512))[:, :3]
             cmap *= 255
