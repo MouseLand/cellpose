@@ -386,8 +386,8 @@ class MainW(QMainWindow):
         widget_row += 1
         self.sliders = []
         colors = [[255, 0, 0], [0, 255, 0], [0, 0, 255], [100, 100, 100]]
-        colornames = ["red", "Chartreuse", "DodgerBlue"]
-        self.labels = {}
+        colornames = ["red", "green", "blue"]
+        self.labels: dict[str, ClickableColorLabel] = {}
         for r in range(3):
             widget_row += 1
             name = "Ch" + str(r+1)
@@ -1020,17 +1020,16 @@ class MainW(QMainWindow):
         self.remove_roi_obj = None
 
     @property
-    def active_channels(self):
-        """Return the list of active channels
+    def active_channels(self) -> list[str]:
+        """Return the list of active channel names
 
         """
         print("Error, didn't get color")
         l = [k for k, v in self.labels.items() if v.enabled]
-        print(l)
         return l
 
     @property    
-    def inactive_channels_idxs(self):
+    def inactive_channels_idxs(self) -> tuple[int]:
         """Return the idxs of inactive channels
 
         """
@@ -1041,6 +1040,28 @@ class MainW(QMainWindow):
                 l.append(i)
         return tuple(l)
 
+    @property    
+    def active_channels_idxs(self) -> tuple[int]:
+        """Return the idxs of active channels
+
+        """
+        l = []
+        keys = sorted(self.labels.keys())
+        for i, k in enumerate(keys):
+            if self.labels[k].enabled:
+                l.append(i)
+        return tuple(l)
+    
+    @property
+    def active_luts(self) -> list[tuple[int, np.ndarray]]:
+        """ List of the active 8-bit LUTs """
+        l = []
+        keys = sorted(self.labels.keys())
+        for i, k in enumerate(keys):
+            labels_k = self.labels[k]
+            if labels_k.enabled and labels_k.colormap is not None:
+                l.append((i, labels_k.colormap))
+        return l
 
 
 
@@ -1466,24 +1487,22 @@ class MainW(QMainWindow):
         is_image_view = self.view == 'image'
         is_restored_view = self.view == 'restored'
 
-        flowp_map = {
-            'gradXY' : 0,
-            'cellprob' : 1,
-            'gradZ' : 4,
-        }
-        rgb_list = ['red', 'green', 'blue']
-
         if is_image_view or is_restored_view:
             if is_image_view:
                 image = self.stack[self.currentZ].copy()
             else: 
                 image = self.stack_filtered[self.currentZ].copy()
 
-            inactive_channel_idxs = self.inactive_channels_idxs
-            image[:, :, inactive_channel_idxs] = 0 # this should really disable the lut instead of the image
+            image_out = np.zeros_like(image)
+            for chan, lut in self.active_luts:
+                sat = self.saturation[chan][self.currentZ]
+                img_c = np.clip(image[:, :, chan], np.uint8(sat[0]), np.uint8(sat[1])).astype(np.uint8)
+                img_lut = lut[img_c]
+                image_out += img_lut
 
-            self.img.setImage(image, autoLevels=False, lut=None)
-            self.img.setLevels(self.saturation[0][self.currentZ])
+            image_out = np.clip(image_out, np.uint8(0), np.uint8(255)).astype(np.uint8)
+            self.img.setImage(image_out, autoLevels=False, lut=None)
+            # self.img.setLevels([self.saturation[i][self.currentZ] for i in range(3)])
 
             # if self.active_channels == 'rgb':
                 # self.img.setImage(image, autoLevels=False, lut=None)
@@ -2172,17 +2191,23 @@ class ClickableColorLabel(QLabel):
     sigEnableToggled = QtCore.Signal(bool)
 
 
-    def __init__(self,  *args, color_name=None,**kwargs):
+    def __init__(self,  *args, color_name, **kwargs):
         super().__init__(*args, **kwargs)
         self._enabled = True
         self.color_name = color_name
         self.setStyleSheet(f"color: {self.color_name}")
+
+        with QtCore.QSignalBlocker(self):
+            self.colormap = self.color_name
 
     def mousePressEvent(self, ev):
         if ev.button() == QtCore.Qt.LeftButton:
             self.toggle()
         if self._enabled and ev.button() == QtCore.Qt.RightButton:
             menu = QMenu(self)
+            menu.addAction('red')
+            menu.addAction('green')
+            menu.addAction('blue')
             menu.addAction('Grays')
             menu.addAction('Purples')
             menu.addAction('viridis')
@@ -2190,7 +2215,8 @@ class ClickableColorLabel(QLabel):
             menu.addAction('cyan')
             action = menu.exec_(ev.globalPos())
             if action:
-                self.sigColorMapChoose.emit(self.colormap(action.text()))
+                self.colormap = action.text()
+                self.sigColorMapChoose.emit(self.colormap)
                 self.setText(action.text()+":")
 
     @property
@@ -2216,6 +2242,11 @@ class ClickableColorLabel(QLabel):
             self.enabled = True 
             self.setStyleSheet(f"color: {self.color_name}")
 
+    @property
+    def colormap(self) -> np.ndarray:
+        return self._cmap
+
+    @colormap.setter
     def colormap(self, name: str):
         if name in list(mpl.colormaps.keys()):
             cmap = mpl.colormaps[name](np.linspace(0, 1, 512))[:, :3]
@@ -2224,11 +2255,19 @@ class ClickableColorLabel(QLabel):
         elif name == 'magenta':
             cmap = np.linspace(0, 255, 512, dtype=np.uint8)
             cmap = np.stack([cmap, np.zeros(512, dtype=np.uint8), cmap], axis=1)
+        elif name == 'red':
+            cmap = np.linspace(0, 255, 512, dtype=np.uint8)
+            cmap = np.stack([cmap, np.zeros(512, dtype=np.uint8), np.zeros(512, dtype=np.uint8)], axis=1)
+        elif name == 'green':
+            cmap = np.linspace(0, 255, 512, dtype=np.uint8)
+            cmap = np.stack([np.zeros(512, dtype=np.uint8), cmap, np.zeros(512, dtype=np.uint8)], axis=1)
+        elif name == 'blue':
+            cmap = np.linspace(0, 255, 512, dtype=np.uint8)
+            cmap = np.stack([np.zeros(512, dtype=np.uint8), np.zeros(512, dtype=np.uint8), cmap], axis=1)
         elif name == 'cyan':
             cmap = np.linspace(0, 255, 512, dtype=np.uint8)
             cmap = np.stack([np.zeros(512, dtype=np.uint8), cmap, cmap], axis=1)
         else:
-            print("unrecognized cmap")
-            return
-        print(f'setting cmap to {name}')
-        return cmap
+            raise ValueError(f'unrecognized cmap: {name}')
+        self._cmap = cmap
+    
