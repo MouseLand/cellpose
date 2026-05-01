@@ -8,6 +8,8 @@ import pyqtgraph as pg
 import numpy as np
 import pathlib, os
 
+from cellpose.gui.io import _save_sets
+
 
 def stylesheet():
     return """
@@ -628,8 +630,11 @@ class ImageDraw(pg.ImageItem):
         self.parent.in_stroke = False
 
     def mouseClickEvent(self, ev):
-        if (self.parent.masksOn or
-                self.parent.outlinesOn) and not self.parent.removing_region:
+        if not (self.parent.masksOn or
+                self.parent.outlinesOn) and self.parent.removing_region:
+            return
+
+        try:
             is_right_click = ev.button() == QtCore.Qt.RightButton
             if self.parent.loaded \
                     and (is_right_click or ev.modifiers() & QtCore.Qt.ShiftModifier and not ev.double())\
@@ -665,9 +670,12 @@ class ImageDraw(pg.ImageItem):
                                 else:
                                     self.parent.select_cell_multi(idx)
                                     self.parent.removing_cells_list.append(idx)
-
                         elif self.parent.masksOn and not self.parent.deleting_multiple:
                             self.parent.unselect_cell()
+        except Exception as err:
+            print('Error encountered while drawing. Saving masks and exiting...')
+            _save_sets(self.parent)
+            raise(err)
 
     def mouseDoubleClickEvent(self, ev) -> None:
         ev.accept()
@@ -723,6 +731,9 @@ class ImageDraw(pg.ImageItem):
                 return False
 
     def end_stroke(self, keep_stroke=True):
+        if hasattr(self, 'scatter') and self.scatter is not None:
+            if self.scatter.scene() == self.parent.layer.scene():
+                self.parent.p0.removeItem(self.scatter)
         self.parent.p0.removeItem(self.scatter)
         if not keep_stroke:
             if not self.parent.stroke_appended:

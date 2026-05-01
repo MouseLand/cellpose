@@ -2,6 +2,7 @@
 Copyright © 2025 Howard Hughes Medical Institute, Authored by Carsen Stringer, Michael Rariden and Marius Pachitariu.
 """
 
+import logging
 import sys, os, pathlib, warnings, datetime, time, copy
 
 from qtpy import QtGui, QtCore
@@ -138,7 +139,7 @@ def make_cmap(cm=0):
 
 def run(image=None):
     from ..io import logger_setup
-    logger, log_file = logger_setup()
+    logger_setup()
     # Always start by initializing Qt (only once per application)
     warnings.filterwarnings("ignore")
     app = QApplication(sys.argv)
@@ -166,7 +167,7 @@ def run(image=None):
     app.setWindowIcon(app_icon)
     app.setStyle("Fusion")
     app.setPalette(guiparts.DarkPalette())
-    MainW(image=image, logger=logger)
+    MainW(image=image, logger=logging.getLogger(__name__))
     ret = app.exec_()
     sys.exit(ret)
 
@@ -1022,7 +1023,7 @@ class MainW(QMainWindow):
         self.remove_roi_obj = None
 
     @property
-    def color(self):
+    def color(self) -> str:
         """Current color display mode as a lowercase string.
 
         Reflects the current selection of the RGBDropDown widget. Possible
@@ -1247,7 +1248,7 @@ class MainW(QMainWindow):
         self.ismanual = np.delete(self.ismanual, idx - 1)
         self.cellcolors = np.delete(self.cellcolors, [idx], axis=0)
         del self.zdraw[idx - 1]
-        print("GUI_INFO: removed cell %d" % (idx - 1))
+        self.logger.info(f'removed cell {idx-1}')
 
     def remove_region_cells(self):
         if self.removing_cells_list:

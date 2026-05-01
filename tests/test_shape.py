@@ -9,6 +9,12 @@ def test_shape_2D_grayscale(cellposemodel_fixture_24layer):
     assert masks.shape == (224, 224)
 
 
+def test_shape_2D_grayscale_resample(cellposemodel_fixture_2layer):
+    img = np.zeros((224, 224))
+    masks, _, _ = cellposemodel_fixture_2layer.eval(img, diameter=20, resample=False)
+    assert masks.shape == (224, 224)
+
+
 def test_shape_2D_chan_first_diam_resize(cellposemodel_fixture_24layer):
     img = np.zeros((1, 224, 224))
     masks, flows, _ = cellposemodel_fixture_24layer.eval(img, diameter=50)

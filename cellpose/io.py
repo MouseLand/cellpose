@@ -81,18 +81,30 @@ def logger_setup(cp_path=".cellpose", logfile_name="run.log", stdout_file_replac
         log_file.unlink()
     except:
         print('creating new log file')
-    handlers = [logging.FileHandler(log_file),]
+    logfile_fh = logging.FileHandler(log_file)
     if stdout_file_replacement is not None:
-        handlers.append(logging.FileHandler(stdout_file_replacement))
+        stdout_fh = logging.FileHandler(stdout_file_replacement)
     else:
-        handlers.append(logging.StreamHandler(sys.stdout))
-    logging.basicConfig(
-                    level=logging.INFO,
-                    format="%(asctime)s [%(levelname)s] %(message)s",
-                    handlers=handlers,
-                    force=True
-    )
-    logger = logging.getLogger(__name__)
+        stdout_fh = logging.StreamHandler(sys.stdout)
+
+    formatter = logging.Formatter("%(asctime)s [%(module)s %(levelname)s] %(message)s")
+    debug_formatter = logging.Formatter("%(asctime)s %(levelname)s [%(filename)s:%(lineno)d - %(funcName)20s()] %(message)s")
+    logger = logging.getLogger('cellpose')
+    logger.setLevel(logging.INFO)
+    logger.handlers.clear()
+
+    logfile_fh.setFormatter(debug_formatter)
+    logfile_fh.setLevel(logging.DEBUG)
+    logger.addHandler(logfile_fh)
+
+    stdout_fh.setFormatter(formatter)
+    stdout_fh.setLevel(logging.INFO)
+    logger.addHandler(stdout_fh)
+
+    logger.propagate = False
+
+    print(f"[GUI INFO] : WRITING LOG OUTPUT TO {log_file}")
+    print(version_str)
     logger.info(f"WRITING LOG OUTPUT TO {log_file}")
     logger.info(version_str)
 

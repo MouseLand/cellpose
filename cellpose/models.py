@@ -212,12 +212,6 @@ class CellposeModel():
             styles (list of 1D arrays of length 256 or single 1D array): Style vector containing only zeros. Retained for compaibility with CP3. 
             
         """
-
-        if rescale is not None:
-            models_logger.warning("rescaling deprecated in v4.0.1+") 
-        if channels is not None:
-            models_logger.warning("channels deprecated in v4.0.1+. If data contain more than 3 channels, only the first 3 channels will be used")
-
         if isinstance(x, list) or x.squeeze().ndim == 5:
             self.timing = []
             masks, styles, flows = [], [], []
