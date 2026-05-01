@@ -9,11 +9,14 @@ that are too large to fit in system memory. The dataset is divided into overlapp
 each block is segmented separately. Results are stitched back together into a seamless segmentation
 of the whole dataset.
 
-Built to run on workstations or clusters. Blocks can be run in parallel, in series, or both. 
+Built to run on workstations or clusters. Blocks can be run in parallel, in series, or both.
 Compute resources (GPUs, CPUs, and RAM) can be arbitrarily partitioned for parallel computing.
-Currently workstations and LSF clusters are supported. SLURM clusters are
-an easy addition - if you need this to run on a SLURM cluster `please post a feature request issue
-to the github repository <https://github.com/MouseLand/cellpose/issues>`_ and tag @GFleishman.
+Workstations, LSF clusters, and SLURM clusters are supported. The cluster type is
+selected via ``cluster_type`` in ``cluster_kwargs`` (``"local"``, ``"lsf"``, or
+``"slurm"``); see the examples below. The SLURM defaults were tuned against the
+MPCDF Raven cluster but expose the standard ``dask_jobqueue.SLURMCluster``
+parameters so other SLURM sites can override partition, account, GPU constraints,
+walltime, etc.
 
 The input data format must be a `zarr array <https://zarr.readthedocs.io/en/stable/>`_.
 Some functions are provided in the module to help convert your data to a zarr array, but
@@ -141,6 +144,49 @@ Wrap a folder of tiff images/tiles into a single zarr array without duplicating 
     reconstructed_virtual_zarr_array = wrap_folder_of_tiffs(
         filname_pattern='/path/to/folder/of/*.tiff',
         block_index_pattern=r'_(Z)(\d+)(Y)(\d+)(X)(\d+)',
+    )
+
+
+Run distributed Cellpose on a SLURM cluster (example: MPCDF Raven, 1 A100 per worker):
+
+.. code-block:: python
+
+    from cellpose.contrib.distributed_segmentation import distributed_eval
+
+    # parameterize cellpose however you like
+    model_kwargs = {'gpu':True, 'model_type':'cyto3'}
+    eval_kwargs = {'diameter':30,
+                   'z_axis':0,
+                   'channels':[0,0],
+                   'do_3D':True,
+    }
+
+    # define SLURM cluster parameters; ncpus, min_workers, max_workers are required.
+    # Cluster-specific extras (constraints, GRES, partition, account) go through
+    # the standard dask_jobqueue.SLURMCluster keyword arguments.
+    cluster_kwargs = {
+        'cluster_type':'slurm',
+        'ncpus':18,                  # --cpus-per-task per worker job
+        'min_workers':1,             # cluster adapts based on number of blocks
+        'max_workers':4,
+        'walltime':'24:00:00',
+        'memory':'125GB',            # per worker job
+        'job_extra_directives':[
+            '--constraint=gpu',
+            '--gres=gpu:a100:1',
+        ],
+        # 'partition':'<your_partition>',   # if your site requires it
+        # 'account':'<your_account>',       # if your site requires it
+    }
+
+    # run segmentation
+    segments, boxes = distributed_eval(
+        input_zarr=large_zarr_array,
+        blocksize=(256, 256, 256),
+        write_path='/where/zarr/array/containing/results/will/be/written.zarr',
+        model_kwargs=model_kwargs,
+        eval_kwargs=eval_kwargs,
+        cluster_kwargs=cluster_kwargs,
     )
 
 
