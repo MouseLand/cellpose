@@ -453,12 +453,46 @@ class slurmCluster(dask_jobqueue.SLURMCluster):
         max_workers,
         **kwargs,
     ):
-        """WARNING: this function is dangerous if you don't know what
-           you're doing. Don't call this unless you know exactly what
-           this does."""
+        """Drop existing workers and respawn with updated kwargs.
+
+        WARNING: dangerous if you don't know what you're doing.
+
+        Used by ``distributed_eval`` to release GPUs and shrink workers
+        for the cheap stitching phase. Updates the canonical
+        ``self._job_kwargs`` store; ``self.new_spec['options']`` is the
+        same dict (per dask_jobqueue.JobQueueCluster.__init__) so it
+        picks up the change. ``_dummy_job`` is a property and recomputes
+        the SLURM header on next access. The job_script preview below
+        is logged so future runs can verify the new directives reach
+        the queued jobs."""
         self.scale(0)
-        for k, v in kwargs.items():
-            self.new_spec['options'][k] = v
+        # Block until existing workers actually leave; otherwise adapt()
+        # below sees them and skips the respawn.
+        try:
+            self.sync(self._correct_state)
+        except Exception:
+            pass
+        # SpecCluster shallow-copied the worker dict at __init__, so
+        # ``self.new_spec['options']`` and ``self._job_kwargs`` are the
+        # same dict object. We update ``_job_kwargs`` (the canonical
+        # store) and assert the alias still holds.
+        self._job_kwargs.update(kwargs)
+        assert self.new_spec['options'] is self._job_kwargs, (
+            "internal invariant broken: new_spec['options'] is no longer "
+            "self._job_kwargs; dask_jobqueue API changed?"
+        )
+        # Log the freshly-rendered job script so the SBATCH directives
+        # are visible in the driver log — makes it obvious whether the
+        # new kwargs propagated. Truncated to the header.
+        try:
+            preview = "\n".join(
+                ln for ln in self._dummy_job.job_script().split("\n")
+                if ln.startswith("#") or "dask" in ln.lower()
+            )
+            print("change_worker_attributes -> next job script header:")
+            print(preview)
+        except Exception as exc:  # pragma: no cover
+            print(f"change_worker_attributes: could not preview job script: {exc}")
         self.adapt_cluster(min_workers, max_workers)
 
 
@@ -1330,22 +1364,46 @@ def block_chunk_path(temp_zarr_path, block_index, dimension_separator='.'):
 
 
 def merge_all_boxes(boxes, box_ids):
-    """Merge all boxes that map to the same box_ids"""
-    merged_boxes = []
-    boxes_array = np.array(boxes, dtype=object)
-    # FIX float parameters
-    # print("Box IDs:", box_ids, "Type:", type(box_ids))
-    box_ids = box_ids.astype(int)
-    # print("Box IDs:", box_ids, "Type:", type(box_ids))
+    """Merge all boxes that map to the same box_ids.
 
-    for iii in np.unique(box_ids):
-        merge_indices = np.argwhere(box_ids == iii).squeeze()
-        if merge_indices.shape:
-            merged_box = merge_boxes(boxes_array[merge_indices])
-        else:
-            merged_box = boxes_array[merge_indices]
-        merged_boxes.append(merged_box)
-    return merged_boxes
+    Returns one merged box per unique id, in sorted-id order (matching
+    the legacy ``np.unique(box_ids)`` iteration order).
+
+    Vectorized via ``argsort`` + ``np.minimum/maximum.reduceat`` to keep
+    runtime at O(N log N * ndim). The previous per-id ``argwhere`` loop
+    was O(N) per group; on volumes with ~10^7 unique labels the
+    quadratic blow-up made the stitching tail wedge for hours."""
+    box_ids = np.asarray(box_ids).astype(int)
+    n = len(boxes)
+    if n == 0:
+        return []
+
+    # Pull starts/stops out of the slice tuples into dense (N, ndim) arrays.
+    ndim = len(boxes[0])
+    starts = np.empty((n, ndim), dtype=np.int64)
+    stops = np.empty((n, ndim), dtype=np.int64)
+    for i, box in enumerate(boxes):
+        for d, s in enumerate(box):
+            starts[i, d] = s.start
+            stops[i, d] = s.stop
+
+    # Sort rows by id so same-id rows are contiguous, then reduce per group.
+    order = np.argsort(box_ids, kind="stable")
+    box_ids_sorted = box_ids[order]
+    starts_sorted = starts[order]
+    stops_sorted = stops[order]
+
+    # `return_index=True` on a sorted array gives the start of each run,
+    # which is exactly what reduceat needs.
+    unique_ids, group_starts = np.unique(box_ids_sorted, return_index=True)
+    merged_starts = np.minimum.reduceat(starts_sorted, group_starts, axis=0)
+    merged_stops = np.maximum.reduceat(stops_sorted, group_starts, axis=0)
+
+    return [
+        tuple(slice(int(merged_starts[i, d]), int(merged_stops[i, d]))
+              for d in range(ndim))
+        for i in range(len(unique_ids))
+    ]
 
 
 def merge_boxes(boxes):
