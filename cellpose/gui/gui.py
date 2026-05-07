@@ -140,6 +140,7 @@ def make_cmap(cm=0):
 def run(image=None):
     from ..io import logger_setup
     logger_setup()
+    logger = logging.getLogger(__name__)
     # Always start by initializing Qt (only once per application)
     warnings.filterwarnings("ignore")
     app = QApplication(sys.argv)
@@ -148,12 +149,12 @@ def run(image=None):
     if not icon_path.is_file():
         cp_dir = pathlib.Path.home().joinpath(".cellpose")
         cp_dir.mkdir(exist_ok=True)
-        print("downloading logo")
+        logger.info("downloading logo")
         download_url_to_file(
             "https://www.cellpose.org/static/images/cellpose_transparent.png",
             icon_path, progress=True)
     if not guip_path.is_file():
-        print("downloading help window image")
+        logger.info("downloading help window image")
         download_url_to_file("https://www.cellpose.org/static/images/cellposeSAM_gui.png",
                              guip_path, progress=True)
     icon_path = str(icon_path.resolve())
@@ -167,7 +168,7 @@ def run(image=None):
     app.setWindowIcon(app_icon)
     app.setStyle("Fusion")
     app.setPalette(guiparts.DarkPalette())
-    MainW(image=image, logger=logging.getLogger(__name__))
+    MainW(image=image, logger=logger)
     ret = app.exec_()
     sys.exit(ret)
 
@@ -781,7 +782,7 @@ class MainW(QMainWindow):
                 model_name = self.ModelChooseC.currentText()
             else:
                 model_name = self.net_names[index - 1]
-            print(f"GUI_INFO: selected model {model_name}, loading now")
+            self.logger.info(f"selected model {model_name}, loading now")
             self.initialize_model(model_name=model_name, custom=custom)
 
     def toggle_scale(self):
@@ -1112,7 +1113,7 @@ class MainW(QMainWindow):
 
     def clear_restore(self):
         """ delete restored imgs and reset settings """
-        print("GUI_INFO: clearing restored image")
+        self.logger.info("clearing restored image")
         self.enable_restored_view(False)
         if self.view == 'restored': 
             self.view = 'image'
@@ -1293,7 +1294,7 @@ class MainW(QMainWindow):
         if self.removing_cells_list:
             self.removing_cells_list = list(set(self.removing_cells_list))
             display_remove_list = [i - 1 for i in self.removing_cells_list]
-            print(f"GUI_INFO: removing cells: {display_remove_list}")
+            self.logger.info(f"removing cells: {display_remove_list}")
             self.remove_cell(self.removing_cells_list)
             self.removing_cells_list.clear()
             self.unselect_cell()
@@ -1355,7 +1356,7 @@ class MainW(QMainWindow):
             self.ncells += 1
             self.ismanual = np.append(self.ismanual, self.removed_cell[0])
             self.zdraw.append([])
-            print(">>> added back removed cell")
+            self.logger.info(">>> added back removed cell")
             self.update_layer()
             io._save_sets_with_check(self)
             self.removed_cell = []
@@ -1554,7 +1555,7 @@ class MainW(QMainWindow):
                         # only save after each cell if single image
                         io._save_sets_with_check(self)
             else:
-                print("GUI_ERROR: cell too small, not drawn")
+                self.logger.warning("cell too small, not drawn")
             self.current_stroke = []
             self.strokes = []
             self.current_point_set = []
@@ -1590,7 +1591,7 @@ class MainW(QMainWindow):
             # if these pixels are overlapping with another cell, reassign them
             ioverlap = self.cellpix[z][ar, ac] > 0
             if (~ioverlap).sum() < 10:
-                print("GUI_ERROR: cell < 10 pixels without overlaps, not drawn")
+                self.logger.warning("cell < 10 pixels without overlaps, not drawn")
                 return None
             elif ioverlap.sum() > 0:
                 ar, ac = ar[~ioverlap], ac[~ioverlap]
@@ -1755,9 +1756,7 @@ class MainW(QMainWindow):
         norm3D = bool(norm3D)
         invert = bool(invert)
         if tile_norm > self.Ly and tile_norm > self.Lx:
-            print(
-                "GUI_ERROR: tile size (tile_norm) bigger than both image dimensions, disabling"
-            )
+            self.logger.warning("tile size (tile_norm) bigger than both image dimensions, disabling")
             tile_norm = 0
         self.filt_edits[0].setText(str(sharpen))
         self.filt_edits[1].setText(str(smooth))
@@ -1799,7 +1798,7 @@ class MainW(QMainWindow):
 
     def compute_saturation(self, return_img=False):
         norm = self.get_normalize_params()
-        print(norm)
+        self.logger.info(f'normalization settings: {str(norm)}')
         sharpen, smooth = norm["sharpen_radius"], norm["smooth_radius"]
         percentile = norm["percentile"]
         tile_norm = norm["tile_norm_blocksize"]
@@ -1815,12 +1814,8 @@ class MainW(QMainWindow):
 
         if sharpen > 0 or smooth > 0 or tile_norm > 0:
             self.restore = "filter"
-            print(
-                "GUI_INFO: computing filtered image because sharpen > 0 or tile_norm > 0"
-            )
-            print(
-                "GUI_WARNING: will use memory to create filtered image -- make sure to have RAM for this"
-            )
+            self.logger.info("computing filtered image because sharpen > 0 or tile_norm > 0")
+            self.logger.warning("will use memory to create filtered image -- make sure to have RAM for this")
             img_norm = self.stack.copy()
             if sharpen > 0 or smooth > 0:
                 img_norm = smooth_sharpen_img(self.stack, sharpen_radius=sharpen,
@@ -1874,7 +1869,7 @@ class MainW(QMainWindow):
                 else:
                     for n in range(self.NZ):
                         self.saturation[-1].append([0, 255.])
-            print(self.saturation[2][self.currentZ])
+            self.logger.debug(f'saturation setting: {self.saturation[2][self.currentZ]}')
 
             if img_norm.shape[-1] == 1:
                 self.saturation.append(self.saturation[0])
@@ -1917,7 +1912,7 @@ class MainW(QMainWindow):
 
     def new_model(self):
         if self.NZ != 1:
-            print("ERROR: cannot train model on 3D data")
+            self.logger.critical("cannot train model on 3D data")
             return
 
         # train model
@@ -1931,7 +1926,7 @@ class MainW(QMainWindow):
                 f"training with {[os.path.split(f)[1] for f in self.train_files]}")
             self.train_model(restore=restore, normalize_params=normalize_params)
         else:
-            print("GUI_INFO: training cancelled")
+            self.logger.info("training cancelled")
 
     def train_model(self, restore=None, normalize_params=None):
         from cellpose.models import normalize_default
@@ -1945,7 +1940,7 @@ class MainW(QMainWindow):
                                           model_type=model_type)
         save_path = os.path.dirname(self.filename)
 
-        print("GUI_INFO: name of new model: " + self.training_params["model_name"])
+        self.logger.info("name of new model: " + self.training_params["model_name"])
         self.new_model_path, train_losses = train.train_seg(
             self.model.net, train_data=self.train_data, train_labels=self.train_labels,
             normalize=normalize_params, min_train_masks=0,
@@ -2043,7 +2038,7 @@ class MainW(QMainWindow):
             niter = self.segmentation_settings.niter
             
             normalize_params = self.get_normalize_params()
-            print(normalize_params)
+            self.logger.info(f'normalization parameters: {str(normalize_params)}')
             try:
                 masks, flows = self.model.eval(
                     data, 
@@ -2055,7 +2050,7 @@ class MainW(QMainWindow):
                     min_size=min_size, channel_axis=-1,
                     progress=self.progress, z_axis=0 if self.NZ > 1 else None)[:2]
             except Exception as e:
-                print("NET ERROR: %s" % e)
+                self.logger.error("%s" % e)
                 self.progress.setValue(0)
                 return
 
@@ -2092,7 +2087,7 @@ class MainW(QMainWindow):
                 self.flows = []
                 Lz, Ly, Lx = self.NZ, self.Ly, self.Lx
                 Lz0, Ly0, Lx0 = flows_new[0].shape[:3]
-                print("GUI_INFO: resizing flows to original image size")
+                self.logger.info("resizing flows to original image size")
                 for flows0 in flows_new:
                     if Ly0 != Ly:
                         flows0 = resize_image(flows0, Ly=Ly, Lx=Lx,
@@ -2128,7 +2123,7 @@ class MainW(QMainWindow):
             else:
                 self.recompute_masks = False
         except Exception as e:
-            print("ERROR: %s" % e)
+            self.logger.error("%s" % e)
 
 
     def go_next_previous_dropdown(self, dropdown, increment=1):
