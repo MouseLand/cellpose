@@ -79,7 +79,7 @@ def logger_setup(cp_path=".cellpose", logfile_name="run.log", stdout_file_replac
     log_file = cp_dir.joinpath(logfile_name)
     try:
         log_file.unlink()
-    except:
+    except FileNotFoundError:
         print('creating new log file')
     logfile_fh = logging.FileHandler(log_file)
     if stdout_file_replacement is not None:
