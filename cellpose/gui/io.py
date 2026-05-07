@@ -329,7 +329,11 @@ def _load_seg(parent, filename=None, image=None, image_file=None, load_3D=False)
             parent.ismanual = dat["ismanual"]
 
     if "current_channel" in dat:
-        parent.color = (dat["current_channel"] + 2) % 5
+        # saved as int, loading int is built into .color property
+        color = dat['current_channel']
+        if isinstance(color, tuple):
+            color = color[0]
+        parent.color = color
 
     if "flows" in dat:
         parent.flows = dat["flows"]
@@ -355,6 +359,7 @@ def _load_seg(parent, filename=None, image=None, image_file=None, load_3D=False)
 
     parent.enable_buttons()
     parent.update_layer()
+    parent.update_plot()
     del dat
     gc.collect()
 
@@ -551,6 +556,8 @@ def _save_sets(parent):
     flow_threshold = parent.segmentation_settings.flow_threshold
     cellprob_threshold = parent.segmentation_settings.cellprob_threshold
 
+    # use ints instead of strings for backwards compatibility with old _seg.npy files
+    color_int = list(parent.RGBDropDown.name_map.keys()).index(parent.color)
     if parent.NZ > 1:
         dat = {
             "outlines":
@@ -559,7 +566,7 @@ def _save_sets(parent):
                 parent.cellcolors[1:],
             "masks":
                 parent.cellpix,
-            "current_channel": (parent.color - 2) % 5,
+            "current_channel": color_int,
             "filename":
                 parent.filename,
             "flows":
