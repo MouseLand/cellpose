@@ -471,7 +471,7 @@ class MainW_3d(MainW):
                     if self.nchan == 1:
                         # show single channel
                         image = image[..., 0]
-                    if self.color == 'rgb':
+                    if self.active_channels == 'rgb':
                         self.imgOrtho[j].setImage(image, autoLevels=False, lut=None)
                         if self.nchan > 1:
                             levels = np.array([
@@ -483,8 +483,8 @@ class MainW_3d(MainW):
                         else:
                             self.imgOrtho[j].setLevels(
                                 self.saturation[0][self.currentZ])
-                    elif self.color in rgb_list:
-                        color_index = rgb_list.index(self.color)
+                    elif self.active_channels in rgb_list:
+                        color_index = rgb_list.index(self.active_channels)
                         if self.nchan > 1:
                             image = image[..., color_index]
                         self.imgOrtho[j].setImage(image, autoLevels=False,
@@ -495,7 +495,7 @@ class MainW_3d(MainW):
                         else:
                             self.imgOrtho[j].setLevels(
                                 self.saturation[0][self.currentZ])
-                    elif self.color == 'gray':
+                    elif self.active_channels == 'gray':
                         if image.ndim > 2:
                             # exclude blank channels: 
                             ranges = np.ptp(image, tuple(range(image.ndim-1)))
@@ -504,7 +504,7 @@ class MainW_3d(MainW):
                             image = image.astype("float32").mean(axis=2).astype("uint8")
                         self.imgOrtho[j].setImage(image, autoLevels=False, lut=None)
                         self.imgOrtho[j].setLevels(self.saturation[0][self.currentZ])
-                    elif self.color == 'spectral':
+                    elif self.active_channels == 'spectral':
                         if image.ndim > 2:
                             image = image.astype("float32").mean(axis=2).astype("uint8")
                         self.imgOrtho[j].setImage(image, autoLevels=False,
