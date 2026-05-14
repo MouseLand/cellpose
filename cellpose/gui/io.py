@@ -212,7 +212,18 @@ def _initialize_images(parent, image, load_3D=False):
         if parent.restore is None or parent.restore != "filter":
             parent.logger.info(": normalization checked: computing saturation levels (and optionally filtered image)")
             parent.compute_saturation()
-    
+    else:
+        # auto-adjust off: re-size saturation list to match NZ while
+        # preserving the user's per-channel values (first-Z value is
+        # broadcast across the new Z range).
+        prev = parent.saturation if hasattr(parent, 'saturation') else []
+        parent.saturation = []
+        for r in range(3):
+            if r < len(prev) and len(prev[r]) > 0:
+                sval = prev[r][0]
+            else:
+                sval = [0, 255]
+            parent.saturation.append([list(sval) for n in range(parent.NZ)])
     parent.compute_scale()
     parent.track_changes = []
 

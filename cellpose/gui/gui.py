@@ -177,7 +177,7 @@ class MainW(QMainWindow):
     def __init__(self, image=None, logger=None):
         super(MainW, self).__init__()
 
-        self.logger = logger
+        self.logger = logger if logger is not None else logging.getLogger(__name__)
         pg.setConfigOptions(imageAxisOrder="row-major")
         self.setGeometry(50, 50, 1200, 1000)
         self.setWindowTitle(f"cellpose v{version}")
