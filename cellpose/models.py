@@ -19,6 +19,13 @@ from . import transforms, dynamics, utils, plot
 from .vit_sam import Transformer
 from .core import assign_device, run_net, run_3D
 
+try:
+    import mlx.core as mx
+    from .mlx_net import TransformerMLX, MLX_AVAILABLE
+    from .mlx_utils import _torch_state_dict_to_numpy
+except ImportError:
+    MLX_AVAILABLE = False
+
 _CPSAM_MODEL_URL = "https://huggingface.co/mouseland/cellpose-sam/resolve/main/cpsam"
 _MODEL_DIR_ENV = os.environ.get("CELLPOSE_LOCAL_MODELS_PATH")
 _MODEL_DIR_DEFAULT = Path.home().joinpath(".cellpose", "models")
@@ -89,7 +96,8 @@ class CellposeModel():
     """
 
     def __init__(self, gpu=False, pretrained_model="cpsam", model_type=None,
-                 diam_mean=None, device=None, nchan=None, use_bfloat16=True):
+                 diam_mean=None, device=None, nchan=None, use_bfloat16=True,
+                 use_mlx=False):
         """
         Initialize the CellposeModel.
 
@@ -100,6 +108,10 @@ class CellposeModel():
             diam_mean (float, optional): Mean "diameter", 30. is built-in value for "cyto" model; 17. is built-in value for "nuclei" model; if saved in custom model file (cellpose>=2.0) then it will be loaded automatically and overwrite this value.
             device (torch device, optional): Device used for model running / training (torch.device("cuda") or torch.device("cpu")), overrides gpu input, recommended if you want to use a specific GPU (e.g. torch.device("cuda:1")).
             use_bfloat16 (bool, optional): Use 16bit float precision instead of 32bit for model weights. Default to 16bit (True).
+            use_mlx (bool or str, optional): Use MLX backend for Apple Silicon acceleration.
+                If True, use MLX backend. If "auto", auto-detect and use MLX on Apple Silicon
+                when CUDA is not available. Requires macOS with Apple Silicon and MLX installed.
+                Defaults to False.
         """
         if diam_mean is not None:
             models_logger.warning(
@@ -112,19 +124,45 @@ class CellposeModel():
         if nchan is not None:
             models_logger.warning("nchan argument is deprecated in v4.0.1+. Ignoring this argument")
 
-        ### assign model device
-        self.device = assign_device(gpu=gpu)[0] if device is None else device
-        if torch.cuda.is_available():
-            device_gpu = self.device.type == "cuda"
-        elif torch.backends.mps.is_available():
-            device_gpu = self.device.type == "mps"
+        # Check if MLX backend is requested or auto-detected
+        if use_mlx == "auto":
+            # Auto-detect: use MLX on Apple Silicon when CUDA is not available
+            if MLX_AVAILABLE and not torch.cuda.is_available():
+                self.use_mlx = True
+                models_logger.info(
+                    "MLX auto-detected on Apple Silicon (no CUDA available). "
+                    "Using MLX backend."
+                )
+            else:
+                self.use_mlx = False
+        elif use_mlx:
+            self.use_mlx = MLX_AVAILABLE
+            if not MLX_AVAILABLE:
+                models_logger.warning(
+                    "MLX backend requested but MLX is not available. "
+                    "Install with: pip install mlx. Falling back to PyTorch."
+                )
         else:
-            device_gpu = False
-        self.gpu = device_gpu
+            self.use_mlx = False
+
+        if self.use_mlx:
+            models_logger.info(">>>> using MLX backend (Apple Silicon)")
+            self.device = torch.device("cpu")  # dynamics still uses torch on CPU
+            self.gpu = False
+        else:
+            ### assign model device
+            self.device = assign_device(gpu=gpu)[0] if device is None else device
+            if torch.cuda.is_available():
+                device_gpu = self.device.type == "cuda"
+            elif torch.backends.mps.is_available():
+                device_gpu = self.device.type == "mps"
+            else:
+                device_gpu = False
+            self.gpu = device_gpu
 
         if pretrained_model is None:
             raise ValueError("Must specify a pretrained model, training from scratch is not implemented")
-        
+
         ### create neural network
         if pretrained_model and not os.path.exists(pretrained_model):
             # check if pretrained model is in the models directory
@@ -140,17 +178,28 @@ class CellposeModel():
                 )
 
         self.pretrained_model = pretrained_model
-        dtype = torch.bfloat16 if use_bfloat16 else torch.float32
-        self.net = Transformer(dtype=dtype).to(self.device)
 
-        if os.path.exists(self.pretrained_model):
-            models_logger.info(f">>>> loading model {self.pretrained_model}")
-            self.net.load_model(self.pretrained_model, device=self.device)
+        if self.use_mlx:
+            self.net = TransformerMLX()
+            if not os.path.exists(self.pretrained_model):
+                if os.path.split(self.pretrained_model)[-1] != 'cpsam':
+                    raise FileNotFoundError('model file not recognized')
+                cache_CPSAM_model_path()
+            models_logger.info(f">>>> loading model {self.pretrained_model} (MLX)")
+            numpy_dict = _torch_state_dict_to_numpy(self.pretrained_model)
+            self.net.load_weights_from_pytorch(numpy_dict)
         else:
-            if os.path.split(self.pretrained_model)[-1] != 'cpsam':
-                raise FileNotFoundError('model file not recognized')
-            cache_CPSAM_model_path()
-            self.net.load_model(self.pretrained_model, device=self.device)
+            dtype = torch.bfloat16 if use_bfloat16 else torch.float32
+            self.net = Transformer(dtype=dtype).to(self.device)
+
+            if os.path.exists(self.pretrained_model):
+                models_logger.info(f">>>> loading model {self.pretrained_model}")
+                self.net.load_model(self.pretrained_model, device=self.device)
+            else:
+                if os.path.split(self.pretrained_model)[-1] != 'cpsam':
+                    raise FileNotFoundError('model file not recognized')
+                cache_CPSAM_model_path()
+                self.net.load_model(self.pretrained_model, device=self.device)
         
         
     def eval(self, x, batch_size=8, resample=True, channels=None, channel_axis=None,
@@ -311,9 +360,10 @@ class CellposeModel():
             if len(flow3D_smooth) == 3 and any(v > 0 for v in flow3D_smooth):
                 models_logger.info(f"smoothing flows with ZYX sigma={flow3D_smooth}")
                 dP = gaussian_filter(dP, [0, *flow3D_smooth])
-            else: 
+            else:
                 models_logger.warning(f"Could not do flow smoothing with {flow3D_smooth} either because its len was not 3 or no items were > 0, skipping flow3D_smoothing")
-            torch.cuda.empty_cache()
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
             gc.collect()
 
         if compute_masks:
@@ -359,12 +409,13 @@ class CellposeModel():
                     x = transforms.resize_image(x, Ly=int(Ly*rescale),
                                                 Lx=int(Lx*rescale))
                 x = transforms.resize_image(x.transpose(1,0,2,3),
-                                        Ly=int(Lz*anisotropy*rescale), 
+                                        Ly=int(Lz*anisotropy*rescale),
                                         Lx=int(Lx*rescale)).transpose(1,0,2,3)
             yf, styles = run_3D(self.net, x,
-                                batch_size=batch_size, augment=augment,  
-                                tile_overlap=tile_overlap, 
-                                bsize=bsize
+                                batch_size=batch_size, augment=augment,
+                                tile_overlap=tile_overlap,
+                                bsize=bsize,
+                                use_mlx_backend=self.use_mlx
                                 )
             if resample:
                 if rescale != 1.0 or Lz != yf.shape[0]:
@@ -377,9 +428,10 @@ class CellposeModel():
             dP = yf[..., :-1].transpose((3, 0, 1, 2))
         else:
             yf, styles = run_net(self.net, x, bsize=bsize, augment=augment,
-                                batch_size=batch_size,  
-                                tile_overlap=tile_overlap, 
-                                rsz=rescale if rescale !=1.0 else None)
+                                batch_size=batch_size,
+                                tile_overlap=tile_overlap,
+                                rsz=rescale if rescale !=1.0 else None,
+                                use_mlx_backend=self.use_mlx)
             if resample:
                 if rescale != 1.0:
                     yf = transforms.resize_image(yf, shape[1], shape[2])

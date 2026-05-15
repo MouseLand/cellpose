@@ -198,7 +198,9 @@ def _evaluate_cellposemodel_cli(args, logger, imf, device, pretrained_model, nor
             ">>>> running cellpose on %d images using all channels" % nimg)
 
     # handle built-in model exceptions
-    model = models.CellposeModel(device=device, pretrained_model=pretrained_model,)
+    use_mlx = getattr(args, 'use_mlx', False)
+    model = models.CellposeModel(device=device, pretrained_model=pretrained_model,
+                                  use_mlx=use_mlx)
 
     tqdm_out = utils.TqdmToLogger(logger, level=logging.INFO)
 
