@@ -2,7 +2,6 @@ import numpy as np
 import pytest
 
 
-@pytest.mark.slow
 @pytest.fixture(scope="module")
 def qapp():
     from qtpy.QtWidgets import QApplication
@@ -10,7 +9,6 @@ def qapp():
     yield app
 
 
-@pytest.mark.slow
 @pytest.fixture(scope="module")
 def win(qapp):
     from cellpose.gui.gui3d import MainW_3d
