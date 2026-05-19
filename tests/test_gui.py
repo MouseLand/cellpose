@@ -2,6 +2,7 @@ import numpy as np
 import pytest
 
 
+@pytest.mark.slow
 @pytest.fixture(scope="module")
 def qapp():
     from qtpy.QtWidgets import QApplication
@@ -9,12 +10,14 @@ def qapp():
     yield app
 
 
+@pytest.mark.slow
 @pytest.fixture(scope="module")
 def win(qapp):
     from cellpose.gui.gui3d import MainW_3d
     return MainW_3d()
 
 
+@pytest.mark.slow
 def test_saturation_invariants_with_autobtn_unchecked(win):
     """Regression: when 'auto-adjust saturation' is unchecked, loading a 3D
     image must (1) leave self.saturation sized 3 x NZ so that update_plot's
