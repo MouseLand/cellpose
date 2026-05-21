@@ -7,9 +7,9 @@ import sys, os, pathlib, warnings, datetime, time, copy
 
 from qtpy import QtGui, QtCore
 from superqt import QCollapsible
-from qtpy.QtWidgets import QScrollArea, QMainWindow, QApplication, QWidget, QScrollBar, \
+from qtpy.QtWidgets import QScrollArea, QMainWindow, QApplication, QWidget, \
     QComboBox, QGridLayout, QPushButton, QFrame, QCheckBox, QLabel, QProgressBar, \
-        QLineEdit, QMessageBox, QGroupBox, QMenu, QAction, QHBoxLayout
+        QLineEdit, QGroupBox
 import pyqtgraph as pg
 
 import numpy as np
@@ -20,10 +20,9 @@ from cellpose.gui.guiparts import ClickableSlider, SaturationSliderDialog
 
 from . import guiparts, menus, io
 from .. import models, core, dynamics, version, train
-from ..utils import download_url_to_file, masks_to_outlines, diameters
-from ..io import get_image_files, imsave, imread
+from ..utils import download_url_to_file
+from ..io import get_image_files
 from ..transforms import resize_image, normalize99, normalize99_tile, smooth_sharpen_img
-from ..models import normalize_default
 from ..plot import disk
 
 try:
@@ -657,7 +656,6 @@ class MainW(QMainWindow):
         high = int(high)
         dialog = SaturationSliderDialog(self, low=low, high=high)
         dialog.valueChanged.connect(lambda val, r=r: self.color_level_change(val, r))
-        dialog.show()
         dialog.setWindowFlags(QtCore.Qt.Popup) # make it stationary and temporary
         dialog.show()
 
@@ -683,9 +681,9 @@ class MainW(QMainWindow):
         self.saturation[r][self.currentZ] = lohi
         # update all the layers if autobtn is unchecked
         if not self.autobtn.isChecked():
-            for r in range(3):
-                for i in range(len(self.saturation[r])):
-                    self.saturation[r][i] = self.saturation[r][self.currentZ]
+            for ch in range(3):
+                for i in range(len(self.saturation[ch])):
+                    self.saturation[ch][i] = self.saturation[ch][self.currentZ]
         self.update_plot()
 
 

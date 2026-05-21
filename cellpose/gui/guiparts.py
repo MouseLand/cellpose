@@ -891,24 +891,22 @@ class SaturationSliderDialog(QDialog):
         except TypeError:
             raise TypeError(f"Expected valid numpy data type, got {type(dtype)}")
         
-        dtype_min = np.iinfo(dtype).min
-        dtype_max = np.iinfo(dtype).max
+        self.dtype_min = np.iinfo(dtype).min
+        self.dtype_max = np.iinfo(dtype).max
 
-        if not low:
-            low = dtype_min
-        if not high:
-            high = dtype_max
+        if low is None:
+            low = self.dtype_min
+        if high is None:
+            high = self.dtype_max
 
         self.slider = Slider(self)
         layout = QGridLayout(self)
         low_textbox = QLineEdit(self)
         low_textbox.setFixedWidth(50)
-        low_textbox.textChanged.connect(self._validate_update_low_textbox)
         self.low_textbox = low_textbox
 
         high_textbox = QLineEdit(self)
         high_textbox.setFixedWidth(50)
-        high_textbox.textChanged.connect(self._validate_update_high_textbox)
         self.high_textbox = high_textbox
 
         layout.addWidget(low_textbox, 0, 0)
@@ -917,16 +915,19 @@ class SaturationSliderDialog(QDialog):
         layout.setColumnStretch(1, 1)
         self.setLayout(layout)
 
-        self.slider.setMinimum(dtype_min)
-        self.slider.setMaximum(dtype_max)
-        self.slider.setValue([dtype_min, dtype_max])
+        self.slider.setMinimum(self.dtype_min)
+        self.slider.setMaximum(self.dtype_max)
+        self.slider.setValue([self.dtype_min, self.dtype_max])
         self.slider.setEnabled(True)
-        self.slider.valueChanged.connect(self.slider_changed)
 
         self._low = low
         self._high = high
         self.low_textbox.setText(str(low))
         self.high_textbox.setText(str(high))
+        
+        low_textbox.textChanged.connect(self._validate_update_low_textbox)
+        high_textbox.textChanged.connect(self._validate_update_high_textbox)
+        self.slider.valueChanged.connect(self.slider_changed)
 
 
     def _validate_text_input(self, value) -> int:
@@ -990,8 +991,8 @@ class SaturationSliderDialog(QDialog):
 
     def _update_validators(self) -> None:
         """ Update the textbox validators after editing """
-        self.high_textbox.setValidator(QtGui.QIntValidator(self.low, 255))
-        self.low_textbox.setValidator(QtGui.QIntValidator(0, self.high))
+        self.high_textbox.setValidator(QtGui.QIntValidator(self.low, self.dtype_max))
+        self.low_textbox.setValidator(QtGui.QIntValidator(self.dtype_min, self.high))
 
 
     def slider_changed(self, lohi) -> None:
