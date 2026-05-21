@@ -910,7 +910,7 @@ class SaturationSliderDialog(QDialog):
 
         self.slider.setMinimum(self.dtype_min)
         self.slider.setMaximum(self.dtype_max)
-        self.slider.setValue([self.dtype_min, self.dtype_max])
+        self.slider.setValue([low, high])
         self.slider.setEnabled(True)
 
         self._low = low
@@ -918,6 +918,7 @@ class SaturationSliderDialog(QDialog):
         self.low_textbox.setText(str(low))
         self.high_textbox.setText(str(high))
         
+        self.setWindowFlags(QtCore.Qt.Popup) # make it stationary and temporary
         low_textbox.textChanged.connect(self._validate_update_low_textbox)
         high_textbox.textChanged.connect(self._validate_update_high_textbox)
         self.slider.valueChanged.connect(self.slider_changed)

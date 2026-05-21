@@ -660,7 +660,6 @@ class MainW(QMainWindow):
         high = int(high)
         dialog = SaturationSliderDialog(self, low=low, high=high)
         dialog.valueChanged.connect(lambda val, r=r: self.color_level_change(val, r))
-        dialog.setWindowFlags(QtCore.Qt.Popup) # make it stationary and temporary
         dialog.show()
 
         # move the dialog to the top of the window:
