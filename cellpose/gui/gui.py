@@ -6,15 +6,17 @@ import logging
 import sys, os, pathlib, warnings, datetime, time, copy
 
 from qtpy import QtGui, QtCore
-from superqt import QRangeSlider, QCollapsible
+from superqt import QCollapsible
 from qtpy.QtWidgets import QScrollArea, QMainWindow, QApplication, QWidget, QScrollBar, \
     QComboBox, QGridLayout, QPushButton, QFrame, QCheckBox, QLabel, QProgressBar, \
-        QLineEdit, QMessageBox, QGroupBox, QMenu, QAction
+        QLineEdit, QMessageBox, QGroupBox, QMenu, QAction, QHBoxLayout
 import pyqtgraph as pg
 
 import numpy as np
 from scipy.stats import mode
 import cv2
+
+from cellpose.gui.guiparts import ClickableSlider, SaturationSliderDialog
 
 from . import guiparts, menus, io
 from .. import models, core, dynamics, version, train
@@ -29,27 +31,6 @@ try:
     MATPLOTLIB = True
 except:
     MATPLOTLIB = False
-
-Horizontal = QtCore.Qt.Orientation.Horizontal
-
-
-class Slider(QRangeSlider):
-
-    def __init__(self, parent, name, color):
-        super().__init__(Horizontal)
-        self.setEnabled(False)
-        self.valueChanged.connect(lambda: self.levelChanged(parent))
-        self.name = name
-
-        self.setStyleSheet(""" QSlider{
-                             background-color: transparent;
-                             }
-        """)
-        self.show()
-
-    def levelChanged(self, parent):
-        parent.level_change(self.name)
-
 
 class QHLine(QFrame):
 
@@ -394,13 +375,15 @@ class MainW(QMainWindow):
             label.setStyleSheet(f"color: {colornames[r]}")
             label.setFont(self.boldmedfont)
             self.satBoxG.addWidget(label, widget_row, 0, 1, 2)
-            self.sliders.append(Slider(self, names[r], colors[r]))
+            self.sliders.append(ClickableSlider(self))
             self.sliders[-1].setMinimum(-.1)
             self.sliders[-1].setMaximum(255.1)
             self.sliders[-1].setValue([0, 255])
-            self.sliders[-1].setToolTip(
-                "NOTE: manually changing the saturation bars does not affect normalization in segmentation"
+            self.sliders[-1].setToolTip("Right click to pop out slider.\n" + 
+                "NOTE: this saturation bar does not affect normalization in segmentation"
             )
+            self.sliders[-1].sigRightClick.connect(lambda r=r:self.open_slider_popup(r))
+            self.sliders[-1].valueChanged.connect(lambda value, r=r: self.color_level_change(value, r))
             self.satBoxG.addWidget(self.sliders[-1], widget_row, 2, 1, 7)
 
         b += 1
@@ -660,17 +643,51 @@ class MainW(QMainWindow):
 
 
         return b
+    
+    def open_slider_popup(self, r:int) -> None:
+        """ Open slider popup and attach it to the color index `r`. 
+        Clicking off of the popup causes it to close.
 
-    def level_change(self, r):
-        r = ["red", "green", "blue"].index(r)
-        if self.loaded:
-            sval = self.sliders[r].value()
-            self.saturation[r][self.currentZ] = sval
-            if not self.autobtn.isChecked():
-                for r in range(3):
-                    for i in range(len(self.saturation[r])):
-                        self.saturation[r][i] = self.saturation[r][self.currentZ]
-            self.update_plot()
+        Args:
+            r (int): The index of the color slider (0, 1, 2).  
+        """
+        assert r in [0, 1, 2], f'The color index, `r`, must be in (0, 1, 2), got {r}'
+        low, high = self.saturation[r][self.currentZ]
+        low = int(low)
+        high = int(high)
+        dialog = SaturationSliderDialog(self, low=low, high=high)
+        dialog.valueChanged.connect(lambda val, r=r: self.color_level_change(val, r))
+        dialog.show()
+        dialog.setWindowFlags(QtCore.Qt.Popup) # make it stationary and temporary
+        dialog.show()
+
+        # move the dialog to the top of the window:
+        global_pos = self.win.mapToGlobal(QtCore.QPoint(0, 0))
+        x_pad = 10
+        y_offset = 100
+        x = global_pos.x() + x_pad
+        y = global_pos.y() + y_offset
+        dialog.move(x, y)
+        dialog.setFixedWidth(self.win.width() - 2*x_pad)
+
+
+    def color_level_change(self, lohi:tuple, r:int) -> None:
+        """ Set the saturation attribute for the color `r` to `lowhi` and
+        call self.update_plot(). Also, update all the layers if self.autobtn
+        is unchecked. 
+
+        Args:
+            lohi (tuple): Tuple of (low, high) values for the saturation/slider. 
+            r (int): The index of the color to adjust.  
+        """
+        self.saturation[r][self.currentZ] = lohi
+        # update all the layers if autobtn is unchecked
+        if not self.autobtn.isChecked():
+            for r in range(3):
+                for i in range(len(self.saturation[r])):
+                    self.saturation[r][i] = self.saturation[r][self.currentZ]
+        self.update_plot()
+
 
     def keyPressEvent(self, event):
         event.ignore()

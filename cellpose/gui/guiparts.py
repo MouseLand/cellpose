@@ -10,6 +10,8 @@ import pyqtgraph as pg
 import numpy as np
 import pathlib, os
 
+from superqt import QRangeSlider
+
 from cellpose.gui.io import _save_sets
 
 
@@ -834,3 +836,179 @@ class ImageDraw(pg.ImageItem):
         opamask = 100 * kernel[:, :, np.newaxis]
         self.redmask = np.concatenate((onmask, offmask, offmask, onmask), axis=-1)
         self.strokemask = np.concatenate((onmask, offmask, onmask, opamask), axis=-1)
+
+
+Horizontal = QtCore.Qt.Orientation.Horizontal
+
+
+class BaseSlider(QRangeSlider):
+    """ Base slider with style sheet definition and horizontal orientation 
+    
+    Relies on built-in `.valueChanged()` method"""
+    def __init__(self, parent):
+        super().__init__(Horizontal)
+        self.setParent(parent)
+        self.setEnabled(False)
+        self.setStyleSheet(""" QSlider{
+                             background-color: transparent;
+                             }
+        """)
+        self.show()
+
+
+class Slider(BaseSlider):
+    """ Simple slider """
+    def __init__(self, parent):
+        super().__init__(parent)
+
+
+class SaturationSliderDialog(QDialog):
+    """ Slider dialog with signal for reporting the slider changes 
+
+    Internally, the textboxes listen to and update the slider values, and
+    only the slider values are used in the valueChanged interface.
+    """
+
+    valueChanged = QtCore.Signal(tuple)
+
+    def __init__(self, parent: QWidget, low:int|None=None, high:int|None=None, dtype:str|np.dtype|None=None):
+        """ Slider dialog with signal for report slider changes. After instantiation, 
+        hook up the `.valueChanged` to listen for events from this widget.
+
+        Args:
+            parent (QWidget): A Qt widget from which this object can be referenced.
+            low (int | None, optional): The low value to initialize the slider. Defaults to dtype.min.
+            high (int | None, optional): The high value to initialize the slider. Defaults to dtype.max.
+            dtype (np.dtype | None, optional): . Defaults to np.uint8.
+        """        
+        super().__init__(parent)
+
+        if not dtype:
+            dtype = np.dtype(np.uint8)
+
+        try:
+            dtype = np.dtype(dtype)
+        except TypeError:
+            raise TypeError(f"Expected valid numpy data type, got {type(dtype)}")
+        
+        dtype_min = np.iinfo(dtype).min
+        dtype_max = np.iinfo(dtype).max
+
+        if not low:
+            low = dtype_min
+        if not high:
+            high = dtype_max
+
+        self.slider = Slider(self)
+        layout = QGridLayout(self)
+        low_textbox = QLineEdit(self)
+        low_textbox.setFixedWidth(50)
+        low_textbox.textChanged.connect(self._validate_update_low_textbox)
+        self.low_textbox = low_textbox
+
+        high_textbox = QLineEdit(self)
+        high_textbox.setFixedWidth(50)
+        high_textbox.textChanged.connect(self._validate_update_high_textbox)
+        self.high_textbox = high_textbox
+
+        layout.addWidget(low_textbox, 0, 0)
+        layout.addWidget(self.slider, 0, 1)
+        layout.addWidget(high_textbox, 0, 2)
+        layout.setColumnStretch(1, 1)
+        self.setLayout(layout)
+
+        self.slider.setMinimum(dtype_min)
+        self.slider.setMaximum(dtype_max)
+        self.slider.setValue([dtype_min, dtype_max])
+        self.slider.setEnabled(True)
+        self.slider.valueChanged.connect(self.slider_changed)
+
+        self._low = low
+        self._high = high
+        self.low_textbox.setText(str(low))
+        self.high_textbox.setText(str(high))
+
+
+    def _validate_text_input(self, value) -> int:
+        """ Convert textbox input into ``int`` """
+        if len(value) < 1:
+            value = 0
+        return int(value)
+
+
+    def _validate_update_low_textbox(self) -> None:
+        """ Validate textbox input and set slider low value """
+        low = self._validate_text_input(self.low_textbox.text())
+        high = self.slider.value()[1]
+        if low <= high:
+            self.slider.setValue((low, high))
+
+
+    def _validate_update_high_textbox(self) -> None:
+        """ Validate textbox input and set slider high value """
+        low = self.slider.value()[0]
+        high = self._validate_text_input(self.high_textbox.text())
+        if low <= high:
+            self.slider.setValue((low, high))
+
+
+    @property
+    def low(self) -> int:
+        """ slider low value """
+        return self._low
+
+
+    @low.setter
+    def low(self, value:int) -> None:
+        """ set `value` must be <= self.high, otherwise ignored"""
+        if value == self._low:
+            return
+        if value > self.high:
+            return
+        self._low = value
+        self.low_textbox.setText(str(value))
+        self._update_validators()
+
+
+    @property
+    def high(self) -> int:
+        """ slider high value"""
+        return self._high
+
+
+    @high.setter
+    def high(self, value:int) -> None:
+        """ set `value` must be >= self.low, otherwise ignored """
+        if value == self._high:
+            return
+        if value < self.low:
+            return
+        self._high = value
+        self.high_textbox.setText(str(value))
+        self._update_validators()
+
+
+    def _update_validators(self) -> None:
+        """ Update the textbox validators after editing """
+        self.high_textbox.setValidator(QtGui.QIntValidator(self.low, 255))
+        self.low_textbox.setValidator(QtGui.QIntValidator(0, self.high))
+
+
+    def slider_changed(self, lohi) -> None:
+        """ Set the low and high values and emit the valueChagned signal. """
+        lo, hi = lohi
+        self.low = lo
+        self.high = hi
+        self.valueChanged.emit(lohi)
+
+
+class ClickableSlider(BaseSlider):
+    """ Slider that emits a signal on right click """
+    sigRightClick = QtCore.Signal()
+
+    def __init__(self, parent):
+        super().__init__(parent)
+
+    def contextMenuEvent(self, event):
+        self.sigRightClick.emit()
+        event.accept()
