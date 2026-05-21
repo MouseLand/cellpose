@@ -45,6 +45,10 @@ bioimageio_deps = [
     'bioimageio.core',
 ]
 
+wandb_deps = [
+    'wandb',
+]
+
 try:
     import torch
     a = torch.ones(2, 3)
@@ -94,7 +98,8 @@ setup(
         'gui': gui_deps,
         'distributed': distributed_deps,
         'bioimageio': bioimageio_deps,
-        'all': gui_deps + distributed_deps + image_deps + bioimageio_deps,
+        'wandb': wandb_deps,
+        'all': gui_deps + distributed_deps + image_deps + bioimageio_deps + wandb_deps,
     }, include_package_data=True, classifiers=(
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: BSD License",

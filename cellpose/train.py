@@ -3,6 +3,7 @@ import os
 import numpy as np
 from cellpose import io, utils, models, dynamics
 from cellpose.transforms import normalize_img, random_rotate_and_resize
+from cellpose.wandb_logger import WandbLogger
 from pathlib import Path
 import torch
 from torch import nn
@@ -314,7 +315,8 @@ def train_seg(net, train_data=None, train_labels=None, train_files=None,
               n_epochs=100, weight_decay=0.1, normalize=True, compute_flows=False,
               save_path=None, save_every=100, save_each=False, nimg_per_epoch=None,
               nimg_test_per_epoch=None, rescale=False, scale_range=None, bsize=256,
-              min_train_masks=5, model_name=None, class_weights=None):
+              min_train_masks=5, model_name=None, class_weights=None,
+              wandb_enabled=True):
     """
     Train the network with images for segmentation.
 
@@ -346,6 +348,7 @@ def train_seg(net, train_data=None, train_labels=None, train_files=None,
         rescale (bool, optional): Boolean - whether or not to rescale images during training. Defaults to False.
         min_train_masks (int, optional): Integer - minimum number of masks an image must have to use in the training set. Defaults to 5.
         model_name (str, optional): String - name of the network. Defaults to None.
+        wandb_enabled (bool, optional): Whether to attempt Weights & Biases logging if wandb is installed and credentials are available. Defaults to True. Logging is silently skipped if wandb is unavailable. The run name defaults to ``model_name``; the project defaults to ``$WANDB_PROJECT`` or "cellpose". All other wandb settings (entity, tags, group, notes, ...) are controlled via standard wandb environment variables.
 
     Returns:
         tuple: A tuple containing the path to the saved model weights, training losses, and test losses.
@@ -429,9 +432,45 @@ def train_seg(net, train_data=None, train_labels=None, train_files=None,
 
     train_logger.info(f">>> saving model to {filename}")
 
+    # Initialize wandb logging (no-op if wandb not installed or not logged in)
+    wandb_config = {
+        "model_name": model_name,
+        "n_epochs": n_epochs,
+        "batch_size": batch_size,
+        "learning_rate": learning_rate,
+        "weight_decay": weight_decay,
+        "optimizer": "AdamW",
+        "normalize": normalize_params,
+        "rescale": rescale,
+        "scale_range": scale_range,
+        "bsize": bsize,
+        "min_train_masks": min_train_masks,
+        "nimg_train": nimg,
+        "nimg_test": nimg_test,
+        "nimg_per_epoch": nimg_per_epoch,
+        "nimg_test_per_epoch": nimg_test_per_epoch,
+        "device": str(device),
+        "net_dtype": str(original_net_dtype),
+        "diam_mean": float(net.diam_mean.item()),
+        "diam_labels": float(diam_train.mean()),
+        "channel_axis": channel_axis,
+        "has_class_weights": class_weights is not None,
+        "save_path": str(save_path),
+        "save_every": save_every,
+        "save_each": save_each,
+    }
+    wandb_logger = WandbLogger(
+        enabled=wandb_enabled,
+        run_name=model_name,
+        config=wandb_config,
+    )
+
     lavg, nsum = 0, 0
     train_losses, test_losses = np.zeros(n_epochs), np.zeros(n_epochs)
+    best_test_loss = float("inf")
+    best_test_epoch = -1
     for iepoch in range(n_epochs):
+        t_epoch_start = time.time()
         np.random.seed(iepoch)
         if nimg != nimg_per_epoch:
             # choose random images for epoch with probability train_probs
@@ -479,6 +518,8 @@ def train_seg(net, train_data=None, train_labels=None, train_files=None,
             train_losses[iepoch] += train_loss
         train_losses[iepoch] /= nimg_per_epoch
 
+        epoch_time = time.time() - t_epoch_start
+
         if iepoch == 5 or iepoch % 10 == 0:
             lavgt = 0.
             if test_data is not None or test_files is not None:
@@ -516,11 +557,38 @@ def train_seg(net, train_data=None, train_labels=None, train_files=None,
                         lavgt += test_loss
                 lavgt /= len(rperm)
                 test_losses[iepoch] = lavgt
+                if lavgt > 0 and lavgt < best_test_loss:
+                    best_test_loss = float(lavgt)
+                    best_test_epoch = int(iepoch)
             lavg /= nsum
             train_logger.info(
                 f"{iepoch}, train_loss={lavg:.4f}, test_loss={lavgt:.4f}, LR={LR[iepoch]:.6f}, time {time.time()-t0:.2f}s"
             )
+            # log windowed/averaged + validation metrics on the same step as the per-epoch log
+            wandb_logger.log(
+                {
+                    "val/loss": float(lavgt) if (test_data is not None or test_files is not None) else None,
+                    "train/loss_avg_window": float(lavg),
+                    "train/best_val_loss": float(best_test_loss) if best_test_epoch >= 0 else None,
+                    "train/best_val_epoch": best_test_epoch if best_test_epoch >= 0 else None,
+                },
+                step=iepoch,
+                commit=False,
+            )
             lavg, nsum = 0, 0
+
+        # log per-epoch metrics every epoch; commit=True flushes the step
+        wandb_logger.log(
+            {
+                "epoch": iepoch,
+                "train/loss": float(train_losses[iepoch]),
+                "train/learning_rate": float(LR[iepoch]),
+                "train/epoch_time_s": float(epoch_time),
+                "train/elapsed_s": float(time.time() - t0),
+            },
+            step=iepoch,
+            commit=True,
+        )
 
         if iepoch == n_epochs - 1 or (iepoch % save_every == 0 and iepoch != 0):
             if save_each and iepoch != n_epochs - 1:  #separate files as model progresses
@@ -529,10 +597,22 @@ def train_seg(net, train_data=None, train_labels=None, train_files=None,
                 filename0 = filename
             train_logger.info(f"saving network parameters to {filename0}")
             net.save_model(filename0)
-    
+
     net.save_model(filename)
     if original_net_dtype != torch.float32:
         train_logger.info(f">>> converting network back to {original_net_dtype} after training")
         net.dtype = original_net_dtype
+
+    wandb_logger.log_summary(
+        {
+            "final/train_loss": float(train_losses[-1]),
+            "final/test_loss": float(test_losses[-1]),
+            "best/test_loss": float(best_test_loss) if best_test_epoch >= 0 else None,
+            "best/test_epoch": best_test_epoch if best_test_epoch >= 0 else None,
+            "total_train_time_s": float(time.time() - t0),
+            "model_path": str(filename),
+        }
+    )
+    wandb_logger.finish()
 
     return filename, train_losses, test_losses

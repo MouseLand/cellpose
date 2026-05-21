@@ -229,7 +229,17 @@ def get_arg_parser():
         "--model_name_out", default=None, type=str,
         help="Name of model to save as, defaults to name describing model architecture. "
         "Model is saved in the folder specified by --dir in models subfolder.")
-    
+
+    # Weights & Biases logging (optional, no-op if wandb not installed / not logged in)
+    wandb_args = parser.add_argument_group("Weights & Biases Arguments")
+    wandb_args.add_argument(
+        "--no_wandb", action="store_true",
+        help="disable Weights & Biases logging even if wandb is installed and logged in. "
+        "Project defaults to $WANDB_PROJECT or 'cellpose'; run name defaults to --model_name_out "
+        "(or an auto-generated 'cellpose_<timestamp>' name). All other wandb settings (entity, "
+        "tags, group, notes, ...) can be set via standard wandb environment variables."
+    )
+
     # TODO: remove deprecated in future version
     training_args.add_argument(
         "--diam_mean", default=30., type=float, help=
