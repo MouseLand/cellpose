@@ -644,11 +644,15 @@ class MainW(QMainWindow):
         return b
     
     def open_slider_popup(self, r:int) -> None:
-        """ Open slider popup and attach it to the color index `r`. 
-        Clicking off of the popup causes it to close.
+        """Open a saturation slider popup for the color channel at index ``r``.
+
+        The popup closes when the user clicks outside of it.
 
         Args:
-            r (int): The index of the color slider (0, 1, 2).  
+            r (int): Color channel index.
+
+        Raises:
+            AssertionError: If ``r`` is not in {0, 1, 2}.
         """
         assert r in [0, 1, 2], f'The color index, `r`, must be in (0, 1, 2), got {r}'
         low, high = self.saturation[r][self.currentZ]
@@ -670,13 +674,14 @@ class MainW(QMainWindow):
 
 
     def color_level_change(self, lohi:tuple, r:int) -> None:
-        """ Set the saturation attribute for the color `r` to `lohi` and
-        call self.update_plot(). Also, update all the layers if self.autobtn
-        is unchecked. 
+        """Update the saturation range for color channel ``r`` and refresh the plot.
+
+        If the auto-adjust button is unchecked, the same range is applied
+        to all z-layers for all channels.
 
         Args:
-            lohi (tuple): Tuple of (low, high) values for the saturation/slider. 
-            r (int): The index of the color to adjust.  
+            lohi (tuple[int, int]): (low, high) saturation values.
+            r (int): Color channel index.
         """
         self.saturation[r][self.currentZ] = lohi
         # update all the layers if autobtn is unchecked

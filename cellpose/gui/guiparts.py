@@ -842,9 +842,7 @@ Horizontal = QtCore.Qt.Orientation.Horizontal
 
 
 class BaseSlider(QRangeSlider):
-    """ Base slider with style sheet definition and horizontal orientation 
-    
-    Relies on built-in `.valueChanged()` method"""
+    """Horizontal range slider. Starts disabled."""
     def __init__(self, parent):
         super().__init__(Horizontal)
         self.setParent(parent)
@@ -857,24 +855,25 @@ class BaseSlider(QRangeSlider):
 
 
 class SaturationSliderDialog(QDialog):
-    """ Slider dialog with signal for reporting the slider changes 
+    """A range slider dialog with text box inputs for fine-grained control.
 
-    Internally, the textboxes listen to and update the slider values, and
-    only the slider values are used in the valueChanged interface.
+    Connect to ``valueChanged`` to receive ``(low, high)`` tuples whenever the
+    slider or text boxes change.
     """
+
+    # Note: The textboxes update the slider and only the slider is connected to signals.
+    # This way, only the ``valueChanged`` signal is required for all syncing. 
 
     valueChanged = QtCore.Signal(tuple)
 
     def __init__(self, parent: QWidget, low:int|None=None, high:int|None=None, dtype:np.dtype|None=None):
-        """ Slider dialog with signal for report slider changes. After instantiation, 
-        hook up the `.valueChanged` to listen for events from this widget.
-
+        """
         Args:
-            parent (QWidget): A Qt widget from which this object can be referenced.
-            low (int | None, optional): The low value to initialize the slider. Defaults to dtype.min.
-            high (int | None, optional): The high value to initialize the slider. Defaults to dtype.max.
-            dtype (np.dtype | None, optional): . Defaults to np.uint8.
-        """        
+            parent (QWidget): Parent widget.
+            low (int | None, optional): Initial low value. Defaults to ``dtype`` minimum.
+            high (int | None, optional): Initial high value. Defaults to ``dtype`` maximum.
+            dtype (np.dtype | None, optional): Data type used to set slider bounds. Defaults to ``np.uint8``.
+        """
         super().__init__(parent)
 
         if dtype is None:
@@ -925,14 +924,14 @@ class SaturationSliderDialog(QDialog):
 
 
     def _validate_text_input(self, value) -> int:
-        """ Convert textbox input into ``int`` """
+        """Convert textbox string to ``int``, returning 0 for empty input."""
         if len(value) < 1:
             value = 0
         return int(value)
 
 
     def _validate_update_low_textbox(self) -> None:
-        """ Validate textbox input and set slider low value """
+        """Read the low textbox and update the slider; no-op if low would exceed high."""
         low = self._validate_text_input(self.low_textbox.text())
         high = self.slider.value()[1]
         if low <= high:
@@ -940,7 +939,7 @@ class SaturationSliderDialog(QDialog):
 
 
     def _validate_update_high_textbox(self) -> None:
-        """ Validate textbox input and set slider high value """
+        """Read the high textbox and update the slider; no-op if high would go below low."""
         low = self.slider.value()[0]
         high = self._validate_text_input(self.high_textbox.text())
         if low <= high:
