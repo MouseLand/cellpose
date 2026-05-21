@@ -856,12 +856,6 @@ class BaseSlider(QRangeSlider):
         self.show()
 
 
-class Slider(BaseSlider):
-    """ Simple slider """
-    def __init__(self, parent):
-        super().__init__(parent)
-
-
 class SaturationSliderDialog(QDialog):
     """ Slider dialog with signal for reporting the slider changes 
 
@@ -871,7 +865,7 @@ class SaturationSliderDialog(QDialog):
 
     valueChanged = QtCore.Signal(tuple)
 
-    def __init__(self, parent: QWidget, low:int|None=None, high:int|None=None, dtype:str|np.dtype|None=None):
+    def __init__(self, parent: QWidget, low:int|None=None, high:int|None=None, dtype:np.dtype|None=None):
         """ Slider dialog with signal for report slider changes. After instantiation, 
         hook up the `.valueChanged` to listen for events from this widget.
 
@@ -883,7 +877,7 @@ class SaturationSliderDialog(QDialog):
         """        
         super().__init__(parent)
 
-        if not dtype:
+        if dtype is None:
             dtype = np.dtype(np.uint8)
 
         try:
@@ -899,7 +893,7 @@ class SaturationSliderDialog(QDialog):
         if high is None:
             high = self.dtype_max
 
-        self.slider = Slider(self)
+        self.slider = BaseSlider(self)
         layout = QGridLayout(self)
         low_textbox = QLineEdit(self)
         low_textbox.setFixedWidth(50)
@@ -996,7 +990,7 @@ class SaturationSliderDialog(QDialog):
 
 
     def slider_changed(self, lohi) -> None:
-        """ Set the low and high values and emit the valueChagned signal. """
+        """ Set the low and high values and emit the valueChanged signal. """
         lo, hi = lohi
         self.low = lo
         self.high = hi

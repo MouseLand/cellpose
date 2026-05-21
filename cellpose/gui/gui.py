@@ -670,7 +670,7 @@ class MainW(QMainWindow):
 
 
     def color_level_change(self, lohi:tuple, r:int) -> None:
-        """ Set the saturation attribute for the color `r` to `lowhi` and
+        """ Set the saturation attribute for the color `r` to `lohi` and
         call self.update_plot(). Also, update all the layers if self.autobtn
         is unchecked. 
 
