@@ -8,6 +8,8 @@ import numpy as np
 import torch
 from scipy.ndimage import gaussian_filter1d
 from torch.fft import fft2, fftshift, ifft2
+from torchvision.transforms import functional as F
+from torchvision.transforms import _functional_tensor as F_t
 
 transforms_logger = logging.getLogger(__name__)
 
@@ -382,71 +384,6 @@ def smooth_sharpen_img(img, smooth_radius=6, sharpen_radius=12,
     return img_sharpen.cpu().numpy()
 
 
-def move_axis(img, m_axis=-1, first=True):
-    """ move axis m_axis to first or last position """
-    if m_axis == -1:
-        m_axis = img.ndim - 1
-    m_axis = min(img.ndim - 1, m_axis)
-    axes = np.arange(0, img.ndim)
-    if first:
-        axes[1:m_axis + 1] = axes[:m_axis]
-        axes[0] = m_axis
-    else:
-        axes[m_axis:-1] = axes[m_axis + 1:]
-        axes[-1] = m_axis
-    img = img.transpose(tuple(axes))
-    return img
-
-
-def move_min_dim(img, force=False):
-    """Move the minimum dimension last as channels if it is less than 10 or force is True.
-
-    Args:
-        img (ndarray): The input image.
-        force (bool, optional): If True, the minimum dimension will always be moved.
-            Defaults to False.
-
-    Returns:
-        ndarray: The image with the minimum dimension moved to the last axis as channels.
-    """
-    if len(img.shape) > 2:
-        min_dim = min(img.shape)
-        if min_dim < 10 or force:
-            if img.shape[-1] == min_dim:
-                channel_axis = -1
-            else:
-                channel_axis = (img.shape).index(min_dim)
-            img = move_axis(img, m_axis=channel_axis, first=False)
-    return img
-
-
-def update_axis(m_axis, to_squeeze, ndim):
-    """
-    Squeeze the axis value based on the given parameters.
-
-    Args:
-        m_axis (int): The current axis value.
-        to_squeeze (numpy.ndarray): An array of indices to squeeze.
-        ndim (int): The number of dimensions.
-
-    Returns:
-        m_axis (int or None): The updated axis value.
-    """
-    if m_axis == -1:
-        m_axis = ndim - 1
-    if (to_squeeze == m_axis).sum() == 1:
-        m_axis = None
-    else:
-        inds = np.ones(ndim, bool)
-        inds[to_squeeze] = False
-        m_axis = np.nonzero(np.arange(0, ndim)[inds] == m_axis)[0]
-        if len(m_axis) > 0:
-            m_axis = m_axis[0]
-        else:
-            m_axis = None
-    return m_axis
-
-
 def _convert_image_3d(x, channel_axis=None, z_axis=None):
     """
     Convert a 3D or 4D image array to have dimensions ordered as (Z, X, Y, C).
@@ -477,64 +414,45 @@ def _convert_image_3d(x, channel_axis=None, z_axis=None):
             channels to ensure the output has exactly 3 channels.
     """
 
-    if x.ndim < 3:
-        raise ValueError(f"Input image must have at least 3 dimensions, input shape: {x.shape}, ndim={x.ndim}")
+    if x.ndim < 3 or x.ndim > 4:
+        raise ValueError(f"Input image must have 3 or 4 dimensions, input shape: {x.shape}, ndim={x.ndim}")
     
-    if z_axis is not None and z_axis < 0:
-        z_axis += x.ndim
+    if z_axis is None:
+        raise ValueError("z_axis must be specified for 3D images of ndim=3 or 4D images of ndim=4")
+    elif channel_axis is None and x.ndim == 4:
+        raise ValueError("channel_axis must be specified for 4D images of ndim=4")
+    else:
+        if z_axis > x.ndim - 1 or z_axis < -x.ndim:
+            raise IndexError(f"z_axis {z_axis} is out of bounds for input array with {x.ndim} dimensions")
+        if channel_axis is not None:
+            if channel_axis > x.ndim - 1 or channel_axis < -x.ndim:
+                raise IndexError(f"channel_axis {channel_axis} is out of bounds for input array with {x.ndim} dimensions")
+
+    z_axis += x.ndim if z_axis < 0 else 0
 
     # if image is ndim==3, assume it is greyscale 3D and use provided z_axis
-    if x.ndim == 3 and z_axis is not None:
+    if x.ndim == 3:
         # add in channel axis
-        x = x[..., np.newaxis]
+        x = x[..., None]
         channel_axis = 3
-    elif x.ndim == 3 and z_axis is None:
-        raise ValueError("z_axis must be specified when segmenting 3D images of ndim=3")
 
+    channel_axis += x.ndim if channel_axis < 0 else 0
 
-    if channel_axis is None or z_axis is None:
-        raise ValueError("For 4D images, both `channel_axis` and `z_axis` must be explicitly specified. Please provide values for both parameters.")
-    if channel_axis is not None and channel_axis < 0:
-        channel_axis += x.ndim
-    if channel_axis is None or channel_axis >= x.ndim:
-        raise IndexError(f"channel_axis {channel_axis} is out of bounds for input array with {x.ndim} dimensions")
-    assert x.ndim == 4, f"input image must have ndim == 4, ndim={x.ndim}"
+    if z_axis == channel_axis:
+        raise ValueError(f"z_axis and channel_axis cannot be the same, got z_axis={z_axis}, channel_axis={channel_axis}")
+
+    yx_axes = [i for i in range(x.ndim) if i not in (z_axis, channel_axis)]
     
-    x_dim_shapes = list(x.shape)
-    num_z_layers = x_dim_shapes[z_axis]
-    num_channels = x_dim_shapes[channel_axis]
-    x_xy_axes = [i for i in range(x.ndim)]
-    
-    # need to remove the z and channels from the shapes:
-    # delete the one with the bigger index first 
-    if z_axis > channel_axis:
-        del x_dim_shapes[z_axis]
-        del x_dim_shapes[channel_axis]
-
-        del x_xy_axes[z_axis]
-        del x_xy_axes[channel_axis]
-
-    else: 
-        del x_dim_shapes[channel_axis]
-        del x_dim_shapes[z_axis]
-
-        del x_xy_axes[channel_axis]
-        del x_xy_axes[z_axis]
-
-    x = x.transpose((z_axis, x_xy_axes[0], x_xy_axes[1], channel_axis))
+    # make ZYXC order
+    x = x.transpose(z_axis, yx_axes[0], yx_axes[1], channel_axis)
 
     # Handle cases with not 3 channels:
-    if num_channels != 3:
-        x_chans_to_copy = min(3, num_channels)
-
-        if num_channels > 3:
+    nchan = x.shape[3]
+    if nchan != 3:
+        if nchan > 3:
             transforms_logger.warning("more than 3 channels provided, only segmenting on first 3 channels")
-            x = x[..., :x_chans_to_copy]
-        else: 
-            # less than 3 channels: pad up to 
-            pad_width = [(0, 0), (0, 0), (0, 0), (0, 3 - x_chans_to_copy)]
-            x = np.pad(x, pad_width, mode='constant', constant_values=0)
-
+            x = x[..., :3]
+        
     return x
 
 
@@ -561,94 +479,56 @@ def convert_image(x, channel_axis=None, z_axis=None, do_3D=False):
         ValueError: If the input image is 2D and do_3D is True.
     """
 
-    # check if image is a torch array instead of numpy array, convert to numpy
     ndim = x.ndim
+    if ndim < 2 or ndim > 4:
+        raise ValueError(f"Input image must have 2, 3, or 4 dimensions, input shape: {x.shape}, ndim={x.ndim}")
+
+    # check if image is a torch array instead of numpy array, convert to numpy
     if torch.is_tensor(x):
         transforms_logger.warning("torch array used as input, converting to numpy")
         x = x.cpu().numpy()
 
-    # should be 2D
     if z_axis is not None and not do_3D:
-        raise ValueError("2D image provided, but z_axis is not None. Set z_axis=None to process 2D images of ndim=2 or 3.")
+        raise ValueError("2D image processing selected, but z_axis is not None. Set z_axis=None to process 2D images.")
 
-    # make sure that channel_axis and z_axis are specified if 3D
     if do_3D:
         return _convert_image_3d(x, channel_axis=channel_axis, z_axis=z_axis)
     
-    ######################## 2D reshaping ########################
-    # if user specifies channel axis, return early
+    z_axis = None
     if channel_axis is not None:
         if ndim == 2:
             raise ValueError("2D image provided, but channel_axis is not None. Set channel_axis=None to process 2D images of ndim=2.")
-        
-        # Put channel axis last:
-        # Find the indices of the dims that need to be put in dim 0 and 1
-        n_channels = x.shape[channel_axis]
-        x_shape_dims = list(x.shape)
-        del x_shape_dims[channel_axis]
-        dimension_indicies = [i for i in range(x.ndim)]
-        del dimension_indicies[channel_axis]
-
-        x = x.transpose((dimension_indicies[0], dimension_indicies[1], channel_axis))
-
-        if n_channels != 3:
-            x_chans_to_copy = min(3, n_channels)
-
-            if n_channels > 3: 
-                transforms_logger.warning("more than 3 channels provided, only segmenting on first 3 channels")
-                x = x[..., :x_chans_to_copy]
-            else: 
-                x_out = np.zeros((x_shape_dims[0], x_shape_dims[1], 3), dtype=x.dtype)
-                x_out[..., :x_chans_to_copy] = x[...]
-                x = x_out
-                del x_out
-
-        return x
-
-    # do image padding and channel conversion
-    if ndim == 2:
-        # grayscale image, make 3 channels
-        x_out = np.zeros((x.shape[0], x.shape[1], 3), dtype=x.dtype)
-        x_out[..., 0] = x
-        x = x_out
-        del x_out
-        transforms_logger.debug(f'processing grayscale image with {x.shape[0], x.shape[1]} HW')
+        elif ndim == 4 and (channel_axis == 0 or channel_axis == -4):
+            raise ValueError(f"channel_axis cannot be 0 or -4 for 4D images, as this is reserved for batch dimension. Got channel_axis={channel_axis} for input with shape {x.shape}")
+        elif ndim == 4:
+            z_axis = 0
+    elif ndim == 2:
+        x = x[..., None] # add in channel axis
+        channel_axis = 2
     elif ndim == 3:
-        # assume 2d with channels
-        # find dim with smaller size between first and last dims
-        move_channel_axis = x.shape[0] < x.shape[2]
-        if move_channel_axis:
-            x = x.transpose((1, 2, 0))
+        # guess channel axis between first and last, assuming channel axis is smaller
+        channel_axis = 0 if x.shape[0] < x.shape[-1] else 2
+    else: # 4D image
+        channel_axis = 1 if x.shape[1] < x.shape[-1] else 3
+        z_axis = 0
+        
+    channel_axis += x.ndim if channel_axis < 0 else 0
+    
+    yx_axes = [i for i in range(x.ndim) if i != channel_axis and i != z_axis]
 
-        # zero padding up to 3 channels: 
-        num_channels = x.shape[-1]
-        if num_channels > 3: 
-            transforms_logger.warning("Found more than 3 channels, only using first 3")
-            num_channels = 3
-        x_out = np.zeros((x.shape[0], x.shape[1], 3), dtype=x.dtype)
-        x_out[..., :num_channels] = x[..., :num_channels]
-        x = x_out
-        del x_out
-        transforms_logger.debug(f'processing image with {x.shape[0], x.shape[1]} HW, and {x.shape[2]} channels')
-    elif ndim == 4:
-        # assume batch of 2d with channels
-
-        # zero padding up to 3 channels: 
-        num_channels = x.shape[-1]
-        if num_channels > 3: 
-            transforms_logger.warning("Found more than 3 channels, only using first 3")
-            num_channels = 3
-        x_out = np.zeros((x.shape[0], x.shape[1], x.shape[2], 3), dtype=x.dtype)
-        x_out[..., :num_channels] = x[..., :num_channels]
-        x = x_out
-        del x_out
-        transforms_logger.debug(f'processing image batch with {x.shape[0]} images, {x.shape[1], x.shape[2]} HW, and {x.shape[3]} channels')
+    # make YXC order
+    if z_axis is None: 
+        x = x.transpose(yx_axes[0], yx_axes[1], channel_axis)
     else:
-        # something is wrong: yell
-        expected_shapes = "2D (H, W), 3D (H, W, C), or 4D (Z, H, W, C)"
-        transforms_logger.critical(f"ERROR: Unexpected image shape: {str(x.shape)}. Expected shapes: {expected_shapes}")
-        raise ValueError(f"ERROR: Unexpected image shape: {str(x.shape)}. Expected shapes: {expected_shapes}")
+        x = x.transpose(z_axis, yx_axes[0], yx_axes[1], channel_axis)
 
+    # Handle cases with not 3 channels:
+    nchan = x.shape[-1]
+    if nchan != 3:
+        if nchan > 3:
+            transforms_logger.warning("more than 3 channels provided, only segmenting on first 3 channels")
+            x = x[..., :3]
+        
     return x
     
 
@@ -790,6 +670,7 @@ def normalize_img(img, normalize=True, norm3D=True, invert=False, lowhigh=None,
 
     return img_norm
 
+
 def resize_safe(img, Ly, Lx, interpolation=cv2.INTER_LINEAR):
     """OpenCV resize function does not support uint32.
 
@@ -818,7 +699,10 @@ def resize_safe(img, Ly, Lx, interpolation=cv2.INTER_LINEAR):
         img = img.astype(np.float32)
 
     # resize
+    ndim = img.ndim
     img = cv2.resize(img, (Lx, Ly), interpolation=interpolation)
+    if img.ndim < ndim:
+        img = img[..., None]
 
     # cast back
     if cast:
@@ -865,10 +749,10 @@ def resize_image(img0, Ly=None, Lx=None, rsz=None, interpolation=cv2.INTER_LINEA
 
     # no_channels useful for z-stacks, so the third dimension is not treated as a channel
     # but if this is called for grayscale images, they first become [Ly,Lx,2] so ndim=3 but
-    if (img0.ndim > 2 and no_channels) or (img0.ndim == 4 and not no_channels):
+    if (img0.ndim == 3 and no_channels) or (img0.ndim == 4 and not no_channels):
         if Ly == 0 or Lx == 0:
             raise ValueError(
-                "anisotropy too high / low -- not enough pixels to resize to ratio")
+                "diameter too high -- not enough pixels to resize to ratio")
         for i, img in enumerate(img0):
             imgi = resize_safe(img, Ly, Lx, interpolation=interpolation)
             if i==0:
@@ -876,10 +760,26 @@ def resize_image(img0, Ly=None, Lx=None, rsz=None, interpolation=cv2.INTER_LINEA
                     imgs = np.zeros((img0.shape[0], Ly, Lx), imgi.dtype)
                 else:
                     imgs = np.zeros((img0.shape[0], Ly, Lx, img0.shape[-1]), imgi.dtype)
-            imgs[i] = imgi if imgi.ndim > 2 or no_channels else imgi[..., np.newaxis]
+            imgs[i] = imgi if imgi.ndim > 2 or no_channels else imgi[..., None]
     else:
         imgs = resize_safe(img0, Ly, Lx, interpolation=interpolation)
     return imgs
+
+
+def resize_image_3d(img, shape, interpolation=cv2.INTER_LINEAR, no_channels=False):
+    Lzr, Lyr, Lxr = shape
+    Lz, Ly, Lx = img.shape[:3]
+    if Lyr != Ly or Lxr != Lx:
+        img_rsz = resize_image(img, Ly=Lyr, Lx=Lxr, interpolation=interpolation,
+                                        no_channels=no_channels).astype(img.dtype)
+    else:
+        img_rsz = img
+    if Lzr != Lz:
+        tt = (1, 0, 2, 3) if not no_channels else (1, 0, 2)
+        img_rsz = resize_image(img_rsz.transpose(tt), Ly=Lzr, Lx=Lxr,
+                               interpolation=interpolation, 
+                               no_channels=no_channels).astype(img.dtype).transpose(tt)
+    return img_rsz
 
 def get_pad_yx(Ly, Lx, div=16, extra=1, min_size=None):
     if min_size is None or Ly >= min_size[-2]:
@@ -936,10 +836,9 @@ def pad_image_ND(img0, div=16, extra=1, min_size=None, zpad=False):
         return I, ysub, xsub
 
 
-def random_rotate_and_resize(X, Y=None, scale_range=1., xy=(224, 224), do_3D=False,
-                             zcrop=48, do_flip=True, rotate=True, rescale=None, unet=False,
-                             random_per_image=True):
-    """Augmentation by random rotation and resizing.
+def random_rotate_and_resize(imgs, lbls=None, scale_range=1., bsize=256, rescale=None,
+                             device=torch.device("cpu")):
+    """ Augmentation by random rotation and resizing on torch device.
 
     Args:
         X (list of ND-arrays, float): List of image arrays of size [nchan x Ly x Lx] or [Ly x Lx].
@@ -949,138 +848,66 @@ def random_rotate_and_resize(X, Y=None, scale_range=1., xy=(224, 224), do_3D=Fal
             If unet, second channel is dist_to_bound. Defaults to None.
         scale_range (float, optional): Range of resizing of images for augmentation.
             Images are resized by (1-scale_range/2) + scale_range * np.random.rand(). Defaults to 1.0.
-        xy (tuple, int, optional): Size of transformed images to return. Defaults to (224,224).
-        do_flip (bool, optional): Whether or not to flip images horizontally. Defaults to True.
-        rotate (bool, optional): Whether or not to rotate images. Defaults to True.
+        bsize (tuple, int, optional): Size of transformed images to return. Defaults to 256.
         rescale (array, float, optional): How much to resize images by before performing augmentations. Defaults to None.
-        unet (bool, optional): Whether or not to use unet. Defaults to False.
-        random_per_image (bool, optional): Different random rotate and resize per image. Defaults to True.
-
+        
     Returns:
-        A tuple containing (imgi, lbl, scale): imgi (ND-array, float): Transformed images in array [nimg x nchan x xy[0] x xy[1]]; 
-        lbl (ND-array, float): Transformed labels in array [nimg x nchan x xy[0] x xy[1]]; 
+        A tuple containing (imgi, lbl, scale): imgi (torch.Tensor, float): Transformed images in array [nimg x nchan x xy[0] x xy[1]]; 
+        lbl (torch.Tensor, float): Transformed labels in array [nimg x nchan x xy[0] x xy[1]];
         scale (array, float): Amount each image was resized by.
     """
+    yx = bsize if isinstance(bsize, (list, tuple, np.ndarray)) else (bsize, bsize)
+    
     scale_range = max(0, min(2, float(scale_range))) if scale_range is not None else scale_range
-    nimg = len(X)
-    if X[0].ndim > 2:
-        nchan = X[0].shape[0]
-    else:
-        nchan = 1
-    if do_3D and X[0].ndim > 3:
-        shape = (zcrop, xy[0], xy[1])
-    else:
-        shape = (xy[0], xy[1])
-    imgi = np.zeros((nimg, nchan, *shape), "float32")
-
-    lbl = []
-    if Y is not None:
-        if Y[0].ndim > 2:
-            nt = Y[0].shape[0]
-        else:
-            nt = 1
-        lbl = np.zeros((nimg, nt, *shape), np.float32)
-
-    scale = np.ones(nimg, np.float32)
-
+    nimg = len(imgs)
+    scale_per_image = np.ones(nimg, np.float32)
+    imgs_aug = torch.zeros((nimg, imgs[0].shape[0], yx[0], yx[1]), device=device)
+    lbls_aug = torch.zeros((nimg, *lbls[0].shape[:-2], yx[0], yx[1]), device=device) if lbls is not None else None
+    
     for n in range(nimg):
+        # random rotate and resize and crop and flip params
+        if scale_range is None:
+            scale = 2 ** (4 * np.random.rand() - 2)
+        else:
+            scale = (1 - scale_range / 2) + scale_range * np.random.rand()
+        if rescale is not None:
+            scale *= 1. / rescale[n]
+        scale_per_image[n] = scale
+        angle = np.float32(360 * np.random.rand() - 180)
+        Ly, Lx = imgs[n].shape[-2:]
+        dyx = np.maximum(0, np.array([Ly * scale - yx[0], Lx * scale - yx[1]])).astype("float32")
+        flip = np.random.rand() > 0.5
+        translations = list(dyx * np.random.rand(2).astype("float32") * 1 - dyx * 0.5)
+        matrix = F._get_inverse_affine_matrix(np.zeros(2, "float32"), angle, translations, 
+                                              scale, np.zeros(2, "float32"))
+        theta = torch.tensor(matrix, device=device).reshape(1, 2, 3)
+        grid = F_t._gen_affine_grid(theta, w=Lx, h=Ly, ow=yx[1], oh=yx[0])
 
-        if random_per_image or n == 0:
-            Ly, Lx = X[n].shape[-2:]
-            # generate random augmentation parameters
-            flip = np.random.rand() > .5
-            theta = np.random.rand() * np.pi * 2 if rotate else 0.
-            if scale_range is None:
-                scale[n] = 2 ** (4 * np.random.rand() - 2)
-            else:
-                scale[n] =  (1 - scale_range / 2) + scale_range * np.random.rand()
-            if rescale is not None:
-                scale[n] *= 1. / rescale[n]
-            dxy = np.maximum(0, np.array([Lx * scale[n] - xy[1],
-                                          Ly * scale[n] - xy[0]]))
-            dxy = (np.random.rand(2,) - .5) * dxy
+        # apply affine transform
+        img = torch.from_numpy(imgs[n]).unsqueeze(0).to(device)
+        img = F_t.hflip(img) if flip else img
+        imga = F_t._apply_grid_transform(img, grid, "bilinear", fill=0)
+        imgs_aug[n] = imga
 
-            # create affine transform
-            cc = np.array([Lx / 2, Ly / 2])
-            cc1 = cc - np.array([Lx - xy[1], Ly - xy[0]]) / 2 + dxy
-            pts1 = np.float32([cc, cc + np.array([1, 0]), cc + np.array([0, 1])])
-            pts2 = np.float32([
-                cc1,
-                cc1 + scale[n] * np.array([np.cos(theta), np.sin(theta)]),
-                cc1 + scale[n] *
-                np.array([np.cos(np.pi / 2 + theta),
-                          np.sin(np.pi / 2 + theta)])
-            ])
-            M = cv2.getAffineTransform(pts1, pts2)
-
-        img = X[n].copy()
-        if Y is not None:
-            labels = Y[n].copy()
-            if labels.ndim < 3:
-                labels = labels[np.newaxis, :, :]
-
-        if do_3D:
-            Lz = X[n].shape[-3]
-            flip_z = np.random.rand() > .5
-            lz = int(np.round(zcrop / scale[n]))
-            iz = np.random.randint(0, Lz - lz)
-            img = img[:,iz:iz + lz,:,:]
-            if Y is not None:
-                labels = labels[:,iz:iz + lz,:,:]
-        
-        if do_flip:
+        # apply to labels
+        if lbls is not None:
+            lbl = torch.from_numpy(lbls[n]).to(device)
+            lbl = lbl.unsqueeze(0) if lbl.ndim==3 else lbl
             if flip:
-                img = img[..., ::-1]
-                if Y is not None:
-                    labels = labels[..., ::-1]
-                    if nt > 1 and not unet:
-                        labels[-1] = -labels[-1]
-            if do_3D and flip_z:
-                img = img[:, ::-1]
-                if Y is not None:
-                    labels = labels[:,::-1]
-                    if nt > 1 and not unet:
-                        labels[-3] = -labels[-3]
+                lbl = F_t.hflip(lbl)
+                # flip X-flow if image is flipped
+                lbl[:, -1] = -lbl[:, -1]
+            # cellprobs are nearest neighbor interpolated, flows with bilinear
+            #lbla_cp = F_t._apply_grid_transform(lbl[:, :-3], grid, "nearest", fill=0)
+            lbla_flows = F_t._apply_grid_transform(lbl[:, -3:], grid, "bilinear", fill=0)
+            # rotate flows 
+            theta = angle * np.pi / 180 #+ np.pi
+            v1 = lbla_flows[:, -1].clone()
+            v2 = lbla_flows[:, -2].clone()
+            lbla_flows[:, -2] = (-v1 * np.sin(-theta) + v2 * np.cos(-theta))
+            lbla_flows[:, -1] = (v1 * np.cos(-theta) + v2 * np.sin(-theta))            
+            
+            lbls_aug[n] = lbla_flows # torch.cat((lbla_cp, lbla_flows), axis=1)
+            
+    return imgs_aug, lbls_aug, scale_per_image
 
-        for k in range(nchan):
-            if do_3D:
-                img0 = np.zeros((lz, xy[0], xy[1]), "float32")
-                for z in range(lz):
-                    I = cv2.warpAffine(img[k, z], M, (xy[1], xy[0]),
-                                       flags=cv2.INTER_LINEAR)
-                    img0[z] = I
-                if scale[n] != 1.0:
-                    for y in range(imgi.shape[-2]):
-                        imgi[n, k, :, y] = cv2.resize(img0[:, y], (xy[1], zcrop),
-                                                      interpolation=cv2.INTER_LINEAR)
-                else:
-                    imgi[n, k] = img0
-            else:
-                I = cv2.warpAffine(img[k], M, (xy[1], xy[0]), flags=cv2.INTER_LINEAR)
-                imgi[n, k] = I
-
-        if Y is not None:
-            for k in range(nt):
-                flag = cv2.INTER_NEAREST if k < nt-2 else cv2.INTER_LINEAR
-                if do_3D:
-                    lbl0 = np.zeros((lz, xy[0], xy[1]), "float32")
-                    for z in range(lz):
-                        I = cv2.warpAffine(labels[k, z], M, (xy[1], xy[0]),
-                                                      flags=flag)
-                        lbl0[z] = I
-                    if scale[n] != 1.0:
-                        for y in range(lbl.shape[-2]):
-                            lbl[n, k, :, y] = cv2.resize(lbl0[:, y], (xy[1], zcrop),
-                                                          interpolation=flag)
-                    else:
-                        lbl[n, k] = lbl0
-                else:
-                    lbl[n, k] = cv2.warpAffine(labels[k], M, (xy[1], xy[0]), flags=flag)
-
-            if nt > 1 and not unet:
-                v1 = lbl[n, -1].copy()
-                v2 = lbl[n, -2].copy()
-                lbl[n, -2] = (-v1 * np.sin(-theta) + v2 * np.cos(-theta))
-                lbl[n, -1] = (v1 * np.cos(-theta) + v2 * np.sin(-theta))
-
-    return imgi, lbl, scale

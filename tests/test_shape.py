@@ -98,7 +98,7 @@ def test_shape_3D_1ch_3ndim_diam(cellposemodel_fixture_2layer):
 def test_shape_3D_2ch(cellposemodel_fixture_2layer):
     img = np.zeros((80, 2, 80, 4))
 
-    masks, flows, _ = cellposemodel_fixture_2layer.eval(img, z_axis=-1, channel_axis=1, do_3D=True)
+    masks, flows, _ = cellposemodel_fixture_2layer.eval(img, z_axis=-1, channel_axis=1, do_3D=True, bsize=128)
     assert masks.shape == (4, 80, 80), 'mask shape mismatch'
     assert flows[1].shape == (3, 4, 80, 80), 'dP shape mismatch'
     assert flows[2].shape == (4, 80, 80), 'cellprob shape mismatch'

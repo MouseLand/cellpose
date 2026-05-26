@@ -313,7 +313,7 @@ def train_seg(net, train_data=None, train_labels=None, train_files=None,
               load_files=True, batch_size=1, learning_rate=1e-5, SGD=False,
               n_epochs=100, weight_decay=0.1, normalize=True, compute_flows=False,
               save_path=None, save_every=100, save_each=False, nimg_per_epoch=None,
-              nimg_test_per_epoch=None, rescale=False, scale_range=None, bsize=256,
+              nimg_test_per_epoch=None, rescale=False, scale_range=None, bsize=None,
               min_train_masks=5, model_name=None, class_weights=None):
     """
     Train the network with images for segmentation.
@@ -345,6 +345,7 @@ def train_seg(net, train_data=None, train_labels=None, train_files=None,
         nimg_test_per_epoch (int, optional): Integer - minimum number of images to test on per epoch. Defaults to None.
         rescale (bool, optional): Boolean - whether or not to rescale images during training. Defaults to False.
         min_train_masks (int, optional): Integer - minimum number of masks an image must have to use in the training set. Defaults to 5.
+        bsize (int, optional): Integer - image size to use for training, must be 256 for cpsam. Defaults to None.
         model_name (str, optional): String - name of the network. Defaults to None.
 
     Returns:
@@ -355,6 +356,11 @@ def train_seg(net, train_data=None, train_labels=None, train_files=None,
         train_logger.warning("SGD is deprecated, using AdamW instead")
 
     device = net.device
+
+    if bsize is not None and net.backbone == "sam_vitl" and bsize != 256:
+        raise ValueError("bsize != 256 is not supported for cpsam, please set bsize to 256")
+    
+    bsize = 256 if bsize is None and net.backbone == "sam_vitl" else 384 if bsize is None else bsize
 
     original_net_dtype = net.dtype 
     if net.dtype == torch.bfloat16:
@@ -414,7 +420,7 @@ def train_seg(net, train_data=None, train_labels=None, train_files=None,
         for i in range(10):
             LR = np.append(LR, LR[-1] / 2 * np.ones(5))
 
-    train_logger.info(f">>> n_epochs={n_epochs}, n_train={nimg}, n_test={nimg_test}")
+    train_logger.info(f">>> n_epochs={n_epochs}, n_train={nimg}, n_test={nimg_test}, bsize={bsize}, batch_size={batch_size}, nimg_per_epoch={nimg_per_epoch}")
     train_logger.info(
         f">>> AdamW, learning_rate={learning_rate:0.5f}, weight_decay={weight_decay:0.5f}"
     )
@@ -453,13 +459,10 @@ def train_seg(net, train_data=None, train_labels=None, train_files=None,
             rsc = diams / net.diam_mean.item() if rescale else np.ones(
                 len(diams), "float32")
             # augmentations
-            imgi, lbl = random_rotate_and_resize(imgs, Y=lbls, rescale=rsc,
-                                                            scale_range=scale_range,
-                                                            xy=(bsize, bsize))[:2]
-            # network and loss optimization
-            X = torch.from_numpy(imgi).to(device)
-            lbl = torch.from_numpy(lbl).to(device)
-
+            X, lbl = random_rotate_and_resize(imgs, lbls=lbls, rescale=rsc, 
+                                              bsize=bsize, scale_range=scale_range,
+                                              device=device)[:2]
+            
             with torch.autocast(device_type=device.type, dtype=net.dtype):
                 y = net(X)[0]
             loss = _loss_fn_seg(lbl, y, device)
@@ -470,11 +473,11 @@ def train_seg(net, train_data=None, train_labels=None, train_files=None,
             loss.backward()
             optimizer.step()
             train_loss = loss.item()
-            train_loss *= len(imgi)
+            train_loss *= len(X)
 
             # keep track of average training loss across epochs
             lavg += train_loss
-            nsum += len(imgi)
+            nsum += len(X)
             # per epoch training loss
             train_losses[iepoch] += train_loss
         train_losses[iepoch] /= nimg_per_epoch
@@ -499,11 +502,9 @@ def train_seg(net, train_data=None, train_labels=None, train_files=None,
                         diams = np.array([diam_test[i] for i in inds])
                         rsc = diams / net.diam_mean.item() if rescale else np.ones(
                             len(diams), "float32")
-                        imgi, lbl = random_rotate_and_resize(
-                            imgs, Y=lbls, rescale=rsc, scale_range=scale_range,
-                            xy=(bsize, bsize))[:2]
-                        X = torch.from_numpy(imgi).to(device)
-                        lbl = torch.from_numpy(lbl).to(device)
+                        X, lbl = random_rotate_and_resize(
+                            imgs, lbls=lbls, rescale=rsc, scale_range=scale_range,
+                            bsize=bsize, device=device)[:2]
 
                         with torch.autocast(device_type=device.type, dtype=net.dtype):
                             y = net(X)[0]
@@ -512,7 +513,7 @@ def train_seg(net, train_data=None, train_labels=None, train_files=None,
                             loss3 = _loss_fn_class(lbl, y, class_weights=class_weights)
                             loss += loss3            
                         test_loss = loss.item()
-                        test_loss *= len(imgi)
+                        test_loss *= len(X)
                         lavgt += test_loss
                 lavgt /= len(rperm)
                 test_losses[iepoch] = lavgt

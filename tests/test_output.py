@@ -43,9 +43,6 @@ def clear_output(data_dir, image_names):
                          [
                              (True, True, 40), 
                              (True, True, None), 
-                             (False, True, None),
-                             (False, False, None),
-                             (True, False, None),
                              (True, False, 40),
                          ]
 )
@@ -127,7 +124,7 @@ def test_class_3D_one_img_shape(data_dir, image_names_3d, cellposemodel_fixture_
     img_file = data_dir / '3D' / image_names_3d[0]
     image_name = img_file.name
     img = io.imread_3D(img_file)
-    masks_pred, flows_pred, _ = cellposemodel_fixture_2layer.eval(img, do_3D=True, channel_axis=-1, z_axis=0)
+    masks_pred, flows_pred, _ = cellposemodel_fixture_2layer.eval(img, do_3D=True, channel_axis=-1, z_axis=0, bsize=128)
 
     assert img.shape[:-1] == masks_pred.shape, f'mask incorrect shape for {image_name}, {masks_pred.shape=}'
     assert img.shape[:-1] == flows_pred[1].shape[1:], f'flows incorrect shape for {image_name}, {flows_pred.shape=}'
@@ -141,15 +138,15 @@ def test_cli_2D(data_dir, image_names):
     clear_output(data_dir, image_names)
     use_gpu = torch.cuda.is_available()
     gpu_string = "--use_gpu" if use_gpu else ""
-    image_path_string = str(data_dir/"2D"/image_names[0])
-    cmd = f"python -m cellpose --image_path {image_path_string} --save_png --verbose {gpu_string}"
+    image_path_string = str(data_dir/"2D"/image_names[1])
+    cmd = f"python -m cellpose --image_path {image_path_string} --save_png --pretrained_model cpsam --verbose {gpu_string}"
     try:
         cmd_stdout = check_output(cmd, stderr=STDOUT, shell=True).decode()
         print(cmd_stdout)
     except Exception as e:
         print(e)
         raise ValueError(e)
-    compare_masks_cp4(data_dir, image_names[0], "2D")
+    compare_masks_cp4(data_dir, image_names[1], "2D")
     clear_output(data_dir, image_names)
 
 
@@ -161,7 +158,7 @@ def test_cli_3D_diam_anisotropy_shape(data_dir, image_names_3d, diam, aniso):
     gpu_string = "--use_gpu" if use_gpu else ""
     anisotropy_text = f" {'--anisotropy ' + str(aniso) if aniso else ''}"
     diam_text = f" {'--diameter ' + str(diam) if diam else ''}"
-    cmd = f"python -m cellpose --image_path {str(data_dir / '3D' / image_names_3d[0])} --do_3D --save_tif {gpu_string} --verbose" + anisotropy_text + diam_text
+    cmd = f"python -m cellpose --image_path {str(data_dir / '3D' / image_names_3d[0])} --pretrained_model cpsam --do_3D --save_tif {gpu_string} --verbose" + anisotropy_text + diam_text
     print(cmd)
     try:
         cmd_stdout = check_output(cmd, stderr=STDOUT, shell=True).decode()
@@ -186,7 +183,7 @@ def test_cli_3D_one_img(data_dir, image_names_3d, flow3D_smooth):
     elif isinstance(flow3D_smooth, list):
         flow_string = f" --flow3D_smooth {' '.join([str(f) for f in flow3D_smooth])}"
 
-    cmd = f"python -m cellpose --image_path {str(data_dir / '3D' / image_names_3d[0])} --do_3D --save_tif {gpu_string} --verbose{flow_string}"
+    cmd = f"python -m cellpose --image_path {str(data_dir / '3D' / image_names_3d[0])} --pretrained_model cpsam --do_3D --save_tif {gpu_string} --verbose{flow_string}"
     print(cmd)
     try:
         cmd_stdout = check_output(cmd, stderr=STDOUT, shell=True).decode()

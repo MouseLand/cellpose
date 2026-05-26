@@ -1,4 +1,4 @@
-from cellpose import io, models, train
+from cellpose import io, train
 from subprocess import check_output, STDOUT
 import os, shutil
 import torch
@@ -8,14 +8,13 @@ from pathlib import Path
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
 
-def test_class_train(data_dir):
+def test_class_train(data_dir, cellposemodel_fixture_2layer):
     train_dir = str(data_dir.joinpath('2D').joinpath('train'))
     model_dir = str(data_dir.joinpath('2D').joinpath('train').joinpath('models'))
     shutil.rmtree(model_dir, ignore_errors=True)
     output = io.load_train_test_data(train_dir, mask_filter='_cyto_masks')
     images, labels, image_names, test_images, test_labels, image_names_test = output
-    use_gpu = torch.cuda.is_available()
-    model = models.CellposeModel(gpu=use_gpu)
+    model = cellposemodel_fixture_2layer
     cpmodel_path = train.train_seg(model.net, images, labels, train_files=image_names,
                                    test_data=test_images, test_labels=test_labels,
                                    test_files=image_names_test,
@@ -35,7 +34,7 @@ def test_cli_train(data_dir):
     shutil.rmtree(model_dir, ignore_errors=True)
     use_gpu = torch.cuda.is_available()
     gpu_str = "--use_gpu" if use_gpu else ""
-    cmd = 'python -m cellpose %s --train --n_epochs 3 --dir %s --mask_filter _cyto_masks --pretrained_model None' % (gpu_str, train_dir)
+    cmd = 'python -m cellpose %s --train --n_epochs 3 --dir %s --mask_filter _cyto_masks --pretrained_model cpdino-vitb' % (gpu_str, train_dir)
     try:
         cmd_stdout = check_output(cmd, stderr=STDOUT, shell=True).decode()
     except Exception as e:

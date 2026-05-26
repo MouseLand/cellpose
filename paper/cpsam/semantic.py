@@ -4,12 +4,12 @@ from scipy import ndimage
 from pathlib import Path
 from natsort import natsorted
 import tifffile
-from cellpose import metrics, io
+from cellpose import metrics, io, vit
 import fastremap
 import torch
 from torch import nn 
 from tqdm import trange, tqdm
-from cellpose import transforms, dynamics, vit_sam, models, train
+from cellpose import transforms, dynamics, models, train
 
 cl_epithelial = np.array([255,0,0])
 cl_lymphocyte = np.array([255,255,0])
@@ -193,7 +193,7 @@ def convert_monusac_test_data(root):
         tifffile.imwrite(root0 / f"{img_file.stem}_masks_bad.tif", data=ibad.astype("uint16"), compression="zlib")
         
 def initialize_class_net(nclasses=5, device=torch.device("cuda")):
-    net = vit_sam.Transformer(rdrop=0.4).to(device)
+    net = vit.Transformer(rdrop=0.4).to(device)
     # default model
     net.load_model("models/cpsam8_0_2100_8_402175188", device=device, strict=False, multigpu=False)
     
@@ -281,12 +281,13 @@ def test_net(root0):
     
     classes_pred = [s.squeeze().argmax(axis=-1) for s in styles]
     
-    aps_img, errors_img = compute_ap_pq(masks_true, masks_bad, classes_true, masks_pred, classes_pred)
+    aps_img, errors_img, pqs_img = compute_ap_pq(masks_true, masks_bad, classes_true, masks_pred, classes_pred)
 
     print(np.nanmean(errors_img, axis=0), np.nanmean(errors_img))
     print(np.nanmean(aps_img, axis=0), np.nanmean(aps_img))
 
-    np.save("results/monusac_cellposeSAM.npy", {"errors": errors_img, "aps": aps_img, "masks_true": masks_true, "masks_pred": masks_pred, 
+    np.save("results/monusac_cellposeSAM.npy", {"errors": errors_img, "aps": aps_img, 
+                                                "pqs": pqs_img, "masks_true": masks_true, "masks_pred": masks_pred, 
                                 "classes_true": classes_true, "classes": classes_pred, 
                                 "masks_bad": masks_bad, "imgs": test_imgs, "img_files": img_files})
     
@@ -312,11 +313,12 @@ def compute_leader_scores(root0):
                 masks_pred_l.append(masks_pred0)
                 classes_pred_l.append(classes_pred0)
 
-        aps_img, errors_img = compute_ap_pq(masks_true, masks_bad, classes_true, masks_pred_l, classes_pred_l)
+        aps_img, errors_img, pqs_img = compute_ap_pq(masks_true, masks_bad, classes_true, masks_pred_l, classes_pred_l)
         print(np.nanmean(errors_img, axis=0), np.nanmean(errors_img))
         print(np.nanmean(aps_img, axis=0), np.nanmean(aps_img))
 
         np.save(f"results/monusac_{lfolder}.npy", {"errors": errors_img, "aps": aps_img, 
+                                                   "pqs": pqs_img,
                                         "masks_pred": masks_pred_l, 
                                         "classes_pred": classes_pred_l})
 
@@ -369,6 +371,7 @@ def compute_ap_pq(masks_true, masks_bad, classes_true, masks_pred, classes_pred)
             
     aps_img = tp_all / (tp_all + fp_all + fn_all)
     errors_img = (fp_all + fn_all) / (tp_all + fn_all)
+    pqs_img = iou_all / (tp_all + 0.5*fp_all + 0.5*fn_all)
     
     errors_img[np.isinf(errors_img)] = np.nan
-    return aps_img, errors_img
+    return aps_img, errors_img, pqs_img

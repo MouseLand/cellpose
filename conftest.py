@@ -1,7 +1,7 @@
 import time
 import numpy as np
 import pytest
-from cellpose import utils, models, vit_sam
+from cellpose import utils, models
 import zipfile
 import torch
 import torch.nn.functional as F
@@ -57,65 +57,20 @@ def data_dir(image_names):
     
 @pytest.fixture()
 def cellposemodel_fixture_24layer():
-    """ This is functionally identical to CellposeModel but uses mock class """
+    """ Load full transformer model """
     use_gpu = torch.cuda.is_available()
     use_mps = 'mps' if torch.backends.mps.is_available() else False
     gpu = use_gpu or use_mps
-    model = MockCellposeModel(24, gpu=gpu)
+    model = models.CellposeModel(gpu=gpu, pretrained_model="cpsam")
     yield model
 
 
 @pytest.fixture()
 def cellposemodel_fixture_2layer():
-    """ This is only uses 2 transformer blocks for speed """
+    """ This only uses 2 transformer blocks and vitb for speed """
     use_gpu = torch.cuda.is_available()
     use_mps = 'mps' if torch.backends.mps.is_available() else False
     gpu = use_gpu or use_mps
-    model = MockCellposeModel(n_keep_layers=2, gpu=gpu)
+    model = models.CellposeModel(gpu=gpu, pretrained_model="cpdino-vitb")
+    model.net.encoder.blocks = model.net.encoder.blocks[:2]
     yield model
-
-
-class MockTransformer(vit_sam.Transformer):
-    def __init__(self, use_layers: int):
-        """ use_layers: the number of layers use starting from the first layer """
-        super().__init__()
-
-        self.use_layers = use_layers
-        self.layer_idxs = np.linspace(0, 23, self.use_layers, dtype=int)
-
-    def forward(self, x):
-        # same progression as SAM until readout
-        x = self.encoder.patch_embed(x)
-        
-        if self.encoder.pos_embed is not None:
-            x = x + self.encoder.pos_embed
-        
-        # only use self.use_layers layers
-        for layer_idx in self.layer_idxs:
-            x = self.encoder.blocks[layer_idx](x)
-
-        x = self.encoder.neck(x.permute(0, 3, 1, 2))
-
-        # readout is changed here
-        x1 = self.out(x)
-        x1 = F.conv_transpose2d(x1, self.W2, stride = self.ps, padding = 0)
-        
-        # maintain the second output of feature size 256 for backwards compatibility
-        return x1, torch.randn((x.shape[0], 256), device=x.device)
-
-
-class MockCellposeModel(models.CellposeModel):
-    def __init__(self, n_keep_layers=2, gpu=False):
-        super().__init__(gpu=gpu)
-
-        self.net = MockTransformer(n_keep_layers)
-        self.net.to(self.device)
-        self.net.load_model(Path().home() / '.cellpose/models/cpsam', device=self.device)
-
-    def eval(self, *args, **kwargs):
-        tic = time.time()
-        res = super().eval(*args, **kwargs)
-        toc = time.time()
-
-        print(f'eval() time elapsed: {toc-tic}')
-        return res

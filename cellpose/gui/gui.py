@@ -270,7 +270,7 @@ class MainW(QMainWindow):
             "learning_rate": 1e-5,
             "weight_decay": 0.1,
             "n_epochs": 100,
-            "model_name": "cpsam" + d.strftime("_%Y%m%d_%H%M%S"),
+            "model_name": "cp4" + d.strftime("_%Y%m%d_%H%M%S"),
         }
 
         self.stitch_threshold = 0.
@@ -478,21 +478,32 @@ class MainW(QMainWindow):
         )
         self.useGPU.setFont(self.medfont)
         self.check_gpu()
-        self.segBoxG.addWidget(self.useGPU, widget_row, 0, 1, 3)
+        self.segBoxG.addWidget(self.useGPU, widget_row, 0, 1, 3)    
 
-        # compute segmentation with general models
-        self.net_text = ["run CPSAM"]
-        nett = ["cellpose super-generalist model"]
+        self.progress = QProgressBar(self)
+        self.segBoxG.addWidget(self.progress, widget_row, 3, 1, 5)    
 
-        self.StyleButtons = []
-        jj = 4
-        for j in range(len(self.net_text)):
-            self.StyleButtons.append(
-                guiparts.ModelButton(self, self.net_text[j], self.net_text[j]))
-            w = 5
-            self.segBoxG.addWidget(self.StyleButtons[-1], widget_row, jj, 1, w)
-            jj += w
-            self.StyleButtons[-1].setToolTip(nett[j])
+        # compute segmentation with built-in models
+        widget_row += 1
+        self.ModelChooseB = QComboBox()
+        self.ModelChooseB.setFont(self.medfont)
+        current_index = 0
+        self.ModelChooseB.addItems(models.MODEL_NAMES)
+        self.ModelChooseB.setFixedWidth(175)
+        self.ModelChooseB.setCurrentIndex(current_index)
+        tipstr = 'built-in models'
+        self.ModelChooseB.setToolTip(tipstr)
+        self.ModelChooseB.activated.connect(lambda: self.model_choose(custom=False))
+        self.segBoxG.addWidget(self.ModelChooseB, widget_row, 0, 1, 8)
+        
+        # compute segmentation w/ custom model
+        self.ModelButtonB = QPushButton(u"run")
+        self.ModelButtonB.setFont(self.medfont)
+        self.ModelButtonB.setFixedWidth(35)
+        self.ModelButtonB.clicked.connect(
+            lambda: self.compute_segmentation(custom=False))
+        self.segBoxG.addWidget(self.ModelButtonB, widget_row, 8, 1, 1)
+        self.ModelButtonB.setEnabled(False)       
 
         widget_row += 1
         self.ncells = guiparts.ObservableVariable(0)
@@ -503,10 +514,7 @@ class MainW(QMainWindow):
             lambda n: self.roi_count.setText(f'{str(n)} ROIs')
         )
 
-        self.segBoxG.addWidget(self.roi_count, widget_row, 0, 1, 4)
-
-        self.progress = QProgressBar(self)
-        self.segBoxG.addWidget(self.progress, widget_row, 4, 1, 5)
+        self.segBoxG.addWidget(self.roi_count, widget_row, 3, 1, 4)
 
         widget_row += 1
 
@@ -805,15 +813,13 @@ class MainW(QMainWindow):
 
 
     def model_choose(self, custom=False):
-        index = self.ModelChooseC.currentIndex(
-        ) if custom else self.ModelChooseB.currentIndex()
-        if index > 0:
-            if custom:
-                model_name = self.ModelChooseC.currentText()
-            else:
-                model_name = self.net_names[index - 1]
-            print(f"GUI_INFO: selected model {model_name}, loading now")
-            self.initialize_model(model_name=model_name, custom=custom)
+        if custom:
+            model_name = self.ModelChooseC.currentText()
+        else:
+            model_name = self.ModelChooseB.currentText()
+        print(f"GUI_INFO: selected model {model_name}")
+        # avoid double-loading model unless we need to?
+        # self.initialize_model(model_name=model_name, custom=custom)
 
     def toggle_scale(self):
         if self.scale_on:
@@ -824,11 +830,10 @@ class MainW(QMainWindow):
             self.scale_on = True
 
     def enable_buttons(self):
+        self.ModelButtonB.setEnabled(True)
         if len(self.model_strings) > 0:
             self.ModelButtonC.setEnabled(True)
-        for i in range(len(self.StyleButtons)):
-            self.StyleButtons[i].setEnabled(True)
-
+        
         for i in range(len(self.FilterButtons)):
             self.FilterButtons[i].setEnabled(True)
         if self.load_3D:
@@ -1908,8 +1913,8 @@ class MainW(QMainWindow):
             self.current_model_path = os.fspath(
                 models.MODEL_DIR.joinpath(self.current_model))
         else:
-            self.current_model = "cpsam"
-            self.current_model_path = models.model_path(self.current_model)
+            self.current_model = self.ModelChooseB.currentText()
+            self.current_model_path = models.cache_model_path(self.current_model)
 
     def initialize_model(self, model_name=None, custom=False):
         if model_name is None or custom:
@@ -1926,7 +1931,7 @@ class MainW(QMainWindow):
                 models.MODEL_DIR.joinpath(self.current_model))
 
             self.model = models.CellposeModel(gpu=self.useGPU.isChecked(),
-                                             pretrained_model=self.current_model)
+                                             pretrained_model=self.current_model_path)
 
     def add_model(self):
         io._add_model(self)
@@ -1945,7 +1950,8 @@ class MainW(QMainWindow):
         image_names = self.get_files()[0]
         self.train_data, self.train_labels, self.train_files, restore, normalize_params = io._get_train_set(
             image_names)
-        TW = guiparts.TrainWindow(self, models.MODEL_NAMES)
+        self.training_params["model_index"] = self.ModelChooseB.currentIndex()
+        TW = guiparts.TrainWindow(self)
         train = TW.exec_()
         if train:
             self.logger.info(
@@ -1963,7 +1969,7 @@ class MainW(QMainWindow):
         self.current_model = model_type
         
         self.model = models.CellposeModel(gpu=self.useGPU.isChecked(),
-                                          model_type=model_type)
+                                          pretrained_model=model_type)
         save_path = os.path.dirname(self.filename)
 
         print("GUI_INFO: name of new model: " + self.training_params["model_name"])
@@ -2067,9 +2073,7 @@ class MainW(QMainWindow):
             print(normalize_params)
             try:
                 masks, flows = self.model.eval(
-                    data, 
-                    diameter=diameter,
-                    cellprob_threshold=cellprob_threshold,
+                    data, diameter=diameter, cellprob_threshold=cellprob_threshold,
                     flow_threshold=flow_threshold, do_3D=do_3D, niter=niter,
                     normalize=normalize_params, stitch_threshold=stitch_threshold,
                     anisotropy=anisotropy, flow3D_smooth=flow3D_smooth,

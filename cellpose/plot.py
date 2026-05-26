@@ -32,7 +32,7 @@ def dx_to_circ(dP):
         ndarray: The circular color representation of the optic flow.
 
     """
-    mag = 255 * np.clip(transforms.normalize99(np.sqrt(np.sum(dP**2, axis=0))), 0, 1.)
+    mag = 255 * np.clip(transforms.normalize99(np.sqrt(np.sum(dP**2, axis=0)), downsample=True), 0, 1.)
     angles = np.arctan2(dP[1], dP[0]) + np.pi
     a = 2
     mag /= a

@@ -97,20 +97,20 @@ def test_resize(img_2d):
         "input_shape, channel_axis, z_axis, do_3D, expected_shape, raises_error",
         [   # passing:
             # 2D:
-            ((100, 120), None, None, False, (100, 120, 3), False),  # 2D grayscale image
+            ((100, 120), None, None, False, (100, 120, 1), False),  # 2D grayscale image
             ((100, 120, 3), None, None, False, (100, 120, 3), False),  # 2D RGB image
             ((3, 100, 120), 0, None, False, (100, 120, 3), False),  # 2D RGB image with channels first
             ((3, 100, 120), None, None, False, (100, 120, 3), False),  # 2D RGB image with channels first
 
             # 3D:
-            ((100, 120, 5), None, -1, True, (5, 100, 120, 3), False),  # 3D grayscale image
-            ((5, 100, 120), None, 0, True, (5, 100, 120, 3), False),  # 3D grayscale image
+            ((100, 120, 5), None, -1, True, (5, 100, 120, 1), False),  # 3D grayscale image
+            ((5, 100, 120), None, 0, True, (5, 100, 120, 1), False),  # 3D grayscale image
             ((100, 5, 120, 5), 1, 3, True, (5, 100, 120, 3), False),  # 3D 5chan image
             ((10, 100, 120, 3), -1, 0, True, (10, 100, 120, 3), False),  # 3D 5chan image
             
             # failing: 
             # 2D:
-            ((100, 120), None, 0, False, (100, 120, 3), True),  # 2D grayscale image
+            ((100, 120), None, 0, False, (100, 120, 1), True),  # 2D grayscale image
             ((100, 120, 3), None, None, True, (100, 120, 3), True),  # 2D RGB image
             ((3, 100, 120), -1, 2, False, (100, 120, 3), True),  # 2D RGB image with channels first
             ((3, 100, 120), None, None, True, (100, 120, 3), True),  # 2D RGB image with channels first

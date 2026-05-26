@@ -292,10 +292,8 @@ def run_3D(net, imgs, batch_size=8, augment=False,
         # per image
         core_logger.info("running %s: %d planes of size (%d, %d)" %
                          (sstr[p], shape[pm[p][0]], shape[pm[p][1]], shape[pm[p][2]]))
-        y, style = run_net(net,
-                           xsl, batch_size=batch_size, augment=augment, 
-                           bsize=bsize, tile_overlap=tile_overlap, 
-                           rsz=None)
+        y, style = run_net(net, xsl, batch_size=batch_size, augment=augment, 
+                           bsize=bsize, tile_overlap=tile_overlap, rsz=None)
         yf[..., -1] += y[..., -1].transpose(ipm[p])
         for j in range(2):
             yf[..., cp[p][j]] += y[..., cpy[p][j]].transpose(ipm[p])
