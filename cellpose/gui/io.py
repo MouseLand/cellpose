@@ -179,11 +179,15 @@ def _initialize_images(parent, image, load_3D=False):
 
     img_min = image.min()
     img_max = image.max()
-    parent.stack = parent.stack.astype(np.float32)
+    parent.stack = parent.stack.astype("float32")
     parent.stack -= img_min
     if img_max > img_min + 1e-3:
         parent.stack /= (img_max - img_min)
     parent.stack *= 255
+
+    if parent.stack.shape[-1] == 2:
+        parent.stack = np.concatenate((parent.stack, np.zeros((*parent.stack.shape[:-1], 1), dtype="float32")), axis=-1)
+    print(parent.stack.shape)
 
     if load_3D:
         parent.logger.info(": converted to float and normalized values to 0.0->255.0")
@@ -194,25 +198,12 @@ def _initialize_images(parent, image, load_3D=False):
     parent.imask = 0
     parent.Ly, parent.Lx = parent.stack.shape[-3:-1]
     parent.Ly0, parent.Lx0 = parent.stack.shape[-3:-1]
+    parent.nchan = parent.stack.shape[-1]
     parent.layerz = 255 * np.ones((parent.Ly, parent.Lx, 4), "uint8")
-    if hasattr(parent, "stack_filtered"):
-        parent.Lyr, parent.Lxr = parent.stack_filtered.shape[-3:-1]
-    elif parent.restore and "upsample" in parent.restore:
-        parent.Lyr, parent.Lxr = int(parent.Ly * parent.ratio), int(parent.Lx *
-                                                                    parent.ratio)
-    else:
-        parent.Lyr, parent.Lxr = parent.Ly, parent.Lx
+    parent.Lyr, parent.Lxr = parent.stack.shape[-3:-1]
     parent.clear_all()
 
-    if not hasattr(parent, "stack_filtered") and parent.restore:
-        parent.logger.info(": no 'img_restore' found, applying current settings")
-        parent.compute_restore()
-
-    if parent.autobtn.isChecked():
-        if parent.restore is None or parent.restore != "filter":
-            parent.logger.info(": normalization checked: computing saturation levels (and optionally filtered image)")
-            parent.compute_saturation()
-    
+    parent.compute_saturation()    
     parent.compute_scale()
     parent.track_changes = []
 
