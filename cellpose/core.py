@@ -52,7 +52,14 @@ def _use_gpu_torch(gpu_number=0):
     except:
         pass
     try:
-        device = torch.device('mps:' + str(gpu_number))
+        # ``gpu_number`` may be the string ``"mps"`` (passed straight through
+        # from ``--gpu_device mps``) rather than a device index, in which case
+        # ``"mps:mps"`` is not a valid device string. Fall back to the plain
+        # ``"mps"`` device for any non-integer gpu_number.
+        if str(gpu_number).isdigit():
+            device = torch.device('mps:' + str(gpu_number))
+        else:
+            device = torch.device('mps')
         _ = torch.zeros((1,1)).to(device)
         core_logger.info('** TORCH MPS version installed and working. **')
         return True

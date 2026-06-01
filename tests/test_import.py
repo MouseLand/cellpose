@@ -21,6 +21,23 @@ def test_gpu_check():
     core.use_gpu()
 
 
+def test_assign_device_mps_string():
+    # Regression test for #1455: passing ``--gpu_device mps`` (i.e.
+    # ``device="mps"``) must select the MPS backend, not silently fall back to
+    # CPU. Previously the literal string "mps" was used as a device index,
+    # building the invalid ``torch.device("mps:mps")`` which raised and forced
+    # CPU. Only meaningful where MPS is actually available.
+    import torch
+    from cellpose import core
+
+    if not torch.backends.mps.is_available():
+        pytest.skip("MPS backend not available")
+
+    device, gpu = core.assign_device(use_torch=True, gpu=True, device="mps")
+    assert gpu
+    assert device.type == "mps"
+
+
 def itest_model_dir():
     import os, pathlib
     import numpy as np
