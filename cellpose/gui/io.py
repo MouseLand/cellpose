@@ -185,9 +185,9 @@ def _initialize_images(parent, image, load_3D=False):
         parent.stack /= (img_max - img_min)
     parent.stack *= 255
 
-    if parent.stack.shape[-1] == 2:
-        parent.stack = np.concatenate((parent.stack, np.zeros((*parent.stack.shape[:-1], 1), dtype="float32")), axis=-1)
-    print(parent.stack.shape)
+    stack_chans = parent.stack.shape[-1]
+    if stack_chans < 3:
+        parent.stack = np.concatenate((parent.stack, np.zeros((*parent.stack.shape[:-1], 3-stack_chans), dtype="float32")), axis=-1)
 
     if load_3D:
         parent.logger.info(": converted to float and normalized values to 0.0->255.0")
