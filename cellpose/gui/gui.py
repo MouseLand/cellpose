@@ -16,7 +16,7 @@ import numpy as np
 from scipy.stats import mode
 import cv2
 
-from . import guiparts, menus, io
+from . import guiparts, menus, io, delete_utils
 from .. import models, core, dynamics, version, train
 from ..utils import download_url_to_file, masks_to_outlines, diameters
 from ..io import get_image_files, imsave, imread
@@ -1213,12 +1213,60 @@ class MainW(QMainWindow):
     def remove_cell(self, idx):
         if isinstance(idx, (int, np.integer)):
             idx = [idx]
-        # because the function remove_single_cell updates the state of the cellpix and outpix arrays
-        # by reindexing cells to avoid gaps in the indices, we need to remove the cells in reverse order
-        # so that the indices are correct
-        idx.sort(reverse=True)
-        for i in idx:
-            self.remove_single_cell(i)
+        idx = delete_utils.normalize_remove_ids(idx, self.ncells.get())
+        if idx.size == 0:
+            return
+
+        if idx.size == 1:
+            self.remove_single_cell(int(idx[0]))
+        else:
+            self.selected = 0
+            remove_mask = np.zeros(self.ncells.get() + 1, dtype=bool)
+            remove_mask[idx] = True
+
+            if self.currentZ < self.cellpix.shape[0]:
+                self.layerz[remove_mask[self.cellpix[self.currentZ]]] = np.array([0, 0, 0,
+                                                                                  0])
+
+            if self.NZ == 1:
+                last_idx = int(idx[-1])
+                cp_last = self.cellpix[0] == last_idx
+                op_last = self.outpix[0] == last_idx
+                self.removed_cell = [
+                    self.ismanual[last_idx - 1], self.cellcolors[last_idx],
+                    np.nonzero(cp_last),
+                    np.nonzero(op_last)
+                ]
+                self.redo.setEnabled(True)
+
+                ar_all, ac_all = np.nonzero(remove_mask[self.cellpix[0]])
+                coord_map = {}
+                if ar_all.size > 0:
+                    labels = self.cellpix[0, ar_all, ac_all]
+                    order = np.argsort(labels, kind="mergesort")
+                    labels = labels[order]
+                    ar_all = ar_all[order]
+                    ac_all = ac_all[order]
+                    unique_labels, first_inds = np.unique(labels, return_index=True)
+                    last_inds = np.append(first_inds[1:], labels.size)
+                    for label, i0, i1 in zip(unique_labels, first_inds, last_inds):
+                        coord_map[int(label)] = (ar_all[i0:i1], ac_all[i0:i1])
+
+                for i in idx:
+                    ar, ac = coord_map.get(
+                        int(i), (np.zeros(0, np.int64), np.zeros(0, np.int64)))
+                    d = datetime.datetime.now()
+                    self.track_changes.append(
+                        [d.strftime("%m/%d/%Y, %H:%M:%S"), "removed mask", [ar, ac]])
+                    print("GUI_INFO: removed cell %d" % (i - 1))
+            else:
+                for i in idx:
+                    print("GUI_INFO: removed cell %d" % (i - 1))
+
+            (self.cellpix, self.outpix, self.ismanual, self.cellcolors, self.zdraw, _,
+             _) = delete_utils.batch_delete_reindex(self.cellpix, self.outpix,
+                                                    self.ismanual, self.cellcolors,
+                                                    self.zdraw, idx)
         self.ncells -= len(idx)  # _save_sets uses ncells
         self.update_layer()
 
