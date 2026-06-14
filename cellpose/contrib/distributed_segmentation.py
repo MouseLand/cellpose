@@ -1,4 +1,5 @@
 # stdlib imports
+import contextlib
 import os, getpass, datetime, pathlib, tempfile, functools, glob
 
 # non-stdlib core dependencies
@@ -145,6 +146,34 @@ def _remove_config_file(
     if os.path.exists(config_path): os.remove(config_path)
 
 
+#----------------------- helpers ---------------------------------------------#
+def _parse_memory_mb(memory):
+    """Accept memory as int (MB) or str like '125000', '125GB', '125 GiB'
+    and return an integer in megabytes. Used by the SLURM cluster wrapper
+    to pass the right format to both dask (string with unit) and to
+    SLURM's --mem (integer MB)."""
+    if isinstance(memory, (int, np.integer)):
+        return int(memory)
+    s = str(memory).strip().lower().replace(" ", "")
+    # strip optional 'b' (so '125gb' and '125g' both work)
+    if s.endswith("ib"):
+        s = s[:-2]
+        binary = True
+    elif s.endswith("b"):
+        s = s[:-1]
+        binary = False
+    else:
+        binary = False
+    units = {"k": 1, "m": 1, "g": 1000, "t": 1000_000}
+    units_bin = {"k": 1, "m": 1, "g": 1024, "t": 1024 * 1024}
+    if s and s[-1] in "kmgt":
+        n = float(s[:-1])
+        mul = (units_bin if binary else units)[s[-1]]
+        return int(round(n * mul))
+    # plain number → already MB
+    return int(round(float(s)))
+
+
 #----------------------- clusters --------------------------------------------#
 class myLocalCluster(distributed.LocalCluster):
     """
@@ -213,6 +242,258 @@ class myLocalCluster(distributed.LocalCluster):
             _remove_config_file(self.config_name)
         self.client.close()
         super().__exit__(exc_type, exc_value, traceback)
+
+
+class slurmCluster(dask_jobqueue.SLURMCluster):
+    """
+    Thin wrapper around dask_jobqueue.SLURMCluster, which in turn extends
+    dask.distributed.SpecCluster. This wrapper sets configs before the
+    cluster or workers are initialized. This is an adaptive cluster and
+    will scale the number of workers, between user-specified limits, based
+    on the number of pending tasks.
+
+    Defaults are tuned for GPU jobs on a typical SLURM cluster (one worker
+    per submitted job, one GPU per worker). Tested on the MPCDF Raven
+    cluster; should work on any SLURM cluster by adjusting partition,
+    account, and the GPU directives.
+
+    For a full list of arguments see
+    https://jobqueue.dask.org/en/latest/generated/dask_jobqueue.SLURMCluster.html
+
+    Most users only need to specify:
+        ncpus       (CPU cores per worker, sets ``--cpus-per-task``)
+        min_workers (lower bound for adaptive scaling)
+        max_workers (upper bound for adaptive scaling)
+        walltime    (e.g. ``"24:00:00"``)
+        memory      (e.g. ``"125GB"``)
+
+    Cluster-specific extras such as ``--constraint=gpu`` and
+    ``--gres=gpu:a100:1`` can be passed via ``job_extra_directives``. A
+    ``partition`` and/or ``account`` may be required by your cluster.
+
+    Example (MPCDF Raven, 1 A100 GPU per worker)::
+
+        cluster_kwargs = {
+            'cluster_type': 'slurm',
+            'ncpus': 18,
+            'min_workers': 1,
+            'max_workers': 4,
+            'walltime': '24:00:00',
+            'memory': '125GB',
+            'job_extra_directives': [
+                '--constraint=gpu',
+                '--gres=gpu:a100:1',
+            ],
+        }
+
+    Example (MPCDF Raven, 4 A100 GPUs per SLURM job, 4 dask workers per
+    job via dask-cuda — useful when the per-user concurrent-job cap (8)
+    bottlenecks total GPUs)::
+
+        cluster_kwargs = {
+            'cluster_type': 'slurm',
+            'ncpus': 18,           # CPUs per GPU/worker; the wrapper multiplies by gpus_per_job
+            'memory': '125000',    # MB per GPU/worker; multiplied by gpus_per_job
+            'gpus_per_job': 4,
+            'min_workers': 1,
+            'max_workers': 8,      # 8 jobs * 4 GPUs = 32 effective workers
+            'walltime': '24:00:00',
+            'job_extra_directives': [
+                '--constraint=gpu',
+                '--gres=gpu:a100:4',
+            ],
+        }
+    """
+
+    def __init__(
+        self,
+        ncpus,
+        min_workers,
+        max_workers,
+        walltime='24:00:00',
+        memory=None,
+        partition=None,
+        account=None,
+        gpus_per_job=1,
+        config={},
+        config_name=DEFAULT_CONFIG_FILENAME,
+        persist_config=False,
+        **kwargs,
+    ):
+        """``gpus_per_job`` controls multi-GPU mode. The default of 1
+        keeps single-GPU behavior. Setting it to >1 makes each submitted
+        SLURM job hold multiple GPUs and starts that many dask workers
+        per job (one per GPU) using ``dask-cuda-worker`` for per-process
+        GPU isolation. Requires ``dask-cuda`` (and a ``dask_cuda_worker_entry``
+        importable shim that calls dask_cuda.cli.worker) to be installed
+        in the worker env.
+
+        With multi-GPU mode the caller still passes ``ncpus`` as the
+        per-GPU CPU count (e.g. 18 on Raven). The wrapper multiplies that
+        by ``gpus_per_job`` for the SLURM job_cpu/job_mem directives, so
+        a 4-GPU job on Raven gets cpus=72, mem=500000.
+        """
+
+        # store all args in case needed later
+        self.locals_store = {**locals()}
+        self.gpus_per_job = int(gpus_per_job)
+
+        # config
+        self.config_name = config_name
+        self.persist_config = persist_config
+        # /ptmp/<user> is the recommended fast scratch on Raven; fall back
+        # to a per-user dir under /tmp on systems that don't have /ptmp.
+        ptmp = pathlib.Path(f"/ptmp/{getpass.getuser()}")
+        scratch_dir = (str(ptmp) + "/") if ptmp.is_dir() \
+            else f"/tmp/{getpass.getuser()}/"
+        config_defaults = {
+            'temporary-directory': scratch_dir,
+            'distributed.comm.timeouts.connect': '180s',
+            'distributed.comm.timeouts.tcp': '360s',
+        }
+        config = {**config_defaults, **config}
+        _modify_dask_config(config, config_name)
+
+        # threading is best in low level libraries
+        job_script_prologue = [
+            f"export MKL_NUM_THREADS={2*ncpus}",
+            f"export NUM_MKL_THREADS={2*ncpus}",
+            f"export OPENBLAS_NUM_THREADS={2*ncpus}",
+            f"export OPENMP_NUM_THREADS={2*ncpus}",
+            f"export OMP_NUM_THREADS={2*ncpus}",
+        ]
+        # allow caller to extend (rather than replace) the prologue
+        user_prologue = kwargs.pop('job_script_prologue', [])
+        job_script_prologue = job_script_prologue + list(user_prologue)
+
+        # set scratch and log directories
+        if "local_directory" not in kwargs:
+            kwargs["local_directory"] = scratch_dir
+        if "log_directory" not in kwargs:
+            log_dir = f"{os.getcwd()}/dask_worker_logs_{os.getpid()}/"
+            pathlib.Path(log_dir).mkdir(parents=False, exist_ok=True)
+            kwargs["log_directory"] = log_dir
+
+        # default per-worker memory: ~15 GB per requested CPU
+        if memory is None:
+            memory_mb = 15 * 1000 * ncpus
+        else:
+            memory_mb = _parse_memory_mb(memory)
+
+        # In multi-GPU mode the SLURM job holds gpus_per_job GPUs and runs
+        # gpus_per_job dask worker processes (one per GPU). Scale the SLURM
+        # cpu and memory totals accordingly. ncpus and memory remain the
+        # *per-GPU* (per-worker) numbers as the caller passed them.
+        n_dask_workers_per_job = self.gpus_per_job
+        slurm_cpus = ncpus * self.gpus_per_job
+        slurm_mem_mb = memory_mb * self.gpus_per_job
+        # dask's per-worker memory budget — *per worker process*, so just memory_mb.
+        dask_worker_memory = f"{memory_mb}MB"
+        # cores= controls how many dask workers run in this SLURM job.
+        # processes= splits cores across that many worker processes.
+        # For dask-cuda mode we set both = gpus_per_job and let dask-cuda-worker
+        # pin each to a different CUDA_VISIBLE_DEVICES.
+        # SLURM --mem expects an integer of MB (the safest cross-cluster
+        # form; G/GiB/GB suffixes get interpreted differently by different
+        # SLURM versions and by some site rules — Raven for example treats
+        # "G" as GiB, which silently exceeds the 1/4-of-node share cap on
+        # GPU jobs). Dask, on the other hand, parses its `memory` argument
+        # as a human-readable string and treats a bare number as BYTES,
+        # which would set a microscopic per-worker memory budget. So we
+        # pass the SLURM directive as a plain int and the dask budget as
+        # a unit-suffixed string.
+        super_kwargs = dict(
+            cores=n_dask_workers_per_job,
+            processes=n_dask_workers_per_job,
+            memory=f"{slurm_mem_mb}MB",
+            walltime=walltime,
+            queue=partition,
+            account=account,
+            job_cpu=slurm_cpus,
+            job_mem=str(slurm_mem_mb),
+            job_script_prologue=job_script_prologue,
+        )
+        if self.gpus_per_job > 1:
+            # Use dask-cuda's worker so each of the N dask processes in this
+            # SLURM job binds to exactly one GPU. We point dask-jobqueue at
+            # a small shim module that calls dask_cuda.cli.worker, since
+            # the package only ships a console script (no `__main__.py`).
+            super_kwargs["worker_command"] = "dask_cuda_worker_entry"
+        super().__init__(
+            **super_kwargs,
+            **kwargs,
+        )
+        self.client = distributed.Client(self)
+        print("Cluster dashboard link: ", self.dashboard_link)
+
+        # set adaptive cluster bounds
+        self.adapt_cluster(min_workers, max_workers)
+
+
+    def __enter__(self): return self
+    def __exit__(self, exc_type, exc_value, traceback):
+        if not self.persist_config:
+            _remove_config_file(self.config_name)
+        self.client.close()
+        super().__exit__(exc_type, exc_value, traceback)
+
+
+    def adapt_cluster(self, min_workers, max_workers):
+        _ = self.adapt(
+            minimum_jobs=min_workers,
+            maximum_jobs=max_workers,
+            interval='10s',
+            wait_count=6,
+        )
+
+
+    def change_worker_attributes(
+        self,
+        min_workers,
+        max_workers,
+        **kwargs,
+    ):
+        """Drop existing workers and respawn with updated kwargs.
+
+        WARNING: dangerous if you don't know what you're doing.
+
+        Used by ``distributed_eval`` to release GPUs and shrink workers
+        for the cheap stitching phase. Updates the canonical
+        ``self._job_kwargs`` store; ``self.new_spec['options']`` is the
+        same dict (per dask_jobqueue.JobQueueCluster.__init__) so it
+        picks up the change. ``_dummy_job`` is a property and recomputes
+        the SLURM header on next access. The job_script preview below
+        is logged so future runs can verify the new directives reach
+        the queued jobs."""
+        self.scale(0)
+        # Block until existing workers actually leave; otherwise adapt()
+        # below sees them and skips the respawn.
+        try:
+            self.sync(self._correct_state)
+        except Exception:
+            pass
+        # SpecCluster shallow-copied the worker dict at __init__, so
+        # ``self.new_spec['options']`` and ``self._job_kwargs`` are the
+        # same dict object. We update ``_job_kwargs`` (the canonical
+        # store) and assert the alias still holds.
+        self._job_kwargs.update(kwargs)
+        assert self.new_spec['options'] is self._job_kwargs, (
+            "internal invariant broken: new_spec['options'] is no longer "
+            "self._job_kwargs; dask_jobqueue API changed?"
+        )
+        # Log the freshly-rendered job script so the SBATCH directives
+        # are visible in the driver log — makes it obvious whether the
+        # new kwargs propagated. Truncated to the header.
+        try:
+            preview = "\n".join(
+                ln for ln in self._dummy_job.job_script().split("\n")
+                if ln.startswith("#") or "dask" in ln.lower()
+            )
+            print("change_worker_attributes -> next job script header:")
+            print(preview)
+        except Exception as exc:  # pragma: no cover
+            print(f"change_worker_attributes: could not preview job script: {exc}")
+        self.adapt_cluster(min_workers, max_workers)
 
 
 class janeliaLSFCluster(dask_jobqueue.LSFCluster):
@@ -331,6 +612,13 @@ class janeliaLSFCluster(dask_jobqueue.LSFCluster):
 
 
 #----------------------- decorator -------------------------------------------#
+CLUSTER_CONSTRUCTORS = {
+    'local': myLocalCluster,
+    'lsf': janeliaLSFCluster,
+    'slurm': slurmCluster,
+}
+
+
 def cluster(func):
     """
     This decorator ensures a function will run inside a cluster
@@ -340,6 +628,12 @@ def cluster(func):
     cluster and we just run func. If "cluster" is None then
     "cluster_kwargs" are used to construct a new cluster, and
     the function is run inside that cluster context.
+
+    The cluster type is selected by the ``cluster_type`` key in
+    ``cluster_kwargs`` ("local", "lsf", or "slurm"). For backward
+    compatibility, when ``cluster_type`` is not given the choice
+    defaults to LSF if ``ncpus``, ``min_workers``, and ``max_workers``
+    are all present (the original LSF signature) and to local otherwise.
     """
     @functools.wraps(func)
     def create_or_pass_cluster(*args, **kwargs):
@@ -348,11 +642,21 @@ def cluster(func):
         assert 'cluster' in kwargs or 'cluster_kwargs' in kwargs, \
         "Either cluster or cluster_kwargs must be defined"
         if not 'cluster' in kwargs:
-            cluster_constructor = myLocalCluster
-            F = lambda x: x in kwargs['cluster_kwargs']
-            if F('ncpus') and F('min_workers') and F('max_workers'):
-                cluster_constructor = janeliaLSFCluster
-            with cluster_constructor(**kwargs['cluster_kwargs']) as cluster:
+            cluster_kwargs = dict(kwargs['cluster_kwargs'])  # copy; we pop
+            cluster_type = cluster_kwargs.pop('cluster_type', None)
+            if cluster_type is None:
+                F = lambda x: x in cluster_kwargs
+                if F('ncpus') and F('min_workers') and F('max_workers'):
+                    cluster_type = 'lsf'
+                else:
+                    cluster_type = 'local'
+            if cluster_type not in CLUSTER_CONSTRUCTORS:
+                raise ValueError(
+                    f"Unknown cluster_type {cluster_type!r}. "
+                    f"Choose from {list(CLUSTER_CONSTRUCTORS)}."
+                )
+            cluster_constructor = CLUSTER_CONSTRUCTORS[cluster_type]
+            with cluster_constructor(**cluster_kwargs) as cluster:
                 kwargs['cluster'] = cluster
                 return func(*args, **kwargs)
         return func(*args, **kwargs)
@@ -606,6 +910,7 @@ def distributed_eval(
     cluster=None,
     cluster_kwargs={},
     temporary_directory=None,
+    resume_dir=None,
 ):
     """
     Evaluate a cellpose model on overlapping blocks of a big image.
@@ -614,20 +919,23 @@ def distributed_eval(
     Optionally use a mask to ignore background regions in image.
     Either cluster or cluster_kwargs parameter must be set to a
     non-default value; please read these parameter descriptions below.
-    If using cluster_kwargs, the workstation and Janelia LSF cluster cases
-    are distinguished by the arguments present in the dictionary.
 
-    PC/Mac/Linux workstations and the Janelia LSF cluster are supported;
-    running on a different institute cluster will require implementing your
-    own dask cluster class. Look at the JaneliaLSFCluster class in this
-    module as an example, also look at the dask_jobqueue library. A PR with
-    a solid start is the right way to get help running this on your own
-    institute cluster.
+    Three cluster types are supported out of the box, selectable via the
+    ``cluster_type`` key in ``cluster_kwargs``:
+
+    - ``"local"`` -> :class:`myLocalCluster` (single workstation)
+    - ``"lsf"``   -> :class:`janeliaLSFCluster` (Janelia LSF cluster)
+    - ``"slurm"`` -> :class:`slurmCluster` (any SLURM cluster, defaults
+      tuned for MPCDF Raven)
+
+    Running on a different cluster manager will require implementing your
+    own dask cluster class; the existing classes are good starting points,
+    and the dask_jobqueue library covers most schedulers. PRs with a
+    solid start are welcome.
 
     If running on a workstation, please read the docstring for the
-    LocalCluster class defined in this module. That will tell you what to
-    put in the cluster_kwargs dictionary. If using the Janelia cluster,
-    please read the docstring for the JaneliaLSFCluster class.
+    LocalCluster class defined in this module. For LSF or SLURM, see the
+    docstrings for the corresponding cluster classes.
 
     Parameters
     ----------
@@ -695,6 +1003,25 @@ def distributed_eval(
         is the current directory. Temporary files are removed if the function
         completes successfully.
 
+    resume_dir : string (default: None)
+        If set, this exact path is used as the (persistent) tempdir instead
+        of a randomly named one under ``temporary_directory``. The directory
+        is created if missing and is NOT auto-deleted, so a subsequent call
+        with the same ``resume_dir`` will detect blocks that were already
+        segmented in a previous run and skip them.
+
+        A block is considered "already done" if its corresponding chunk
+        file in the unstitched temp zarr exists on disk (the temp zarr is
+        chunked at exactly ``blocksize`` so each block maps to one chunk
+        file). For each already-done block the per-block return values
+        ``(faces, boxes, remap)`` are recomputed from the saved
+        segmentation, and stitching proceeds on the union of recomputed
+        and freshly-computed results.
+
+        Use this to recover from a SLURM walltime kill: pass the original
+        run's tempdir as ``resume_dir`` to the new run; only un-segmented
+        blocks will actually be processed.
+
     Returns
     -------
     Two values are returned:
@@ -714,31 +1041,81 @@ def distributed_eval(
 
     if 'diameter' not in eval_kwargs.keys():
         eval_kwargs['diameter'] = 30
-    overlap = eval_kwargs['diameter'] * 2
+    # diameter may be a float; overlap is used to build zarr slices and
+    # must be an int.
+    overlap = int(eval_kwargs['diameter'] * 2)
     block_indices, block_crops = get_block_crops(
         input_zarr.shape, blocksize, overlap, mask,
     )
 
-    # I hate indenting all that code just for the tempdir
-    # but context manager is the only way to really guarantee that
-    # the tempdir gets cleaned up even after unhandled exceptions
-    with tempfile.TemporaryDirectory(
-        prefix='.', suffix='_distributed_cellpose_tempdir',
-        dir=temporary_directory or os.getcwd(),
-    ) as temporary_directory:
+    # tempdir context: random-and-auto-deleted by default, or persistent
+    # at `resume_dir` if the caller wants resume capability.
+    if resume_dir is not None:
+        pathlib.Path(resume_dir).mkdir(parents=True, exist_ok=True)
+        tempdir_ctx = contextlib.nullcontext(resume_dir)
+    else:
+        tempdir_ctx = tempfile.TemporaryDirectory(
+            prefix='.', suffix='_distributed_cellpose_tempdir',
+            dir=temporary_directory or os.getcwd(),
+        )
+    with tempdir_ctx as temporary_directory:
 
         temp_zarr_path = temporary_directory + '/segmentation_unstitched.zarr'
-        temp_zarr = zarr.open(
-            temp_zarr_path, 'w',
-            shape=input_zarr.shape,
-            chunks=blocksize,
-            dtype=np.uint32,
-        )
+        # Open existing temp zarr (resume) or create fresh.
+        if resume_dir is not None and pathlib.Path(temp_zarr_path).exists():
+            temp_zarr = zarr.open(temp_zarr_path, mode='a')
+            assert temp_zarr.shape == tuple(input_zarr.shape), (
+                f"resume_dir {resume_dir} has temp zarr of shape {temp_zarr.shape} "
+                f"but input is {tuple(input_zarr.shape)}"
+            )
+        else:
+            temp_zarr = zarr.open(
+                temp_zarr_path, 'w',
+                shape=input_zarr.shape,
+                chunks=blocksize,
+                dtype=np.uint32,
+            )
+
+        # Resume: classify blocks into todo (need to run) vs done (chunk
+        # file already on disk in the temp zarr) and reconstruct the done
+        # blocks' return values from the saved segmentation. We freeze
+        # done_indices BEFORE workers start so the ordering is stable
+        # (workers will write chunks for new blocks during the run, which
+        # would otherwise confuse a re-classification at gather time).
+        done_indices, done_crops = [], []
+        precomputed_results = []
+        todo_indices, todo_crops = list(block_indices), list(block_crops)
+        if resume_dir is not None:
+            done_indices, done_crops = [], []
+            todo_indices, todo_crops = [], []
+            for idx, crop in zip(block_indices, block_crops):
+                if block_chunk_path(temp_zarr_path, idx).exists():
+                    done_indices.append(idx)
+                    done_crops.append(crop)
+                else:
+                    todo_indices.append(idx)
+                    todo_crops.append(crop)
+            print(
+                f"resume: {len(done_indices)} blocks already done, "
+                f"{len(todo_indices)} blocks to process",
+                flush=True,
+            )
+            for k, (idx, crop) in enumerate(zip(done_indices, done_crops), start=1):
+                precomputed_results.append(
+                    recompute_block_results(
+                        temp_zarr, idx, crop, overlap, blocksize,
+                    )
+                )
+                if k % 100 == 0 or k == len(done_indices):
+                    print(
+                        f"  recomputed {k}/{len(done_indices)} done blocks",
+                        flush=True,
+                    )
 
         futures = cluster.client.map(
             process_block,
-            block_indices,
-            block_crops,
+            todo_indices,
+            todo_crops,
             input_zarr=input_zarr,
             preprocessing_steps=preprocessing_steps,
             model_kwargs=model_kwargs,
@@ -748,9 +1125,15 @@ def distributed_eval(
             output_zarr=temp_zarr,
             worker_logs_directory=str(worker_logs_dir),
         )
-        results = cluster.client.gather(futures)
-        if isinstance(cluster, dask_jobqueue.core.JobQueueCluster): 
+        new_results = cluster.client.gather(futures)
+        if isinstance(cluster, dask_jobqueue.core.JobQueueCluster):
             cluster.scale(0)
+
+        # Combine results: precomputed (done) first, then freshly-computed.
+        # block_indices is rewritten to match this ordering so downstream
+        # stitching code keeps the parallel-list invariant with results.
+        results = list(precomputed_results) + list(new_results)
+        block_indices = list(done_indices) + list(todo_indices)
 
         faces, boxes_, box_ids_ = list(zip(*results))
         boxes = [box for sublist in boxes_ for box in sublist]
@@ -761,7 +1144,7 @@ def distributed_eval(
         np.save(new_labeling_path, new_labeling)
 
         # stitching step is cheap, we should release gpus and use small workers
-        if isinstance(cluster, dask_jobqueue.core.JobQueueCluster): 
+        if isinstance(cluster, janeliaLSFCluster):
             cluster.change_worker_attributes(
                 min_workers=cluster.locals_store['min_workers'],
                 max_workers=cluster.locals_store['max_workers'],
@@ -769,6 +1152,18 @@ def distributed_eval(
                 memory="15GB",
                 mem=int(15e9),
                 queue=None,
+                job_extra_directives=[],
+            )
+        elif isinstance(cluster, slurmCluster):
+            cluster.change_worker_attributes(
+                min_workers=cluster.locals_store['min_workers'],
+                max_workers=cluster.locals_store['max_workers'],
+                cores=1,
+                processes=1,
+                memory="15GB",
+                job_cpu=1,
+                job_mem="15GB",
+                # drop GPU constraints / gres so stitching workers run on CPU nodes
                 job_extra_directives=[],
             )
     
@@ -890,23 +1285,125 @@ def shrink_labels(plane, threshold):
     return shrunk_labels.reshape(plane.shape)
 
 
-def merge_all_boxes(boxes, box_ids):
-    """Merge all boxes that map to the same box_ids"""
-    merged_boxes = []
-    boxes_array = np.array(boxes, dtype=object)
-    # FIX float parameters
-    # print("Box IDs:", box_ids, "Type:", type(box_ids))
-    box_ids = box_ids.astype(int)
-    # print("Box IDs:", box_ids, "Type:", type(box_ids))
+def compute_trimmed_crop(crop, overlap, blocksize):
+    """Pure-function reproduction of remove_overlaps' crop adjustment, for
+    use when we want to know where a block lives in the temp zarr without
+    having the segmentation array on hand. Mirrors remove_overlaps logic
+    exactly: trim left by overlap if the crop didn't start at zero on
+    that axis, then trim right to blocksize if there's still room."""
+    crop_trimmed = list(crop)
+    for axis in range(len(crop)):
+        length = crop[axis].stop - crop[axis].start
+        if crop[axis].start != 0:
+            crop_trimmed[axis] = slice(
+                crop[axis].start + overlap, crop[axis].stop
+            )
+            length -= overlap
+        if length > blocksize[axis]:
+            a = crop_trimmed[axis].start
+            crop_trimmed[axis] = slice(a, a + blocksize[axis])
+    return tuple(crop_trimmed)
 
-    for iii in np.unique(box_ids):
-        merge_indices = np.argwhere(box_ids == iii).squeeze()
-        if merge_indices.shape:
-            merged_box = merge_boxes(boxes_array[merge_indices])
-        else:
-            merged_box = boxes_array[merge_indices]
-        merged_boxes.append(merged_box)
-    return merged_boxes
+
+def recompute_block_results(temp_zarr, block_index, crop, overlap, blocksize):
+    """Reconstruct (faces, boxes, remap) for an already-completed block by
+    reading its segmentation from the temp zarr. Used in resume mode where
+    we don't have the original return values from process_block.
+
+    The saved segmentation is already globally-remapped (labels packed
+    with block index, max can be ~10^9). Calling
+    ``scipy.ndimage.find_objects`` on it directly allocates a list of
+    None entries up to ``max(label)`` — gigabytes per call, OOMing the
+    driver after a few hundred blocks. Instead we relabel locally to
+    1..N (sequential) via searchsorted, run find_objects on that small
+    label space, and translate the resulting per-label boxes back into
+    global coordinates."""
+    crop_trimmed = compute_trimmed_crop(crop, overlap, blocksize)
+    segmentation = np.asarray(temp_zarr[crop_trimmed])
+
+    # Drop 0 (background). The unique non-zero labels in this block are
+    # both the block's "remap" (parallel to its boxes) and the lookup
+    # table for our local relabeling.
+    remap_arr = np.unique(segmentation)
+    if remap_arr.size > 0 and remap_arr[0] == 0:
+        remap_arr = remap_arr[1:]
+
+    if remap_arr.size == 0:
+        boxes = []
+    else:
+        # Build a local-label image: 0 stays 0, label remap_arr[k] becomes k+1.
+        # searchsorted on a sorted unique array gives a 0-based index, +1
+        # so background stays at 0.
+        local_seg = np.zeros_like(segmentation, dtype=np.int32)
+        nonzero = segmentation != 0
+        local_seg[nonzero] = (
+            np.searchsorted(remap_arr, segmentation[nonzero]).astype(np.int32) + 1
+        )
+        local_boxes = scipy.ndimage.find_objects(local_seg)
+        # find_objects returns a list of length max(local_seg)==len(remap_arr).
+        # Each entry is either a slice tuple or None.
+        translate = lambda a, b: slice(a.start + b.start, a.start + b.stop)
+        boxes = []
+        for box in local_boxes:
+            if box is None:
+                continue
+            boxes.append(tuple(translate(a, b) for a, b in zip(crop_trimmed, box)))
+
+    # block_faces returns numpy views into `segmentation`. Without a copy
+    # the views keep the full 64 MB block alive in `precomputed_results`
+    # for the rest of the run; for ~900 blocks that's 50+ GB resident.
+    faces = [f.copy() for f in block_faces(segmentation)]
+    return faces, boxes, list(remap_arr)
+
+
+def block_chunk_path(temp_zarr_path, block_index, dimension_separator='.'):
+    """Path of the zarr v2 chunk file for the given block. The temp zarr is
+    chunked at blocksize so block_index == chunk index."""
+    name = dimension_separator.join(str(int(i)) for i in block_index)
+    return pathlib.Path(temp_zarr_path) / name
+
+
+def merge_all_boxes(boxes, box_ids):
+    """Merge all boxes that map to the same box_ids.
+
+    Returns one merged box per unique id, in sorted-id order (matching
+    the legacy ``np.unique(box_ids)`` iteration order).
+
+    Vectorized via ``argsort`` + ``np.minimum/maximum.reduceat`` to keep
+    runtime at O(N log N * ndim). The previous per-id ``argwhere`` loop
+    was O(N) per group; on volumes with ~10^7 unique labels the
+    quadratic blow-up made the stitching tail wedge for hours."""
+    box_ids = np.asarray(box_ids).astype(int)
+    n = len(boxes)
+    if n == 0:
+        return []
+
+    # Pull starts/stops out of the slice tuples into dense (N, ndim) arrays.
+    ndim = len(boxes[0])
+    starts = np.empty((n, ndim), dtype=np.int64)
+    stops = np.empty((n, ndim), dtype=np.int64)
+    for i, box in enumerate(boxes):
+        for d, s in enumerate(box):
+            starts[i, d] = s.start
+            stops[i, d] = s.stop
+
+    # Sort rows by id so same-id rows are contiguous, then reduce per group.
+    order = np.argsort(box_ids, kind="stable")
+    box_ids_sorted = box_ids[order]
+    starts_sorted = starts[order]
+    stops_sorted = stops[order]
+
+    # `return_index=True` on a sorted array gives the start of each run,
+    # which is exactly what reduceat needs.
+    unique_ids, group_starts = np.unique(box_ids_sorted, return_index=True)
+    merged_starts = np.minimum.reduceat(starts_sorted, group_starts, axis=0)
+    merged_stops = np.maximum.reduceat(stops_sorted, group_starts, axis=0)
+
+    return [
+        tuple(slice(int(merged_starts[i, d]), int(merged_stops[i, d]))
+              for d in range(ndim))
+        for i in range(len(unique_ids))
+    ]
 
 
 def merge_boxes(boxes):
