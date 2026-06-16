@@ -214,6 +214,111 @@ class myLocalCluster(distributed.LocalCluster):
         self.client.close()
         super().__exit__(exc_type, exc_value, traceback)
 
+class SlurmCluster(dask_jobqueue.SLURMCluster):
+    """
+    This is a thin wrapper extending dask_jobqueue.SLURMCluster,
+    which in turn extends dask.distributed.SpecCluster. This wrapper
+    sets configs before the cluster or workers are initialized. This is
+    an adaptive cluster and will scale the number of workers, between user
+    specified limits, based on the number of pending tasks.
+
+    For a full list of arguments see
+    https://jobqueue.dask.org/en/latest/generated/dask_jobqueue.SLURMCluster.html
+
+    Most users will only need to specify:
+    ncpus (the number of cpu cores per worker)
+    min_workers
+    max_workers
+    """
+
+    def __init__(
+        self,
+        ncpus,
+        min_workers,
+        max_workers,
+        config={},
+        config_name=DEFAULT_CONFIG_FILENAME,
+        persist_config=False,
+        local_directory = f"/scratch/{getpass.getuser()}/",
+        job_script_prologue = [],
+        **kwargs
+    ):
+
+        # store all args in case needed later
+        self.locals_store = {**locals()}
+
+        # config
+        self.config_name = config_name
+        self.persist_config = persist_config
+        config_defaults = {
+            'temporary-directory':local_directory,
+            'distributed.comm.timeouts.connect':'180s',
+            'distributed.comm.timeouts.tcp':'360s',
+        }
+        config = {**config_defaults, **config}
+        _modify_dask_config(config, config_name)
+
+        # threading is best in low level libraries
+        job_script_prologue = [
+            f"export MKL_NUM_THREADS={2*ncpus}",
+            f"export NUM_MKL_THREADS={2*ncpus}",
+            f"export OPENBLAS_NUM_THREADS={2*ncpus}",
+            f"export OPENMP_NUM_THREADS={2*ncpus}",
+            f"export OMP_NUM_THREADS={2*ncpus}",
+        ] + job_script_prologue
+
+        # set log directories
+        if "log_directory" not in kwargs:
+            log_dir = f"{os.getcwd()}/dask_worker_logs_{os.getpid()}/"
+            pathlib.Path(log_dir).mkdir(parents=False, exist_ok=True)
+            kwargs["log_directory"] = log_dir
+
+        # construct
+        super().__init__(
+            processes=1,
+            cores=ncpus,
+            memory=str(15*ncpus)+'GB',
+            job_script_prologue=job_script_prologue,
+            **kwargs,
+        )
+        self.client = distributed.Client(self)
+        print("Cluster dashboard link: ", self.dashboard_link)
+
+        # set adaptive cluster bounds
+        self.adapt_cluster(min_workers, max_workers)
+
+
+    def __enter__(self): return self
+    def __exit__(self, exc_type, exc_value, traceback):
+        if not self.persist_config:
+            _remove_config_file(self.config_name)
+        self.client.close()
+        super().__exit__(exc_type, exc_value, traceback)
+
+
+    def adapt_cluster(self, min_workers, max_workers):
+        _ = self.adapt(
+            minimum_jobs=min_workers,
+            maximum_jobs=max_workers,
+            interval='10s',
+            wait_count=6,
+        )
+
+
+    def change_worker_attributes(
+        self,
+        min_workers,
+        max_workers,
+        **kwargs,
+    ):
+        """WARNING: this function is dangerous if you don't know what
+           you're doing. Don't call this unless you know exactly what
+           this does."""
+        self.scale(0)
+        for k, v in kwargs.items():
+            self.new_spec['options'][k] = v
+        self.adapt_cluster(min_workers, max_workers)
+
 
 class janeliaLSFCluster(dask_jobqueue.LSFCluster):
     """
@@ -349,9 +454,6 @@ def cluster(func):
         "Either cluster or cluster_kwargs must be defined"
         if not 'cluster' in kwargs:
             cluster_constructor = myLocalCluster
-            F = lambda x: x in kwargs['cluster_kwargs']
-            if F('ncpus') and F('min_workers') and F('max_workers'):
-                cluster_constructor = janeliaLSFCluster
             with cluster_constructor(**kwargs['cluster_kwargs']) as cluster:
                 kwargs['cluster'] = cluster
                 return func(*args, **kwargs)
@@ -530,6 +632,7 @@ def remove_overlaps(array, crop, overlap, blocksize):
        and can be removed after segmentation is complete
        reslice array to remove the overlaps"""
     crop_trimmed = list(crop)
+
     for axis in range(array.ndim):
         if crop[axis].start != 0:
             slc = [slice(None),]*array.ndim
@@ -748,10 +851,15 @@ def distributed_eval(
             output_zarr=temp_zarr,
             worker_logs_directory=str(worker_logs_dir),
         )
-        results = cluster.client.gather(futures)
-        if isinstance(cluster, dask_jobqueue.core.JobQueueCluster): 
-            cluster.scale(0)
 
+        print('Gather data in host process')
+        results = cluster.client.gather(futures)
+
+        #print('Scale cluster down')
+        #if isinstance(cluster, dask_jobqueue.core.JobQueueCluster): 
+        #    cluster.scale(0)
+
+        print('Process results locally')
         faces, boxes_, box_ids_ = list(zip(*results))
         boxes = [box for sublist in boxes_ for box in sublist]
         box_ids = np.concatenate(box_ids_).astype(int)  # unsure how but without cast these are float64
@@ -760,27 +868,35 @@ def distributed_eval(
         new_labeling_path = temporary_directory + '/new_labeling.npy'
         np.save(new_labeling_path, new_labeling)
 
-        # stitching step is cheap, we should release gpus and use small workers
-        if isinstance(cluster, dask_jobqueue.core.JobQueueCluster): 
-            cluster.change_worker_attributes(
-                min_workers=cluster.locals_store['min_workers'],
-                max_workers=cluster.locals_store['max_workers'],
-                ncpus=1,
-                memory="15GB",
-                mem=int(15e9),
-                queue=None,
-                job_extra_directives=[],
-            )
+        #print('Change worker attributes')
+        ## stitching step is cheap, we should release gpus and use small workers
+        #if isinstance(cluster, dask_jobqueue.core.JobQueueCluster): 
+        #    cluster.change_worker_attributes(
+        #        min_workers=cluster.locals_store['min_workers'],
+        #        max_workers=cluster.locals_store['max_workers'],
+        #        cores=1,
+        #        memory="15GB",
+        #        #mem=int(15e9),
+        #        queue="CPU",
+        #        job_extra_directives=[],
+        #    )
     
+        print('Use dask array to relabel segmentations')
         segmentation_da = dask.array.from_zarr(temp_zarr)
+        print('Map dask to blocks')
         relabeled = dask.array.map_blocks(
             lambda block: np.load(new_labeling_path)[block],
             segmentation_da,
             dtype=np.uint32,
             chunks=segmentation_da.chunks,
         )
+        print("Write output")
         dask.array.to_zarr(relabeled, write_path, overwrite=True)
+        # TODO(erjel): Scale cluster down again?
+
+        print("Merge bboxes")
         merged_boxes = merge_all_boxes(boxes, new_labeling[box_ids])
+        print("Merge done")
         return zarr.open(write_path, mode='r'), merged_boxes
 
 
