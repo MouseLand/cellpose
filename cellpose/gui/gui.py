@@ -1482,22 +1482,21 @@ class MainW(QMainWindow):
             else: 
                 image = self.stack_filtered[self.currentZ]
             if self.color == 'rgb':
-                self.img.setImage(image, autoLevels=False, lut=None)
                 if self.nchan > 1:
                     levels = np.array([self.saturation[r][self.currentZ] for r in range(image.shape[-1])])
                 else: 
                     levels = self.saturation[0][self.currentZ]
-                self.img.setLevels(levels)
+                self.img.setImage(image, autoLevels=False, lut=None, levels=levels)
                 
             elif self.color in rgb_list:
                 color_index = rgb_list.index(self.color)
                 if self.nchan > 1:
                     image = image[:, :, color_index]
-                self.img.setImage(image, autoLevels=False, lut=self.cmap[color_index+1])
                 if self.nchan > 1:
-                    self.img.setLevels(self.saturation[color_index][self.currentZ])
+                    levels = self.saturation[color_index][self.currentZ]
                 else:
-                    self.img.setLevels(self.saturation[0][self.currentZ])
+                    levels = self.saturation[0][self.currentZ]
+                self.img.setImage(image, autoLevels=False, lut=self.cmap[color_index+1], levels=levels)
             elif self.color == 'gray':
                 if self.nchan > 1:
                     # exclude channels with no data:
@@ -1506,19 +1505,16 @@ class MainW(QMainWindow):
                     range_mask = ranges > 1e-5
                     image = image[..., range_mask]
                     image = image.mean(axis=-1)
-                self.img.setImage(image, autoLevels=False, lut=None)
-                self.img.setLevels(self.saturation[0][self.currentZ])
+                self.img.setImage(image, autoLevels=False, lut=None, levels=self.saturation[0][self.currentZ])
             elif self.color == 'spectral':
                 if self.nchan > 1:
                     image = image.mean(axis=-1)
-                self.img.setImage(image, autoLevels=False, lut=self.cmap[0])
-                self.img.setLevels(self.saturation[0][self.currentZ])
+                self.img.setImage(image, autoLevels=False, lut=self.cmap[0], levels=self.saturation[0][self.currentZ])
         else:
             image = np.zeros((self.Ly, self.Lx), np.uint8)
             if len(self.flows[flowp_map[self.view]]) > 0:
                 image = self.flows[flowp_map[self.view]][self.currentZ]
-            self.img.setImage(image, autoLevels=False, lut=self.bwr)
-            self.img.setLevels([0.0, 255.0])
+            self.img.setImage(image, autoLevels=False, lut=self.bwr, levels=[0.0, 255.0])
 
         for r in range(3):
             # setValue on the slider triggers update_plot() so it needs to be suppressed
