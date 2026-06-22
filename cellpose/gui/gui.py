@@ -1051,7 +1051,7 @@ class MainW(QMainWindow):
         return inv_name_map[self.RGBDropDown.currentText().lower()].lower()
 
     @color.setter
-    def color(self, value: str|int):
+    def color(self, value):
         """Set the color display mode by name or dropdown index.
 
         Updates the RGBDropDown widget, which triggers any connected signals
@@ -1087,7 +1087,7 @@ class MainW(QMainWindow):
         return self.ViewDropDown.currentText()
 
     @view.setter
-    def view(self, value: int|str):
+    def view(self, value):
         """Set the active view in the ViewDropDown.
 
         Parameters
