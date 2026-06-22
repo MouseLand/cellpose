@@ -1087,7 +1087,7 @@ class MainW(QMainWindow):
         return self.ViewDropDown.currentText()
 
     @view.setter
-    def view(self, value: int|str):
+    def view(self, value):
         """Set the active view in the ViewDropDown.
 
         Parameters
