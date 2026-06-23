@@ -86,7 +86,7 @@ def _reshape_norm(data, channel_axis=None, normalize_params={"normalize": False}
     return data
 
 def _get_batch(inds, data=None, labels=None, files=None, labels_files=None,
-               normalize_params={"normalize": False}):
+               channel_axis=None, normalize_params={"normalize": False}):
     """
     Get a batch of images and labels.
 
@@ -96,6 +96,7 @@ def _get_batch(inds, data=None, labels=None, files=None, labels_files=None,
         labels (list or None): List of label data. If None, labels will be loaded from files.
         files (list or None): List of file paths for images.
         labels_files (list or None): List of file paths for labels.
+        channel_axis (int or None): Axis of channel dimension.
         normalize_params (dict): Dictionary of parameters for image normalization (will be faster, if loading from files to pre-normalize).
 
     Returns:
@@ -104,7 +105,7 @@ def _get_batch(inds, data=None, labels=None, files=None, labels_files=None,
     if data is None:
         lbls = None
         imgs = [io.imread(files[i]) for i in inds]
-        imgs = _reshape_norm(imgs, normalize_params=normalize_params)
+        imgs = _reshape_norm(imgs, channel_axis=channel_axis, normalize_params=normalize_params)
         if labels_files is not None:
             lbls = [io.imread(labels_files[i])[1:] for i in inds]
     else:
