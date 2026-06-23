@@ -425,17 +425,18 @@ def get_image_files(folder, mask_filter, imf=None, look_one_level_down=False):
 
     folders = []
     if look_one_level_down:
-        folders = natsorted(glob.glob(os.path.join(folder, "*/")))
+        folders = natsorted(glob.glob(os.path.join(glob.escape(folder), "*/")))
     folders.append(folder)
     exts = [".png", ".jpg", ".jpeg", ".tif", ".tiff", ".flex", ".dax", ".nd2", ".nrrd"]
     l0 = 0
     al = 0
     for folder in folders:
-        all_files = glob.glob(folder + "/*")
+        escaped = glob.escape(folder)
+        all_files = glob.glob(escaped + "/*")
         al += len(all_files)
         for ext in exts:
-            image_names.extend(glob.glob(folder + f"/*{imf}{ext}"))
-            image_names.extend(glob.glob(folder + f"/*{imf}{ext.upper()}"))
+            image_names.extend(glob.glob(escaped + f"/*{imf}{ext}"))
+            image_names.extend(glob.glob(escaped + f"/*{imf}{ext.upper()}"))
         l0 += len(image_names)
 
     # return error if no files found
