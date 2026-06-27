@@ -774,7 +774,7 @@ def distributed_eval(
     
         segmentation_da = dask.array.from_zarr(temp_zarr)
         relabeled = dask.array.map_blocks(
-            lambda block: np.load(new_labeling_path)[block],
+            lambda block: np.load(new_labeling_path, mmap_mode='r')[block],
             segmentation_da,
             dtype=np.uint32,
             chunks=segmentation_da.chunks,
