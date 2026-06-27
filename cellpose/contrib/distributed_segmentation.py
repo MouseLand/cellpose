@@ -882,8 +882,12 @@ def block_face_adjacency_graph(faces, nlabels):
 
 def shrink_labels(plane, threshold):
     """Shrink labels in plane by some distance from their boundary"""
-    gradmag = np.linalg.norm(np.gradient(plane.squeeze()), axis=0)
-    shrunk_labels = np.copy(plane.squeeze())
+    squeezed = plane.squeeze()
+    grads = np.gradient(squeezed)
+    if not isinstance(grads, tuple):
+        grads = (grads,)
+    gradmag = np.linalg.norm(grads, axis=0)
+    shrunk_labels = np.copy(squeezed)
     shrunk_labels[gradmag > 0] = 0
     distances = scipy.ndimage.distance_transform_edt(shrunk_labels)
     shrunk_labels[distances <= threshold] = 0
