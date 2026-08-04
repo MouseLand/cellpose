@@ -56,16 +56,20 @@ def _extend_centers_gpu(neighbors, meds, isneighbor, shape, n_iter=200, device=t
         T_flat[flat_meds] += 1
         Tneigh = T_flat[flat_neighbors]
         T_flat[flat_center] = (Tneigh * isneighbor).sum(dim=0) / nneigh
-    del flat_meds, neighbors, meds, isneighbor, Tneigh
+    del flat_meds, neighbors, meds, Tneigh
 
     if ndim == 2:
         grads = T_flat[flat_neighbors[[2, 1, 4, 3]]]
+        grads *= isneighbor[[2, 1, 4, 3]]
+        del isneighbor
         dy = grads[0] - grads[1]
         dx = grads[2] - grads[3]
         del grads
         mu = np.stack((dy.cpu().numpy(), dx.cpu().numpy()), axis=0)
     else:
         grads = T_flat[flat_neighbors[1:]]          
+        grads *= isneighbor[1:]
+        del isneighbor
         dz = grads[0] - grads[1]
         dy = grads[2] - grads[3]
         dx = grads[4] - grads[5]
