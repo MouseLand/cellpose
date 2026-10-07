@@ -493,8 +493,11 @@ def steps_interp(dP, inds, niter, device=torch.device("cpu")):
         # dynamics
         for t in range(niter):
             dPt = torch.nn.functional.grid_sample(im, pt, align_corners=False)
-            for k in range(ndim):  #clamp the final pixel locations
-                pt[..., k] = torch.clamp(pt[..., k] + dPt[:, k], -1., 1.)
+            # grid_sample returns coordinates on axis 1; put them on the
+            # last axis to update all coordinates with two tensor operations.
+            # Keep addition and clamping separate to preserve FP32 arithmetic.
+            pt.add_(dPt.movedim(1, -1))
+            pt.clamp_(-1., 1.)
 
         #undo the normalization from before, reverse order of operations
         pt += 1 
@@ -775,10 +778,23 @@ def get_masks_torch(pt, inds, shape0, rpad=20, max_size_fraction=0.4):
     seeds1 = seeds1[isort1]
 
     n_seeds = len(seeds1)
-    h_slc = torch.zeros((n_seeds, *[11]*ndim), device=seeds1.device)
-    for k in range(n_seeds):
-        slc = tuple([slice(seeds1[k][j]-5, seeds1[k][j]+6) for j in range(ndim)])
-        h_slc[k] = h1[slc]
+    # Histogram padding keeps each seed's 11-pixel window inside the array.
+    # Gather all windows together instead of synchronizing CUDA scalars to
+    # construct a Python slice for every seed and axis.
+    axes = [torch.arange(-5, 6, device=device)] * ndim
+    try:
+        offsets = torch.meshgrid(*axes, indexing="ij")
+    except TypeError:  # PyTorch releases before the indexing keyword
+        offsets = torch.meshgrid(*axes)
+    flat_offsets = offsets[0]
+    seed_offsets = seeds1[:, 0]
+    for j in range(1, ndim):
+        flat_offsets = flat_offsets * shape[j] + offsets[j]
+        seed_offsets = seed_offsets * shape[j] + seeds1[:, j]
+    window_inds = seed_offsets[:, None] + flat_offsets.reshape(1, -1)
+    h_slc = h1.reshape(-1)[window_inds].to(torch.get_default_dtype())
+    h_slc = h_slc.reshape(n_seeds, *[11]*ndim)
+    del offsets, flat_offsets, seed_offsets, window_inds
     del h1
     seed_masks = torch.zeros((n_seeds, *[11]*ndim), device=seeds1.device)
     if ndim==2:
@@ -788,17 +804,31 @@ def get_masks_torch(pt, inds, shape0, rpad=20, max_size_fraction=0.4):
     
     for iter in range(5):
         # extend
-        seed_masks = max_pool_nd(seed_masks, kernel_size=3)
+        # Seed masks contain only 0 and 1. Native pooling has the same
+        # boundary maxima and avoids a sequence of small tensor operations.
+        pool = F.max_pool2d if ndim == 2 else F.max_pool3d
+        seed_masks = pool(seed_masks.unsqueeze(1), kernel_size=3,
+                          stride=1, padding=1).squeeze(1)
         seed_masks *= h_slc > 2
     del h_slc 
-    seeds_new = [tuple((torch.nonzero(seed_masks[k]) + seeds1[k] - 5).T) 
-            for k in range(n_seeds)]
-    del seed_masks 
-    
     dtype = torch.int32 if n_seeds < 2**16 else torch.int64
-    M1 = torch.zeros(shape, dtype=dtype, device=device)
-    for k in range(n_seeds):
-        M1[seeds_new[k]] = 1 + k
+    M1 = torch.zeros(int(np.prod(shape)), dtype=dtype, device=device)
+    active = torch.nonzero(seed_masks)
+    seed_idx = active[:, 0]
+    positions = active[:, 1:] + seeds1[seed_idx] - 5
+    flat_inds = positions[:, 0]
+    for j in range(1, ndim):
+        flat_inds = flat_inds * shape[j] + positions[:, j]
+    # The original loop writes seeds in ascending order. Where windows
+    # overlap, the last (largest) label wins, including equal-height peaks.
+    if callable(getattr(M1, "scatter_reduce_", None)):
+        M1.scatter_reduce_(0, flat_inds, (seed_idx + 1).to(dtype),
+                           reduce="amax", include_self=True)
+    else:  # retain compatibility with PyTorch releases before scatter_reduce_
+        for k in range(n_seeds):
+            M1[flat_inds[seed_idx == k]] = k + 1
+    M1 = M1.reshape(shape)
+    del seed_masks, active, positions
 
     M1 = M1[tuple(pt)]
     M1 = M1.cpu().numpy()

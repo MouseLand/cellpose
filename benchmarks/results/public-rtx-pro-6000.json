@@ -1,0 +1,291 @@
+{
+  "reference_revision": "e6eec1537501436c48a2c75d23f2aa61f8d715fd",
+  "candidate_revision": "47306fb2dda1383c1c23ad600b8e43db974990f7",
+  "candidate_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "python": "3.12.13",
+  "torch": "2.9.1+cu128",
+  "numpy": "2.0.2",
+  "cuda": "12.8",
+  "device": "cuda:0",
+  "gpu": "NVIDIA RTX PRO 6000 Blackwell Max-Q Workstation Edition",
+  "threads": 8,
+  "cudnn_benchmark": false,
+  "cudnn_deterministic": false,
+  "matmul_tf32": false,
+  "cudnn_tf32": true,
+  "gpu_processes": "2173710, 2838 MiB\n2205517, 606 MiB",
+  "parameters": {
+    "batch_size": 8,
+    "channels": [
+      0,
+      0
+    ],
+    "flow_threshold": 0.4,
+    "min_size": 15,
+    "augment": false,
+    "tile_overlap": 0.1,
+    "resample": true,
+    "warmup": 2,
+    "repeats": 5
+  },
+  "model_sha256": "2dc3087a8abd7da46d1ab0ddd5824639933cc3ff63b382af3fa1939a392db93c",
+  "results": [
+    {
+      "image": "gray_2D.png",
+      "shape": [
+        677,
+        677
+      ],
+      "input_sha256": "94baf002bdc25500af53491d43bb98269b0396eec45fcc602f7c1b13cc83e57c",
+      "diameter": 30.0,
+      "reference_seconds": [
+        0.24212308099959046,
+        0.1998331600043457,
+        0.21184374699078035,
+        0.2099649150040932,
+        0.19848825699591544
+      ],
+      "candidate_seconds": [
+        0.13218512599996757,
+        0.1452831890055677,
+        0.12173782500030939,
+        0.12171428999863565,
+        0.1432201889983844
+      ],
+      "reference_stable": true,
+      "masks_exact_all_repeats": true,
+      "flows_exact_all_repeats": true,
+      "styles_exact_all_repeats": true,
+      "reference_peak_allocated_bytes": 666512896,
+      "candidate_peak_allocated_bytes": 666512896,
+      "mask_comparison": {
+        "exact": true,
+        "partition_equal_ignoring_label_ids": true,
+        "foreground_changed_pixels": 0,
+        "reference_dtype": "uint16",
+        "candidate_dtype": "uint16",
+        "changed_pixels": 0,
+        "reference_sha256": "f582b804415d4b40ad1a650b0a615b0c8be026b2f5d79916140aa5bcbc1fdc3f",
+        "candidate_sha256": "f582b804415d4b40ad1a650b0a615b0c8be026b2f5d79916140aa5bcbc1fdc3f",
+        "reference_cells": 217,
+        "candidate_cells": 217
+      },
+      "speedup": 1.5884155907537185
+    },
+    {
+      "image": "rgb_2D.png",
+      "shape": [
+        383,
+        512,
+        3
+      ],
+      "input_sha256": "5cc9ddce15898cf2660d5e5283b87ec5a73d1d12998d0d04634e77b92fbe6334",
+      "diameter": 30.0,
+      "reference_seconds": [
+        0.15696379300788976,
+        0.14900504700199235,
+        0.16036318999249488,
+        0.14493420100188814,
+        0.1634525020053843
+      ],
+      "candidate_seconds": [
+        0.10824109900568146,
+        0.12008969899034128,
+        0.12225029499677476,
+        0.12959171499824151,
+        0.1271006250026403
+      ],
+      "reference_stable": true,
+      "masks_exact_all_repeats": true,
+      "flows_exact_all_repeats": true,
+      "styles_exact_all_repeats": true,
+      "reference_peak_allocated_bytes": 667561472,
+      "candidate_peak_allocated_bytes": 667561472,
+      "mask_comparison": {
+        "exact": true,
+        "partition_equal_ignoring_label_ids": true,
+        "foreground_changed_pixels": 0,
+        "reference_dtype": "uint16",
+        "candidate_dtype": "uint16",
+        "changed_pixels": 0,
+        "reference_sha256": "f2274cad8de3d144579fa5993bdec6c1e4f786e475a139574a0424008f48c032",
+        "candidate_sha256": "f2274cad8de3d144579fa5993bdec6c1e4f786e475a139574a0424008f48c032",
+        "reference_cells": 75,
+        "candidate_cells": 75
+      },
+      "speedup": 1.283954308756726
+    },
+    {
+      "image": "rgb_2D_tif.tif",
+      "shape": [
+        384,
+        512,
+        3
+      ],
+      "input_sha256": "d1efa13acd8db2bab6ff5cd773261b002ba108f71bce29b6c9a082603052c87c",
+      "diameter": 30.0,
+      "reference_seconds": [
+        0.12547379999887198,
+        0.1544957290025195,
+        0.12439419901056681,
+        0.1591717690025689,
+        0.1478209600027185
+      ],
+      "candidate_seconds": [
+        0.10945942300895695,
+        0.10364427900640294,
+        0.10480952300713398,
+        0.120018205998349,
+        0.10861431500234175
+      ],
+      "reference_stable": true,
+      "masks_exact_all_repeats": true,
+      "flows_exact_all_repeats": true,
+      "styles_exact_all_repeats": true,
+      "reference_peak_allocated_bytes": 667561472,
+      "candidate_peak_allocated_bytes": 667561472,
+      "mask_comparison": {
+        "exact": true,
+        "partition_equal_ignoring_label_ids": true,
+        "foreground_changed_pixels": 0,
+        "reference_dtype": "uint16",
+        "candidate_dtype": "uint16",
+        "changed_pixels": 0,
+        "reference_sha256": "0627fef1a88539dedbb0053725245fb451c1a36088338b8ccf66e4086149e865",
+        "candidate_sha256": "0627fef1a88539dedbb0053725245fb451c1a36088338b8ccf66e4086149e865",
+        "reference_cells": 41,
+        "candidate_cells": 41
+      },
+      "speedup": 1.3609712495036352
+    },
+    {
+      "image": "gray_2D.png",
+      "shape": [
+        677,
+        677
+      ],
+      "input_sha256": "94baf002bdc25500af53491d43bb98269b0396eec45fcc602f7c1b13cc83e57c",
+      "diameter": 15.0,
+      "reference_seconds": [
+        0.45686437899712473,
+        0.5253393390012207,
+        0.4185015620023478,
+        0.4736516809934983,
+        0.4696934770036023
+      ],
+      "candidate_seconds": [
+        0.4306156640086556,
+        0.3933879319956759,
+        0.4204902819910785,
+        0.4974418480123859,
+        0.5761845310044009
+      ],
+      "reference_stable": true,
+      "masks_exact_all_repeats": true,
+      "flows_exact_all_repeats": true,
+      "styles_exact_all_repeats": true,
+      "reference_peak_allocated_bytes": 667561472,
+      "candidate_peak_allocated_bytes": 667561472,
+      "mask_comparison": {
+        "exact": true,
+        "partition_equal_ignoring_label_ids": true,
+        "foreground_changed_pixels": 0,
+        "reference_dtype": "uint16",
+        "candidate_dtype": "uint16",
+        "changed_pixels": 0,
+        "reference_sha256": "cc7126388be04b84f5d9e8a729ec2a48054d6ada75338ac952f2b407a94759db",
+        "candidate_sha256": "cc7126388be04b84f5d9e8a729ec2a48054d6ada75338ac952f2b407a94759db",
+        "reference_cells": 184,
+        "candidate_cells": 184
+      },
+      "speedup": 1.0907487029876397
+    },
+    {
+      "image": "rgb_2D.png",
+      "shape": [
+        383,
+        512,
+        3
+      ],
+      "input_sha256": "5cc9ddce15898cf2660d5e5283b87ec5a73d1d12998d0d04634e77b92fbe6334",
+      "diameter": 15.0,
+      "reference_seconds": [
+        0.19676474700099789,
+        0.2103066309937276,
+        0.22031871999206487,
+        0.2141730299917981,
+        0.253423128000577
+      ],
+      "candidate_seconds": [
+        0.2618475040071644,
+        0.19156116001249757,
+        0.19535408000228927,
+        0.19423158800054807,
+        0.2030287809902802
+      ],
+      "reference_stable": true,
+      "masks_exact_all_repeats": true,
+      "flows_exact_all_repeats": true,
+      "styles_exact_all_repeats": true,
+      "reference_peak_allocated_bytes": 667561472,
+      "candidate_peak_allocated_bytes": 667561472,
+      "mask_comparison": {
+        "exact": true,
+        "partition_equal_ignoring_label_ids": true,
+        "foreground_changed_pixels": 0,
+        "reference_dtype": "uint16",
+        "candidate_dtype": "uint16",
+        "changed_pixels": 0,
+        "reference_sha256": "9408922efc6b71dde44ba29c8ac7a822cfbad82bd629e85d4ce1f24e3a2dafe3",
+        "candidate_sha256": "9408922efc6b71dde44ba29c8ac7a822cfbad82bd629e85d4ce1f24e3a2dafe3",
+        "reference_cells": 76,
+        "candidate_cells": 76
+      },
+      "speedup": 1.0963325157544102
+    },
+    {
+      "image": "rgb_2D_tif.tif",
+      "shape": [
+        384,
+        512,
+        3
+      ],
+      "input_sha256": "d1efa13acd8db2bab6ff5cd773261b002ba108f71bce29b6c9a082603052c87c",
+      "diameter": 15.0,
+      "reference_seconds": [
+        0.340630646009231,
+        0.19927427401125897,
+        0.20462753500032704,
+        0.21644057999947108,
+        0.22209812600340229
+      ],
+      "candidate_seconds": [
+        0.18702767000650056,
+        0.18822532398917247,
+        0.17684820501017384,
+        0.17590315800043754,
+        0.19028653200075496
+      ],
+      "reference_stable": true,
+      "masks_exact_all_repeats": true,
+      "flows_exact_all_repeats": true,
+      "styles_exact_all_repeats": true,
+      "reference_peak_allocated_bytes": 667561472,
+      "candidate_peak_allocated_bytes": 667561472,
+      "mask_comparison": {
+        "exact": true,
+        "partition_equal_ignoring_label_ids": true,
+        "foreground_changed_pixels": 0,
+        "reference_dtype": "uint16",
+        "candidate_dtype": "uint16",
+        "changed_pixels": 0,
+        "reference_sha256": "b07b575ee9dec0bc641ec829a4b41dbc0b2428ffc8b09614277b8a20d9ae41fe",
+        "candidate_sha256": "b07b575ee9dec0bc641ec829a4b41dbc0b2428ffc8b09614277b8a20d9ae41fe",
+        "reference_cells": 37,
+        "candidate_cells": 37
+      },
+      "speedup": 1.1572650185501867
+    }
+  ],
+  "all_exact": true
+}

@@ -1,0 +1,120 @@
+{
+  "reference_revision": "e6eec1537501436c48a2c75d23f2aa61f8d715fd",
+  "candidate_revision": "47306fb2dda1383c1c23ad600b8e43db974990f7",
+  "candidate_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "python": "3.12.13",
+  "torch": "2.9.1+cu128",
+  "numpy": "2.0.2",
+  "cuda": "12.8",
+  "device": "cuda:0",
+  "gpu": "NVIDIA RTX PRO 6000 Blackwell Max-Q Workstation Edition",
+  "threads": 8,
+  "cudnn_benchmark": false,
+  "cudnn_deterministic": false,
+  "matmul_tf32": false,
+  "cudnn_tf32": true,
+  "parameters": {
+    "batch_size": 8,
+    "channels": [
+      0,
+      0
+    ],
+    "flow_threshold": 0.4,
+    "min_size": 15,
+    "augment": false,
+    "tile_overlap": 0.1,
+    "resample": true,
+    "warmup": 2,
+    "repeats": 5
+  },
+  "model_sha256": "2dc3087a8abd7da46d1ab0ddd5824639933cc3ff63b382af3fa1939a392db93c",
+  "all_exact": true,
+  "results": [
+    {
+      "image": "Microscopy A",
+      "shape": [
+        1004,
+        1362,
+        3
+      ],
+      "input_sha256": "7e8b08940c7f050d3929ede337d1ae4af7923027f423fefbe1ab55b6e06379ff",
+      "diameter": 30.0,
+      "reference_seconds": [
+        0.9094694689993048,
+        0.8106928509951103,
+        0.8008634599973448,
+        0.9038624490058282,
+        0.8233043729997007
+      ],
+      "candidate_seconds": [
+        0.45270119099586736,
+        0.4354138269991381,
+        0.3960512289922917,
+        0.3962132659944473,
+        0.38308514599339105
+      ],
+      "reference_stable": true,
+      "masks_exact_all_repeats": true,
+      "flows_exact_all_repeats": true,
+      "styles_exact_all_repeats": true,
+      "speedup": 2.077932375467809,
+      "mask_comparison": {
+        "exact": true,
+        "partition_equal_ignoring_label_ids": true,
+        "foreground_changed_pixels": 0,
+        "reference_dtype": "uint16",
+        "candidate_dtype": "uint16",
+        "changed_pixels": 0,
+        "reference_sha256": "5e60b61a209094ef85215062a34bf8ff3378a10ae1aa57c41e58cdf4ce939727",
+        "candidate_sha256": "5e60b61a209094ef85215062a34bf8ff3378a10ae1aa57c41e58cdf4ce939727",
+        "reference_cells": 1523,
+        "candidate_cells": 1523
+      },
+      "reference_peak_allocated_bytes": 682907648,
+      "candidate_peak_allocated_bytes": 682907648
+    },
+    {
+      "image": "Microscopy A",
+      "shape": [
+        1004,
+        1362,
+        3
+      ],
+      "input_sha256": "7e8b08940c7f050d3929ede337d1ae4af7923027f423fefbe1ab55b6e06379ff",
+      "diameter": 15.0,
+      "reference_seconds": [
+        2.1377213040104834,
+        2.2676285699999426,
+        2.036728556995513,
+        2.3437673109874595,
+        2.545008273998974
+      ],
+      "candidate_seconds": [
+        1.2365640609932598,
+        1.133492152002873,
+        1.171696115998202,
+        1.159587955000461,
+        1.057775943991146
+      ],
+      "reference_stable": true,
+      "masks_exact_all_repeats": true,
+      "flows_exact_all_repeats": true,
+      "styles_exact_all_repeats": true,
+      "speedup": 1.955546847672319,
+      "mask_comparison": {
+        "exact": true,
+        "partition_equal_ignoring_label_ids": true,
+        "foreground_changed_pixels": 0,
+        "reference_dtype": "uint16",
+        "candidate_dtype": "uint16",
+        "changed_pixels": 0,
+        "reference_sha256": "4667761407c6889958bad3ebecd463d1cb222f00d079f9435d7c8fcf35283c4b",
+        "candidate_sha256": "4667761407c6889958bad3ebecd463d1cb222f00d079f9435d7c8fcf35283c4b",
+        "reference_cells": 1547,
+        "candidate_cells": 1547
+      },
+      "reference_peak_allocated_bytes": 651564544,
+      "candidate_peak_allocated_bytes": 651564544
+    }
+  ]
+}
