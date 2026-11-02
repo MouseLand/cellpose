@@ -1126,6 +1126,15 @@ def distributed_eval(
             worker_logs_directory=str(worker_logs_dir),
         )
         new_results = cluster.client.gather(futures)
+        # Release the futures BEFORE the GPU workers go away. While the
+        # client still holds them, the scheduler treats their results as
+        # wanted and re-runs process_block on whatever workers remain --
+        # i.e. the 15 GB CPU stitching workers, which OOM, get killed and
+        # restarted until every task has "failed because 4 workers died".
+        # That storm starves the relabel/to_zarr tasks for hours
+        # (observed: 0 output chunks after 16 h on a 3819-block volume).
+        cluster.client.cancel(futures)
+        del futures
         if isinstance(cluster, dask_jobqueue.core.JobQueueCluster):
             cluster.scale(0)
 
