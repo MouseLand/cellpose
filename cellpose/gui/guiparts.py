@@ -147,6 +147,8 @@ class FilterButton(QPushButton):
                 return
             parent.restore = self.model_type
             parent.compute_saturation()
+            # The view and saturation sliders may already have the same values.
+            parent.update_plot()
         else:
             parent.clear_restore()
 
