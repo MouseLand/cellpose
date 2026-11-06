@@ -126,11 +126,11 @@ def main():
                         from skimage.measure import label 
                         masks_crop = label(masks_crop)
                     except ImportError:
-                        print("skimage not found, cannot relabel masks. Run `pip install scikit-image` to relabel and save masks.")
-                        flows = [np.zeros(masks_crop.shape, dtype="uint8"), 
-                                np.zeros((2, *masks_crop.shape), dtype="uint8"), 
-                                np.zeros(masks_crop.shape, dtype="float32")]
-                        io.masks_flows_to_seg(img_crop, masks_crop, flows, fname)
+                        print("skimage not found, cannot relabel masks. Run `pip install scikit-image` to relabel masks.")
+                    flows = [np.zeros(masks_crop.shape, dtype="uint8"),
+                             np.zeros((2, *masks_crop.shape), dtype="uint8"),
+                             np.zeros(masks_crop.shape, dtype="float32")]
+                    io.masks_flows_to_seg(img_crop, masks_crop, flows, fname)
                         
                 io.imsave(fname, img_crop)
 
