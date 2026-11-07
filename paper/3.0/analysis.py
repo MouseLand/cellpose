@@ -133,8 +133,13 @@ def blind_denoising(folder):
         print(ap.mean(axis=0))
 
 
-def real_examples(folder):
-    """ download test_data from CARE and put in folder """
+def real_examples(folder, *, save_figures=False):
+    """Run the real-data examples after downloading CARE test data to folder.
+
+    Set save_figures=True to save each AP plot as cp_ap.png in that dataset's
+    test_data directory instead of displaying it. Model execution and NumPy
+    result files are unchanged. Existing plot files at that path are replaced.
+    """
 
     cols = ["r", "g", "b"]
 
@@ -191,7 +196,7 @@ def real_examples(folder):
         dat["masks_denoised"] = []
         dat["ap_denoised"] = []
 
-        plt.figure(figsize=(4, 4))
+        fig = plt.figure(figsize=(4, 4))
         for nl in range(3):
             if dset == "Projection_Flywing":
                 nstr = f"proj_C{nl+(nl>1)}"
@@ -240,7 +245,13 @@ def real_examples(folder):
             dat["masks_denoised"].append(masks_denoised)
             dat["ap_denoised"].append(ap_denoised)
 
-        plt.show()
+        if save_figures:
+            try:
+                fig.savefig(root / "cp_ap.png")
+            finally:
+                plt.close(fig)
+        else:
+            plt.show()
         np.save(root / "cp_masks.npy", dat)
 
         noisy = []
