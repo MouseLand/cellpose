@@ -16,11 +16,7 @@ import logging
 models_logger = logging.getLogger(__name__)
 
 from . import transforms, dynamics, utils, plot
-from .vit import CPSAM
-try:
-    from .vit import CPDINO
-except:
-    models_logger.warning("Could not import CPDINO, run `pip install git+https://github.com/facebookresearch/dinov3` to use CPDINO model")
+from .vit import CPSAM, CPDINO, _import_dino
 from .core import assign_device, run_net, run_3D
 
 _MODEL_URL = "https://huggingface.co/mouseland/cellpose-sam/resolve/main/"
@@ -139,6 +135,8 @@ class CellposeModel():
             raise ValueError("Must specify a pretrained model, training from scratch is not implemented")
         
         if not os.path.exists(pretrained_model):
+            if pretrained_model in ("cpdino", "cpdino-vitb"):
+                _import_dino()  # fail before creating the cache or downloading weights
             # check if pretrained model is in the models directory
             model_strings = get_user_models()
             all_models = MODEL_NAMES.copy()
