@@ -41,6 +41,12 @@ normalize_default = {
 }
 
 
+def check_builtin_model_dependencies(model_name):
+    """Check optional dependencies before resolving a built-in model's cache."""
+    if model_name in ("cpdino", "cpdino-vitb"):
+        _import_dino()
+
+
 def cache_model_path(backbone):
     MODEL_DIR.mkdir(parents=True, exist_ok=True)
     cached_file = os.fspath(MODEL_DIR.joinpath(backbone))
@@ -135,8 +141,7 @@ class CellposeModel():
             raise ValueError("Must specify a pretrained model, training from scratch is not implemented")
         
         if not os.path.exists(pretrained_model):
-            if pretrained_model in ("cpdino", "cpdino-vitb"):
-                _import_dino()  # fail before creating the cache or downloading weights
+            check_builtin_model_dependencies(pretrained_model)
             # check if pretrained model is in the models directory
             model_strings = get_user_models()
             all_models = MODEL_NAMES.copy()
