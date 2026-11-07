@@ -4,10 +4,12 @@ import ast
 from pathlib import Path
 from types import SimpleNamespace
 
-import matplotlib.image as mpimg
-import matplotlib.pyplot as plt
 import numpy as np
 import pytest
+
+# Plotting is optional outside the paper reproduction environment.
+mpimg = pytest.importorskip("matplotlib.image")
+plt = pytest.importorskip("matplotlib.pyplot")
 
 
 @pytest.fixture
