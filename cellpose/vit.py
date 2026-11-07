@@ -12,10 +12,17 @@ import logging
 
 vit_logger = logging.getLogger(__name__)
 
-try:
-    from dinov3.hub.backbones import dinov3_vitl16, dinov3_vitb16
-except:
-    vit_logger.warning("Could not import CPDINO, run `pip install git+https://github.com/facebookresearch/dinov3` to use CPDINO model")
+def _import_dino():
+    """Import the optional DINO factories only when a DINO model is requested."""
+    try:
+        from dinov3.hub.backbones import dinov3_vitl16, dinov3_vitb16
+    except ImportError as exc:
+        raise ImportError(
+            "Could not import DINOv3 for CPDINO. Install it with "
+            "`pip install git+https://github.com/facebookresearch/dinov3` "
+            f"and check its dependencies. Original import error: {exc}"
+        ) from exc
+    return dinov3_vitl16, dinov3_vitb16
 
 
 class BaseModel(nn.Module):
@@ -163,6 +170,7 @@ class CPSAM(BaseModel):
 class CPDINO(BaseModel):
     def __init__(self, model_name="vitl", ps=8, nout=3, bsize=256, rdrop=0.4,
                   dtype=torch.float32):
+        dinov3_vitl16, dinov3_vitb16 = _import_dino()
         super().__init__(dtype=dtype)
         self.rdrop = rdrop
         self.backbone = "dino_" + model_name

@@ -1910,6 +1910,7 @@ class MainW(QMainWindow):
                 models.MODEL_DIR.joinpath(self.current_model))
         else:
             self.current_model = self.ModelChooseB.currentText()
+            models.check_builtin_model_dependencies(self.current_model)
             self.current_model_path = models.cache_model_path(self.current_model)
 
     def initialize_model(self, model_name=None, custom=False):
