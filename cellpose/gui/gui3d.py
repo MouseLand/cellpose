@@ -544,10 +544,12 @@ class MainW_3d(MainW):
 
         if self.outlinesOn:
             for j in range(2):
+                # Contour the selected plane before cropping Z so the visible
+                # window does not introduce artificial mask boundaries.
                 if j == 0:
-                    op = self.outpix[zmin:zmax, :, x].T
+                    op = masks_to_outlines(self.cellpix[:, :, x].T)[:, zmin:zmax]
                 else:
-                    op = self.outpix[zmin:zmax, y]
+                    op = masks_to_outlines(self.cellpix[:, y])[zmin:zmax]
                 self.layer_ortho[j][op > 0] = np.array(self.outcolor).astype("uint8")
 
         for j in range(2):
