@@ -129,3 +129,12 @@ def test_convert_image(input_shape, channel_axis, z_axis, do_3D, expected_shape,
     else:
         converted_img = transforms.convert_image(img, channel_axis=channel_axis, z_axis=z_axis, do_3D=do_3D)
         assert converted_img.shape == expected_shape, f"Expected shape {expected_shape}, but got {converted_img.shape}"
+
+
+def test_normalize99_tile_multichannel_per_plane():
+    """Regression test for Issue #1507: multichannel with norm3D=False previously raised ZeroDivisionError."""
+    img = np.random.rand(4, 64, 64, 2).astype(np.float32)
+    norm = transforms.normalize99_tile(img, blocksize=32, norm3D=False, is3D=True)
+    assert norm.shape == img.shape
+    assert not np.isnan(norm).any()
+

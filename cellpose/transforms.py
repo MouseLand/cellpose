@@ -290,7 +290,7 @@ def normalize99_tile(img, blocksize=100, lower=1., upper=99., tile_overlap=0.1,
             x01[z] = x01_rsz[..., np.newaxis] if nchan == 1 else x01_rsz
             x99_rsz = cv2.resize(x99_tiles_z[z], (Lx, Ly),
                                  interpolation=cv2.INTER_LINEAR)
-            x99[z] = x99_rsz[..., np.newaxis] if nchan == 1 else x01_rsz
+            x99[z] = x99_rsz[..., np.newaxis] if nchan == 1 else x99_rsz
         if (x99 - x01).min() < 1e-3:
             raise ZeroDivisionError(
                 "cannot use norm3D=False with tile_norm, sample is too sparse; set norm3D=True or tile_norm=0"
